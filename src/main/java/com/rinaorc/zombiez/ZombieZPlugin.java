@@ -47,7 +47,6 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private ZoneManager zoneManager;
     @Getter private PlayerDataManager playerDataManager;
     @Getter private EconomyManager economyManager;
-    @Getter private ScoreboardManager scoreboardManager;
     @Getter private ItemManager itemManager;
     @Getter private SetBonusManager setBonusManager;
     
@@ -188,9 +187,6 @@ public class ZombieZPlugin extends JavaPlugin {
         // Economy Manager - Gestion des monnaies
         economyManager = new EconomyManager(this);
 
-        // Scoreboard Manager - HUD et scoreboards
-        scoreboardManager = new ScoreboardManager(this);
-        
         // Item Manager - Système de loot procédural
         itemManager = new ItemManager(this);
         
@@ -340,13 +336,6 @@ public class ZombieZPlugin extends JavaPlugin {
                 playerDataManager.saveAllAsync();
             }
         }, 20L * 60 * 5, 20L * 60 * 5); // 5 minutes
-
-        // Update des scoreboards toutes les secondes
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-            if (scoreboardManager != null) {
-                scoreboardManager.updateAllScoreboards();
-            }
-        }, 20L, 20L); // 1 seconde
 
         // Vérification des zones toutes les 0.5 secondes (optimisé)
         Bukkit.getScheduler().runTaskTimer(this, () -> {

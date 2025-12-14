@@ -328,7 +328,6 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("");
         sender.sendMessage("§7Player Cache: §e" + plugin.getPlayerDataManager().getCacheStats());
         sender.sendMessage("§7DB Pool: §e" + plugin.getDatabaseManager().getPoolStats());
-        sender.sendMessage("§7Scoreboards actifs: §e" + plugin.getScoreboardManager().getActiveCount());
         sender.sendMessage("§8§m                                        ");
     }
 
