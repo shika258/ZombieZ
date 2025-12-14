@@ -63,9 +63,6 @@ public class PlayerConnectionListener implements Listener {
     private void onPlayerDataLoaded(Player player, PlayerData data) {
         if (!player.isOnline()) return;
 
-        // Créer le scoreboard
-        plugin.getScoreboardManager().createScoreboard(player);
-
         // Vérifier la zone actuelle
         plugin.getZoneManager().checkPlayerZone(player);
 
@@ -143,9 +140,6 @@ public class PlayerConnectionListener implements Listener {
         
         // Broadcast
         MessageUtils.broadcast("§c- §7" + player.getName() + " §7a quitté le serveur");
-
-        // Supprimer le scoreboard
-        plugin.getScoreboardManager().removeScoreboard(player);
 
         // Supprimer du cache de zone
         plugin.getZoneManager().removeFromCache(player.getUniqueId());
