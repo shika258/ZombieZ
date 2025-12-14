@@ -1,0 +1,218 @@
+# ============================================
+# ZOMBIEZ - PATIENT ZÉRO (BOSS FINAL)
+# Skills des 7 phases du combat final
+# ============================================
+
+# ==================== SPAWN ====================
+
+ZZ_FinalBossSpawn:
+  Skills:
+    - setvariable{var=phase;val=1;type=INTEGER} @self
+    - message{msg="&4&l"} @PlayersInRadius{r=100}
+    - message{msg="&4&l  ☠ PATIENT ZÉRO S'ÉVEILLE! ☠"} @PlayersInRadius{r=100}
+    - message{msg="&4&l"} @PlayersInRadius{r=100}
+    - sound{s=entity.wither.spawn;v=5;p=0.5} @self
+    - delay 20
+    - sound{s=entity.ender_dragon.growl;v=5;p=0.3} @self
+    - effect:particles{particle=EXPLOSION_HUGE;amount=10;hS=5;vS=3} @self
+    - effect:particles{particle=SOUL_FIRE_FLAME;amount=300;hS=10;vS=5} @self
+    - potion{type=GLOWING;duration=9999;level=0} @self
+    - delay 40
+    - message{msg="&7&o*Un grondement sourd remplit l'air...*"} @PlayersInRadius{r=100}
+
+# ==================== ATTAQUES DE BASE ====================
+
+ZZ_PZ_BasicAttack:
+  Skills:
+    - damage{amount=20} @target
+    - effect:particles{particle=CRIT;amount=20;hS=0.5;vS=0.5} @target
+    - sound{s=entity.player.attack.strong;v=1;p=0.8} @self
+
+ZZ_PZ_SummonWave:
+  Skills:
+    - message{msg="&4Patient Zéro lève ses serviteurs!"} @PlayersInRadius{r=50}
+    - summon{type=ZZ_Walker;amount=5;radius=10} @self
+    - summon{type=ZZ_Runner;amount=3;radius=10} @self
+    - effect:particles{particle=SOUL;amount=100;hS=5;vS=2} @self
+    - sound{s=entity.zombie.ambient;v=3;p=0.5} @self
+
+# ==================== PHASE 2 - RAGE (85%) ====================
+
+ZZ_PZ_Phase2:
+  Conditions:
+    - variableequals{var=phase;val=1}
+  Skills:
+    - setvariable{var=phase;val=2;type=INTEGER} @self
+    - message{msg="&c&l"} @PlayersInRadius{r=100}
+    - message{msg="&c&l  ⚠ PHASE 2: LA RAGE ⚠"} @PlayersInRadius{r=100}
+    - message{msg="&c&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&4&l☠ PATIENT ZÉRO - PHASE 2 ☠'} @self
+    - modifystat{stat=DAMAGE;amount=20%;mode=MULTIPLY} @self
+    - modifystat{stat=MOVEMENT_SPEED;amount=10%;mode=MULTIPLY} @self
+    - potion{type=STRENGTH;duration=9999;level=0} @self
+    - effect:particles{particle=VILLAGER_ANGRY;amount=50;hS=2;vS=2} @self
+    - sound{s=entity.ravager.roar;v=3;p=0.6} @self
+
+ZZ_PZ_RageSlam:
+  Skills:
+    - damage{amount=25} @PlayersInRadius{r=6}
+    - throw{v=1.5;vy=1} @PlayersInRadius{r=6}
+    - effect:particles{particle=EXPLOSION_LARGE;amount=5;hS=3;vS=1} @self
+    - effect:particles{particle=BLOCK_CRACK;amount=100;hS=6;vS=0.5;material=NETHERITE_BLOCK} @self
+    - sound{s=entity.ravager.attack;v=2;p=0.5} @self
+
+# ==================== PHASE 3 - CORRUPTION (70%) ====================
+
+ZZ_PZ_Phase3:
+  Conditions:
+    - variableequals{var=phase;val=2}
+  Skills:
+    - setvariable{var=phase;val=3;type=INTEGER} @self
+    - message{msg="&5&l"} @PlayersInRadius{r=100}
+    - message{msg="&5&l  ☢ PHASE 3: LA CORRUPTION ☢"} @PlayersInRadius{r=100}
+    - message{msg="&5&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&5&l☠ PATIENT ZÉRO - PHASE 3 ☠';color=PURPLE} @self
+    - modifystat{stat=DAMAGE;amount=15%;mode=MULTIPLY} @self
+    - effect:particles{particle=DRAGON_BREATH;amount=200;hS=5;vS=3} @self
+    - sound{s=entity.wither.ambient;v=3;p=0.5} @self
+    - aura{auraname=corruption;duration=9999;interval=40;onTick=ZZ_PZ_CorruptionTick} @self
+
+ZZ_PZ_CorruptionTick:
+  Skills:
+    - effect:particles{particle=DRAGON_BREATH;amount=20;hS=3;vS=1} @self
+    - potion{type=WITHER;duration=60;level=0} @PlayersInRadius{r=8}
+
+ZZ_PZ_CorruptionBeam:
+  Skills:
+    - projectile{type=WITHER_SKULL;damage=20;velocity=1.5} @target
+    - projectile{type=WITHER_SKULL;damage=20;velocity=1.5;spread=0.2} @target
+    - projectile{type=WITHER_SKULL;damage=20;velocity=1.5;spread=-0.2} @target
+    - sound{s=entity.wither.shoot;v=2;p=0.8} @self
+
+# ==================== PHASE 4 - INVOCATION (55%) ====================
+
+ZZ_PZ_Phase4:
+  Conditions:
+    - variableequals{var=phase;val=3}
+  Skills:
+    - setvariable{var=phase;val=4;type=INTEGER} @self
+    - message{msg="&6&l"} @PlayersInRadius{r=100}
+    - message{msg="&6&l  ⚔ PHASE 4: L'INVOCATION ⚔"} @PlayersInRadius{r=100}
+    - message{msg="&6&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&6&l☠ PATIENT ZÉRO - PHASE 4 ☠';color=YELLOW} @self
+    - heal{amount=300} @self
+    - effect:particles{particle=SOUL_FIRE_FLAME;amount=200;hS=5;vS=3} @self
+    - sound{s=entity.ender_dragon.growl;v=3;p=0.8} @self
+
+ZZ_PZ_SummonElites:
+  Skills:
+    - message{msg="&6Patient Zéro invoque ses champions!"} @PlayersInRadius{r=50}
+    - summon{type=ZZ_Berserker;amount=2;radius=8} @self
+    - summon{type=ZZ_Necromancer;amount=1;radius=8} @self
+    - summon{type=ZZ_Armored_Elite;amount=2;radius=8} @self
+    - effect:particles{particle=SOUL;amount=150;hS=8;vS=3} @self
+    - sound{s=entity.wither.spawn;v=2;p=1.2} @self
+
+# ==================== PHASE 5 - DÉVASTATION (40%) ====================
+
+ZZ_PZ_Phase5:
+  Conditions:
+    - variableequals{var=phase;val=4}
+  Skills:
+    - setvariable{var=phase;val=5;type=INTEGER} @self
+    - message{msg="&c&l"} @PlayersInRadius{r=100}
+    - message{msg="&c&l  💀 PHASE 5: LA DÉVASTATION 💀"} @PlayersInRadius{r=100}
+    - message{msg="&c&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&c&l☠ PATIENT ZÉRO - PHASE 5 ☠';color=RED} @self
+    - modifystat{stat=DAMAGE;amount=30%;mode=MULTIPLY} @self
+    - modifystat{stat=MOVEMENT_SPEED;amount=20%;mode=MULTIPLY} @self
+    - effect:particles{particle=EXPLOSION_HUGE;amount=5} @self
+    - sound{s=entity.warden.roar;v=5;p=0.5} @self
+
+ZZ_PZ_Devastation:
+  Skills:
+    - damage{amount=35} @PlayersInRadius{r=10}
+    - throw{v=2;vy=1.5} @PlayersInRadius{r=10}
+    - potion{type=BLINDNESS;duration=40;level=0} @PlayersInRadius{r=10}
+    - effect:particles{particle=EXPLOSION_HUGE;amount=10;hS=5;vS=2} @self
+    - effect:particles{particle=SMOKE_LARGE;amount=200;hS=10;vS=3} @self
+    - sound{s=entity.generic.explode;v=3;p=0.5} @self
+
+# ==================== PHASE 6 - DÉSESPOIR (25%) ====================
+
+ZZ_PZ_Phase6:
+  Conditions:
+    - variableequals{var=phase;val=5}
+  Skills:
+    - setvariable{var=phase;val=6;type=INTEGER} @self
+    - message{msg="&8&l"} @PlayersInRadius{r=100}
+    - message{msg="&8&l  ☠ PHASE 6: LE DÉSESPOIR ☠"} @PlayersInRadius{r=100}
+    - message{msg="&8&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&8&l☠ PATIENT ZÉRO - PHASE 6 ☠';color=WHITE} @self
+    - potion{type=DARKNESS;duration=200;level=0} @PlayersInRadius{r=50}
+    - effect:particles{particle=SQUID_INK;amount=500;hS=20;vS=5} @self
+    - sound{s=ambient.soul_sand_valley.mood;v=5;p=0.3} @self
+    - delay 40
+    - message{msg="&8&o*Les ténèbres vous enveloppent...*"} @PlayersInRadius{r=50}
+
+ZZ_PZ_DespairAura:
+  Skills:
+    - potion{type=DARKNESS;duration=80;level=0} @PlayersInRadius{r=20}
+    - potion{type=SLOWNESS;duration=40;level=1} @PlayersInRadius{r=15}
+    - potion{type=WEAKNESS;duration=40;level=0} @PlayersInRadius{r=15}
+    - damage{amount=5;ignorearmor=true} @PlayersInRadius{r=10}
+    - effect:particles{particle=SOUL;amount=50;hS=10;vS=3} @self
+    - sound{s=entity.warden.heartbeat;v=2;p=0.5} @self
+
+# ==================== PHASE 7 - ULTIME (10%) ====================
+
+ZZ_PZ_Phase7:
+  Conditions:
+    - variableequals{var=phase;val=6}
+  Skills:
+    - setvariable{var=phase;val=7;type=INTEGER} @self
+    - message{msg="&4&l"} @PlayersInRadius{r=100}
+    - message{msg="&4&l  ★ PHASE FINALE: RAGE ULTIME ★"} @PlayersInRadius{r=100}
+    - message{msg="&4&l"} @PlayersInRadius{r=100}
+    - modifybossbar{title='&4&l★ PATIENT ZÉRO - PHASE FINALE ★';color=RED} @self
+    - modifystat{stat=DAMAGE;amount=100%;mode=MULTIPLY} @self
+    - modifystat{stat=MOVEMENT_SPEED;amount=50%;mode=MULTIPLY} @self
+    - modifystat{stat=ARMOR;amount=-50%;mode=MULTIPLY} @self
+    - effect:particles{particle=SOUL_FIRE_FLAME;amount=500;hS=10;vS=5} @self
+    - sound{s=entity.wither.death;v=5;p=0.3} @self
+    - delay 40
+    - message{msg="&4&l\"VOUS... NE... M'ARRÊTEREZ... PAS!\""} @PlayersInRadius{r=100}
+
+ZZ_PZ_UltimateRage:
+  Skills:
+    - damage{amount=40} @target
+    - skill:ZZ_PZ_UltimateNova ~onTimer:80 0.5
+    - effect:particles{particle=SOUL_FIRE_FLAME;amount=30;hS=1;vS=1} @self
+
+ZZ_PZ_UltimateNova:
+  Skills:
+    - damage{amount=50} @PlayersInRadius{r=8}
+    - throw{v=3;vy=2} @PlayersInRadius{r=8}
+    - effect:particles{particle=EXPLOSION_HUGE;amount=10;hS=5;vS=3} @self
+    - effect:particles{particle=SOUL_FIRE_FLAME;amount=200;hS=8;vS=3} @self
+    - sound{s=entity.warden.sonic_boom;v=5;p=0.3} @self
+
+# ==================== MORT ====================
+
+ZZ_PZ_Death:
+  Skills:
+    - message{msg="&a&l"} @PlayersInRadius{r=100}
+    - message{msg="&a&l  ★ VICTOIRE! PATIENT ZÉRO EST VAINCU! ★"} @PlayersInRadius{r=100}
+    - message{msg="&a&l"} @PlayersInRadius{r=100}
+    - sound{s=ui.toast.challenge_complete;v=5;p=1} @PlayersInRadius{r=100}
+    - effect:particles{particle=TOTEM;amount=500;hS=10;vS=10} @self
+    - effect:particles{particle=END_ROD;amount=300;hS=15;vS=15} @self
+    - delay 20
+    - effect:particles{particle=FIREWORKS_SPARK;amount=500;hS=20;vS=20} @self
+    - sound{s=entity.firework_rocket.blast;v=3;p=1} @self
+    - delay 20
+    - effect:particles{particle=FIREWORKS_SPARK;amount=500;hS=20;vS=20} @self
+    - sound{s=entity.firework_rocket.blast_far;v=3;p=0.8} @self
+    - delay 20
+    - message{msg="&6&lFélicitations! Vous avez sauvé le monde!"} @PlayersInRadius{r=100}
+    - message{msg="&7&oLe cauchemar est enfin terminé..."} @PlayersInRadius{r=100}

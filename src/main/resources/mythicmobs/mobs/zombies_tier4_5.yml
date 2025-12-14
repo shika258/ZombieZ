@@ -1,0 +1,264 @@
+# ============================================
+# ZOMBIEZ - ZOMBIES TIER 4 & 5
+# Zones 7-10 (Montagnes, Toundra, Terres Corrompues, Enfer)
+# Zombies d'élite les plus dangereux
+# ============================================
+
+# ==================== TIER 4 ====================
+
+# COLOSSUS - Montagne de chair
+ZZ_Colossus:
+  Type: ZOMBIE
+  Display: '&6⚔ Colosse'
+  Health: 150
+  Damage: 18
+  Armor: 12
+  Options:
+    MovementSpeed: 0.08
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 1.0
+  Equipment:
+    - IRON_HELMET HEAD
+    - IRON_CHESTPLATE CHEST
+    - IRON_LEGGINGS LEGS
+    - IRON_BOOTS FEET
+  Drops:
+    - zombiez_tier4 1 1
+    - zombiez_tier4 1 0.4
+  LevelModifiers:
+    - Health 25 ADD
+    - Damage 3 ADD
+    - Armor 2 ADD
+  Skills:
+    - skill:ZZ_ColossusRoar ~onTargetChange 1
+    - skill:ZZ_Earthquake ~onTimer:120 0.5
+    - skill:ZZ_MegaSlam ~onAttack 0.4
+    - skill:ZZ_Regenerate ~onTimer:200 0.3
+
+# SPECTRE - Fantôme vengeur
+ZZ_Spectre:
+  Type: ZOMBIE
+  Display: '&5👻 Spectre'
+  Health: 60
+  Damage: 12
+  Armor: 0
+  Options:
+    MovementSpeed: 0.30
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    NoGravity: true
+    Silent: true
+  Drops:
+    - zombiez_tier4 1 1
+  LevelModifiers:
+    - Health 10 ADD
+    - Damage 2 ADD
+  Skills:
+    - skill:ZZ_PhaseThrough ~onDamaged 0.4
+    - skill:ZZ_SoulDrain @target ~onTimer:60 0.6
+    - skill:ZZ_Possess @target ~onTimer:200 0.2
+    - skill:ZZ_SpectralWail ~onTimer:100 0.5
+    - potion{type=INVISIBILITY;duration=40;level=0} @self ~onDamaged 0.3
+
+# RAVAGER - Bête mutante
+ZZ_Ravager:
+  Type: ZOMBIE
+  Display: '&4🐗 Ravageur'
+  Health: 100
+  Damage: 16
+  Armor: 8
+  Options:
+    MovementSpeed: 0.28
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 0.7
+  Drops:
+    - zombiez_tier4 1 1
+    - zombiez_tier4 1 0.3
+  LevelModifiers:
+    - Health 18 ADD
+    - Damage 3 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_RavagerCharge @target ~onTimer:80 0.6
+    - skill:ZZ_Gore @target ~onAttack 0.4
+    - skill:ZZ_Trample ~onTimer:60 0.5
+    - skill:ZZ_BerserkRage ~onHealth{h=<30%} 1
+
+# CREAKING - Pale Garden (1.21.4)
+ZZ_Creaking:
+  Type: ZOMBIE
+  Display: '&8🌲 Creaking'
+  Health: 80
+  Damage: 14
+  Armor: 10
+  Options:
+    MovementSpeed: 0.05
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    Silent: true
+  Drops:
+    - zombiez_tier4 1 1
+    - zombiez_tier4 1 0.5
+  LevelModifiers:
+    - Health 15 ADD
+    - Damage 2 ADD
+    - Armor 2 ADD
+  Skills:
+    - skill:ZZ_CreakingFreeze ~onTimer:20 1
+    - skill:ZZ_SuddenMove @target ~onTimer:40 0.8
+    - skill:ZZ_WoodenSpike ~onAttack 0.5
+    - skill:ZZ_Regenerate ~onTimer:100 0.5
+
+# MUTANT - Terres Corrompues
+ZZ_Mutant:
+  Type: ZOMBIE
+  Display: '&5☢ Mutant'
+  Health: 90
+  Damage: 13
+  Armor: 6
+  Options:
+    MovementSpeed: 0.24
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+  Drops:
+    - zombiez_tier4 1 1
+  LevelModifiers:
+    - Health 15 ADD
+    - Damage 2.5 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_RadiationAura ~onSpawn 1
+    - skill:ZZ_MutantSpit @target ~onTimer:60 0.6
+    - skill:ZZ_Adaptation ~onDamaged 0.3
+    - skill:ZZ_TentacleGrab @target ~onTimer:100 0.4
+
+# ==================== TIER 5 ====================
+
+# CORRUPTED WARDEN - Terres Corrompues
+ZZ_CorruptedWarden:
+  Type: ZOMBIE
+  Display: '&4&l⚠ Gardien Corrompu'
+  Health: 250
+  Damage: 25
+  Armor: 15
+  Options:
+    MovementSpeed: 0.22
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 1.0
+    FollowRange: 32
+  Equipment:
+    - NETHERITE_HELMET HEAD
+  Drops:
+    - zombiez_tier5 1 1
+    - zombiez_tier5 1 0.6
+    - zombiez_tier4 1 1
+  LevelModifiers:
+    - Health 40 ADD
+    - Damage 5 ADD
+    - Armor 2 ADD
+  Skills:
+    - skill:ZZ_WardenRoar ~onTargetChange 1
+    - skill:ZZ_SonicBoom @target ~onTimer:100 0.7
+    - skill:ZZ_GroundPound ~onTimer:80 0.6
+    - skill:ZZ_DarknessWave ~onTimer:150 0.5
+    - skill:ZZ_Enrage ~onHealth{h=<30%} 1
+    - potion{type=DARKNESS;duration=200;level=0} @PlayersInRadius{r=15} ~onSpawn 1
+
+# ARCHON - Enfer
+ZZ_Archon:
+  Type: ZOMBIE
+  Display: '&c&l🔥 Archon'
+  Health: 200
+  Damage: 22
+  Armor: 12
+  Options:
+    MovementSpeed: 0.26
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 0.8
+  Equipment:
+    - NETHERITE_HELMET HEAD
+    - NETHERITE_CHESTPLATE CHEST
+    - GOLDEN_SWORD HAND
+  Drops:
+    - zombiez_tier5 1 1
+    - zombiez_tier5 1 0.5
+    - zombiez_tier4 1 1
+  DamageModifiers:
+    - FIRE 0.0
+  LevelModifiers:
+    - Health 35 ADD
+    - Damage 4 ADD
+    - Armor 2 ADD
+  Skills:
+    - skill:ZZ_ArchonEntrance ~onSpawn 1
+    - skill:ZZ_HellfireBlast @target ~onTimer:60 0.7
+    - skill:ZZ_InfernoWave ~onTimer:120 0.5
+    - skill:ZZ_SummonDemons ~onTimer:200 0.4
+    - skill:ZZ_FireShield ~onDamaged 0.3
+
+# DEMON - Enfer (commun)
+ZZ_Demon:
+  Type: ZOMBIE
+  Display: '&c😈 Démon'
+  Health: 70
+  Damage: 12
+  Armor: 6
+  Options:
+    MovementSpeed: 0.28
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+  Drops:
+    - zombiez_tier4 1 1
+  DamageModifiers:
+    - FIRE 0.0
+  LevelModifiers:
+    - Health 12 ADD
+    - Damage 2 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_FireBreath @target ~onTimer:80 0.5
+    - skill:ZZ_DemonicLeap @target ~onTimer:60 0.4
+    - potion{type=WITHER;duration=40;level=0} @target ~onAttack 0.2
+
+# INFERNAL - Enfer (élite)
+ZZ_Infernal:
+  Type: ZOMBIE
+  Display: '&6🔥 Infernal'
+  Health: 100
+  Damage: 15
+  Armor: 8
+  Options:
+    MovementSpeed: 0.24
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+  Equipment:
+    - CHAINMAIL_HELMET HEAD
+    - CHAINMAIL_CHESTPLATE CHEST
+    - GOLDEN_AXE HAND
+  Drops:
+    - zombiez_tier4 1 1
+    - zombiez_tier4 1 0.4
+  DamageModifiers:
+    - FIRE 0.0
+  LevelModifiers:
+    - Health 18 ADD
+    - Damage 3 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_InfernalAura ~onSpawn 1
+    - skill:ZZ_MeteorStrike @target ~onTimer:150 0.4
+    - skill:ZZ_LavaPool ~onDeath 1
+    - skill:ZZ_FireCharge @target ~onTimer:80 0.6

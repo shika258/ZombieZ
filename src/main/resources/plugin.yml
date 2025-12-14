@@ -1,0 +1,244 @@
+name: ZombieZ
+version: '${project.version}'
+main: com.rinaorc.zombiez.ZombieZPlugin
+api-version: '1.21'
+description: Looter-Survivor Zombie Game - Rinaorc Studio
+author: Rinaorc Studio
+website: https://rinaorc.com
+
+# Dépendances optionnelles
+softdepend:
+  - PlaceholderAPI
+  - Vault
+  - Citizens
+
+# Commandes
+commands:
+  # Commandes Admin
+  zombiez:
+    description: Commande d'administration ZombieZ
+    usage: /<command> <reload|info|stats|setzone|givexp|givepoints|givegems|setlevel|tp|debug|cache>
+    permission: zombiez.admin
+    aliases: [zz]
+    
+  zzitem:
+    description: Gestion des items procéduraux
+    usage: /<command> <generate|give|compare|crate|stats|debug>
+    permission: zombiez.admin.items
+    aliases: [zzi, item]
+    
+  zzzombie:
+    description: Gestion des zombies et événements
+    usage: /<command> <spawn|horde|bloodmoon|boss|stats|kill|toggle|list|event>
+    permission: zombiez.admin.zombies
+    aliases: [zzz, zombie]
+
+  # Commandes Joueur
+  spawn:
+    description: Téléportation au spawn
+    usage: /<command>
+    permission: zombiez.spawn
+    
+  stats:
+    description: Affiche vos statistiques
+    usage: /<command>
+    permission: zombiez.stats
+    aliases: [statistiques, stat]
+    
+  zone:
+    description: Informations sur les zones
+    usage: /<command> [zone_id|list]
+    permission: zombiez.zone
+    aliases: [zones]
+    
+  checkpoint:
+    description: Affiche votre checkpoint actuel
+    usage: /<command>
+    permission: zombiez.checkpoint
+    aliases: [cp]
+    
+  refuge:
+    description: Affiche les refuges les plus proches
+    usage: /<command>
+    permission: zombiez.refuge
+    aliases: [refuges, shelter]
+
+  # Commandes Économie
+  shop:
+    description: Ouvre le shop
+    usage: /<command> [zone|gems]
+    permission: zombiez.shop
+    aliases: [boutique, magasin]
+    
+  sell:
+    description: Vendre des items
+    usage: /<command>
+    permission: zombiez.sell
+    aliases: [vendre]
+    
+  prestige:
+    description: Système de prestige
+    usage: /<command> [confirm]
+    permission: zombiez.prestige
+    
+  gems:
+    description: Shop de gemmes
+    usage: /<command>
+    permission: zombiez.gems
+    aliases: [gemmes]
+    
+  balance:
+    description: Voir votre solde
+    usage: /<command>
+    permission: zombiez.balance
+    aliases: [bal, money, argent]
+    
+  bank:
+    description: Banque personnelle
+    usage: /<command> [vault|deposit|withdraw|balance]
+    permission: zombiez.bank
+    aliases: [banque]
+
+  progression:
+    description: Système de progression complet
+    usage: /<command> [achievements|skills|missions|battlepass|cosmetics|leaderboard|stats]
+    permission: zombiez.progression
+    aliases: [prog, ach, bp]
+
+# Permissions
+permissions:
+  # Permission wildcard admin
+  zombiez.admin:
+    description: Accès à toutes les commandes admin
+    default: op
+    children:
+      zombiez.reload: true
+      zombiez.stats.others: true
+      zombiez.give: true
+      zombiez.teleport: true
+      zombiez.debug: true
+      zombiez.admin.items: true
+      zombiez.admin.zombies: true
+
+  zombiez.admin.items:
+    description: Gestion des items procéduraux
+    default: op
+
+  zombiez.admin.zombies:
+    description: Gestion des zombies et événements
+    default: op
+
+  zombiez.reload:
+    description: Recharger la configuration
+    default: op
+
+  zombiez.stats.others:
+    description: Voir les stats des autres joueurs
+    default: op
+
+  zombiez.give:
+    description: Donner XP/Points/Gems
+    default: op
+
+  zombiez.teleport:
+    description: TP vers n'importe quelle zone
+    default: op
+
+  zombiez.debug:
+    description: Accès au mode debug
+    default: op
+
+  # Permissions joueur (par défaut true)
+  zombiez.player:
+    description: Permissions joueur de base
+    default: true
+    children:
+      zombiez.spawn: true
+      zombiez.stats: true
+      zombiez.zone: true
+      zombiez.checkpoint: true
+      zombiez.refuge: true
+      zombiez.shop: true
+      zombiez.sell: true
+      zombiez.prestige: true
+      zombiez.gems: true
+      zombiez.balance: true
+      zombiez.bank: true
+      zombiez.progression: true
+
+  zombiez.spawn:
+    description: Utiliser /spawn
+    default: true
+
+  zombiez.stats:
+    description: Voir ses propres stats
+    default: true
+
+  zombiez.zone:
+    description: Voir les infos des zones
+    default: true
+
+  zombiez.checkpoint:
+    description: Voir son checkpoint
+    default: true
+
+  zombiez.refuge:
+    description: Voir les refuges
+    default: true
+
+  zombiez.shop:
+    description: Accès au shop
+    default: true
+
+  zombiez.sell:
+    description: Vendre des items
+    default: true
+
+  zombiez.auction:
+    description: Accès à l'hôtel des ventes
+    default: true
+
+  zombiez.trade:
+    description: Échanger avec d'autres joueurs
+    default: true
+
+  zombiez.prestige:
+    description: Accès au prestige
+    default: true
+
+  zombiez.gems:
+    description: Accès au shop de gemmes
+    default: true
+
+  zombiez.balance:
+    description: Voir son solde
+    default: true
+
+  zombiez.bank:
+    description: Accès à la banque
+    default: true
+
+  zombiez.progression:
+    description: Accès au système de progression
+    default: true
+
+  # Permissions VIP
+  zombiez.vip.bronze:
+    description: Rang VIP Bronze
+    default: false
+
+  zombiez.vip.silver:
+    description: Rang VIP Argent
+    default: false
+
+  zombiez.vip.gold:
+    description: Rang VIP Or
+    default: false
+
+  zombiez.vip.diamond:
+    description: Rang VIP Diamant
+    default: false
+
+  zombiez.vip.eternal:
+    description: Rang VIP Éternel
+    default: false

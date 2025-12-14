@@ -1,0 +1,190 @@
+#######################################
+#   ZOMBIEZ - Messages (Français)     #
+#######################################
+
+# Préfixe global
+prefix: "&6&lZombieZ &8» &7"
+
+# ========================================
+# MESSAGES GÉNÉRAUX
+# ========================================
+general:
+  no-permission: "&cVous n'avez pas la permission!"
+  player-only: "&cCommande joueur uniquement!"
+  player-not-found: "&cJoueur non trouvé!"
+  invalid-number: "&cNombre invalide!"
+  error: "&cUne erreur est survenue!"
+  reload-success: "&aConfiguration rechargée!"
+
+# ========================================
+# CONNEXION / DÉCONNEXION
+# ========================================
+connection:
+  join-new: "&a+ &7Bienvenue à &e{player} &7dans l'apocalypse!"
+  join-return: "&a+ &7{player} &7a rejoint le serveur"
+  quit: "&c- &7{player} &7a quitté le serveur"
+
+# ========================================
+# ZONES
+# ========================================
+zones:
+  enter:
+    title: "{zone_color}&l{zone_name}"
+    subtitle: "&7{zone_description}"
+  
+  pvp-enter: "&c⚔ &7Vous entrez dans une zone &cPvP&7!"
+  pvp-leave: "&a✓ &7Vous quittez la zone PvP"
+  
+  safe-enter: "&a🛡 &7Vous êtes dans une &azone sécurisée"
+  
+  boss-enter: "&5👑 &7Vous entrez dans une zone de &5Boss&7!"
+  
+  first-time: "&6★ &eNouvelle zone découverte! &7+{bonus_xp} XP bonus"
+  
+  danger-warning: "&c⚠ &7Attention: &c{effect} &7actif dans cette zone!"
+
+# ========================================
+# COMBAT
+# ========================================
+combat:
+  kill:
+    zombie: "&a+{points} Points &7({zombie_type})"
+    elite: "&6+{points} Points &7(Élite {zombie_type})"
+    boss: "&d+{points} Points &7(Boss {boss_name})"
+  
+  killstreak:
+    message: "&6&l{streak} KILLS STREAK! &e+{bonus} Bonus!"
+    broadcast: "&6★ &e{player} &7est en feu avec &6{streak} &7kills d'affilée!"
+  
+  death:
+    message: "&c☠ &7{player} &cest mort &7({cause} - {zone}&7)"
+    penalty: "&c-{points} Points &7(Pénalité de mort)"
+    respawn-checkpoint: "&7Respawn au checkpoint {checkpoint}"
+    respawn-spawn: "&7Respawn au spawn"
+
+# ========================================
+# ÉCONOMIE
+# ========================================
+economy:
+  points:
+    gain: "&a+{amount} Points &7({reason})"
+    lose: "&c-{amount} Points &7({reason})"
+    insufficient: "&cPoints insuffisants! &7(Requis: {required})"
+  
+  gems:
+    gain: "&d+{amount} 💎 Gems &7({reason})"
+    lose: "&d-{amount} 💎 Gems &7({reason})"
+    insufficient: "&cGems insuffisantes! &7(Requis: {required} 💎)"
+  
+  xp:
+    gain: "&b+{amount} XP"
+    levelup:
+      title: "&6&lNIVEAU {level}"
+      subtitle: "&7Félicitations!"
+      reward: "&6★ &eRécompense de niveau: &6{reward}!"
+
+# ========================================
+# CHECKPOINTS / REFUGES
+# ========================================
+checkpoints:
+  activated: "&aCheckpoint activé! &7(-{cost} Points)"
+  already-active: "&7Ce checkpoint est déjà activé!"
+  cost-info: "&7Coût d'activation: &e{cost} Points"
+
+refuges:
+  enter: "&a🏠 &7Vous entrez dans le &aRefuge {id}"
+  services: "&7Services disponibles: Marchand, Forgeron, Stockage"
+
+# ========================================
+# LOOT
+# ========================================
+loot:
+  drop:
+    common: "&f{item_name}"
+    uncommon: "&a{item_name}"
+    rare: "&9{item_name}"
+    epic: "&5✦ {item_name}"
+    legendary: "&6★ {item_name} ★"
+    mythic: "&d✦✦ {item_name} ✦✦"
+    exalted: "&c&l✦✦✦ {item_name} ✦✦✦"
+  
+  broadcast:
+    legendary: "&6★ &e{player} &7a trouvé &6{item_name}&7!"
+    mythic: "&d✦ &e{player} &7a trouvé un item &dMYTHIQUE&7: &d{item_name}&7!"
+    exalted: "&c&l✦✦✦ &e{player} &7a trouvé un item &c&lEXALTED&7: &c{item_name}&7!"
+
+# ========================================
+# COMMANDES
+# ========================================
+commands:
+  spawn:
+    teleport: "&aTéléporté au spawn! &7(Cooldown: {cooldown})"
+    cooldown: "&cTu dois attendre encore &e{time} &cavant de te téléporter!"
+  
+  stats:
+    header: "&6&l⚔ VOS STATISTIQUES ⚔"
+  
+  zone:
+    current: "&7Zone actuelle: {zone}"
+    info-header: "&7Informations sur {zone}"
+    list-header: "&6&l🗺 LISTE DES ZONES"
+  
+  checkpoint:
+    header: "&a&l⛳ CHECKPOINT ACTUEL"
+    current: "&7Checkpoint: &a{checkpoint}"
+    none: "&7Checkpoint: &eSpawn (défaut)"
+  
+  refuge:
+    header: "&e&l🏠 REFUGES"
+    nearest-north: "&a↑ Nord: {zone} &7({distance} blocs)"
+    nearest-south: "&c↓ Sud: {zone} &7({distance} blocs)"
+
+# ========================================
+# TUTORIEL (Nouveaux joueurs)
+# ========================================
+tutorial:
+  welcome:
+    title: "&6&lZOMBIEZ"
+    subtitle: "&7Bienvenue dans l'apocalypse"
+  
+  tips:
+    - "&7▸ Tue des zombies pour gagner des &ePoints"
+    - "&7▸ Avance vers le &bNord &7pour plus de défis"
+    - "&7▸ Collecte des items &5Légendaires &7uniques"
+  
+  commands:
+    - "&a/zone &7- Voir ta zone actuelle"
+    - "&a/stats &7- Voir tes statistiques"
+    - "&a/refuge &7- Trouver le refuge le plus proche"
+
+# ========================================
+# VIP
+# ========================================
+vip:
+  bronze:
+    prefix: "&6[Bronze]"
+    join: "&6✦ &e{player} &7(VIP Bronze) a rejoint!"
+  
+  silver:
+    prefix: "&7[Argent]"
+    join: "&7✦ &e{player} &7(VIP Argent) a rejoint!"
+  
+  gold:
+    prefix: "&e[Or]"
+    join: "&e✦ &e{player} &7(VIP Or) a rejoint!"
+  
+  diamond:
+    prefix: "&b[Diamant]"
+    join: "&b✦ &e{player} &7(VIP Diamant) a rejoint!"
+  
+  eternal:
+    prefix: "&c&l[ÉTERNEL]"
+    join: "&c&l✦✦✦ &e{player} &7(VIP ÉTERNEL) a rejoint! &c&l✦✦✦"
+
+# ========================================
+# ERREURS
+# ========================================
+errors:
+  data-not-loaded: "&cErreur: Données non chargées!"
+  zone-not-found: "&cZone non trouvée!"
+  invalid-zone: "&cZone invalide!"

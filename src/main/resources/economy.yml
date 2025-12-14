@@ -1,0 +1,268 @@
+#######################################
+#                                     #
+#   ZOMBIEZ - Configuration Économie  #
+#   Par Rinaorc Studio                #
+#                                     #
+#######################################
+
+# ========================================
+# MONNAIES
+# ========================================
+currencies:
+  # Points (monnaie principale gratuite)
+  points:
+    name: "Points"
+    symbol: "⚡"
+    color: "&e"
+    
+  # Gems (monnaie premium)
+  gems:
+    name: "Gems"
+    symbol: "💎"
+    color: "&d"
+    
+  # Fragments (ressource de crafting)
+  fragments:
+    name: "Fragments"
+    symbol: "◆"
+    color: "&b"
+
+# ========================================
+# GAINS DE POINTS
+# ========================================
+points:
+  # Points de base par kill de zombie
+  base-kill: 5
+  
+  # Multiplicateur pour zombies élites
+  elite-multiplier: 3
+  
+  # Multiplicateur pour boss
+  boss-multiplier: 20
+  
+  # Bonus par niveau du zombie
+  level-bonus: 2
+  
+  # Points par zone complétée
+  zone-completion: 500
+  
+  # Points par quête quotidienne
+  daily-quest: 50
+  
+  # Points par quête hebdomadaire
+  weekly-quest: 200
+
+# ========================================
+# GAINS D'XP
+# ========================================
+xp:
+  # XP de base par kill
+  base-kill: 10
+  
+  # Multiplicateur selon le niveau du zombie
+  level-multiplier: 1.5
+  
+  # XP par exploration (nouveau bloc découvert)
+  exploration: 1
+  
+  # XP par boss tué
+  boss-kill: 500
+  
+  # Formule de niveau: XP_requis = base * (niveau ^ exposant)
+  level-formula:
+    base: 100
+    exponent: 1.5
+
+# ========================================
+# STREAK BONUS
+# ========================================
+streak:
+  # Activer les bonus de streak
+  enabled: true
+  
+  # Multiplicateur par tranche de 10 kills
+  multiplier-per-10: 0.1
+  
+  # Streak maximum (cap)
+  max-streak: 100
+  
+  # Bonus maximum (en %)
+  max-bonus-percent: 100
+  
+  # Reset à la mort
+  reset-on-death: true
+
+# ========================================
+# PÉNALITÉS DE MORT
+# ========================================
+death:
+  # Pourcentage de points perdus
+  points-loss-percent: 25
+  
+  # Points minimum préservés
+  min-preserved: 100
+  
+  # Perte d'XP activée
+  xp-loss: false
+  
+  # Pourcentage d'XP perdu (si activé)
+  xp-loss-percent: 10
+
+# ========================================
+# RANGS VIP - BONUS
+# ========================================
+vip-bonuses:
+  bronze:
+    xp-multiplier: 1.10
+    points-multiplier: 1.10
+    loot-luck-bonus: 0.0
+    daily-crates: 1
+    
+  silver:
+    xp-multiplier: 1.20
+    points-multiplier: 1.20
+    loot-luck-bonus: 0.0
+    daily-crates: 2
+    
+  gold:
+    xp-multiplier: 1.30
+    points-multiplier: 1.30
+    loot-luck-bonus: 0.10
+    daily-crates: 3
+    
+  diamond:
+    xp-multiplier: 1.50
+    points-multiplier: 1.50
+    loot-luck-bonus: 0.20
+    daily-crates: 5
+    
+  eternal:
+    xp-multiplier: 1.50
+    points-multiplier: 1.50
+    loot-luck-bonus: 0.20
+    daily-crates: 5
+
+# ========================================
+# RÉCOMPENSES QUOTIDIENNES
+# ========================================
+daily-rewards:
+  enabled: true
+  
+  # Récompenses par jour consécutif
+  day-1:
+    points: 100
+    fragments: 0
+    crate: null
+    
+  day-2:
+    points: 200
+    fragments: 5
+    crate: null
+    
+  day-3:
+    points: 300
+    fragments: 0
+    crate: "common"
+    
+  day-4:
+    points: 400
+    fragments: 10
+    crate: null
+    
+  day-5:
+    points: 500
+    fragments: 0
+    crate: "rare"
+    
+  day-6:
+    points: 750
+    fragments: 20
+    crate: null
+    
+  day-7:
+    points: 1000
+    fragments: 0
+    crate: "epic"
+  
+  # Bonus de streak (multiplicateur après 7 jours)
+  streak-multiplier: 1.5
+  
+  # Récompense spéciale 30 jours
+  day-30:
+    points: 5000
+    fragments: 100
+    crate: "legendary"
+    title: "Dévoué"
+
+# ========================================
+# SHOP - PRIX
+# ========================================
+shop:
+  # Réparation d'items (par point de durabilité)
+  repair:
+    common: 1
+    uncommon: 2
+    rare: 5
+    epic: 10
+    legendary: 25
+    mythic: 50
+    
+  # Consommables
+  consumables:
+    bandage: 25
+    medkit: 100
+    antidote: 50
+    stimulant: 75
+    adrenaline: 150
+    
+  # Téléportation
+  teleport:
+    spawn: 0
+    checkpoint: 50
+    refuge: 100
+
+# ========================================
+# HÔTEL DES VENTES
+# ========================================
+auction:
+  # Activé
+  enabled: true
+  
+  # Commission (en %)
+  commission: 5
+  
+  # Prix minimum de vente
+  min-price: 10
+  
+  # Prix maximum de vente
+  max-price: 10000000
+  
+  # Durée maximale d'une annonce (en heures)
+  max-duration: 168
+  
+  # Nombre max d'annonces par joueur
+  max-listings-per-player: 10
+  
+  # Slots supplémentaires par rang VIP
+  extra-slots:
+    bronze: 2
+    silver: 5
+    gold: 10
+    diamond: 20
+    eternal: 50
+
+# ========================================
+# TRADE
+# ========================================
+trade:
+  # Activé
+  enabled: true
+  
+  # Cooldown entre trades (en secondes)
+  cooldown: 30
+  
+  # Distance maximale pour trader
+  max-distance: 10
+  
+  # Temps de confirmation (en secondes)
+  confirm-time: 10

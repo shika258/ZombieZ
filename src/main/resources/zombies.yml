@@ -1,0 +1,727 @@
+#######################################
+#                                     #
+#   ZOMBIEZ - Configuration Zombies   #
+#   Par Rinaorc Studio                #
+#                                     #
+#######################################
+
+# ========================================
+# PARAMÈTRES GLOBAUX
+# ========================================
+settings:
+  # Spawn naturel activé
+  natural-spawn: true
+  
+  # Multiplicateur global de spawn rate
+  spawn-rate-multiplier: 1.0
+  
+  # Limite globale de zombies sur le serveur
+  global-limit: 500
+  
+  # Limite par joueur (zombies proches)
+  per-player-limit: 15
+  
+  # Distance de spawn
+  spawn-distance:
+    min: 20
+    max: 40
+    
+  # Distance de despawn
+  despawn-distance: 60
+  
+  # Intervalle de spawn (en ticks)
+  spawn-interval: 100
+  
+  # AI personnalisée activée
+  custom-ai: true
+
+# ========================================
+# FORMULE DE SCALING
+# ========================================
+scaling:
+  # Niveau du zombie = Z / diviseur
+  level-divisor: 200
+  
+  # Multiplicateurs par niveau
+  health-per-level: 0.15
+  damage-per-level: 0.10
+  speed-per-level: 0.02
+  armor-per-level: 0.2
+
+# ========================================
+# TYPES DE ZOMBIES - TIER 1 (Zone 1-3)
+# ========================================
+types:
+  # RAMPANT - Zombie de base très faible
+  crawler:
+    display-name: "&7Rampant"
+    tier: 1
+    base-health: 8
+    base-damage: 2
+    base-speed: 0.18
+    base-armor: 0
+    spawn-weight: 40
+    min-zone: 1
+    max-zone: 5
+    loot-multiplier: 0.8
+    xp-multiplier: 0.8
+    abilities: []
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+      
+  # MARCHEUR - Zombie standard
+  walker:
+    display-name: "&fMarcheur"
+    tier: 1
+    base-health: 12
+    base-damage: 3
+    base-speed: 0.22
+    base-armor: 0
+    spawn-weight: 50
+    min-zone: 1
+    max-zone: 7
+    loot-multiplier: 1.0
+    xp-multiplier: 1.0
+    abilities: []
+    equipment:
+      helmet: LEATHER_HELMET
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+      
+  # COUREUR - Zombie rapide
+  runner:
+    display-name: "&eCoureur"
+    tier: 1
+    base-health: 10
+    base-damage: 4
+    base-speed: 0.30
+    base-armor: 0
+    spawn-weight: 30
+    min-zone: 2
+    max-zone: 8
+    loot-multiplier: 1.2
+    xp-multiplier: 1.2
+    abilities:
+      - SPRINT
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: LEATHER_BOOTS
+      mainhand: null
+
+# ========================================
+# TYPES DE ZOMBIES - TIER 2 (Zone 3-5)
+# ========================================
+  # BLINDÉ - Tank lent
+  armored:
+    display-name: "&8Blindé"
+    tier: 2
+    base-health: 25
+    base-damage: 4
+    base-speed: 0.18
+    base-armor: 8
+    spawn-weight: 20
+    min-zone: 3
+    max-zone: 8
+    loot-multiplier: 1.5
+    xp-multiplier: 1.5
+    abilities:
+      - DAMAGE_RESIST
+    equipment:
+      helmet: IRON_HELMET
+      chestplate: IRON_CHESTPLATE
+      leggings: null
+      boots: null
+      mainhand: null
+      
+  # CRACHEUR - Attaque à distance
+  spitter:
+    display-name: "&2Cracheur"
+    tier: 2
+    base-health: 15
+    base-damage: 0
+    base-speed: 0.20
+    base-armor: 0
+    spawn-weight: 15
+    min-zone: 3
+    max-zone: 9
+    loot-multiplier: 1.4
+    xp-multiplier: 1.4
+    abilities:
+      - RANGED_POISON
+    projectile:
+      type: SPLASH_POTION
+      damage: 4
+      effect: POISON
+      effect-duration: 60
+      cooldown: 40
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+      
+  # HURLEUR - Alerte les autres
+  screamer:
+    display-name: "&cHurleur"
+    tier: 2
+    base-health: 12
+    base-damage: 2
+    base-speed: 0.20
+    base-armor: 0
+    spawn-weight: 10
+    min-zone: 3
+    max-zone: 9
+    loot-multiplier: 2.0
+    xp-multiplier: 1.8
+    abilities:
+      - ALERT_RADIUS
+    alert:
+      radius: 50
+      cooldown: 200
+      spawns-on-alert: 3
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+
+# ========================================
+# TYPES DE ZOMBIES - TIER 3 (Zone 5-7)
+# ========================================
+  # BERSERKER - Charge et knockback
+  berserker:
+    display-name: "&4Berserker"
+    tier: 3
+    base-health: 30
+    base-damage: 8
+    base-speed: 0.24
+    base-armor: 4
+    spawn-weight: 12
+    min-zone: 5
+    max-zone: 10
+    loot-multiplier: 1.8
+    xp-multiplier: 1.8
+    abilities:
+      - CHARGE
+      - ENRAGE
+    charge:
+      damage: 6
+      knockback: 2.0
+      cooldown: 100
+    equipment:
+      helmet: CHAINMAIL_HELMET
+      chestplate: CHAINMAIL_CHESTPLATE
+      leggings: null
+      boots: CHAINMAIL_BOOTS
+      mainhand: IRON_AXE
+      
+  # OMBRE - Invisible et backstab
+  shadow:
+    display-name: "&8Ombre"
+    tier: 3
+    base-health: 20
+    base-damage: 10
+    base-speed: 0.26
+    base-armor: 0
+    spawn-weight: 8
+    min-zone: 4
+    max-zone: 10
+    loot-multiplier: 2.0
+    xp-multiplier: 2.0
+    abilities:
+      - INVISIBILITY
+      - BACKSTAB
+    backstab:
+      damage-multiplier: 2.0
+    equipment:
+      helmet: null
+      chestplate: LEATHER_CHESTPLATE
+      leggings: LEATHER_LEGGINGS
+      boots: LEATHER_BOOTS
+      mainhand: IRON_SWORD
+      
+  # NÉCROMANCIEN - Invoque des zombies
+  necromancer:
+    display-name: "&5Nécromancien"
+    tier: 3
+    base-health: 35
+    base-damage: 3
+    base-speed: 0.18
+    base-armor: 2
+    spawn-weight: 5
+    min-zone: 5
+    max-zone: 10
+    loot-multiplier: 2.5
+    xp-multiplier: 2.5
+    abilities:
+      - SUMMON_MINIONS
+    summon:
+      type: crawler
+      count: 3
+      cooldown: 200
+      max-minions: 6
+    equipment:
+      helmet: null
+      chestplate: LEATHER_CHESTPLATE
+      leggings: LEATHER_LEGGINGS
+      boots: null
+      mainhand: STICK
+      
+  # EXPLOSIF - Explose à la mort
+  explosive:
+    display-name: "&c&lExplosif"
+    tier: 3
+    base-health: 15
+    base-damage: 2
+    base-speed: 0.24
+    base-armor: 0
+    spawn-weight: 10
+    min-zone: 5
+    max-zone: 10
+    loot-multiplier: 1.5
+    xp-multiplier: 1.5
+    abilities:
+      - EXPLODE_ON_DEATH
+    explosion:
+      power: 2.5
+      fire: false
+      damage-radius: 4
+    equipment:
+      helmet: TNT
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+
+# ========================================
+# TYPES DE ZOMBIES - TIER 4 (Zone 7-9)
+# ========================================
+  # COLOSSE - Géant avec AoE
+  colossus:
+    display-name: "&6Colosse"
+    tier: 4
+    base-health: 80
+    base-damage: 12
+    base-speed: 0.16
+    base-armor: 10
+    spawn-weight: 5
+    min-zone: 7
+    max-zone: 10
+    loot-multiplier: 3.0
+    xp-multiplier: 3.0
+    scale: 1.5
+    abilities:
+      - GROUND_POUND
+      - SLOW_IMMUNITY
+    ground-pound:
+      damage: 8
+      radius: 5
+      cooldown: 150
+    equipment:
+      helmet: NETHERITE_HELMET
+      chestplate: NETHERITE_CHESTPLATE
+      leggings: null
+      boots: NETHERITE_BOOTS
+      mainhand: null
+      
+  # SPECTRE - Téléportation
+  spectre:
+    display-name: "&9Spectre"
+    tier: 4
+    base-health: 40
+    base-damage: 10
+    base-speed: 0.20
+    base-armor: 0
+    spawn-weight: 6
+    min-zone: 7
+    max-zone: 10
+    loot-multiplier: 2.8
+    xp-multiplier: 2.8
+    abilities:
+      - TELEPORT
+      - PHASE_THROUGH
+    teleport:
+      range: 10
+      cooldown: 60
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: IRON_SWORD
+      
+  # RAVAGEUR - Charge dévastatrice
+  ravager:
+    display-name: "&4Ravageur"
+    tier: 4
+    base-health: 100
+    base-damage: 15
+    base-speed: 0.22
+    base-armor: 8
+    spawn-weight: 4
+    min-zone: 8
+    max-zone: 10
+    loot-multiplier: 3.5
+    xp-multiplier: 3.5
+    abilities:
+      - DEVASTATING_CHARGE
+      - ROAR
+    charge:
+      damage: 20
+      knockback: 5.0
+      stun-duration: 40
+    equipment:
+      helmet: DIAMOND_HELMET
+      chestplate: DIAMOND_CHESTPLATE
+      leggings: DIAMOND_LEGGINGS
+      boots: DIAMOND_BOOTS
+      mainhand: DIAMOND_AXE
+      
+  # CREAKING - Immobile si regardé (1.21.4)
+  creaking:
+    display-name: "&2Creaking Corrompu"
+    tier: 4
+    base-health: 60
+    base-damage: 8
+    base-speed: 0.28
+    base-armor: 4
+    spawn-weight: 8
+    min-zone: 7
+    max-zone: 10
+    loot-multiplier: 2.5
+    xp-multiplier: 2.5
+    abilities:
+      - FREEZE_WHEN_WATCHED
+      - SILENT_APPROACH
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+
+# ========================================
+# TYPES DE ZOMBIES - TIER 5 (Zone 9-10)
+# ========================================
+  # WARDEN CORROMPU
+  corrupted_warden:
+    display-name: "&5&lWarden Corrompu"
+    tier: 5
+    base-health: 200
+    base-damage: 25
+    base-speed: 0.20
+    base-armor: 15
+    spawn-weight: 2
+    min-zone: 9
+    max-zone: 10
+    loot-multiplier: 5.0
+    xp-multiplier: 5.0
+    abilities:
+      - SONIC_BOOM
+      - DARKNESS_AURA
+      - VIBRATION_SENSE
+    sonic-boom:
+      damage: 30
+      range: 15
+      cooldown: 200
+    darkness:
+      radius: 20
+      duration: 100
+    equipment:
+      helmet: null
+      chestplate: null
+      leggings: null
+      boots: null
+      mainhand: null
+      
+  # ARCHONTE
+  archon:
+    display-name: "&d&lArchonte"
+    tier: 5
+    base-health: 150
+    base-damage: 20
+    base-speed: 0.24
+    base-armor: 10
+    spawn-weight: 3
+    min-zone: 9
+    max-zone: 10
+    loot-multiplier: 4.5
+    xp-multiplier: 4.5
+    abilities:
+      - MULTI_ATTACK
+      - TELEPORT
+      - SUMMON_MINIONS
+    equipment:
+      helmet: NETHERITE_HELMET
+      chestplate: NETHERITE_CHESTPLATE
+      leggings: NETHERITE_LEGGINGS
+      boots: NETHERITE_BOOTS
+      mainhand: NETHERITE_SWORD
+
+# ========================================
+# SYSTÈME D'AFFIXES
+# ========================================
+affixes:
+  enabled: true
+  
+  # Chance d'avoir un affix par zone
+  chance-by-zone:
+    1: 0
+    2: 5
+    3: 10
+    4: 15
+    5: 20
+    6: 25
+    7: 30
+    8: 35
+    9: 40
+    10: 50
+    
+  # Chance d'avoir plusieurs affixes (zone 8+)
+  multi-affix-chance: 20
+  
+  # Liste des affixes
+  list:
+    # Affixes communs
+    fast:
+      display: "&e⚡ Rapide"
+      rarity: common
+      speed-bonus: 0.5
+      loot-bonus: 0.10
+      
+    tough:
+      display: "&8🛡 Robuste"
+      rarity: common
+      health-bonus: 0.5
+      loot-bonus: 0.15
+      
+    aggressive:
+      display: "&c⚔ Agressif"
+      rarity: common
+      damage-bonus: 0.3
+      loot-bonus: 0.10
+      
+    regenerating:
+      display: "&a❤ Régénérant"
+      rarity: common
+      regen-per-second: 1
+      loot-bonus: 0.20
+      
+    # Affixes rares
+    vampiric:
+      display: "&4🩸 Vampirique"
+      rarity: rare
+      lifesteal-percent: 20
+      loot-bonus: 0.30
+      
+    electric:
+      display: "&b⚡ Électrique"
+      rarity: rare
+      chain-damage: 3
+      chain-range: 5
+      loot-bonus: 0.30
+      
+    frozen:
+      display: "&b❄ Glacial"
+      rarity: rare
+      slow-duration: 60
+      slow-level: 1
+      loot-bonus: 0.25
+      
+    burning:
+      display: "&6🔥 Enflammé"
+      rarity: rare
+      fire-duration: 60
+      loot-bonus: 0.25
+      
+    # Affixes épiques
+    mirror:
+      display: "&5🪞 Miroir"
+      rarity: epic
+      reflect-percent: 20
+      loot-bonus: 0.50
+      
+    immortal:
+      display: "&d💀 Immortel"
+      rarity: epic
+      resurrect-count: 1
+      resurrect-health-percent: 50
+      loot-bonus: 0.60
+      
+    arcane:
+      display: "&5✨ Arcanique"
+      rarity: epic
+      spell-damage: 5
+      spell-cooldown: 80
+      loot-bonus: 0.50
+      
+    corrupting:
+      display: "&0☠ Corrupteur"
+      rarity: epic
+      wither-duration: 60
+      wither-level: 1
+      loot-bonus: 0.40
+
+# ========================================
+# MINI-BOSS
+# ========================================
+miniboss:
+  enabled: true
+  
+  # Chance de spawn naturel (en %)
+  spawn-chance: 2
+  
+  # Cooldown entre spawns (en secondes)
+  spawn-cooldown: 300
+  
+  types:
+    butcher:
+      display-name: "&c&l☠ Le Boucher"
+      base-type: berserker
+      health-multiplier: 5.0
+      damage-multiplier: 2.0
+      min-zone: 2
+      guaranteed-drop-rarity: epic
+      
+    widow:
+      display-name: "&8&l🕷 La Veuve"
+      base-type: spitter
+      health-multiplier: 6.0
+      damage-multiplier: 2.5
+      min-zone: 4
+      guaranteed-drop-rarity: epic
+      abilities:
+        - WEB_TRAP
+        - SPAWN_SPIDERS
+        
+    giant:
+      display-name: "&6&l👹 Le Géant"
+      base-type: colossus
+      health-multiplier: 5.0
+      damage-multiplier: 2.0
+      scale: 2.0
+      min-zone: 6
+      guaranteed-drop-rarity: legendary
+      
+    phantom:
+      display-name: "&9&l👻 L'Ombre"
+      base-type: shadow
+      health-multiplier: 4.0
+      damage-multiplier: 3.0
+      min-zone: 8
+      guaranteed-drop-rarity: legendary
+
+# ========================================
+# BOSS DE ZONE (Arènes dédiées)
+# ========================================
+bosses:
+  guardian:
+    display-name: "&e&l⚔ Gardien du Village"
+    zone: 1
+    health: 300
+    damage: 8
+    phases: 2
+    rewards:
+      points: 1000
+      xp: 2000
+      guaranteed-rarity: epic
+      
+  sand_queen:
+    display-name: "&6&l👑 Reine des Sables"
+    zone: 3
+    health: 500
+    damage: 12
+    phases: 2
+    rewards:
+      points: 2000
+      xp: 4000
+      guaranteed-rarity: epic
+      
+  forest_lord:
+    display-name: "&2&l🌲 Seigneur Sylvestre"
+    zone: 4
+    health: 600
+    damage: 14
+    phases: 3
+    rewards:
+      points: 3000
+      xp: 6000
+      guaranteed-rarity: legendary
+      
+  hydra:
+    display-name: "&2&l🐍 Hydre du Marais"
+    zone: 5
+    health: 800
+    damage: 16
+    phases: 3
+    rewards:
+      points: 4000
+      xp: 8000
+      guaranteed-rarity: legendary
+      
+  titan:
+    display-name: "&7&l🗿 Titan des Cimes"
+    zone: 6
+    health: 1000
+    damage: 18
+    phases: 3
+    rewards:
+      points: 5000
+      xp: 10000
+      guaranteed-rarity: legendary
+      
+  ice_emperor:
+    display-name: "&b&l❄ Empereur de Glace"
+    zone: 7
+    health: 1200
+    damage: 20
+    phases: 4
+    rewards:
+      points: 6000
+      xp: 12000
+      guaranteed-rarity: legendary
+      
+  nuclear_abomination:
+    display-name: "&a&l☢ Abomination Nucléaire"
+    zone: 8
+    health: 1500
+    damage: 22
+    phases: 4
+    rewards:
+      points: 8000
+      xp: 16000
+      guaranteed-rarity: mythic
+      
+  archdemon:
+    display-name: "&4&l👿 Archidémon"
+    zone: 9
+    health: 2000
+    damage: 25
+    phases: 5
+    rewards:
+      points: 10000
+      xp: 20000
+      guaranteed-rarity: mythic
+      
+  patient_zero:
+    display-name: "&d&l💀 PATIENT ZÉRO"
+    zone: 10
+    health: 5000
+    damage: 30
+    phases: 7
+    rewards:
+      points: 50000
+      xp: 100000
+      guaranteed-rarity: exalted
+      title: "Sauveur de l'Humanité"
+      achievement: "patient_zero_slayer"

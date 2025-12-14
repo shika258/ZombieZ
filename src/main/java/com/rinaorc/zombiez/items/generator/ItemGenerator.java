@@ -1,0 +1,368 @@
+package com.rinaorc.zombiez.items.generator;
+
+import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.affixes.Affix;
+import com.rinaorc.zombiez.items.affixes.AffixRegistry;
+import com.rinaorc.zombiez.items.types.ItemType;
+import com.rinaorc.zombiez.items.types.Rarity;
+import com.rinaorc.zombiez.items.types.StatType;
+import org.bukkit.Material;
+
+import java.util.*;
+
+/**
+ * Générateur d'items procéduraux
+ * Génère des items avec stats aléatoires, affixes, et noms générés
+ * 
+ * Utilise le "Holder idiom" pour un singleton thread-safe et lazy
+ */
+public class ItemGenerator {
+
+    // Holder idiom - thread-safe, lazy initialization sans synchronisation
+    private static class Holder {
+        static final ItemGenerator INSTANCE = new ItemGenerator();
+    }
+    
+    private final AffixRegistry affixRegistry;
+    private final NameGenerator nameGenerator;
+    private final Random random;
+
+    private ItemGenerator() {
+        this.affixRegistry = AffixRegistry.getInstance();
+        this.nameGenerator = new NameGenerator();
+        this.random = new Random();
+    }
+
+    /**
+     * Obtient l'instance unique du générateur (thread-safe)
+     */
+    public static ItemGenerator getInstance() {
+        return Holder.INSTANCE;
+    }
+
+    /**
+     * Génère un item complètement aléatoire pour une zone
+     */
+    public ZombieZItem generate(int zoneId) {
+        return generate(zoneId, 0.0);
+    }
+
+    /**
+     * Génère un item avec bonus de luck
+     */
+    public ZombieZItem generate(int zoneId, double luckBonus) {
+        // Déterminer la rareté
+        Rarity rarity = Rarity.roll(luckBonus);
+        
+        // Déterminer le type d'item
+        ItemType itemType = ItemType.random();
+        
+        return generate(zoneId, rarity, itemType, luckBonus);
+    }
+
+    /**
+     * Génère un item avec rareté spécifique
+     */
+    public ZombieZItem generate(int zoneId, Rarity rarity, double luckBonus) {
+        ItemType itemType = ItemType.random();
+        return generate(zoneId, rarity, itemType, luckBonus);
+    }
+
+    /**
+     * Génère un item avec type spécifique
+     */
+    public ZombieZItem generate(int zoneId, ItemType itemType, double luckBonus) {
+        Rarity rarity = Rarity.roll(luckBonus);
+        return generate(zoneId, rarity, itemType, luckBonus);
+    }
+
+    /**
+     * Génère un item avec tous les paramètres spécifiés
+     */
+    public ZombieZItem generate(int zoneId, Rarity rarity, ItemType itemType, double luckBonus) {
+        // Déterminer le tier du matériau
+        int maxTier = itemType.getMaxTierForZone(zoneId);
+        int tier = rollTier(maxTier, rarity);
+        
+        // Obtenir le matériau
+        Material material = itemType.getMaterialForTier(tier);
+        
+        // Générer les stats de base
+        Map<StatType, Double> baseStats = generateBaseStats(itemType, tier, rarity);
+        
+        // Générer les affixes
+        List<ZombieZItem.RolledAffix> affixes = generateAffixes(itemType, rarity, zoneId);
+        
+        // Calculer toutes les stats pour le score
+        Map<StatType, Double> allStats = new HashMap<>(baseStats);
+        for (ZombieZItem.RolledAffix ra : affixes) {
+            for (var entry : ra.getRolledStats().entrySet()) {
+                allStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+        }
+        
+        // Calculer le score
+        int itemScore = ZombieZItem.calculateItemScore(rarity, allStats, affixes);
+        
+        // Générer le nom
+        String baseName = nameGenerator.getBaseName(itemType);
+        String generatedName = nameGenerator.generateFullName(baseName, affixes, rarity);
+        
+        // Construire l'item
+        return ZombieZItem.builder()
+            .uuid(UUID.randomUUID())
+            .itemType(itemType)
+            .material(material)
+            .rarity(rarity)
+            .tier(tier)
+            .zoneLevel(zoneId)
+            .baseName(baseName)
+            .generatedName(generatedName)
+            .baseStats(baseStats)
+            .affixes(affixes)
+            .itemScore(itemScore)
+            .createdAt(System.currentTimeMillis())
+            .identified(true)
+            .build();
+    }
+
+    /**
+     * Génère un item avec rareté minimum garantie (pour boss, etc.)
+     */
+    public ZombieZItem generateWithMinRarity(int zoneId, Rarity minRarity, double luckBonus) {
+        Rarity rarity = Rarity.rollWithMinimum(luckBonus, minRarity);
+        return generate(zoneId, rarity, luckBonus);
+    }
+
+    /**
+     * Génère plusieurs items
+     */
+    public List<ZombieZItem> generateMultiple(int zoneId, int count, double luckBonus) {
+        List<ZombieZItem> items = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            items.add(generate(zoneId, luckBonus));
+        }
+        return items;
+    }
+
+    /**
+     * Roule le tier du matériau
+     */
+    private int rollTier(int maxTier, Rarity rarity) {
+        if (maxTier <= 0) return 0;
+        
+        // Les raretés plus hautes favorisent les tiers plus élevés
+        double rarityBonus = rarity.ordinal() * 0.1;
+        
+        // Distribution pondérée vers les tiers supérieurs
+        double roll = random.nextDouble();
+        roll = Math.pow(roll, 1.0 - rarityBonus); // Bias vers 1.0
+        
+        return (int) (roll * (maxTier + 1));
+    }
+
+    /**
+     * Génère les stats de base selon le type et le tier
+     */
+    private Map<StatType, Double> generateBaseStats(ItemType itemType, int tier, Rarity rarity) {
+        Map<StatType, Double> stats = new HashMap<>();
+        
+        double rarityBonus = rarity.rollStatBonus();
+        
+        if (itemType.isWeapon()) {
+            // Arme: Dégâts + Vitesse d'attaque
+            double baseDamage = itemType.getBaseStat1ForTier(tier);
+            double baseSpeed = itemType.getBaseStat2ForTier(tier);
+            
+            // Appliquer variation aléatoire (-10% à +20%)
+            double damageVariation = 0.9 + random.nextDouble() * 0.3;
+            double speedVariation = 0.95 + random.nextDouble() * 0.1;
+            
+            double finalDamage = baseDamage * damageVariation * (1 + rarityBonus);
+            double finalSpeed = baseSpeed * speedVariation;
+            
+            stats.put(StatType.DAMAGE, Math.round(finalDamage * 10) / 10.0);
+            stats.put(StatType.ATTACK_SPEED, Math.round(finalSpeed * 100) / 100.0);
+            
+        } else if (itemType.isArmor()) {
+            // Armure: Armure + Résistance
+            double baseArmor = itemType.getBaseStat1ForTier(tier);
+            double baseToughness = itemType.getBaseStat2ForTier(tier);
+            
+            double armorVariation = 0.9 + random.nextDouble() * 0.3;
+            
+            double finalArmor = baseArmor * armorVariation * (1 + rarityBonus);
+            
+            stats.put(StatType.ARMOR, Math.round(finalArmor * 10) / 10.0);
+            
+            if (baseToughness > 0) {
+                stats.put(StatType.ARMOR_TOUGHNESS, baseToughness);
+            }
+        }
+        
+        return stats;
+    }
+
+    /**
+     * Génère les affixes pour un item
+     */
+    private List<ZombieZItem.RolledAffix> generateAffixes(ItemType itemType, Rarity rarity, int zoneId) {
+        List<ZombieZItem.RolledAffix> affixes = new ArrayList<>();
+        Set<String> usedAffixIds = new HashSet<>();
+        
+        int affixCount = rarity.getAffixCount();
+        
+        // Bonus d'affixes selon la zone (zones hautes = plus de chance d'affixes bonus)
+        if (zoneId >= 8 && random.nextDouble() < 0.2) {
+            affixCount++;
+        }
+        
+        // Distribution: généralement 1 prefix et le reste en suffix
+        int prefixCount = Math.min(affixCount, 1 + (affixCount > 3 ? 1 : 0));
+        int suffixCount = affixCount - prefixCount;
+        
+        double rarityBonus = rarity.rollStatBonus();
+        
+        // Générer les préfixes
+        for (int i = 0; i < prefixCount; i++) {
+            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.PREFIX, zoneId, usedAffixIds);
+            if (affix != null) {
+                Map<StatType, Double> rolledStats = affix.rollStats(rarityBonus);
+                affixes.add(ZombieZItem.RolledAffix.builder()
+                    .affix(affix)
+                    .rolledStats(rolledStats)
+                    .build());
+                usedAffixIds.add(affix.getId());
+            }
+        }
+        
+        // Générer les suffixes
+        for (int i = 0; i < suffixCount; i++) {
+            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.SUFFIX, zoneId, usedAffixIds);
+            if (affix != null) {
+                Map<StatType, Double> rolledStats = affix.rollStats(rarityBonus);
+                affixes.add(ZombieZItem.RolledAffix.builder()
+                    .affix(affix)
+                    .rolledStats(rolledStats)
+                    .build());
+                usedAffixIds.add(affix.getId());
+            }
+        }
+        
+        return affixes;
+    }
+
+    /**
+     * Générateur de noms pour les items
+     */
+    private static class NameGenerator {
+        
+        private final Map<ItemType, List<String>> baseNames = new HashMap<>();
+        
+        public NameGenerator() {
+            initializeNames();
+        }
+        
+        private void initializeNames() {
+            // Épées
+            baseNames.put(ItemType.SWORD, Arrays.asList(
+                "Épée", "Lame", "Glaive", "Sabre", "Rapière", "Estoc", "Cimeterre"
+            ));
+            
+            // Haches
+            baseNames.put(ItemType.AXE, Arrays.asList(
+                "Hache", "Cognée", "Francisque", "Bardiche", "Tomahawk"
+            ));
+            
+            // Masse (1.21.4)
+            baseNames.put(ItemType.MACE, Arrays.asList(
+                "Masse", "Massue", "Marteau", "Maillet", "Fléau"
+            ));
+            
+            // Arc
+            baseNames.put(ItemType.BOW, Arrays.asList(
+                "Arc", "Arc Long", "Arc Court", "Arc Composite"
+            ));
+            
+            // Arbalète
+            baseNames.put(ItemType.CROSSBOW, Arrays.asList(
+                "Arbalète", "Arbalète Lourde", "Baliste"
+            ));
+            
+            // Trident
+            baseNames.put(ItemType.TRIDENT, Arrays.asList(
+                "Trident", "Fourche", "Lance Marine"
+            ));
+            
+            // Casques
+            baseNames.put(ItemType.HELMET, Arrays.asList(
+                "Casque", "Heaume", "Capuche", "Chapeau", "Coiffe", "Couronne"
+            ));
+            
+            // Plastrons
+            baseNames.put(ItemType.CHESTPLATE, Arrays.asList(
+                "Plastron", "Cuirasse", "Armure", "Tunique", "Cotte", "Haubert"
+            ));
+            
+            // Jambières
+            baseNames.put(ItemType.LEGGINGS, Arrays.asList(
+                "Jambières", "Cuissardes", "Pantalon", "Grègues"
+            ));
+            
+            // Bottes
+            baseNames.put(ItemType.BOOTS, Arrays.asList(
+                "Bottes", "Chaussures", "Sandales", "Grèves", "Solerets"
+            ));
+            
+            // Bouclier
+            baseNames.put(ItemType.SHIELD, Arrays.asList(
+                "Bouclier", "Écu", "Pavois", "Targe", "Rondache"
+            ));
+        }
+        
+        /**
+         * Obtient un nom de base aléatoire pour un type
+         */
+        public String getBaseName(ItemType type) {
+            List<String> names = baseNames.getOrDefault(type, List.of(type.getDisplayName()));
+            return names.get((int) (Math.random() * names.size()));
+        }
+        
+        /**
+         * Génère le nom complet avec préfixes et suffixes
+         */
+        public String generateFullName(String baseName, List<ZombieZItem.RolledAffix> affixes, Rarity rarity) {
+            StringBuilder name = new StringBuilder();
+            
+            // Ajouter le préfixe (si présent)
+            Optional<ZombieZItem.RolledAffix> prefix = affixes.stream()
+                .filter(a -> a.getAffix().getType() == Affix.AffixType.PREFIX)
+                .findFirst();
+            
+            if (prefix.isPresent()) {
+                name.append(prefix.get().getAffix().getDisplayName()).append(" ");
+            }
+            
+            // Nom de base
+            name.append(baseName);
+            
+            // Ajouter le suffixe (si présent)
+            Optional<ZombieZItem.RolledAffix> suffix = affixes.stream()
+                .filter(a -> a.getAffix().getType() == Affix.AffixType.SUFFIX)
+                .findFirst();
+            
+            if (suffix.isPresent()) {
+                name.append(" ").append(suffix.get().getAffix().getDisplayName());
+            }
+            
+            // Pour les raretés très élevées sans affixes, ajouter un titre
+            if (affixes.isEmpty() && rarity.isAtLeast(Rarity.LEGENDARY)) {
+                String[] titles = {"Ancien", "Maudit", "Béni", "Oublié", "Éternel"};
+                String title = titles[(int) (Math.random() * titles.length)];
+                name.insert(0, title + " ");
+            }
+            
+            return name.toString();
+        }
+    }
+}

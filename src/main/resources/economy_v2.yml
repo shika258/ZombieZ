@@ -1,0 +1,428 @@
+#######################################
+#                                     #
+#   ZOMBIEZ - Configuration Économie  #
+#   Version 2.0 - Optimisée           #
+#   Par Rinaorc Studio                #
+#                                     #
+#######################################
+
+# ========================================
+# MONNAIES
+# ========================================
+currencies:
+  # Points (monnaie principale gratuite)
+  points:
+    name: "Points"
+    symbol: "⚡"
+    color: "&e"
+    
+  # Gems (monnaie premium)
+  gems:
+    name: "Gems"
+    symbol: "💎"
+    color: "&d"
+    
+  # Fragments (ressource de crafting)
+  fragments:
+    name: "Fragments"
+    symbol: "◆"
+    color: "&b"
+
+# ========================================
+# GAINS DE POINTS - SCALING EXPONENTIEL
+# Par zone pour une meilleure progression
+# ========================================
+points:
+  # Formule: base * (1 + zone * zone_scaling) * level_bonus
+  base-kill: 5
+  zone-scaling: 0.35  # +35% par zone (compound)
+  
+  # Gains par zone (calculés automatiquement si absent)
+  by-zone:
+    1: 5      # Zone 1: 5 points/kill
+    2: 8      # Zone 2: 8 points/kill
+    3: 13     # Zone 3: 13 points/kill
+    4: 20     # Zone 4: 20 points/kill
+    5: 32     # Zone 5: 32 points/kill
+    6: 50     # Zone 6: 50 points/kill (PvP)
+    7: 45     # Zone 7: 45 points/kill
+    8: 65     # Zone 8: 65 points/kill
+    9: 95     # Zone 9: 95 points/kill
+    10: 140   # Zone 10: 140 points/kill
+    11: 200   # Zone 11: 200 points/kill
+  
+  # Multiplicateurs
+  elite-multiplier: 2.5
+  boss-multiplier: 15
+  mini-boss-multiplier: 8
+  
+  # Bonus par niveau du zombie (+3% par niveau)
+  level-bonus-percent: 3
+  
+  # Récompenses spéciales
+  zone-completion: 1000
+  zone-first-clear: 5000
+  daily-quest: 75
+  weekly-quest: 350
+
+# ========================================
+# GAINS D'XP - SCALING PROGRESSIF
+# ========================================
+xp:
+  # Formule similaire aux points
+  base-kill: 10
+  zone-scaling: 0.40  # +40% par zone
+  
+  # XP par zone
+  by-zone:
+    1: 10
+    2: 18
+    3: 30
+    4: 48
+    5: 75
+    6: 100
+    7: 90
+    8: 130
+    9: 190
+    10: 280
+    11: 400
+  
+  # Multiplicateurs
+  elite-multiplier: 2.0
+  boss-multiplier: 10
+  
+  # XP par exploration (nouveau bloc découvert)
+  exploration: 1
+  
+  # XP par boss tué (scaling par zone)
+  boss-base: 500
+  boss-zone-multiplier: 100
+  
+  # Formule de niveau: XP_requis = base * (niveau ^ exposant)
+  level-formula:
+    base: 100
+    exponent: 1.5
+
+# ========================================
+# SYSTÈME DE STREAK - TRÈS REWARDING
+# Encourage le gameplay agressif
+# ========================================
+streak:
+  enabled: true
+  
+  # Milestones avec récompenses bonus
+  milestones:
+    10:
+      xp-bonus: 100
+      points-bonus: 50
+      message: "&e⚡ 10 KILLS STREAK!"
+    25:
+      xp-bonus: 300
+      points-bonus: 150
+      message: "&6🔥 25 KILLS - UNSTOPPABLE!"
+    50:
+      xp-bonus: 750
+      points-bonus: 400
+      gems-bonus: 5
+      message: "&c⚔ 50 KILLS - RAMPAGE!"
+    100:
+      xp-bonus: 2000
+      points-bonus: 1000
+      gems-bonus: 15
+      message: "&4☠ 100 KILLS - GODLIKE!"
+      broadcast: true
+    200:
+      xp-bonus: 5000
+      points-bonus: 3000
+      gems-bonus: 50
+      message: "&5★ 200 KILLS - LEGENDARY!"
+      broadcast: true
+    500:
+      xp-bonus: 15000
+      points-bonus: 10000
+      gems-bonus: 150
+      message: "&d✦ 500 KILLS - IMMORTAL!"
+      broadcast: true
+  
+  # Multiplicateur continu (en plus des milestones)
+  # +1% par 5 kills (cap à +100%)
+  multiplier-per-kills: 5
+  multiplier-per-step: 0.01
+  max-bonus-percent: 100
+  
+  # Reset à la mort (le multiplicateur, pas les stats)
+  reset-on-death: true
+  
+  # Streak decay - perd 5% après 60s sans kill
+  decay:
+    enabled: true
+    delay-seconds: 60
+    percent-per-minute: 5
+
+# ========================================
+# SYSTÈME DE COMBO - FAST-PACED
+# ========================================
+combo:
+  enabled: true
+  
+  # Temps entre kills pour maintenir le combo (secondes)
+  window-seconds: 3.5
+  
+  # Multiplicateur par niveau de combo
+  # Combo x5 = +10%, x10 = +25%, x20 = +50%, etc.
+  multiplier-steps:
+    3: 1.05
+    5: 1.10
+    10: 1.25
+    15: 1.40
+    20: 1.60
+    30: 2.00
+    50: 2.50
+  
+  # Fever Mode - Activé à combo x10
+  fever:
+    enabled: true
+    threshold: 10
+    duration-seconds: 15
+    bonus-multiplier: 1.5
+
+# ========================================
+# PÉNALITÉS DE MORT - ADOUCIES
+# La mort est moins punitive pour garder le fun
+# ========================================
+death:
+  # Pourcentage de points perdus (réduit!)
+  points-loss-percent: 10
+  
+  # Points minimum préservés (protège les débutants)
+  min-preserved: 500
+  
+  # Cap de perte maximum (protège les vétérans)
+  max-loss: 10000
+  
+  # Bonus de protection par prestige (-1% de perte par prestige)
+  prestige-protection-percent: 1
+  
+  # Perte d'XP - DÉSACTIVÉE par défaut
+  xp-loss: false
+  xp-loss-percent: 0
+  
+  # Protection de streak - ne perd que le multiplicateur, pas le record
+  streak-protection: true
+  
+  # Temps d'immunité après respawn (secondes)
+  respawn-immunity: 5
+  
+  # Respawn au checkpoint si disponible
+  respawn-at-checkpoint: true
+
+# ========================================
+# RANGS VIP - BONUS RÉDUITS MAIS CONFORTABLES
+# Moins Pay2Win mais reste attractif
+# ========================================
+vip-bonuses:
+  bronze:
+    xp-multiplier: 1.08       # Réduit de 1.10
+    points-multiplier: 1.08   # Réduit de 1.10
+    loot-luck-bonus: 0.02     # Petit bonus
+    daily-crates: 1
+    bank-capacity-bonus: 1.5
+    auction-slots: 5
+    
+  silver:
+    xp-multiplier: 1.15       # Réduit de 1.20
+    points-multiplier: 1.15
+    loot-luck-bonus: 0.05
+    daily-crates: 2
+    bank-capacity-bonus: 2.0
+    auction-slots: 10
+    trade-tax-reduction: 0.02  # -2% de taxe
+    
+  gold:
+    xp-multiplier: 1.20       # Réduit de 1.30
+    points-multiplier: 1.20
+    loot-luck-bonus: 0.08     # Réduit de 0.10
+    daily-crates: 3
+    bank-capacity-bonus: 3.0
+    auction-slots: 20
+    trade-tax-reduction: 0.03
+    respawn-speed-bonus: 0.25  # -25% temps de respawn
+    
+  diamond:
+    xp-multiplier: 1.30       # Réduit de 1.50
+    points-multiplier: 1.30
+    loot-luck-bonus: 0.12     # Réduit de 0.20
+    daily-crates: 5
+    bank-capacity-bonus: 5.0
+    auction-slots: 35
+    trade-tax-reduction: 0.05
+    respawn-speed-bonus: 0.5
+    exclusive-cosmetics: true
+    
+  eternal:
+    xp-multiplier: 1.35       # Réduit de 1.50
+    points-multiplier: 1.35
+    loot-luck-bonus: 0.15     # Réduit de 0.20
+    daily-crates: 7
+    bank-capacity-bonus: 10.0
+    auction-slots: 50
+    trade-tax-reduction: 0.05
+    respawn-speed-bonus: 0.5
+    exclusive-cosmetics: true
+    priority-queue: true
+    unique-title: "&d[Éternel]"
+
+# ========================================
+# BONUS DE PROXIMITÉ (GROUPE)
+# Encourage le jeu en équipe
+# ========================================
+party-bonuses:
+  enabled: true
+  max-party-size: 4
+  proximity-radius: 30  # blocs
+  
+  # Bonus selon le nombre de membres proches
+  # 2 joueurs = +15%, 3 = +35%, 4 = +60%
+  proximity-multiplier:
+    2: 1.15
+    3: 1.35
+    4: 1.60
+  
+  # XP partagé équitablement (avec bonus)
+  shared-xp:
+    enabled: true
+    individual-percent: 75  # Chacun reçoit 75% de l'XP
+  
+  # Loot partagé en round-robin (optionnel)
+  shared-loot:
+    enabled: false  # Désactivé par défaut
+    
+  # Bonus de combo partagé
+  shared-combo: true
+
+# ========================================
+# RÉCOMPENSES QUOTIDIENNES - GÉNÉREUSES
+# ========================================
+daily-rewards:
+  enabled: true
+  
+  # Récompenses par jour consécutif (augmentées)
+  day-1:
+    points: 200
+    fragments: 5
+    crate: null
+    
+  day-2:
+    points: 350
+    fragments: 10
+    crate: null
+    
+  day-3:
+    points: 500
+    fragments: 0
+    crate: "common"
+    
+  day-4:
+    points: 750
+    fragments: 15
+    crate: null
+    
+  day-5:
+    points: 1000
+    fragments: 0
+    crate: "rare"
+    
+  day-6:
+    points: 1500
+    fragments: 25
+    crate: null
+    
+  day-7:
+    points: 2500
+    gems: 10
+    fragments: 0
+    crate: "epic"
+  
+  # Bonus de streak après 7 jours
+  streak-multiplier: 1.25
+  
+  # Récompense spéciale 14 jours
+  day-14:
+    points: 5000
+    gems: 25
+    fragments: 50
+    crate: "epic"
+    title: "Assidu"
+  
+  # Récompense spéciale 30 jours
+  day-30:
+    points: 15000
+    gems: 75
+    fragments: 150
+    crate: "legendary"
+    title: "Dévoué"
+    exclusive-cosmetic: "aura_dedication"
+
+# ========================================
+# SHOP - PRIX ÉQUILIBRÉS
+# ========================================
+shop:
+  # Réparation d'items (par point de durabilité)
+  repair:
+    common: 1
+    uncommon: 2
+    rare: 4
+    epic: 8
+    legendary: 18
+    mythic: 35
+    exalted: 60
+    
+  # Consommables
+  consumables:
+    bandage: 20
+    medkit: 80
+    antidote: 40
+    stimulant: 60
+    adrenaline: 120
+    resurrection-token: 500  # Évite la pénalité de mort une fois
+    
+  # Téléportation
+  teleport:
+    spawn: 0
+    checkpoint: 25
+    refuge: 75
+    party-member: 150
+
+# ========================================
+# HÔTEL DES VENTES
+# ========================================
+auction:
+  enabled: true
+  commission: 4  # Réduit de 5%
+  min-price: 10
+  max-price: 50000000
+  max-duration: 168  # 7 jours
+  max-listings-per-player: 8
+  
+  # Slots supplémentaires par rang VIP (définis dans vip-bonuses)
+  
+  # Catégories pour filtrage
+  categories:
+    - weapons
+    - armor
+    - consumables
+    - materials
+    - cosmetics
+
+# ========================================
+# TRADE
+# ========================================
+trade:
+  enabled: true
+  cooldown: 20  # secondes
+  max-distance: 15
+  confirm-time: 15
+  tax-percent: 2  # Taxe réduite
+  
+  # Protection anti-scam
+  value-warning-threshold: 10000  # Avertit si différence > 10k

@@ -1,0 +1,914 @@
+#######################################
+#                                     #
+#   ZOMBIEZ - Configuration Loot      #
+#   Système d'Items Procéduraux       #
+#   Par Rinaorc Studio                #
+#                                     #
+#######################################
+
+# ========================================
+# PARAMÈTRES GLOBAUX
+# ========================================
+settings:
+  # Drop naturel activé
+  enabled: true
+  
+  # Multiplicateur global de drop rate
+  drop-rate-multiplier: 1.0
+  
+  # Effets visuels
+  effects:
+    # Particules au drop
+    particles: true
+    # Beam de lumière (rare+)
+    light-beam: true
+    # Son de drop
+    sound: true
+    
+  # Durée avant despawn des items (en secondes)
+  despawn-time: 300
+
+# ========================================
+# RARETÉS
+# ========================================
+rarities:
+  common:
+    display-name: "&fCommun"
+    color: "&f"
+    base-chance: 60.0
+    affix-count: 0
+    stat-bonus-min: 0.0
+    stat-bonus-max: 0.1
+    item-score-range: [1, 100]
+    
+  uncommon:
+    display-name: "&aPeu Commun"
+    color: "&a"
+    base-chance: 25.0
+    affix-count: 1
+    stat-bonus-min: 0.05
+    stat-bonus-max: 0.2
+    item-score-range: [100, 300]
+    
+  rare:
+    display-name: "&9Rare"
+    color: "&9"
+    base-chance: 10.0
+    affix-count: 2
+    stat-bonus-min: 0.1
+    stat-bonus-max: 0.3
+    item-score-range: [300, 700]
+    
+  epic:
+    display-name: "&5Épique"
+    color: "&5"
+    base-chance: 4.0
+    affix-count: 3
+    stat-bonus-min: 0.15
+    stat-bonus-max: 0.4
+    item-score-range: [700, 1500]
+    
+  legendary:
+    display-name: "&6Légendaire"
+    color: "&6"
+    base-chance: 0.9
+    affix-count: 4
+    stat-bonus-min: 0.2
+    stat-bonus-max: 0.5
+    item-score-range: [1500, 3000]
+    
+  mythic:
+    display-name: "&dMythique"
+    color: "&d"
+    base-chance: 0.1
+    affix-count: 5
+    stat-bonus-min: 0.3
+    stat-bonus-max: 0.6
+    item-score-range: [3000, 5000]
+    
+  exalted:
+    display-name: "&c&lEXALTED"
+    color: "&c"
+    base-chance: 0.01
+    affix-count: 6
+    stat-bonus-min: 0.4
+    stat-bonus-max: 0.75
+    item-score-range: [5000, 10000]
+    has-unique-effect: true
+
+# ========================================
+# TYPES D'ITEMS DE BASE
+# ========================================
+base-items:
+  # ÉPÉES
+  swords:
+    wooden_sword:
+      material: WOODEN_SWORD
+      base-damage: [3, 5]
+      base-speed: [1.4, 1.6]
+      min-zone: 1
+      
+    stone_sword:
+      material: STONE_SWORD
+      base-damage: [4, 7]
+      base-speed: [1.4, 1.6]
+      min-zone: 1
+      
+    iron_sword:
+      material: IRON_SWORD
+      base-damage: [5, 9]
+      base-speed: [1.4, 1.6]
+      min-zone: 3
+      
+    diamond_sword:
+      material: DIAMOND_SWORD
+      base-damage: [7, 12]
+      base-speed: [1.4, 1.7]
+      min-zone: 6
+      
+    netherite_sword:
+      material: NETHERITE_SWORD
+      base-damage: [9, 15]
+      base-speed: [1.5, 1.8]
+      min-zone: 8
+
+  # HACHES
+  axes:
+    wooden_axe:
+      material: WOODEN_AXE
+      base-damage: [5, 8]
+      base-speed: [0.8, 1.0]
+      min-zone: 1
+      
+    stone_axe:
+      material: STONE_AXE
+      base-damage: [7, 11]
+      base-speed: [0.8, 1.0]
+      min-zone: 1
+      
+    iron_axe:
+      material: IRON_AXE
+      base-damage: [8, 14]
+      base-speed: [0.8, 1.1]
+      min-zone: 3
+      
+    diamond_axe:
+      material: DIAMOND_AXE
+      base-damage: [10, 17]
+      base-speed: [0.9, 1.2]
+      min-zone: 6
+      
+    netherite_axe:
+      material: NETHERITE_AXE
+      base-damage: [12, 20]
+      base-speed: [0.9, 1.2]
+      min-zone: 8
+
+  # CASQUES
+  helmets:
+    leather_helmet:
+      material: LEATHER_HELMET
+      base-armor: [1, 2]
+      base-health: [0, 2]
+      min-zone: 1
+      
+    chainmail_helmet:
+      material: CHAINMAIL_HELMET
+      base-armor: [2, 3]
+      base-health: [1, 3]
+      min-zone: 2
+      
+    iron_helmet:
+      material: IRON_HELMET
+      base-armor: [2, 4]
+      base-health: [2, 5]
+      min-zone: 3
+      
+    diamond_helmet:
+      material: DIAMOND_HELMET
+      base-armor: [3, 5]
+      base-health: [3, 8]
+      min-zone: 6
+      
+    netherite_helmet:
+      material: NETHERITE_HELMET
+      base-armor: [4, 6]
+      base-health: [5, 12]
+      min-zone: 8
+
+  # PLASTRONS
+  chestplates:
+    leather_chestplate:
+      material: LEATHER_CHESTPLATE
+      base-armor: [2, 4]
+      base-health: [0, 4]
+      min-zone: 1
+      
+    chainmail_chestplate:
+      material: CHAINMAIL_CHESTPLATE
+      base-armor: [4, 6]
+      base-health: [2, 6]
+      min-zone: 2
+      
+    iron_chestplate:
+      material: IRON_CHESTPLATE
+      base-armor: [5, 8]
+      base-health: [4, 10]
+      min-zone: 3
+      
+    diamond_chestplate:
+      material: DIAMOND_CHESTPLATE
+      base-armor: [7, 10]
+      base-health: [6, 15]
+      min-zone: 6
+      
+    netherite_chestplate:
+      material: NETHERITE_CHESTPLATE
+      base-armor: [8, 12]
+      base-health: [10, 25]
+      min-zone: 8
+
+  # JAMBIÈRES
+  leggings:
+    leather_leggings:
+      material: LEATHER_LEGGINGS
+      base-armor: [1, 3]
+      base-health: [0, 3]
+      min-zone: 1
+      
+    chainmail_leggings:
+      material: CHAINMAIL_LEGGINGS
+      base-armor: [3, 5]
+      base-health: [1, 5]
+      min-zone: 2
+      
+    iron_leggings:
+      material: IRON_LEGGINGS
+      base-armor: [4, 7]
+      base-health: [3, 8]
+      min-zone: 3
+      
+    diamond_leggings:
+      material: DIAMOND_LEGGINGS
+      base-armor: [6, 9]
+      base-health: [5, 12]
+      min-zone: 6
+      
+    netherite_leggings:
+      material: NETHERITE_LEGGINGS
+      base-armor: [7, 10]
+      base-health: [8, 20]
+      min-zone: 8
+
+  # BOTTES
+  boots:
+    leather_boots:
+      material: LEATHER_BOOTS
+      base-armor: [1, 2]
+      base-speed: [0, 0.02]
+      min-zone: 1
+      
+    chainmail_boots:
+      material: CHAINMAIL_BOOTS
+      base-armor: [1, 3]
+      base-speed: [0, 0.03]
+      min-zone: 2
+      
+    iron_boots:
+      material: IRON_BOOTS
+      base-armor: [2, 4]
+      base-speed: [0.01, 0.05]
+      min-zone: 3
+      
+    diamond_boots:
+      material: DIAMOND_BOOTS
+      base-armor: [3, 5]
+      base-speed: [0.02, 0.08]
+      min-zone: 6
+      
+    netherite_boots:
+      material: NETHERITE_BOOTS
+      base-armor: [4, 6]
+      base-speed: [0.03, 0.10]
+      min-zone: 8
+
+# ========================================
+# AFFIXES OFFENSIFS (Armes)
+# ========================================
+offensive-affixes:
+  # Tier 1
+  sharpness:
+    display: "Tranchant"
+    type: damage_percent
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 20
+      5: 30
+    weight: 100
+    
+  vampirism:
+    display: "Vampirisme"
+    type: lifesteal
+    tiers:
+      1: 2
+      2: 4
+      3: 6
+      4: 8
+      5: 12
+    weight: 60
+    
+  execution:
+    display: "Exécution"
+    type: damage_low_hp
+    threshold: 30
+    tiers:
+      1: 15
+      2: 25
+      3: 35
+      4: 50
+      5: 75
+    weight: 50
+    
+  frenzy:
+    display: "Frénésie"
+    type: speed_on_kill
+    max-stacks: 5
+    tiers:
+      1: 2
+      2: 3
+      3: 4
+      4: 5
+      5: 7
+    weight: 40
+    
+  penetration:
+    display: "Pénétration"
+    type: armor_ignore
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 20
+      5: 30
+    weight: 45
+    
+  fire:
+    display: "de Flammes"
+    type: elemental_fire
+    tiers:
+      1: 3
+      2: 6
+      3: 10
+      4: 15
+      5: 25
+    weight: 70
+    
+  ice:
+    display: "de Givre"
+    type: elemental_ice
+    slow-duration: 40
+    tiers:
+      1: 3
+      2: 6
+      3: 10
+      4: 15
+      5: 25
+    weight: 70
+    
+  lightning:
+    display: "de Foudre"
+    type: elemental_lightning
+    chain-chance: 30
+    tiers:
+      1: 3
+      2: 6
+      3: 10
+      4: 15
+      5: 25
+    weight: 60
+    
+  poison:
+    display: "Toxique"
+    type: dot_poison
+    duration: 60
+    tiers:
+      1: 2
+      2: 3
+      3: 4
+      4: 5
+      5: 8
+    weight: 55
+    
+  stun:
+    display: "Étourdissant"
+    type: stun_chance
+    stun-duration: 20
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 18
+    weight: 35
+    
+  bleeding:
+    display: "Saignant"
+    type: dot_bleed
+    duration: 100
+    tiers:
+      1: 1
+      2: 2
+      3: 3
+      4: 4
+      5: 6
+    weight: 50
+    
+  berserk:
+    display: "Berserk"
+    type: damage_per_missing_hp
+    tiers:
+      1: 1
+      2: 2
+      3: 3
+      4: 4
+      5: 6
+    weight: 30
+    
+  slayer:
+    display: "Chasseur"
+    type: damage_vs_type
+    tiers:
+      1: 10
+      2: 15
+      3: 20
+      4: 30
+      5: 50
+    weight: 40
+    
+  critical:
+    display: "Critique"
+    type: crit_chance
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 18
+    weight: 60
+    
+  brutal:
+    display: "Brutal"
+    type: crit_damage
+    tiers:
+      1: 15
+      2: 25
+      3: 35
+      4: 50
+      5: 75
+    weight: 55
+
+# ========================================
+# AFFIXES DÉFENSIFS (Armure)
+# ========================================
+defensive-affixes:
+  fortified:
+    display: "Fortifié"
+    type: armor_percent
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 20
+      5: 30
+    weight: 100
+    
+  vitality:
+    display: "Vitalité"
+    type: health_flat
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 25
+      5: 40
+    weight: 90
+    
+  regeneration:
+    display: "Régénération"
+    type: regen_per_second
+    tiers:
+      1: 0.3
+      2: 0.5
+      3: 0.8
+      4: 1.2
+      5: 2.0
+    weight: 60
+    
+  evasion:
+    display: "Évasion"
+    type: dodge_chance
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 18
+    weight: 45
+    
+  reflection:
+    display: "Réflexion"
+    type: damage_reflect
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 20
+    weight: 35
+    
+  absorption:
+    display: "Absorption"
+    type: damage_reduction
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 18
+    weight: 50
+    
+  fire_resist:
+    display: "Résist. Feu"
+    type: elemental_resist_fire
+    tiers:
+      1: 8
+      2: 15
+      3: 22
+      4: 30
+      5: 45
+    weight: 40
+    
+  ice_resist:
+    display: "Résist. Glace"
+    type: elemental_resist_ice
+    tiers:
+      1: 8
+      2: 15
+      3: 22
+      4: 30
+      5: 45
+    weight: 40
+    
+  lightning_resist:
+    display: "Résist. Foudre"
+    type: elemental_resist_lightning
+    tiers:
+      1: 8
+      2: 15
+      3: 22
+      4: 30
+      5: 45
+    weight: 40
+    
+  poison_resist:
+    display: "Résist. Poison"
+    type: elemental_resist_poison
+    tiers:
+      1: 8
+      2: 15
+      3: 22
+      4: 30
+      5: 45
+    weight: 40
+    
+  thorns:
+    display: "Épines"
+    type: thorns_damage
+    tiers:
+      1: 2
+      2: 4
+      3: 7
+      4: 12
+      5: 20
+    weight: 30
+    
+  survival:
+    display: "Survie"
+    type: healing_received
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 25
+      5: 40
+    weight: 45
+    
+  second_wind:
+    display: "Second Souffle"
+    type: survive_lethal
+    tiers:
+      1: 5
+      2: 8
+      3: 12
+      4: 18
+      5: 25
+    weight: 25
+
+# ========================================
+# AFFIXES UTILITAIRES (Tous items)
+# ========================================
+utility-affixes:
+  velocity:
+    display: "Vélocité"
+    type: movement_speed
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 18
+    weight: 70
+    
+  prosperity:
+    display: "Prospérité"
+    type: points_bonus
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 25
+      5: 40
+    weight: 50
+    
+  luck:
+    display: "Chance"
+    type: loot_luck
+    tiers:
+      1: 3
+      2: 5
+      3: 8
+      4: 12
+      5: 20
+    weight: 40
+    
+  experience:
+    display: "Expérience"
+    type: xp_bonus
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 25
+      5: 40
+    weight: 45
+    
+  durability:
+    display: "Durabilité"
+    type: durability_bonus
+    tiers:
+      1: 20
+      2: 35
+      3: 50
+      4: 75
+      5: 100
+    weight: 60
+    
+  lightweight:
+    display: "Léger"
+    type: stamina_reduction
+    tiers:
+      1: 5
+      2: 10
+      3: 15
+      4: 20
+      5: 30
+    weight: 35
+
+# ========================================
+# SETS D'ÉQUIPEMENTS
+# ========================================
+sets:
+  night_hunter:
+    display-name: "&8Chasseur Nocturne"
+    pieces: ["helmet", "chestplate", "leggings", "boots"]
+    bonuses:
+      2:
+        description: "+15% dégâts de nuit"
+        night-damage-bonus: 15
+      4:
+        description: "Vision nocturne + 25% crit de nuit"
+        night-vision: true
+        night-crit-bonus: 25
+        
+  iron_guardian:
+    display-name: "&7Gardien de Fer"
+    pieces: ["helmet", "chestplate", "leggings", "boots"]
+    bonuses:
+      2:
+        description: "+20% armure"
+        armor-bonus: 20
+      4:
+        description: "-30% dégâts si immobile 2s"
+        stationary-damage-reduction: 30
+        stationary-time: 40
+        
+  wind_walker:
+    display-name: "&fMarcheur du Vent"
+    pieces: ["helmet", "chestplate", "leggings", "boots"]
+    bonuses:
+      2:
+        description: "+15% vitesse"
+        speed-bonus: 15
+      4:
+        description: "Dash (double tap direction)"
+        dash-ability: true
+        dash-cooldown: 60
+        
+  necromancer:
+    display-name: "&5Nécromancien"
+    pieces: ["helmet", "chestplate", "leggings", "boots"]
+    bonuses:
+      2:
+        description: "10% zombie allié au kill"
+        minion-chance: 10
+      4:
+        description: "Jusqu'à 3 zombies alliés"
+        max-minions: 3
+        
+  berserker:
+    display-name: "&4Berserker"
+    pieces: ["helmet", "chestplate", "leggings", "boots"]
+    bonuses:
+      2:
+        description: "+2% dégâts par 1% HP manquant"
+        damage-per-missing-hp: 2
+      4:
+        description: "Immunité stagger sous 30% HP"
+        stagger-immunity-threshold: 30
+
+# ========================================
+# GÉNÉRATION DE NOMS
+# ========================================
+name-generation:
+  prefixes:
+    offensive:
+      - "Vampirique"
+      - "Ardent"
+      - "Glacial"
+      - "Foudroyant"
+      - "Toxique"
+      - "Sanglant"
+      - "Brutal"
+      - "Vicieux"
+      - "Mortel"
+      - "Destructeur"
+      - "Tranchant"
+      - "Perforant"
+      - "Dévastateur"
+      - "Impitoyable"
+      
+    defensive:
+      - "Renforcé"
+      - "Béni"
+      - "Protecteur"
+      - "Gardien"
+      - "Blindé"
+      - "Résilient"
+      - "Inébranlable"
+      - "Éternel"
+      - "Sacré"
+      - "Fortifié"
+      
+  suffixes:
+    elemental:
+      - "de Flammes"
+      - "de Givre"
+      - "de Foudre"
+      - "de Poison"
+      - "de l'Inferno"
+      - "du Blizzard"
+      - "de la Tempête"
+      - "de Corruption"
+      
+    legendary:
+      - "du Crépuscule"
+      - "de l'Apocalypse"
+      - "du Néant"
+      - "de l'Éternité"
+      - "du Chaos"
+      - "de la Destruction"
+      - "du Jugement"
+      - "de l'Oblivion"
+      
+  base-names:
+    swords:
+      - "Épée"
+      - "Lame"
+      - "Glaive"
+      - "Sabre"
+      - "Rapière"
+    axes:
+      - "Hache"
+      - "Cognée"
+      - "Francisque"
+      - "Bardiche"
+    helmets:
+      - "Casque"
+      - "Heaume"
+      - "Chapeau"
+      - "Capuche"
+    chestplates:
+      - "Plastron"
+      - "Cuirasse"
+      - "Armure"
+      - "Tunique"
+    leggings:
+      - "Jambières"
+      - "Pantalon"
+      - "Cuissardes"
+    boots:
+      - "Bottes"
+      - "Chaussures"
+      - "Sandales"
+      - "Grèves"
+
+# ========================================
+# ITEMS SPÉCIAUX (Non-procéduraux)
+# ========================================
+special-items:
+  consumables:
+    bandage:
+      display-name: "&fBandage"
+      description: "Restaure 4 points de vie"
+      material: PAPER
+      heal-amount: 4
+      use-time: 40
+      drop-chance: 5.0
+      
+    medkit:
+      display-name: "&aTrousse de Soins"
+      description: "Restaure 10 points de vie instantanément"
+      material: SHULKER_SHELL
+      heal-amount: 10
+      use-time: 0
+      drop-chance: 1.0
+      
+    antidote:
+      display-name: "&2Antidote"
+      description: "Soigne tous les effets de poison"
+      material: POTION
+      clears-effects: [POISON, WITHER]
+      drop-chance: 2.0
+      
+    stimulant:
+      display-name: "&eStimulant"
+      description: "+20% vitesse pendant 30s"
+      material: SUGAR
+      effect: SPEED
+      effect-level: 1
+      effect-duration: 600
+      drop-chance: 1.5
+      
+    adrenaline:
+      display-name: "&cAdrénaline"
+      description: "+30% dégâts pendant 20s"
+      material: BLAZE_POWDER
+      effect: STRENGTH
+      effect-level: 1
+      effect-duration: 400
+      drop-chance: 0.8
+
+  tools:
+    grappling_hook:
+      display-name: "&6Grappin"
+      description: "Permet de se propulser"
+      material: FISHING_ROD
+      cooldown: 100
+      drop-zone-min: 3
+      drop-chance: 0.1
+      
+    gas_mask:
+      display-name: "&8Masque à Gaz"
+      description: "Immunité aux zones toxiques"
+      material: CARVED_PUMPKIN
+      effect: toxic-immunity
+      drop-zone-min: 5
+      drop-chance: 0.05
+      
+    thermal_coat:
+      display-name: "&bManteau Thermique"
+      description: "Immunité aux zones froides"
+      material: LEATHER_CHESTPLATE
+      effect: cold-immunity
+      drop-zone-min: 7
+      drop-chance: 0.05
+      
+    fire_amulet:
+      display-name: "&6Amulette de Feu"
+      description: "Immunité aux zones de feu"
+      material: FIRE_CHARGE
+      effect: fire-immunity
+      drop-zone-min: 9
+      drop-chance: 0.05

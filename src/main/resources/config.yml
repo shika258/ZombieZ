@@ -1,0 +1,191 @@
+#######################################
+#                                     #
+#   ███████╗ ██████╗ ███╗   ███╗     #
+#   ╚══███╔╝██╔═══██╗████╗ ████║     #
+#     ███╔╝ ██║   ██║██╔████╔██║     #
+#    ███╔╝  ██║   ██║██║╚██╔╝██║     #
+#   ███████╗╚██████╔╝██║ ╚═╝ ██║     #
+#   ╚══════╝ ╚═════╝ ╚═╝     ╚═╝     #
+#                                     #
+#   Configuration Principale v1.0     #
+#   Par Rinaorc Studio                #
+#                                     #
+#######################################
+
+# ========================================
+# PARAMÈTRES SERVEUR
+# ========================================
+server:
+  # Nombre maximum de joueurs attendus (pour optimisation)
+  max-players: 200
+  
+  # Mode debug (logs supplémentaires)
+  debug-mode: false
+  
+  # Langue des messages (fr, en)
+  language: fr
+
+# ========================================
+# BASE DE DONNÉES
+# ========================================
+database:
+  # Type: sqlite ou mysql
+  type: sqlite
+  
+  # Préfixe des tables
+  table-prefix: "zombiez_"
+  
+  # Configuration MySQL (si type: mysql)
+  mysql:
+    host: localhost
+    port: 3306
+    database: zombiez
+    username: root
+    password: ""
+
+# ========================================
+# PERFORMANCE
+# ========================================
+performance:
+  # Intervalle de vérification des zones (en ticks, 20 = 1 seconde)
+  zone-check-interval: 10
+  
+  # Intervalle de sauvegarde automatique (en secondes)
+  auto-save-interval: 300
+  
+  # Intervalle de mise à jour du scoreboard (en ticks)
+  scoreboard-update-interval: 20
+  
+  # Taille du cache joueurs
+  player-cache-size: 250
+  
+  # Durée de rétention du cache récent (en secondes)
+  recent-cache-duration: 300
+
+# ========================================
+# GAMEPLAY
+# ========================================
+gameplay:
+  # Monde de jeu principal
+  game-world: world
+  
+  # Limites de la carte
+  map:
+    min-x: -500
+    max-x: 500
+    min-z: 0
+    max-z: 10000
+  
+  # Point de spawn
+  spawn:
+    world: world
+    x: 0
+    y: 70
+    z: 50
+  
+  # Régénération naturelle désactivée
+  disable-natural-regen: true
+  
+  # Faim accélérée dans les zones nord
+  hunger-multiplier-north: 1.5
+  
+  # Cooldown du /spawn (en secondes)
+  spawn-cooldown: 300
+  
+  # Pénalité de mort (pourcentage de points perdus)
+  death-penalty-percent: 10
+  
+  # Points minimum préservés à la mort
+  death-min-points-preserved: 100
+
+# ========================================
+# ZOMBIES
+# ========================================
+zombies:
+  # Spawn naturel activé
+  natural-spawn: true
+  
+  # Multiplicateur de spawn global
+  spawn-rate-multiplier: 1.0
+  
+  # Distance de spawn autour des joueurs
+  spawn-distance:
+    min: 20
+    max: 40
+  
+  # Despawn si trop loin
+  despawn-distance: 60
+  
+  # Limite de zombies par joueur
+  max-per-player: 15
+  
+  # Limite globale
+  max-global: 500
+
+# ========================================
+# LOOT
+# ========================================
+loot:
+  # Drop naturel des zombies
+  natural-drops: true
+  
+  # Multiplicateur global de drop rate
+  drop-rate-multiplier: 1.0
+  
+  # Chance de base pour chaque rareté (en %)
+  rarity-chances:
+    common: 60.0
+    uncommon: 25.0
+    rare: 10.0
+    epic: 4.0
+    legendary: 0.9
+    mythic: 0.1
+    exalted: 0.01
+
+# ========================================
+# EFFETS VISUELS
+# ========================================
+effects:
+  # Particules pour le loot
+  loot-particles: true
+  
+  # Beam de lumière pour items rares+
+  loot-beam: true
+  
+  # Sons de drop
+  loot-sounds: true
+  
+  # Titre lors du changement de zone
+  zone-title: true
+  
+  # Action bar permanente
+  action-bar: true
+
+# ========================================
+# MESSAGES
+# ========================================
+messages:
+  # Préfixe des messages
+  prefix: "&6&lZombieZ &8» &7"
+  
+  # Messages de connexion/déconnexion personnalisés
+  custom-join-leave: true
+  
+  # Annonces de kill streak
+  killstreak-announcements: true
+  
+  # Intervalle d'annonce (tous les X kills)
+  killstreak-interval: 10
+
+# ========================================
+# INTÉGRATIONS
+# ========================================
+integrations:
+  # PlaceholderAPI
+  placeholderapi: true
+  
+  # Vault (économie externe)
+  vault: false
+  
+  # Citizens (PNJs)
+  citizens: true

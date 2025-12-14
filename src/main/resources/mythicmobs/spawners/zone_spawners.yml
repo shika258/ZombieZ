@@ -1,0 +1,262 @@
+# ============================================
+# ZOMBIEZ - SPAWNERS PAR ZONE
+# Configuration des points de spawn
+# Note: Les spawners sont créés dynamiquement par le plugin
+# Ce fichier sert de référence pour les configurations
+# ============================================
+
+# ==================== ZONE 1 - VILLAGE ====================
+ZZ_Spawner_Zone1:
+  MobType: ZZ_Walker
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 15
+  MobsPerSpawn: 3
+  Cooldown: 30
+  CooldownTimer: 0
+  Warmup: 5
+  WarmupTimer: 0
+  CheckForPlayers: true
+  ActivationRange: 40
+  LeashRange: 64
+  HeightLimit: 10
+  SpawnConditions:
+    - outside
+    - night 0.3
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone1_Variants:
+  MobType: ZZ_Crawler
+  World: world
+  SpawnRadius: 25
+  MaxMobs: 10
+  MobsPerSpawn: 2
+  Cooldown: 45
+  CheckForPlayers: true
+  ActivationRange: 40
+  Conditions:
+    - chance 0.4
+
+# ==================== ZONE 2 - PLAINES ====================
+ZZ_Spawner_Zone2:
+  MobType: ZZ_Walker,ZZ_Runner
+  World: world
+  SpawnRadius: 35
+  MaxMobs: 20
+  MobsPerSpawn: 4
+  Cooldown: 25
+  CheckForPlayers: true
+  ActivationRange: 45
+  LeashRange: 64
+  MobLevel: "1+<caster.z>/200"
+  
+# ==================== ZONE 3 - DÉSERT ====================
+ZZ_Spawner_Zone3:
+  MobType: ZZ_Walker_Desert,ZZ_Mummy,ZZ_Crawler
+  World: world
+  SpawnRadius: 40
+  MaxMobs: 20
+  MobsPerSpawn: 4
+  Cooldown: 25
+  CheckForPlayers: true
+  ActivationRange: 50
+  SpawnConditions:
+    - outside
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone3_Elite:
+  MobType: ZZ_Armored
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 5
+  MobsPerSpawn: 1
+  Cooldown: 120
+  CheckForPlayers: true
+  ActivationRange: 50
+  Conditions:
+    - chance 0.3
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 4 - FORÊT SOMBRE ====================
+ZZ_Spawner_Zone4:
+  MobType: ZZ_Shadow,ZZ_Lurker,ZZ_Screamer
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 18
+  MobsPerSpawn: 3
+  Cooldown: 30
+  CheckForPlayers: true
+  ActivationRange: 40
+  SpawnConditions:
+    - night 0.5
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone4_Elite:
+  MobType: ZZ_Spitter,ZZ_Armored
+  World: world
+  SpawnRadius: 25
+  MaxMobs: 6
+  MobsPerSpawn: 1
+  Cooldown: 90
+  CheckForPlayers: true
+  ActivationRange: 45
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 5 - MARÉCAGES ====================
+ZZ_Spawner_Zone5:
+  MobType: ZZ_Bloater,ZZ_Toxic,ZZ_Drowner
+  World: world
+  SpawnRadius: 35
+  MaxMobs: 20
+  MobsPerSpawn: 4
+  Cooldown: 25
+  CheckForPlayers: true
+  ActivationRange: 45
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone5_Elite:
+  MobType: ZZ_Berserker,ZZ_Necromancer
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 4
+  MobsPerSpawn: 1
+  Cooldown: 120
+  CheckForPlayers: true
+  ActivationRange: 50
+  Conditions:
+    - chance 0.25
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 6 - PVP ARENA ====================
+ZZ_Spawner_Zone6:
+  MobType: ZZ_Runner,ZZ_Berserker,ZZ_Explosive
+  World: world
+  SpawnRadius: 40
+  MaxMobs: 25
+  MobsPerSpawn: 5
+  Cooldown: 20
+  CheckForPlayers: true
+  ActivationRange: 50
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 7 - MONTAGNES ====================
+ZZ_Spawner_Zone7:
+  MobType: ZZ_Climber,ZZ_Giant,ZZ_Berserker
+  World: world
+  SpawnRadius: 35
+  MaxMobs: 15
+  MobsPerSpawn: 3
+  Cooldown: 35
+  CheckForPlayers: true
+  ActivationRange: 50
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone7_Elite:
+  MobType: ZZ_Colossus,ZZ_Ravager
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 3
+  MobsPerSpawn: 1
+  Cooldown: 180
+  CheckForPlayers: true
+  ActivationRange: 60
+  Conditions:
+    - chance 0.2
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 8 - TOUNDRA ====================
+ZZ_Spawner_Zone8:
+  MobType: ZZ_Frozen,ZZ_Yeti,ZZ_Wendigo
+  World: world
+  SpawnRadius: 35
+  MaxMobs: 18
+  MobsPerSpawn: 3
+  Cooldown: 30
+  CheckForPlayers: true
+  ActivationRange: 50
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone8_Elite:
+  MobType: ZZ_Spectre,ZZ_Colossus
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 4
+  MobsPerSpawn: 1
+  Cooldown: 150
+  CheckForPlayers: true
+  ActivationRange: 55
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 9 - TERRES CORROMPUES ====================
+ZZ_Spawner_Zone9:
+  MobType: ZZ_Mutant,ZZ_Creaking,ZZ_Spectre
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 15
+  MobsPerSpawn: 3
+  Cooldown: 35
+  CheckForPlayers: true
+  ActivationRange: 50
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone9_Elite:
+  MobType: ZZ_CorruptedWarden,ZZ_Ravager
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 2
+  MobsPerSpawn: 1
+  Cooldown: 300
+  CheckForPlayers: true
+  ActivationRange: 60
+  Conditions:
+    - chance 0.15
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 10 - ENFER ====================
+ZZ_Spawner_Zone10:
+  MobType: ZZ_Demon,ZZ_Infernal,ZZ_Archon
+  World: world
+  SpawnRadius: 30
+  MaxMobs: 15
+  MobsPerSpawn: 3
+  Cooldown: 30
+  CheckForPlayers: true
+  ActivationRange: 50
+  MobLevel: "1+<caster.z>/200"
+  
+ZZ_Spawner_Zone10_Elite:
+  MobType: ZZ_Archon,ZZ_CorruptedWarden
+  World: world
+  SpawnRadius: 25
+  MaxMobs: 3
+  MobsPerSpawn: 1
+  Cooldown: 240
+  CheckForPlayers: true
+  ActivationRange: 60
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== ZONE 11 - CITADELLE FINALE ====================
+ZZ_Spawner_Zone11:
+  MobType: ZZ_Demon,ZZ_Archon,ZZ_CorruptedWarden
+  World: world
+  SpawnRadius: 25
+  MaxMobs: 10
+  MobsPerSpawn: 2
+  Cooldown: 45
+  CheckForPlayers: true
+  ActivationRange: 60
+  MobLevel: "1+<caster.z>/200"
+
+# ==================== MINI-BOSS SPAWNERS ====================
+ZZ_Spawner_MiniBoss:
+  MobType: ZZ_Butcher,ZZ_Widow,ZZ_TheGiant,ZZ_ThePhantom
+  World: world
+  SpawnRadius: 10
+  MaxMobs: 1
+  MobsPerSpawn: 1
+  Cooldown: 1800
+  CheckForPlayers: true
+  ActivationRange: 80
+  Conditions:
+    - chance 0.1
+  MobLevel: "1+<caster.z>/100"

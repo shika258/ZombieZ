@@ -1,0 +1,228 @@
+# ============================================
+# ZOMBIEZ - SKILLS COMMUNS
+# Compétences partagées par plusieurs zombies
+# ============================================
+
+# ==================== SONS & EFFETS ====================
+
+ZZ_Groan:
+  Skills:
+    - sound{s=entity.zombie.ambient;v=1;p=0.8} @self
+
+ZZ_ChargeRoar:
+  Skills:
+    - sound{s=entity.ravager.roar;v=1.5;p=1.2} @self
+    - effect:particles{particle=CRIT;amount=30;hS=0.5;vS=0.5} @self
+
+# ==================== ATTAQUES DE BASE ====================
+
+ZZ_SlowAttack:
+  Skills:
+    - damage{amount=2;ignorearmor=true} @target
+    - potion{type=SLOWNESS;duration=40;level=0} @target
+
+ZZ_Lunge:
+  Skills:
+    - leap{v=0.6;h=0.4} @target
+    - damage{amount=3} @target
+    - sound{s=entity.phantom.swoop;v=1;p=1.2} @self
+
+ZZ_Sprint:
+  Skills:
+    - potion{type=SPEED;duration=60;level=1} @self
+    - effect:particles{particle=CLOUD;amount=10;hS=0.3;vS=0.1} @self
+
+# ==================== MORT & EXPLOSION ====================
+
+ZZ_DeathBurst:
+  Skills:
+    - explosion{yield=1;fire=false;blockdamage=false} @self
+    - damage{amount=8} @PlayersInRadius{r=4}
+    - effect:particles{particle=EXPLOSION_LARGE;amount=5} @self
+
+ZZ_Explode:
+  Skills:
+    - explosion{yield=2;fire=false;blockdamage=false} @self
+    - damage{amount=15} @PlayersInRadius{r=5}
+    - potion{type=SLOWNESS;duration=60;level=1} @PlayersInRadius{r=5}
+    - effect:particles{particle=EXPLOSION_HUGE;amount=1} @self
+    - sound{s=entity.generic.explode;v=2;p=0.8} @self
+
+ZZ_BigExplosion:
+  Skills:
+    - explosion{yield=3;fire=true;blockdamage=false} @self
+    - damage{amount=25} @PlayersInRadius{r=6}
+    - potion{type=WITHER;duration=60;level=0} @PlayersInRadius{r=6}
+    - effect:particles{particle=EXPLOSION_HUGE;amount=3} @self
+    - sound{s=entity.generic.explode;v=3;p=0.6} @self
+
+ZZ_ExplosiveWarn:
+  Skills:
+    - effect:particles{particle=SMOKE_LARGE;amount=20;hS=0.3;vS=0.5} @self
+    - sound{s=entity.creeper.primed;v=1;p=1.5} @self
+
+# ==================== ACIDE & POISON ====================
+
+ZZ_AcidSpit:
+  Skills:
+    - projectile{type=LLAMA_SPIT;damage=6;velocity=1.2;interval=1;gravity=0.1;onTick=ZZ_AcidTrail} @target
+    - sound{s=entity.llama.spit;v=1;p=0.6} @self
+
+ZZ_AcidTrail:
+  Skills:
+    - effect:particles{particle=SLIME;amount=3;hS=0.1;vS=0.1} @origin
+
+ZZ_AcidPool:
+  Skills:
+    - effect:particles{particle=SLIME;amount=50;hS=2;vS=0.1} @self
+    - aura{auraname=acidpool;duration=100;interval=20;onTick=ZZ_AcidPoolTick} @self
+
+ZZ_AcidPoolTick:
+  Skills:
+    - damage{amount=3} @PlayersInRadius{r=3}
+    - potion{type=POISON;duration=40;level=0} @PlayersInRadius{r=3}
+
+ZZ_ToxicAura:
+  Skills:
+    - aura{auraname=toxic;duration=9999;interval=40;onTick=ZZ_ToxicTick} @self
+    - effect:particles{particle=SPELL_MOB;amount=10;hS=1;vS=1;color=#00FF00} @self
+
+ZZ_ToxicTick:
+  Skills:
+    - effect:particles{particle=SPELL_MOB;amount=5;hS=0.5;vS=0.5;color=#00FF00} @self
+    - potion{type=POISON;duration=30;level=0} @PlayersInRadius{r=3}
+
+ZZ_ToxicCloud:
+  Skills:
+    - effect:particles{particle=SNEEZE;amount=100;hS=3;vS=1} @self
+    - potion{type=POISON;duration=100;level=1} @PlayersInRadius{r=4}
+    - potion{type=NAUSEA;duration=100;level=0} @PlayersInRadius{r=4}
+
+# ==================== HURLEMENTS & PEUR ====================
+
+ZZ_Scream:
+  Skills:
+    - sound{s=entity.ghast.scream;v=2;p=1.5} @self
+    - effect:particles{particle=SONIC_BOOM;amount=1} @self
+    - potion{type=SLOWNESS;duration=40;level=1} @PlayersInRadius{r=10}
+
+ZZ_CallHorde:
+  Skills:
+    - message{msg="&c&l⚠ Le hurleur appelle des renforts!"} @PlayersInRadius{r=20}
+    - summon{type=ZZ_Walker;amount=3;radius=5} @self
+    - sound{s=entity.zombie.ambient;v=3;p=0.5} @self
+
+ZZ_FearAura:
+  Skills:
+    - potion{type=SLOWNESS;duration=40;level=0} @target
+    - potion{type=WEAKNESS;duration=40;level=0} @target
+    - effect:particles{particle=SQUID_INK;amount=20;hS=0.5;vS=0.5} @target
+
+# ==================== FURTIVITÉ ====================
+
+ZZ_Stealth:
+  Skills:
+    - potion{type=INVISIBILITY;duration=9999;level=0} @self
+    - effect:particles{particle=SMOKE_NORMAL;amount=20;hS=0.3;vS=0.3} @self
+
+ZZ_Ambush:
+  Skills:
+    - potion{type=INVISIBILITY;duration=0;level=0} @self
+    - damage{amount=10;ignorearmor=true} @target
+    - potion{type=BLINDNESS;duration=40;level=0} @target
+    - sound{s=entity.player.attack.crit;v=1;p=0.8} @self
+    - effect:particles{particle=CRIT_MAGIC;amount=30;hS=0.3;vS=0.3} @target
+
+# ==================== OMBRE ====================
+
+ZZ_ShadowStep:
+  Skills:
+    - teleport @target
+    - damage{amount=5} @target
+    - effect:particles{particle=PORTAL;amount=50;hS=0.5;vS=1} @self
+    - sound{s=entity.enderman.teleport;v=1;p=1.2} @self
+
+ZZ_DarknessAura:
+  Skills:
+    - aura{auraname=darkness;duration=9999;interval=60;onTick=ZZ_DarknessTick} @self
+
+ZZ_DarknessTick:
+  Skills:
+    - potion{type=DARKNESS;duration=80;level=0} @PlayersInRadius{r=8}
+    - effect:particles{particle=SQUID_INK;amount=10;hS=3;vS=1} @self
+
+# ==================== DÉSERT ====================
+
+ZZ_SandBlind:
+  Skills:
+    - potion{type=BLINDNESS;duration=60;level=0} @target
+    - effect:particles{particle=BLOCK_CRACK;amount=50;hS=1;vS=1;material=SAND} @target
+    - sound{s=block.sand.break;v=1;p=0.8} @self
+
+# ==================== GLACE ====================
+
+ZZ_FrostAura:
+  Skills:
+    - aura{auraname=frost;duration=9999;interval=40;onTick=ZZ_FrostTick} @self
+    - effect:particles{particle=SNOWFLAKE;amount=20;hS=2;vS=1} @self
+
+ZZ_FrostTick:
+  Skills:
+    - effect:particles{particle=SNOWFLAKE;amount=5;hS=1;vS=0.5} @self
+    - potion{type=SLOWNESS;duration=40;level=0} @PlayersInRadius{r=4}
+
+ZZ_IceSpike:
+  Skills:
+    - projectile{type=SNOWBALL;damage=8;velocity=1.5} @target
+    - potion{type=SLOWNESS;duration=60;level=1} @target
+    - effect:particles{particle=SNOWFLAKE;amount=20;hS=0.3;vS=0.3} @target
+    - sound{s=block.glass.break;v=1;p=1.5} @self
+
+ZZ_FreezeBlast:
+  Skills:
+    - effect:particles{particle=SNOWFLAKE;amount=100;hS=4;vS=2} @self
+    - potion{type=SLOWNESS;duration=100;level=2} @PlayersInRadius{r=5}
+    - damage{amount=10} @PlayersInRadius{r=5}
+    - sound{s=entity.player.hurt_freeze;v=2;p=0.5} @self
+
+# ==================== FEU ====================
+
+ZZ_FireBreath:
+  Skills:
+    - projectile{type=SMALL_FIREBALL;damage=10;velocity=1;interval=1;onTick=ZZ_FireTrail} @target
+    - sound{s=entity.blaze.shoot;v=1;p=0.8} @self
+
+ZZ_FireTrail:
+  Skills:
+    - effect:particles{particle=FLAME;amount=5;hS=0.2;vS=0.2} @origin
+
+ZZ_InfernalAura:
+  Skills:
+    - aura{auraname=infernal;duration=9999;interval=40;onTick=ZZ_InfernalTick} @self
+    - effect:particles{particle=FLAME;amount=20;hS=1;vS=1} @self
+
+ZZ_InfernalTick:
+  Skills:
+    - effect:particles{particle=FLAME;amount=10;hS=0.5;vS=0.5} @self
+    - damage{amount=2} @PlayersInRadius{r=3}
+    - ignite{ticks=40} @PlayersInRadius{r=3}
+
+ZZ_LavaPool:
+  Skills:
+    - effect:particles{particle=LAVA;amount=50;hS=3;vS=0.5} @self
+    - damage{amount=15} @PlayersInRadius{r=3}
+    - ignite{ticks=100} @PlayersInRadius{r=3}
+
+# ==================== BERSERKER ====================
+
+ZZ_BerserkRage:
+  Skills:
+    - potion{type=STRENGTH;duration=100;level=1} @self
+    - potion{type=SPEED;duration=100;level=1} @self
+    - effect:particles{particle=VILLAGER_ANGRY;amount=10;hS=0.5;vS=0.5} @self
+    - sound{s=entity.ravager.roar;v=1;p=1} @self
+
+ZZ_Frenzy:
+  Skills:
+    - modifystat{stat=ATTACK_SPEED;amount=50%;mode=MULTIPLY;duration=100} @self
+    - effect:particles{particle=CRIT;amount=20;hS=0.3;vS=0.3} @self

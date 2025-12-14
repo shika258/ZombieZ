@@ -1,0 +1,241 @@
+# ============================================
+# ZOMBIEZ - ZOMBIES TIER 3
+# Zones 5-8 (Marécages, PvP, Montagnes, Toundra)
+# Zombies élites avec mécaniques avancées
+# ============================================
+
+# ==================== BERSERKER ====================
+# Zombie enragé - Plus dangereux quand blessé
+ZZ_Berserker:
+  Type: ZOMBIE
+  Display: '&c🔥 Berserker'
+  Health: 60
+  Damage: 8
+  Armor: 4
+  Options:
+    MovementSpeed: 0.24
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+    KnockbackResistance: 0.3
+  AIGoalSelectors:
+    - clear
+    - meleeattack
+    - randomstroll
+  AITargetSelectors:
+    - clear
+    - players
+  Drops:
+    - zombiez_tier3 1 1
+  LevelModifiers:
+    - Health 10 ADD
+    - Damage 2 ADD
+    - Armor 0.5 ADD
+  Skills:
+    - skill:ZZ_BerserkRage ~onDamaged 0.3
+    - skill:ZZ_Frenzy ~onTimer:120 0.4
+    - modifystat{stat=DAMAGE;amount=50%;mode=MULTIPLY} @self ~onHealth{h=<30%} 1
+
+# ==================== NECROMANCER ====================
+# Zombie nécromancien - Invoque des morts
+ZZ_Necromancer:
+  Type: ZOMBIE
+  Display: '&5☠ Nécromancien'
+  Health: 45
+  Damage: 5
+  Armor: 3
+  Options:
+    MovementSpeed: 0.16
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+    FollowRange: 16
+  Equipment:
+    - NETHERITE_HOE HAND
+  AIGoalSelectors:
+    - clear
+    - fleeplayers
+    - randomstroll
+  AITargetSelectors:
+    - clear
+    - players
+  Drops:
+    - zombiez_tier3 1 1
+  LevelModifiers:
+    - Health 8 ADD
+    - Damage 1 ADD
+  Skills:
+    - skill:ZZ_SummonUndead ~onTimer:150 0.6
+    - skill:ZZ_LifeDrain @target ~onTimer:80 0.5
+    - skill:ZZ_DeathBolt @target ~onTimer:60 0.4
+    - skill:ZZ_UndeadShield ~onDamaged 0.2
+
+# ==================== EXPLOSIVE ====================
+# Zombie explosif - Kamikaze dangereux
+ZZ_Explosive:
+  Type: ZOMBIE
+  Display: '&c💥 Explosif'
+  Health: 35
+  Damage: 3
+  Armor: 1
+  Options:
+    MovementSpeed: 0.30
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+  AIGoalSelectors:
+    - clear
+    - meleeattack
+  AITargetSelectors:
+    - clear
+    - players
+  Drops:
+    - zombiez_tier3 1 1
+  LevelModifiers:
+    - Health 5 ADD
+  Skills:
+    - skill:ZZ_ExplosiveWarn ~onTimer:20 1
+    - skill:ZZ_BigExplosion ~onDeath 1
+    - skill:ZZ_SuicideRun @target ~onTargetChange 1
+
+# ==================== GIANT ====================
+# Zombie géant - Très lent mais dévastateur
+ZZ_Giant:
+  Type: ZOMBIE
+  Display: '&6🦴 Géant'
+  Health: 120
+  Damage: 15
+  Armor: 8
+  Options:
+    MovementSpeed: 0.10
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 1.0
+  AIGoalSelectors:
+    - clear
+    - meleeattack
+    - randomstroll
+  AITargetSelectors:
+    - clear
+    - players
+  Drops:
+    - zombiez_tier3 1 1
+    - zombiez_tier3 1 0.5
+  LevelModifiers:
+    - Health 20 ADD
+    - Damage 3 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_GroundSlam ~onTimer:100 0.6
+    - skill:ZZ_BoulderThrow @target ~onTimer:150 0.4
+    - skill:ZZ_Stomp ~onAttack 0.5
+
+# ==================== CLIMBER ====================
+# Zombie grimpeur - Montagnes
+ZZ_Climber:
+  Type: ZOMBIE
+  Display: '&7🧗 Grimpeur'
+  Health: 40
+  Damage: 7
+  Armor: 3
+  Options:
+    MovementSpeed: 0.28
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+  Drops:
+    - zombiez_tier3 1 1
+  LevelModifiers:
+    - Health 7 ADD
+    - Damage 1.5 ADD
+  Skills:
+    - skill:ZZ_WallJump ~onTimer:60 0.5
+    - skill:ZZ_Pounce @target ~onTimer:80 0.4
+    - skill:ZZ_ClimbAttack @target ~onAttack 0.3
+
+# ==================== FROZEN ====================
+# Zombie gelé - Toundra
+ZZ_Frozen:
+  Type: ZOMBIE
+  Display: '&b❄ Gelé'
+  Health: 50
+  Damage: 6
+  Armor: 6
+  Options:
+    MovementSpeed: 0.16
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: false
+  Drops:
+    - zombiez_tier3 1 1
+  DamageModifiers:
+    - FIRE 2.0
+    - FREEZE 0.0
+  LevelModifiers:
+    - Health 8 ADD
+    - Damage 1 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_FrostAura ~onSpawn 1
+    - potion{type=SLOWNESS;duration=80;level=1} @target ~onAttack 0.5
+    - skill:ZZ_IceSpike @target ~onTimer:100 0.4
+    - skill:ZZ_FreezeBlast ~onDeath 1
+
+# ==================== YETI ====================
+# Abominable créature des neiges
+ZZ_Yeti:
+  Type: ZOMBIE
+  Display: '&f☃ Yéti'
+  Health: 80
+  Damage: 12
+  Armor: 7
+  Options:
+    MovementSpeed: 0.22
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    KnockbackResistance: 0.6
+  Equipment:
+    - WHITE_WOOL HEAD
+  Drops:
+    - zombiez_tier3 1 1
+    - zombiez_tier3 1 0.4
+  DamageModifiers:
+    - FIRE 2.0
+    - FREEZE 0.0
+  LevelModifiers:
+    - Health 15 ADD
+    - Damage 2 ADD
+    - Armor 1 ADD
+  Skills:
+    - skill:ZZ_YetiRoar ~onTargetChange 1
+    - skill:ZZ_IcePound ~onAttack 0.4
+    - skill:ZZ_Blizzard ~onTimer:200 0.5
+    - skill:ZZ_ThrowIce @target ~onTimer:80 0.6
+
+# ==================== WENDIGO ====================
+# Créature cauchemardesque
+ZZ_Wendigo:
+  Type: ZOMBIE
+  Display: '&4👹 Wendigo'
+  Health: 70
+  Damage: 14
+  Armor: 4
+  Options:
+    MovementSpeed: 0.32
+    PreventOtherDrops: true
+    PreventSunburn: true
+    AlwaysShowName: true
+    Silent: true
+  Drops:
+    - zombiez_tier3 1 1
+    - zombiez_tier3 1 0.5
+  LevelModifiers:
+    - Health 12 ADD
+    - Damage 2.5 ADD
+  Skills:
+    - skill:ZZ_WendigoHowl ~onTargetChange 1
+    - skill:ZZ_Devour @target ~onAttack 0.2
+    - skill:ZZ_ShadowDash @target ~onTimer:60 0.5
+    - potion{type=DARKNESS;duration=100;level=0} @PlayersInRadius{r=10} ~onTimer:150 0.4
