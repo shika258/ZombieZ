@@ -77,21 +77,25 @@ public class Zone {
 
     /**
      * Obtient le niveau de zombie basé sur la position Z dans la zone
+     * IMPORTANT: La progression va de Z élevé (début) vers Z faible (fin)
      */
     public int getZombieLevelAt(int z) {
         if (!containsZ(z)) return minZombieLevel;
-        
+
         // Interpolation linéaire entre min et max
-        double progress = (double) (z - minZ) / (maxZ - minZ);
+        // Plus le Z est faible (nord), plus le niveau est élevé
+        double progress = (double) (maxZ - z) / (maxZ - minZ);
         return minZombieLevel + (int) (progress * (maxZombieLevel - minZombieLevel));
     }
 
     /**
      * Obtient le pourcentage de progression dans la zone
+     * IMPORTANT: La progression va de Z élevé (0%) vers Z faible (100%)
      */
     public double getProgressPercent(int z) {
         if (!containsZ(z)) return z < minZ ? 0 : 100;
-        return (double) (z - minZ) / (maxZ - minZ) * 100;
+        // Plus le Z est faible (nord), plus la progression est élevée
+        return (double) (maxZ - z) / (maxZ - minZ) * 100;
     }
 
     /**

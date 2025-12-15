@@ -50,13 +50,13 @@ public class RefugeCommand implements CommandExecutor {
         Zone nearestSouth = findNearestRefugeSouth(playerZ);
 
         if (nearestNorth != null) {
-            int distance = nearestNorth.getMinZ() - playerZ;
+            int distance = playerZ - nearestNorth.getMaxZ();
             player.sendMessage("  §a↑ Nord: " + nearestNorth.getColoredName());
             player.sendMessage("    §7Distance: §e" + distance + " blocs");
         }
 
         if (nearestSouth != null && nearestSouth != nearestNorth) {
-            int distance = playerZ - nearestSouth.getMaxZ();
+            int distance = nearestSouth.getMinZ() - playerZ;
             player.sendMessage("  §c↓ Sud: " + nearestSouth.getColoredName());
             player.sendMessage("    §7Distance: §e" + distance + " blocs");
         }
@@ -75,23 +75,24 @@ public class RefugeCommand implements CommandExecutor {
 
         // Envoyer la direction via la boussole (si possible)
         if (nearestNorth != null) {
-            MessageUtils.sendActionBar(player, "§a↑ Refuge le plus proche: §e" + 
-                (nearestNorth.getMinZ() - playerZ) + " §ablocs au nord");
+            MessageUtils.sendActionBar(player, "§a↑ Refuge le plus proche: §e" +
+                (playerZ - nearestNorth.getMaxZ()) + " §ablocs au nord");
         }
 
         return true;
     }
 
     /**
-     * Trouve le refuge le plus proche vers le nord
+     * Trouve le refuge le plus proche vers le nord (Z décroissant)
      */
     private Zone findNearestRefugeNorth(int currentZ) {
         Zone nearest = null;
         int nearestDistance = Integer.MAX_VALUE;
 
         for (Zone zone : plugin.getZoneManager().getAllZones()) {
-            if (zone.getRefugeId() > 0 && zone.getMinZ() > currentZ) {
-                int distance = zone.getMinZ() - currentZ;
+            // Nord = Z plus faible
+            if (zone.getRefugeId() > 0 && zone.getMaxZ() < currentZ) {
+                int distance = currentZ - zone.getMaxZ();
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearest = zone;
@@ -103,15 +104,16 @@ public class RefugeCommand implements CommandExecutor {
     }
 
     /**
-     * Trouve le refuge le plus proche vers le sud
+     * Trouve le refuge le plus proche vers le sud (Z croissant)
      */
     private Zone findNearestRefugeSouth(int currentZ) {
         Zone nearest = null;
         int nearestDistance = Integer.MAX_VALUE;
 
         for (Zone zone : plugin.getZoneManager().getAllZones()) {
-            if (zone.getRefugeId() > 0 && zone.getMaxZ() < currentZ) {
-                int distance = currentZ - zone.getMaxZ();
+            // Sud = Z plus élevé
+            if (zone.getRefugeId() > 0 && zone.getMinZ() > currentZ) {
+                int distance = zone.getMinZ() - currentZ;
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearest = zone;
