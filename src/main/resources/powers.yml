@@ -1,0 +1,364 @@
+# =====================================
+# ZOMBIEZ - SYSTÈME DE POUVOIRS
+# =====================================
+# Configuration du système d'Item Level et de Pouvoirs
+#
+# Ce système permet d'ajouter des pouvoirs procéduraux
+# sur les objets générés, avec scaling basé sur l'Item Level.
+#
+# Inspiré du système de World of Warcraft
+
+# =====================================
+# CONFIGURATION GLOBALE
+# =====================================
+
+# Active ou désactive complètement le système de pouvoirs
+enabled: true
+
+# =====================================
+# SYSTÈME ITEM LEVEL (ILVL)
+# =====================================
+
+item-level:
+  # ILVL de base par niveau de zone
+  # Ex: Zone 1 = ILVL 10, Zone 5 = ILVL 50
+  base-ilvl-per-zone: 10
+
+  # ILVL maximum atteignable
+  max-ilvl: 100
+
+  # Plages d'Item Level par rareté
+  # Format: min (ILVL minimum) / max (ILVL maximum)
+  rarity-ranges:
+    common:
+      min: 1
+      max: 20
+
+    uncommon:
+      min: 10
+      max: 35
+
+    rare:
+      min: 15
+      max: 40
+
+    epic:
+      min: 35
+      max: 70
+
+    legendary:
+      min: 50
+      max: 100
+
+    mythic:
+      min: 70
+      max: 100
+
+    exalted:
+      min: 85
+      max: 100
+
+# =====================================
+# CHANCES D'OBTENIR UN POUVOIR
+# =====================================
+
+# Chance qu'un item de chaque rareté ait un pouvoir
+# Format: 0.0 = 0%, 1.0 = 100%
+power-chances:
+  common: 0.0        # Commun: 0% - Pas de pouvoir
+  uncommon: 0.05     # Peu Commun: 5%
+  rare: 0.15         # Rare: 15%
+  epic: 0.35         # Épique: 35%
+  legendary: 0.60    # Légendaire: 60%
+  mythic: 0.85       # Mythique: 85%
+  exalted: 1.0       # Exalted: 100% - Toujours un pouvoir
+
+# =====================================
+# CONFIGURATION DES POUVOIRS
+# =====================================
+
+powers:
+
+  # ─────────────────────────────────
+  # ROULADE PANDA
+  # ─────────────────────────────────
+  panda_roll:
+    # Activer/désactiver ce pouvoir spécifique
+    enabled: true
+
+    # Chance de déclenchement (0.0 à 1.0)
+    # 0.15 = 15% de chance par coup
+    proc-chance: 0.15
+
+    # Cooldown en secondes
+    cooldown: 12
+
+    # Rareté minimum pour obtenir ce pouvoir
+    # Valeurs possibles: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, EXALTED
+    minimum-rarity: RARE
+
+    # Dégâts de base (avant scaling ILVL)
+    base-damage: 5.0
+
+    # Scaling des dégâts par ILVL
+    # Formule: base-damage + (ILVL * damage-per-ilvl)
+    # Ex: ILVL 50 = 5.0 + (50 * 0.5) = 30.0 dégâts
+    damage-per-ilvl: 0.5
+
+    # Rayon AOE de base en blocs
+    base-radius: 3.0
+
+    # Scaling du rayon par ILVL
+    # Ex: ILVL 50 = 3.0 + (50 * 0.02) = 4.0 blocs
+    radius-per-ilvl: 0.02
+
+    # Durée de base en ticks (20 ticks = 1 seconde)
+    base-duration-ticks: 100
+
+    # Scaling de la durée par ILVL
+    # Ex: ILVL 50 = 100 + (50 * 0.5) = 125 ticks = 6.25s
+    duration-per-ilvl: 0.5
+
+    # Notes:
+    # - Le panda inflige des dégâts AOE en roulant
+    # - Knockback appliqué aux ennemis touchés
+    # - Effets visuels et sonores inclus
+
+  # ─────────────────────────────────
+  # ESSAIM D'ABEILLES
+  # ─────────────────────────────────
+  bee_swarm:
+    # Activer/désactiver ce pouvoir spécifique
+    enabled: true
+
+    # Chance de déclenchement (0.0 à 1.0)
+    proc-chance: 0.12
+
+    # Cooldown en secondes
+    cooldown: 15
+
+    # Rareté minimum
+    minimum-rarity: RARE
+
+    # Dégâts par abeille (avant scaling)
+    base-damage-per-bee: 2.0
+
+    # Scaling des dégâts par ILVL
+    # Ex: ILVL 50 = 2.0 + (50 * 0.2) = 12.0 dégâts par abeille
+    damage-per-ilvl: 0.2
+
+    # Nombre d'abeilles de base
+    base-bee-count: 3
+
+    # Scaling du nombre d'abeilles par ILVL
+    # Ex: ILVL 50 = 3 + (50 * 0.04) = 5 abeilles
+    bee-count-per-ilvl: 0.04
+
+    # Durée de base en ticks
+    base-duration-ticks: 80
+
+    # Scaling de la durée par ILVL
+    # Ex: ILVL 50 = 80 + (50 * 0.67) = 113 ticks = 5.65s
+    duration-per-ilvl: 0.67
+
+    # Notes:
+    # - Les abeilles ciblent automatiquement les ennemis proches
+    # - Applique Poison I pendant 2 secondes
+    # - Inflige des dégâts périodiques toutes les 0.5s
+    # - Recherche une nouvelle cible toutes les secondes
+
+  # ─────────────────────────────────
+  # FRAPPE FOUDROYANTE ⚡
+  # ─────────────────────────────────
+  lightning_strike:
+    enabled: true
+    proc-chance: 0.10        # 10%
+    cooldown: 8              # 8 secondes
+    minimum-rarity: EPIC
+
+    base-damage: 8.0
+    damage-per-ilvl: 0.8
+    crit-chance-base: 0.15   # 15% de chance de critique
+    crit-chance-per-ilvl: 0.005
+    base-stun-ticks: 20      # 1 seconde
+    stun-per-ilvl: 0.2
+
+    # Notes:
+    # - Invoque la foudre sur la cible
+    # - Chance de coup critique (×2 dégâts)
+    # - Paralyse la cible (Slowness IV)
+
+  # ─────────────────────────────────
+  # NOVA GLACIALE ❄
+  # ─────────────────────────────────
+  ice_nova:
+    enabled: true
+    proc-chance: 0.08        # 8%
+    cooldown: 18             # 18 secondes
+    minimum-rarity: EPIC
+
+    base-damage: 4.0
+    damage-per-ilvl: 0.4
+    base-radius: 4.0
+    radius-per-ilvl: 0.033
+    base-freeze-ticks: 40    # 2 secondes
+    freeze-per-ilvl: 0.4
+    base-ice-duration: 60    # 3 secondes de glace au sol
+    ice-duration-per-ilvl: 0.8
+
+    # Notes:
+    # - Explosion de glace AOE
+    # - Gèle les ennemis (Slowness V, Mining Fatigue III)
+    # - Crée temporairement de la glace au sol
+    # - Dégâts réduits selon la distance
+
+  # ─────────────────────────────────
+  # SIPHON DE SANG 🩸
+  # ─────────────────────────────────
+  blood_siphon:
+    enabled: true
+    proc-chance: 0.20        # 20%
+    cooldown: 6              # 6 secondes
+    minimum-rarity: RARE
+
+    base-damage: 3.0
+    damage-per-ilvl: 0.3
+    base-lifesteal: 0.5      # 50% des dégâts en heal
+    lifesteal-per-ilvl: 0.005
+    low-health-bonus: 0.25   # +25% si cible < 50% HP
+    base-regen-ticks: 60     # 3 secondes
+    regen-per-ilvl: 0.5
+
+    # Notes:
+    # - Vole la vie de la cible
+    # - Bonus si cible blessée (<50% HP)
+    # - Applique Régénération II
+
+  # ─────────────────────────────────
+  # ÉCLAIR EN CHAÎNE 🔗
+  # ─────────────────────────────────
+  chain_lightning:
+    enabled: true
+    proc-chance: 0.12        # 12%
+    cooldown: 10             # 10 secondes
+    minimum-rarity: EPIC
+
+    base-damage: 6.0
+    damage-per-ilvl: 0.6
+    base-bounces: 2          # 2 rebonds de base
+    bounces-per-ilvl: 0.04   # 1 tous les 25 ILVL
+    base-bounce-radius: 6.0
+    radius-per-ilvl: 0.02
+    damage-reduction: 0.25   # -25% par rebond
+
+    # Notes:
+    # - La foudre rebondit entre les ennemis
+    # - Dégâts réduits de 25% à chaque rebond
+    # - Animation d'éclair entre les cibles
+
+  # ─────────────────────────────────
+  # PLUIE DE MÉTÉORES ☄
+  # ─────────────────────────────────
+  meteor_shower:
+    enabled: true
+    proc-chance: 0.05        # 5%
+    cooldown: 25             # 25 secondes
+    minimum-rarity: LEGENDARY
+
+    base-damage-per-meteor: 10.0
+    damage-per-ilvl: 1.0
+    base-meteor-count: 3
+    meteor-count-per-ilvl: 0.05  # 1 tous les 20 ILVL
+    base-zone-radius: 8.0
+    radius-per-ilvl: 0.04
+    base-fire-ticks: 60      # 3 secondes
+    fire-ticks-per-ilvl: 0.67
+
+    # Notes:
+    # - Fait tomber plusieurs météores
+    # - Dégâts AOE massifs par météore
+    # - Met le feu aux ennemis
+    # - Applique Wither II
+    # - Crée du feu au sol temporairement
+
+  # ─────────────────────────────────
+  # CLONE D'OMBRE 👤
+  # ─────────────────────────────────
+  shadow_clone:
+    enabled: true
+    proc-chance: 0.08        # 8%
+    cooldown: 20             # 20 secondes
+    minimum-rarity: LEGENDARY
+
+    base-clone-damage: 0.3   # 30% de vos dégâts
+    damage-per-ilvl: 0.004
+    base-clone-health: 10.0
+    health-per-ilvl: 0.2
+    base-duration-ticks: 160 # 8 secondes
+    duration-per-ilvl: 1.0
+    base-clone-count: 1
+    clone-count-per-ilvl: 0.02  # 1 tous les 50 ILVL (max 3)
+
+    # Notes:
+    # - Invoque un clone qui combat à vos côtés
+    # - Inflige un % de vos dégâts
+    # - Copie votre équipement visuellement
+    # - Invisible (effet de fumée)
+    # - Cherche automatiquement des cibles
+
+  # ─────────────────────────────────
+  # RENAISSANCE DU PHÉNIX 🔥
+  # ─────────────────────────────────
+  phoenix_rebirth:
+    enabled: true
+    proc-chance: 1.0         # 100% - Toujours actif (mais cooldown très long)
+    cooldown: 300            # 5 MINUTES
+    minimum-rarity: MYTHIC
+
+    base-health-percent: 0.20  # 20% de la santé max
+    health-percent-per-ilvl: 0.002
+    base-damage: 15.0
+    damage-per-ilvl: 1.5
+    base-radius: 5.0
+    radius-per-ilvl: 0.025
+    base-invulnerability-ticks: 40  # 2 secondes
+    invulnerability-per-ilvl: 0.2
+
+    # Notes:
+    # - POUVOIR PASSIF - Se déclenche à la mort
+    # - Renaît de vos cendres au lieu de mourir
+    # - Explosion de feu infligeant des dégâts AOE
+    # - Invulnérabilité temporaire après résurrection
+    # - Cooldown de 5 MINUTES
+    # - Applique Fire Resistance, Régénération III, Resistance III
+
+# =====================================
+# NOTES DE GAME DESIGN
+# =====================================
+
+# 1. ITEM LEVEL vs RARETÉ:
+#    - La rareté définit le POTENTIEL (nombre d'affixes, stats bonus)
+#    - L'ILVL définit la PUISSANCE RÉELLE (damage, scaling des pouvoirs)
+#    - Un légendaire ILVL 10 < Un épique ILVL 70 en terme de puissance brute
+#
+# 2. PROGRESSION:
+#    - Early game: ILVL 1-30, pouvoirs faibles
+#    - Mid game: ILVL 30-60, pouvoirs corrects
+#    - Late game: ILVL 60-100, pouvoirs très puissants
+#
+# 3. SCALING:
+#    - Tous les pouvoirs scalent avec l'ILVL
+#    - Le scaling doit être équilibré (ni trop fort, ni trop faible)
+#    - Formule générale: base + (ILVL * scaling_factor)
+#
+# 4. ÉQUILIBRAGE:
+#    - Ajustez les proc-chance pour contrôler la fréquence
+#    - Ajustez les cooldowns pour éviter le spam
+#    - Testez avec différents ILVL (10, 50, 100) pour valider l'équilibre
+#
+# 5. EXTENSIBILITÉ:
+#    - Pour ajouter un nouveau pouvoir, créez une classe dans:
+#      com.rinaorc.zombiez.items.power.impl
+#    - Étendez la classe Power
+#    - Enregistrez-le dans PowerManager.registerDefaultPowers()
+#    - Ajoutez sa config dans ce fichier

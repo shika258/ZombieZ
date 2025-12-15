@@ -83,16 +83,16 @@ public class ItemGenerator {
         // Déterminer le tier du matériau
         int maxTier = itemType.getMaxTierForZone(zoneId);
         int tier = rollTier(maxTier, rarity);
-        
+
         // Obtenir le matériau
         Material material = itemType.getMaterialForTier(tier);
-        
+
         // Générer les stats de base
         Map<StatType, Double> baseStats = generateBaseStats(itemType, tier, rarity);
-        
+
         // Générer les affixes
         List<ZombieZItem.RolledAffix> affixes = generateAffixes(itemType, rarity, zoneId);
-        
+
         // Calculer toutes les stats pour le score
         Map<StatType, Double> allStats = new HashMap<>(baseStats);
         for (ZombieZItem.RolledAffix ra : affixes) {
@@ -100,14 +100,20 @@ public class ItemGenerator {
                 allStats.merge(entry.getKey(), entry.getValue(), Double::sum);
             }
         }
-        
+
         // Calculer le score
         int itemScore = ZombieZItem.calculateItemScore(rarity, allStats, affixes);
-        
+
+        // Calculer l'Item Level (intégration avec PowerManager si disponible)
+        int itemLevel = calculateItemLevel(zoneId, rarity);
+
         // Générer le nom
         String baseName = nameGenerator.getBaseName(itemType);
         String generatedName = nameGenerator.generateFullName(baseName, affixes, rarity);
-        
+
+        // Déterminer si l'item a un pouvoir (sera appliqué plus tard par l'ItemManager)
+        String powerId = null; // Sera assigné par l'ItemManager si nécessaire
+
         // Construire l'item
         return ZombieZItem.builder()
             .uuid(UUID.randomUUID())
@@ -123,7 +129,52 @@ public class ItemGenerator {
             .itemScore(itemScore)
             .createdAt(System.currentTimeMillis())
             .identified(true)
+            .itemLevel(itemLevel)
+            .powerId(powerId)
             .build();
+    }
+
+    /**
+     * Calcule l'Item Level pour un item
+     * Utilise une formule simple si le PowerManager n'est pas disponible
+     */
+    private int calculateItemLevel(int zoneId, Rarity rarity) {
+        // Formule simple par défaut: base 10 par zone, avec influence de la rareté
+        int baseILVL = Math.min(zoneId * 10, 100);
+
+        // Ajuster selon la rareté
+        int minForRarity = switch (rarity) {
+            case COMMON -> 1;
+            case UNCOMMON -> 10;
+            case RARE -> 15;
+            case EPIC -> 35;
+            case LEGENDARY -> 50;
+            case MYTHIC -> 70;
+            case EXALTED -> 85;
+        };
+
+        int maxForRarity = switch (rarity) {
+            case COMMON -> 20;
+            case UNCOMMON -> 35;
+            case RARE -> 40;
+            case EPIC -> 70;
+            case LEGENDARY -> 100;
+            case MYTHIC -> 100;
+            case EXALTED -> 100;
+        };
+
+        // Calculer l'ILVL dans la plage
+        double zoneProgression = Math.min(1.0, zoneId / 10.0);
+        int rangeSpan = maxForRarity - minForRarity;
+        int progressionBonus = (int) (rangeSpan * zoneProgression);
+        int finalILVL = minForRarity + progressionBonus;
+
+        // Variation aléatoire
+        int variation = (int) (finalILVL * 0.1);
+        finalILVL += random.nextInt(variation * 2 + 1) - variation;
+
+        // Clamp
+        return Math.max(minForRarity, Math.min(maxForRarity, finalILVL));
     }
 
     /**

@@ -52,10 +52,17 @@ public class ZombieZItem {
     
     // Timestamp de création
     private final long createdAt;
-    
+
     // Si l'item a été "identifié" (pour système optionnel d'identification)
     @Setter
     private boolean identified;
+
+    // Item Level (ILVL) - Système de puissance
+    private final int itemLevel;
+
+    // Pouvoir associé (optionnel)
+    @Setter
+    private String powerId;
 
     /**
      * Calcule toutes les stats combinées de l'item
@@ -145,23 +152,38 @@ public class ZombieZItem {
      */
     public ItemStack toItemStack() {
         ItemBuilder builder = new ItemBuilder(material);
-        
+
         // Nom coloré
         builder.name(rarity.getChatColor() + generatedName);
-        
+
         // Lore
         List<String> lore = buildLore();
         builder.lore(lore);
-        
+
         // Glow pour rare+
         if (rarity.isAtLeast(Rarity.RARE)) {
             builder.glow();
         }
-        
+
         // Stocker les données dans le PDC
         ItemStack item = builder.build();
         storeData(item);
-        
+
+        return item;
+    }
+
+    /**
+     * Convertit l'item en ItemStack avec le pouvoir appliqué
+     * Cette méthode doit être utilisée avec PowerTriggerListener.applyPowerToItem
+     */
+    public ItemStack toItemStackWithPower(com.rinaorc.zombiez.items.power.PowerTriggerListener powerListener,
+                                          com.rinaorc.zombiez.items.power.Power power) {
+        ItemStack item = toItemStack();
+
+        if (power != null && powerListener != null) {
+            powerListener.applyPowerToItem(item, power, itemLevel);
+        }
+
         return item;
     }
 
@@ -204,16 +226,17 @@ public class ZombieZItem {
             lore.add("");
         }
         
-        // Item Score
+        // Item Score et Item Level
         lore.add("§8§m                    ");
         lore.add("§7Item Score: " + getItemScoreColor() + itemScore);
-        
+        lore.add("§7Item Level: " + getILVLColor() + itemLevel);
+
         // Zone de drop
         lore.add("§8Zone: " + zoneLevel);
-        
+
         // ID unique (pour debug/trade)
         lore.add("§8ID: " + uuid.toString().substring(0, 8));
-        
+
         return lore;
     }
 
@@ -228,6 +251,19 @@ public class ZombieZItem {
         if (itemScore >= 300) return "§9";
         if (itemScore >= 100) return "§a";
         return "§f";
+    }
+
+    /**
+     * Obtient la couleur de l'ILVL selon sa valeur
+     */
+    private String getILVLColor() {
+        if (itemLevel >= 90) return "§c§l"; // Rouge gras
+        if (itemLevel >= 75) return "§6§l"; // Orange gras
+        if (itemLevel >= 60) return "§d";   // Rose
+        if (itemLevel >= 45) return "§5";   // Violet
+        if (itemLevel >= 30) return "§9";   // Bleu
+        if (itemLevel >= 15) return "§a";   // Vert
+        return "§f";                        // Blanc
     }
 
     /**
@@ -247,13 +283,23 @@ public class ZombieZItem {
         NamespacedKey keyZone = new NamespacedKey("zombiez", "zone");
         NamespacedKey keyCreated = new NamespacedKey("zombiez", "created");
         NamespacedKey keyAffixes = new NamespacedKey("zombiez", "affixes");
-        
+        NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
+        NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
+        NamespacedKey keyHasPower = new NamespacedKey("zombiez", "has_power");
+
         pdc.set(keyUuid, PersistentDataType.STRING, uuid.toString());
         pdc.set(keyRarity, PersistentDataType.STRING, rarity.name());
         pdc.set(keyType, PersistentDataType.STRING, itemType.name());
         pdc.set(keyScore, PersistentDataType.INTEGER, itemScore);
         pdc.set(keyZone, PersistentDataType.INTEGER, zoneLevel);
         pdc.set(keyCreated, PersistentDataType.LONG, createdAt);
+        pdc.set(keyItemLevel, PersistentDataType.INTEGER, itemLevel);
+
+        // Stocker le pouvoir si présent
+        if (powerId != null && !powerId.isEmpty()) {
+            pdc.set(keyHasPower, PersistentDataType.BYTE, (byte) 1);
+            pdc.set(keyPowerId, PersistentDataType.STRING, powerId);
+        }
         
         // Sérialiser les affixes (format simplifié: "id1:tier1,id2:tier2")
         StringBuilder affixStr = new StringBuilder();
@@ -383,13 +429,17 @@ public class ZombieZItem {
         NamespacedKey keyType = new NamespacedKey("zombiez", "type");
         NamespacedKey keyZone = new NamespacedKey("zombiez", "zone");
         NamespacedKey keyCreated = new NamespacedKey("zombiez", "created");
-        
+        NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
+        NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
+
         String typeStr = pdc.get(keyType, PersistentDataType.STRING);
         ItemType type = typeStr != null ? ItemType.valueOf(typeStr) : ItemType.SWORD;
-        
+
         Integer zone = pdc.get(keyZone, PersistentDataType.INTEGER);
         Long created = pdc.get(keyCreated, PersistentDataType.LONG);
-        
+        Integer ilvl = pdc.get(keyItemLevel, PersistentDataType.INTEGER);
+        String power = pdc.get(keyPowerId, PersistentDataType.STRING);
+
         return ZombieZItem.builder()
             .uuid(uuid)
             .itemType(type)
@@ -398,7 +448,7 @@ public class ZombieZItem {
             .tier(0)
             .zoneLevel(zone != null ? zone : 1)
             .baseName(item.getType().name())
-            .generatedName(item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? 
+            .generatedName(item.hasItemMeta() && item.getItemMeta().hasDisplayName() ?
                 net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
                     .serialize(item.getItemMeta().displayName()) : item.getType().name())
             .baseStats(new HashMap<>())
@@ -406,6 +456,8 @@ public class ZombieZItem {
             .itemScore(score)
             .createdAt(created != null ? created : System.currentTimeMillis())
             .identified(true)
+            .itemLevel(ilvl != null ? ilvl : 1)
+            .powerId(power)
             .build();
     }
 }

@@ -33,6 +33,7 @@ public class ConfigManager {
     @Getter private FileConfiguration zombiesConfig;
     @Getter private FileConfiguration lootConfig;
     @Getter private FileConfiguration economyConfig;
+    @Getter private FileConfiguration powersConfig;
 
     // Paramètres de jeu (cache pour accès rapide)
     @Getter private int maxPlayers;
@@ -59,6 +60,7 @@ public class ConfigManager {
         zombiesConfig = loadConfig("zombies.yml");
         lootConfig = loadConfig("loot.yml");
         economyConfig = loadConfig("economy.yml");
+        powersConfig = loadConfig("powers.yml");
 
         // Cache des paramètres fréquemment utilisés
         cacheMainParameters();
