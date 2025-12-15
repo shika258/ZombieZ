@@ -47,6 +47,15 @@ public class ActionBarTask extends BukkitRunnable {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
+        // Mettre à jour la barre d'XP du plugin
+        updateExpBar(player, data);
+
+        // S'assurer que le health scaling est actif (10 cœurs fixes)
+        if (!player.isHealthScaled()) {
+            player.setHealthScaled(true);
+            player.setHealthScale(20.0);
+        }
+
         // Calculer les stats du joueur
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
 
@@ -197,5 +206,28 @@ public class ActionBarTask extends BukkitRunnable {
         if (streak >= 25) return "§6";
         if (streak >= 10) return "§e";
         return "§7";
+    }
+
+    /**
+     * Met à jour la barre d'XP native de Minecraft avec le niveau et la progression du plugin
+     * Le niveau affiché correspond au niveau du plugin ZombieZ
+     * La barre d'XP montre la progression vers le prochain niveau
+     */
+    private void updateExpBar(Player player, PlayerData data) {
+        // Définir le niveau affiché (niveau du plugin)
+        int pluginLevel = data.getLevel().get();
+        if (player.getLevel() != pluginLevel) {
+            player.setLevel(pluginLevel);
+        }
+
+        // Définir la progression vers le prochain niveau (0.0 à 1.0)
+        float progress = (float) (data.getLevelProgress() / 100.0);
+        // Clamp entre 0 et 0.99999 (1.0 cause parfois des bugs visuels)
+        progress = Math.max(0f, Math.min(0.99999f, progress));
+
+        // Seulement mettre à jour si changement significatif (évite spam réseau)
+        if (Math.abs(player.getExp() - progress) > 0.01f) {
+            player.setExp(progress);
+        }
     }
 }

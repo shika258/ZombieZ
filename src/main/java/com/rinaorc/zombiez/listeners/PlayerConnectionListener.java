@@ -15,6 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -71,6 +72,14 @@ public class PlayerConnectionListener implements Listener {
      */
     private void onPlayerDataLoaded(Player player, PlayerData data) {
         if (!player.isOnline()) return;
+
+        // Configurer l'affichage de la santé à 10 cœurs fixes
+        // Peu importe la vie max du plugin, la barre de cœurs affiche toujours 10 cœurs
+        player.setHealthScaled(true);
+        player.setHealthScale(20.0); // 20 HP = 10 cœurs visuels
+
+        // Synchroniser la barre d'XP avec le niveau du plugin
+        updatePlayerExpBar(player, data);
 
         // Vérifier la zone actuelle
         plugin.getZoneManager().checkPlayerZone(player);
@@ -285,6 +294,33 @@ public class PlayerConnectionListener implements Listener {
                 " §7| §c" + data.getKills().get() + " §7kills | §6" + 
                 EconomyManager.formatCompact(data.getPoints().get()) + " §7points");
         }, 20L);
+    }
+
+    /**
+     * Met à jour la barre d'XP du joueur avec les données du plugin
+     * Le niveau et la progression sont affichés dans la barre d'XP native Minecraft
+     */
+    public void updatePlayerExpBar(Player player, PlayerData data) {
+        if (player == null || !player.isOnline() || data == null) return;
+
+        // Définir le niveau affiché (niveau du plugin)
+        player.setLevel(data.getLevel().get());
+
+        // Définir la progression vers le prochain niveau (0.0 à 1.0)
+        float progress = (float) (data.getLevelProgress() / 100.0);
+        // Clamp entre 0 et 0.99999 (1.0 cause parfois des bugs visuels)
+        progress = Math.max(0f, Math.min(0.99999f, progress));
+        player.setExp(progress);
+    }
+
+    /**
+     * Bloque l'XP vanilla de Minecraft pour que seule l'XP du plugin soit affichée
+     * Les orbes d'XP et autres sources d'XP vanilla sont ignorées
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onExpChange(PlayerExpChangeEvent event) {
+        // Bloquer tout gain d'XP vanilla - l'XP est gérée uniquement par le plugin
+        event.setAmount(0);
     }
 
     /**
