@@ -16,23 +16,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
- * Gestionnaire des zones de jeu
+ * Gestionnaire des zones de jeu - Version 50 zones
  * Optimisé pour vérification rapide de 200+ joueurs
  *
  * Utilise un TreeMap pour une recherche O(log n) de la zone par coordonnée Z
  *
  * IMPORTANT: La progression se fait du SUD vers le NORD
- * - Le spawn est à Z ≈ 10400 (sud de la map)
- * - Les joueurs progressent vers Z = -90 (en allant vers le NORD)
- * - Plus le Z est FAIBLE, plus le joueur a progressé
+ * - Le spawn est à Z = 10200 (sud de la map, zone sécurisée)
+ * - Zone 1 commence à Z = 10000
+ * - Les joueurs progressent vers Z = 0 (en allant vers le NORD)
+ * - Chaque zone = 200 blocs
+ * - 50 zones au total, niveaux 1-100
+ * - Zone PVP: Zone 26 (Z = 5000 à 4800)
  */
 public class ZoneManager {
 
     private final ZombieZPlugin plugin;
 
-    // Constantes de progression sur l'axe Z
-    public static final int START_Z = 10400; // Zone de départ (spawn au sud)
-    public static final int END_Z = -90;     // Zone finale (objectif au nord)
+    // Constantes de progression sur l'axe Z (50 zones)
+    public static final int START_Z = 10200; // Zone de départ (spawn au sud, zone sécurisée)
+    public static final int ZONE_START_Z = 10000; // Début de la zone 1
+    public static final int END_Z = 0;       // Zone finale (L'Origine au nord)
+    public static final int ZONE_SIZE = 200; // Taille de chaque zone en blocs
+    public static final int TOTAL_ZONES = 50; // Nombre total de zones
 
     // Stockage des zones
     @Getter
@@ -191,163 +197,187 @@ public class ZoneManager {
 
     /**
      * Crée les zones par défaut si aucune configuration
-     * Les zones sont ordonnées du SUD (spawn, Z élevé) vers le NORD (citadelle, Z faible)
+     * 50 zones ordonnées du SUD (spawn, Z élevé) vers le NORD (L'Origine, Z=0)
+     * Chaque zone = 200 blocs, niveaux 1-100
      */
     private void createDefaultZones() {
-        // Zone Spawn (au sud, Z élevé)
+        // Zone Spawn (au sud, Z élevé - zone sécurisée)
         spawnZone = Zone.createSpawnZone();
         registerZone(spawnZone);
 
-        // Zone 1: Village de départ (première zone après le spawn)
-        registerZone(Zone.standardZone(1, "Village de Départ", 9200, 10200, 1)
-            .description("Les premiers pas dans l'apocalypse")
-            .biomeType("PLAINS")
-            .theme("medieval_ruins")
-            .refugeId(1)
-            .minZombieLevel(1)
-            .maxZombieLevel(5)
-            .allowedZombieTypes(new String[]{"WALKER", "CRAWLER"})
-            .color("§a")
-            .build());
+        // Données des 50 zones avec leurs noms et configurations
+        String[][] zoneData = {
+            // ACTE I - LES DERNIERS JOURS (Zones 1-10)
+            {"1", "Bastion du Reveil", "PLAINS", "medieval_castle", "NONE", "0", "0", "1", "WALKER,SHAMBLER"},
+            {"2", "Faubourgs Oublies", "PLAINS", "abandoned_suburbs", "NONE", "0", "0", "1", "WALKER,SHAMBLER,CRAWLER"},
+            {"3", "Champs du Silence", "PLAINS", "silent_fields", "NONE", "0", "0", "1", "WALKER,CRAWLER,RUNNER"},
+            {"4", "Verger des Pendus", "FOREST", "hanged_orchard", "NONE", "0", "0", "1", "WALKER,CRAWLER,RUNNER"},
+            {"5", "Route des Fuyards", "PLAINS", "refugee_road", "NONE", "0", "0", "2", "WALKER,RUNNER,SHAMBLER"},
+            {"6", "Hameau Brise", "PLAINS", "broken_hamlet", "NONE", "0", "0", "2", "WALKER,RUNNER,CRAWLER,ARMORED"},
+            {"7", "Bois des Soupirs", "FOREST", "sighing_woods", "NONE", "0", "0", "2", "WALKER,RUNNER,LURKER,SHADOW"},
+            {"8", "Ruines de Clairval", "PLAINS", "clairval_ruins", "NONE", "0", "0", "2", "WALKER,RUNNER,ARMORED,SCREAMER"},
+            {"9", "Pont des Disparus", "RIVER", "bridge_of_lost", "NONE", "0", "0", "2", "WALKER,RUNNER,DROWNER,SCREAMER"},
+            {"10", "Avant-Poste Deserte", "PLAINS", "deserted_outpost", "NONE", "0", "0", "3", "WALKER,RUNNER,ARMORED,ARMORED_ELITE"},
+            // ACTE II - LA CONTAMINATION (Zones 11-20)
+            {"11", "Foret Putrefiee", "DARK_FOREST", "putrid_forest", "TOXIC", "0.25", "600", "3", "RUNNER,LURKER,SHADOW,TOXIC"},
+            {"12", "Clairiere des Hurlements", "FOREST", "screaming_clearing", "NONE", "0", "0", "3", "RUNNER,SCREAMER,LURKER,BERSERKER"},
+            {"13", "Marais Infect", "SWAMP", "infected_marsh", "TOXIC", "0.5", "400", "3", "BLOATER,SPITTER,DROWNER,TOXIC"},
+            {"14", "Jardins Devoyes", "JUNGLE", "corrupted_gardens", "TOXIC", "0.5", "500", "3", "CRAWLER,SPITTER,TOXIC,LURKER"},
+            {"15", "Village Moisi", "SWAMP", "moldy_village", "TOXIC", "0.75", "400", "4", "BLOATER,SPITTER,TOXIC,NECROMANCER"},
+            {"16", "Ronces Noires", "DARK_FOREST", "black_thorns", "NONE", "0", "0", "4", "LURKER,SHADOW,BERSERKER,CRAWLER"},
+            {"17", "Territoire des Errants", "PLAINS", "wanderer_territory", "NONE", "0", "0", "4", "WALKER,RUNNER,ARMORED,GIANT"},
+            {"18", "Campement Calcine", "SAVANNA", "burned_camp", "HEAT", "0.5", "500", "4", "EXPLOSIVE,BERSERKER,RUNNER,ARMORED"},
+            {"19", "Bois Rouge", "DARK_FOREST", "red_woods", "NONE", "0", "0", "4", "SHADOW,BERSERKER,NECROMANCER,SPECTRE"},
+            {"20", "Lisiere de la Peur", "DARK_FOREST", "fear_edge", "NONE", "0", "0", "5", "SHADOW,SPECTRE,BERSERKER,GIANT"},
+            // ACTE III - LE CHAOS (Zones 21-30)
+            {"21", "Faille Incandescente", "NETHER_WASTES", "burning_rift", "FIRE", "1.0", "400", "5", "EXPLOSIVE,DEMON,INFERNAL,BERSERKER"},
+            {"22", "Crateres de Cendre", "BADLANDS", "ash_craters", "HEAT", "1.0", "400", "5", "EXPLOSIVE,COLOSSUS,RAVAGER,DEMON"},
+            {"23", "Plaines Brulees", "BADLANDS", "burned_plains", "HEAT", "1.0", "350", "5", "BERSERKER,RAVAGER,GIANT,INFERNAL"},
+            {"24", "Fournaise Antique", "NETHER_WASTES", "ancient_furnace", "FIRE", "1.5", "350", "5", "DEMON,INFERNAL,COLOSSUS,EXPLOSIVE"},
+            {"25", "Terres de Soufre", "BADLANDS", "sulfur_lands", "TOXIC", "1.5", "300", "6", "TOXIC,BLOATER,SPITTER,MUTANT"},
+            {"26", "L'Arene des Damnes", "PLAINS", "pvp_arena", "NONE", "0", "0", "6", "WALKER,RUNNER,BERSERKER"}, // PVP ZONE
+            {"27", "Riviere de Lave", "NETHER_WASTES", "lava_river", "FIRE", "2.0", "300", "6", "DEMON,INFERNAL,EXPLOSIVE,COLOSSUS"},
+            {"28", "Canyon des Damnes", "BADLANDS", "damned_canyon", "NONE", "0", "0", "6", "CLIMBER,SPECTRE,RAVAGER,BERSERKER"},
+            {"29", "Forteresse Effondree", "PLAINS", "collapsed_fortress", "NONE", "0", "0", "6", "ARMORED,ARMORED_ELITE,GIANT,COLOSSUS"},
+            {"30", "No Mans Land", "BADLANDS", "no_mans_land", "RADIATION", "1.0", "400", "7", "MUTANT,RAVAGER,COLOSSUS,SPECTRE"},
+            // ACTE IV - L'EXTINCTION (Zones 31-40)
+            {"31", "Toundra Morte", "FROZEN_PEAKS", "dead_tundra", "COLD", "1.5", "350", "7", "FROZEN,YETI,WENDIGO,COLOSSUS"},
+            {"32", "Neiges Hurlantes", "SNOWY_PLAINS", "howling_snow", "COLD", "1.5", "300", "7", "FROZEN,YETI,WENDIGO,SCREAMER"},
+            {"33", "Plaines Gelees", "ICE_SPIKES", "frozen_plains", "COLD", "2.0", "300", "7", "FROZEN,YETI,COLOSSUS,RAVAGER"},
+            {"34", "Lac de Verre", "FROZEN_OCEAN", "glass_lake", "COLD", "2.0", "250", "7", "FROZEN,DROWNER,YETI,SPECTRE"},
+            {"35", "Ruines Englouties", "ICE_SPIKES", "drowned_ruins", "COLD", "2.0", "250", "8", "FROZEN,SPECTRE,YETI,WENDIGO"},
+            {"36", "Pics du Desespoir", "FROZEN_PEAKS", "despair_peaks", "COLD", "2.5", "250", "8", "CLIMBER,YETI,WENDIGO,COLOSSUS"},
+            {"37", "Blizzard Eternel", "SNOWY_PLAINS", "eternal_blizzard", "COLD", "2.5", "200", "8", "FROZEN,YETI,WENDIGO,SPECTRE"},
+            {"38", "Tombe Blanche", "SNOWY_TAIGA", "white_tomb", "COLD", "2.5", "200", "8", "NECROMANCER,SPECTRE,YETI,WENDIGO"},
+            {"39", "Sanctuaire Abandonne", "PALE_GARDEN", "abandoned_sanctuary", "DARKNESS", "1.0", "300", "8", "SPECTRE,NECROMANCER,CREAKING,CORRUPTED_WARDEN"},
+            {"40", "Seuil de l'Oblivion", "DEEP_DARK", "oblivion_threshold", "DARKNESS", "1.5", "250", "9", "SPECTRE,CREAKING,CORRUPTED_WARDEN,ARCHON"},
+            // ACTE V - L'ORIGINE DU MAL (Zones 41-50)
+            {"41", "Terres Corrompues", "PALE_GARDEN", "corrupted_lands", "RADIATION", "2.0", "200", "9", "MUTANT,CREAKING,CORRUPTED_WARDEN,ARCHON"},
+            {"42", "Foret Noire", "DARK_FOREST", "black_forest", "DARKNESS", "2.0", "200", "9", "SHADOW,SPECTRE,LURKER,CORRUPTED_WARDEN"},
+            {"43", "Racines du Mal", "PALE_GARDEN", "roots_of_evil", "TOXIC", "2.5", "200", "9", "CREAKING,MUTANT,NECROMANCER,ARCHON"},
+            {"44", "Marecages Carmine", "SWAMP", "carmine_swamps", "TOXIC", "2.5", "175", "9", "BLOATER,SPITTER,MUTANT,CORRUPTED_WARDEN"},
+            {"45", "Veines du Monde", "DEEP_DARK", "world_veins", "RADIATION", "3.0", "175", "10", "MUTANT,CREAKING,CORRUPTED_WARDEN,ARCHON"},
+            {"46", "Citadelle Profanee", "DEEP_DARK", "defiled_citadel", "DARKNESS", "2.5", "150", "10", "CORRUPTED_WARDEN,ARCHON,SPECTRE,NECROMANCER"},
+            {"47", "Coeur Putride", "DEEP_DARK", "putrid_heart", "TOXIC", "3.0", "150", "10", "BLOATER,MUTANT,CORRUPTED_WARDEN,ARCHON"},
+            {"48", "Trone des Infectes", "DEEP_DARK", "infected_throne", "RADIATION", "3.5", "125", "10", "ARCHON,CORRUPTED_WARDEN,NECROMANCER,COLOSSUS"},
+            {"49", "Dernier Rempart", "DEEP_DARK", "last_bastion", "DARKNESS", "3.0", "125", "10", "ARCHON,CORRUPTED_WARDEN,COLOSSUS,RAVAGER"},
+            {"50", "L'Origine", "DEEP_DARK", "the_origin", "DARKNESS", "2.0", "100", "10", "ARCHON,CORRUPTED_WARDEN,PATIENT_ZERO"}
+        };
 
-        // Zone 2: Plaines Abandonnées
-        registerZone(Zone.standardZone(2, "Plaines Abandonnées", 8200, 9200, 2)
-            .description("Terres agricoles ravagées par l'infection")
-            .biomeType("PLAINS")
-            .theme("abandoned_farms")
-            .refugeId(2)
-            .minZombieLevel(5)
-            .maxZombieLevel(10)
-            .allowedZombieTypes(new String[]{"WALKER", "CRAWLER", "RUNNER"})
-            .color("§a")
-            .build());
+        // Couleurs par acte
+        String[] colors = {
+            "§a", "§a", "§a", "§a", "§a", "§a", "§2", "§e", "§e", "§e",  // Acte I (1-10)
+            "§2", "§2", "§2", "§2", "§2", "§2", "§e", "§e", "§c", "§c",  // Acte II (11-20)
+            "§c", "§c", "§c", "§4", "§e", "§c", "§4", "§4", "§7", "§5",  // Acte III (21-30)
+            "§b", "§b", "§b", "§b", "§3", "§3", "§3", "§3", "§5", "§5",  // Acte IV (31-40)
+            "§5", "§0", "§0", "§4", "§4", "§8", "§8", "§8", "§d", "§d"   // Acte V (41-50)
+        };
 
-        // Zone 3: Désert
-        registerZone(Zone.standardZone(3, "Désert", 7200, 8200, 3)
-            .description("Ruines antiques sous un soleil de plomb")
-            .biomeType("DESERT")
-            .theme("desert_ruins")
-            .environmentalEffect("HEAT")
-            .environmentalDamage(1.0)
-            .environmentalInterval(600) // 30 secondes
-            .refugeId(3)
-            .minZombieLevel(10)
-            .maxZombieLevel(15)
-            .allowedZombieTypes(new String[]{"WALKER", "RUNNER", "MUMMY"})
-            .color("§e")
-            .build());
+        // Créer toutes les zones
+        for (int i = 0; i < zoneData.length; i++) {
+            String[] data = zoneData[i];
+            int zoneId = Integer.parseInt(data[0]);
+            String name = data[1];
+            String biome = data[2];
+            String theme = data[3];
+            String envEffect = data[4];
+            double envDamage = Double.parseDouble(data[5]);
+            int envInterval = Integer.parseInt(data[6]);
+            int refugeId = Integer.parseInt(data[7]);
+            String[] zombieTypes = data[8].split(",");
 
-        // Zone 4: Forêt Sombre
-        registerZone(Zone.standardZone(4, "Forêt Sombre", 6200, 7200, 4)
-            .description("Une forêt corrompue où la lumière ne pénètre pas")
-            .biomeType("DARK_FOREST")
-            .theme("dark_forest")
-            .refugeId(4)
-            .minZombieLevel(15)
-            .maxZombieLevel(20)
-            .allowedZombieTypes(new String[]{"RUNNER", "CRAWLER", "LURKER", "SHADOW"})
-            .color("§2")
-            .build());
+            // Calculer les coordonnées Z (chaque zone = 200 blocs)
+            int maxZ = ZONE_START_Z - ((zoneId - 1) * ZONE_SIZE);
+            int minZ = maxZ - ZONE_SIZE;
 
-        // Zone 5: Marécages
-        registerZone(Zone.standardZone(5, "Marécages", 5400, 6200, 5)
-            .description("Eaux toxiques et brouillard pestilentiel")
-            .biomeType("SWAMP")
-            .theme("toxic_swamp")
-            .environmentalEffect("TOXIC")
-            .environmentalDamage(0.5)
-            .environmentalInterval(400) // 20 secondes
-            .refugeId(5)
-            .minZombieLevel(20)
-            .maxZombieLevel(25)
-            .allowedZombieTypes(new String[]{"BLOATER", "SPITTER", "SWIMMER"})
-            .color("§2")
-            .build());
+            // Calculer les niveaux de zombies (niveau 1-100 sur 50 zones)
+            int minLevel = (zoneId - 1) * 2 + 1;
+            int maxLevel = zoneId * 2;
 
-        // Zone PvP
-        registerZone(Zone.standardZone(6, "Zone PvP - L'Arène", 5200, 5400, 5)
-            .description("Seuls les plus forts survivent")
-            .biomeType("PLAINS")
-            .theme("pvp_arena")
-            .pvpEnabled(true)
-            .refugeId(-1) // Pas de refuge
-            .minZombieLevel(20)
-            .maxZombieLevel(25)
-            .allowedZombieTypes(new String[]{"WALKER", "RUNNER"})
-            .color("§c")
-            .build());
+            // Calculer la difficulté (1-10)
+            int difficulty = Math.min(10, (zoneId / 5) + 1);
 
-        // Zone 6: Montagnes
-        registerZone(Zone.standardZone(7, "Montagnes", 4200, 5200, 6)
-            .description("Pics escarpés et forteresses oubliées")
-            .biomeType("JAGGED_PEAKS")
-            .theme("mountain_fortress")
-            .refugeId(6)
-            .minZombieLevel(25)
-            .maxZombieLevel(30)
-            .allowedZombieTypes(new String[]{"CLIMBER", "GIANT", "BERSERKER"})
-            .color("§7")
-            .build());
+            // Zone PVP spéciale
+            boolean isPvp = zoneId == 26;
 
-        // Zone 7: Toundra
-        registerZone(Zone.standardZone(8, "Toundra", 3200, 4200, 7)
-            .description("Froid mortel et isolation absolue")
-            .biomeType("FROZEN_PEAKS")
-            .theme("frozen_wasteland")
-            .environmentalEffect("COLD")
-            .environmentalDamage(1.0)
-            .environmentalInterval(400)
-            .refugeId(7)
-            .minZombieLevel(30)
-            .maxZombieLevel(35)
-            .allowedZombieTypes(new String[]{"FROZEN", "YETI", "WENDIGO"})
-            .color("§b")
-            .build());
+            Zone.ZoneBuilder builder = Zone.standardZone(zoneId, name, minZ, maxZ, difficulty)
+                .description(getZoneDescription(zoneId))
+                .biomeType(biome)
+                .theme(theme)
+                .environmentalEffect(envEffect)
+                .environmentalDamage(envDamage)
+                .environmentalInterval(envInterval)
+                .refugeId(isPvp ? -1 : refugeId)
+                .minZombieLevel(minLevel)
+                .maxZombieLevel(maxLevel)
+                .allowedZombieTypes(zombieTypes)
+                .pvpEnabled(isPvp)
+                .bossZone(zoneId == 50)
+                .color(colors[i]);
 
-        // Zone 8: Terres Corrompues
-        registerZone(Zone.standardZone(9, "Terres Corrompues", 2200, 3200, 8)
-            .description("Radiation et mutation - Pale Garden")
-            .biomeType("PALE_GARDEN")
-            .theme("corrupted_lands")
-            .environmentalEffect("RADIATION")
-            .environmentalDamage(2.0)
-            .environmentalInterval(200)
-            .refugeId(8)
-            .minZombieLevel(35)
-            .maxZombieLevel(40)
-            .allowedZombieTypes(new String[]{"MUTANT", "ABOMINATION", "CREAKING"})
-            .color("§5")
-            .build());
+            registerZone(builder.build());
+        }
 
-        // Zone 9: Enfer
-        registerZone(Zone.standardZone(10, "Enfer", 700, 2200, 9)
-            .description("Le portail vers l'enfer s'est ouvert")
-            .biomeType("NETHER_WASTES")
-            .theme("hellscape")
-            .environmentalEffect("FIRE")
-            .environmentalDamage(1.5)
-            .environmentalInterval(300)
-            .refugeId(9)
-            .minZombieLevel(40)
-            .maxZombieLevel(47)
-            .allowedZombieTypes(new String[]{"DEMON", "INFERNAL", "ARCHON"})
-            .color("§4")
-            .build());
+        plugin.log(Level.INFO, "§a✓ " + TOTAL_ZONES + " zones par défaut créées (niveaux 1-100)");
+    }
 
-        // Zone 10: Citadelle Finale (zone boss au nord, Z faible)
-        registerZone(Zone.standardZone(11, "Citadelle Finale", -90, 700, 10)
-            .description("L'origine du fléau - Affrontez Patient Zéro")
-            .biomeType("DEEP_DARK")
-            .theme("final_citadel")
-            .bossZone(true)
-            .refugeId(10)
-            .minZombieLevel(47)
-            .maxZombieLevel(50)
-            .allowedZombieTypes(new String[]{"ELITE", "CHAMPION", "BOSS"})
-            .color("§d")
-            .build());
-
-        plugin.log(Level.INFO, "§7Zones par défaut créées");
+    /**
+     * Retourne la description d'une zone par son ID
+     */
+    private String getZoneDescription(int zoneId) {
+        return switch (zoneId) {
+            case 1 -> "Le dernier refuge de l'humanite";
+            case 2 -> "Les quartiers periferiques abandonnes";
+            case 3 -> "Des terres agricoles desormais silencieuses";
+            case 4 -> "Un verger macabre aux fruits sinistres";
+            case 5 -> "La route de l'exode";
+            case 6 -> "Un petit village ravage";
+            case 7 -> "Une foret aux gemissements des morts";
+            case 8 -> "Les vestiges d'une ville prospere";
+            case 9 -> "Un pont ou tant ont trouve leur fin";
+            case 10 -> "Un camp militaire abandonne";
+            case 11 -> "Les arbres eux-memes semblent malades";
+            case 12 -> "Les cris resonnent sans cesse";
+            case 13 -> "Des eaux stagnantes mortelles";
+            case 14 -> "Un jardin botanique mute";
+            case 15 -> "Un village envahi par la moisissure";
+            case 16 -> "Des ronces geantes bloquent le passage";
+            case 17 -> "Le domaine des errants eternels";
+            case 18 -> "Un camp brule jusqu'aux cendres";
+            case 19 -> "Une foret aux feuilles rouge sang";
+            case 20 -> "La frontiere vers le chaos";
+            case 21 -> "Une fissure crachant des flammes";
+            case 22 -> "Un paysage lunaire de crateres";
+            case 23 -> "Des plaines carbonisees a perte de vue";
+            case 24 -> "Les ruines d'une forge titanesque";
+            case 25 -> "L'air irrespirable, le sol toxique";
+            case 26 -> "Zone PvP - Seuls les plus forts survivent";
+            case 27 -> "Un fleuve de roche en fusion";
+            case 28 -> "Un canyon aux ames perdues";
+            case 29 -> "Les ruines d'une forteresse militaire";
+            case 30 -> "Une terre ou rien ne survit";
+            case 31 -> "Une toundra ou meme la glace semble morte";
+            case 32 -> "Le vent hurle sans cesse";
+            case 33 -> "Des plaines de glace eternelle";
+            case 34 -> "Un lac gele comme du verre";
+            case 35 -> "Les vestiges d'une cite sous la glace";
+            case 36 -> "Des montagnes ou l'espoir meurt";
+            case 37 -> "Une tempete de neige eternelle";
+            case 38 -> "Un cimetiere sous la neige";
+            case 39 -> "Un temple sacre desormais profane";
+            case 40 -> "La frontiere vers l'oubli";
+            case 41 -> "La corruption dans chaque parcelle";
+            case 42 -> "Une foret ou la lumiere n'ose pas";
+            case 43 -> "Les racines de l'infection originelle";
+            case 44 -> "Des marecages rouge sang";
+            case 45 -> "Des tunnels organiques pulsants";
+            case 46 -> "Une citadelle souilee par le mal";
+            case 47 -> "Le coeur battant de l'infection";
+            case 48 -> "Le siege du pouvoir des morts";
+            case 49 -> "La derniere barriere";
+            case 50 -> "L'Origine du fleau - Affrontez Patient Zero";
+            default -> "Zone inconnue";
+        };
     }
 
     /**

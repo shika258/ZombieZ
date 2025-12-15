@@ -1,26 +1,37 @@
 #######################################
 #   ZOMBIEZ - Configuration Zones     #
+#   50 Zones - Progression Z 10000→0  #
 #######################################
 
-# Paramètres globaux
+# Parametres globaux
 settings:
   world: world
   min-x: 0
   max-x: 1242
+  start-z: 10000
+  end-z: 0
+  zone-size: 200  # Chaque zone = 200 blocs
 
 # ========================================
-# DÉFINITION DES ZONES
+# DEFINITION DES ZONES
+# 50 zones, du sud (Z=10000) vers le nord (Z=0)
+# Chaque zone = 200 blocs
+# Niveau mob: Zone n = niveaux (n-1)*2+1 a n*2
+# Zone PVP: Zone 26 (Z=5000 a 4800)
 # ========================================
+
 zones:
-  
-  # Zone Spawn (Zone sécurisée - au sud de la map)
+
+  # ========================================
+  # ZONE SPAWN (Zone securisee - hors numerotation)
+  # ========================================
   spawn:
     id: 0
     name: spawn
     display-name: "Zone de Spawn"
-    description: "Zone sécurisée pour les nouveaux survivants"
-    min-z: 10200
-    max-z: 10400
+    description: "Zone securisee pour les nouveaux survivants"
+    min-z: 10000
+    max-z: 10200
     difficulty: 0
     stars: 0
     biome: PLAINS
@@ -46,22 +57,27 @@ zones:
     zombie-types: []
     color: "§a"
 
-  # Zone 1: Village de Départ (première zone après le spawn)
+  # ========================================
+  # ACTE I - LES DERNIERS JOURS (Zones 1-10)
+  # Civilisation encore debout... mais plus pour longtemps.
+  # ========================================
+
+  # Zone 1: Bastion du Reveil (Spawn - Chateau medieval)
   zone_1:
     id: 1
-    name: village_depart
-    display-name: "Village de Départ"
-    description: "Les premiers pas dans l'apocalypse"
-    min-z: 9200
-    max-z: 10200
+    name: bastion_du_reveil
+    display-name: "Bastion du Reveil"
+    description: "Le dernier refuge de l'humanite, un chateau medieval"
+    min-z: 9800
+    max-z: 10000
     difficulty: 1
     stars: 1
     biome: PLAINS
-    theme: medieval_ruins
+    theme: medieval_castle
     multipliers:
       xp: 1.0
       loot: 1.0
-      spawn-rate: 1.0
+      spawn-rate: 0.8
       zombie-health: 1.0
       zombie-damage: 1.0
       zombie-speed: 1.0
@@ -75,29 +91,65 @@ zones:
     refuge-id: 1
     zombie-level:
       min: 1
-      max: 5
+      max: 2
     zombie-types:
       - WALKER
+      - SHAMBLER
+    color: "§a"
+
+  # Zone 2: Faubourgs Oublies
+  zone_2:
+    id: 2
+    name: faubourgs_oublies
+    display-name: "Faubourgs Oublies"
+    description: "Les quartiers periferiques abandonnes"
+    min-z: 9600
+    max-z: 9800
+    difficulty: 1
+    stars: 1
+    biome: PLAINS
+    theme: abandoned_suburbs
+    multipliers:
+      xp: 1.05
+      loot: 1.05
+      spawn-rate: 0.9
+      zombie-health: 1.05
+      zombie-damage: 1.05
+      zombie-speed: 1.01
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 1
+    zombie-level:
+      min: 3
+      max: 4
+    zombie-types:
+      - WALKER
+      - SHAMBLER
       - CRAWLER
     color: "§a"
 
-  # Zone 2: Plaines Abandonnées
-  zone_2:
-    id: 2
-    name: plaines_abandonnees
-    display-name: "Plaines Abandonnées"
-    description: "Terres agricoles ravagées par l'infection"
-    min-z: 8200
-    max-z: 9200
-    difficulty: 2
+  # Zone 3: Champs du Silence
+  zone_3:
+    id: 3
+    name: champs_du_silence
+    display-name: "Champs du Silence"
+    description: "Des terres agricoles desormais silencieuses"
+    min-z: 9400
+    max-z: 9600
+    difficulty: 1
     stars: 1
     biome: PLAINS
-    theme: abandoned_farms
+    theme: silent_fields
     multipliers:
-      xp: 1.2
-      loot: 1.15
-      spawn-rate: 1.1
-      zombie-health: 1.15
+      xp: 1.1
+      loot: 1.1
+      spawn-rate: 1.0
+      zombie-health: 1.1
       zombie-damage: 1.1
       zombie-speed: 1.02
     pvp-enabled: false
@@ -107,69 +159,142 @@ zones:
       effect: NONE
       damage: 0
       interval: 0
-    refuge-id: 2
+    refuge-id: 1
     zombie-level:
       min: 5
-      max: 10
+      max: 6
     zombie-types:
       - WALKER
       - CRAWLER
       - RUNNER
     color: "§a"
 
-  # Zone 3: Désert
-  zone_3:
-    id: 3
-    name: desert
-    display-name: "Désert"
-    description: "Ruines antiques sous un soleil de plomb"
-    min-z: 7200
-    max-z: 8200
-    difficulty: 3
-    stars: 2
-    biome: DESERT
-    theme: desert_ruins
+  # Zone 4: Verger des Pendus
+  zone_4:
+    id: 4
+    name: verger_des_pendus
+    display-name: "Verger des Pendus"
+    description: "Un verger macabre ou les arbres portent de sinistres fruits"
+    min-z: 9200
+    max-z: 9400
+    difficulty: 2
+    stars: 1
+    biome: FOREST
+    theme: hanged_orchard
     multipliers:
-      xp: 1.3
-      loot: 1.3
-      spawn-rate: 1.15
-      zombie-health: 1.3
+      xp: 1.15
+      loot: 1.15
+      spawn-rate: 1.0
+      zombie-health: 1.15
+      zombie-damage: 1.15
+      zombie-speed: 1.03
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 1
+    zombie-level:
+      min: 7
+      max: 8
+    zombie-types:
+      - WALKER
+      - CRAWLER
+      - RUNNER
+    color: "§a"
+
+  # Zone 5: Route des Fuyards
+  zone_5:
+    id: 5
+    name: route_des_fuyards
+    display-name: "Route des Fuyards"
+    description: "La route de l'exode, jonchee de vehicules abandonnes"
+    min-z: 9000
+    max-z: 9200
+    difficulty: 2
+    stars: 1
+    biome: PLAINS
+    theme: refugee_road
+    multipliers:
+      xp: 1.2
+      loot: 1.2
+      spawn-rate: 1.1
+      zombie-health: 1.2
       zombie-damage: 1.2
       zombie-speed: 1.04
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
     environment:
-      effect: HEAT
-      damage: 1.0
-      interval: 600
-    refuge-id: 3
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 2
     zombie-level:
-      min: 10
-      max: 15
+      min: 9
+      max: 10
     zombie-types:
       - WALKER
       - RUNNER
-      - MUMMY
-    color: "§e"
+      - SHAMBLER
+    color: "§a"
 
-  # Zone 4: Forêt Sombre
-  zone_4:
-    id: 4
-    name: foret_sombre
-    display-name: "Forêt Sombre"
-    description: "Une forêt corrompue où la lumière ne pénètre pas"
-    min-z: 6200
-    max-z: 7200
-    difficulty: 4
-    stars: 2
-    biome: DARK_FOREST
-    theme: dark_forest
+  # Zone 6: Hameau Brise
+  zone_6:
+    id: 6
+    name: hameau_brise
+    display-name: "Hameau Brise"
+    description: "Un petit village ravage par l'epidemie"
+    min-z: 8800
+    max-z: 9000
+    difficulty: 2
+    stars: 1
+    biome: PLAINS
+    theme: broken_hamlet
     multipliers:
-      xp: 1.4
-      loot: 1.45
-      spawn-rate: 1.2
-      zombie-health: 1.45
+      xp: 1.25
+      loot: 1.25
+      spawn-rate: 1.1
+      zombie-health: 1.25
+      zombie-damage: 1.25
+      zombie-speed: 1.05
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 2
+    zombie-level:
+      min: 11
+      max: 12
+    zombie-types:
+      - WALKER
+      - RUNNER
+      - CRAWLER
+      - ARMORED
+    color: "§a"
+
+  # Zone 7: Bois des Soupirs
+  zone_7:
+    id: 7
+    name: bois_des_soupirs
+    display-name: "Bois des Soupirs"
+    description: "Une foret ou l'on entend les gemissements des morts"
+    min-z: 8600
+    max-z: 8800
+    difficulty: 2
+    stars: 2
+    biome: FOREST
+    theme: sighing_woods
+    multipliers:
+      xp: 1.3
+      loot: 1.3
+      spawn-rate: 1.15
+      zombie-health: 1.3
       zombie-damage: 1.3
       zombie-speed: 1.06
     pvp-enabled: false
@@ -179,36 +304,226 @@ zones:
       effect: NONE
       damage: 0
       interval: 0
-    refuge-id: 4
+    refuge-id: 2
     zombie-level:
-      min: 15
-      max: 20
+      min: 13
+      max: 14
     zombie-types:
+      - WALKER
       - RUNNER
-      - CRAWLER
       - LURKER
       - SHADOW
     color: "§2"
 
-  # Zone 5: Marécages
-  zone_5:
-    id: 5
-    name: marecages
-    display-name: "Marécages"
-    description: "Eaux toxiques et brouillard pestilentiel"
-    min-z: 5400
-    max-z: 6200
-    difficulty: 5
-    stars: 3
-    biome: SWAMP
-    theme: toxic_swamp
+  # Zone 8: Ruines de Clairval
+  zone_8:
+    id: 8
+    name: ruines_de_clairval
+    display-name: "Ruines de Clairval"
+    description: "Les vestiges d'une ville autrefois prospere"
+    min-z: 8400
+    max-z: 8600
+    difficulty: 3
+    stars: 2
+    biome: PLAINS
+    theme: clairval_ruins
     multipliers:
-      xp: 1.5
-      loot: 1.6
-      spawn-rate: 1.25
-      zombie-health: 1.6
+      xp: 1.35
+      loot: 1.35
+      spawn-rate: 1.2
+      zombie-health: 1.35
+      zombie-damage: 1.35
+      zombie-speed: 1.07
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 2
+    zombie-level:
+      min: 15
+      max: 16
+    zombie-types:
+      - WALKER
+      - RUNNER
+      - ARMORED
+      - SCREAMER
+    color: "§e"
+
+  # Zone 9: Pont des Disparus
+  zone_9:
+    id: 9
+    name: pont_des_disparus
+    display-name: "Pont des Disparus"
+    description: "Un pont ou tant de refugies ont trouve leur fin"
+    min-z: 8200
+    max-z: 8400
+    difficulty: 3
+    stars: 2
+    biome: RIVER
+    theme: bridge_of_lost
+    multipliers:
+      xp: 1.4
+      loot: 1.4
+      spawn-rate: 1.2
+      zombie-health: 1.4
       zombie-damage: 1.4
       zombie-speed: 1.08
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 2
+    zombie-level:
+      min: 17
+      max: 18
+    zombie-types:
+      - WALKER
+      - RUNNER
+      - DROWNER
+      - SCREAMER
+    color: "§e"
+
+  # Zone 10: Avant-Poste Deserte
+  zone_10:
+    id: 10
+    name: avant_poste_deserte
+    display-name: "Avant-Poste Deserte"
+    description: "Un camp militaire abandonne, dernier rempart de l'Acte I"
+    min-z: 8000
+    max-z: 8200
+    difficulty: 3
+    stars: 2
+    biome: PLAINS
+    theme: deserted_outpost
+    multipliers:
+      xp: 1.45
+      loot: 1.45
+      spawn-rate: 1.25
+      zombie-health: 1.45
+      zombie-damage: 1.45
+      zombie-speed: 1.09
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 3
+    zombie-level:
+      min: 19
+      max: 20
+    zombie-types:
+      - WALKER
+      - RUNNER
+      - ARMORED
+      - ARMORED_ELITE
+    color: "§e"
+
+  # ========================================
+  # ACTE II - LA CONTAMINATION (Zones 11-20)
+  # La nature reprend ses droits, mais quelque chose cloche...
+  # ========================================
+
+  # Zone 11: Foret Putrefiee
+  zone_11:
+    id: 11
+    name: foret_putrefiee
+    display-name: "Foret Putrefiee"
+    description: "Les arbres eux-memes semblent malades"
+    min-z: 7800
+    max-z: 8000
+    difficulty: 4
+    stars: 2
+    biome: DARK_FOREST
+    theme: putrid_forest
+    multipliers:
+      xp: 1.5
+      loot: 1.5
+      spawn-rate: 1.3
+      zombie-health: 1.5
+      zombie-damage: 1.5
+      zombie-speed: 1.1
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 0.25
+      interval: 600
+    refuge-id: 3
+    zombie-level:
+      min: 21
+      max: 22
+    zombie-types:
+      - RUNNER
+      - LURKER
+      - SHADOW
+      - TOXIC
+    color: "§2"
+
+  # Zone 12: Clairiere des Hurlements
+  zone_12:
+    id: 12
+    name: clairiere_des_hurlements
+    display-name: "Clairiere des Hurlements"
+    description: "Les cris resonnent sans cesse dans cette clairiere maudite"
+    min-z: 7600
+    max-z: 7800
+    difficulty: 4
+    stars: 2
+    biome: FOREST
+    theme: screaming_clearing
+    multipliers:
+      xp: 1.55
+      loot: 1.55
+      spawn-rate: 1.35
+      zombie-health: 1.55
+      zombie-damage: 1.55
+      zombie-speed: 1.11
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 3
+    zombie-level:
+      min: 23
+      max: 24
+    zombie-types:
+      - RUNNER
+      - SCREAMER
+      - LURKER
+      - BERSERKER
+    color: "§2"
+
+  # Zone 13: Marais Infect
+  zone_13:
+    id: 13
+    name: marais_infect
+    display-name: "Marais Infect"
+    description: "Des eaux stagnantes ou grouille la mort"
+    min-z: 7400
+    max-z: 7600
+    difficulty: 4
+    stars: 3
+    biome: SWAMP
+    theme: infected_marsh
+    multipliers:
+      xp: 1.6
+      loot: 1.6
+      spawn-rate: 1.35
+      zombie-health: 1.6
+      zombie-damage: 1.6
+      zombie-speed: 1.12
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -216,35 +531,487 @@ zones:
       effect: TOXIC
       damage: 0.5
       interval: 400
-    refuge-id: 5
+    refuge-id: 3
     zombie-level:
-      min: 20
-      max: 25
+      min: 25
+      max: 26
     zombie-types:
       - BLOATER
       - SPITTER
-      - SWIMMER
+      - DROWNER
+      - TOXIC
     color: "§2"
 
-  # Zone PvP
-  zone_pvp:
-    id: 6
-    name: zone_pvp
-    display-name: "L'Arène"
-    description: "Seuls les plus forts survivent"
-    min-z: 5200
-    max-z: 5400
+  # Zone 14: Jardins Devoyes
+  zone_14:
+    id: 14
+    name: jardins_devoyes
+    display-name: "Jardins Devoyes"
+    description: "Un jardin botanique ou les plantes ont mute"
+    min-z: 7200
+    max-z: 7400
+    difficulty: 4
+    stars: 3
+    biome: JUNGLE
+    theme: corrupted_gardens
+    multipliers:
+      xp: 1.65
+      loot: 1.65
+      spawn-rate: 1.4
+      zombie-health: 1.65
+      zombie-damage: 1.65
+      zombie-speed: 1.13
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 0.5
+      interval: 500
+    refuge-id: 3
+    zombie-level:
+      min: 27
+      max: 28
+    zombie-types:
+      - CRAWLER
+      - SPITTER
+      - TOXIC
+      - LURKER
+    color: "§2"
+
+  # Zone 15: Village Moisi
+  zone_15:
+    id: 15
+    name: village_moisi
+    display-name: "Village Moisi"
+    description: "Un village envahi par une moisissure vivante"
+    min-z: 7000
+    max-z: 7200
+    difficulty: 5
+    stars: 3
+    biome: SWAMP
+    theme: moldy_village
+    multipliers:
+      xp: 1.7
+      loot: 1.7
+      spawn-rate: 1.4
+      zombie-health: 1.7
+      zombie-damage: 1.7
+      zombie-speed: 1.14
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 0.75
+      interval: 400
+    refuge-id: 4
+    zombie-level:
+      min: 29
+      max: 30
+    zombie-types:
+      - BLOATER
+      - SPITTER
+      - TOXIC
+      - NECROMANCER
+    color: "§2"
+
+  # Zone 16: Ronces Noires
+  zone_16:
+    id: 16
+    name: ronces_noires
+    display-name: "Ronces Noires"
+    description: "Des ronces geantes et noires bloquent le passage"
+    min-z: 6800
+    max-z: 7000
+    difficulty: 5
+    stars: 3
+    biome: DARK_FOREST
+    theme: black_thorns
+    multipliers:
+      xp: 1.75
+      loot: 1.75
+      spawn-rate: 1.45
+      zombie-health: 1.75
+      zombie-damage: 1.75
+      zombie-speed: 1.15
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 4
+    zombie-level:
+      min: 31
+      max: 32
+    zombie-types:
+      - LURKER
+      - SHADOW
+      - BERSERKER
+      - CRAWLER
+    color: "§2"
+
+  # Zone 17: Territoire des Errants
+  zone_17:
+    id: 17
+    name: territoire_des_errants
+    display-name: "Territoire des Errants"
+    description: "Le domaine des zombies qui n'ont jamais cesse de marcher"
+    min-z: 6600
+    max-z: 6800
     difficulty: 5
     stars: 3
     biome: PLAINS
-    theme: pvp_arena
+    theme: wanderer_territory
+    multipliers:
+      xp: 1.8
+      loot: 1.8
+      spawn-rate: 1.5
+      zombie-health: 1.8
+      zombie-damage: 1.8
+      zombie-speed: 1.16
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 4
+    zombie-level:
+      min: 33
+      max: 34
+    zombie-types:
+      - WALKER
+      - RUNNER
+      - ARMORED
+      - GIANT
+    color: "§e"
+
+  # Zone 18: Campement Calcine
+  zone_18:
+    id: 18
+    name: campement_calcine
+    display-name: "Campement Calcine"
+    description: "Les restes d'un camp de survivants, brule jusqu'aux cendres"
+    min-z: 6400
+    max-z: 6600
+    difficulty: 5
+    stars: 3
+    biome: SAVANNA
+    theme: burned_camp
+    multipliers:
+      xp: 1.85
+      loot: 1.85
+      spawn-rate: 1.5
+      zombie-health: 1.85
+      zombie-damage: 1.85
+      zombie-speed: 1.17
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: HEAT
+      damage: 0.5
+      interval: 500
+    refuge-id: 4
+    zombie-level:
+      min: 35
+      max: 36
+    zombie-types:
+      - EXPLOSIVE
+      - BERSERKER
+      - RUNNER
+      - ARMORED
+    color: "§e"
+
+  # Zone 19: Bois Rouge
+  zone_19:
+    id: 19
+    name: bois_rouge
+    display-name: "Bois Rouge"
+    description: "Une foret ou les feuilles sont rouges toute l'annee... du sang?"
+    min-z: 6200
+    max-z: 6400
+    difficulty: 6
+    stars: 3
+    biome: DARK_FOREST
+    theme: red_woods
+    multipliers:
+      xp: 1.9
+      loot: 1.9
+      spawn-rate: 1.55
+      zombie-health: 1.9
+      zombie-damage: 1.9
+      zombie-speed: 1.18
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 4
+    zombie-level:
+      min: 37
+      max: 38
+    zombie-types:
+      - SHADOW
+      - BERSERKER
+      - NECROMANCER
+      - SPECTRE
+    color: "§c"
+
+  # Zone 20: Lisiere de la Peur
+  zone_20:
+    id: 20
+    name: lisiere_de_la_peur
+    display-name: "Lisiere de la Peur"
+    description: "La frontiere entre la contamination et le chaos"
+    min-z: 6000
+    max-z: 6200
+    difficulty: 6
+    stars: 4
+    biome: DARK_FOREST
+    theme: fear_edge
+    multipliers:
+      xp: 1.95
+      loot: 1.95
+      spawn-rate: 1.6
+      zombie-health: 1.95
+      zombie-damage: 1.95
+      zombie-speed: 1.19
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 5
+    zombie-level:
+      min: 39
+      max: 40
+    zombie-types:
+      - SHADOW
+      - SPECTRE
+      - BERSERKER
+      - GIANT
+    color: "§c"
+
+  # ========================================
+  # ACTE III - LE CHAOS (Zones 21-30)
+  # Le monde a perdu toute stabilite.
+  # ========================================
+
+  # Zone 21: Faille Incandescente
+  zone_21:
+    id: 21
+    name: faille_incandescente
+    display-name: "Faille Incandescente"
+    description: "Une fissure dans la terre crachant des flammes"
+    min-z: 5800
+    max-z: 6000
+    difficulty: 6
+    stars: 4
+    biome: NETHER_WASTES
+    theme: burning_rift
     multipliers:
       xp: 2.0
+      loot: 2.0
+      spawn-rate: 1.6
+      zombie-health: 2.0
+      zombie-damage: 2.0
+      zombie-speed: 1.2
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: FIRE
+      damage: 1.0
+      interval: 400
+    refuge-id: 5
+    zombie-level:
+      min: 41
+      max: 42
+    zombie-types:
+      - EXPLOSIVE
+      - DEMON
+      - INFERNAL
+      - BERSERKER
+    color: "§c"
+
+  # Zone 22: Crateres de Cendre
+  zone_22:
+    id: 22
+    name: crateres_de_cendre
+    display-name: "Crateres de Cendre"
+    description: "Un paysage lunaire de crateres fumants"
+    min-z: 5600
+    max-z: 5800
+    difficulty: 6
+    stars: 4
+    biome: BADLANDS
+    theme: ash_craters
+    multipliers:
+      xp: 2.05
+      loot: 2.05
+      spawn-rate: 1.65
+      zombie-health: 2.05
+      zombie-damage: 2.05
+      zombie-speed: 1.21
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: HEAT
+      damage: 1.0
+      interval: 400
+    refuge-id: 5
+    zombie-level:
+      min: 43
+      max: 44
+    zombie-types:
+      - EXPLOSIVE
+      - COLOSSUS
+      - RAVAGER
+      - DEMON
+    color: "§c"
+
+  # Zone 23: Plaines Brulees
+  zone_23:
+    id: 23
+    name: plaines_brulees
+    display-name: "Plaines Brulees"
+    description: "Des plaines carbonisees a perte de vue"
+    min-z: 5400
+    max-z: 5600
+    difficulty: 7
+    stars: 4
+    biome: BADLANDS
+    theme: burned_plains
+    multipliers:
+      xp: 2.1
+      loot: 2.1
+      spawn-rate: 1.65
+      zombie-health: 2.1
+      zombie-damage: 2.1
+      zombie-speed: 1.22
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: HEAT
+      damage: 1.0
+      interval: 350
+    refuge-id: 5
+    zombie-level:
+      min: 45
+      max: 46
+    zombie-types:
+      - BERSERKER
+      - RAVAGER
+      - GIANT
+      - INFERNAL
+    color: "§c"
+
+  # Zone 24: Fournaise Antique
+  zone_24:
+    id: 24
+    name: fournaise_antique
+    display-name: "Fournaise Antique"
+    description: "Les ruines d'une ancienne forge titanesque"
+    min-z: 5200
+    max-z: 5400
+    difficulty: 7
+    stars: 4
+    biome: NETHER_WASTES
+    theme: ancient_furnace
+    multipliers:
+      xp: 2.15
+      loot: 2.15
+      spawn-rate: 1.7
+      zombie-health: 2.15
+      zombie-damage: 2.15
+      zombie-speed: 1.23
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: FIRE
+      damage: 1.5
+      interval: 350
+    refuge-id: 5
+    zombie-level:
+      min: 47
+      max: 48
+    zombie-types:
+      - DEMON
+      - INFERNAL
+      - COLOSSUS
+      - EXPLOSIVE
+    color: "§4"
+
+  # Zone 25: Terres de Soufre
+  zone_25:
+    id: 25
+    name: terres_de_soufre
+    display-name: "Terres de Soufre"
+    description: "L'air est irrespirable, le sol jaune toxique"
+    min-z: 5000
+    max-z: 5200
+    difficulty: 7
+    stars: 4
+    biome: BADLANDS
+    theme: sulfur_lands
+    multipliers:
+      xp: 2.2
+      loot: 2.2
+      spawn-rate: 1.7
+      zombie-health: 2.2
+      zombie-damage: 2.2
+      zombie-speed: 1.24
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 1.5
+      interval: 300
+    refuge-id: 6
+    zombie-level:
+      min: 49
+      max: 50
+    zombie-types:
+      - TOXIC
+      - BLOATER
+      - SPITTER
+      - MUTANT
+    color: "§e"
+
+  # ========================================
+  # ZONE PVP (Zone 26) - Entre Z=5000 et Z=4800
+  # ========================================
+  zone_26:
+    id: 26
+    name: zone_pvp
+    display-name: "L'Arene des Damnes"
+    description: "Zone PvP - Seuls les plus forts survivent"
+    min-z: 4800
+    max-z: 5000
+    difficulty: 7
+    stars: 5
+    biome: PLAINS
+    theme: pvp_arena
+    multipliers:
+      xp: 2.5
       loot: 2.5
       spawn-rate: 0.5
-      zombie-health: 1.5
-      zombie-damage: 1.3
-      zombie-speed: 1.05
+      zombie-health: 2.0
+      zombie-damage: 2.0
+      zombie-speed: 1.2
     pvp-enabled: true
     safe-zone: false
     boss-zone: false
@@ -254,32 +1021,70 @@ zones:
       interval: 0
     refuge-id: -1
     zombie-level:
-      min: 20
-      max: 25
+      min: 51
+      max: 52
     zombie-types:
       - WALKER
       - RUNNER
+      - BERSERKER
     color: "§c"
 
-  # Zone 6: Montagnes
-  zone_6:
-    id: 7
-    name: montagnes
-    display-name: "Montagnes"
-    description: "Pics escarpés et forteresses oubliées"
-    min-z: 4200
-    max-z: 5200
-    difficulty: 6
-    stars: 3
-    biome: JAGGED_PEAKS
-    theme: mountain_fortress
+  # Zone 27: Riviere de Lave
+  zone_27:
+    id: 27
+    name: riviere_de_lave
+    display-name: "Riviere de Lave"
+    description: "Un fleuve de roche en fusion traverse ce territoire"
+    min-z: 4600
+    max-z: 4800
+    difficulty: 7
+    stars: 4
+    biome: NETHER_WASTES
+    theme: lava_river
     multipliers:
-      xp: 1.6
-      loot: 1.75
-      spawn-rate: 1.3
-      zombie-health: 1.75
-      zombie-damage: 1.5
-      zombie-speed: 1.1
+      xp: 2.3
+      loot: 2.3
+      spawn-rate: 1.75
+      zombie-health: 2.3
+      zombie-damage: 2.3
+      zombie-speed: 1.25
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: FIRE
+      damage: 2.0
+      interval: 300
+    refuge-id: 6
+    zombie-level:
+      min: 53
+      max: 54
+    zombie-types:
+      - DEMON
+      - INFERNAL
+      - EXPLOSIVE
+      - COLOSSUS
+    color: "§4"
+
+  # Zone 28: Canyon des Damnes
+  zone_28:
+    id: 28
+    name: canyon_des_damnes
+    display-name: "Canyon des Damnes"
+    description: "Un canyon profond ou resonnent les cris des ames perdues"
+    min-z: 4400
+    max-z: 4600
+    difficulty: 8
+    stars: 4
+    biome: BADLANDS
+    theme: damned_canyon
+    multipliers:
+      xp: 2.35
+      loot: 2.35
+      spawn-rate: 1.8
+      zombie-health: 2.35
+      zombie-damage: 2.35
+      zombie-speed: 1.26
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -289,69 +1094,488 @@ zones:
       interval: 0
     refuge-id: 6
     zombie-level:
-      min: 25
-      max: 30
+      min: 55
+      max: 56
     zombie-types:
       - CLIMBER
-      - GIANT
+      - SPECTRE
+      - RAVAGER
       - BERSERKER
+    color: "§4"
+
+  # Zone 29: Forteresse Effondree
+  zone_29:
+    id: 29
+    name: forteresse_effondree
+    display-name: "Forteresse Effondree"
+    description: "Les ruines d'une forteresse militaire detruite"
+    min-z: 4200
+    max-z: 4400
+    difficulty: 8
+    stars: 5
+    biome: PLAINS
+    theme: collapsed_fortress
+    multipliers:
+      xp: 2.4
+      loot: 2.4
+      spawn-rate: 1.8
+      zombie-health: 2.4
+      zombie-damage: 2.4
+      zombie-speed: 1.27
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: NONE
+      damage: 0
+      interval: 0
+    refuge-id: 6
+    zombie-level:
+      min: 57
+      max: 58
+    zombie-types:
+      - ARMORED
+      - ARMORED_ELITE
+      - GIANT
+      - COLOSSUS
     color: "§7"
 
-  # Zone 7: Toundra
-  zone_7:
-    id: 8
-    name: toundra
-    display-name: "Toundra"
-    description: "Froid mortel et isolation absolue"
-    min-z: 3200
+  # Zone 30: No Man's Land
+  zone_30:
+    id: 30
+    name: no_mans_land
+    display-name: "No Man's Land"
+    description: "Une terre devastee ou rien ne survit longtemps"
+    min-z: 4000
     max-z: 4200
-    difficulty: 7
-    stars: 4
-    biome: FROZEN_PEAKS
-    theme: frozen_wasteland
+    difficulty: 8
+    stars: 5
+    biome: BADLANDS
+    theme: no_mans_land
     multipliers:
-      xp: 1.7
-      loot: 1.9
-      spawn-rate: 1.35
-      zombie-health: 1.9
-      zombie-damage: 1.6
-      zombie-speed: 1.12
+      xp: 2.45
+      loot: 2.45
+      spawn-rate: 1.85
+      zombie-health: 2.45
+      zombie-damage: 2.45
+      zombie-speed: 1.28
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: RADIATION
+      damage: 1.0
+      interval: 400
+    refuge-id: 7
+    zombie-level:
+      min: 59
+      max: 60
+    zombie-types:
+      - MUTANT
+      - RAVAGER
+      - COLOSSUS
+      - SPECTRE
+    color: "§5"
+
+  # ========================================
+  # ACTE IV - L'EXTINCTION (Zones 31-40)
+  # Plus rien ne vit normalement ici.
+  # ========================================
+
+  # Zone 31: Toundra Morte
+  zone_31:
+    id: 31
+    name: toundra_morte
+    display-name: "Toundra Morte"
+    description: "Une toundra gelee ou meme la glace semble morte"
+    min-z: 3800
+    max-z: 4000
+    difficulty: 8
+    stars: 5
+    biome: FROZEN_PEAKS
+    theme: dead_tundra
+    multipliers:
+      xp: 2.5
+      loot: 2.5
+      spawn-rate: 1.85
+      zombie-health: 2.5
+      zombie-damage: 2.5
+      zombie-speed: 1.29
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
     environment:
       effect: COLD
-      damage: 1.0
-      interval: 400
+      damage: 1.5
+      interval: 350
     refuge-id: 7
     zombie-level:
-      min: 30
-      max: 35
+      min: 61
+      max: 62
     zombie-types:
       - FROZEN
       - YETI
       - WENDIGO
+      - COLOSSUS
     color: "§b"
 
-  # Zone 8: Terres Corrompues (Pale Garden)
-  zone_8:
-    id: 9
-    name: terres_corrompues
-    display-name: "Terres Corrompues"
-    description: "Radiation et mutation - Le Pale Garden"
-    min-z: 2200
-    max-z: 3200
+  # Zone 32: Neiges Hurlantes
+  zone_32:
+    id: 32
+    name: neiges_hurlantes
+    display-name: "Neiges Hurlantes"
+    description: "Le vent hurle sans cesse dans cette etendue blanche"
+    min-z: 3600
+    max-z: 3800
     difficulty: 8
     stars: 5
+    biome: SNOWY_PLAINS
+    theme: howling_snow
+    multipliers:
+      xp: 2.55
+      loot: 2.55
+      spawn-rate: 1.9
+      zombie-health: 2.55
+      zombie-damage: 2.55
+      zombie-speed: 1.3
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 1.5
+      interval: 300
+    refuge-id: 7
+    zombie-level:
+      min: 63
+      max: 64
+    zombie-types:
+      - FROZEN
+      - YETI
+      - WENDIGO
+      - SCREAMER
+    color: "§b"
+
+  # Zone 33: Plaines Gelees
+  zone_33:
+    id: 33
+    name: plaines_gelees
+    display-name: "Plaines Gelees"
+    description: "Des plaines recouvertes d'une glace eternelle"
+    min-z: 3400
+    max-z: 3600
+    difficulty: 9
+    stars: 5
+    biome: ICE_SPIKES
+    theme: frozen_plains
+    multipliers:
+      xp: 2.6
+      loot: 2.6
+      spawn-rate: 1.9
+      zombie-health: 2.6
+      zombie-damage: 2.6
+      zombie-speed: 1.31
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.0
+      interval: 300
+    refuge-id: 7
+    zombie-level:
+      min: 65
+      max: 66
+    zombie-types:
+      - FROZEN
+      - YETI
+      - COLOSSUS
+      - RAVAGER
+    color: "§b"
+
+  # Zone 34: Lac de Verre
+  zone_34:
+    id: 34
+    name: lac_de_verre
+    display-name: "Lac de Verre"
+    description: "Un lac gele si profondement qu'il ressemble a du verre"
+    min-z: 3200
+    max-z: 3400
+    difficulty: 9
+    stars: 5
+    biome: FROZEN_OCEAN
+    theme: glass_lake
+    multipliers:
+      xp: 2.65
+      loot: 2.65
+      spawn-rate: 1.95
+      zombie-health: 2.65
+      zombie-damage: 2.65
+      zombie-speed: 1.32
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.0
+      interval: 250
+    refuge-id: 7
+    zombie-level:
+      min: 67
+      max: 68
+    zombie-types:
+      - FROZEN
+      - DROWNER
+      - YETI
+      - SPECTRE
+    color: "§b"
+
+  # Zone 35: Ruines Englouties
+  zone_35:
+    id: 35
+    name: ruines_englouties
+    display-name: "Ruines Englouties"
+    description: "Les vestiges d'une cite sous la glace"
+    min-z: 3000
+    max-z: 3200
+    difficulty: 9
+    stars: 5
+    biome: ICE_SPIKES
+    theme: drowned_ruins
+    multipliers:
+      xp: 2.7
+      loot: 2.7
+      spawn-rate: 1.95
+      zombie-health: 2.7
+      zombie-damage: 2.7
+      zombie-speed: 1.33
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.0
+      interval: 250
+    refuge-id: 8
+    zombie-level:
+      min: 69
+      max: 70
+    zombie-types:
+      - FROZEN
+      - SPECTRE
+      - YETI
+      - WENDIGO
+    color: "§3"
+
+  # Zone 36: Pics du Desespoir
+  zone_36:
+    id: 36
+    name: pics_du_desespoir
+    display-name: "Pics du Desespoir"
+    description: "Des montagnes glacees ou l'espoir meurt"
+    min-z: 2800
+    max-z: 3000
+    difficulty: 9
+    stars: 5
+    biome: FROZEN_PEAKS
+    theme: despair_peaks
+    multipliers:
+      xp: 2.75
+      loot: 2.75
+      spawn-rate: 2.0
+      zombie-health: 2.75
+      zombie-damage: 2.75
+      zombie-speed: 1.34
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.5
+      interval: 250
+    refuge-id: 8
+    zombie-level:
+      min: 71
+      max: 72
+    zombie-types:
+      - CLIMBER
+      - YETI
+      - WENDIGO
+      - COLOSSUS
+    color: "§3"
+
+  # Zone 37: Blizzard Eternel
+  zone_37:
+    id: 37
+    name: blizzard_eternel
+    display-name: "Blizzard Eternel"
+    description: "Une tempete de neige qui ne cesse jamais"
+    min-z: 2600
+    max-z: 2800
+    difficulty: 9
+    stars: 6
+    biome: SNOWY_PLAINS
+    theme: eternal_blizzard
+    multipliers:
+      xp: 2.8
+      loot: 2.8
+      spawn-rate: 2.0
+      zombie-health: 2.8
+      zombie-damage: 2.8
+      zombie-speed: 1.35
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.5
+      interval: 200
+    refuge-id: 8
+    zombie-level:
+      min: 73
+      max: 74
+    zombie-types:
+      - FROZEN
+      - YETI
+      - WENDIGO
+      - SPECTRE
+    color: "§3"
+
+  # Zone 38: Tombe Blanche
+  zone_38:
+    id: 38
+    name: tombe_blanche
+    display-name: "Tombe Blanche"
+    description: "Un cimetiere enseveli sous la neige eternelle"
+    min-z: 2400
+    max-z: 2600
+    difficulty: 9
+    stars: 6
+    biome: SNOWY_TAIGA
+    theme: white_tomb
+    multipliers:
+      xp: 2.85
+      loot: 2.85
+      spawn-rate: 2.05
+      zombie-health: 2.85
+      zombie-damage: 2.85
+      zombie-speed: 1.36
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: COLD
+      damage: 2.5
+      interval: 200
+    refuge-id: 8
+    zombie-level:
+      min: 75
+      max: 76
+    zombie-types:
+      - NECROMANCER
+      - SPECTRE
+      - YETI
+      - WENDIGO
+    color: "§3"
+
+  # Zone 39: Sanctuaire Abandonne
+  zone_39:
+    id: 39
+    name: sanctuaire_abandonne
+    display-name: "Sanctuaire Abandonne"
+    description: "Un ancien temple sacre, desormais profane"
+    min-z: 2200
+    max-z: 2400
+    difficulty: 10
+    stars: 6
+    biome: PALE_GARDEN
+    theme: abandoned_sanctuary
+    multipliers:
+      xp: 2.9
+      loot: 2.9
+      spawn-rate: 2.05
+      zombie-health: 2.9
+      zombie-damage: 2.9
+      zombie-speed: 1.37
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: DARKNESS
+      damage: 1.0
+      interval: 300
+    refuge-id: 8
+    zombie-level:
+      min: 77
+      max: 78
+    zombie-types:
+      - SPECTRE
+      - NECROMANCER
+      - CREAKING
+      - CORRUPTED_WARDEN
+    color: "§5"
+
+  # Zone 40: Seuil de l'Oblivion
+  zone_40:
+    id: 40
+    name: seuil_de_loblivion
+    display-name: "Seuil de l'Oblivion"
+    description: "La frontiere vers l'oubli eternel"
+    min-z: 2000
+    max-z: 2200
+    difficulty: 10
+    stars: 6
+    biome: DEEP_DARK
+    theme: oblivion_threshold
+    multipliers:
+      xp: 2.95
+      loot: 2.95
+      spawn-rate: 2.1
+      zombie-health: 2.95
+      zombie-damage: 2.95
+      zombie-speed: 1.38
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: DARKNESS
+      damage: 1.5
+      interval: 250
+    refuge-id: 9
+    zombie-level:
+      min: 79
+      max: 80
+    zombie-types:
+      - SPECTRE
+      - CREAKING
+      - CORRUPTED_WARDEN
+      - ARCHON
+    color: "§5"
+
+  # ========================================
+  # ACTE V - L'ORIGINE DU MAL (Zones 41-50)
+  # Ce n'est plus seulement une apocalypse. C'est une malediction.
+  # ========================================
+
+  # Zone 41: Terres Corrompues
+  zone_41:
+    id: 41
+    name: terres_corrompues
+    display-name: "Terres Corrompues"
+    description: "La corruption s'est infiltree dans chaque parcelle"
+    min-z: 1800
+    max-z: 2000
+    difficulty: 10
+    stars: 6
     biome: PALE_GARDEN
     theme: corrupted_lands
     multipliers:
-      xp: 1.8
-      loot: 2.05
-      spawn-rate: 1.4
-      zombie-health: 2.05
-      zombie-damage: 1.7
-      zombie-speed: 1.14
+      xp: 3.0
+      loot: 3.0
+      spawn-rate: 2.1
+      zombie-health: 3.0
+      zombie-damage: 3.0
+      zombie-speed: 1.39
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -359,84 +1583,345 @@ zones:
       effect: RADIATION
       damage: 2.0
       interval: 200
-    refuge-id: 8
+    refuge-id: 9
     zombie-level:
-      min: 35
-      max: 40
+      min: 81
+      max: 82
     zombie-types:
       - MUTANT
-      - ABOMINATION
       - CREAKING
+      - CORRUPTED_WARDEN
+      - ARCHON
     color: "§5"
 
-  # Zone 9: Enfer
-  zone_9:
-    id: 10
-    name: enfer
-    display-name: "Enfer"
-    description: "Le portail vers l'enfer s'est ouvert"
-    min-z: 700
-    max-z: 2200
-    difficulty: 9
+  # Zone 42: Foret Noire
+  zone_42:
+    id: 42
+    name: foret_noire
+    display-name: "Foret Noire"
+    description: "Une foret ou meme la lumiere n'ose pas penetrer"
+    min-z: 1600
+    max-z: 1800
+    difficulty: 10
     stars: 6
-    biome: NETHER_WASTES
-    theme: hellscape
+    biome: DARK_FOREST
+    theme: black_forest
     multipliers:
-      xp: 1.9
-      loot: 2.2
-      spawn-rate: 1.45
-      zombie-health: 2.2
-      zombie-damage: 1.8
-      zombie-speed: 1.16
+      xp: 3.05
+      loot: 3.05
+      spawn-rate: 2.15
+      zombie-health: 3.05
+      zombie-damage: 3.05
+      zombie-speed: 1.4
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
     environment:
-      effect: FIRE
-      damage: 1.5
-      interval: 300
+      effect: DARKNESS
+      damage: 2.0
+      interval: 200
     refuge-id: 9
     zombie-level:
-      min: 40
-      max: 47
+      min: 83
+      max: 84
     zombie-types:
-      - DEMON
-      - INFERNAL
+      - SHADOW
+      - SPECTRE
+      - LURKER
+      - CORRUPTED_WARDEN
+    color: "§0"
+
+  # Zone 43: Racines du Mal
+  zone_43:
+    id: 43
+    name: racines_du_mal
+    display-name: "Racines du Mal"
+    description: "Les racines de l'infection originelle emergent"
+    min-z: 1400
+    max-z: 1600
+    difficulty: 10
+    stars: 6
+    biome: PALE_GARDEN
+    theme: roots_of_evil
+    multipliers:
+      xp: 3.1
+      loot: 3.1
+      spawn-rate: 2.15
+      zombie-health: 3.1
+      zombie-damage: 3.1
+      zombie-speed: 1.41
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 2.5
+      interval: 200
+    refuge-id: 9
+    zombie-level:
+      min: 85
+      max: 86
+    zombie-types:
+      - CREAKING
+      - MUTANT
+      - NECROMANCER
       - ARCHON
+    color: "§0"
+
+  # Zone 44: Marecages Carmine
+  zone_44:
+    id: 44
+    name: marecages_carmine
+    display-name: "Marecages Carmine"
+    description: "Des marecages ou l'eau est rouge comme le sang"
+    min-z: 1200
+    max-z: 1400
+    difficulty: 10
+    stars: 6
+    biome: SWAMP
+    theme: carmine_swamps
+    multipliers:
+      xp: 3.15
+      loot: 3.15
+      spawn-rate: 2.2
+      zombie-health: 3.15
+      zombie-damage: 3.15
+      zombie-speed: 1.42
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 2.5
+      interval: 175
+    refuge-id: 9
+    zombie-level:
+      min: 87
+      max: 88
+    zombie-types:
+      - BLOATER
+      - SPITTER
+      - MUTANT
+      - CORRUPTED_WARDEN
     color: "§4"
 
-  # Zone 10: Citadelle Finale (zone boss au nord, Z~0)
-  zone_10:
-    id: 11
-    name: citadelle_finale
-    display-name: "Citadelle Finale"
-    description: "L'origine du fléau - Affrontez Patient Zéro"
-    min-z: -90
-    max-z: 700
+  # Zone 45: Veines du Monde
+  zone_45:
+    id: 45
+    name: veines_du_monde
+    display-name: "Veines du Monde"
+    description: "Des tunnels organiques pulsent sous la surface"
+    min-z: 1000
+    max-z: 1200
     difficulty: 10
     stars: 7
     biome: DEEP_DARK
-    theme: final_citadel
+    theme: world_veins
     multipliers:
-      xp: 2.0
-      loot: 2.5
-      spawn-rate: 1.5
-      zombie-health: 2.5
-      zombie-damage: 2.0
-      zombie-speed: 1.2
+      xp: 3.2
+      loot: 3.2
+      spawn-rate: 2.2
+      zombie-health: 3.2
+      zombie-damage: 3.2
+      zombie-speed: 1.43
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: RADIATION
+      damage: 3.0
+      interval: 175
+    refuge-id: 10
+    zombie-level:
+      min: 89
+      max: 90
+    zombie-types:
+      - MUTANT
+      - CREAKING
+      - CORRUPTED_WARDEN
+      - ARCHON
+    color: "§4"
+
+  # Zone 46: Citadelle Profanee
+  zone_46:
+    id: 46
+    name: citadelle_profanee
+    display-name: "Citadelle Profanee"
+    description: "Une citadelle sacree, desormais souilee par le mal"
+    min-z: 800
+    max-z: 1000
+    difficulty: 10
+    stars: 7
+    biome: DEEP_DARK
+    theme: defiled_citadel
+    multipliers:
+      xp: 3.25
+      loot: 3.25
+      spawn-rate: 2.25
+      zombie-health: 3.25
+      zombie-damage: 3.25
+      zombie-speed: 1.44
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: DARKNESS
+      damage: 2.5
+      interval: 150
+    refuge-id: 10
+    zombie-level:
+      min: 91
+      max: 92
+    zombie-types:
+      - CORRUPTED_WARDEN
+      - ARCHON
+      - SPECTRE
+      - NECROMANCER
+    color: "§8"
+
+  # Zone 47: Coeur Putride
+  zone_47:
+    id: 47
+    name: coeur_putride
+    display-name: "Coeur Putride"
+    description: "Le coeur battant de l'infection"
+    min-z: 600
+    max-z: 800
+    difficulty: 10
+    stars: 7
+    biome: DEEP_DARK
+    theme: putrid_heart
+    multipliers:
+      xp: 3.3
+      loot: 3.3
+      spawn-rate: 2.25
+      zombie-health: 3.3
+      zombie-damage: 3.3
+      zombie-speed: 1.45
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: TOXIC
+      damage: 3.0
+      interval: 150
+    refuge-id: 10
+    zombie-level:
+      min: 93
+      max: 94
+    zombie-types:
+      - BLOATER
+      - MUTANT
+      - CORRUPTED_WARDEN
+      - ARCHON
+    color: "§8"
+
+  # Zone 48: Trone des Infectes
+  zone_48:
+    id: 48
+    name: trone_des_infectes
+    display-name: "Trone des Infectes"
+    description: "Le siege du pouvoir des morts"
+    min-z: 400
+    max-z: 600
+    difficulty: 10
+    stars: 7
+    biome: DEEP_DARK
+    theme: infected_throne
+    multipliers:
+      xp: 3.35
+      loot: 3.35
+      spawn-rate: 2.3
+      zombie-health: 3.35
+      zombie-damage: 3.35
+      zombie-speed: 1.46
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: RADIATION
+      damage: 3.5
+      interval: 125
+    refuge-id: 10
+    zombie-level:
+      min: 95
+      max: 96
+    zombie-types:
+      - ARCHON
+      - CORRUPTED_WARDEN
+      - NECROMANCER
+      - COLOSSUS
+    color: "§8"
+
+  # Zone 49: Dernier Rempart
+  zone_49:
+    id: 49
+    name: dernier_rempart
+    display-name: "Dernier Rempart"
+    description: "La derniere barriere avant l'Origine"
+    min-z: 200
+    max-z: 400
+    difficulty: 10
+    stars: 7
+    biome: DEEP_DARK
+    theme: last_bastion
+    multipliers:
+      xp: 3.4
+      loot: 3.4
+      spawn-rate: 2.3
+      zombie-health: 3.4
+      zombie-damage: 3.4
+      zombie-speed: 1.47
+    pvp-enabled: false
+    safe-zone: false
+    boss-zone: false
+    environment:
+      effect: DARKNESS
+      damage: 3.0
+      interval: 125
+    refuge-id: 10
+    zombie-level:
+      min: 97
+      max: 98
+    zombie-types:
+      - ARCHON
+      - CORRUPTED_WARDEN
+      - COLOSSUS
+      - RAVAGER
+    color: "§d"
+
+  # Zone 50: L'Origine (Zone finale / boss / fin de couloir)
+  zone_50:
+    id: 50
+    name: lorigine
+    display-name: "L'Origine"
+    description: "L'Origine du fleau - Affrontez Patient Zero"
+    min-z: 0
+    max-z: 200
+    difficulty: 10
+    stars: 7
+    biome: DEEP_DARK
+    theme: the_origin
+    multipliers:
+      xp: 3.5
+      loot: 3.5
+      spawn-rate: 2.0
+      zombie-health: 3.5
+      zombie-damage: 3.5
+      zombie-speed: 1.5
     pvp-enabled: false
     safe-zone: false
     boss-zone: true
     environment:
       effect: DARKNESS
-      damage: 1.0
+      damage: 2.0
       interval: 100
     refuge-id: 10
     zombie-level:
-      min: 47
-      max: 50
+      min: 99
+      max: 100
     zombie-types:
-      - ELITE
-      - CHAMPION
-      - BOSS
+      - ARCHON
+      - CORRUPTED_WARDEN
+      - PATIENT_ZERO
     color: "§d"

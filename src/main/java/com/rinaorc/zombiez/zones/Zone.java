@@ -144,6 +144,7 @@ public class Zone {
 
     /**
      * Crée une zone de spawn par défaut (au sud de la map, Z élevé)
+     * Note: Le spawn est situé entre Z=10000 et Z=10200, juste avant la zone 1
      */
     public static Zone createSpawnZone() {
         return Zone.builder()
@@ -151,8 +152,8 @@ public class Zone {
             .name("spawn")
             .displayName("Zone de Spawn")
             .description("Zone sécurisée pour les nouveaux survivants")
-            .minZ(10200)
-            .maxZ(10400)
+            .minZ(10000)
+            .maxZ(10200)
             .difficulty(0)
             .stars(0)
             .biomeType("PLAINS")
@@ -180,8 +181,18 @@ public class Zone {
 
     /**
      * Builder helper pour créer rapidement une zone standard
+     * Adapté pour 50 zones avec scaling progressif
+     *
+     * @param id ID de la zone (1-50)
+     * @param name Nom de la zone
+     * @param minZ Coordonnée Z minimale
+     * @param maxZ Coordonnée Z maximale
+     * @param difficulty Difficulté de la zone (1-10)
      */
     public static ZoneBuilder standardZone(int id, String name, int minZ, int maxZ, int difficulty) {
+        // Progression basée sur l'ID de zone (1-50)
+        double zoneProgress = (double) id / 50.0; // 0.02 à 1.0
+
         return Zone.builder()
             .id(id)
             .name(name.toLowerCase().replace(" ", "_"))
@@ -189,13 +200,14 @@ public class Zone {
             .minZ(minZ)
             .maxZ(maxZ)
             .difficulty(difficulty)
-            .stars(Math.min(7, (difficulty + 1) / 2))
-            .xpMultiplier(1.0 + (difficulty * 0.1))
-            .lootMultiplier(1.0 + (difficulty * 0.15))
-            .spawnRateMultiplier(1.0 + (difficulty * 0.05))
-            .zombieHealthMultiplier(1.0 + (difficulty * 0.15))
-            .zombieDamageMultiplier(1.0 + (difficulty * 0.10))
-            .zombieSpeedMultiplier(1.0 + (difficulty * 0.02))
+            .stars(Math.min(7, (id / 7) + 1)) // 1-7 étoiles basées sur la progression
+            // Multiplicateurs progressifs basés sur la zone (id 1 à 50)
+            .xpMultiplier(1.0 + (zoneProgress * 2.5))           // 1.0 → 3.5
+            .lootMultiplier(1.0 + (zoneProgress * 2.5))         // 1.0 → 3.5
+            .spawnRateMultiplier(0.8 + (zoneProgress * 1.5))    // 0.8 → 2.3
+            .zombieHealthMultiplier(1.0 + (zoneProgress * 2.5)) // 1.0 → 3.5
+            .zombieDamageMultiplier(1.0 + (zoneProgress * 2.5)) // 1.0 → 3.5
+            .zombieSpeedMultiplier(1.0 + (zoneProgress * 0.5))  // 1.0 → 1.5
             .pvpEnabled(false)
             .safeZone(false)
             .bossZone(false)

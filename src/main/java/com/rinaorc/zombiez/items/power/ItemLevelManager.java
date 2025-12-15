@@ -14,6 +14,11 @@ import java.util.Random;
  *
  * L'Item Level représente la puissance réelle d'un objet,
  * indépendamment de sa rareté.
+ *
+ * Version 50 zones:
+ * - 50 zones = niveaux 1-100
+ * - ILVL max = 100
+ * - Zone n donne environ ILVL n*2
  */
 public class ItemLevelManager {
 
@@ -24,8 +29,10 @@ public class ItemLevelManager {
     private final Map<Rarity, ILVLRange> ilvlRanges = new HashMap<>();
 
     // Progression d'ILVL par zone (configurable)
-    private int baseILVLPerZone = 10;
+    // Pour 50 zones: Zone 50 = ILVL 100, donc 2 ILVL par zone
+    private int baseILVLPerZone = 2;
     private int maxILVL = 100;
+    private int totalZones = 50;
 
     public ItemLevelManager() {
         initializeDefaultRanges();
@@ -33,15 +40,17 @@ public class ItemLevelManager {
 
     /**
      * Initialise les plages d'ILVL par défaut
+     * Adaptées pour 50 zones avec progression jusqu'à ILVL 100
      */
     private void initializeDefaultRanges() {
-        ilvlRanges.put(Rarity.COMMON, new ILVLRange(1, 20));
-        ilvlRanges.put(Rarity.UNCOMMON, new ILVLRange(10, 35));
-        ilvlRanges.put(Rarity.RARE, new ILVLRange(15, 40));
-        ilvlRanges.put(Rarity.EPIC, new ILVLRange(35, 70));
-        ilvlRanges.put(Rarity.LEGENDARY, new ILVLRange(50, 100));
-        ilvlRanges.put(Rarity.MYTHIC, new ILVLRange(70, 100));
-        ilvlRanges.put(Rarity.EXALTED, new ILVLRange(85, 100));
+        // Plages élargies pour une meilleure progression
+        ilvlRanges.put(Rarity.COMMON, new ILVLRange(1, 40));      // Early-Mid game
+        ilvlRanges.put(Rarity.UNCOMMON, new ILVLRange(10, 55));   // Mid game
+        ilvlRanges.put(Rarity.RARE, new ILVLRange(20, 70));       // Mid-Late game
+        ilvlRanges.put(Rarity.EPIC, new ILVLRange(40, 85));       // Late game
+        ilvlRanges.put(Rarity.LEGENDARY, new ILVLRange(55, 95));  // End game
+        ilvlRanges.put(Rarity.MYTHIC, new ILVLRange(70, 100));    // End game
+        ilvlRanges.put(Rarity.EXALTED, new ILVLRange(85, 100));   // Best in slot
     }
 
     /**
@@ -68,15 +77,16 @@ public class ItemLevelManager {
 
     /**
      * Calcule l'Item Level pour un item
+     * Adapté pour 50 zones avec progression jusqu'à ILVL 100
      *
-     * @param zoneLevel Niveau de la zone où l'item est droppé
+     * @param zoneLevel Niveau de la zone où l'item est droppé (1-50)
      * @param rarity Rareté de l'item
-     * @return L'Item Level calculé
+     * @return L'Item Level calculé (1-100)
      */
     public int calculateItemLevel(int zoneLevel, Rarity rarity) {
-        ILVLRange range = ilvlRanges.getOrDefault(rarity, new ILVLRange(1, 20));
+        ILVLRange range = ilvlRanges.getOrDefault(rarity, new ILVLRange(1, 40));
 
-        // ILVL de base selon la zone
+        // ILVL de base selon la zone (zone * 2 pour 50 zones = ILVL 100 max)
         int baseILVL = Math.min(zoneLevel * baseILVLPerZone, maxILVL);
 
         // Ajuster selon la plage de la rareté
@@ -84,16 +94,19 @@ public class ItemLevelManager {
         int maxForRarity = range.getMax();
 
         // Calculer l'ILVL final dans la plage de la rareté
-        // Plus la zone est élevée, plus on se rapproche du max de la plage
-        double zoneProgression = Math.min(1.0, zoneLevel / 10.0); // 0.0 à 1.0
+        // Progression sur 50 zones (0.0 à 1.0)
+        double zoneProgression = Math.min(1.0, (double) zoneLevel / totalZones);
 
         int rangeSpan = maxForRarity - minForRarity;
         int progressionBonus = (int) (rangeSpan * zoneProgression);
 
         int finalILVL = minForRarity + progressionBonus;
 
+        // S'assurer que l'ILVL est au moins égal au niveau de base de la zone
+        finalILVL = Math.max(finalILVL, baseILVL);
+
         // Variation aléatoire de ±10%
-        int variation = (int) (finalILVL * 0.1);
+        int variation = Math.max(1, (int) (finalILVL * 0.1));
         finalILVL += RANDOM.nextInt(variation * 2 + 1) - variation;
 
         // Clamp dans les limites
