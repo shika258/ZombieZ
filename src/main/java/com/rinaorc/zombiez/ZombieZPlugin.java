@@ -23,6 +23,7 @@ import com.rinaorc.zombiez.zombies.ZombieListener;
 import com.rinaorc.zombiez.zombies.ZombieManager;
 import com.rinaorc.zombiez.zombies.spawning.EventManager;
 import com.rinaorc.zombiez.zombies.spawning.SpawnSystem;
+import com.rinaorc.zombiez.placeholder.ZombieZExpansion;
 import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -125,6 +126,9 @@ public class ZombieZPlugin extends JavaPlugin {
             // Phase 6: Tâches planifiées
             log(Level.INFO, "§e[6/6] Démarrage des tâches planifiées...");
             startScheduledTasks();
+
+            // Phase 7: Hooks externes (PlaceholderAPI)
+            registerPlaceholders();
 
             fullyLoaded = true;
             long loadTime = System.currentTimeMillis() - startTime;
@@ -360,6 +364,18 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);
         pm.registerEvents(new BattlePassGUI.BattlePassGUIListener(this), this);
+    }
+
+    /**
+     * Enregistre les placeholders PlaceholderAPI si disponible
+     */
+    private void registerPlaceholders() {
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new ZombieZExpansion(this).register();
+            log(Level.INFO, "§a✓ PlaceholderAPI hook enregistré!");
+        } else {
+            log(Level.WARNING, "§ePlaceholderAPI non trouvé - placeholders désactivés");
+        }
     }
 
     /**
