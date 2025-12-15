@@ -1,0 +1,229 @@
+# ============================================================
+#                   TAB Animations
+#                  ZombieZ Game Server
+# ============================================================
+# Ce fichier doit être placé dans plugins/TAB/animations.yml
+# ============================================================
+
+# Séparateur animé pour scoreboard
+separator:
+  change-interval: 200
+  texts:
+    - "&8&m«&r&8&m-----------&r&8&m»"
+    - "&7&m«&r&7&m-----------&r&7&m»"
+    - "&f&m«&r&f&m-----------&r&f&m»"
+    - "&e&m«&r&e&m-----------&r&e&m»"
+    - "&6&m«&r&6&m-----------&r&6&m»"
+    - "&c&m«&r&c&m-----------&r&c&m»"
+    - "&4&m«&r&4&m-----------&r&4&m»"
+    - "&c&m«&r&c&m-----------&r&c&m»"
+    - "&6&m«&r&6&m-----------&r&6&m»"
+    - "&e&m«&r&e&m-----------&r&e&m»"
+    - "&f&m«&r&f&m-----------&r&f&m»"
+    - "&7&m«&r&7&m-----------&r&7&m»"
+
+# Animation du titre serveur
+server-title:
+  change-interval: 100
+  texts:
+    - "&c&lZ&6O&eM&aB&bI&dE&fZ"
+    - "&f&lZ&c&lO&6M&eB&aI&bE&dZ"
+    - "&d&lZ&f&lO&c&lM&6B&eI&aE&bZ"
+    - "&b&lZ&d&lO&f&lM&c&lB&6I&eE&aZ"
+    - "&a&lZ&b&lO&d&lM&f&lB&c&lI&6E&eZ"
+    - "&e&lZ&a&lO&b&lM&d&lB&f&lI&c&lE&6Z"
+    - "&6&lZ&e&lO&a&lM&b&lB&d&lI&f&lE&cZ"
+    - "&c&lZ&6&lO&e&lM&a&lB&b&lI&d&lE&fZ"
+
+# Animation IP serveur
+server-ip:
+  change-interval: 150
+  texts:
+    - "&e&lrinaorc.com"
+    - "&6&lr&e&linaorc.com"
+    - "&6&lri&e&lnaorc.com"
+    - "&6&lrin&e&laorc.com"
+    - "&6&lrina&e&lorc.com"
+    - "&6&lrinao&e&lrc.com"
+    - "&6&lrinaor&e&lc.com"
+    - "&6&lrinaorc&e&l.com"
+    - "&6&lrinaorc.&e&lcom"
+    - "&6&lrinaorc.c&e&lom"
+    - "&6&lrinaorc.co&e&lm"
+    - "&6&lrinaorc.com"
+    - "&e&lrinaorc.com"
+    - "&f&lrinaorc.com"
+    - "&e&lrinaorc.com"
+
+# Animation d'accueil
+Welcome:
+  change-interval: 500
+  texts:
+    - "&7Bienvenue"
+    - "&fBienvenue"
+    - "&eBienvenue"
+    - "&6Bienvenue"
+    - "&cBienvenue"
+    - "&4Bienvenue"
+    - "&cBienvenue"
+    - "&6Bienvenue"
+    - "&eBienvenue"
+    - "&fBienvenue"
+
+# Animation d'alerte
+alert:
+  change-interval: 300
+  texts:
+    - "&c&l⚠"
+    - "&e&l⚠"
+    - "&c&l⚠"
+    - "&e&l⚠"
+
+# Animation étoile
+star:
+  change-interval: 200
+  texts:
+    - "&e✦"
+    - "&6✦"
+    - "&c✦"
+    - "&d✦"
+    - "&5✦"
+    - "&d✦"
+    - "&c✦"
+    - "&6✦"
+
+# Animation épée
+sword:
+  change-interval: 250
+  texts:
+    - "&c⚔"
+    - "&4⚔"
+    - "&c⚔"
+    - "&6⚔"
+    - "&e⚔"
+    - "&6⚔"
+
+# Animation points
+dots:
+  change-interval: 500
+  texts:
+    - "&7."
+    - "&7.."
+    - "&7..."
+    - "&7.."
+
+# Animation flèches
+arrows:
+  change-interval: 200
+  texts:
+    - "&7»"
+    - "&f»"
+    - "&e»"
+    - "&6»"
+    - "&c»"
+    - "&6»"
+    - "&e»"
+    - "&f»"
+
+# Animation coeur
+heart:
+  change-interval: 300
+  texts:
+    - "&c❤"
+    - "&4❤"
+    - "&c❤"
+    - "&f❤"
+
+# Animation skull (zombie theme)
+skull:
+  change-interval: 400
+  texts:
+    - "&7☠"
+    - "&8☠"
+    - "&f☠"
+    - "&c☠"
+    - "&4☠"
+    - "&c☠"
+    - "&f☠"
+    - "&8☠"
+
+# Animation flame
+flame:
+  change-interval: 150
+  texts:
+    - "&c🔥"
+    - "&6🔥"
+    - "&e🔥"
+    - "&6🔥"
+
+# Animation time (heure actuelle stylisée)
+time:
+  change-interval: 1000
+  texts:
+    - "&7[&f%time_HH:mm:ss%&7]"
+
+# Animation web
+web:
+  change-interval: 100
+  texts:
+    - "&f➤ &erinaorc.com &f➤"
+    - "&7➤ &6rinaorc.com &7➤"
+    - "&8➤ &crinaorc.com &8➤"
+    - "&7➤ &6rinaorc.com &7➤"
+
+# Animation barre de progression
+progress-bar:
+  change-interval: 200
+  texts:
+    - "&a▰&7▱▱▱▱▱▱▱▱▱"
+    - "&a▰▰&7▱▱▱▱▱▱▱▱"
+    - "&a▰▰▰&7▱▱▱▱▱▱▱"
+    - "&a▰▰▰▰&7▱▱▱▱▱▱"
+    - "&a▰▰▰▰▰&7▱▱▱▱▱"
+    - "&a▰▰▰▰▰▰&7▱▱▱▱"
+    - "&a▰▰▰▰▰▰▰&7▱▱▱"
+    - "&a▰▰▰▰▰▰▰▰&7▱▱"
+    - "&a▰▰▰▰▰▰▰▰▰&7▱"
+    - "&a▰▰▰▰▰▰▰▰▰▰"
+    - "&e▰▰▰▰▰▰▰▰▰▰"
+    - "&a▰▰▰▰▰▰▰▰▰▰"
+
+# Animation Zombie mode
+zombie-mode:
+  change-interval: 300
+  texts:
+    - "&a&l☠ SURVIVE ☠"
+    - "&e&l☠ SURVIVE ☠"
+    - "&c&l☠ SURVIVE ☠"
+    - "&4&l☠ SURVIVE ☠"
+    - "&c&l☠ SURVIVE ☠"
+    - "&e&l☠ SURVIVE ☠"
+
+# Animation événement spécial (Blood Moon, Horde, etc.)
+event-special:
+  change-interval: 200
+  texts:
+    - "&4&l⚠ EVENEMENT ⚠"
+    - "&c&l⚠ EVENEMENT ⚠"
+    - "&6&l⚠ EVENEMENT ⚠"
+    - "&e&l⚠ EVENEMENT ⚠"
+    - "&6&l⚠ EVENEMENT ⚠"
+    - "&c&l⚠ EVENEMENT ⚠"
+
+# Animation niveau haut (niveau 50+)
+high-level:
+  change-interval: 250
+  texts:
+    - "&6&l★ ELITE ★"
+    - "&e&l★ ELITE ★"
+    - "&f&l★ ELITE ★"
+    - "&e&l★ ELITE ★"
+
+# Animation prestige
+prestige-anim:
+  change-interval: 300
+  texts:
+    - "&d✦ PRESTIGE ✦"
+    - "&5✦ PRESTIGE ✦"
+    - "&d✦ PRESTIGE ✦"
+    - "&f✦ PRESTIGE ✦"

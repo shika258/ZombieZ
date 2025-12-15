@@ -1,0 +1,259 @@
+# ============================================================
+#                    TAB Configuration
+#                   ZombieZ Game Server
+#                     rinaorc.com
+# ============================================================
+# Ce fichier doit être placé dans plugins/TAB/config.yml
+# Les placeholders %zombiez_xxx% nécessitent PlaceholderAPI
+# ============================================================
+
+# ==================== HEADER / FOOTER ====================
+header-footer:
+  enabled: true
+  disable-in-worlds: []
+  designs:
+    default:
+      header:
+        - ""
+        - "<#8B0000>&m          &r &c&l⚔ &r<#FF4500>&lZOMBIE&e&lZ <#8B0000>&l⚔ &r<#8B0000>&m          </#8B0000>"
+        - ""
+        - "&f&l✦ &7Bienvenue &f%player% &7! &f&l✦"
+        - "&8▪ &7Niveau: &a%zombiez_level% &8| &7Prestige: &e%zombiez_prestige_star%"
+        - ""
+      footer:
+        - ""
+        - "&8▪ &7Zone: %zombiez_zone_formatted% &8| &7iLvl: &b%zombiez_ilvl%"
+        - "&8▪ &7Points: &6%zombiez_points% &8| &7Gems: &d%zombiez_gems%"
+        - ""
+        - "&7&oJoueurs en ligne: &f%online%&7/&f%max_players%"
+        - ""
+        - "<#FF6347>&l⚡ &e&lrinaorc.com &r<#FF6347>&l⚡"
+        - ""
+
+# ==================== SCOREBOARD ====================
+scoreboard:
+  enabled: true
+  toggle-command: /sb
+  remember-toggle-choice: true
+  hidden-by-default: false
+  use-numbers: false
+  static-number: 0
+  delay-on-join-milliseconds: 500
+  scoreboards:
+    # Scoreboard principal pour 1.20.3+
+    zombiez-main:
+      title: "&c&l⚔ &6&lZOMBIEZ &c&l⚔"
+      display-condition: "%player-version-id%>=765;%bedrock%=false"
+      lines:
+        - "&7%date_dd/MM/yyyy%"
+        - "%animation:separator%"
+        - ""
+        - "&f&l» &e&lProfil"
+        - "&8▪ &7Niveau: &a%zombiez_level% &8(&f%zombiez_xp_progress%&8)"
+        - "&8▪ &7Prestige: &e%zombiez_prestige_star%"
+        - "&8▪ &7VIP: %zombiez_vip_formatted%"
+        - ""
+        - "&f&l» &6&lEconomie"
+        - "&8▪ &ePoints&7: &f%zombiez_points%"
+        - "&8▪ &dGems&7: &f%zombiez_gems%"
+        - "&8▪ &6Banque&7: &f%zombiez_bank%"
+        - ""
+        - "&f&l» &c&lCombat"
+        - "&8▪ &cZone&7: %zombiez_zone_formatted%"
+        - "&8▪ &biLvl&7: &f%zombiez_ilvl%"
+        - "&8▪ &4Kills&7: &f%zombiez_kills%"
+        - "&8▪ &7K/D&7: &f%zombiez_kd%"
+        - "&8▪ &6Streak&7: &f%zombiez_killstreak%"
+        - ""
+        - "%animation:separator%"
+        - "&e&lrinaorc.com"
+
+    # Scoreboard pour Bedrock (simplifié)
+    zombiez-bedrock:
+      title: "&6&lZOMBIEZ"
+      display-condition: "%bedrock%=true"
+      lines:
+        - "&7%date_dd/MM/yyyy%"
+        - "&8--------------"
+        - ""
+        - "&eNiveau: &f%zombiez_level%"
+        - "&ePrestige: &f%zombiez_prestige%"
+        - ""
+        - "&6Points: &f%zombiez_points%"
+        - "&dGems: &f%zombiez_gems%"
+        - ""
+        - "&cZone: &f%zombiez_zone%"
+        - "&biLvl: &f%zombiez_ilvl%"
+        - "&4Kills: &f%zombiez_kills%"
+        - ""
+        - "&8--------------"
+        - "&erinaorc.com"
+
+    # Scoreboard legacy (versions plus anciennes)
+    zombiez-legacy:
+      title: "&6&lZOMBIEZ"
+      display-condition: "%player-version-id%<765;%bedrock%=false"
+      lines:
+        - "&7%date_dd/MM/yyyy%"
+        - "&8&m--------------"
+        - ""
+        - "&f&l> &eProfil"
+        - "&7Niveau: &a%zombiez_level%"
+        - "&7Prestige: &e%zombiez_prestige%"
+        - ""
+        - "&f&l> &6Economie"
+        - "&7Points: &f%zombiez_points%"
+        - "&7Gems: &f%zombiez_gems%"
+        - ""
+        - "&f&l> &cCombat"
+        - "&7Zone: &f%zombiez_zone%"
+        - "&7iLvl: &f%zombiez_ilvl%"
+        - "&7Kills: &f%zombiez_kills%"
+        - ""
+        - "&8&m--------------"
+        - "&erinaorc.com"
+
+# ==================== TABLIST FORMATTING ====================
+tablist-name-formatting:
+  enabled: true
+  disable-in-worlds: []
+  formats:
+    # Format selon le rang VIP
+    eternel:
+      condition: "%zombiez_vip_rank%=ETERNEL"
+      format: "&d[%zombiez_prestige_star%&d] &d%player%"
+    diamant:
+      condition: "%zombiez_vip_rank%=DIAMANT"
+      format: "&b[%zombiez_prestige_star%&b] &b%player%"
+    or:
+      condition: "%zombiez_vip_rank%=OR"
+      format: "&e[%zombiez_prestige_star%&e] &e%player%"
+    argent:
+      condition: "%zombiez_vip_rank%=ARGENT"
+      format: "&7[%zombiez_prestige_star%&7] &7%player%"
+    bronze:
+      condition: "%zombiez_vip_rank%=BRONZE"
+      format: "&6[%zombiez_prestige_star%&6] &6%player%"
+    default:
+      format: "&7[%zombiez_prestige_star%&7] &f%player%"
+
+# ==================== LAYOUT ====================
+layout:
+  enabled: false
+  direction: COLUMNS
+  default-skin: mineskin:1753261242
+
+# ==================== BOSSBAR ====================
+bossbar:
+  enabled: true
+  toggle-command: /bossbar
+  remember-toggle-choice: true
+  hidden-by-default: false
+  bars:
+    # Barre XP permanente
+    xp-bar:
+      style: PROGRESS
+      color: GREEN
+      progress: "%zombiez_xp_progress%/100"
+      text: "&a✦ &fNiveau %zombiez_level% &8| &7XP: &f%zombiez_xp%&7/&f%zombiez_xp_required% &a✦"
+      display-condition: "true"
+
+    # Barre de zone
+    zone-bar:
+      style: SOLID
+      color: RED
+      progress: "%zombiez_zone%/50"
+      text: "&c⚔ %zombiez_zone_formatted% &8| &7Max atteint: &fZone %zombiez_maxzone% &c⚔"
+      display-condition: "true"
+      announcement-bar: false
+
+# ==================== PING SPOOF ====================
+ping-spoof:
+  enabled: false
+  value: 0
+
+# ==================== YELLOW NUMBER ====================
+yellow-number:
+  enabled: false
+  value: "%ping%"
+
+# ==================== BELOWNAME ====================
+belowname:
+  enabled: true
+  value: "&c%zombiez_level%"
+  text: "&7Niveau"
+  disable-in-worlds: []
+
+# ==================== PLAYERLIST OBJECTIVE ====================
+playerlist-objective:
+  enabled: true
+  value: "%zombiez_zone%"
+  fancy-display-players: "Zone: &c%zombiez_zone%"
+  fancy-display-default: "Zone"
+  disable-in-worlds: []
+
+# ==================== ANTI OVERRIDE ====================
+prevent-spectator-effect:
+  enabled: true
+
+# ==================== CONDITIONS ====================
+# Note: Les conditions utilisent les opérateurs: =, !=, <, >, <=, >=
+# Exemple: "%zombiez_level%>=50" = vrai si niveau >= 50
+
+# ==================== PLACEHOLDERS ====================
+# Liste des placeholders ZombieZ disponibles:
+#
+# PROGRESSION:
+#   %zombiez_level%          - Niveau actuel
+#   %zombiez_xp%             - XP actuelle
+#   %zombiez_xp_required%    - XP requise pour level up
+#   %zombiez_xp_progress%    - Progression en % vers prochain niveau
+#   %zombiez_xp_bar%         - Barre de progression visuelle
+#   %zombiez_prestige%       - Niveau de prestige
+#   %zombiez_prestige_star%  - Etoiles de prestige colorées
+#
+# ECONOMIE:
+#   %zombiez_points%         - Points (formatés: 1.5K, 2M, etc.)
+#   %zombiez_points_raw%     - Points (valeur brute)
+#   %zombiez_gems%           - Gems
+#   %zombiez_bank%           - Points en banque
+#   %zombiez_total_wealth%   - Richesse totale
+#   %zombiez_fragments%      - Fragments de crafting
+#
+# COMBAT:
+#   %zombiez_kills%          - Kills totaux
+#   %zombiez_deaths%         - Morts totales
+#   %zombiez_kd%             - Ratio K/D
+#   %zombiez_killstreak%     - Streak actuel
+#   %zombiez_beststreak%     - Meilleur streak
+#   %zombiez_zombie_kills%   - Kills de zombies
+#   %zombiez_elite_kills%    - Kills d'elites
+#   %zombiez_boss_kills%     - Kills de boss
+#
+# ZONES & ITEM LEVEL:
+#   %zombiez_zone%           - Zone actuelle (numero)
+#   %zombiez_zone_name%      - Nom de la zone
+#   %zombiez_zone_formatted% - Zone formatée avec couleur
+#   %zombiez_maxzone%        - Zone max atteinte
+#   %zombiez_ilvl%           - Item Level moyen
+#   %zombiez_ilvl_weapon%    - iLvl de l'arme
+#
+# VIP & STATUS:
+#   %zombiez_vip%            - Rang VIP
+#   %zombiez_vip_formatted%  - Rang VIP formaté
+#   %zombiez_xp_multiplier%  - Multiplicateur XP
+#   %zombiez_booster_active% - Booster actif?
+#
+# TEMPS DE JEU:
+#   %zombiez_playtime%       - Temps de jeu formaté
+#   %zombiez_session_time%   - Durée session actuelle
+#
+# MOMENTUM:
+#   %zombiez_combo%          - Combo actuel
+#   %zombiez_fever%          - Mode Fever actif?
+#
+# LEADERBOARDS:
+#   %zombiez_rank_kills%     - Rang classement kills
+#   %zombiez_rank_level%     - Rang classement niveau
+#   %zombiez_rank_points%    - Rang classement points
+# ============================================================
