@@ -1,15 +1,20 @@
 package com.rinaorc.zombiez.items;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableRarity;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.mobs.food.FoodItem;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,6 +25,8 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
 import java.util.UUID;
@@ -73,27 +80,156 @@ public class ItemListener implements Listener {
     }
 
     /**
-     * Gère le drop d'items (confirmation pour items rares+)
+     * Gère le drop d'items - applique le glow et le nom visible pour TOUS les items
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onItemDrop(PlayerDropItemEvent event) {
-        ItemStack item = event.getItemDrop().getItemStack();
-        
-        if (!ZombieZItem.isZombieZItem(item)) {
+        ItemStack itemStack = event.getItemDrop().getItemStack();
+        Item droppedItem = event.getItemDrop();
+        Player player = event.getPlayer();
+
+        // Vérifier si c'est un ZombieZItem
+        if (ZombieZItem.isZombieZItem(itemStack)) {
+            Rarity rarity = ZombieZItem.getItemRarity(itemStack);
+
+            if (rarity != null) {
+                // Appliquer le glow et le nom visible
+                String itemName = getItemDisplayName(itemStack);
+                plugin.getItemManager().applyDroppedItemEffects(droppedItem, itemName, getRarityChatColor(rarity));
+
+                // Avertissement pour items légendaires+
+                if (rarity.isAtLeast(Rarity.LEGENDARY)) {
+                    MessageUtils.sendRaw(player,
+                        "§c⚠ Vous avez droppé un item " + rarity.getColoredName() + "§c!");
+                }
+            }
             return;
         }
 
-        Rarity rarity = ZombieZItem.getItemRarity(item);
-        
-        // Avertissement pour items rares+
-        if (rarity != null && rarity.isAtLeast(Rarity.LEGENDARY)) {
-            Player player = event.getPlayer();
-            
-            // TODO: Implémenter système de confirmation
-            // Pour l'instant, juste un avertissement
-            MessageUtils.sendRaw(player, 
-                "§c⚠ Vous avez droppé un item " + rarity.getColoredName() + "§c!");
+        // Vérifier si c'est un Consommable
+        if (Consumable.isConsumable(itemStack)) {
+            Consumable consumable = Consumable.fromItemStack(itemStack);
+            if (consumable != null) {
+                ConsumableRarity rarity = consumable.getRarity();
+                String itemName = consumable.getType().getDisplayName();
+                ChatColor color = getConsumableRarityChatColor(rarity);
+                plugin.getItemManager().applyDroppedItemEffects(droppedItem, itemName, color);
+            }
+            return;
         }
+
+        // Vérifier si c'est un FoodItem
+        String foodId = getFoodId(itemStack);
+        if (foodId != null) {
+            var foodRegistry = plugin.getPassiveMobManager().getFoodRegistry();
+            if (foodRegistry != null) {
+                FoodItem foodItem = foodRegistry.getItem(foodId);
+                if (foodItem != null) {
+                    ChatColor color = getFoodRarityChatColor(foodItem.getRarity());
+                    plugin.getItemManager().applyDroppedItemEffects(droppedItem, foodItem.getDisplayName(), color);
+                }
+            }
+            return;
+        }
+
+        // Pour tous les autres items (vanilla ou autres), appliquer un glow blanc et le nom
+        String itemName = getItemDisplayName(itemStack);
+        if (itemName != null && !itemName.isEmpty()) {
+            plugin.getItemManager().applyDroppedItemEffects(droppedItem, itemName, ChatColor.WHITE);
+        }
+    }
+
+    /**
+     * Obtient le nom d'affichage d'un ItemStack
+     */
+    private String getItemDisplayName(ItemStack item) {
+        if (item == null) return null;
+
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            // Utiliser le nom custom si présent
+            return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(item.getItemMeta().displayName());
+        }
+
+        // Sinon utiliser le nom du matériau formaté
+        return formatMaterialName(item.getType());
+    }
+
+    /**
+     * Formate le nom d'un matériau pour l'affichage
+     */
+    private String formatMaterialName(Material material) {
+        String name = material.name().toLowerCase().replace("_", " ");
+        StringBuilder result = new StringBuilder();
+        boolean capitalizeNext = true;
+
+        for (char c : name.toCharArray()) {
+            if (c == ' ') {
+                capitalizeNext = true;
+                result.append(c);
+            } else if (capitalizeNext) {
+                result.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+            } else {
+                result.append(c);
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Obtient la ChatColor correspondant à une Rarity
+     */
+    private ChatColor getRarityChatColor(Rarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+            case MYTHIC -> ChatColor.LIGHT_PURPLE;
+            case EXALTED -> ChatColor.RED;
+        };
+    }
+
+    /**
+     * Obtient la ChatColor correspondant à une ConsumableRarity
+     */
+    private ChatColor getConsumableRarityChatColor(ConsumableRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+        };
+    }
+
+    /**
+     * Obtient la ChatColor correspondant à une FoodRarity
+     */
+    private ChatColor getFoodRarityChatColor(FoodItem.FoodRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+        };
+    }
+
+    /**
+     * Obtient l'ID de nourriture ZombieZ d'un item
+     */
+    private String getFoodId(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        if (!meta.getPersistentDataContainer().has(FoodItem.FOOD_KEY, PersistentDataType.STRING)) {
+            return null;
+        }
+        return meta.getPersistentDataContainer().get(FoodItem.FOOD_KEY, PersistentDataType.STRING);
     }
 
     /**
