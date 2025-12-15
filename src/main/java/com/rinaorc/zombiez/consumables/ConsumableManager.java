@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.consumables.effects.ConsumableEffects;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import lombok.Getter;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -205,14 +206,18 @@ public class ConsumableManager {
         // Effets visuels selon la rareté
         ConsumableRarity rarity = consumable.getRarity();
 
+        // Toujours afficher le nom et le glow pour tous les consommables
+        String displayName = consumable.getType().getDisplayName();
+        ChatColor color = getConsumableRarityChatColor(rarity);
+        plugin.getItemManager().applyDroppedItemEffects(droppedItem, displayName, color);
+
+        // Effets supplémentaires selon la rareté
         switch (rarity) {
             case LEGENDARY -> {
-                droppedItem.setGlowing(true);
                 spawnRarityParticles(location, Particle.TOTEM_OF_UNDYING, 30);
                 location.getWorld().playSound(location, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.2f);
             }
             case EPIC -> {
-                droppedItem.setGlowing(true);
                 spawnRarityParticles(location, Particle.WITCH, 20);
                 location.getWorld().playSound(location, Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
             }
@@ -223,7 +228,23 @@ public class ConsumableManager {
             case UNCOMMON -> {
                 spawnRarityParticles(location, Particle.HAPPY_VILLAGER, 10);
             }
+            case COMMON -> {
+                // Pas d'effet supplémentaire pour les communs
+            }
         }
+    }
+
+    /**
+     * Obtient la ChatColor correspondant à une ConsumableRarity
+     */
+    private ChatColor getConsumableRarityChatColor(ConsumableRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+        };
     }
 
     /**

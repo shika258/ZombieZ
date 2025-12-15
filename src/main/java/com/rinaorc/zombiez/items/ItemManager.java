@@ -118,6 +118,46 @@ public class ItemManager {
     }
 
     /**
+     * Applique le glow coloré à une entité item avec une couleur spécifique
+     * Utilisé pour les items droppés (consommables, nourriture, etc.)
+     */
+    public void applyGlowWithColor(Item itemEntity, ChatColor color) {
+        itemEntity.setGlowing(true);
+
+        // Trouver la team correspondant à cette couleur
+        for (Rarity rarity : Rarity.values()) {
+            if (getRarityChatColor(rarity) == color) {
+                applyGlowColor(itemEntity, rarity);
+                return;
+            }
+        }
+
+        // Si aucune rareté ne correspond, utiliser COMMON (blanc)
+        applyGlowColor(itemEntity, Rarity.COMMON);
+    }
+
+    /**
+     * Applique le glow coloré à une entité item basé sur une rareté ZombieZ
+     */
+    public void applyGlowForRarity(Item itemEntity, Rarity rarity) {
+        itemEntity.setGlowing(true);
+        applyGlowColor(itemEntity, rarity);
+    }
+
+    /**
+     * Applique le glow coloré à un item droppé et affiche son nom
+     * Peut être appelé depuis n'importe quel listener
+     */
+    public void applyDroppedItemEffects(Item itemEntity, String displayName, ChatColor glowColor) {
+        // Afficher le nom
+        itemEntity.setCustomName(glowColor + displayName);
+        itemEntity.setCustomNameVisible(true);
+
+        // Appliquer le glow
+        applyGlowWithColor(itemEntity, glowColor);
+    }
+
+    /**
      * Génère et drop un item au sol
      */
     public void dropItem(Location location, int zoneId, double luckBonus) {
