@@ -12,132 +12,148 @@ import java.util.List;
 @Getter
 public enum ZombieType {
 
-    // ==================== TIER 1 ====================
-    WALKER("ZZ_Walker", "Walker", 1, 25, 4, 0.18, 
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 1 - Les Débutants (Jeux de mots faciles)
+    // ═══════════════════════════════════════════════════════════════════
+    WALKER("ZZ_Walker", "Mortpiné", 1, 25, 4, 0.18,               // Mort + traîner pieds
         new int[]{1, 2, 3, 4, 5, 6, 7}, ZombieCategory.BASIC),
-    
-    CRAWLER("ZZ_Crawler", "Crawler", 1, 15, 3, 0.28,
+
+    CRAWLER("ZZ_Crawler", "Rampitoyable", 1, 15, 3, 0.28,         // Ramper + pitoyable
         new int[]{1, 2, 3, 4, 5, 6, 7}, ZombieCategory.BASIC),
-    
-    RUNNER("ZZ_Runner", "Runner", 1, 20, 5, 0.32,
+
+    RUNNER("ZZ_Runner", "Sprintomb", 1, 20, 5, 0.32,              // Sprint + tombe
         new int[]{2, 3, 4, 5, 6, 7}, ZombieCategory.BASIC),
-    
-    SHAMBLER("ZZ_Shambler", "Shambler", 1, 35, 3, 0.14,
+
+    SHAMBLER("ZZ_Shambler", "Titubeurk", 1, 35, 3, 0.14,          // Tituber + beurk
         new int[]{1, 2, 3}, ZombieCategory.BASIC),
-    
-    MUMMY("ZZ_Mummy", "Momie", 1, 30, 5, 0.16,
+
+    MUMMY("ZZ_Mummy", "Bandelétale", 1, 30, 5, 0.16,              // Bandelette + létale
         new int[]{3}, ZombieCategory.BASIC),
-    
-    DROWNER("ZZ_Drowner", "Noyé", 1, 25, 4, 0.22,
+
+    DROWNER("ZZ_Drowner", "Flottacide", 1, 25, 4, 0.22,           // Flotter + homicide
         new int[]{5}, ZombieCategory.BASIC),
 
-    // ==================== TIER 2 ====================
-    ARMORED("ZZ_Armored", "Blindé", 2, 50, 6, 0.14,
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 2 - Les Intermédiaires (Jeux de mots élaborés)
+    // ═══════════════════════════════════════════════════════════════════
+    ARMORED("ZZ_Armored", "Blindépouille", 2, 50, 6, 0.14,        // Blindé + dépouille
         new int[]{3, 4, 5, 6, 7, 8, 9}, ZombieCategory.TANK),
-    
-    ARMORED_ELITE("ZZ_Armored_Elite", "Blindé Élite", 2, 80, 8, 0.14,
+
+    ARMORED_ELITE("ZZ_Armored_Elite", "Cuirassassin", 2, 80, 8, 0.14,  // Cuirasse + assassin
         new int[]{5, 6, 7, 8, 9}, ZombieCategory.ELITE),
-    
-    SPITTER("ZZ_Spitter", "Cracheur", 2, 30, 3, 0.20,
+
+    SPITTER("ZZ_Spitter", "Glaviotoxik", 2, 30, 3, 0.20,          // Glaviot + toxique
         new int[]{3, 4, 5, 6, 7, 8, 9}, ZombieCategory.RANGED),
-    
-    SCREAMER("ZZ_Screamer", "Hurleur", 2, 25, 4, 0.22,
+
+    SCREAMER("ZZ_Screamer", "Criardagonie", 2, 25, 4, 0.22,       // Criard + agonie
         new int[]{3, 4, 5, 6, 7, 8}, ZombieCategory.SUPPORT),
-    
-    LURKER("ZZ_Lurker", "Rôdeur", 2, 28, 8, 0.26,
+
+    LURKER("ZZ_Lurker", "Guettombie", 2, 28, 8, 0.26,             // Guetter + zombie
         new int[]{4, 5, 6, 7, 8}, ZombieCategory.STEALTH),
-    
-    BLOATER("ZZ_Bloater", "Bouffi", 2, 45, 2, 0.12,
+
+    BLOATER("ZZ_Bloater", "Gonflétide", 2, 45, 2, 0.12,           // Gonflé + fétide
         new int[]{5, 6, 7}, ZombieCategory.EXPLOSIVE),
-    
-    SHADOW("ZZ_Shadow", "Ombre", 2, 32, 7, 0.28,
+
+    SHADOW("ZZ_Shadow", "Ombrévenant", 2, 32, 7, 0.28,            // Ombre + revenant
         new int[]{4, 5, 6, 7, 8}, ZombieCategory.STEALTH),
-    
-    TOXIC("ZZ_Toxic", "Toxique", 2, 35, 4, 0.18,
+
+    TOXIC("ZZ_Toxic", "Putrescent", 2, 35, 4, 0.18,               // Putrescence
         new int[]{5, 6, 7}, ZombieCategory.HAZARD),
 
-    // ==================== TIER 3 ====================
-    BERSERKER("ZZ_Berserker", "Berserker", 3, 60, 8, 0.24,
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 3 - Les Dangereux (Jeux de mots mémorables)
+    // ═══════════════════════════════════════════════════════════════════
+    BERSERKER("ZZ_Berserker", "Rageputride", 3, 60, 8, 0.24,      // Rage + putride
         new int[]{5, 6, 7, 8, 9, 10}, ZombieCategory.MELEE),
-    
-    NECROMANCER("ZZ_Necromancer", "Nécromancien", 3, 45, 5, 0.16,
+
+    NECROMANCER("ZZ_Necromancer", "Nécrosorcier", 3, 45, 5, 0.16, // Nécro + sorcier
         new int[]{5, 6, 7, 8, 9, 10}, ZombieCategory.SUMMONER),
-    
-    EXPLOSIVE("ZZ_Explosive", "Explosif", 3, 35, 3, 0.30,
+
+    EXPLOSIVE("ZZ_Explosive", "Kaboombie", 3, 35, 3, 0.30,        // Kaboom + zombie
         new int[]{5, 6, 7, 8, 9, 10}, ZombieCategory.EXPLOSIVE),
-    
-    GIANT("ZZ_Giant", "Géant", 3, 120, 15, 0.10,
+
+    GIANT("ZZ_Giant", "Mastodonte", 3, 120, 15, 0.10,             // Mastodonte (géant préhistorique)
         new int[]{6, 7, 8, 9}, ZombieCategory.TANK),
-    
-    CLIMBER("ZZ_Climber", "Grimpeur", 3, 40, 7, 0.28,
+
+    CLIMBER("ZZ_Climber", "Escaladavre", 3, 40, 7, 0.28,          // Escalade + cadavre
         new int[]{7, 8}, ZombieCategory.MELEE),
-    
-    FROZEN("ZZ_Frozen", "Gelé", 3, 50, 6, 0.16,
+
+    FROZEN("ZZ_Frozen", "Frigorifique", 3, 50, 6, 0.16,           // Frigorifique (mort + froid)
         new int[]{8}, ZombieCategory.ELEMENTAL),
-    
-    YETI("ZZ_Yeti", "Yéti", 3, 80, 12, 0.22,
-        new int[]{8}, ZombieCategory.ELITE),
-    
-    WENDIGO("ZZ_Wendigo", "Wendigo", 3, 70, 14, 0.32,
+
+    YETI("ZZ_Yeti", "Abominaneige", 3, 80, 12, 0.22,              // Abominable + neige
         new int[]{8}, ZombieCategory.ELITE),
 
-    // ==================== TIER 4 ====================
-    COLOSSUS("ZZ_Colossus", "Colosse", 4, 150, 18, 0.08,
+    WENDIGO("ZZ_Wendigo", "Affamortis", 3, 70, 14, 0.32,          // Affamé + mortis
+        new int[]{8}, ZombieCategory.ELITE),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 4 - Les Terrifiants (Jeux de mots épiques)
+    // ═══════════════════════════════════════════════════════════════════
+    COLOSSUS("ZZ_Colossus", "Titanécrose", 4, 150, 18, 0.08,      // Titan + nécrose
         new int[]{7, 8, 9, 10}, ZombieCategory.TANK),
-    
-    SPECTRE("ZZ_Spectre", "Spectre", 4, 60, 12, 0.30,
+
+    SPECTRE("ZZ_Spectre", "Spectramort", 4, 60, 12, 0.30,         // Spectre + mort
         new int[]{7, 8, 9, 10}, ZombieCategory.STEALTH),
-    
-    RAVAGER("ZZ_Ravager", "Ravageur", 4, 100, 16, 0.28,
+
+    RAVAGER("ZZ_Ravager", "Dévastateur", 4, 100, 16, 0.28,        // Dévastateur
         new int[]{7, 8, 9, 10}, ZombieCategory.MELEE),
-    
-    CREAKING("ZZ_Creaking", "Creaking", 4, 80, 14, 0.05,
+
+    CREAKING("ZZ_Creaking", "Craquosseux", 4, 80, 14, 0.05,       // Craquer + os
         new int[]{9}, ZombieCategory.SPECIAL),
-    
-    MUTANT("ZZ_Mutant", "Mutant", 4, 90, 13, 0.24,
+
+    MUTANT("ZZ_Mutant", "Mutanomalie", 4, 90, 13, 0.24,           // Mutant + anomalie
         new int[]{9}, ZombieCategory.HAZARD),
 
-    // ==================== TIER 5 ====================
-    CORRUPTED_WARDEN("ZZ_CorruptedWarden", "Gardien Corrompu", 5, 250, 25, 0.22,
+    // ═══════════════════════════════════════════════════════════════════
+    // TIER 5 - Les Légendaires (Jeux de mots majestueux)
+    // ═══════════════════════════════════════════════════════════════════
+    CORRUPTED_WARDEN("ZZ_CorruptedWarden", "Gardinfernal", 5, 250, 25, 0.22,  // Gardien + infernal
         new int[]{9, 10}, ZombieCategory.ELITE),
-    
-    ARCHON("ZZ_Archon", "Archon", 5, 200, 22, 0.26,
-        new int[]{10}, ZombieCategory.ELITE),
-    
-    DEMON("ZZ_Demon", "Démon", 4, 70, 12, 0.28,
-        new int[]{10}, ZombieCategory.ELEMENTAL),
-    
-    INFERNAL("ZZ_Infernal", "Infernal", 4, 100, 15, 0.24,
+
+    ARCHON("ZZ_Archon", "Archonécros", 5, 200, 22, 0.26,          // Archon + nécros
         new int[]{10}, ZombieCategory.ELITE),
 
-    // ==================== MINI-BOSS ====================
-    BUTCHER("ZZ_Butcher", "Le Boucher", 0, 200, 12, 0.20,
+    DEMON("ZZ_Demon", "Démonécrose", 4, 70, 12, 0.28,             // Démon + nécrose
+        new int[]{10}, ZombieCategory.ELEMENTAL),
+
+    INFERNAL("ZZ_Infernal", "Brasimort", 4, 100, 15, 0.24,        // Brasier + mort
+        new int[]{10}, ZombieCategory.ELITE),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
+    // ═══════════════════════════════════════════════════════════════════
+    BUTCHER("ZZ_Butcher", "L'Équarisseur", 0, 200, 12, 0.20,      // Boucher -> Équarisseur
         new int[]{3, 4, 5, 6, 7, 8, 9, 10}, ZombieCategory.MINIBOSS),
-    
-    WIDOW("ZZ_Widow", "La Veuve", 0, 180, 10, 0.28,
+
+    WIDOW("ZZ_Widow", "La Veuvénéneuse", 0, 180, 10, 0.28,        // Veuve + venimeuse
         new int[]{4, 5, 6, 7, 8, 9, 10}, ZombieCategory.MINIBOSS),
-    
-    THE_GIANT("ZZ_TheGiant", "Le Géant", 0, 300, 20, 0.08,
+
+    THE_GIANT("ZZ_TheGiant", "Le Colossal", 0, 300, 20, 0.08,     // Le Colossal
         new int[]{5, 6, 7, 8, 9, 10}, ZombieCategory.MINIBOSS),
-    
-    THE_PHANTOM("ZZ_ThePhantom", "Le Fantôme", 0, 150, 14, 0.32,
+
+    THE_PHANTOM("ZZ_ThePhantom", "L'Éthéré", 0, 150, 14, 0.32,    // L'Éthéré (fantomatique)
         new int[]{6, 7, 8, 9, 10}, ZombieCategory.MINIBOSS),
 
-    // ==================== BOSS DE ZONE ====================
-    BOSS_GUARDIAN("ZZ_Boss_Guardian", "Gardien du Village", 0, 300, 10, 0.18,
+    // ═══════════════════════════════════════════════════════════════════
+    // BOSS DE ZONE - Les Seigneurs (Titres épiques)
+    // ═══════════════════════════════════════════════════════════════════
+    BOSS_GUARDIAN("ZZ_Boss_Guardian", "Le Gardien Maudit", 0, 300, 10, 0.18,
         new int[]{1}, ZombieCategory.ZONE_BOSS),
-    
-    BOSS_SHADOW_ELDER("ZZ_Boss_ShadowElder", "Ancien des Ombres", 0, 500, 15, 0.22,
+
+    BOSS_SHADOW_ELDER("ZZ_Boss_ShadowElder", "L'Ancien des Ténèbres", 0, 500, 15, 0.22,
         new int[]{4}, ZombieCategory.ZONE_BOSS),
-    
-    BOSS_FROST_LORD("ZZ_Boss_FrostLord", "Seigneur des Glaces", 0, 800, 20, 0.16,
+
+    BOSS_FROST_LORD("ZZ_Boss_FrostLord", "Le Seigneur Givré", 0, 800, 20, 0.16,
         new int[]{8}, ZombieCategory.ZONE_BOSS),
-    
-    BOSS_ABOMINATION("ZZ_Boss_Abomination", "L'Abomination", 0, 1200, 25, 0.20,
+
+    BOSS_ABOMINATION("ZZ_Boss_Abomination", "L'Innommable", 0, 1200, 25, 0.20,
         new int[]{9}, ZombieCategory.ZONE_BOSS),
 
-    // ==================== BOSS FINAL ====================
-    PATIENT_ZERO("ZZ_PatientZero", "Patient Zéro", 0, 5000, 30, 0.24,
+    // ═══════════════════════════════════════════════════════════════════
+    // BOSS FINAL - Le Mythe (Nom légendaire)
+    // ═══════════════════════════════════════════════════════════════════
+    PATIENT_ZERO("ZZ_PatientZero", "Patient Zéro - L'Origine", 0, 5000, 30, 0.24,
         new int[]{11}, ZombieCategory.FINAL_BOSS);
 
     private final String mythicMobId;    // ID MythicMobs

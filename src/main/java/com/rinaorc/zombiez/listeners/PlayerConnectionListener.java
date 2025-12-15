@@ -2,10 +2,14 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.generator.ItemGenerator;
+import com.rinaorc.zombiez.items.types.ItemType;
+import com.rinaorc.zombiez.items.types.Rarity;
+import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.Material;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -16,7 +20,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 
 /**
@@ -94,40 +98,37 @@ public class PlayerConnectionListener implements Listener {
 
     /**
      * Donne le stuff de départ aux nouveaux joueurs
+     * Utilise le système de stats custom ZombieZ
      */
     private void giveStarterKit(Player player) {
         // Vider l'inventaire au cas où
         player.getInventory().clear();
 
-        // Épée de survie
-        ItemStack sword = new ItemStack(Material.IRON_SWORD);
-        ItemMeta swordMeta = sword.getItemMeta();
-        if (swordMeta != null) {
-            swordMeta.setDisplayName("§6⚔ Épée du Survivant");
-            swordMeta.setLore(List.of(
-                "§7Une épée forgée pour l'apocalypse.",
-                "",
-                "§8▸ §7Damage: §c+6",
-                "",
-                "§e§oÉquipement de départ"
-            ));
-            swordMeta.addEnchant(Enchantment.SHARPNESS, 1, true);
-            swordMeta.addEnchant(Enchantment.UNBREAKING, 2, true);
-            sword.setItemMeta(swordMeta);
-        }
-        player.getInventory().setItem(0, sword);
+        // Créer les items avec le système de stats custom
+        ItemGenerator generator = ItemGenerator.getInstance();
 
-        // Armure en cuir renforcé
-        ItemStack helmet = createArmorPiece(Material.LEATHER_HELMET, "§6Casque du Survivant", "§8▸ §7Armor: §a+1");
-        ItemStack chestplate = createArmorPiece(Material.LEATHER_CHESTPLATE, "§6Plastron du Survivant", "§8▸ §7Armor: §a+3");
-        ItemStack leggings = createArmorPiece(Material.LEATHER_LEGGINGS, "§6Jambières du Survivant", "§8▸ §7Armor: §a+2");
-        ItemStack boots = createArmorPiece(Material.LEATHER_BOOTS, "§6Bottes du Survivant", "§8▸ §7Armor: §a+1");
+        // ═══════════════════════════════════════════════
+        // ARME DE DÉPART: Épée du Survivant (Uncommon)
+        // ═══════════════════════════════════════════════
+        ZombieZItem starterSword = createStarterWeapon(generator);
+        player.getInventory().setItem(0, starterSword.toItemStack());
 
-        player.getInventory().setHelmet(helmet);
-        player.getInventory().setChestplate(chestplate);
-        player.getInventory().setLeggings(leggings);
-        player.getInventory().setBoots(boots);
+        // ═══════════════════════════════════════════════
+        // ARMURE DE DÉPART: Set du Survivant (Common/Uncommon)
+        // ═══════════════════════════════════════════════
+        ZombieZItem starterHelmet = createStarterArmor(generator, ItemType.HELMET);
+        ZombieZItem starterChestplate = createStarterArmor(generator, ItemType.CHESTPLATE);
+        ZombieZItem starterLeggings = createStarterArmor(generator, ItemType.LEGGINGS);
+        ZombieZItem starterBoots = createStarterArmor(generator, ItemType.BOOTS);
 
+        player.getInventory().setHelmet(starterHelmet.toItemStack());
+        player.getInventory().setChestplate(starterChestplate.toItemStack());
+        player.getInventory().setLeggings(starterLeggings.toItemStack());
+        player.getInventory().setBoots(starterBoots.toItemStack());
+
+        // ═══════════════════════════════════════════════
+        // CONSOMMABLES
+        // ═══════════════════════════════════════════════
         // Nourriture
         ItemStack food = new ItemStack(Material.COOKED_BEEF, 32);
         ItemMeta foodMeta = food.getItemMeta();
@@ -143,29 +144,95 @@ public class PlayerConnectionListener implements Listener {
         player.getInventory().setItem(2, torches);
 
         // Message de confirmation
-        MessageUtils.sendRaw(player, "§a✓ §7Vous avez reçu votre §6équipement de départ§7!");
+        MessageUtils.sendRaw(player, "§a✓ §7Vous avez reçu votre §6équipement de départ §7avec stats custom!");
     }
 
     /**
-     * Crée une pièce d'armure avec des métadonnées personnalisées
+     * Crée l'épée de départ avec stats custom
      */
-    private ItemStack createArmorPiece(Material material, String name, String statLine) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(List.of(
-                "§7Armure légère pour survivre.",
-                "",
-                statLine,
-                "",
-                "§e§oÉquipement de départ"
-            ));
-            meta.addEnchant(Enchantment.PROTECTION, 1, true);
-            meta.addEnchant(Enchantment.UNBREAKING, 2, true);
-            item.setItemMeta(meta);
+    private ZombieZItem createStarterWeapon(ItemGenerator generator) {
+        // Stats de base pour l'épée de départ
+        Map<StatType, Double> baseStats = new EnumMap<>(StatType.class);
+        baseStats.put(StatType.DAMAGE, 7.0);          // Dégâts de base
+        baseStats.put(StatType.ATTACK_SPEED, 1.6);    // Vitesse d'attaque standard
+
+        // Créer un item avec des stats prédéfinies
+        return ZombieZItem.builder()
+            .uuid(UUID.randomUUID())
+            .itemType(ItemType.SWORD)
+            .material(Material.IRON_SWORD)
+            .rarity(Rarity.UNCOMMON)
+            .tier(1)
+            .zoneLevel(1)
+            .baseName("Épée du Survivant")
+            .generatedName("⚔ Épée du Survivant")
+            .baseStats(baseStats)
+            .affixes(new ArrayList<>())
+            .itemScore(50)
+            .createdAt(System.currentTimeMillis())
+            .identified(true)
+            .itemLevel(5)
+            .build();
+    }
+
+    /**
+     * Crée une pièce d'armure de départ avec stats custom
+     */
+    private ZombieZItem createStarterArmor(ItemGenerator generator, ItemType armorType) {
+        // Déterminer le matériau et les stats selon le type d'armure
+        Material material;
+        Map<StatType, Double> baseStats = new EnumMap<>(StatType.class);
+        String baseName;
+        double armor;
+
+        switch (armorType) {
+            case HELMET -> {
+                material = Material.LEATHER_HELMET;
+                armor = 1.5;
+                baseName = "Casque du Survivant";
+            }
+            case CHESTPLATE -> {
+                material = Material.LEATHER_CHESTPLATE;
+                armor = 4.0;
+                baseName = "Plastron du Survivant";
+            }
+            case LEGGINGS -> {
+                material = Material.LEATHER_LEGGINGS;
+                armor = 3.0;
+                baseName = "Jambières du Survivant";
+            }
+            case BOOTS -> {
+                material = Material.LEATHER_BOOTS;
+                armor = 1.5;
+                baseName = "Bottes du Survivant";
+            }
+            default -> {
+                material = Material.LEATHER_CHESTPLATE;
+                armor = 2.0;
+                baseName = "Armure du Survivant";
+            }
         }
-        return item;
+
+        baseStats.put(StatType.ARMOR, armor);
+        // Petit bonus de vie sur l'armure de départ
+        baseStats.put(StatType.MAX_HEALTH, 2.0);
+
+        return ZombieZItem.builder()
+            .uuid(UUID.randomUUID())
+            .itemType(armorType)
+            .material(material)
+            .rarity(Rarity.COMMON)
+            .tier(0)
+            .zoneLevel(1)
+            .baseName(baseName)
+            .generatedName("🛡 " + baseName)
+            .baseStats(baseStats)
+            .affixes(new ArrayList<>())
+            .itemScore(25)
+            .createdAt(System.currentTimeMillis())
+            .identified(true)
+            .itemLevel(3)
+            .build();
     }
 
     /**

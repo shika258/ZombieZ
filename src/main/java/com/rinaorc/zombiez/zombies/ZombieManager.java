@@ -135,13 +135,15 @@ public class ZombieManager {
         // TODO: Intégration avec l'API MythicMobs
         // io.lumine.mythic.bukkit.MythicBukkit.inst().getMobManager()
         //     .spawnMob(mobId, location, level);
-        
+
         // Pour l'instant, on spawn un zombie vanilla comme placeholder
         if (location.getWorld() == null) return null;
 
+        // Récupérer le type de zombie pour le nom français
+        ZombieType type = ZombieType.fromMythicId(mobId);
+        String displayName = type != null ? type.getDisplayName() : mobId.replace("ZZ_", "");
+
         return location.getWorld().spawn(location, org.bukkit.entity.Zombie.class, zombie -> {
-            zombie.setCustomName("§c" + mobId.replace("ZZ_", "") + " §7[Lv." + level + "]");
-            zombie.setCustomNameVisible(true);
             zombie.setRemoveWhenFarAway(true);
 
             // Empêcher de brûler au soleil
@@ -152,9 +154,10 @@ public class ZombieManager {
             double damageMultiplier = 1.0 + (level * 0.10);
 
             var maxHealth = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            double maxHp = 20 * healthMultiplier;
             if (maxHealth != null) {
-                maxHealth.setBaseValue(20 * healthMultiplier);
-                zombie.setHealth(maxHealth.getValue());
+                maxHealth.setBaseValue(maxHp);
+                zombie.setHealth(maxHp);
             }
 
             var damage = zombie.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
@@ -168,7 +171,62 @@ public class ZombieManager {
                 double baseSpeed = 0.23 + (Math.random() * 0.05);
                 speed.setBaseValue(baseSpeed);
             }
+
+            // Nom avec vie affichée: "Nom [Lv.X] ❤ HP/MaxHP"
+            String healthDisplay = formatHealthDisplay((int) maxHp, (int) maxHp);
+            zombie.setCustomName("§c" + displayName + " §7[Lv." + level + "] " + healthDisplay);
+            zombie.setCustomNameVisible(true);
         });
+    }
+
+    /**
+     * Formate l'affichage de la vie: "❤ 100/100"
+     */
+    public static String formatHealthDisplay(int currentHealth, int maxHealth) {
+        // Couleur basée sur le pourcentage de vie
+        double healthPercent = (double) currentHealth / maxHealth;
+        String healthColor;
+        if (healthPercent > 0.6) {
+            healthColor = "§a"; // Vert
+        } else if (healthPercent > 0.3) {
+            healthColor = "§e"; // Jaune
+        } else {
+            healthColor = "§c"; // Rouge
+        }
+        return healthColor + currentHealth + "§7/§a" + maxHealth + " §c❤";
+    }
+
+    /**
+     * Met à jour le nom d'un zombie avec sa vie actuelle
+     * Appelé par le ZombieListener quand un zombie prend des dégâts
+     */
+    public void updateZombieHealthDisplay(LivingEntity zombie) {
+        if (!isZombieZMob(zombie)) return;
+
+        ActiveZombie activeZombie = getActiveZombie(zombie.getUniqueId());
+        if (activeZombie == null) return;
+
+        // Récupérer les infos
+        ZombieType type = activeZombie.getType();
+        int level = activeZombie.getLevel();
+        String displayName = type.getDisplayName();
+
+        // Récupérer la vie actuelle
+        var maxHealthAttr = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        int currentHealth = (int) Math.ceil(zombie.getHealth());
+        int maxHealth = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : 20;
+
+        // Construire le nouveau nom
+        String healthDisplay = formatHealthDisplay(currentHealth, maxHealth);
+        String baseName = "§c" + displayName + " §7[Lv." + level + "] " + healthDisplay;
+
+        // Si le zombie a un affix, l'ajouter au nom
+        if (activeZombie.hasAffix()) {
+            ZombieAffix affix = activeZombie.getAffix();
+            zombie.setCustomName(affix.getColorCode() + affix.getPrefix() + " " + baseName);
+        } else {
+            zombie.setCustomName(baseName);
+        }
     }
 
     /**
@@ -197,18 +255,15 @@ public class ZombieManager {
     private void applyRandomAffix(ActiveZombie zombie, Entity entity, int zoneId) {
         ZombieAffix affix = affixRegistry.rollAffix(zoneId);
         if (affix == null) return;
-        
+
         zombie.setAffix(affix);
-        
+
         // Appliquer les effets de l'affix
         if (entity instanceof LivingEntity living) {
             affix.apply(living);
-            
-            // Mettre à jour le nom
-            String currentName = living.getCustomName();
-            if (currentName != null) {
-                living.setCustomName(affix.getColorCode() + affix.getPrefix() + " " + currentName);
-            }
+
+            // Mettre à jour le nom avec l'affix + vie
+            updateZombieHealthDisplay(living);
         }
     }
 
