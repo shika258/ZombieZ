@@ -1,7 +1,6 @@
 package com.rinaorc.zombiez.zombies;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.combat.DamageIndicator;
 import com.rinaorc.zombiez.items.sets.SetBonusManager;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
@@ -135,9 +134,7 @@ public class ZombieListener implements Listener {
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
 
-        // Afficher l'indicateur de dégâts flottant (client-side pour l'attaquant uniquement)
-        boolean isCritical = modifiedDamage > event.getDamage() * 1.4; // Estimation si c'est un crit
-        DamageIndicator.display(plugin, victim.getLocation(), modifiedDamage, isCritical, attacker);
+        // Note: L'indicateur de dégâts est affiché par CombatListener pour éviter les doublons
 
         // Notifier l'AIManager des dégâts
         zombieManager.getAiManager().onZombieDamaged(victim.getUniqueId(), attacker, modifiedDamage);

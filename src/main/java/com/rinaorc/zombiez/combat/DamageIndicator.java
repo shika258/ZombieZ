@@ -33,12 +33,15 @@ public class DamageIndicator {
     private static final DecimalFormat FORMAT = new DecimalFormat("#,##0.#");
     private static final Random RANDOM = new Random();
 
-    // Configuration
-    private static final int DISPLAY_DURATION_TICKS = 25; // 1.25 secondes
-    private static final int CRITICAL_DURATION_TICKS = 30; // 1.5 secondes pour critiques
-    private static final float BASE_SCALE = 1.5f;      // x3 pour meilleure lisibilité
-    private static final float CRITICAL_SCALE = 2.1f;  // x3 pour meilleure lisibilité
-    private static final float HEAL_SCALE = 1.35f;     // x3 pour meilleure lisibilité
+    // Configuration - Tailles réduites pour une meilleure lisibilité
+    private static final int DISPLAY_DURATION_TICKS = 20; // 1 seconde
+    private static final int CRITICAL_DURATION_TICKS = 25; // 1.25 secondes pour critiques
+    private static final float BASE_SCALE = 1.0f;      // Taille réduite (÷1.5)
+    private static final float CRITICAL_SCALE = 1.4f;  // Taille réduite (÷1.5)
+    private static final float HEAL_SCALE = 0.9f;      // Taille réduite (÷1.5)
+
+    // Animation optimisée - mise à jour tous les 2 ticks pour moins de lag
+    private static final int ANIMATION_INTERVAL_TICKS = 2;
 
     // Système anti-stack: garde trace des positions récentes par entité
     private static final Map<UUID, Deque<IndicatorSlot>> recentIndicators = new ConcurrentHashMap<>();
@@ -96,8 +99,8 @@ public class DamageIndicator {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Configurer l'interpolation pour animation fluide
-            display.setInterpolationDuration(6);
+            // Configurer l'interpolation pour animation fluide (durée augmentée pour plus de fluidité)
+            display.setInterpolationDuration(10);
             display.setInterpolationDelay(0);
 
             // Cacher aux autres joueurs si un viewer spécifique est défini
@@ -105,9 +108,9 @@ public class DamageIndicator {
                 hideFromOtherPlayers(display, viewer);
             }
 
-            // Animation
+            // Animation optimisée (moins de mises à jour pour réduire le lag)
             int duration = critical ? CRITICAL_DURATION_TICKS : DISPLAY_DURATION_TICKS;
-            animateIndicator(plugin, display, scale, duration, critical);
+            animateIndicatorOptimized(plugin, display, scale, duration, critical);
         });
     }
 
@@ -444,57 +447,65 @@ public class DamageIndicator {
     }
 
     /**
-     * Anime l'indicateur de dégâts avec mouvement fluide
+     * Anime l'indicateur de dégâts avec mouvement fluide et optimisé
+     * Mise à jour tous les 2 ticks pour réduire le lag
      */
-    private static void animateIndicator(ZombieZPlugin plugin, TextDisplay display, float targetScale, int duration, boolean critical) {
+    private static void animateIndicatorOptimized(ZombieZPlugin plugin, TextDisplay display, float targetScale, int duration, boolean critical) {
         new BukkitRunnable() {
             private int ticks = 0;
             private final Location startLoc = display.getLocation().clone();
-            private final float startScale = critical ? targetScale * 1.4f : targetScale * 0.8f;
+            private final float startScale = critical ? targetScale * 1.3f : targetScale * 0.85f;
+            private final int effectiveDuration = duration / ANIMATION_INTERVAL_TICKS;
 
             @Override
             public void run() {
-                if (ticks >= duration || !display.isValid()) {
+                if (ticks >= effectiveDuration || !display.isValid()) {
                     display.remove();
                     cancel();
                     return;
                 }
 
-                float progress = (float) ticks / duration;
+                float progress = (float) ticks / effectiveDuration;
 
-                // Mouvement: monte rapidement puis ralentit (ease-out)
-                double easeOut = 1 - Math.pow(1 - progress, 3);
-                double yOffset = easeOut * 0.6;
+                // Mouvement: ease-out cubic plus fluide
+                double easeOut = 1 - Math.pow(1 - progress, 2.5);
+                double yOffset = easeOut * 0.5; // Réduit de 0.6 à 0.5 pour moins de mouvement
 
                 // Téléporter vers le haut
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
-                // Animation de scale
+                // Animation de scale avec transitions plus douces
                 float currentScale;
                 if (critical) {
-                    // Critique: shrink de 1.4x vers 1x puis disparaît
-                    if (progress < 0.2) {
-                        currentScale = startScale - (startScale - targetScale) * (progress / 0.2f);
-                    } else if (progress > 0.7) {
-                        float fadeProgress = (progress - 0.7f) / 0.3f;
-                        currentScale = targetScale * (1 - fadeProgress * 0.5f);
+                    // Critique: shrink fluide
+                    if (progress < 0.15) {
+                        // Pop-in rapide
+                        float popProgress = progress / 0.15f;
+                        currentScale = startScale - (startScale - targetScale) * easeOutQuad(popProgress);
+                    } else if (progress > 0.75) {
+                        // Fade-out progressif
+                        float fadeProgress = (progress - 0.75f) / 0.25f;
+                        currentScale = targetScale * (1 - easeInQuad(fadeProgress) * 0.4f);
                     } else {
                         currentScale = targetScale;
                     }
                 } else {
-                    // Normal: grow de 0.8x vers 1x puis shrink
-                    if (progress < 0.15) {
-                        currentScale = startScale + (targetScale - startScale) * (progress / 0.15f);
-                    } else if (progress > 0.7) {
-                        float fadeProgress = (progress - 0.7f) / 0.3f;
-                        currentScale = targetScale * (1 - fadeProgress * 0.6f);
+                    // Normal: grow puis shrink fluide
+                    if (progress < 0.12) {
+                        // Grow-in
+                        float growProgress = progress / 0.12f;
+                        currentScale = startScale + (targetScale - startScale) * easeOutQuad(growProgress);
+                    } else if (progress > 0.75) {
+                        // Fade-out progressif
+                        float fadeProgress = (progress - 0.75f) / 0.25f;
+                        currentScale = targetScale * (1 - easeInQuad(fadeProgress) * 0.5f);
                     } else {
                         currentScale = targetScale;
                     }
                 }
 
-                // Fade out via scale (les TextDisplay n'ont pas d'opacité native facile)
+                // Appliquer la transformation avec interpolation native
                 display.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
@@ -504,40 +515,49 @@ public class DamageIndicator {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, ANIMATION_INTERVAL_TICKS);
+    }
+
+    // Fonctions d'easing pour des animations plus fluides
+    private static float easeOutQuad(float t) {
+        return 1 - (1 - t) * (1 - t);
+    }
+
+    private static float easeInQuad(float t) {
+        return t * t;
     }
 
     /**
-     * Anime l'indicateur de soin
+     * Anime l'indicateur de soin (optimisé)
      */
     private static void animateHealIndicator(ZombieZPlugin plugin, TextDisplay display) {
         new BukkitRunnable() {
             private int ticks = 0;
-            private final int duration = 20;
+            private final int effectiveDuration = 16 / ANIMATION_INTERVAL_TICKS;
             private final Location startLoc = display.getLocation().clone();
 
             @Override
             public void run() {
-                if (ticks >= duration || !display.isValid()) {
+                if (ticks >= effectiveDuration || !display.isValid()) {
                     display.remove();
                     cancel();
                     return;
                 }
 
-                float progress = (float) ticks / duration;
+                float progress = (float) ticks / effectiveDuration;
 
-                // Mouvement doux vers le haut
-                double yOffset = Math.sin(progress * Math.PI * 0.5) * 0.4;
+                // Mouvement doux vers le haut avec easing
+                double yOffset = easeOutQuad(progress) * 0.35;
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
-                // Scale animation
+                // Scale animation fluide
                 float scale;
-                if (progress < 0.2) {
-                    scale = HEAL_SCALE * (0.8f + 0.4f * (progress / 0.2f));
-                } else if (progress > 0.7) {
-                    float fadeProgress = (progress - 0.7f) / 0.3f;
-                    scale = HEAL_SCALE * (1 - fadeProgress * 0.7f);
+                if (progress < 0.15) {
+                    scale = HEAL_SCALE * (0.85f + 0.3f * easeOutQuad(progress / 0.15f));
+                } else if (progress > 0.75) {
+                    float fadeProgress = (progress - 0.75f) / 0.25f;
+                    scale = HEAL_SCALE * (1 - easeInQuad(fadeProgress) * 0.6f);
                 } else {
                     scale = HEAL_SCALE;
                 }
@@ -551,41 +571,41 @@ public class DamageIndicator {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, ANIMATION_INTERVAL_TICKS);
     }
 
     /**
-     * Anime les indicateurs de statut (esquive, bloc, immunité)
+     * Anime les indicateurs de statut (esquive, bloc, immunité) - optimisé
      */
     private static void animateStatusIndicator(ZombieZPlugin plugin, TextDisplay display, int duration) {
         new BukkitRunnable() {
             private int ticks = 0;
+            private final int effectiveDuration = duration / ANIMATION_INTERVAL_TICKS;
             private final Location startLoc = display.getLocation().clone();
-            private final float baseScale = 1.2f;
+            private final float baseScale = 0.8f; // Taille réduite
 
             @Override
             public void run() {
-                if (ticks >= duration || !display.isValid()) {
+                if (ticks >= effectiveDuration || !display.isValid()) {
                     display.remove();
                     cancel();
                     return;
                 }
 
-                float progress = (float) ticks / duration;
+                float progress = (float) ticks / effectiveDuration;
 
-                // Petit mouvement vers le haut avec léger rebond
-                double bounce = Math.sin(progress * Math.PI) * 0.08;
-                double yOffset = progress * 0.25 + bounce;
+                // Mouvement vers le haut fluide
+                double yOffset = easeOutQuad(progress) * 0.22;
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
-                // Scale avec pop-in
+                // Scale avec pop-in fluide
                 float scale;
-                if (progress < 0.15) {
-                    scale = baseScale * (0.5f + 0.7f * (progress / 0.15f));
-                } else if (progress > 0.75) {
-                    float fadeProgress = (progress - 0.75f) / 0.25f;
-                    scale = baseScale * (1 - fadeProgress * 0.8f);
+                if (progress < 0.12) {
+                    scale = baseScale * (0.6f + 0.6f * easeOutQuad(progress / 0.12f));
+                } else if (progress > 0.8) {
+                    float fadeProgress = (progress - 0.8f) / 0.2f;
+                    scale = baseScale * (1 - easeInQuad(fadeProgress) * 0.7f);
                 } else {
                     scale = baseScale;
                 }
@@ -599,45 +619,45 @@ public class DamageIndicator {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, ANIMATION_INTERVAL_TICKS);
     }
 
     /**
-     * Anime l'indicateur de combo
+     * Anime l'indicateur de combo - optimisé
      */
     private static void animateComboIndicator(ZombieZPlugin plugin, TextDisplay display, float targetScale) {
+        // Réduire la taille du combo aussi
+        float reducedScale = targetScale / 1.5f;
+
         new BukkitRunnable() {
             private int ticks = 0;
-            private final int duration = 22;
+            private final int effectiveDuration = 18 / ANIMATION_INTERVAL_TICKS;
             private final Location startLoc = display.getLocation().clone();
 
             @Override
             public void run() {
-                if (ticks >= duration || !display.isValid()) {
+                if (ticks >= effectiveDuration || !display.isValid()) {
                     display.remove();
                     cancel();
                     return;
                 }
 
-                float progress = (float) ticks / duration;
+                float progress = (float) ticks / effectiveDuration;
 
-                // Mouvement latéral léger + vers le haut
-                double xWobble = Math.sin(ticks * 0.5) * 0.03;
-                double yOffset = progress * 0.3;
-                Location newLoc = startLoc.clone().add(xWobble, yOffset, 0);
+                // Mouvement vers le haut fluide
+                double yOffset = easeOutQuad(progress) * 0.25;
+                Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
-                // Scale avec pulse
+                // Scale fluide sans wobble (moins de lag)
                 float scale;
-                if (progress < 0.2) {
-                    scale = targetScale * (0.8f + 0.4f * (progress / 0.2f));
-                } else if (progress > 0.7) {
-                    float fadeProgress = (progress - 0.7f) / 0.3f;
-                    scale = targetScale * (1 - fadeProgress * 0.7f);
+                if (progress < 0.15) {
+                    scale = reducedScale * (0.85f + 0.3f * easeOutQuad(progress / 0.15f));
+                } else if (progress > 0.75) {
+                    float fadeProgress = (progress - 0.75f) / 0.25f;
+                    scale = reducedScale * (1 - easeInQuad(fadeProgress) * 0.6f);
                 } else {
-                    // Léger pulse
-                    float pulse = 1 + 0.05f * (float) Math.sin(ticks * 0.8);
-                    scale = targetScale * pulse;
+                    scale = reducedScale;
                 }
 
                 display.setTransformation(new Transformation(
@@ -649,7 +669,7 @@ public class DamageIndicator {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, ANIMATION_INTERVAL_TICKS);
     }
 
     /**
