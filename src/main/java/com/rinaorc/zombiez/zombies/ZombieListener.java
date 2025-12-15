@@ -135,9 +135,9 @@ public class ZombieListener implements Listener {
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
 
-        // Afficher l'indicateur de dégâts flottant
+        // Afficher l'indicateur de dégâts flottant (client-side pour l'attaquant uniquement)
         boolean isCritical = modifiedDamage > event.getDamage() * 1.4; // Estimation si c'est un crit
-        DamageIndicator.display(plugin, victim.getLocation(), modifiedDamage, isCritical);
+        DamageIndicator.display(plugin, victim.getLocation(), modifiedDamage, isCritical, attacker);
 
         // Notifier l'AIManager des dégâts
         zombieManager.getAiManager().onZombieDamaged(victim.getUniqueId(), attacker, modifiedDamage);

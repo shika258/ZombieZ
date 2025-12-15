@@ -182,8 +182,8 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
-        // ============ INDICATEUR DE DÉGÂTS FLOTTANT ============
-        DamageIndicator.display(plugin, zombie.getLocation(), finalDamage, isCritical);
+        // ============ INDICATEUR DE DÉGÂTS FLOTTANT (Client-side) ============
+        DamageIndicator.display(plugin, zombie.getLocation(), finalDamage, isCritical, player);
 
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
@@ -232,8 +232,8 @@ public class CombatListener implements Listener {
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
             com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player, "§a§l↷ ESQUIVE!");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
-            // Afficher l'indicateur d'esquive flottant
-            DamageIndicator.displayDodge(plugin, player.getLocation());
+            // Afficher l'indicateur d'esquive flottant (client-side)
+            DamageIndicator.displayDodge(plugin, player.getLocation(), player);
             return;
         }
 
