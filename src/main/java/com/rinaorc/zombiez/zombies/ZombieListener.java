@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.zombies;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.sets.SetBonusManager;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.utils.HealthBarUtils;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import org.bukkit.entity.Entity;
@@ -15,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
@@ -106,32 +108,100 @@ public class ZombieListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onZombieDamaged(EntityDamageByEntityEvent event) {
         Entity victim = event.getEntity();
-        
+
         // Vérifier si le zombie est la victime
         if (!zombieManager.isZombieZMob(victim)) {
             return;
         }
-        
+
         // Obtenir l'attaquant (joueur)
         Player attacker = getPlayerAttacker(event);
         if (attacker == null) {
             return;
         }
-        
+
         // Obtenir l'ActiveZombie
         ZombieManager.ActiveZombie zombie = zombieManager.getActiveZombie(victim.getUniqueId());
         if (zombie == null) {
             return;
         }
-        
+
         // Calculer les dégâts modifiés du joueur
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
-        
+
         // Gérer les abilities spéciales d'affix défensif
         if (zombie.hasAffix()) {
             handleAffixSpecialDefense(zombie.getAffix(), (LivingEntity) victim, attacker, event);
         }
+
+        // Afficher l'hologramme de dégâts
+        LivingEntity livingVictim = (LivingEntity) victim;
+        boolean isCritical = attacker.hasMetadata("zombiez_last_crit") &&
+                             attacker.getMetadata("zombiez_last_crit").get(0).asBoolean();
+
+        if (plugin.getDamageIndicatorManager() != null) {
+            plugin.getDamageIndicatorManager().showDamageIndicator(livingVictim, modifiedDamage, isCritical);
+        }
+
+        // Mettre à jour la barre de vie après les dégâts (en différé pour avoir la nouvelle vie)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (livingVictim.isValid() && !livingVictim.isDead()) {
+                HealthBarUtils.updateHealthDisplay(livingVictim);
+            }
+        }, 1L);
+    }
+
+    /**
+     * Gère les dégâts généraux sur un zombie (pour mettre à jour la barre de vie)
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onZombieAnyDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity)) {
+            return;
+        }
+
+        if (!zombieManager.isZombieZMob(entity)) {
+            return;
+        }
+
+        // Vérifier si les barres de vie sont activées
+        if (!plugin.getConfig().getBoolean("effects.zombie-health-bar", true)) {
+            return;
+        }
+
+        // Mettre à jour la barre de vie après les dégâts
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (entity.isValid() && !entity.isDead()) {
+                HealthBarUtils.updateHealthDisplay(entity);
+            }
+        }, 1L);
+    }
+
+    /**
+     * Gère la régénération de vie d'un zombie (pour mettre à jour la barre de vie)
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onZombieHeal(EntityRegainHealthEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity)) {
+            return;
+        }
+
+        if (!zombieManager.isZombieZMob(entity)) {
+            return;
+        }
+
+        // Vérifier si les barres de vie sont activées
+        if (!plugin.getConfig().getBoolean("effects.zombie-health-bar", true)) {
+            return;
+        }
+
+        // Mettre à jour la barre de vie après le soin
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (entity.isValid() && !entity.isDead()) {
+                HealthBarUtils.updateHealthDisplay(entity);
+            }
+        }, 1L);
     }
 
     /**

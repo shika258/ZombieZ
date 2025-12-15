@@ -148,18 +148,24 @@ loot:
 effects:
   # Particules pour le loot
   loot-particles: true
-  
+
   # Beam de lumière pour items rares+
   loot-beam: true
-  
+
   # Sons de drop
   loot-sounds: true
-  
+
   # Titre lors du changement de zone
   zone-title: true
-  
+
   # Action bar permanente
   action-bar: true
+
+  # Hologrammes de dégâts flottants (affiche les dégâts infligés)
+  damage-indicators: true
+
+  # Afficher la barre de vie des zombies dans leur nom
+  zombie-health-bar: true
 
 # ========================================
 # MESSAGES

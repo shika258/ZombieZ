@@ -18,6 +18,7 @@ import com.rinaorc.zombiez.items.gui.LootRevealGUI;
 import com.rinaorc.zombiez.items.sets.SetBonusManager;
 import com.rinaorc.zombiez.listeners.*;
 import com.rinaorc.zombiez.managers.*;
+import com.rinaorc.zombiez.utils.DamageIndicatorManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zombies.ZombieListener;
 import com.rinaorc.zombiez.zombies.ZombieManager;
@@ -85,6 +86,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Systèmes de spawn spécialisés
     @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
     @Getter private com.rinaorc.zombiez.zombies.spawning.HordeEventSystem hordeEventSystem;
+
+    // Utilitaires
+    @Getter private DamageIndicatorManager damageIndicatorManager;
 
     // État du plugin
     @Getter private boolean fullyLoaded = false;
@@ -266,6 +270,9 @@ public class ZombieZPlugin extends JavaPlugin {
         
         // Secret Zone Manager - Zones secrètes et événements
         secretZoneManager = new com.rinaorc.zombiez.zones.SecretZoneManager(this);
+
+        // Damage Indicator Manager - Hologrammes de dégâts
+        damageIndicatorManager = new DamageIndicatorManager(this);
     }
 
     /**
@@ -369,16 +376,21 @@ public class ZombieZPlugin extends JavaPlugin {
      */
     public void reload() {
         log(Level.INFO, "§6Rechargement de ZombieZ...");
-        
+
         // Recharger les configs
         configManager.loadAllConfigs();
-        
+
         // Recharger les zones
         zoneManager.loadZones();
-        
+
         // Recharger les messages
         MessageUtils.reload();
-        
+
+        // Recharger les indicateurs de dégâts
+        if (damageIndicatorManager != null) {
+            damageIndicatorManager.reload();
+        }
+
         log(Level.INFO, "§a✓ ZombieZ rechargé!");
     }
 

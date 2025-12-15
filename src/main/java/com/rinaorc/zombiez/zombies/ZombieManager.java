@@ -2,9 +2,11 @@ package com.rinaorc.zombiez.zombies;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.generator.LootTable;
+import com.rinaorc.zombiez.utils.HealthBarUtils;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -134,12 +136,23 @@ public class ZombieManager {
         // TODO: Intégration avec l'API MythicMobs
         // io.lumine.mythic.bukkit.MythicBukkit.inst().getMobManager()
         //     .spawnMob(mobId, location, level);
-        
+
         // Pour l'instant, on spawn un zombie vanilla comme placeholder
         if (location.getWorld() == null) return null;
-        
+
+        String baseName = mobId.replace("ZZ_", "");
+
         return location.getWorld().spawn(location, org.bukkit.entity.Zombie.class, zombie -> {
-            zombie.setCustomName("§c" + mobId.replace("ZZ_", "") + " §7[Lv." + level + "]");
+            // Ajuster la vie en fonction du niveau
+            double baseHealth = 20 + (level * 2);
+            zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(baseHealth);
+            zombie.setHealth(baseHealth);
+
+            // Créer le nom avec barre de vie
+            String nameWithHealth = HealthBarUtils.createZombieNameWithHealth(
+                baseName, level, baseHealth, baseHealth, null, null
+            );
+            zombie.setCustomName(nameWithHealth);
             zombie.setCustomNameVisible(true);
             zombie.setRemoveWhenFarAway(true);
         });
