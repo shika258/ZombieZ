@@ -21,9 +21,9 @@ import java.util.logging.Level;
  *
  * Utilise un TreeMap pour une recherche O(log n) de la zone par coordonnée Z
  *
- * IMPORTANT: La progression se fait du NORD vers le SUD
- * - Le spawn est à Z ≈ 10000
- * - Les joueurs progressent vers Z = 0 (en allant vers le NORD)
+ * IMPORTANT: La progression se fait du SUD vers le NORD
+ * - Le spawn est à Z ≈ 10400 (sud de la map)
+ * - Les joueurs progressent vers Z = -90 (en allant vers le NORD)
  * - Plus le Z est FAIBLE, plus le joueur a progressé
  */
 public class ZoneManager {
@@ -31,8 +31,8 @@ public class ZoneManager {
     private final ZombieZPlugin plugin;
 
     // Constantes de progression sur l'axe Z
-    public static final int START_Z = 10000; // Zone de départ (spawn)
-    public static final int END_Z = 0;       // Zone finale (objectif)
+    public static final int START_Z = 10400; // Zone de départ (spawn au sud)
+    public static final int END_Z = -90;     // Zone finale (objectif au nord)
 
     // Stockage des zones
     @Getter
@@ -52,8 +52,8 @@ public class ZoneManager {
     // Configuration
     @Getter
     private String gameWorld = "world";
-    private int minX = -500;
-    private int maxX = 500;
+    private int minX = 0;
+    private int maxX = 1242;
 
     public ZoneManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -71,8 +71,8 @@ public class ZoneManager {
         
         // Paramètres globaux
         gameWorld = config.getString("settings.world", "world");
-        minX = config.getInt("settings.min-x", -500);
-        maxX = config.getInt("settings.max-x", 500);
+        minX = config.getInt("settings.min-x", 0);
+        maxX = config.getInt("settings.max-x", 1242);
 
         // Charger chaque zone
         ConfigurationSection zonesSection = config.getConfigurationSection("zones");
@@ -156,14 +156,15 @@ public class ZoneManager {
 
     /**
      * Crée les zones par défaut si aucune configuration
+     * Les zones sont ordonnées du SUD (spawn, Z élevé) vers le NORD (citadelle, Z faible)
      */
     private void createDefaultZones() {
-        // Zone Spawn
+        // Zone Spawn (au sud, Z élevé)
         spawnZone = Zone.createSpawnZone();
         registerZone(spawnZone);
 
-        // Zone 1: Village de départ (près du spawn à Z~10000)
-        registerZone(Zone.standardZone(1, "Village de Départ", 9000, 10000, 1)
+        // Zone 1: Village de départ (première zone après le spawn)
+        registerZone(Zone.standardZone(1, "Village de Départ", 9200, 10200, 1)
             .description("Les premiers pas dans l'apocalypse")
             .biomeType("PLAINS")
             .theme("medieval_ruins")
@@ -175,7 +176,7 @@ public class ZoneManager {
             .build());
 
         // Zone 2: Plaines Abandonnées
-        registerZone(Zone.standardZone(2, "Plaines Abandonnées", 8000, 9000, 2)
+        registerZone(Zone.standardZone(2, "Plaines Abandonnées", 8200, 9200, 2)
             .description("Terres agricoles ravagées par l'infection")
             .biomeType("PLAINS")
             .theme("abandoned_farms")
@@ -187,7 +188,7 @@ public class ZoneManager {
             .build());
 
         // Zone 3: Désert
-        registerZone(Zone.standardZone(3, "Désert", 7000, 8000, 3)
+        registerZone(Zone.standardZone(3, "Désert", 7200, 8200, 3)
             .description("Ruines antiques sous un soleil de plomb")
             .biomeType("DESERT")
             .theme("desert_ruins")
@@ -202,7 +203,7 @@ public class ZoneManager {
             .build());
 
         // Zone 4: Forêt Sombre
-        registerZone(Zone.standardZone(4, "Forêt Sombre", 6000, 7000, 4)
+        registerZone(Zone.standardZone(4, "Forêt Sombre", 6200, 7200, 4)
             .description("Une forêt corrompue où la lumière ne pénètre pas")
             .biomeType("DARK_FOREST")
             .theme("dark_forest")
@@ -214,7 +215,7 @@ public class ZoneManager {
             .build());
 
         // Zone 5: Marécages
-        registerZone(Zone.standardZone(5, "Marécages", 5200, 6000, 5)
+        registerZone(Zone.standardZone(5, "Marécages", 5400, 6200, 5)
             .description("Eaux toxiques et brouillard pestilentiel")
             .biomeType("SWAMP")
             .theme("toxic_swamp")
@@ -229,7 +230,7 @@ public class ZoneManager {
             .build());
 
         // Zone PvP
-        registerZone(Zone.standardZone(6, "Zone PvP - L'Arène", 5000, 5200, 5)
+        registerZone(Zone.standardZone(6, "Zone PvP - L'Arène", 5200, 5400, 5)
             .description("Seuls les plus forts survivent")
             .biomeType("PLAINS")
             .theme("pvp_arena")
@@ -242,7 +243,7 @@ public class ZoneManager {
             .build());
 
         // Zone 6: Montagnes
-        registerZone(Zone.standardZone(7, "Montagnes", 4000, 5000, 6)
+        registerZone(Zone.standardZone(7, "Montagnes", 4200, 5200, 6)
             .description("Pics escarpés et forteresses oubliées")
             .biomeType("JAGGED_PEAKS")
             .theme("mountain_fortress")
@@ -254,7 +255,7 @@ public class ZoneManager {
             .build());
 
         // Zone 7: Toundra
-        registerZone(Zone.standardZone(8, "Toundra", 3000, 4000, 7)
+        registerZone(Zone.standardZone(8, "Toundra", 3200, 4200, 7)
             .description("Froid mortel et isolation absolue")
             .biomeType("FROZEN_PEAKS")
             .theme("frozen_wasteland")
@@ -268,8 +269,8 @@ public class ZoneManager {
             .color("§b")
             .build());
 
-        // Zone 8: Terres Mortes
-        registerZone(Zone.standardZone(9, "Terres Corrompues", 2000, 3000, 8)
+        // Zone 8: Terres Corrompues
+        registerZone(Zone.standardZone(9, "Terres Corrompues", 2200, 3200, 8)
             .description("Radiation et mutation - Pale Garden")
             .biomeType("PALE_GARDEN")
             .theme("corrupted_lands")
@@ -284,7 +285,7 @@ public class ZoneManager {
             .build());
 
         // Zone 9: Enfer
-        registerZone(Zone.standardZone(10, "Enfer", 500, 2000, 9)
+        registerZone(Zone.standardZone(10, "Enfer", 700, 2200, 9)
             .description("Le portail vers l'enfer s'est ouvert")
             .biomeType("NETHER_WASTES")
             .theme("hellscape")
@@ -298,8 +299,8 @@ public class ZoneManager {
             .color("§4")
             .build());
 
-        // Zone 10: Citadelle Finale (zone boss au nord, Z~0)
-        registerZone(Zone.standardZone(11, "Citadelle Finale", 0, 500, 10)
+        // Zone 10: Citadelle Finale (zone boss au nord, Z faible)
+        registerZone(Zone.standardZone(11, "Citadelle Finale", -90, 700, 10)
             .description("L'origine du fléau - Affrontez Patient Zéro")
             .biomeType("DEEP_DARK")
             .theme("final_citadel")
@@ -474,11 +475,11 @@ public class ZoneManager {
         if (!location.getWorld().getName().equals(gameWorld)) {
             return false;
         }
-        
+
         int x = location.getBlockX();
         int z = location.getBlockZ();
-        
-        return x >= minX && x <= maxX && z >= 0 && z <= 10000;
+
+        return x >= minX && x <= maxX && z >= END_Z && z <= START_Z;
     }
 
     /**

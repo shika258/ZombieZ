@@ -5,22 +5,22 @@
 # Paramètres globaux
 settings:
   world: world
-  min-x: -500
-  max-x: 500
+  min-x: 0
+  max-x: 1242
 
 # ========================================
 # DÉFINITION DES ZONES
 # ========================================
 zones:
   
-  # Zone Spawn (Zone sécurisée)
+  # Zone Spawn (Zone sécurisée - au sud de la map)
   spawn:
     id: 0
     name: spawn
     display-name: "Zone de Spawn"
     description: "Zone sécurisée pour les nouveaux survivants"
-    min-z: -100
-    max-z: 200
+    min-z: 10200
+    max-z: 10400
     difficulty: 0
     stars: 0
     biome: PLAINS
@@ -46,14 +46,14 @@ zones:
     zombie-types: []
     color: "§a"
 
-  # Zone 1: Village de Départ (proche du spawn Z~10000)
+  # Zone 1: Village de Départ (première zone après le spawn)
   zone_1:
     id: 1
     name: village_depart
     display-name: "Village de Départ"
     description: "Les premiers pas dans l'apocalypse"
-    min-z: 9000
-    max-z: 10000
+    min-z: 9200
+    max-z: 10200
     difficulty: 1
     stars: 1
     biome: PLAINS
@@ -87,8 +87,8 @@ zones:
     name: plaines_abandonnees
     display-name: "Plaines Abandonnées"
     description: "Terres agricoles ravagées par l'infection"
-    min-z: 8000
-    max-z: 9000
+    min-z: 8200
+    max-z: 9200
     difficulty: 2
     stars: 1
     biome: PLAINS
@@ -123,8 +123,8 @@ zones:
     name: desert
     display-name: "Désert"
     description: "Ruines antiques sous un soleil de plomb"
-    min-z: 7000
-    max-z: 8000
+    min-z: 7200
+    max-z: 8200
     difficulty: 3
     stars: 2
     biome: DESERT
@@ -159,8 +159,8 @@ zones:
     name: foret_sombre
     display-name: "Forêt Sombre"
     description: "Une forêt corrompue où la lumière ne pénètre pas"
-    min-z: 6000
-    max-z: 7000
+    min-z: 6200
+    max-z: 7200
     difficulty: 4
     stars: 2
     biome: DARK_FOREST
@@ -196,8 +196,8 @@ zones:
     name: marecages
     display-name: "Marécages"
     description: "Eaux toxiques et brouillard pestilentiel"
-    min-z: 5200
-    max-z: 6000
+    min-z: 5400
+    max-z: 6200
     difficulty: 5
     stars: 3
     biome: SWAMP
@@ -232,8 +232,8 @@ zones:
     name: zone_pvp
     display-name: "L'Arène"
     description: "Seuls les plus forts survivent"
-    min-z: 5000
-    max-z: 5200
+    min-z: 5200
+    max-z: 5400
     difficulty: 5
     stars: 3
     biome: PLAINS
@@ -267,8 +267,8 @@ zones:
     name: montagnes
     display-name: "Montagnes"
     description: "Pics escarpés et forteresses oubliées"
-    min-z: 4000
-    max-z: 5000
+    min-z: 4200
+    max-z: 5200
     difficulty: 6
     stars: 3
     biome: JAGGED_PEAKS
@@ -303,8 +303,8 @@ zones:
     name: toundra
     display-name: "Toundra"
     description: "Froid mortel et isolation absolue"
-    min-z: 3000
-    max-z: 4000
+    min-z: 3200
+    max-z: 4200
     difficulty: 7
     stars: 4
     biome: FROZEN_PEAKS
@@ -339,8 +339,8 @@ zones:
     name: terres_corrompues
     display-name: "Terres Corrompues"
     description: "Radiation et mutation - Le Pale Garden"
-    min-z: 2000
-    max-z: 3000
+    min-z: 2200
+    max-z: 3200
     difficulty: 8
     stars: 5
     biome: PALE_GARDEN
@@ -375,8 +375,8 @@ zones:
     name: enfer
     display-name: "Enfer"
     description: "Le portail vers l'enfer s'est ouvert"
-    min-z: 500
-    max-z: 2000
+    min-z: 700
+    max-z: 2200
     difficulty: 9
     stars: 6
     biome: NETHER_WASTES
@@ -411,8 +411,8 @@ zones:
     name: citadelle_finale
     display-name: "Citadelle Finale"
     description: "L'origine du fléau - Affrontez Patient Zéro"
-    min-z: 0
-    max-z: 500
+    min-z: -90
+    max-z: 700
     difficulty: 10
     stars: 7
     biome: DEEP_DARK

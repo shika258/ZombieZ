@@ -143,20 +143,20 @@ public class Zone {
     }
 
     /**
-     * Crée une zone de spawn par défaut
+     * Crée une zone de spawn par défaut (au sud de la map, Z élevé)
      */
     public static Zone createSpawnZone() {
         return Zone.builder()
             .id(0)
             .name("spawn")
-            .displayName("Village de Départ")
+            .displayName("Zone de Spawn")
             .description("Zone sécurisée pour les nouveaux survivants")
-            .minZ(-100)
-            .maxZ(200)
+            .minZ(10200)
+            .maxZ(10400)
             .difficulty(0)
             .stars(0)
             .biomeType("PLAINS")
-            .theme("medieval_village")
+            .theme("safe_village")
             .xpMultiplier(1.0)
             .lootMultiplier(1.0)
             .spawnRateMultiplier(0.0) // Pas de spawn
