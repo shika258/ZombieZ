@@ -67,11 +67,12 @@ public class ItemManager {
      * Drop un item spécifique au sol
      */
     public void dropItem(Location location, ZombieZItem zItem) {
-        ItemStack itemStack = zItem.toItemStack();
-        
+        // Appliquer un pouvoir si le système est activé
+        ItemStack itemStack = applyPowerIfEligible(zItem);
+
         // Cacher l'item
         itemCache.put(zItem.getUuid(), zItem);
-        
+
         // Drop l'item avec vélocité aléatoire
         Item droppedItem = location.getWorld().dropItem(location, itemStack);
         droppedItem.setVelocity(new Vector(
@@ -79,14 +80,47 @@ public class ItemManager {
             0.3,
             (Math.random() - 0.5) * 0.2
         ));
-        
+
         // Effets visuels selon la rareté
         if (zItem.getRarity().isAtLeast(Rarity.RARE)) {
             startDropEffect(droppedItem, zItem);
         }
-        
+
         // Son de drop
         playDropSound(location, zItem.getRarity());
+    }
+
+    /**
+     * Applique un pouvoir à un item si éligible
+     */
+    private ItemStack applyPowerIfEligible(ZombieZItem zItem) {
+        // Vérifier si le plugin a un PowerManager
+        var powerManager = plugin.getPowerManager();
+        if (powerManager == null || !powerManager.isEnabled()) {
+            return zItem.toItemStack();
+        }
+
+        // Vérifier si l'item devrait avoir un pouvoir
+        if (!powerManager.shouldHavePower(zItem.getRarity(), 0.0)) {
+            return zItem.toItemStack();
+        }
+
+        // Sélectionner un pouvoir aléatoire
+        var power = powerManager.selectRandomPower(zItem.getRarity());
+        if (power == null) {
+            return zItem.toItemStack();
+        }
+
+        // Appliquer le pouvoir
+        zItem.setPowerId(power.getId());
+
+        // Créer l'ItemStack avec le pouvoir
+        var powerListener = plugin.getPowerTriggerListener();
+        if (powerListener != null) {
+            return zItem.toItemStackWithPower(powerListener, power);
+        }
+
+        return zItem.toItemStack();
     }
 
     /**
@@ -102,14 +136,15 @@ public class ItemManager {
      * Donne un item spécifique à un joueur
      */
     public void giveItem(Player player, ZombieZItem zItem) {
-        ItemStack itemStack = zItem.toItemStack();
-        
+        // Appliquer un pouvoir si le système est activé
+        ItemStack itemStack = applyPowerIfEligible(zItem);
+
         // Cacher l'item
         itemCache.put(zItem.getUuid(), zItem);
-        
+
         // Donner au joueur
         var remaining = player.getInventory().addItem(itemStack);
-        
+
         // Si inventaire plein, drop au sol
         if (!remaining.isEmpty()) {
             for (ItemStack leftover : remaining.values()) {
@@ -117,7 +152,7 @@ public class ItemManager {
             }
             MessageUtils.sendRaw(player, "§c⚠ Inventaire plein! Item droppé au sol.");
         }
-        
+
         // Notification selon rareté
         sendItemNotification(player, zItem);
     }

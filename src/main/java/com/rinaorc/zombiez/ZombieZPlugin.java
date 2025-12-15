@@ -74,10 +74,14 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.party.PartyManager partyManager;
     @Getter private com.rinaorc.zombiez.momentum.MomentumManager momentumManager;
     @Getter private com.rinaorc.zombiez.zones.SecretZoneManager secretZoneManager;
-    
+
+    // Système de Pouvoirs et Item Level
+    @Getter private com.rinaorc.zombiez.items.power.PowerManager powerManager;
+    @Getter private com.rinaorc.zombiez.items.power.PowerTriggerListener powerTriggerListener;
+
     // Listener stocké pour nettoyage
     @Getter private PlayerMoveListener playerMoveListener;
-    
+
     // Systèmes de spawn spécialisés
     @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
     @Getter private com.rinaorc.zombiez.zombies.spawning.HordeEventSystem hordeEventSystem;
@@ -189,10 +193,17 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Item Manager - Système de loot procédural
         itemManager = new ItemManager(this);
-        
+
         // Set Bonus Manager - Bonus des sets d'équipement
         setBonusManager = new SetBonusManager(this);
-        
+
+        // Power Manager - Système de pouvoirs et Item Level
+        powerManager = new com.rinaorc.zombiez.items.power.PowerManager(this);
+        powerManager.loadFromConfig(configManager.getPowersConfig());
+
+        // Power Trigger Listener - Écoute les événements pour déclencher les pouvoirs
+        powerTriggerListener = new com.rinaorc.zombiez.items.power.PowerTriggerListener(this, powerManager);
+
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
         
@@ -314,6 +325,11 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new ItemListener(this), this);
         pm.registerEvents(new ItemCompareGUI.GUIListener(this), this);
         pm.registerEvents(new LootRevealGUI.LootGUIListener(this), this);
+
+        // Listener système de pouvoirs
+        if (powerTriggerListener != null) {
+            pm.registerEvents(powerTriggerListener, this);
+        }
         
         // Listener système de zombies
         pm.registerEvents(new ZombieListener(this), this);
