@@ -104,6 +104,12 @@ public class ShadowClonePower extends Power {
         clone.setCustomName("§8§l⚔ Clone de " + player.getName() + " §8§l⚔");
         clone.setCustomNameVisible(true);
 
+        // Marquer le clone comme allié (ne doit pas attaquer le joueur)
+        clone.setMetadata("zombiez_friendly_clone",
+            new org.bukkit.metadata.FixedMetadataValue(
+                org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                player.getUniqueId().toString()));
+
         // Configuration du clone
         clone.setAdult();
         clone.setShouldBurnInDay(false);
@@ -183,8 +189,13 @@ public class ShadowClonePower extends Power {
                     );
                 }
 
-                // Rechercher une cible si le clone n'en a pas
-                if (clone.getTarget() == null || !clone.getTarget().isValid()) {
+                // Rechercher une cible si le clone n'en a pas ou s'il cible un joueur (invalide)
+                LivingEntity currentTarget = clone.getTarget();
+                if (currentTarget == null || !currentTarget.isValid() || currentTarget instanceof Player) {
+                    // Forcer le clone à ne pas cibler les joueurs
+                    if (currentTarget instanceof Player) {
+                        clone.setTarget(null);
+                    }
                     LivingEntity nearestEnemy = findNearestEnemy(clone.getLocation(), player);
                     if (nearestEnemy != null) {
                         clone.setTarget(nearestEnemy);

@@ -307,6 +307,14 @@ public class CombatListener implements Listener {
      * Applique: Réduction de dégâts, Esquive, Skills défensifs
      */
     private void handleZombieAttackPlayer(EntityDamageByEntityEvent event, Zombie zombie, Player player) {
+        // Vérifier si c'est un clone d'ombre allié - ne pas infliger de dégâts au joueur
+        if (zombie.hasMetadata("zombiez_friendly_clone")) {
+            String ownerUuid = zombie.getMetadata("zombiez_friendly_clone").get(0).asString();
+            // Les clones ne peuvent pas attaquer leur propriétaire ni les autres joueurs
+            event.setCancelled(true);
+            return;
+        }
+
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
 
