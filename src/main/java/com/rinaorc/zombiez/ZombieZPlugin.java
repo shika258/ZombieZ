@@ -343,6 +343,9 @@ public class ZombieZPlugin extends JavaPlugin {
                 zoneManager.checkPlayersZones();
             }
         }, 10L, 10L); // 0.5 seconde
+
+        // ActionBar permanent pour tous les joueurs (Zone, Combo, Streak, Points)
+        new com.rinaorc.zombiez.listeners.ActionBarTask(this).start();
     }
 
     /**
