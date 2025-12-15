@@ -303,15 +303,21 @@ public class ZombieZItem {
 
     /**
      * Obtient la couleur du score selon sa valeur
+     *
+     * Nouveaux seuils adaptés au système de scaling par zone:
+     * - Zone 1 EXALTED: ~5 000
+     * - Zone 25 EXALTED: ~10 000-15 000
+     * - Zone 50 EXALTED: ~20 000-30 000+
      */
     private String getItemScoreColor() {
-        if (itemScore >= 5000) return "§c§l";
-        if (itemScore >= 3000) return "§d";
-        if (itemScore >= 1500) return "§6";
-        if (itemScore >= 700) return "§5";
-        if (itemScore >= 300) return "§9";
-        if (itemScore >= 100) return "§a";
-        return "§f";
+        if (itemScore >= 20000) return "§c§l";    // End-game, zone 50
+        if (itemScore >= 12000) return "§d§l";    // Late-game, zone 35+
+        if (itemScore >= 7000) return "§6§l";     // Mid-late game, zone 25+
+        if (itemScore >= 4000) return "§5";       // Mid-game, zone 15+
+        if (itemScore >= 2000) return "§9";       // Early-mid game, zone 10+
+        if (itemScore >= 800) return "§a";        // Early game, zone 5+
+        if (itemScore >= 300) return "§f";        // Starter
+        return "§7";                              // Very basic
     }
 
     /**
@@ -435,19 +441,37 @@ public class ZombieZItem {
     }
 
     /**
-     * Calcule l'Item Score basé sur toutes les stats
+     * Calcule l'Item Score avec la ZONE comme facteur PRINCIPAL
+     *
+     * PHILOSOPHIE DU SCORING:
+     * - La ZONE est le facteur PRINCIPAL (détermine le score de base)
+     * - La puissance réelle des stats contribue au score
+     * - La rareté ajoute un multiplicateur de COMPLEXITÉ (secondaire)
+     *
+     * RÉSULTAT ATTENDU:
+     * - EXALTED zone 1 → ~5 000
+     * - EXALTED zone 50 → 15 000 – 30 000+
+     * - Deux items même rareté, zones différentes = scores TRÈS différents
+     *
+     * @param zoneId Zone où l'item a été dropé (1-50)
+     * @param rarity Rareté de l'item
+     * @param stats Toutes les stats de l'item
+     * @param affixes Liste des affixes
      */
-    public static int calculateItemScore(Rarity rarity, Map<StatType, Double> stats, List<RolledAffix> affixes) {
-        double score = 0;
-        
-        // Score de base selon la rareté
-        score += rarity.rollItemScore();
-        
-        // Bonus par stat (pondéré par importance)
+    public static int calculateItemScore(int zoneId, Rarity rarity, Map<StatType, Double> stats, List<RolledAffix> affixes) {
+        // Import statique ou référence à ZoneScaling
+        double zoneMultiplier = com.rinaorc.zombiez.items.scaling.ZoneScaling.getScoreMultiplier(zoneId);
+        int zoneBaseScore = com.rinaorc.zombiez.items.scaling.ZoneScaling.getBaseScoreForZone(zoneId);
+
+        // 1. SCORE DE BASE SELON LA ZONE (facteur PRINCIPAL)
+        double score = zoneBaseScore;
+
+        // 2. CONTRIBUTION DES STATS (pondérée par catégorie)
+        double statsContribution = 0;
         for (var entry : stats.entrySet()) {
             StatType stat = entry.getKey();
             double value = entry.getValue();
-            
+
             double weight = switch (stat.getCategory()) {
                 case OFFENSIVE -> 2.0;
                 case DEFENSIVE -> 1.5;
@@ -457,21 +481,42 @@ public class ZombieZItem {
                 case MOMENTUM -> 1.3;
                 case GROUP -> 1.2;
             };
-            
-            score += value * weight;
+
+            statsContribution += value * weight;
         }
-        
-        // Bonus par affix (tier)
+        // Les stats contribuent mais sont déjà scalées par la zone via la génération
+        score += statsContribution;
+
+        // 3. BONUS PAR AFFIX (tier et effets spéciaux)
         for (RolledAffix ra : affixes) {
+            // Bonus de tier (50-250 par affix selon le tier)
             score += ra.getAffix().getTier().ordinal() * 50;
-            
+
             // Bonus pour effets spéciaux
             if (ra.getAffix().getSpecialEffect() != null) {
                 score += 100;
             }
         }
-        
+
+        // 4. MULTIPLICATEUR DE COMPLEXITÉ (rareté = secondaire)
+        // La rareté ajoute un bonus de complexité (max +30%)
+        double complexityMultiplier = rarity.getScoreComplexityMultiplier();
+        score *= complexityMultiplier;
+
+        // 5. MULTIPLICATEUR FINAL DE ZONE (pour amplifier la différence)
+        score *= zoneMultiplier;
+
         return (int) Math.max(1, score);
+    }
+
+    /**
+     * @deprecated Utiliser calculateItemScore(int zoneId, Rarity rarity, ...) à la place
+     * Cette méthode est conservée pour compatibilité temporaire
+     */
+    @Deprecated
+    public static int calculateItemScore(Rarity rarity, Map<StatType, Double> stats, List<RolledAffix> affixes) {
+        // Fallback: utiliser zone 1 si appelé avec l'ancienne signature
+        return calculateItemScore(1, rarity, stats, affixes);
     }
     
     /**
