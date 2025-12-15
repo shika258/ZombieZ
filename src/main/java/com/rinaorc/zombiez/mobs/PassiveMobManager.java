@@ -60,30 +60,49 @@ public class PassiveMobManager implements Listener {
         // Zone 0 (Spawn/Refuge) - Pas de mobs
         zoneConfigs.put(0, new ZoneSpawnConfig(0, false, new PassiveMobType[]{}));
 
-        // Zone 1 (Village) - Cochons et Poulets communs
+        // Zone 1 (Village) - Cochons, Poulets et Lapins communs
         zoneConfigs.put(1, new ZoneSpawnConfig(1, true,
-            new PassiveMobType[]{PassiveMobType.PIG, PassiveMobType.CHICKEN}));
+            new PassiveMobType[]{PassiveMobType.PIG, PassiveMobType.CHICKEN, PassiveMobType.RABBIT}));
 
-        // Zone 2 (Plaines) - Vaches et Moutons
+        // Zone 2 (Plaines) - Vaches, Moutons, Chevaux
         zoneConfigs.put(2, new ZoneSpawnConfig(2, true,
-            new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.SHEEP, PassiveMobType.PIG}));
+            new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.SHEEP, PassiveMobType.PIG, PassiveMobType.HORSE}));
 
-        // Zone 3 (Désert) - Poulets rares
+        // Zone 3 (Désert) - Poulets et Lapins rares
         zoneConfigs.put(3, new ZoneSpawnConfig(3, true,
-            new PassiveMobType[]{PassiveMobType.CHICKEN}));
+            new PassiveMobType[]{PassiveMobType.CHICKEN, PassiveMobType.RABBIT}));
 
-        // Zone 4 (Forêt Sombre) - Cochons sauvages
+        // Zone 4 (Forêt Sombre) - Cochons sauvages et Lapins
         zoneConfigs.put(4, new ZoneSpawnConfig(4, true,
-            new PassiveMobType[]{PassiveMobType.PIG, PassiveMobType.COW}));
+            new PassiveMobType[]{PassiveMobType.PIG, PassiveMobType.COW, PassiveMobType.RABBIT}));
 
-        // Zone 5 (Marécages) - Poulets des marais
+        // Zone 5 (Marécages) - Poulets des marais et Cochons
         zoneConfigs.put(5, new ZoneSpawnConfig(5, true,
-            new PassiveMobType[]{PassiveMobType.CHICKEN, PassiveMobType.PIG}));
+            new PassiveMobType[]{PassiveMobType.CHICKEN, PassiveMobType.PIG, PassiveMobType.RABBIT}));
 
-        // Zones 6+ - Plus rares mais meilleure qualité
-        for (int i = 6; i <= 11; i++) {
+        // Zones 6-8 - Plaines avancées avec chevaux
+        for (int i = 6; i <= 8; i++) {
             zoneConfigs.put(i, new ZoneSpawnConfig(i, true,
-                new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.PIG, PassiveMobType.SHEEP}));
+                new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.PIG, PassiveMobType.SHEEP, PassiveMobType.HORSE}));
+        }
+
+        // Zones 9-11 - Montagnes avec chèvres
+        for (int i = 9; i <= 11; i++) {
+            zoneConfigs.put(i, new ZoneSpawnConfig(i, true,
+                new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.SHEEP, PassiveMobType.GOAT}));
+        }
+
+        // Zones 12-15 - Hautes terres avec tous les animaux
+        for (int i = 12; i <= 15; i++) {
+            zoneConfigs.put(i, new ZoneSpawnConfig(i, true,
+                new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.SHEEP, PassiveMobType.GOAT, PassiveMobType.HORSE}));
+        }
+
+        // Zones 16+ - Régions avancées, tous types disponibles mais plus rares
+        for (int i = 16; i <= 50; i++) {
+            zoneConfigs.put(i, new ZoneSpawnConfig(i, true,
+                new PassiveMobType[]{PassiveMobType.COW, PassiveMobType.PIG, PassiveMobType.SHEEP,
+                    PassiveMobType.HORSE, PassiveMobType.RABBIT, PassiveMobType.GOAT}));
         }
     }
 
@@ -270,8 +289,8 @@ public class PassiveMobManager implements Listener {
             loot.add(guaranteedDrop.createItemStack(amount));
         }
 
-        // Chance de drop rare
-        double rareChance = 0.08 + qualityBonus; // 8% base + bonus zone
+        // Chance de drop rare (8% base + bonus zone)
+        double rareChance = 0.08 + qualityBonus;
         if (random.nextDouble() < rareChance) {
             FoodItem rareDrop = foodRegistry.getRareDrop(mobType);
             if (rareDrop != null) {
@@ -279,8 +298,17 @@ public class PassiveMobManager implements Listener {
             }
         }
 
-        // Chance de drop légendaire (très rare)
-        double legendaryChance = 0.02 + (qualityBonus * 0.5); // 2% base
+        // Chance de drop épique (4% base + bonus zone × 0.7)
+        double epicChance = 0.04 + (qualityBonus * 0.7);
+        if (random.nextDouble() < epicChance) {
+            FoodItem epicDrop = foodRegistry.getEpicDrop(mobType);
+            if (epicDrop != null) {
+                loot.add(epicDrop.createItemStack(1));
+            }
+        }
+
+        // Chance de drop légendaire (2% base + bonus zone × 0.5)
+        double legendaryChance = 0.02 + (qualityBonus * 0.5);
         if (random.nextDouble() < legendaryChance) {
             FoodItem legendaryDrop = foodRegistry.getLegendaryDrop(mobType);
             if (legendaryDrop != null) {
@@ -330,7 +358,10 @@ public class PassiveMobManager implements Listener {
         PIG(EntityType.PIG, "§d🐷 Cochon Sauvage", "pig"),
         CHICKEN(EntityType.CHICKEN, "§f🐔 Poulet Fermier", "chicken"),
         COW(EntityType.COW, "§6🐄 Vache Paisible", "cow"),
-        SHEEP(EntityType.SHEEP, "§f🐑 Mouton Laineux", "sheep");
+        SHEEP(EntityType.SHEEP, "§f🐑 Mouton Laineux", "sheep"),
+        HORSE(EntityType.HORSE, "§e🐴 Cheval Sauvage", "horse"),
+        RABBIT(EntityType.RABBIT, "§f🐰 Lapin des Plaines", "rabbit"),
+        GOAT(EntityType.GOAT, "§7🐐 Chèvre de Montagne", "goat");
 
         @Getter
         private final EntityType entityType;

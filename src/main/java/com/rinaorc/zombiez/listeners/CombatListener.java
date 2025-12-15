@@ -34,6 +34,29 @@ public class CombatListener implements Listener {
     }
 
     /**
+     * Gère tous les types de dégâts sur les zombies (feu, chute, etc.)
+     * pour mettre à jour leur affichage de vie
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAnyEntityDamage(EntityDamageEvent event) {
+        Entity victim = event.getEntity();
+
+        // Ne traiter que les zombies ZombieZ
+        if (!(victim instanceof Zombie zombie)) return;
+        if (!plugin.getZombieManager().isZombieZMob(zombie)) return;
+
+        // Ne pas traiter les dégâts d'entité (déjà gérés par onEntityDamage)
+        if (event instanceof EntityDamageByEntityEvent) return;
+
+        // Mettre à jour l'affichage de vie au tick suivant
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (zombie.isValid()) {
+                plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+            }
+        });
+    }
+
+    /**
      * Gère les dégâts entre entités
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -184,6 +207,14 @@ public class CombatListener implements Listener {
 
         // ============ INDICATEUR DE DÉGÂTS FLOTTANT (Client-side) ============
         DamageIndicator.display(plugin, zombie.getLocation(), finalDamage, isCritical, player);
+
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
+        // Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (zombie.isValid()) {
+                plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+            }
+        });
 
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
