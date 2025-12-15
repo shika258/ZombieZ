@@ -86,6 +86,9 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
     @Getter private com.rinaorc.zombiez.zombies.spawning.HordeEventSystem hordeEventSystem;
 
+    // Système de mobs passifs et nourriture
+    @Getter private com.rinaorc.zombiez.mobs.PassiveMobManager passiveMobManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -266,6 +269,11 @@ public class ZombieZPlugin extends JavaPlugin {
         
         // Secret Zone Manager - Zones secrètes et événements
         secretZoneManager = new com.rinaorc.zombiez.zones.SecretZoneManager(this);
+
+        // ===== Système Mobs Passifs et Nourriture =====
+
+        // Passive Mob Manager - Mobs passifs et loot nourriture
+        passiveMobManager = new com.rinaorc.zombiez.mobs.PassiveMobManager(this);
     }
 
     /**
@@ -337,6 +345,12 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Listener pour bloquer les spawns de mobs vanilla
         pm.registerEvents(new MobSpawnListener(this), this);
+
+        // Listeners système mobs passifs et nourriture
+        if (passiveMobManager != null) {
+            pm.registerEvents(passiveMobManager, this);
+            pm.registerEvents(new com.rinaorc.zombiez.mobs.food.FoodListener(this), this);
+        }
         
         // Listeners système d'économie
         pm.registerEvents(new ShopGUI.ShopGUIListener(this), this);

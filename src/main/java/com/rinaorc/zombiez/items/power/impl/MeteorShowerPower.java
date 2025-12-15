@@ -253,31 +253,43 @@ public class MeteorShowerPower extends Power {
             }
         }
 
-        // Mettre le feu au sol temporairement
+        // Mettre le feu au sol temporairement (côté client uniquement)
+        List<Location> fireLocations = new java.util.ArrayList<>();
         for (int x = -2; x <= 2; x++) {
             for (int z = -2; z <= 2; z++) {
                 if (Math.sqrt(x * x + z * z) <= 2) {
                     Location fireLoc = loc.clone().add(x, 0, z);
                     if (fireLoc.getBlock().getType() == Material.AIR) {
-                        fireLoc.getBlock().setType(Material.FIRE);
-
-                        // Éteindre après quelques secondes
-                        Location finalFireLoc = fireLoc;
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if (finalFireLoc.getBlock().getType() == Material.FIRE) {
-                                    finalFireLoc.getBlock().setType(Material.AIR);
-                                }
-                            }
-                        }.runTaskLater(
-                            org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
-                            fireTicks
-                        );
+                        fireLocations.add(fireLoc.clone());
                     }
                 }
             }
         }
+
+        // Envoyer les blocs de feu côté client à tous les joueurs proches
+        org.bukkit.block.data.BlockData fireData = Material.FIRE.createBlockData();
+        org.bukkit.block.data.BlockData airData = Material.AIR.createBlockData();
+        for (Player nearbyPlayer : loc.getWorld().getNearbyPlayers(loc, 32)) {
+            for (Location fireLoc : fireLocations) {
+                nearbyPlayer.sendBlockChange(fireLoc, fireData);
+            }
+        }
+
+        // Éteindre le feu après quelques secondes (côté client)
+        Location centerLoc = loc.clone();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player nearbyPlayer : centerLoc.getWorld().getNearbyPlayers(centerLoc, 32)) {
+                    for (Location fireLoc : fireLocations) {
+                        nearbyPlayer.sendBlockChange(fireLoc, airData);
+                    }
+                }
+            }
+        }.runTaskLater(
+            org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            fireTicks
+        );
     }
 
     /**

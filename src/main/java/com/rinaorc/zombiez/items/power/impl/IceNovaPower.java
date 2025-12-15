@@ -176,12 +176,14 @@ public class IceNovaPower extends Power {
     }
 
     /**
-     * Crée temporairement de la glace au sol
+     * Crée temporairement de la glace au sol (côté client uniquement)
+     * Les blocs sont envoyés aux joueurs proches sans modifier le monde réel
      */
     private void createIceGround(Location center, double radius, int duration) {
-        Set<Block> iceBlocks = new HashSet<>();
         int radiusInt = (int) Math.ceil(radius);
+        List<Location> iceLocations = new ArrayList<>();
 
+        // Collecter les locations où afficher la glace
         for (int x = -radiusInt; x <= radiusInt; x++) {
             for (int z = -radiusInt; z <= radiusInt; z++) {
                 if (Math.sqrt(x * x + z * z) <= radius) {
@@ -193,26 +195,35 @@ public class IceNovaPower extends Power {
                         block.getType() != Material.PACKED_ICE &&
                         block.getType() != Material.BLUE_ICE) {
 
-                        Material originalType = block.getType();
-                        block.setType(Material.ICE);
-                        iceBlocks.add(block);
-
-                        // Restaurer après la durée
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if (block.getType() == Material.ICE) {
-                                    block.setType(originalType);
-                                }
-                            }
-                        }.runTaskLater(
-                            org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
-                            duration
-                        );
+                        iceLocations.add(block.getLocation());
                     }
                 }
             }
         }
+
+        // Envoyer les blocs de glace côté client à tous les joueurs proches
+        org.bukkit.block.data.BlockData iceData = Material.ICE.createBlockData();
+        for (Player nearbyPlayer : center.getWorld().getNearbyPlayers(center, radius + 32)) {
+            for (Location loc : iceLocations) {
+                nearbyPlayer.sendBlockChange(loc, iceData);
+            }
+        }
+
+        // Restaurer les blocs après la durée (côté client)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player nearbyPlayer : center.getWorld().getNearbyPlayers(center, radius + 32)) {
+                    for (Location loc : iceLocations) {
+                        Block realBlock = loc.getBlock();
+                        nearbyPlayer.sendBlockChange(loc, realBlock.getBlockData());
+                    }
+                }
+            }
+        }.runTaskLater(
+            org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            duration
+        );
     }
 
     /**
