@@ -55,24 +55,18 @@ public class ActionBarTask extends BukkitRunnable {
         // ============ VIE ============
         double currentHealth = player.getHealth();
         double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double bonusHealth = playerStats.getOrDefault(StatType.MAX_HEALTH, 0.0);
 
         String healthColor = getHealthColor(currentHealth, maxHealth);
         bar.append(healthColor).append("❤ ").append((int) currentHealth).append("§7/§c").append((int) maxHealth);
-
-        if (bonusHealth > 0) {
-            bar.append(" §a(+").append((int) bonusHealth).append(")");
-        }
 
         bar.append(" §8│ ");
 
         // ============ DÉFENSE ============
         double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
         double damageReduction = playerStats.getOrDefault(StatType.DAMAGE_REDUCTION, 0.0);
-        double totalDefense = armor + damageReduction;
 
-        String defenseColor = getDefenseColor(totalDefense);
-        bar.append(defenseColor).append("🛡 ").append((int) totalDefense);
+        String defenseColor = getDefenseColor(armor);
+        bar.append(defenseColor).append("🛡 ").append((int) armor);
 
         if (damageReduction > 0) {
             bar.append(" §9(-").append((int) damageReduction).append("%)");
@@ -83,13 +77,10 @@ public class ActionBarTask extends BukkitRunnable {
         // ============ DÉGÂTS ============
         double baseDamage = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
         double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        double totalDamage = baseDamage * (1 + damagePercent / 100);
 
-        String damageColor = getDamageColor(baseDamage);
-        bar.append(damageColor).append("⚔ ").append(formatStat(baseDamage));
-
-        if (damagePercent > 0) {
-            bar.append(" §c(+").append((int) damagePercent).append("%)");
-        }
+        String damageColor = getDamageColor(totalDamage);
+        bar.append(damageColor).append("⚔ ").append(formatStat(totalDamage));
 
         // ============ STATS SECONDAIRES ============
         double critChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);

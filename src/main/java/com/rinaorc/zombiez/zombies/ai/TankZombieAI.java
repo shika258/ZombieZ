@@ -96,7 +96,7 @@ public class TankZombieAI extends ZombieAI {
     private void tickColossus() {
         // Le colosse fait trembler le sol en permanence
         if (tickCounter % 20 == 0) {
-            playSound(Sound.BLOCK_ANVIL_LAND, 0.3f, 0.3f);
+            playSound(Sound.ENTITY_IRON_GOLEM_STEP, 0.5f, 0.4f);
             playParticles(Particle.BLOCK, zombie.getLocation(), 15, 1, 0.1, 1);
         }
 
@@ -114,7 +114,7 @@ public class TankZombieAI extends ZombieAI {
             enrage();
             // Le colosse gagne de la vitesse quand enragé
             zombie.removePotionEffect(PotionEffectType.SLOWNESS);
-            playSound(Sound.ENTITY_RAVAGER_ROAR, 2f, 0.5f);
+            playSound(Sound.ENTITY_IRON_GOLEM_HURT, 1.5f, 0.5f);
         }
     }
 
@@ -168,7 +168,7 @@ public class TankZombieAI extends ZombieAI {
         isCharging = true;
         lastChargeTime = System.currentTimeMillis();
 
-        playSound(Sound.ENTITY_RAVAGER_ROAR, 1.5f, 0.7f);
+        playSound(Sound.ENTITY_IRON_GOLEM_ATTACK, 1.2f, 0.6f);
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 3, false, false));
 
         // Direction de charge
