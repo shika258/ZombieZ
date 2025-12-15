@@ -14,6 +14,13 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.entity.Husk;
+import org.bukkit.entity.Drowned;
+import org.bukkit.entity.ZombieVillager;
+import org.bukkit.entity.PigZombie;
+import org.bukkit.entity.Zoglin;
+import org.bukkit.entity.Ravager;
+import org.bukkit.entity.PiglinBrute;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
@@ -126,8 +133,8 @@ public class ZombieManager {
             return null;
         }
 
-        // Spawner le zombie personnalisé
-        Zombie entity = spawnCustomZombie(type, location, level);
+        // Spawner l'entité personnalisée (peut être zombie ou autre)
+        LivingEntity entity = spawnEntityByType(type, location, level);
 
         if (entity == null) {
             return null;
@@ -150,8 +157,10 @@ public class ZombieManager {
             entity.setMetadata("zombiez_affix", new FixedMetadataValue(plugin, zombie.getAffix().getId()));
         }
 
-        // Créer l'IA pour ce zombie
-        aiManager.createAI(entity, type, level);
+        // Créer l'IA pour ce zombie (seulement si c'est un Zombie)
+        if (entity instanceof Zombie zombieEntity) {
+            aiManager.createAI(zombieEntity, type, level);
+        }
 
         // Enregistrer
         activeZombies.put(entity.getUniqueId(), zombie);
@@ -163,66 +172,179 @@ public class ZombieManager {
     }
 
     /**
-     * Crée un zombie personnalisé avec stats et apparence basées sur le type
-     * Scaling agressif pour atteindre 1000+ HP au niveau 100
+     * Spawn l'entité appropriée en fonction du type de zombie
      */
-    private Zombie spawnCustomZombie(ZombieType type, Location location, int level) {
-        if (location.getWorld() == null) return null;
+    private LivingEntity spawnEntityByType(ZombieType type, Location location, int level) {
+        // Calculer les stats
+        double finalHealth = type.calculateHealth(level);
+        double finalDamage = type.calculateDamage(level);
+        double baseSpeed = type.getBaseSpeed();
+        double speedMultiplier = 1.0 + (level * 0.005);
+        double finalSpeed = Math.min(0.45, baseSpeed * speedMultiplier);
 
-        return location.getWorld().spawn(location, Zombie.class, zombie -> {
-            zombie.setRemoveWhenFarAway(true);
-            zombie.setShouldBurnInDay(false);
+        String healthDisplay = formatHealthDisplay((int) finalHealth, (int) finalHealth);
+        String tierColor = getTierColor(type.getTier());
+        String customName = tierColor + type.getDisplayName() + " §7[Lv." + level + "] " + healthDisplay;
 
-            // Calculer les stats via les méthodes de ZombieType (scaling exponentiel)
-            double finalHealth = type.calculateHealth(level);
-            double finalDamage = type.calculateDamage(level);
+        // Spawn selon le type
+        return switch (type) {
+            case HUSK -> location.getWorld().spawn(location, Husk.class, entity -> {
+                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+            });
+            case DROWNED, DROWNED_TRIDENT, DROWNER -> location.getWorld().spawn(location, Drowned.class, entity -> {
+                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Équiper un trident pour DROWNED_TRIDENT
+                if (type == ZombieType.DROWNED_TRIDENT && entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.TRIDENT));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                }
+            });
+            case ZOMBIE_VILLAGER -> location.getWorld().spawn(location, ZombieVillager.class, entity -> {
+                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+            });
+            case ZOMBIFIED_PIGLIN -> location.getWorld().spawn(location, PigZombie.class, entity -> {
+                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                entity.setAngry(true);
+                entity.setAnger(Integer.MAX_VALUE);
+                // Équiper une épée d'or
+                if (entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.GOLDEN_SWORD));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                }
+            });
+            case ZOGLIN -> location.getWorld().spawn(location, Zoglin.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+            });
+            case RAVAGER_BEAST -> location.getWorld().spawn(location, Ravager.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+            });
+            case PIGLIN_BRUTE -> location.getWorld().spawn(location, PiglinBrute.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                entity.setImmuneToZombification(true);
+                // Équiper une hache d'or
+                if (entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.GOLDEN_AXE));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                }
+            });
+            default -> location.getWorld().spawn(location, Zombie.class, entity -> {
+                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+            });
+        };
+    }
 
-            // Vitesse avec scaling léger
-            double baseSpeed = type.getBaseSpeed();
-            double speedMultiplier = 1.0 + (level * 0.005); // +0.5% par niveau
-            double finalSpeed = Math.min(0.45, baseSpeed * speedMultiplier); // Cap speed
+    /**
+     * Configure une entité zombie avec les stats et équipement
+     */
+    private void configureZombieEntity(Zombie zombie, ZombieType type, int level,
+                                        double finalHealth, double finalDamage, double finalSpeed, String customName) {
+        zombie.setRemoveWhenFarAway(true);
+        zombie.setShouldBurnInDay(false);
 
-            // Appliquer les attributs
-            var maxHealthAttr = zombie.getAttribute(Attribute.MAX_HEALTH);
-            if (maxHealthAttr != null) {
-                maxHealthAttr.setBaseValue(finalHealth);
-                zombie.setHealth(finalHealth);
+        // Appliquer les attributs
+        var maxHealthAttr = zombie.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthAttr.setBaseValue(finalHealth);
+            zombie.setHealth(finalHealth);
+        }
+
+        var damageAttr = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
+        if (damageAttr != null) {
+            damageAttr.setBaseValue(finalDamage);
+        }
+
+        var speedAttr = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (speedAttr != null) {
+            speedAttr.setBaseValue(finalSpeed);
+        }
+
+        var knockbackAttr = zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+        if (knockbackAttr != null) {
+            knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
+        }
+
+        // Équipement basé sur le type
+        applyZombieEquipment(zombie, type, level);
+
+        // Effets de potion basés sur la catégorie
+        applyZombieEffects(zombie, type);
+
+        // Nom personnalisé
+        zombie.setCustomName(customName);
+        zombie.setCustomNameVisible(true);
+
+        // Configuration additionnelle pour les boss
+        if (type.isBoss()) {
+            zombie.setRemoveWhenFarAway(false);
+            zombie.setPersistent(true);
+        }
+
+        // Ajouter tag pour identification
+        zombie.addScoreboardTag("zombiez_mob");
+    }
+
+    /**
+     * Configure une entité non-zombie avec les stats
+     */
+    private void configureNonZombieEntity(LivingEntity entity, ZombieType type, int level,
+                                           double finalHealth, double finalDamage, double finalSpeed, String customName) {
+        entity.setRemoveWhenFarAway(true);
+
+        // Appliquer les attributs
+        var maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthAttr.setBaseValue(finalHealth);
+            entity.setHealth(finalHealth);
+        }
+
+        var damageAttr = entity.getAttribute(Attribute.ATTACK_DAMAGE);
+        if (damageAttr != null) {
+            damageAttr.setBaseValue(finalDamage);
+        }
+
+        var speedAttr = entity.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (speedAttr != null) {
+            speedAttr.setBaseValue(finalSpeed);
+        }
+
+        var knockbackAttr = entity.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+        if (knockbackAttr != null) {
+            knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
+        }
+
+        // Effets de potion basés sur la catégorie
+        applyZombieEffectsToEntity(entity, type);
+
+        // Nom personnalisé
+        entity.setCustomName(customName);
+        entity.setCustomNameVisible(true);
+
+        // Configuration additionnelle pour les boss
+        if (type.isBoss()) {
+            entity.setRemoveWhenFarAway(false);
+            entity.setPersistent(true);
+        }
+
+        // Ajouter tag pour identification
+        entity.addScoreboardTag("zombiez_mob");
+    }
+
+    /**
+     * Applique des effets de potion à une entité non-zombie
+     */
+    private void applyZombieEffectsToEntity(LivingEntity entity, ZombieType type) {
+        switch (type.getCategory()) {
+            case TANK -> {
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0, false, false));
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             }
-
-            var damageAttr = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
-            if (damageAttr != null) {
-                damageAttr.setBaseValue(finalDamage);
+            case MELEE -> {
+                if (type == ZombieType.ZOGLIN || type == ZombieType.PIGLIN_BRUTE) {
+                    entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                    entity.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false));
+                }
             }
-
-            var speedAttr = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
-            if (speedAttr != null) {
-                speedAttr.setBaseValue(finalSpeed);
-            }
-
-            var knockbackAttr = zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
-            if (knockbackAttr != null) {
-                // Plus le tier est élevé, plus résistant au knockback
-                knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
-            }
-
-            // Équipement basé sur le type
-            applyZombieEquipment(zombie, type, level);
-
-            // Effets de potion basés sur la catégorie
-            applyZombieEffects(zombie, type);
-
-            // Nom avec vie affichée
-            String healthDisplay = formatHealthDisplay((int) finalHealth, (int) finalHealth);
-            String tierColor = getTierColor(type.getTier());
-            zombie.setCustomName(tierColor + type.getDisplayName() + " §7[Lv." + level + "] " + healthDisplay);
-            zombie.setCustomNameVisible(true);
-
-            // Configuration additionnelle pour les boss
-            if (type.isBoss()) {
-                zombie.setRemoveWhenFarAway(false);
-                zombie.setPersistent(true);
-            }
-        });
+        }
     }
 
     /**
@@ -281,9 +403,10 @@ public class ZombieManager {
     }
 
     /**
-     * Applique des effets de potion selon la catégorie
+     * Applique des effets de potion selon la catégorie et le type
      */
     private void applyZombieEffects(Zombie zombie, ZombieType type) {
+        // Effets par catégorie
         switch (type.getCategory()) {
             case TANK -> {
                 zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0, false, false));
@@ -296,6 +419,29 @@ public class ZombieManager {
                 if (type == ZombieType.FROZEN || type == ZombieType.YETI || type == ZombieType.WENDIGO) {
                     zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
                 }
+            }
+        }
+
+        // Effets spécifiques par type de zombie
+        switch (type) {
+            case HUSK -> {
+                // Husk: Résistant au soleil (déjà natif), inflige faim sur attaque
+                // L'effet de faim est appliqué via le système de combat
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            }
+            case DROWNED, DROWNED_TRIDENT, DROWNER -> {
+                // Noyés: Respiration aquatique, bonus en eau
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.WATER_BREATHING, Integer.MAX_VALUE, 0, false, false));
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, Integer.MAX_VALUE, 0, false, false));
+            }
+            case ZOMBIE_VILLAGER -> {
+                // Villageois zombie: Bonus de vitesse occasionnel
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, Integer.MAX_VALUE, 0, false, false));
+            }
+            case ZOMBIFIED_PIGLIN -> {
+                // Piglin zombifié: Résistant au feu, force augmentée
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false));
             }
         }
     }

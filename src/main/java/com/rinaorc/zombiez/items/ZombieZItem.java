@@ -203,10 +203,10 @@ public class ZombieZItem {
         List<String> lore = new ArrayList<>();
 
         // ═══════════════════════════════════════
-        // EN-TÊTE: Rareté
+        // EN-TÊTE: Rareté puis Item Score
         // ═══════════════════════════════════════
-        lore.add("");
         lore.add(rarity.getChatColor() + "§l" + rarity.getDisplayName().toUpperCase() + " " + rarity.getStars());
+        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
         lore.add("");
 
         // ═══════════════════════════════════════
@@ -268,14 +268,7 @@ public class ZombieZItem {
                     lore.add("  §7" + type.getDisplayName() + ": " + valueColor + type.formatValue(value) + godRollIndicator);
                 }
             }
-            lore.add("");
         }
-
-        // ═══════════════════════════════════════
-        // PIED DE PAGE: Score uniquement
-        // ═══════════════════════════════════════
-        lore.add("§8═════════════════════");
-        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
 
         return lore;
     }
