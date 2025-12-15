@@ -8,6 +8,8 @@ import com.rinaorc.zombiez.items.types.ItemType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.managers.EconomyManager;
+import com.rinaorc.zombiez.mobs.food.FoodItem;
+import com.rinaorc.zombiez.mobs.food.FoodItemRegistry;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -19,7 +21,6 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 import java.util.logging.Level;
@@ -103,6 +104,11 @@ public class PlayerConnectionListener implements Listener {
             plugin.getItemListener().applyPlayerAttributes(player);
         }, 5L);
 
+        // Ajouter au système de Boss Bar Dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            plugin.getDynamicBossBarManager().addPlayer(player);
+        }
+
         // Log
         if (plugin.getConfigManager().isDebugMode()) {
             plugin.log(Level.INFO, "§7Joueur " + player.getName() + " chargé (Niveau " +
@@ -145,21 +151,9 @@ public class PlayerConnectionListener implements Listener {
         plugin.getItemManager().giveItem(player, starterBoots);
 
         // ═══════════════════════════════════════════════
-        // CONSOMMABLES
+        // CONSOMMABLES - Nourriture Custom
         // ═══════════════════════════════════════════════
-        // Nourriture
-        ItemStack food = new ItemStack(Material.COOKED_BEEF, 32);
-        ItemMeta foodMeta = food.getItemMeta();
-        if (foodMeta != null) {
-            foodMeta.setDisplayName("§6Rations de Survie");
-            foodMeta.setLore(List.of("§7De la viande pour survivre.", "§e§oÉquipement de départ"));
-            food.setItemMeta(foodMeta);
-        }
-        player.getInventory().addItem(food);
-
-        // Torches
-        ItemStack torches = new ItemStack(Material.TORCH, 16);
-        player.getInventory().addItem(torches);
+        giveStarterFood(player);
 
         // Message de confirmation
         MessageUtils.sendRaw(player, "§a✓ §7Vous avez reçu votre §6équipement de départ §7dans votre inventaire!");
@@ -252,6 +246,46 @@ public class PlayerConnectionListener implements Listener {
             .identified(true)
             .itemLevel(3)
             .build();
+    }
+
+    /**
+     * Donne la nourriture custom de départ
+     * Utilise le système de FoodItem custom du plugin
+     */
+    private void giveStarterFood(Player player) {
+        FoodItemRegistry registry = plugin.getPassiveMobManager().getFoodRegistry();
+
+        // Steak Juteux x8 (UNCOMMON - Vache)
+        FoodItem juicySteak = registry.getItem("juicy_steak");
+        if (juicySteak != null) {
+            ItemStack steakStack = juicySteak.createItemStack();
+            steakStack.setAmount(8);
+            player.getInventory().addItem(steakStack);
+        }
+
+        // Poulet Grillé x8 (UNCOMMON - Poulet)
+        FoodItem grilledChicken = registry.getItem("grilled_chicken");
+        if (grilledChicken != null) {
+            ItemStack chickenStack = grilledChicken.createItemStack();
+            chickenStack.setAmount(8);
+            player.getInventory().addItem(chickenStack);
+        }
+
+        // Jambon Fumé x4 (UNCOMMON - Cochon)
+        FoodItem smokedHam = registry.getItem("smoked_ham");
+        if (smokedHam != null) {
+            ItemStack hamStack = smokedHam.createItemStack();
+            hamStack.setAmount(4);
+            player.getInventory().addItem(hamStack);
+        }
+
+        // Côtelette d'Agneau x4 (COMMON - Mouton)
+        FoodItem lambChop = registry.getItem("lamb_chop");
+        if (lambChop != null) {
+            ItemStack lambStack = lambChop.createItemStack();
+            lambStack.setAmount(4);
+            player.getInventory().addItem(lambStack);
+        }
     }
 
     /**
@@ -352,6 +386,11 @@ public class PlayerConnectionListener implements Listener {
         // Nettoyer les invitations de party en attente
         if (plugin.getPartyManager() != null) {
             plugin.getPartyManager().onPlayerQuit(player);
+        }
+
+        // Retirer du système de Boss Bar Dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            plugin.getDynamicBossBarManager().removePlayer(player);
         }
 
         // Sauvegarder et décharger les données (async)

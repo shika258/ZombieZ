@@ -10,8 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 /**
  * Listener pour les changements de zone
@@ -28,14 +26,10 @@ public class ZoneChangeListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onZoneChange(PlayerZoneChangeEvent event) {
         Player player = event.getPlayer();
-        Zone fromZone = event.getFromZone();
         Zone toZone = event.getToZone();
 
         // Message d'entrée dans la zone
         sendZoneEntryMessage(player, toZone, event.isFirstTime());
-
-        // Gérer les effets spéciaux selon la zone
-        handleZoneEffects(player, fromZone, toZone);
 
         // Récompense si première visite
         if (event.isFirstTime() && !toZone.isSafeZone()) {
@@ -47,11 +41,6 @@ public class ZoneChangeListener implements Listener {
             sendPvPWarning(player);
         } else if (event.isLeavingPvP()) {
             sendPvPExitMessage(player);
-        }
-
-        // Avertissement zone dangereuse
-        if (toZone.isDangerous()) {
-            sendDangerWarning(player, toZone);
         }
 
         // Zone de boss
@@ -91,59 +80,6 @@ public class ZoneChangeListener implements Listener {
             MessageUtils.sendRaw(player, "§8§m                              ");
             MessageUtils.sendRaw(player, "");
         }, 5L);
-    }
-
-    /**
-     * Gère les effets de potion selon la zone
-     */
-    private void handleZoneEffects(Player player, Zone fromZone, Zone toZone) {
-        // Retirer les effets de l'ancienne zone
-        if (fromZone != null) {
-            removeZoneEffects(player, fromZone);
-        }
-
-        // Appliquer les effets de la nouvelle zone
-        applyZoneEffects(player, toZone);
-    }
-
-    /**
-     * Retire les effets d'une zone
-     */
-    private void removeZoneEffects(Player player, Zone zone) {
-        String effect = zone.getEnvironmentalEffect();
-        
-        switch (effect.toUpperCase()) {
-            case "COLD" -> player.removePotionEffect(PotionEffectType.SLOWNESS);
-            case "TOXIC" -> player.removePotionEffect(PotionEffectType.POISON);
-            case "RADIATION" -> {
-                player.removePotionEffect(PotionEffectType.WITHER);
-                player.removePotionEffect(PotionEffectType.NAUSEA);
-            }
-            case "DARKNESS" -> player.removePotionEffect(PotionEffectType.DARKNESS);
-        }
-    }
-
-    /**
-     * Applique les effets d'une zone
-     */
-    private void applyZoneEffects(Player player, Zone zone) {
-        String effect = zone.getEnvironmentalEffect();
-        if (effect.equals("NONE")) return;
-
-        // Les effets sont gérés par un task périodique, pas ici
-        // On affiche juste un avertissement
-
-        // Mais on peut appliquer des effets visuels permanents
-        switch (effect.toUpperCase()) {
-            case "COLD" -> {
-                // Léger effet de lenteur dans le froid
-                // player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 999999, 0, true, false, false));
-            }
-            case "DARKNESS" -> {
-                // Effet de darkness dans les zones sombres
-                player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 999999, 0, true, false, true));
-            }
-        }
     }
 
     /**
@@ -195,30 +131,6 @@ public class ZoneChangeListener implements Listener {
     private void sendPvPExitMessage(Player player) {
         MessageUtils.sendActionBar(player, "§a✓ Vous avez quitté la zone PvP");
         MessageUtils.playSound(player, Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1.5f);
-    }
-
-    /**
-     * Avertissement zone dangereuse (effets environnementaux)
-     */
-    private void sendDangerWarning(Player player, Zone zone) {
-        String effect = zone.getEnvironmentalEffect();
-        String warning = switch (effect.toUpperCase()) {
-            case "HEAT" -> "§6§l☀ CHALEUR EXTRÊME §7- Hydratez-vous!";
-            case "COLD" -> "§b§l❄ FROID GLACIAL §7- Restez en mouvement!";
-            case "TOXIC" -> "§2§l☠ ZONE TOXIQUE §7- Masque à gaz recommandé!";
-            case "RADIATION" -> "§a§l☢ RADIATION §7- Exposition dangereuse!";
-            case "FIRE" -> "§c§l🔥 ZONE INFERNALE §7- Protection feu requise!";
-            default -> null;
-        };
-
-        if (warning != null) {
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                MessageUtils.sendRaw(player, "");
-                MessageUtils.sendRaw(player, warning);
-                MessageUtils.sendRaw(player, "§7Dégâts: §c" + zone.getEnvironmentalDamage() + "/s");
-                MessageUtils.sendRaw(player, "");
-            }, 80L);
-        }
     }
 
     /**
