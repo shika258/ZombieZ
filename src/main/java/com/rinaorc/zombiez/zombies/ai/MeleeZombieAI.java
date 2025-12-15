@@ -336,7 +336,7 @@ public class MeleeZombieAI extends ZombieAI {
             if (comboCount == MAX_COMBO) {
                 // Attaque finale de combo
                 playSound(Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.8f);
-                playParticles(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
+                playParticles(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
                 target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1));
                 comboCount = 0;
             }

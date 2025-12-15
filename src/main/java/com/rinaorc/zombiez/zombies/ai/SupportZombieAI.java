@@ -168,7 +168,7 @@ public class SupportZombieAI extends ZombieAI {
                 ally.setTarget(primaryTarget);
 
                 // Effet visuel sur l'allié
-                ally.getWorld().spawnParticle(Particle.VILLAGER_ANGRY, ally.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2);
+                ally.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, ally.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2);
             }
 
             // EFFET 3: Appeler des renforts (petite chance)

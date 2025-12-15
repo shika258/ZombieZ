@@ -141,7 +141,7 @@ public class EliteZombieAI extends ZombieAI {
         target.damage(trueDamage, zombie);
         target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 100, 1));
 
-        playParticles(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
+        playParticles(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
     }
 
     private void ironFortress() {
