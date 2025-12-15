@@ -196,7 +196,7 @@ public class SkeletonZombieAI extends ZombieAI {
         // Son de tir
         switch (zombieType) {
             case SKELETON -> playSound(Sound.ENTITY_SKELETON_SHOOT, 1f, 1f);
-            case STRAY -> playSound(Sound.ENTITY_STRAY_SHOOT, 1f, 0.9f);
+            case STRAY -> playSound(Sound.ENTITY_SKELETON_SHOOT, 1f, 0.9f);
         }
 
         // Créer la flèche

@@ -156,7 +156,7 @@ public class ExplosiveZombieAI extends ZombieAI {
             double x = (random.nextDouble() - 0.5) * 6;
             double y = random.nextDouble() * 4;
             double z = (random.nextDouble() - 0.5) * 6;
-            playParticles(Particle.SMOKE_LARGE, loc.clone().add(x, y, z), 2, 0.1, 0.1, 0.1);
+            playParticles(Particle.LARGE_SMOKE, loc.clone().add(x, y, z), 2, 0.1, 0.1, 0.1);
         }
 
         // Dégâts massifs - le Creeper est TRÈS dangereux
