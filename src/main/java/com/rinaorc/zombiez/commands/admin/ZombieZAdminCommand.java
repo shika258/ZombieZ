@@ -294,12 +294,12 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            // Téléporter au début de la zone
-            int targetZ = zone.getMinZ() + 10;
+            // Téléporter au début de la zone (maxZ car progression vers Z décroissant)
+            int targetZ = zone.getMaxZ() - 10;
             var location = player.getLocation().clone();
             location.setZ(targetZ);
             location.setY(player.getWorld().getHighestBlockYAt(location) + 1);
-            
+
             player.teleport(location);
             sender.sendMessage("§a✓ Téléporté vers " + zone.getColoredName());
             
