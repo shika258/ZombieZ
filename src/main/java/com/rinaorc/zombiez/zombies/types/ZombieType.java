@@ -40,6 +40,18 @@ public enum ZombieType {
         new int[]{3, 4, 5, 6, 7, 8, 9, 13, 14, 34, 35, 36, 37}, ZombieCategory.BASIC),
 
     // ═══════════════════════════════════════════════════════════════════
+    // NOUVEAUX MOBS - Variété du bestiaire
+    // ═══════════════════════════════════════════════════════════════════
+    SKELETON("ZZ_Skeleton", "Ossécuté", 1, 22, 4, 0.24,           // Os + exécuté
+        new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40}, ZombieCategory.SKELETON),
+
+    STRAY("ZZ_Stray", "Glaçosseux", 2, 28, 5, 0.22,               // Glacé + osseux
+        new int[]{31, 32, 33, 34, 35, 36, 37, 38}, ZombieCategory.SKELETON),
+
+    RABID_WOLF("ZZ_RabidWolf", "Croc Enragé", 2, 35, 8, 0.34,     // Loup enragé
+        new int[]{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 31, 32, 33, 35, 36}, ZombieCategory.PACK),
+
+    // ═══════════════════════════════════════════════════════════════════
     // TIER 2 - Les Intermédiaires (Jeux de mots élaborés) - Zones 6-30
     // ═══════════════════════════════════════════════════════════════════
     ARMORED("ZZ_Armored", "Blindépouille", 2, 50, 6, 0.14,        // Blindé + dépouille
@@ -71,6 +83,18 @@ public enum ZombieType {
 
     DROWNED_TRIDENT("ZZ_DrownedTrident", "Tridentombie", 2, 40, 7, 0.20, // Trident + zombie
         new int[]{13, 14, 34, 35, 36, 37, 38}, ZombieCategory.RANGED),
+
+    PILLAGER("ZZ_Pillager", "Pillardécès", 2, 35, 6, 0.24,        // Pillard + décès
+        new int[]{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30}, ZombieCategory.ILLAGER),
+
+    VINDICATOR("ZZ_Vindicator", "Vengeosseur", 3, 45, 10, 0.26,   // Vengeur + fosseur
+        new int[]{12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 35, 40}, ZombieCategory.ILLAGER),
+
+    EVOKER("ZZ_Evoker", "Invocatrépas", 3, 50, 5, 0.20,           // Invocateur + trépas
+        new int[]{15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 30, 35, 38, 39, 40, 43, 45, 46, 48}, ZombieCategory.ILLAGER),
+
+    CREEPER("ZZ_Creeper", "Explosécateur", 2, 20, 3, 0.22,        // Explosif + exécuteur (très rare)
+        new int[]{15, 18, 20, 23, 25, 28, 30, 33, 35, 38, 40}, ZombieCategory.EXPLOSIVE),
 
     // ═══════════════════════════════════════════════════════════════════
     // TIER 3 - Les Dangereux (Jeux de mots mémorables) - Zones 12-40
@@ -128,6 +152,9 @@ public enum ZombieType {
 
     PIGLIN_BRUTE("ZZ_PiglinBrute", "Brutalin", 4, 85, 16, 0.20,   // Brute + piglin
         new int[]{21, 22, 23, 24, 27, 30, 40, 41, 42}, ZombieCategory.MELEE),
+
+    GIANT_BOSS("ZZ_GiantBoss", "Titanomort", 5, 500, 35, 0.12,   // Titan + mort (ULTRA RARE)
+        new int[]{25, 30, 35, 40, 45, 50}, ZombieCategory.ELITE),
 
     // ═══════════════════════════════════════════════════════════════════
     // TIER 5 - Les Légendaires (Jeux de mots majestueux) - Zones 39-50
@@ -264,6 +291,9 @@ public enum ZombieType {
             case MINIBOSS -> 100;
             case ZONE_BOSS -> 500;
             case FINAL_BOSS -> 2000;
+            case SKELETON -> 6;      // Squelettes - récompense modérée
+            case PACK -> 7;          // Loups - récompense modérée
+            case ILLAGER -> 10;      // Illagers - récompense élevée
         };
     }
 
@@ -335,6 +365,9 @@ public enum ZombieType {
         ELITE,       // Élites très dangereux
         MINIBOSS,    // Mini-boss
         ZONE_BOSS,   // Boss de zone
-        FINAL_BOSS   // Boss final
+        FINAL_BOSS,  // Boss final
+        SKELETON,    // Squelettes archers (nouveaux)
+        PACK,        // Loups en meute (nouveaux)
+        ILLAGER      // Illagers (Evoker, Pillager, Vindicator)
     }
 }

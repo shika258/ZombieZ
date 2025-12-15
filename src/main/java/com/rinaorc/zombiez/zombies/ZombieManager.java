@@ -21,6 +21,14 @@ import org.bukkit.entity.PigZombie;
 import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Ravager;
 import org.bukkit.entity.PiglinBrute;
+import org.bukkit.entity.Skeleton;
+import org.bukkit.entity.Stray;
+import org.bukkit.entity.Wolf;
+import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Evoker;
+import org.bukkit.entity.Pillager;
+import org.bukkit.entity.Vindicator;
+import org.bukkit.entity.Giant;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
@@ -227,6 +235,95 @@ public class ZombieManager {
                     entity.getEquipment().setItemInMainHandDropChance(0);
                 }
             });
+
+            // ═══════════════════════════════════════════════════════════════════
+            // NOUVEAUX MOBS
+            // ═══════════════════════════════════════════════════════════════════
+
+            case SKELETON -> location.getWorld().spawn(location, Skeleton.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Équiper un arc
+                if (entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                    // Armure légère selon le niveau
+                    if (level > 10) {
+                        entity.getEquipment().setHelmet(new ItemStack(Material.CHAINMAIL_HELMET));
+                        entity.getEquipment().setHelmetDropChance(0);
+                    }
+                }
+            });
+
+            case STRAY -> location.getWorld().spawn(location, Stray.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Équiper un arc
+                if (entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                    // Armure de glace (cuir bleu)
+                    ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
+                    entity.getEquipment().setHelmet(helmet);
+                    entity.getEquipment().setHelmetDropChance(0);
+                }
+                // Résistance au froid
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            });
+
+            case RABID_WOLF -> location.getWorld().spawn(location, Wolf.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                entity.setAngry(true);
+                entity.setTamed(false);
+                // Le loup enragé a un collar rouge sang
+                entity.setCollarColor(org.bukkit.DyeColor.RED);
+                // Effets de rage
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 0, false, false));
+            });
+
+            case CREEPER -> location.getWorld().spawn(location, Creeper.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Le creeper ZombieZ est plus puissant
+                entity.setExplosionRadius((int) (3 + level * 0.1));
+                entity.setMaxFuseTicks(30); // 1.5 secondes
+                // Chance d'être chargé selon le niveau
+                if (level > 20 && Math.random() < 0.1) {
+                    entity.setPowered(true);
+                }
+            });
+
+            case EVOKER -> location.getWorld().spawn(location, Evoker.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // L'Evoker est un mage puissant
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            });
+
+            case PILLAGER -> location.getWorld().spawn(location, Pillager.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Équiper une arbalète
+                if (entity.getEquipment() != null) {
+                    entity.getEquipment().setItemInMainHand(new ItemStack(Material.CROSSBOW));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                }
+            });
+
+            case VINDICATOR -> location.getWorld().spawn(location, Vindicator.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Équiper une hache de fer/diamant
+                if (entity.getEquipment() != null) {
+                    Material axeMaterial = level > 15 ? Material.DIAMOND_AXE : Material.IRON_AXE;
+                    entity.getEquipment().setItemInMainHand(new ItemStack(axeMaterial));
+                    entity.getEquipment().setItemInMainHandDropChance(0);
+                }
+                // Le Vindicator est résistant
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            });
+
+            case GIANT_BOSS -> location.getWorld().spawn(location, Giant.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Le Giant est ÉNORME et lent mais dévastateur
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 2, false, false));
+            });
+
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {
                 configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
             });
