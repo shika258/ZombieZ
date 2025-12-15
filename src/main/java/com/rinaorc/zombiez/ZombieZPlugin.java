@@ -79,8 +79,9 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.items.power.PowerManager powerManager;
     @Getter private com.rinaorc.zombiez.items.power.PowerTriggerListener powerTriggerListener;
 
-    // Listener stocké pour nettoyage
+    // Listeners stockés pour accès externe
     @Getter private PlayerMoveListener playerMoveListener;
+    @Getter private ItemListener itemListener;
 
     // Systèmes de spawn spécialisés
     @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
@@ -331,7 +332,8 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new BlockProtectionListener(this), this);
         
         // Listeners système d'items
-        pm.registerEvents(new ItemListener(this), this);
+        itemListener = new ItemListener(this);
+        pm.registerEvents(itemListener, this);
         pm.registerEvents(new ItemCompareGUI.GUIListener(this), this);
         pm.registerEvents(new LootRevealGUI.LootGUIListener(this), this);
 
