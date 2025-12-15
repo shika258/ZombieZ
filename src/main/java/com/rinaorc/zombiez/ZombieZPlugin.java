@@ -9,8 +9,6 @@ import com.rinaorc.zombiez.data.DatabaseManager;
 import com.rinaorc.zombiez.economy.banking.BankManager;
 import com.rinaorc.zombiez.progression.*;
 import com.rinaorc.zombiez.progression.gui.*;
-import com.rinaorc.zombiez.economy.gui.ShopGUI;
-import com.rinaorc.zombiez.economy.shops.ShopManager;
 import com.rinaorc.zombiez.items.ItemListener;
 import com.rinaorc.zombiez.items.ItemManager;
 import com.rinaorc.zombiez.items.gui.ItemCompareGUI;
@@ -57,7 +55,6 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private EventManager eventManager;
     
     // Système Économie Phase 4
-    @Getter private ShopManager shopManager;
     @Getter private BankManager bankManager;
     
     // Système Progression Phase 5
@@ -231,10 +228,7 @@ public class ZombieZPlugin extends JavaPlugin {
         eventManager = new EventManager(this, zombieManager, spawnSystem);
         
         // ===== Système Économie Phase 4 =====
-        
-        // Shop Manager - Magasins
-        shopManager = new ShopManager(this);
-        
+
         // Bank Manager - Banque personnelle
         bankManager = new BankManager(this);
         
@@ -320,10 +314,6 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("refuge").setExecutor(new RefugeCommand(this));
         
         // Commandes Joueur - Économie
-        ShopCommand shopCmd = new ShopCommand(this);
-        getCommand("shop").setExecutor(shopCmd);
-        getCommand("shop").setTabCompleter(shopCmd);
-        
         BankCommand bankCmd = new BankCommand(this);
         getCommand("bank").setExecutor(bankCmd);
         getCommand("bank").setTabCompleter(bankCmd);
@@ -371,9 +361,6 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(passiveMobManager, this);
             pm.registerEvents(new com.rinaorc.zombiez.mobs.food.FoodListener(this), this);
         }
-        
-        // Listeners système d'économie
-        pm.registerEvents(new ShopGUI.ShopGUIListener(this), this);
         
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);

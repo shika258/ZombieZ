@@ -64,29 +64,11 @@ commands:
     aliases: [refuges, shelter]
 
   # Commandes Économie
-  shop:
-    description: Ouvre le shop
-    usage: /<command> [zone|gems]
-    permission: zombiez.shop
-    aliases: [boutique, magasin]
-    
-  sell:
-    description: Vendre des items
-    usage: /<command>
-    permission: zombiez.sell
-    aliases: [vendre]
-    
   prestige:
     description: Système de prestige
     usage: /<command> [confirm]
     permission: zombiez.prestige
-    
-  gems:
-    description: Shop de gemmes
-    usage: /<command>
-    permission: zombiez.gems
-    aliases: [gemmes]
-    
+
   balance:
     description: Voir votre solde
     usage: /<command>
@@ -158,10 +140,7 @@ permissions:
       zombiez.zone: true
       zombiez.checkpoint: true
       zombiez.refuge: true
-      zombiez.shop: true
-      zombiez.sell: true
       zombiez.prestige: true
-      zombiez.gems: true
       zombiez.balance: true
       zombiez.bank: true
       zombiez.progression: true
@@ -186,28 +165,8 @@ permissions:
     description: Voir les refuges
     default: true
 
-  zombiez.shop:
-    description: Accès au shop
-    default: true
-
-  zombiez.sell:
-    description: Vendre des items
-    default: true
-
-  zombiez.auction:
-    description: Accès à l'hôtel des ventes
-    default: true
-
-  zombiez.trade:
-    description: Échanger avec d'autres joueurs
-    default: true
-
   zombiez.prestige:
     description: Accès au prestige
-    default: true
-
-  zombiez.gems:
-    description: Accès au shop de gemmes
     default: true
 
   zombiez.balance:

@@ -3,17 +3,14 @@ package com.rinaorc.zombiez.items.power.impl;
 import com.rinaorc.zombiez.items.power.Power;
 import com.rinaorc.zombiez.items.types.Rarity;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -109,73 +106,59 @@ public class MeteorShowerPower extends Power {
     }
 
     /**
-     * Fait apparaître un météore
+     * Fait apparaître un météore (uniquement avec particules, sans bloc)
      */
     private void spawnMeteor(Location targetLoc, double damage, int fireTicks, Player player) {
-        // Spawn du météore en hauteur
+        // Position de départ du météore en hauteur
         Location spawnLoc = targetLoc.clone().add(0, 20, 0);
 
-        // Créer un FallingBlock pour l'effet visuel
-        FallingBlock meteor = spawnLoc.getWorld().spawnFallingBlock(
-            spawnLoc,
-            Material.MAGMA_BLOCK.createBlockData()
-        );
-
-        meteor.setDropItem(false);
-        meteor.setHurtEntities(false);
-        meteor.setVelocity(new Vector(0, -2, 0));
-
-        // Particules de feu pendant la chute
+        // Animation de chute avec particules uniquement (sans FallingBlock)
         new BukkitRunnable() {
+            private Location currentLoc = spawnLoc.clone();
+            private int ticks = 0;
+            private final int maxTicks = 20; // 1 seconde de chute
+
             @Override
             public void run() {
-                if (!meteor.isValid() || meteor.isOnGround()) {
-                    cancel();
-                    return;
-                }
+                ticks++;
 
-                Location loc = meteor.getLocation();
-                loc.getWorld().spawnParticle(
+                // Déplacer le météore vers le bas
+                currentLoc.add(0, -1, 0);
+
+                // Particules de feu pendant la chute
+                currentLoc.getWorld().spawnParticle(
                     Particle.FLAME,
-                    loc,
-                    20,
-                    0.5, 0.5, 0.5,
-                    0.05
+                    currentLoc,
+                    30,
+                    0.6, 0.6, 0.6,
+                    0.08
                 );
 
-                loc.getWorld().spawnParticle(
+                currentLoc.getWorld().spawnParticle(
                     Particle.LAVA,
-                    loc,
-                    5,
-                    0.3, 0.3, 0.3
+                    currentLoc,
+                    8,
+                    0.4, 0.4, 0.4
+                );
+
+                // Effet de traînée
+                currentLoc.getWorld().spawnParticle(
+                    Particle.SMOKE,
+                    currentLoc.clone().add(0, 0.5, 0),
+                    10,
+                    0.3, 0.5, 0.3,
+                    0.02
                 );
 
                 // Son de sifflement
-                if (random.nextInt(5) == 0) {
-                    loc.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 0.5f, 0.7f);
-                }
-            }
-        }.runTaskTimer(
-            org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
-            0L,
-            2L
-        );
-
-        // Détection de l'impact
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!meteor.isValid()) {
-                    cancel();
-                    return;
+                if (random.nextInt(3) == 0) {
+                    currentLoc.getWorld().playSound(currentLoc, Sound.ENTITY_BLAZE_SHOOT, 0.6f, 0.7f);
                 }
 
-                if (meteor.isOnGround() || meteor.getLocation().getY() <= targetLoc.getY() + 1) {
-                    Location impactLoc = meteor.getLocation();
-                    meteor.remove();
-
-                    // Explosion visuelle
-                    createMeteorImpact(impactLoc, damage, fireTicks, player);
+                // Vérifier si le météore a atteint le sol
+                if (ticks >= maxTicks || currentLoc.getY() <= targetLoc.getY() + 1) {
+                    // Impact au sol
+                    createMeteorImpact(currentLoc.clone(), damage, fireTicks, player);
                     cancel();
                 }
             }
@@ -253,42 +236,44 @@ public class MeteorShowerPower extends Power {
             }
         }
 
-        // Mettre le feu au sol temporairement (côté client uniquement)
-        List<Location> fireLocations = new java.util.ArrayList<>();
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                if (Math.sqrt(x * x + z * z) <= 2) {
-                    Location fireLoc = loc.clone().add(x, 0, z);
-                    if (fireLoc.getBlock().getType() == Material.AIR) {
-                        fireLocations.add(fireLoc.clone());
-                    }
-                }
-            }
-        }
-
-        // Envoyer les blocs de feu côté client à tous les joueurs proches
-        org.bukkit.block.data.BlockData fireData = Material.FIRE.createBlockData();
-        org.bukkit.block.data.BlockData airData = Material.AIR.createBlockData();
-        for (Player nearbyPlayer : loc.getWorld().getNearbyPlayers(loc, 32)) {
-            for (Location fireLoc : fireLocations) {
-                nearbyPlayer.sendBlockChange(fireLoc, fireData);
-            }
-        }
-
-        // Éteindre le feu après quelques secondes (côté client)
+        // Effet de feu au sol avec particules uniquement (pas de blocs)
         Location centerLoc = loc.clone();
         new BukkitRunnable() {
+            private int ticks = 0;
+            private final int maxTicks = fireTicks / 2; // Durée de l'effet en ticks
+
             @Override
             public void run() {
-                for (Player nearbyPlayer : centerLoc.getWorld().getNearbyPlayers(centerLoc, 32)) {
-                    for (Location fireLoc : fireLocations) {
-                        nearbyPlayer.sendBlockChange(fireLoc, airData);
-                    }
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
                 }
+
+                // Particules de feu persistantes au sol
+                centerLoc.getWorld().spawnParticle(
+                    Particle.FLAME,
+                    centerLoc,
+                    15,
+                    2, 0.2, 2,
+                    0.02
+                );
+
+                if (ticks % 5 == 0) {
+                    centerLoc.getWorld().spawnParticle(
+                        Particle.SMOKE,
+                        centerLoc.clone().add(0, 0.5, 0),
+                        8,
+                        1.5, 0.3, 1.5,
+                        0.01
+                    );
+                }
+
+                ticks++;
             }
-        }.runTaskLater(
+        }.runTaskTimer(
             org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"),
-            fireTicks
+            0L,
+            2L
         );
     }
 
