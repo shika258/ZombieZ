@@ -55,8 +55,43 @@ public class ZoneManager {
     private int minX = 0;
     private int maxX = 1242;
 
+    // Point de spawn personnalisé
+    @Getter
+    private Location spawnLocation;
+
     public ZoneManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Définit le point de spawn
+     */
+    public void setSpawnLocation(Location location) {
+        this.spawnLocation = location;
+    }
+
+    /**
+     * Obtient le point de spawn (depuis config ou valeur par défaut)
+     */
+    public Location getSpawnPoint() {
+        if (spawnLocation != null) {
+            return spawnLocation;
+        }
+
+        // Charger depuis la config si pas défini
+        var config = plugin.getConfig();
+        String worldName = config.getString("gameplay.spawn.world", gameWorld);
+        var world = Bukkit.getWorld(worldName);
+        if (world == null) world = Bukkit.getWorlds().get(0);
+
+        double x = config.getDouble("gameplay.spawn.x", 621);
+        double y = config.getDouble("gameplay.spawn.y", 70);
+        double z = config.getDouble("gameplay.spawn.z", 10300);
+        float yaw = (float) config.getDouble("gameplay.spawn.yaw", 0);
+        float pitch = (float) config.getDouble("gameplay.spawn.pitch", 0);
+
+        spawnLocation = new Location(world, x, y, z, yaw, pitch);
+        return spawnLocation;
     }
 
     /**
