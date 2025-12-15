@@ -36,9 +36,9 @@ public class DamageIndicator {
     // Configuration
     private static final int DISPLAY_DURATION_TICKS = 25; // 1.25 secondes
     private static final int CRITICAL_DURATION_TICKS = 30; // 1.5 secondes pour critiques
-    private static final float BASE_SCALE = 0.5f;
-    private static final float CRITICAL_SCALE = 0.7f;
-    private static final float HEAL_SCALE = 0.45f;
+    private static final float BASE_SCALE = 1.5f;      // x3 pour meilleure lisibilité
+    private static final float CRITICAL_SCALE = 2.1f;  // x3 pour meilleure lisibilité
+    private static final float HEAL_SCALE = 1.35f;     // x3 pour meilleure lisibilité
 
     // Système anti-stack: garde trace des positions récentes par entité
     private static final Map<UUID, Deque<IndicatorSlot>> recentIndicators = new ConcurrentHashMap<>();
@@ -68,7 +68,7 @@ public class DamageIndicator {
 
         // Calculer l'offset anti-stack
         Vector offset = calculateAntiStackOffset(location, viewer);
-        Location spawnLoc = location.clone().add(offset.getX(), 1.8 + offset.getY(), offset.getZ());
+        Location spawnLoc = location.clone().add(offset.getX(), 1.2 + offset.getY(), offset.getZ());
 
         // Créer le TextDisplay
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
@@ -97,7 +97,7 @@ public class DamageIndicator {
             ));
 
             // Configurer l'interpolation pour animation fluide
-            display.setInterpolationDuration(4);
+            display.setInterpolationDuration(6);
             display.setInterpolationDelay(0);
 
             // Cacher aux autres joueurs si un viewer spécifique est défini
@@ -127,7 +127,7 @@ public class DamageIndicator {
         if (location.getWorld() == null) return;
 
         Vector offset = calculateAntiStackOffset(location, viewer);
-        Location spawnLoc = location.clone().add(offset.getX(), 1.8 + offset.getY(), offset.getZ());
+        Location spawnLoc = location.clone().add(offset.getX(), 1.2 + offset.getY(), offset.getZ());
 
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
@@ -147,7 +147,7 @@ public class DamageIndicator {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(4);
+            display.setInterpolationDuration(6);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -172,7 +172,7 @@ public class DamageIndicator {
     public static void displayDodge(ZombieZPlugin plugin, Location location, Player viewer) {
         if (location.getWorld() == null) return;
 
-        Location spawnLoc = location.clone().add(0, 2.0, 0);
+        Location spawnLoc = location.clone().add(0, 1.4, 0);
 
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
@@ -187,11 +187,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(0.4f, 0.4f, 0.4f),
+                new Vector3f(1.2f, 1.2f, 1.2f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(3);
+            display.setInterpolationDuration(5);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -216,7 +216,7 @@ public class DamageIndicator {
     public static void displayBlock(ZombieZPlugin plugin, Location location, Player viewer) {
         if (location.getWorld() == null) return;
 
-        Location spawnLoc = location.clone().add(0, 2.0, 0);
+        Location spawnLoc = location.clone().add(0, 1.4, 0);
 
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
@@ -231,11 +231,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(0.4f, 0.4f, 0.4f),
+                new Vector3f(1.2f, 1.2f, 1.2f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(3);
+            display.setInterpolationDuration(5);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -260,7 +260,7 @@ public class DamageIndicator {
     public static void displayImmune(ZombieZPlugin plugin, Location location, Player viewer) {
         if (location.getWorld() == null) return;
 
-        Location spawnLoc = location.clone().add(0, 2.0, 0);
+        Location spawnLoc = location.clone().add(0, 1.4, 0);
 
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
@@ -275,11 +275,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(0.35f, 0.35f, 0.35f),
+                new Vector3f(1.05f, 1.05f, 1.05f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(3);
+            display.setInterpolationDuration(5);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -296,7 +296,7 @@ public class DamageIndicator {
     public static void displayCombo(ZombieZPlugin plugin, Location location, int comboCount, Player viewer) {
         if (location.getWorld() == null) return;
 
-        Location spawnLoc = location.clone().add(0, 2.3, 0);
+        Location spawnLoc = location.clone().add(0, 1.6, 0);
 
         location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
@@ -320,7 +320,7 @@ public class DamageIndicator {
             Component text = Component.text(comboCount + "x COMBO!", comboColor, TextDecoration.BOLD);
             display.text(text);
 
-            float scale = 0.3f + Math.min(comboCount * 0.01f, 0.3f);
+            float scale = 0.9f + Math.min(comboCount * 0.03f, 0.9f);
 
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
@@ -329,7 +329,7 @@ public class DamageIndicator {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(3);
+            display.setInterpolationDuration(5);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -400,7 +400,7 @@ public class DamageIndicator {
 
         double offsetX = Math.cos(angle) * radius;
         double offsetZ = Math.sin(angle) * radius;
-        double offsetY = slots.size() * 0.25; // Léger décalage vertical
+        double offsetY = slots.size() * 0.15; // Léger décalage vertical
 
         // Ajouter ce slot
         IndicatorSlot newSlot = new IndicatorSlot(offsetX, offsetZ, offsetY, now);
@@ -464,7 +464,7 @@ public class DamageIndicator {
 
                 // Mouvement: monte rapidement puis ralentit (ease-out)
                 double easeOut = 1 - Math.pow(1 - progress, 3);
-                double yOffset = easeOut * 1.2;
+                double yOffset = easeOut * 0.6;
 
                 // Téléporter vers le haut
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
@@ -527,7 +527,7 @@ public class DamageIndicator {
                 float progress = (float) ticks / duration;
 
                 // Mouvement doux vers le haut
-                double yOffset = Math.sin(progress * Math.PI * 0.5) * 0.8;
+                double yOffset = Math.sin(progress * Math.PI * 0.5) * 0.4;
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
@@ -561,7 +561,7 @@ public class DamageIndicator {
         new BukkitRunnable() {
             private int ticks = 0;
             private final Location startLoc = display.getLocation().clone();
-            private final float baseScale = 0.4f;
+            private final float baseScale = 1.2f;
 
             @Override
             public void run() {
@@ -574,8 +574,8 @@ public class DamageIndicator {
                 float progress = (float) ticks / duration;
 
                 // Petit mouvement vers le haut avec léger rebond
-                double bounce = Math.sin(progress * Math.PI) * 0.15;
-                double yOffset = progress * 0.5 + bounce;
+                double bounce = Math.sin(progress * Math.PI) * 0.08;
+                double yOffset = progress * 0.25 + bounce;
                 Location newLoc = startLoc.clone().add(0, yOffset, 0);
                 display.teleport(newLoc);
 
@@ -622,8 +622,8 @@ public class DamageIndicator {
                 float progress = (float) ticks / duration;
 
                 // Mouvement latéral léger + vers le haut
-                double xWobble = Math.sin(ticks * 0.5) * 0.05;
-                double yOffset = progress * 0.6;
+                double xWobble = Math.sin(ticks * 0.5) * 0.03;
+                double yOffset = progress * 0.3;
                 Location newLoc = startLoc.clone().add(xWobble, yOffset, 0);
                 display.teleport(newLoc);
 

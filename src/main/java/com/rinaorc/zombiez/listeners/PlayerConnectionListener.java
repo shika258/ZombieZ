@@ -104,6 +104,7 @@ public class PlayerConnectionListener implements Listener {
     /**
      * Donne le stuff de départ aux nouveaux joueurs
      * Utilise le système de stats custom ZombieZ
+     * Les items sont donnés dans l'inventaire (non équipés)
      */
     private void giveStarterKit(Player player) {
         // Vider l'inventaire au cas où
@@ -116,20 +117,23 @@ public class PlayerConnectionListener implements Listener {
         // ARME DE DÉPART: Épée du Survivant (Uncommon)
         // ═══════════════════════════════════════════════
         ZombieZItem starterSword = createStarterWeapon(generator);
-        player.getInventory().setItem(0, starterSword.toItemStack());
+        // Enregistrer dans le cache pour que les stats fonctionnent
+        plugin.getItemManager().giveItem(player, starterSword);
 
         // ═══════════════════════════════════════════════
         // ARMURE DE DÉPART: Set du Survivant (Common/Uncommon)
+        // Les armures sont données dans l'inventaire, non équipées
         // ═══════════════════════════════════════════════
         ZombieZItem starterHelmet = createStarterArmor(generator, ItemType.HELMET);
         ZombieZItem starterChestplate = createStarterArmor(generator, ItemType.CHESTPLATE);
         ZombieZItem starterLeggings = createStarterArmor(generator, ItemType.LEGGINGS);
         ZombieZItem starterBoots = createStarterArmor(generator, ItemType.BOOTS);
 
-        player.getInventory().setHelmet(starterHelmet.toItemStack());
-        player.getInventory().setChestplate(starterChestplate.toItemStack());
-        player.getInventory().setLeggings(starterLeggings.toItemStack());
-        player.getInventory().setBoots(starterBoots.toItemStack());
+        // Donner via ItemManager pour enregistrer dans le cache
+        plugin.getItemManager().giveItem(player, starterHelmet);
+        plugin.getItemManager().giveItem(player, starterChestplate);
+        plugin.getItemManager().giveItem(player, starterLeggings);
+        plugin.getItemManager().giveItem(player, starterBoots);
 
         // ═══════════════════════════════════════════════
         // CONSOMMABLES
@@ -142,14 +146,15 @@ public class PlayerConnectionListener implements Listener {
             foodMeta.setLore(List.of("§7De la viande pour survivre.", "§e§oÉquipement de départ"));
             food.setItemMeta(foodMeta);
         }
-        player.getInventory().setItem(1, food);
+        player.getInventory().addItem(food);
 
         // Torches
         ItemStack torches = new ItemStack(Material.TORCH, 16);
-        player.getInventory().setItem(2, torches);
+        player.getInventory().addItem(torches);
 
         // Message de confirmation
-        MessageUtils.sendRaw(player, "§a✓ §7Vous avez reçu votre §6équipement de départ §7avec stats custom!");
+        MessageUtils.sendRaw(player, "§a✓ §7Vous avez reçu votre §6équipement de départ §7dans votre inventaire!");
+        MessageUtils.sendRaw(player, "§7§oÉquipez votre armure pour bénéficier de ses stats.");
     }
 
     /**
