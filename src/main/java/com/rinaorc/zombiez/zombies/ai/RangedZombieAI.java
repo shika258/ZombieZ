@@ -51,7 +51,7 @@ public class RangedZombieAI extends ZombieAI {
 
         // Effets visuels du Spitter
         if (tickCounter % 20 == 0) {
-            playParticles(Particle.SLIME, zombie.getLocation().add(0, 1, 0), 3, 0.2, 0.3, 0.2);
+            playParticles(Particle.ITEM_SLIME, zombie.getLocation().add(0, 1, 0), 3, 0.2, 0.3, 0.2);
         }
     }
 
