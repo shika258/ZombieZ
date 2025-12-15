@@ -334,6 +334,9 @@ public class ZombieZPlugin extends JavaPlugin {
         
         // Listener système de zombies
         pm.registerEvents(new ZombieListener(this), this);
+
+        // Listener pour bloquer les spawns de mobs vanilla
+        pm.registerEvents(new MobSpawnListener(this), this);
         
         // Listeners système d'économie
         pm.registerEvents(new ShopGUI.ShopGUIListener(this), this);

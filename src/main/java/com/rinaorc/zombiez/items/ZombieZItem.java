@@ -165,6 +165,12 @@ public class ZombieZItem {
             builder.glow();
         }
 
+        // Cacher tous les attributs vanilla (enchants, attributs, unbreakable, etc.)
+        builder.hideAll();
+
+        // Rendre l'item incassable (sans afficher le tag)
+        builder.unbreakable();
+
         // Stocker les données dans le PDC
         ItemStack item = builder.build();
         storeData(item);
