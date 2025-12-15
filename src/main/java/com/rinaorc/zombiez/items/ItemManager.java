@@ -7,6 +7,8 @@ import com.rinaorc.zombiez.items.generator.ItemGenerator;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -14,6 +16,8 @@ import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -38,21 +42,79 @@ public class ItemManager {
     // Items droppés avec effets visuels actifs
     private final Map<UUID, DroppedItemEffect> activeDropEffects;
 
+    // Scoreboard pour les teams de glow coloré
+    private final Scoreboard scoreboard;
+
+    // Préfixe pour les noms de teams de rareté
+    private static final String TEAM_PREFIX = "zz_rarity_";
+
     public ItemManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.generator = ItemGenerator.getInstance();
-        
+
         // Cache de 1000 items, expire après 30 min d'inactivité
         this.itemCache = Caffeine.newBuilder()
             .maximumSize(1000)
             .expireAfterAccess(30, TimeUnit.MINUTES)
             .build();
-        
+
         this.playerStatsCache = new ConcurrentHashMap<>();
         this.activeDropEffects = new ConcurrentHashMap<>();
-        
+
+        // Initialiser le scoreboard pour le glow coloré
+        this.scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        initializeRarityTeams();
+
         // Démarrer le task des effets de drop
         startDropEffectsTask();
+    }
+
+    /**
+     * Initialise les teams pour chaque rareté avec la couleur appropriée
+     * Ces teams permettent de colorer le glow des items droppés
+     */
+    private void initializeRarityTeams() {
+        for (Rarity rarity : Rarity.values()) {
+            String teamName = TEAM_PREFIX + rarity.name().toLowerCase();
+            Team team = scoreboard.getTeam(teamName);
+
+            // Créer la team si elle n'existe pas
+            if (team == null) {
+                team = scoreboard.registerNewTeam(teamName);
+            }
+
+            // Définir la couleur de la team (détermine la couleur du glow)
+            team.setColor(getRarityChatColor(rarity));
+        }
+    }
+
+    /**
+     * Obtient la couleur ChatColor correspondant à une rareté
+     * Ces couleurs déterminent la couleur du glow effect des items
+     */
+    private ChatColor getRarityChatColor(Rarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+            case MYTHIC -> ChatColor.LIGHT_PURPLE;
+            case EXALTED -> ChatColor.RED;
+        };
+    }
+
+    /**
+     * Ajoute une entité item à la team de sa rareté pour le glow coloré
+     */
+    private void applyGlowColor(Item itemEntity, Rarity rarity) {
+        String teamName = TEAM_PREFIX + rarity.name().toLowerCase();
+        Team team = scoreboard.getTeam(teamName);
+
+        if (team != null) {
+            // Ajouter l'UUID de l'entité à la team
+            team.addEntry(itemEntity.getUniqueId().toString());
+        }
     }
 
     /**
@@ -87,6 +149,7 @@ public class ItemManager {
 
         // Faire briller l'item avec la couleur de rareté
         droppedItem.setGlowing(true);
+        applyGlowColor(droppedItem, zItem.getRarity());
 
         // Effets visuels selon la rareté
         if (zItem.getRarity().isAtLeast(Rarity.RARE)) {
