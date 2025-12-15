@@ -5,10 +5,12 @@ import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +28,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
     private final ZombieZPlugin plugin;
 
     private static final List<String> SUBCOMMANDS = Arrays.asList(
-        "reload", "info", "stats", "setzone", "givexp", "givepoints", 
+        "reload", "info", "stats", "setzone", "setspawn", "givexp", "givepoints",
         "givegems", "setlevel", "teleport", "debug", "cache"
     );
 
@@ -56,6 +58,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
             case "info" -> handleInfo(sender);
             case "stats" -> handleStats(sender, args);
             case "setzone" -> handleSetZone(sender, args);
+            case "setspawn" -> handleSetSpawn(sender);
             case "givexp" -> handleGiveXp(sender, args);
             case "givepoints" -> handleGivePoints(sender, args);
             case "givegems" -> handleGiveGems(sender, args);
@@ -80,6 +83,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zombiez info §7- Informations du plugin");
         sender.sendMessage("§e/zombiez stats <joueur> §7- Stats d'un joueur");
         sender.sendMessage("§e/zombiez setzone <zone> §7- Définir une zone");
+        sender.sendMessage("§e/zombiez setspawn §7- Définir le spawn à votre position");
         sender.sendMessage("§e/zombiez givexp <joueur> <montant> §7- Donner XP");
         sender.sendMessage("§e/zombiez givepoints <joueur> <montant> §7- Donner Points");
         sender.sendMessage("§e/zombiez givegems <joueur> <montant> §7- Donner Gems");
@@ -165,6 +169,35 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
     private void handleSetZone(CommandSender sender, String[] args) {
         // TODO: Implémenter la configuration de zone
         sender.sendMessage("§eFonctionnalité en cours de développement...");
+    }
+
+    /**
+     * Définit le point de spawn à la position actuelle du joueur
+     */
+    private void handleSetSpawn(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cCette commande doit être exécutée par un joueur!");
+            return;
+        }
+
+        Location loc = player.getLocation();
+
+        // Sauvegarder dans la config
+        FileConfiguration config = plugin.getConfig();
+        config.set("gameplay.spawn.world", loc.getWorld().getName());
+        config.set("gameplay.spawn.x", loc.getBlockX());
+        config.set("gameplay.spawn.y", loc.getBlockY());
+        config.set("gameplay.spawn.z", loc.getBlockZ());
+        config.set("gameplay.spawn.yaw", loc.getYaw());
+        config.set("gameplay.spawn.pitch", loc.getPitch());
+        plugin.saveConfig();
+
+        // Mettre à jour le ZoneManager si nécessaire
+        plugin.getZoneManager().setSpawnLocation(loc);
+
+        sender.sendMessage("§a✓ Point de spawn défini!");
+        sender.sendMessage(String.format("§7Position: §e%d, %d, %d §7dans §e%s",
+            loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getWorld().getName()));
     }
 
     /**

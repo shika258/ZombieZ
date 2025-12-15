@@ -320,6 +320,7 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new DeathListener(this), this);
         pm.registerEvents(new InteractListener(this), this);
         pm.registerEvents(new ZoneChangeListener(this), this);
+        pm.registerEvents(new BlockProtectionListener(this), this);
         
         // Listeners système d'items
         pm.registerEvents(new ItemListener(this), this);

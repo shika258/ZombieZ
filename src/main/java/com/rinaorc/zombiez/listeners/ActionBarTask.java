@@ -100,7 +100,7 @@ public class ActionBarTask extends BukkitRunnable {
         long points = data.getPoints().get();
         bar.append("§6⚡").append(formatCompact(points)).append(" ");
 
-        // Level
+        // Level avec prestige
         int level = data.getLevel().get();
         int prestige = data.getPrestige().get();
         if (prestige > 0) {
@@ -108,35 +108,25 @@ public class ActionBarTask extends BukkitRunnable {
         }
         bar.append("§bLv.").append(level);
 
-        // ============ XP BAR MINI ============
-        double xpPercent = calculateXpPercent(data);
-        bar.append(" §8[");
-        int barLength = 10;
-        int filled = (int) (xpPercent / 100.0 * barLength);
-        for (int i = 0; i < barLength; i++) {
-            bar.append(i < filled ? "§b█" : "§8░");
-        }
-        bar.append("§8]");
+        // ============ ITEM SCORE ============
+        // Affiche le score total d'équipement au lieu de la barre XP
+        int itemScore = plugin.getItemManager().calculateTotalItemScore(player);
+        String itemScoreColor = getItemScoreColor(itemScore);
+        bar.append(" §8| ").append(itemScoreColor).append("⚔").append(itemScore).append(" IS");
 
         // ============ ENVOYER ============
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString()));
     }
 
     /**
-     * Calcule le pourcentage d'XP vers le prochain niveau
+     * Obtient la couleur de l'Item Score basée sur la valeur
      */
-    private double calculateXpPercent(PlayerData data) {
-        int level = data.getLevel().get();
-        long currentXp = data.getXp().get();
-        long requiredXp = calculateRequiredXp(level);
-        return Math.min(100, (double) currentXp / requiredXp * 100);
-    }
-
-    /**
-     * Calcule l'XP requis pour le niveau suivant
-     */
-    private long calculateRequiredXp(int level) {
-        return (long) (100 * Math.pow(level, 1.5));
+    private String getItemScoreColor(int itemScore) {
+        if (itemScore >= 500) return "§6§l";   // Or brillant (équipement légendaire+)
+        if (itemScore >= 300) return "§5";     // Violet (équipement épique)
+        if (itemScore >= 150) return "§9";     // Bleu (équipement rare)
+        if (itemScore >= 50) return "§a";      // Vert (équipement standard)
+        return "§7";                            // Gris (débutant)
     }
 
     /**

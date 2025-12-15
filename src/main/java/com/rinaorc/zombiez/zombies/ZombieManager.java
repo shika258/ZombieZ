@@ -53,23 +53,24 @@ public class ZombieManager {
 
     /**
      * Initialise les limites de zombies par zone
+     * AUGMENTÉ: Limites plus élevées pour une expérience plus intense
      */
     private void initializeZoneLimits() {
         // Zone 0 (Spawn) - Pas de zombies
         maxZombiesPerZone.put(0, 0);
-        
-        // Zones progressives
-        maxZombiesPerZone.put(1, 30);   // Village
-        maxZombiesPerZone.put(2, 40);   // Plaines
-        maxZombiesPerZone.put(3, 45);   // Désert
-        maxZombiesPerZone.put(4, 40);   // Forêt Sombre
-        maxZombiesPerZone.put(5, 50);   // Marécages
-        maxZombiesPerZone.put(6, 60);   // PvP Arena
-        maxZombiesPerZone.put(7, 45);   // Montagnes
-        maxZombiesPerZone.put(8, 40);   // Toundra
-        maxZombiesPerZone.put(9, 35);   // Terres Corrompues
-        maxZombiesPerZone.put(10, 30);  // Enfer
-        maxZombiesPerZone.put(11, 20);  // Citadelle Finale
+
+        // Zones progressives - Limites augmentées
+        maxZombiesPerZone.put(1, 80);    // Village
+        maxZombiesPerZone.put(2, 100);   // Plaines
+        maxZombiesPerZone.put(3, 120);   // Désert
+        maxZombiesPerZone.put(4, 100);   // Forêt Sombre
+        maxZombiesPerZone.put(5, 130);   // Marécages
+        maxZombiesPerZone.put(6, 150);   // PvP Arena
+        maxZombiesPerZone.put(7, 120);   // Montagnes
+        maxZombiesPerZone.put(8, 110);   // Toundra
+        maxZombiesPerZone.put(9, 100);   // Terres Corrompues
+        maxZombiesPerZone.put(10, 90);   // Enfer
+        maxZombiesPerZone.put(11, 60);   // Citadelle Finale
     }
 
     /**
@@ -137,11 +138,36 @@ public class ZombieManager {
         
         // Pour l'instant, on spawn un zombie vanilla comme placeholder
         if (location.getWorld() == null) return null;
-        
+
         return location.getWorld().spawn(location, org.bukkit.entity.Zombie.class, zombie -> {
             zombie.setCustomName("§c" + mobId.replace("ZZ_", "") + " §7[Lv." + level + "]");
             zombie.setCustomNameVisible(true);
             zombie.setRemoveWhenFarAway(true);
+
+            // Empêcher de brûler au soleil
+            zombie.setShouldBurnInDay(false);
+
+            // Appliquer les stats de base selon le niveau
+            double healthMultiplier = 1.0 + (level * 0.15);
+            double damageMultiplier = 1.0 + (level * 0.10);
+
+            var maxHealth = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            if (maxHealth != null) {
+                maxHealth.setBaseValue(20 * healthMultiplier);
+                zombie.setHealth(maxHealth.getValue());
+            }
+
+            var damage = zombie.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (damage != null) {
+                damage.setBaseValue(3 * damageMultiplier);
+            }
+
+            var speed = zombie.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+            if (speed != null) {
+                // Vitesse variable selon le type de mob
+                double baseSpeed = 0.23 + (Math.random() * 0.05);
+                speed.setBaseValue(baseSpeed);
+            }
         });
     }
 
