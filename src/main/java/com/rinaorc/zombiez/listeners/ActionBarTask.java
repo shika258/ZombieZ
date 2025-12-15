@@ -113,7 +113,7 @@ public class ActionBarTask extends BukkitRunnable {
             int streak = momentum.getKillStreak();
 
             if (combo > 0 || streak > 0 || momentum.isFeverActive()) {
-                bar.append(" §8║ ");
+                bar.append(" §8│ ");
 
                 if (momentum.isFeverActive()) {
                     bar.append("§c§l⚡FEVER ");
