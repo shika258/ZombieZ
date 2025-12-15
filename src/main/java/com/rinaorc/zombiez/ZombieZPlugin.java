@@ -26,6 +26,10 @@ import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import java.util.logging.Level;
 
 /**
@@ -110,6 +114,10 @@ public class ZombieZPlugin extends JavaPlugin {
             // Phase 2: Base de données
             log(Level.INFO, "§e[2/6] Connexion à la base de données...");
             initializeDatabase();
+
+            // Nettoyage des mobs existants (évite les zombies bugués après reboot)
+            log(Level.INFO, "§7Nettoyage des mobs existants...");
+            clearAllZombieMobs();
 
             // Phase 3: Managers
             log(Level.INFO, "§e[3/6] Initialisation des managers...");
@@ -422,6 +430,62 @@ public class ZombieZPlugin extends JavaPlugin {
         MessageUtils.reload();
         
         log(Level.INFO, "§a✓ ZombieZ rechargé!");
+    }
+
+    /**
+     * Nettoie tous les mobs zombies/hostiles personnalisés au démarrage du serveur
+     * Évite les bugs avec des anciens zombies générés avant le reboot
+     */
+    private void clearAllZombieMobs() {
+        int cleared = 0;
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                // Vérifier si c'est un mob zombie/hostile du plugin
+                if (isZombieZMob(entity)) {
+                    entity.remove();
+                    cleared++;
+                }
+            }
+        }
+        if (cleared > 0) {
+            log(Level.INFO, "§7" + cleared + " mobs zombies nettoyés.");
+        }
+    }
+
+    /**
+     * Vérifie si une entité est un mob ZombieZ
+     */
+    private boolean isZombieZMob(Entity entity) {
+        if (!(entity instanceof LivingEntity)) return false;
+
+        // Vérifier le nom personnalisé ou le type
+        EntityType type = entity.getType();
+
+        // Types de mobs hostiles du plugin
+        if (type == EntityType.ZOMBIE || type == EntityType.HUSK ||
+            type == EntityType.DROWNED || type == EntityType.ZOMBIE_VILLAGER ||
+            type == EntityType.ZOMBIFIED_PIGLIN || type == EntityType.ZOGLIN ||
+            type == EntityType.RAVAGER || type == EntityType.SKELETON ||
+            type == EntityType.WITHER_SKELETON || type == EntityType.STRAY) {
+
+            // Vérifier si c'est un mob ZombieZ via le nom ou les tags
+            String customName = entity.getCustomName();
+            if (customName != null && customName.contains("ZZ_")) {
+                return true;
+            }
+
+            // Vérifier les tags de l'entité
+            if (entity.getScoreboardTags().contains("zombiez_mob")) {
+                return true;
+            }
+
+            // Si le mob a un nom personnalisé visible, c'est probablement un mob du plugin
+            if (entity.isCustomNameVisible()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

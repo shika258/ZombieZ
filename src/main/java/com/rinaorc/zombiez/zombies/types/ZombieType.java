@@ -33,6 +33,12 @@ public enum ZombieType {
     DROWNER("ZZ_Drowner", "Flottacide", 1, 25, 4, 0.22,           // Flotter + homicide
         new int[]{9, 13, 14, 34, 35}, ZombieCategory.BASIC),
 
+    HUSK("ZZ_Husk", "Desséchombie", 1, 30, 5, 0.20,               // Desséché + zombie
+        new int[]{8, 9, 10, 11, 12, 15, 16, 17, 21, 22, 23, 24}, ZombieCategory.BASIC),
+
+    DROWNED("ZZ_Drowned", "Noyatroz", 1, 28, 5, 0.24,             // Noyé + atroce
+        new int[]{9, 13, 14, 34, 35, 36, 37}, ZombieCategory.BASIC),
+
     // ═══════════════════════════════════════════════════════════════════
     // TIER 2 - Les Intermédiaires (Jeux de mots élaborés) - Zones 6-30
     // ═══════════════════════════════════════════════════════════════════
@@ -59,6 +65,12 @@ public enum ZombieType {
 
     TOXIC("ZZ_Toxic", "Putrescent", 2, 35, 4, 0.18,               // Putrescence
         new int[]{11, 13, 14, 15, 25}, ZombieCategory.HAZARD),
+
+    ZOMBIE_VILLAGER("ZZ_ZombieVillager", "Villagroin", 2, 35, 5, 0.18,  // Villageois + groin
+        new int[]{6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, ZombieCategory.SUPPORT),
+
+    DROWNED_TRIDENT("ZZ_DrownedTrident", "Tridentombie", 2, 40, 7, 0.20, // Trident + zombie
+        new int[]{13, 14, 34, 35, 36, 37, 38}, ZombieCategory.RANGED),
 
     // ═══════════════════════════════════════════════════════════════════
     // TIER 3 - Les Dangereux (Jeux de mots mémorables) - Zones 12-40
@@ -87,6 +99,12 @@ public enum ZombieType {
     WENDIGO("ZZ_Wendigo", "Affamortis", 3, 70, 14, 0.32,          // Affamé + mortis
         new int[]{31, 35, 36, 37, 38}, ZombieCategory.ELITE),
 
+    ZOMBIFIED_PIGLIN("ZZ_ZombifiedPiglin", "Porcinfernal", 3, 55, 10, 0.22, // Porc + infernal
+        new int[]{21, 22, 23, 24, 27, 28, 29, 30}, ZombieCategory.MELEE),
+
+    ZOGLIN("ZZ_Zoglin", "Zoglinfurieux", 3, 70, 12, 0.26,         // Zoglin + furieux
+        new int[]{21, 22, 23, 24, 25, 27, 28, 29, 30}, ZombieCategory.MELEE),
+
     // ═══════════════════════════════════════════════════════════════════
     // TIER 4 - Les Terrifiants (Jeux de mots épiques) - Zones 19-50
     // ═══════════════════════════════════════════════════════════════════
@@ -104,6 +122,12 @@ public enum ZombieType {
 
     MUTANT("ZZ_Mutant", "Mutanomalie", 4, 90, 13, 0.24,           // Mutant + anomalie
         new int[]{25, 30, 41, 43, 44, 45, 47}, ZombieCategory.HAZARD),
+
+    RAVAGER_BEAST("ZZ_RavagerBeast", "Ravageur", 4, 120, 20, 0.18, // Ravageur
+        new int[]{28, 29, 30, 35, 40, 45, 48, 49}, ZombieCategory.TANK),
+
+    PIGLIN_BRUTE("ZZ_PiglinBrute", "Brutalin", 4, 85, 16, 0.20,   // Brute + piglin
+        new int[]{21, 22, 23, 24, 27, 30, 40, 41, 42}, ZombieCategory.MELEE),
 
     // ═══════════════════════════════════════════════════════════════════
     // TIER 5 - Les Légendaires (Jeux de mots majestueux) - Zones 39-50

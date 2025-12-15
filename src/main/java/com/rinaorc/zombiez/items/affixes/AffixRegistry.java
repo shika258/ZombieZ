@@ -260,7 +260,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_embers")
-            .displayName("des Braises")
+            .displayName("Braises")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -271,7 +271,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_flames")
-            .displayName("de Flammes")
+            .displayName("Flammes")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -284,7 +284,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_inferno")
-            .displayName("de l'Inferno")
+            .displayName("Inferno")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -299,7 +299,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_frost")
-            .displayName("de Givre")
+            .displayName("Givre")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -310,7 +310,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_ice")
-            .displayName("de Glace")
+            .displayName("Glace")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -323,7 +323,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_blizzard")
-            .displayName("du Blizzard")
+            .displayName("Blizzard")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -338,7 +338,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_sparks")
-            .displayName("d'Étincelles")
+            .displayName("Étincelles")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -349,7 +349,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_lightning")
-            .displayName("de Foudre")
+            .displayName("Foudre")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -362,7 +362,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_storms")
-            .displayName("des Tempêtes")
+            .displayName("Tempêtes")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -377,7 +377,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_venom")
-            .displayName("de Venin")
+            .displayName("Venin")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -390,7 +390,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_plague")
-            .displayName("de la Peste")
+            .displayName("Peste")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
@@ -405,7 +405,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_fire_ward")
-            .displayName("de Protection Feu")
+            .displayName("Protection Feu")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -416,7 +416,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_frost_ward")
-            .displayName("de Protection Glace")
+            .displayName("Protection Glace")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -427,7 +427,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_grounding")
-            .displayName("de Mise à Terre")
+            .displayName("Mise à Terre")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -438,7 +438,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_antidote")
-            .displayName("d'Antidote")
+            .displayName("Antidote")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -451,7 +451,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_haste")
-            .displayName("de Célérité")
+            .displayName("Célérité")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(60)
@@ -462,7 +462,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_wind")
-            .displayName("du Vent")
+            .displayName("Vent")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
@@ -473,7 +473,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_fortune")
-            .displayName("de Fortune")
+            .displayName("Fortune")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
@@ -483,7 +483,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_wisdom")
-            .displayName("de Sagesse")
+            .displayName("Sagesse")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -493,7 +493,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_prosperity")
-            .displayName("de Prospérité")
+            .displayName("Prospérité")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -505,7 +505,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_regeneration")
-            .displayName("de Régénération")
+            .displayName("Régénération")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -516,7 +516,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_thorns")
-            .displayName("d'Épines")
+            .displayName("Épines")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(40)
@@ -527,7 +527,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_evasion")
-            .displayName("d'Évasion")
+            .displayName("Évasion")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
@@ -538,7 +538,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_wall")
-            .displayName("du Rempart")
+            .displayName("Rempart")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(15)
@@ -579,7 +579,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_momentum")
-            .displayName("de l'Élan")
+            .displayName("Élan")
             .specialDescription("Bonus de vitesse par combo")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
@@ -590,7 +590,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_storm")
-            .displayName("de la Tempête")
+            .displayName("Tempête")
             .specialDescription("Vitesse d'attaque augmentée en combo")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
@@ -632,8 +632,8 @@ public class AffixRegistry {
             .build());
 
         registerAffix(Affix.builder()
-            .id("of_inferno")
-            .displayName("de l'Inferno")
+            .id("of_inferno_fever")
+            .displayName("Inferno")
             .specialDescription("Effets Fever amplifiés")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
@@ -649,7 +649,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_synergy")
-            .displayName("de Synergie")
+            .displayName("Synergie")
             .specialDescription("Bonus de proximité de groupe amélioré")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
@@ -660,7 +660,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_pack")
-            .displayName("de la Meute")
+            .displayName("Meute")
             .specialDescription("Bonus de dégâts par membre proche")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
@@ -716,8 +716,8 @@ public class AffixRegistry {
         // ==================== AFFIXES DE CHANCE ====================
 
         registerAffix(Affix.builder()
-            .id("of_fortune")
-            .displayName("de Fortune")
+            .id("of_fortune_loot")
+            .displayName("Fortune")
             .specialDescription("Chance de double loot")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
@@ -728,7 +728,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_jackpot")
-            .displayName("du Jackpot")
+            .displayName("Jackpot")
             .specialDescription("Chance de drop légendaire augmentée")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
@@ -756,7 +756,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_phoenix")
-            .displayName("du Phénix")
+            .displayName("Phénix")
             .specialDescription("Renaître avec bonus après éviter la mort")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
