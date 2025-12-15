@@ -194,12 +194,16 @@ public class BloodSiphonPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts: §c" + String.format("%.1f", calculateDamage(itemLevel)));
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        int scaledRegenDuration = getScaledDuration(calculateRegenDuration(itemLevel), zoneId);
+
+        stats.add("§8Dégâts: §c" + String.format("%.1f", scaledDamage));
         stats.add("§8Vol de vie: §a" + String.format("%.0f%%", calculateLifesteal(itemLevel) * 100));
         stats.add("§8Bonus cible blessée: §c+25%");
-        stats.add("§8Régénération: §e" + String.format("%.1f", calculateRegenDuration(itemLevel) / 20.0) + "s");
+        stats.add("§8Régénération: §e" + String.format("%.1f", scaledRegenDuration / 20.0) + "s");
         stats.add("§8Effet: §aRegénération II");
         return stats;
     }

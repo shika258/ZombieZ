@@ -228,7 +228,7 @@ public class IceNovaPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel, int zoneId) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
         // Afficher les valeurs scalées par zone
         double damage = getScaledDamage(BASE_DAMAGE, zoneId);

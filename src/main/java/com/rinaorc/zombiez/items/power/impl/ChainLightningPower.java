@@ -222,11 +222,15 @@ public class ChainLightningPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts initial: §c" + String.format("%.1f", calculateDamage(itemLevel)));
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        double scaledRadius = getScaledRadius(calculateBounceRadius(itemLevel), zoneId);
+
+        stats.add("§8Dégâts initial: §c" + String.format("%.1f", scaledDamage));
         stats.add("§8Rebonds: §e" + calculateBounces(itemLevel));
-        stats.add("§8Rayon: §e" + String.format("%.1f", calculateBounceRadius(itemLevel)) + " blocs");
+        stats.add("§8Rayon: §e" + String.format("%.1f", scaledRadius) + " blocs");
         stats.add("§8Réduction: §c-25% par rebond");
         return stats;
     }

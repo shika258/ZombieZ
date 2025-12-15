@@ -106,7 +106,7 @@ public abstract class Power {
      * - La zone ajoute un léger bonus (max +50%)
      * - La rareté ajoute son bonus de proc (max +40%)
      */
-    protected double calculateProcChance(int zoneId, Rarity rarity) {
+    public double calculateProcChance(int zoneId, Rarity rarity) {
         // Bonus de zone (léger, max +50%)
         double zoneBonus = ZoneScaling.getPowerProcMultiplier(zoneId) - 1.0;
 
@@ -250,7 +250,7 @@ public abstract class Power {
      * @param itemLevel Item Level (compatibilité)
      * @param zoneId Zone de l'item (pour scaling)
      */
-    protected List<String> getPowerStats(int itemLevel, int zoneId) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         return new ArrayList<>();
     }
 

@@ -331,13 +331,18 @@ public class PhoenixRebirthPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        double scaledRadius = getScaledRadius(calculateRadius(itemLevel), zoneId);
+        int scaledInvulnerability = getScaledDuration(calculateInvulnerability(itemLevel), zoneId);
+
         stats.add("§7§lPOUVOIR PASSIF");
         stats.add("§8Santé: §a" + String.format("%.0f%%", calculateHealthPercent(itemLevel) * 100) + " HP max");
-        stats.add("§8Dégâts explosion: §c" + String.format("%.1f", calculateDamage(itemLevel)));
-        stats.add("§8Rayon: §e" + String.format("%.1f", calculateRadius(itemLevel)) + " blocs");
-        stats.add("§8Invulnérabilité: §e" + String.format("%.1f", calculateInvulnerability(itemLevel) / 20.0) + "s");
+        stats.add("§8Dégâts explosion: §c" + String.format("%.1f", scaledDamage));
+        stats.add("§8Rayon: §e" + String.format("%.1f", scaledRadius) + " blocs");
+        stats.add("§8Invulnérabilité: §e" + String.format("%.1f", scaledInvulnerability / 20.0) + "s");
         stats.add("§8Effets: §6Fire Resistance, §aRegénération III, §7Resistance III");
         stats.add("§c§lCooldown: 5 minutes");
         return stats;
