@@ -105,6 +105,12 @@ commands:
     permission: zombiez.progression
     aliases: [prog, ach, bp]
 
+  holo:
+    description: Activer/désactiver les hologrammes de dégâts
+    usage: /<command> [on|off|toggle|status]
+    permission: zombiez.holo
+    aliases: [hologram, holograms, dmgholo]
+
 # Permissions
 permissions:
   # Permission wildcard admin
@@ -165,6 +171,7 @@ permissions:
       zombiez.balance: true
       zombiez.bank: true
       zombiez.progression: true
+      zombiez.holo: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -220,6 +227,10 @@ permissions:
 
   zombiez.progression:
     description: Accès au système de progression
+    default: true
+
+  zombiez.holo:
+    description: Gérer les hologrammes de dégâts
     default: true
 
   # Permissions VIP

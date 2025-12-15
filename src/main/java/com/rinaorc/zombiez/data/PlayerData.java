@@ -761,7 +761,18 @@ public class PlayerData {
         vaultSize.addAndGet(slots);
         markDirty();
     }
-    
+
+    // ==================== PRÉFÉRENCES JOUEUR ====================
+
+    // Hologrammes de dégâts (activés par défaut)
+    private boolean damageHologramsEnabled = true;
+
+    public boolean isDamageHologramsEnabled() { return damageHologramsEnabled; }
+    public void setDamageHologramsEnabled(boolean enabled) {
+        this.damageHologramsEnabled = enabled;
+        markDirty();
+    }
+
     // Inner class for booster data
     @Getter
     public static class BoosterData {

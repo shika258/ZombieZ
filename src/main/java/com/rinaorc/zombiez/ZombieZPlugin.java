@@ -74,6 +74,9 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.party.PartyManager partyManager;
     @Getter private com.rinaorc.zombiez.momentum.MomentumManager momentumManager;
     @Getter private com.rinaorc.zombiez.zones.SecretZoneManager secretZoneManager;
+
+    // Système de combat visuel
+    @Getter private com.rinaorc.zombiez.combat.DamageHologramManager damageHologramManager;
     
     // Listener stocké pour nettoyage
     @Getter private PlayerMoveListener playerMoveListener;
@@ -144,6 +147,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (itemManager != null) {
             log(Level.INFO, "§7Nettoyage du cache d'items...");
             itemManager.cleanup();
+        }
+
+        // Cleanup des hologrammes de dégâts
+        if (damageHologramManager != null) {
+            log(Level.INFO, "§7Nettoyage des hologrammes...");
+            damageHologramManager.cleanup();
         }
 
         // Fermeture de la base de données
@@ -255,6 +264,9 @@ public class ZombieZPlugin extends JavaPlugin {
         
         // Secret Zone Manager - Zones secrètes et événements
         secretZoneManager = new com.rinaorc.zombiez.zones.SecretZoneManager(this);
+
+        // Damage Hologram Manager - Affichage visuel des dégâts
+        damageHologramManager = new com.rinaorc.zombiez.combat.DamageHologramManager(this);
     }
 
     /**
@@ -294,6 +306,11 @@ public class ZombieZPlugin extends JavaPlugin {
         ProgressionCommand progressionCmd = new ProgressionCommand(this);
         getCommand("progression").setExecutor(progressionCmd);
         getCommand("progression").setTabCompleter(progressionCmd);
+
+        // Commandes Joueur - Hologrammes
+        HologramCommand holoCmd = new HologramCommand(this);
+        getCommand("holo").setExecutor(holoCmd);
+        getCommand("holo").setTabCompleter(holoCmd);
     }
 
     /**

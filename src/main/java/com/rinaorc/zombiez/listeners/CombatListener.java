@@ -1,10 +1,14 @@
 package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.combat.DamageHologramManager;
+import com.rinaorc.zombiez.combat.DamageHologramManager.DamageInfo;
+import com.rinaorc.zombiez.combat.DamageHologramManager.DamageType;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import com.rinaorc.zombiez.zones.Zone;
+import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.*;
@@ -21,7 +25,7 @@ import java.util.Random;
 
 /**
  * Listener pour les événements de combat
- * Intègre: Momentum, Stats d'items, SkillTree, Effets visuels
+ * Intègre: Momentum, Stats d'items, SkillTree, Effets visuels, Hologrammes de dégâts
  */
 public class CombatListener implements Listener {
 
@@ -77,12 +81,18 @@ public class CombatListener implements Listener {
 
     /**
      * Gère les attaques de joueur sur zombie
-     * Applique: Stats d'items, Momentum, Skills, Critiques, Effets
+     * Applique: Stats d'items, Momentum, Skills, Critiques, Effets, Hologrammes
      */
     private void handlePlayerAttackZombie(EntityDamageByEntityEvent event, Player player, Zombie zombie) {
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
+        boolean isExecute = false;
+        boolean isBerserker = false;
+        boolean isLightningProc = false;
+
+        // Dégâts élémentaires pour l'hologramme
+        double elementalFire = 0, elementalIce = 0, elementalLightning = 0;
 
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -129,7 +139,10 @@ public class CombatListener implements Listener {
         if (zombieHealthPercent <= executeThreshold) {
             double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
             double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
-            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+            if (executeBonus + skillExecuteBonus > 0) {
+                isExecute = true;
+                finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+            }
         }
 
         // ============ 6. BERSERKER (<30% HP joueur) ============
@@ -137,6 +150,7 @@ public class CombatListener implements Listener {
         if (playerHealthPercent <= 30) {
             double berserkerBonus = skillManager.getSkillBonus(player, SkillBonus.BERSERKER);
             if (berserkerBonus > 0) {
+                isBerserker = true;
                 finalDamage *= (1 + berserkerBonus / 100.0);
                 // Effet visuel berserker
                 player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3);
@@ -150,25 +164,30 @@ public class CombatListener implements Listener {
 
         if (fireDamage > 0) {
             zombie.setFireTicks((int) (fireDamage * 20)); // Brûle
-            finalDamage += fireDamage * 0.5;
+            elementalFire = fireDamage * 0.5;
+            finalDamage += elementalFire;
         }
         if (iceDamage > 0) {
             zombie.setFreezeTicks((int) (iceDamage * 20)); // Gèle
-            finalDamage += iceDamage * 0.5;
+            elementalIce = iceDamage * 0.5;
+            finalDamage += elementalIce;
         }
         if (lightningDamage > 0 && random.nextDouble() < 0.15) {
             // 15% chance de proc lightning
+            isLightningProc = true;
             zombie.getWorld().strikeLightningEffect(zombie.getLocation());
-            finalDamage += lightningDamage * 2;
+            elementalLightning = lightningDamage * 2;
+            finalDamage += elementalLightning;
         }
 
         // ============ 8. LIFESTEAL ============
         double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
         double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
         double totalLifesteal = lifestealPercent + skillLifesteal;
+        double healAmount = 0;
 
         if (totalLifesteal > 0) {
-            double healAmount = finalDamage * (totalLifesteal / 100.0);
+            healAmount = finalDamage * (totalLifesteal / 100.0);
             double newHealth = Math.min(player.getHealth() + healAmount, player.getMaxHealth());
             player.setHealth(newHealth);
 
@@ -181,15 +200,20 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
+        // ============ HOLOGRAMME DE DÉGÂTS ============
+        spawnDamageHologram(zombie.getLocation(), player, finalDamage, isCritical, isExecute, isBerserker,
+            elementalFire, elementalIce, elementalLightning, isLightningProc, momentumMultiplier);
+
+        // Hologramme de lifesteal séparé
+        if (healAmount > 1) {
+            spawnHealHologram(player.getLocation(), player, healAmount, true);
+        }
+
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
             // Effet critique
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
             zombie.getWorld().spawnParticle(Particle.CRIT, zombie.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
-
-            // Message critique avec dégâts
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
-                "§6§l✦ CRITIQUE! §c" + String.format("%.1f", finalDamage) + " dégâts");
         }
 
         // Stocker les infos pour le loot (utilisé à la mort)
@@ -197,8 +221,52 @@ public class CombatListener implements Listener {
     }
 
     /**
+     * Spawn un hologramme de dégâts au dessus de la cible
+     */
+    private void spawnDamageHologram(Location location, Player viewer, double damage,
+            boolean isCritical, boolean isExecute, boolean isBerserker,
+            double fireDmg, double iceDmg, double lightningDmg, boolean lightningProc,
+            double comboMultiplier) {
+
+        var holoManager = plugin.getDamageHologramManager();
+        if (holoManager == null) return;
+
+        DamageInfo info;
+
+        // Priorité d'affichage: Execute > Berserker > Lightning > Fire > Ice > Critical > Normal
+        if (isExecute) {
+            info = DamageInfo.execute(damage);
+        } else if (isBerserker) {
+            info = DamageInfo.berserker(damage);
+        } else if (lightningProc && lightningDmg > 0) {
+            info = DamageInfo.lightning(damage, lightningDmg);
+        } else if (fireDmg > 0 && fireDmg >= iceDmg) {
+            info = DamageInfo.fire(damage, fireDmg);
+        } else if (iceDmg > 0) {
+            info = DamageInfo.ice(damage, iceDmg);
+        } else if (isCritical) {
+            info = DamageInfo.critical(damage, comboMultiplier);
+        } else {
+            info = new DamageInfo(damage, DamageType.NORMAL, false, comboMultiplier);
+        }
+
+        holoManager.spawnDamageHologram(location, info, viewer);
+    }
+
+    /**
+     * Spawn un hologramme de heal/lifesteal
+     */
+    private void spawnHealHologram(Location location, Player viewer, double amount, boolean isLifesteal) {
+        var holoManager = plugin.getDamageHologramManager();
+        if (holoManager == null) return;
+
+        DamageInfo info = isLifesteal ? DamageInfo.lifesteal(amount) : DamageInfo.heal(amount);
+        holoManager.spawnDamageHologram(location, info, viewer);
+    }
+
+    /**
      * Gère les attaques de zombie sur joueur
-     * Applique: Réduction de dégâts, Esquive, Skills défensifs
+     * Applique: Réduction de dégâts, Esquive, Skills défensifs, Hologrammes
      */
     private void handleZombieAttackPlayer(EntityDamageByEntityEvent event, Zombie zombie, Player player) {
         double baseDamage = event.getDamage();
@@ -226,8 +294,13 @@ public class CombatListener implements Listener {
         if (random.nextDouble() * 100 < dodgeChance) {
             event.setCancelled(true);
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player, "§a§l↷ ESQUIVE!");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+
+            // Hologramme d'esquive
+            var holoManager = plugin.getDamageHologramManager();
+            if (holoManager != null) {
+                holoManager.spawnDamageHologram(player.getLocation(), DamageInfo.dodge(), player);
+            }
             return;
         }
 
@@ -236,6 +309,13 @@ public class CombatListener implements Listener {
         if (thorns > 0) {
             zombie.damage(thorns, player);
             zombie.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, zombie.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2);
+
+            // Hologramme de thorns sur le zombie
+            var holoManager = plugin.getDamageHologramManager();
+            if (holoManager != null) {
+                DamageInfo thornsInfo = new DamageInfo(thorns, DamageType.NORMAL, false, 1.0);
+                holoManager.spawnDamageHologram(zombie.getLocation(), thornsInfo, player);
+            }
         }
 
         event.setDamage(finalDamage);
