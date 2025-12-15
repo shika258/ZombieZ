@@ -61,11 +61,12 @@ public class MobSpawnListener implements Listener {
             return;
         }
 
-        // Autoriser les animaux passifs (poules, vaches, etc.) uniquement pour l'ambiance
-        // Mais on peut aussi les bloquer si vous voulez un monde 100% custom
+        // Bloquer les animaux passifs vanilla - seuls les mobs custom ZombieZ sont autorisés
         if (isPassiveMob(entity)) {
-            // Décommentez la ligne suivante pour bloquer aussi les animaux passifs
-            // event.setCancelled(true);
+            // Vérifier si c'est un mob ZombieZ (a le tag zombiez_passive)
+            if (!entity.hasMetadata("zombiez_passive")) {
+                event.setCancelled(true);
+            }
             return;
         }
     }
