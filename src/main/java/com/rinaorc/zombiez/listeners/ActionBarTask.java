@@ -2,16 +2,20 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.momentum.MomentumManager;
 import com.rinaorc.zombiez.zones.Zone;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.Map;
+
 /**
  * Tâche pour afficher l'ActionBar permanent aux joueurs
- * Affiche: Zone | Combo | Streak | Points | Fever Status
+ * Affiche les stats du joueur en temps réel
  */
 public class ActionBarTask extends BukkitRunnable {
 
@@ -25,8 +29,8 @@ public class ActionBarTask extends BukkitRunnable {
      * Démarre la tâche (appelée depuis ZombieZPlugin)
      */
     public void start() {
-        // Toutes les 20 ticks (1 seconde)
-        this.runTaskTimer(plugin, 20L, 20L);
+        // Toutes les 10 ticks (0.5 seconde) pour une mise à jour plus réactive
+        this.runTaskTimer(plugin, 10L, 10L);
     }
 
     @Override
@@ -43,105 +47,144 @@ public class ActionBarTask extends BukkitRunnable {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
+        // Calculer les stats du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
         StringBuilder bar = new StringBuilder();
 
-        // ============ ZONE ============
-        Zone zone = plugin.getZoneManager().getPlayerZone(player);
-        if (zone != null) {
-            String zoneColor = getZoneColor(zone.getId());
-            bar.append(zoneColor).append("⬢ ").append(zone.getDisplayName()).append(" ");
+        // ============ VIE ============
+        double currentHealth = player.getHealth();
+        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double bonusHealth = playerStats.getOrDefault(StatType.MAX_HEALTH, 0.0);
 
-            // Indicateur de difficulté
-            bar.append("§8[");
-            int stars = zone.getDifficulty();
-            for (int i = 0; i < 5; i++) {
-                bar.append(i < stars ? "§e★" : "§8☆");
-            }
-            bar.append("§8] ");
-        } else {
-            bar.append("§a⬢ Spawn ");
+        String healthColor = getHealthColor(currentHealth, maxHealth);
+        bar.append(healthColor).append("❤ ").append((int) currentHealth).append("§7/§c").append((int) maxHealth);
+
+        if (bonusHealth > 0) {
+            bar.append(" §a(+").append((int) bonusHealth).append(")");
         }
 
-        bar.append("§8| ");
+        bar.append(" §8│ ");
 
-        // ============ MOMENTUM ============
+        // ============ DÉFENSE ============
+        double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
+        double damageReduction = playerStats.getOrDefault(StatType.DAMAGE_REDUCTION, 0.0);
+        double totalDefense = armor + damageReduction;
+
+        String defenseColor = getDefenseColor(totalDefense);
+        bar.append(defenseColor).append("🛡 ").append((int) totalDefense);
+
+        if (damageReduction > 0) {
+            bar.append(" §9(-").append((int) damageReduction).append("%)");
+        }
+
+        bar.append(" §8│ ");
+
+        // ============ DÉGÂTS ============
+        double baseDamage = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+
+        String damageColor = getDamageColor(baseDamage);
+        bar.append(damageColor).append("⚔ ").append(formatStat(baseDamage));
+
+        if (damagePercent > 0) {
+            bar.append(" §c(+").append((int) damagePercent).append("%)");
+        }
+
+        // ============ STATS SECONDAIRES ============
+        double critChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double critDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+        double attackSpeed = playerStats.getOrDefault(StatType.ATTACK_SPEED, 0.0);
+        double lifesteal = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+
+        // Afficher crit si présent
+        if (critChance > 0) {
+            bar.append(" §8│ §6✦ ").append((int) critChance).append("%");
+            if (critDamage > 0) {
+                bar.append(" §8(§6+").append((int) critDamage).append("%§8)");
+            }
+        }
+
+        // Afficher vitesse d'attaque si présent
+        if (attackSpeed > 0) {
+            bar.append(" §8│ §e⚡ +").append(String.format("%.1f", attackSpeed));
+        }
+
+        // Afficher vol de vie si présent
+        if (lifesteal > 0) {
+            bar.append(" §8│ §4❤ ").append((int) lifesteal).append("%");
+        }
+
+        // ============ MOMENTUM (compact) ============
         MomentumManager.MomentumData momentum = plugin.getMomentumManager().getMomentum(player);
-
         if (momentum != null) {
-            // Combo avec timer
             int combo = momentum.getCombo();
-            if (combo > 0) {
-                String comboColor = getComboColor(combo);
-                double timer = momentum.getComboTimer();
-                bar.append(comboColor).append("⚡x").append(combo);
-                if (timer > 0) {
-                    bar.append(" §7(").append(String.format("%.1f", timer)).append("s)");
-                }
-                bar.append(" ");
-            }
-
-            // Streak
             int streak = momentum.getKillStreak();
-            if (streak > 0) {
-                String streakColor = getStreakColor(streak);
-                bar.append(streakColor).append("🔥").append(streak).append(" ");
-            }
 
-            // Fever Mode
-            if (momentum.isFeverActive()) {
-                bar.append("§c§l⚡FEVER§c ");
+            if (combo > 0 || streak > 0 || momentum.isFeverActive()) {
+                bar.append(" §8║ ");
+
+                if (momentum.isFeverActive()) {
+                    bar.append("§c§l⚡FEVER ");
+                }
+
+                if (combo > 0) {
+                    String comboColor = getComboColor(combo);
+                    bar.append(comboColor).append("x").append(combo).append(" ");
+                }
+
+                if (streak >= 5) {
+                    String streakColor = getStreakColor(streak);
+                    bar.append(streakColor).append("🔥").append(streak);
+                }
             }
         }
-
-        // ============ STATS RAPIDES ============
-        bar.append("§8| ");
-
-        // Points
-        long points = data.getPoints().get();
-        bar.append("§6⚡").append(formatCompact(points)).append(" ");
-
-        // Level avec prestige
-        int level = data.getLevel().get();
-        int prestige = data.getPrestige().get();
-        if (prestige > 0) {
-            bar.append("§d✦").append(prestige).append("§f-");
-        }
-        bar.append("§bLv.").append(level);
-
-        // ============ ITEM SCORE ============
-        // Affiche le score total d'équipement au lieu de la barre XP
-        int itemScore = plugin.getItemManager().calculateTotalItemScore(player);
-        String itemScoreColor = getItemScoreColor(itemScore);
-        bar.append(" §8| ").append(itemScoreColor).append("⚔").append(itemScore).append(" IS");
 
         // ============ ENVOYER ============
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString()));
     }
 
     /**
-     * Obtient la couleur de l'Item Score basée sur la valeur
+     * Formate une stat avec un décimal si nécessaire
      */
-    private String getItemScoreColor(int itemScore) {
-        if (itemScore >= 500) return "§6§l";   // Or brillant (équipement légendaire+)
-        if (itemScore >= 300) return "§5";     // Violet (équipement épique)
-        if (itemScore >= 150) return "§9";     // Bleu (équipement rare)
-        if (itemScore >= 50) return "§a";      // Vert (équipement standard)
-        return "§7";                            // Gris (débutant)
+    private String formatStat(double value) {
+        if (value == (int) value) {
+            return String.valueOf((int) value);
+        }
+        return String.format("%.1f", value);
     }
 
     /**
-     * Obtient la couleur basée sur la zone
+     * Obtient la couleur de la vie basée sur le pourcentage
      */
-    private String getZoneColor(int zoneId) {
-        return switch (zoneId) {
-            case 0 -> "§a";      // Spawn - Vert
-            case 1, 2 -> "§a";   // Zones faciles - Vert
-            case 3, 4 -> "§e";   // Zones moyennes - Jaune
-            case 5, 6 -> "§6";   // Zones difficiles - Orange
-            case 7, 8 -> "§c";   // Zones très difficiles - Rouge
-            case 9, 10, 11 -> "§4"; // Zones finales - Rouge foncé
-            default -> "§7";
-        };
+    private String getHealthColor(double current, double max) {
+        double percent = current / max;
+        if (percent <= 0.25) return "§4§l";  // Rouge foncé clignotant
+        if (percent <= 0.5) return "§c";     // Rouge
+        if (percent <= 0.75) return "§e";    // Jaune
+        return "§a";                          // Vert
+    }
+
+    /**
+     * Obtient la couleur de la défense basée sur la valeur
+     */
+    private String getDefenseColor(double defense) {
+        if (defense >= 100) return "§b§l";   // Cyan brillant
+        if (defense >= 60) return "§9";      // Bleu
+        if (defense >= 30) return "§3";      // Cyan foncé
+        if (defense >= 10) return "§7";      // Gris
+        return "§8";                          // Gris foncé
+    }
+
+    /**
+     * Obtient la couleur des dégâts basée sur la valeur
+     */
+    private String getDamageColor(double damage) {
+        if (damage >= 100) return "§c§l";    // Rouge brillant
+        if (damage >= 50) return "§c";       // Rouge
+        if (damage >= 25) return "§6";       // Orange
+        if (damage >= 10) return "§e";       // Jaune
+        return "§f";                          // Blanc
     }
 
     /**
@@ -163,15 +206,5 @@ public class ActionBarTask extends BukkitRunnable {
         if (streak >= 25) return "§6";
         if (streak >= 10) return "§e";
         return "§7";
-    }
-
-    /**
-     * Formate un nombre de manière compacte
-     */
-    private String formatCompact(long amount) {
-        if (amount < 1000) return String.valueOf(amount);
-        if (amount < 1_000_000) return String.format("%.1fK", amount / 1000.0);
-        if (amount < 1_000_000_000) return String.format("%.1fM", amount / 1_000_000.0);
-        return String.format("%.1fB", amount / 1_000_000_000.0);
     }
 }
