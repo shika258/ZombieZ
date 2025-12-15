@@ -95,6 +95,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système de Boss Bar Dynamique
     @Getter private com.rinaorc.zombiez.ui.DynamicBossBarManager dynamicBossBarManager;
 
+    // Système de Consommables
+    @Getter private com.rinaorc.zombiez.consumables.ConsumableManager consumableManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -170,6 +173,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (dynamicBossBarManager != null) {
             log(Level.INFO, "§7Nettoyage des boss bars dynamiques...");
             dynamicBossBarManager.shutdown();
+        }
+
+        // Cleanup du système de consommables
+        if (consumableManager != null) {
+            log(Level.INFO, "§7Nettoyage du système de consommables...");
+            consumableManager.cleanup();
         }
 
         // Fermeture de la base de données
@@ -295,6 +304,11 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Dynamic Boss Bar Manager - Affichage contextuel XP, Events, Streaks, Boss
         dynamicBossBarManager = new com.rinaorc.zombiez.ui.DynamicBossBarManager(this);
+
+        // ===== Système Consommables =====
+
+        // Consumable Manager - Items consommables droppés par les zombies
+        consumableManager = new com.rinaorc.zombiez.consumables.ConsumableManager(this);
     }
 
     /**
@@ -313,7 +327,13 @@ public class ZombieZPlugin extends JavaPlugin {
         ZombieAdminCommand zombieCmd = new ZombieAdminCommand(this);
         getCommand("zzzombie").setExecutor(zombieCmd);
         getCommand("zzzombie").setTabCompleter(zombieCmd);
-        
+
+        // Commandes Admin Consommables
+        com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand consumableCmd =
+            new com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand(this);
+        getCommand("zzconsumable").setExecutor(consumableCmd);
+        getCommand("zzconsumable").setTabCompleter(consumableCmd);
+
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
         getCommand("stats").setExecutor(new StatsCommand(this));
@@ -369,7 +389,12 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(passiveMobManager, this);
             pm.registerEvents(new com.rinaorc.zombiez.mobs.food.FoodListener(this), this);
         }
-        
+
+        // Listener système consommables
+        if (consumableManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.consumables.ConsumableListener(this, consumableManager), this);
+        }
+
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);
         pm.registerEvents(new BattlePassGUI.BattlePassGUIListener(this), this);
