@@ -15,7 +15,7 @@ import org.bukkit.util.Vector;
 /**
  * IA pour les zombies EXPLOSIVE
  * Comportement: Explose à la mort ou quand proche, dégâts de zone
- * Types: BLOATER, EXPLOSIVE
+ * Types: BLOATER, EXPLOSIVE, CREEPER
  */
 public class ExplosiveZombieAI extends ZombieAI {
 
@@ -27,7 +27,9 @@ public class ExplosiveZombieAI extends ZombieAI {
     // Paramètres d'explosion
     private static final int BLOATER_FUSE_TICKS = 20; // 1 seconde pour Bloater
     private static final int EXPLOSIVE_FUSE_TICKS = 40; // 2 secondes pour Explosive
+    private static final int CREEPER_FUSE_TICKS = 30; // 1.5 secondes pour Creeper
     private static final double TRIGGER_DISTANCE = 3.0;
+    private static final double CREEPER_TRIGGER_DISTANCE = 2.5;
 
     public ExplosiveZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
         super(plugin, zombie, zombieType, level);
@@ -43,8 +45,145 @@ public class ExplosiveZombieAI extends ZombieAI {
         switch (zombieType) {
             case BLOATER -> tickBloater();
             case EXPLOSIVE -> tickExplosive();
+            case CREEPER -> tickCreeper();
             default -> tickBloater();
         }
+    }
+
+    /**
+     * Creeper: Se faufile silencieusement et explose violemment
+     * Comportement iconique de Minecraft
+     */
+    private void tickCreeper() {
+        // Effet de tension permanente
+        if (tickCounter % 40 == 0 && !isFuseActive) {
+            // Le Creeper est silencieux... effrayant
+            playParticles(Particle.SMOKE, zombie.getLocation().add(0, 1, 0), 2, 0.2, 0.3, 0.2);
+        }
+
+        Player target = findNearestPlayer(20);
+        if (target == null) return;
+
+        double distance = zombie.getLocation().distance(target.getLocation());
+
+        // Se rapprocher furtivement
+        if (!isFuseActive) {
+            zombie.setTarget(target);
+
+            // Vitesse normale, pas de bruit
+            if (distance > 10) {
+                // Marche normale vers la cible
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 20, 0, false, false));
+            }
+        }
+
+        // Déclencher la mèche quand très proche
+        if (distance < CREEPER_TRIGGER_DISTANCE && !isFuseActive) {
+            startCreeperFuse();
+        }
+
+        // Compte à rebours de la mèche
+        if (isFuseActive) {
+            fuseTime++;
+            updateCreeperFuseEffects();
+
+            // Le creeper s'arrête pendant l'explosion
+            zombie.setTarget(null);
+
+            // Annuler si le joueur s'éloigne
+            if (distance > 5 && fuseTime < CREEPER_FUSE_TICKS / 2) {
+                cancelFuse();
+            } else if (fuseTime >= CREEPER_FUSE_TICKS) {
+                creeperExplosion();
+            }
+        }
+    }
+
+    /**
+     * Démarre la mèche du Creeper
+     */
+    private void startCreeperFuse() {
+        isFuseActive = true;
+        fuseTime = 0;
+
+        playSound(Sound.ENTITY_CREEPER_PRIMED, 1.5f, 1f);
+
+        // Le Creeper gonfle (effet visuel)
+        zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 10, false, false));
+    }
+
+    /**
+     * Annule la mèche si le joueur s'éloigne
+     */
+    private void cancelFuse() {
+        isFuseActive = false;
+        fuseTime = 0;
+        zombie.removePotionEffect(PotionEffectType.SLOWNESS);
+    }
+
+    /**
+     * Effets visuels pendant le compte à rebours du Creeper
+     */
+    private void updateCreeperFuseEffects() {
+        float progress = (float) fuseTime / CREEPER_FUSE_TICKS;
+
+        // Le Creeper "clignote" en blanc de plus en plus vite
+        if (fuseTime % Math.max(1, (int) (8 - progress * 6)) == 0) {
+            playParticles(Particle.ELECTRIC_SPARK, zombie.getLocation().add(0, 1, 0),
+                (int) (5 + progress * 15), 0.4, 0.5, 0.4);
+            playSound(Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1f + progress);
+        }
+
+        // Fumée croissante
+        playParticles(Particle.SMOKE, zombie.getLocation().add(0, 1, 0),
+            (int) (3 + progress * 10), 0.3, 0.4, 0.3);
+    }
+
+    /**
+     * Explosion du Creeper - massive et dévastatrice
+     */
+    private void creeperExplosion() {
+        hasExploded = true;
+        Location loc = zombie.getLocation();
+
+        // Son d'explosion iconique
+        playSound(Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
+        playSound(Sound.ENTITY_CREEPER_DEATH, 1.5f, 1f);
+
+        // Effet visuel massif
+        playParticles(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0);
+        for (int i = 0; i < 30; i++) {
+            double x = (random.nextDouble() - 0.5) * 6;
+            double y = random.nextDouble() * 4;
+            double z = (random.nextDouble() - 0.5) * 6;
+            playParticles(Particle.SMOKE_LARGE, loc.clone().add(x, y, z), 2, 0.1, 0.1, 0.1);
+        }
+
+        // Dégâts massifs - le Creeper est TRÈS dangereux
+        double explosionRadius = 5 + level * 0.4;
+        double maxDamage = 20 + level * 3; // Dégâts énormes
+
+        zombie.getWorld().getNearbyEntities(loc, explosionRadius, explosionRadius, explosionRadius).stream()
+            .filter(e -> e instanceof Player)
+            .map(e -> (Player) e)
+            .forEach(p -> {
+                double distance = p.getLocation().distance(loc);
+                double damageMultiplier = 1 - (distance / explosionRadius);
+                double damage = maxDamage * damageMultiplier;
+
+                p.damage(Math.max(damage, 5), zombie);
+
+                // Knockback massif
+                Vector knockback = p.getLocation().toVector().subtract(loc.toVector()).normalize()
+                    .multiply(2.5 * damageMultiplier).setY(1.0);
+                p.setVelocity(knockback);
+
+                // Effet de surdité (nausée)
+                p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0));
+            });
+
+        // Tuer le zombie
+        zombie.setHealth(0);
     }
 
     /**
@@ -278,8 +417,12 @@ public class ExplosiveZombieAI extends ZombieAI {
 
         // Si au corps à corps, déclencher la mèche
         if (!isFuseActive) {
-            int fuseTicks = zombieType == ZombieType.BLOATER ? BLOATER_FUSE_TICKS : EXPLOSIVE_FUSE_TICKS;
-            startFuse(fuseTicks / 2); // Mèche plus courte au corps à corps
+            if (zombieType == ZombieType.CREEPER) {
+                startCreeperFuse();
+            } else {
+                int fuseTicks = zombieType == ZombieType.BLOATER ? BLOATER_FUSE_TICKS : EXPLOSIVE_FUSE_TICKS;
+                startFuse(fuseTicks / 2); // Mèche plus courte au corps à corps
+            }
         }
     }
 
@@ -304,10 +447,10 @@ public class ExplosiveZombieAI extends ZombieAI {
     public void onDeath(Player killer) {
         // Explosion à la mort si pas encore explosé
         if (!hasExploded) {
-            if (zombieType == ZombieType.BLOATER) {
-                bloaterExplosion();
-            } else {
-                kamikazeExplosion();
+            switch (zombieType) {
+                case BLOATER -> bloaterExplosion();
+                case CREEPER -> creeperExplosion();
+                default -> kamikazeExplosion();
             }
         }
     }
