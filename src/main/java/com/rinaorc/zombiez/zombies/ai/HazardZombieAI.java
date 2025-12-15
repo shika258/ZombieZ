@@ -123,14 +123,14 @@ public class HazardZombieAI extends ZombieAI {
         cloud.addCustomEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0), true);
         cloud.setSource(zombie);
 
-        playSound(Sound.ENTITY_SLIME_SQUISH, 0.8f, 0.6f);
+        playSound(Sound.BLOCK_HONEY_BLOCK_STEP, 0.6f, 0.7f);
     }
 
     /**
      * Explosion toxique
      */
     private void toxicBurst() {
-        playSound(Sound.ENTITY_SLIME_DEATH, 1.5f, 0.5f);
+        playSound(Sound.ENTITY_GENERIC_SPLASH, 1f, 0.6f);
 
         // Vague de particules
         for (int i = 0; i < 3; i++) {
@@ -172,7 +172,7 @@ public class HazardZombieAI extends ZombieAI {
     private void randomMutation() {
         int mutation = random.nextInt(4);
 
-        playSound(Sound.ENTITY_HOGLIN_CONVERTED_TO_ZOMBIFIED, 1f, 0.5f);
+        playSound(Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.8f, 0.6f);
         playParticles(Particle.DRAGON_BREATH, zombie.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5);
 
         switch (mutation) {
@@ -315,7 +315,7 @@ public class HazardZombieAI extends ZombieAI {
     @Override
     public void onDeath(Player killer) {
         // Grande explosion toxique à la mort
-        playSound(Sound.ENTITY_SLIME_DEATH, 2f, 0.3f);
+        playSound(Sound.ENTITY_GENERIC_SPLASH, 1.2f, 0.5f);
 
         if (zombieType == ZombieType.TOXIC) {
             toxicBurst();

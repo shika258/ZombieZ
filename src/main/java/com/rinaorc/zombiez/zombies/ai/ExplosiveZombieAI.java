@@ -54,7 +54,7 @@ public class ExplosiveZombieAI extends ZombieAI {
         // Effet visuel de gonflement
         if (tickCounter % 30 == 0) {
             playParticles(Particle.ITEM_SLIME, zombie.getLocation().add(0, 1, 0), 5, 0.4, 0.4, 0.4);
-            playSound(Sound.ENTITY_SLIME_SQUISH, 0.5f, 0.5f);
+            playSound(Sound.BLOCK_HONEY_BLOCK_SLIDE, 0.4f, 0.6f);
         }
 
         Player target = findNearestPlayer(15);
@@ -165,7 +165,7 @@ public class ExplosiveZombieAI extends ZombieAI {
         Location loc = zombie.getLocation();
 
         // Effets visuels
-        playSound(Sound.ENTITY_SLIME_DEATH, 2f, 0.3f);
+        playSound(Sound.ENTITY_GENERIC_SPLASH, 1.5f, 0.4f);
         playSound(Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.8f);
 
         // Nuage de particules

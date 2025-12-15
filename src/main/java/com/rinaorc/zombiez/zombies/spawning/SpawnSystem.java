@@ -63,49 +63,49 @@ public class SpawnSystem {
 
     /**
      * Initialise les configurations de spawn par zone
-     * AUGMENTÉ: Plus de zombies et spawn rate plus rapide
+     * Équilibré pour une expérience de jeu agréable
      */
     private void initializeZoneConfigs() {
         // Zone 0 - Spawn (pas de zombies)
         zoneConfigs.put(0, new ZoneSpawnConfig(0, 0, 0, 0, 0));
 
-        // Zone 1 - Village (introduction douce mais active)
+        // Zone 1 - Village (introduction douce)
         zoneConfigs.put(1, new ZoneSpawnConfig(
-            80,     // maxZombies (augmenté de 30)
-            15,     // spawnRate (par minute par joueur, augmenté de 3)
-            20, 35, // spawnRadius min/max (rapproché)
+            40,     // maxZombies
+            8,      // spawnRate (par minute par joueur)
+            20, 35, // spawnRadius min/max
             1       // niveau moyen
         ));
 
         // Zone 2 - Plaines
-        zoneConfigs.put(2, new ZoneSpawnConfig(100, 18, 20, 40, 2));
+        zoneConfigs.put(2, new ZoneSpawnConfig(50, 9, 20, 40, 2));
 
         // Zone 3 - Désert
-        zoneConfigs.put(3, new ZoneSpawnConfig(120, 20, 20, 40, 3));
+        zoneConfigs.put(3, new ZoneSpawnConfig(60, 10, 20, 40, 3));
 
         // Zone 4 - Forêt Sombre
-        zoneConfigs.put(4, new ZoneSpawnConfig(100, 18, 15, 35, 4));
+        zoneConfigs.put(4, new ZoneSpawnConfig(50, 9, 15, 35, 4));
 
         // Zone 5 - Marécages
-        zoneConfigs.put(5, new ZoneSpawnConfig(130, 22, 15, 35, 5));
+        zoneConfigs.put(5, new ZoneSpawnConfig(65, 11, 15, 35, 5));
 
         // Zone 6 - Zone PvP
-        zoneConfigs.put(6, new ZoneSpawnConfig(150, 25, 20, 45, 6));
+        zoneConfigs.put(6, new ZoneSpawnConfig(75, 12, 20, 45, 6));
 
         // Zone 7 - Montagnes
-        zoneConfigs.put(7, new ZoneSpawnConfig(120, 20, 20, 40, 7));
+        zoneConfigs.put(7, new ZoneSpawnConfig(60, 10, 20, 40, 7));
 
         // Zone 8 - Toundra
-        zoneConfigs.put(8, new ZoneSpawnConfig(110, 18, 20, 40, 8));
+        zoneConfigs.put(8, new ZoneSpawnConfig(55, 9, 20, 40, 8));
 
         // Zone 9 - Terres Corrompues
-        zoneConfigs.put(9, new ZoneSpawnConfig(100, 16, 15, 35, 9));
+        zoneConfigs.put(9, new ZoneSpawnConfig(50, 8, 15, 35, 9));
 
         // Zone 10 - Enfer
-        zoneConfigs.put(10, new ZoneSpawnConfig(90, 14, 15, 30, 10));
+        zoneConfigs.put(10, new ZoneSpawnConfig(45, 7, 15, 30, 10));
 
         // Zone 11 - Citadelle Finale
-        zoneConfigs.put(11, new ZoneSpawnConfig(60, 10, 10, 25, 12));
+        zoneConfigs.put(11, new ZoneSpawnConfig(30, 5, 10, 25, 12));
     }
 
     /**
