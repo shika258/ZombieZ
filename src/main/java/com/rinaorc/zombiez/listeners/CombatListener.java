@@ -292,7 +292,7 @@ public class CombatListener implements Listener {
         // ============ ACHIEVEMENTS ============
         PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);
         if (data != null) {
-            int totalKills = data.getTotalKills().get() + 1;
+            int totalKills = (int) data.getTotalKills() + 1;
             plugin.getAchievementManager().incrementProgress(killer, "first_blood", 1);
             plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_1", totalKills);
             plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_2", totalKills);

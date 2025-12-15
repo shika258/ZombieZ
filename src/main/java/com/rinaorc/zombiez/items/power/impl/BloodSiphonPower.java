@@ -68,7 +68,7 @@ public class BloodSiphonPower extends Power {
         int regenTicks = calculateRegenDuration(itemLevel);
 
         // Vérifier si la cible est blessée (< 50% HP)
-        double targetHealthPercent = target.getHealth() / target.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        double targetHealthPercent = target.getHealth() / target.getAttribute(Attribute.MAX_HEALTH).getValue();
         boolean isLowHealth = targetHealthPercent < 0.5;
 
         // Appliquer le bonus si cible blessée
@@ -84,7 +84,7 @@ public class BloodSiphonPower extends Power {
 
         // Appliquer le soin au joueur
         double currentHealth = player.getHealth();
-        double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
         double newHealth = Math.min(maxHealth, currentHealth + healAmount);
         player.setHealth(newHealth);
 
