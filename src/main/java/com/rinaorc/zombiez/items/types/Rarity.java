@@ -5,119 +5,147 @@ import org.bukkit.Color;
 
 /**
  * Raretés des items
- * Chaque rareté définit les caractéristiques de génération
+ *
+ * PHILOSOPHIE DU SYSTÈME:
+ * - La RARETÉ définit la COMPLEXITÉ de l'item (nombre d'affixes, attributs, accès aux pouvoirs)
+ * - La ZONE définit la PUISSANCE de l'item (valeurs numériques des stats)
+ *
+ * La rareté contrôle:
+ * - Nombre d'affixes garantis
+ * - Nombre d'attributs bonus
+ * - Chances de proc des pouvoirs
+ * - Accès aux tiers d'affixes supérieurs
+ * - Bonus de qualité (légère variation, PAS de puissance brute)
+ *
+ * La rareté NE contrôle PAS:
+ * - La valeur des stats (c'est la zone qui gère ça)
+ * - L'item score de base (c'est la zone qui gère ça)
  */
 @Getter
 public enum Rarity {
-    
+
     COMMON(
         "Commun",
         "&f",
         "§f",
         60.0,
-        0,
-        0.0, 0.1,
-        1, 100,
+        0,           // affixCount: pas d'affix
+        0,           // bonusAttributes: pas d'attribut bonus
+        0.0,         // procChanceBonus: pas de bonus proc
+        1,           // maxAffixTier: tier 1 max
+        0.0,         // qualityBonus: pas de bonus qualité
         Color.WHITE,
         false
     ),
-    
+
     UNCOMMON(
         "Peu Commun",
         "&a",
         "§a",
         25.0,
-        1,
-        0.05, 0.2,
-        100, 300,
+        1,           // affixCount: 1 affix
+        0,           // bonusAttributes: pas d'attribut bonus
+        0.05,        // procChanceBonus: +5% proc
+        2,           // maxAffixTier: tier 2 max
+        0.05,        // qualityBonus: +5% qualité
         Color.LIME,
         false
     ),
-    
+
     RARE(
         "Rare",
         "&9",
         "§9",
         10.0,
-        2,
-        0.1, 0.3,
-        300, 700,
+        2,           // affixCount: 2 affixes
+        1,           // bonusAttributes: 1 attribut bonus
+        0.10,        // procChanceBonus: +10% proc
+        3,           // maxAffixTier: tier 3 max
+        0.10,        // qualityBonus: +10% qualité
         Color.BLUE,
         true
     ),
-    
+
     EPIC(
         "Épique",
         "&5",
         "§5",
         4.0,
-        3,
-        0.15, 0.4,
-        700, 1500,
+        3,           // affixCount: 3 affixes
+        1,           // bonusAttributes: 1 attribut bonus
+        0.15,        // procChanceBonus: +15% proc
+        4,           // maxAffixTier: tier 4 max
+        0.15,        // qualityBonus: +15% qualité
         Color.PURPLE,
         true
     ),
-    
+
     LEGENDARY(
         "Légendaire",
         "&6",
         "§6",
         0.9,
-        4,
-        0.2, 0.5,
-        1500, 3000,
+        4,           // affixCount: 4 affixes
+        2,           // bonusAttributes: 2 attributs bonus
+        0.20,        // procChanceBonus: +20% proc
+        5,           // maxAffixTier: tier 5 max
+        0.20,        // qualityBonus: +20% qualité
         Color.ORANGE,
         true
     ),
-    
+
     MYTHIC(
         "Mythique",
         "&d",
         "§d",
         0.1,
-        5,
-        0.3, 0.6,
-        3000, 5000,
+        5,           // affixCount: 5 affixes
+        2,           // bonusAttributes: 2 attributs bonus
+        0.30,        // procChanceBonus: +30% proc
+        5,           // maxAffixTier: tier 5 max
+        0.25,        // qualityBonus: +25% qualité
         Color.FUCHSIA,
         true
     ),
-    
+
     EXALTED(
         "EXALTED",
         "&c&l",
         "§c§l",
         0.01,
-        6,
-        0.4, 0.75,
-        5000, 10000,
+        6,           // affixCount: 6 affixes
+        3,           // bonusAttributes: 3 attributs bonus
+        0.40,        // procChanceBonus: +40% proc
+        5,           // maxAffixTier: tier 5 max
+        0.30,        // qualityBonus: +30% qualité
         Color.RED,
         true
     );
 
     private final String displayName;
-    private final String colorCode;      // Pour Adventure/Legacy
-    private final String chatColor;      // Pour le chat
-    private final double baseChance;     // Chance de drop de base (%)
-    private final int affixCount;        // Nombre d'affixes garantis
-    private final double statBonusMin;   // Bonus min sur les stats (%)
-    private final double statBonusMax;   // Bonus max sur les stats (%)
-    private final int itemScoreMin;      // Item Score minimum
-    private final int itemScoreMax;      // Item Score maximum
-    private final Color glowColor;       // Couleur pour les effets visuels
-    private final boolean hasLightBeam;  // Affiche un beam de lumière au drop
+    private final String colorCode;        // Pour Adventure/Legacy
+    private final String chatColor;        // Pour le chat
+    private final double baseChance;       // Chance de drop de base (%)
+    private final int affixCount;          // Nombre d'affixes garantis
+    private final int bonusAttributes;     // Nombre d'attributs bonus
+    private final double procChanceBonus;  // Bonus sur les chances de proc des pouvoirs
+    private final int maxAffixTier;        // Tier maximum d'affix accessible
+    private final double qualityBonus;     // Léger bonus de qualité (variation, PAS puissance)
+    private final Color glowColor;         // Couleur pour les effets visuels
+    private final boolean hasLightBeam;    // Affiche un beam de lumière au drop
 
     Rarity(String displayName, String colorCode, String chatColor, double baseChance,
-           int affixCount, double statBonusMin, double statBonusMax,
-           int itemScoreMin, int itemScoreMax, Color glowColor, boolean hasLightBeam) {
+           int affixCount, int bonusAttributes, double procChanceBonus,
+           int maxAffixTier, double qualityBonus, Color glowColor, boolean hasLightBeam) {
         this.displayName = displayName;
         this.colorCode = colorCode;
         this.chatColor = chatColor;
         this.baseChance = baseChance;
         this.affixCount = affixCount;
-        this.statBonusMin = statBonusMin;
-        this.statBonusMax = statBonusMax;
-        this.itemScoreMin = itemScoreMin;
-        this.itemScoreMax = itemScoreMax;
+        this.bonusAttributes = bonusAttributes;
+        this.procChanceBonus = procChanceBonus;
+        this.maxAffixTier = maxAffixTier;
+        this.qualityBonus = qualityBonus;
         this.glowColor = glowColor;
         this.hasLightBeam = hasLightBeam;
     }
@@ -178,17 +206,36 @@ public enum Rarity {
     }
 
     /**
-     * Génère un bonus de stat aléatoire dans la plage de cette rareté
+     * Génère un bonus de qualité aléatoire basé sur la rareté
+     * NOTE: Ce n'est PAS un bonus de puissance, juste un léger bonus de qualité
+     * La puissance vient de la ZONE, pas de la rareté
+     *
+     * @return Bonus de qualité (0.0 à qualityBonus)
      */
-    public double rollStatBonus() {
-        return statBonusMin + Math.random() * (statBonusMax - statBonusMin);
+    public double rollQualityBonus() {
+        return Math.random() * qualityBonus;
     }
 
     /**
-     * Génère un Item Score aléatoire dans la plage de cette rareté
+     * Calcule le multiplicateur de score basé sur la complexité de la rareté
+     * Ce multiplicateur est appliqué APRÈS le score de zone pour refléter la complexité
+     *
+     * @return Multiplicateur de complexité (1.0 à 1.5)
      */
-    public int rollItemScore() {
-        return itemScoreMin + (int) (Math.random() * (itemScoreMax - itemScoreMin));
+    public double getScoreComplexityMultiplier() {
+        // La complexité ajoute un bonus au score, mais la zone reste le facteur principal
+        // COMMON: 1.0, EXALTED: 1.3 (max +30% bonus de complexité)
+        return 1.0 + (ordinal() * 0.05);
+    }
+
+    /**
+     * Calcule la chance ajustée de proc pour les pouvoirs
+     *
+     * @param baseProcChance Chance de proc de base du pouvoir
+     * @return Chance de proc ajustée avec le bonus de rareté
+     */
+    public double getAdjustedProcChance(double baseProcChance) {
+        return Math.min(1.0, baseProcChance * (1.0 + procChanceBonus));
     }
 
     /**

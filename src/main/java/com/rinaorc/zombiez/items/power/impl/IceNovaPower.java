@@ -15,9 +15,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Pouvoir: Nova Glaciale
@@ -25,25 +23,21 @@ import java.util.Set;
  * Déclenche une explosion de glace autour de vous,
  * gelant les ennemis et créant temporairement un terrain gelé.
  *
- * Scaling ILVL:
- * - Dégâts: 4 * (ILVL / 10)
- * - Rayon: 4 + (ILVL / 30)
- * - Durée gel: 2s + (ILVL / 50)s
- * - Durée glace au sol: 3s + (ILVL / 25)s
+ * SYSTÈME DE SCALING PAR ZONE:
+ * - Dégâts: Zone 1 = 4, Zone 50 = 4 × 7 = 28
+ * - Rayon: Zone 1 = 4, Zone 50 = 4 × 3 = 12
+ * - Durée gel: Zone 1 = 2s, Zone 50 = 6s
+ * - Durée glace au sol: Zone 1 = 3s, Zone 50 = 9s
+ *
+ * La ZONE est le facteur PRINCIPAL de puissance!
  */
 public class IceNovaPower extends Power {
 
-    // Paramètres de base
-    private double baseDamage = 4.0;
-    private double baseRadius = 4.0;
-    private int baseFreezeTicks = 40; // 2 secondes
-    private int baseIceDuration = 60; // 3 secondes
-
-    // Paramètres de scaling
-    private double damagePerILVL = 0.4;
-    private double radiusPerILVL = 0.033; // 1 bloc tous les 30 ILVL
-    private double freezePerILVL = 0.4;
-    private double iceDurationPerILVL = 0.8;
+    // Paramètres de BASE (avant scaling de zone)
+    private static final double BASE_DAMAGE = 4.0;
+    private static final double BASE_RADIUS = 4.0;
+    private static final int BASE_FREEZE_TICKS = 40; // 2 secondes
+    private static final int BASE_ICE_DURATION = 60; // 3 secondes
 
     public IceNovaPower() {
         super("ice_nova", "Nova Glaciale",
@@ -56,23 +50,30 @@ public class IceNovaPower extends Power {
 
     @Override
     public void trigger(Player player, LivingEntity target, int itemLevel) {
-        if (!canProc(player, itemLevel)) {
+        // Déléguer à la nouvelle méthode avec zone 1 par défaut
+        trigger(player, target, itemLevel, 1);
+    }
+
+    @Override
+    public void trigger(Player player, LivingEntity target, int itemLevel, int zoneId) {
+        if (!canProc(player, itemLevel, zoneId, Rarity.EPIC)) {
             return;
         }
 
         applyCooldown(player);
 
-        // Calculer les valeurs scalées
-        double damage = calculateDamage(itemLevel);
-        double radius = calculateRadius(itemLevel);
-        int freezeTicks = calculateFreezeDuration(itemLevel);
-        int iceDuration = calculateIceDuration(itemLevel);
+        // Calculer les valeurs scalées PAR ZONE (facteur PRINCIPAL)
+        double damage = getScaledDamage(BASE_DAMAGE, zoneId);
+        double radius = getScaledRadius(BASE_RADIUS, zoneId);
+        int freezeTicks = getScaledDuration(BASE_FREEZE_TICKS, zoneId);
+        int iceDuration = getScaledDuration(BASE_ICE_DURATION, zoneId);
 
         Location center = player.getLocation();
 
-        // Notification
+        // Notification avec indication de zone
         player.sendMessage("§b❄ §3Nova Glaciale! §7(Rayon: §b" +
-            String.format("%.1f", radius) + " blocs§7)");
+            String.format("%.1f", radius) + " blocs §7| Dégâts: §c" +
+            String.format("%.1f", damage) + "§7)");
 
         // Effet visuel central
         center.getWorld().spawnParticle(
@@ -151,7 +152,7 @@ public class IceNovaPower extends Power {
 
                     livingTarget.damage(finalDamage, player);
 
-                    // Effet de gel
+                    // Effet de gel (durée scalée par zone)
                     livingTarget.addPotionEffect(
                         new PotionEffect(PotionEffectType.SLOWNESS, freezeTicks, 4, false, true)
                     );
@@ -226,40 +227,17 @@ public class IceNovaPower extends Power {
         );
     }
 
-    /**
-     * Calcule les dégâts selon l'ILVL
-     */
-    private double calculateDamage(int itemLevel) {
-        return baseDamage + (itemLevel * damagePerILVL);
-    }
-
-    /**
-     * Calcule le rayon selon l'ILVL
-     */
-    private double calculateRadius(int itemLevel) {
-        return baseRadius + (itemLevel * radiusPerILVL);
-    }
-
-    /**
-     * Calcule la durée de gel selon l'ILVL
-     */
-    private int calculateFreezeDuration(int itemLevel) {
-        return (int) (baseFreezeTicks + (itemLevel * freezePerILVL));
-    }
-
-    /**
-     * Calcule la durée de la glace au sol selon l'ILVL
-     */
-    private int calculateIceDuration(int itemLevel) {
-        return (int) (baseIceDuration + (itemLevel * iceDurationPerILVL));
-    }
-
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    protected List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts: §c" + String.format("%.1f", calculateDamage(itemLevel)));
-        stats.add("§8Rayon: §b" + String.format("%.1f", calculateRadius(itemLevel)) + " blocs");
-        stats.add("§8Gel: §e" + String.format("%.1f", calculateFreezeDuration(itemLevel) / 20.0) + "s");
+        // Afficher les valeurs scalées par zone
+        double damage = getScaledDamage(BASE_DAMAGE, zoneId);
+        double radius = getScaledRadius(BASE_RADIUS, zoneId);
+        int freezeTicks = getScaledDuration(BASE_FREEZE_TICKS, zoneId);
+
+        stats.add("§8Dégâts: §c" + String.format("%.1f", damage));
+        stats.add("§8Rayon: §b" + String.format("%.1f", radius) + " blocs");
+        stats.add("§8Gel: §e" + String.format("%.1f", freezeTicks / 20.0) + "s");
         stats.add("§8Effets: §bSlowness V, Mining Fatigue III");
         return stats;
     }

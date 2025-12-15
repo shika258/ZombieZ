@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.items.generator;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.affixes.Affix;
 import com.rinaorc.zombiez.items.affixes.AffixRegistry;
+import com.rinaorc.zombiez.items.scaling.ZoneScaling;
 import com.rinaorc.zombiez.items.types.ItemType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
@@ -13,7 +14,11 @@ import java.util.*;
 /**
  * Générateur d'items procéduraux
  * Génère des items avec stats aléatoires, affixes, et noms générés
- * 
+ *
+ * SYSTÈME DE SCALING REVU:
+ * - La ZONE est le facteur PRINCIPAL de puissance (via ZoneScaling)
+ * - La RARETÉ définit la COMPLEXITÉ (nombre d'affixes, attributs, proc chances)
+ *
  * Utilise le "Holder idiom" pour un singleton thread-safe et lazy
  */
 public class ItemGenerator {
@@ -78,6 +83,10 @@ public class ItemGenerator {
 
     /**
      * Génère un item avec tous les paramètres spécifiés
+     *
+     * SYSTÈME DE SCALING:
+     * - La ZONE est le facteur PRINCIPAL de puissance
+     * - La RARETÉ définit la COMPLEXITÉ (nombre d'affixes, etc.)
      */
     public ZombieZItem generate(int zoneId, Rarity rarity, ItemType itemType, double luckBonus) {
         // Déterminer le tier du matériau
@@ -87,10 +96,10 @@ public class ItemGenerator {
         // Obtenir le matériau
         Material material = itemType.getMaterialForTier(tier);
 
-        // Générer les stats de base
-        Map<StatType, Double> baseStats = generateBaseStats(itemType, tier, rarity);
+        // Générer les stats de base avec ZONE SCALING
+        Map<StatType, Double> baseStats = generateBaseStats(itemType, tier, zoneId, rarity);
 
-        // Générer les affixes
+        // Générer les affixes avec ZONE SCALING
         List<ZombieZItem.RolledAffix> affixes = generateAffixes(itemType, rarity, zoneId);
 
         // Calculer toutes les stats pour le score
@@ -101,8 +110,8 @@ public class ItemGenerator {
             }
         }
 
-        // Calculer le score
-        int itemScore = ZombieZItem.calculateItemScore(rarity, allStats, affixes);
+        // Calculer le score avec ZONE comme facteur PRINCIPAL
+        int itemScore = ZombieZItem.calculateItemScore(zoneId, rarity, allStats, affixes);
 
         // Calculer l'Item Level (intégration avec PowerManager si disponible)
         int itemLevel = calculateItemLevel(zoneId, rarity);
@@ -213,72 +222,92 @@ public class ItemGenerator {
     }
 
     /**
-     * Génère les stats de base selon le type et le tier
+     * Génère les stats de base selon le type, tier et ZONE
+     *
+     * SYSTÈME DE SCALING:
+     * - La ZONE multiplie les valeurs de base (facteur PRINCIPAL)
+     * - Le qualityBonus ajoute une légère variation (PAS de puissance brute)
      */
-    private Map<StatType, Double> generateBaseStats(ItemType itemType, int tier, Rarity rarity) {
+    private Map<StatType, Double> generateBaseStats(ItemType itemType, int tier, int zoneId, Rarity rarity) {
         Map<StatType, Double> stats = new HashMap<>();
-        
-        double rarityBonus = rarity.rollStatBonus();
-        
+
+        // Obtenir le multiplicateur de zone (facteur PRINCIPAL de puissance)
+        double zoneMultiplier = ZoneScaling.getBaseStatMultiplier(zoneId);
+
+        // Léger bonus de qualité basé sur la rareté (max +30%)
+        double qualityBonus = rarity.rollQualityBonus();
+
         if (itemType.isWeapon()) {
             // Arme: Dégâts + Vitesse d'attaque
             double baseDamage = itemType.getBaseStat1ForTier(tier);
             double baseSpeed = itemType.getBaseStat2ForTier(tier);
-            
+
             // Appliquer variation aléatoire (-10% à +20%)
             double damageVariation = 0.9 + random.nextDouble() * 0.3;
             double speedVariation = 0.95 + random.nextDouble() * 0.1;
-            
-            double finalDamage = baseDamage * damageVariation * (1 + rarityBonus);
+
+            // Appliquer ZONE SCALING (facteur PRINCIPAL) puis qualité (léger bonus)
+            double finalDamage = baseDamage * damageVariation * zoneMultiplier * (1 + qualityBonus);
             double finalSpeed = baseSpeed * speedVariation;
-            
+
             stats.put(StatType.DAMAGE, Math.round(finalDamage * 10) / 10.0);
             stats.put(StatType.ATTACK_SPEED, Math.round(finalSpeed * 100) / 100.0);
-            
+
         } else if (itemType.isArmor()) {
             // Armure: Armure + Résistance
             double baseArmor = itemType.getBaseStat1ForTier(tier);
             double baseToughness = itemType.getBaseStat2ForTier(tier);
-            
+
             double armorVariation = 0.9 + random.nextDouble() * 0.3;
-            
-            double finalArmor = baseArmor * armorVariation * (1 + rarityBonus);
-            
+
+            // Appliquer ZONE SCALING (facteur PRINCIPAL) puis qualité (léger bonus)
+            double finalArmor = baseArmor * armorVariation * zoneMultiplier * (1 + qualityBonus);
+            double finalToughness = baseToughness * zoneMultiplier * (1 + qualityBonus);
+
             stats.put(StatType.ARMOR, Math.round(finalArmor * 10) / 10.0);
-            
+
             if (baseToughness > 0) {
-                stats.put(StatType.ARMOR_TOUGHNESS, baseToughness);
+                stats.put(StatType.ARMOR_TOUGHNESS, Math.round(finalToughness * 10) / 10.0);
             }
         }
-        
+
         return stats;
     }
 
     /**
-     * Génère les affixes pour un item
+     * Génère les affixes pour un item avec ZONE SCALING
+     *
+     * SYSTÈME DE SCALING:
+     * - La ZONE multiplie les valeurs des affixes (facteur PRINCIPAL)
+     * - La RARETÉ détermine le nombre d'affixes et les tiers accessibles
      */
     private List<ZombieZItem.RolledAffix> generateAffixes(ItemType itemType, Rarity rarity, int zoneId) {
         List<ZombieZItem.RolledAffix> affixes = new ArrayList<>();
         Set<String> usedAffixIds = new HashSet<>();
-        
+
         int affixCount = rarity.getAffixCount();
-        
+
         // Bonus d'affixes selon la zone (zones hautes = plus de chance d'affixes bonus)
         if (zoneId >= 8 && random.nextDouble() < 0.2) {
             affixCount++;
         }
-        
+
         // Distribution: généralement 1 prefix et le reste en suffix
         int prefixCount = Math.min(affixCount, 1 + (affixCount > 3 ? 1 : 0));
         int suffixCount = affixCount - prefixCount;
-        
-        double rarityBonus = rarity.rollStatBonus();
-        
-        // Générer les préfixes
+
+        // Léger bonus de qualité basé sur la rareté (PAS de puissance brute)
+        double qualityBonus = rarity.rollQualityBonus();
+
+        // Tier maximum accessible selon la rareté
+        int maxTier = rarity.getMaxAffixTier();
+
+        // Générer les préfixes avec ZONE SCALING
         for (int i = 0; i < prefixCount; i++) {
-            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.PREFIX, zoneId, usedAffixIds);
+            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.PREFIX, zoneId, usedAffixIds, maxTier);
             if (affix != null) {
-                Map<StatType, Double> rolledStats = affix.rollStats(rarityBonus);
+                // NOUVEAU: rollStats avec zone et qualité
+                Map<StatType, Double> rolledStats = affix.rollStats(zoneId, qualityBonus);
                 affixes.add(ZombieZItem.RolledAffix.builder()
                     .affix(affix)
                     .rolledStats(rolledStats)
@@ -286,12 +315,13 @@ public class ItemGenerator {
                 usedAffixIds.add(affix.getId());
             }
         }
-        
-        // Générer les suffixes
+
+        // Générer les suffixes avec ZONE SCALING
         for (int i = 0; i < suffixCount; i++) {
-            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.SUFFIX, zoneId, usedAffixIds);
+            Affix affix = affixRegistry.rollAffix(itemType, Affix.AffixType.SUFFIX, zoneId, usedAffixIds, maxTier);
             if (affix != null) {
-                Map<StatType, Double> rolledStats = affix.rollStats(rarityBonus);
+                // NOUVEAU: rollStats avec zone et qualité
+                Map<StatType, Double> rolledStats = affix.rollStats(zoneId, qualityBonus);
                 affixes.add(ZombieZItem.RolledAffix.builder()
                     .affix(affix)
                     .rolledStats(rolledStats)
@@ -299,7 +329,7 @@ public class ItemGenerator {
                 usedAffixIds.add(affix.getId());
             }
         }
-        
+
         return affixes;
     }
 

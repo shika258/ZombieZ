@@ -846,22 +846,50 @@ public class AffixRegistry {
      * Tire un affix au sort pour un item
      */
     public Affix rollAffix(ItemType itemType, Affix.AffixType type, int zoneId, Set<String> excludeIds) {
+        return rollAffix(itemType, type, zoneId, excludeIds, 5); // Par défaut, tous les tiers
+    }
+
+    /**
+     * Tire un affix au sort pour un item avec restriction de tier maximum
+     *
+     * La rareté détermine le tier maximum accessible:
+     * - COMMON: tier 1
+     * - UNCOMMON: tier 2
+     * - RARE: tier 3
+     * - EPIC: tier 4
+     * - LEGENDARY+: tier 5
+     *
+     * @param itemType Type d'item
+     * @param type PREFIX ou SUFFIX
+     * @param zoneId Zone pour filtrer par minZone
+     * @param excludeIds IDs d'affixes à exclure
+     * @param maxTier Tier maximum accessible (1-5)
+     */
+    public Affix rollAffix(ItemType itemType, Affix.AffixType type, int zoneId, Set<String> excludeIds, int maxTier) {
         List<Affix> candidates = getAffixesForItemType(itemType, zoneId).stream()
             .filter(a -> a.getType() == type)
             .filter(a -> !excludeIds.contains(a.getId()))
+            .filter(a -> a.getTier().ordinal() < maxTier) // Filtrer par tier max
             .toList();
 
         if (candidates.isEmpty()) {
             return null;
         }
 
-        // Calcul du poids total
-        int totalWeight = candidates.stream().mapToInt(Affix::getWeight).sum();
+        // Calcul du poids total avec bonus de zone pour les tiers élevés
+        int totalWeight = 0;
+        for (Affix affix : candidates) {
+            // Zone bonus: les zones hautes favorisent les tiers élevés
+            int zoneBonus = zoneId * affix.getTier().ordinal();
+            totalWeight += affix.getWeight() + zoneBonus;
+        }
+
         int roll = (int) (Math.random() * totalWeight);
         int cumulative = 0;
 
         for (Affix affix : candidates) {
-            cumulative += affix.getWeight();
+            int zoneBonus = zoneId * affix.getTier().ordinal();
+            cumulative += affix.getWeight() + zoneBonus;
             if (roll < cumulative) {
                 return affix;
             }
