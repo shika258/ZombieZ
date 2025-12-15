@@ -69,31 +69,34 @@ public class ZombieListener implements Listener {
     public void onZombieAttack(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
         Entity victim = event.getEntity();
-        
+
         // Vérifier si le zombie est l'attaquant
         if (!zombieManager.isZombieZMob(damager)) {
             return;
         }
-        
+
         if (!(victim instanceof Player player)) {
             return;
         }
-        
+
         // Obtenir l'ActiveZombie
         ZombieManager.ActiveZombie zombie = zombieManager.getActiveZombie(damager.getUniqueId());
         if (zombie == null) {
             return;
         }
-        
+
+        // Notifier l'AIManager de l'attaque
+        zombieManager.getAiManager().onZombieAttack(damager.getUniqueId(), player);
+
         // Appliquer les effets d'affix si présent
         if (zombie.hasAffix()) {
             ZombieAffix affix = zombie.getAffix();
             affix.applyAttackEffects(player);
-            
+
             // Gérer les abilities spéciales
             handleAffixSpecialAttack(affix, (LivingEntity) damager, player);
         }
-        
+
         // Calculer la réduction de dégâts du joueur
         double reduction = calculatePlayerDamageReduction(player);
         double finalDamage = event.getDamage() * (1 - reduction);
@@ -127,6 +130,9 @@ public class ZombieListener implements Listener {
         // Calculer les dégâts modifiés du joueur
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
+
+        // Notifier l'AIManager des dégâts
+        zombieManager.getAiManager().onZombieDamaged(victim.getUniqueId(), attacker, modifiedDamage);
 
         // Gérer les abilities spéciales d'affix défensif
         if (zombie.hasAffix()) {
@@ -229,8 +235,8 @@ public class ZombieListener implements Listener {
         }
         
         // Pénétration d'armure (réduit l'armure effective du zombie)
-        // Géré par MythicMobs ou via les attributs
-        
+        // Géré via les attributs et l'IA personnalisée
+
         return damage;
     }
 

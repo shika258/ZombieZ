@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Types de zombies disponibles dans ZombieZ
- * Chaque type est lié à un mob MythicMobs
+ * Chaque type a ses propres stats, comportement et IA personnalisée
  */
 @Getter
 public enum ZombieType {
@@ -156,7 +156,7 @@ public enum ZombieType {
     PATIENT_ZERO("ZZ_PatientZero", "Patient Zéro - L'Origine", 0, 5000, 30, 0.24,
         new int[]{11}, ZombieCategory.FINAL_BOSS);
 
-    private final String mythicMobId;    // ID MythicMobs
+    private final String id;             // ID unique du zombie
     private final String displayName;    // Nom d'affichage
     private final int tier;              // Tier de puissance (1-5, 0 pour boss)
     private final double baseHealth;     // Vie de base
@@ -165,9 +165,9 @@ public enum ZombieType {
     private final int[] validZones;      // Zones où ce zombie peut spawn
     private final ZombieCategory category;
 
-    ZombieType(String mythicMobId, String displayName, int tier, double baseHealth,
+    ZombieType(String id, String displayName, int tier, double baseHealth,
                double baseDamage, double baseSpeed, int[] validZones, ZombieCategory category) {
-        this.mythicMobId = mythicMobId;
+        this.id = id;
         this.displayName = displayName;
         this.tier = tier;
         this.baseHealth = baseHealth;
@@ -259,11 +259,11 @@ public enum ZombieType {
     }
 
     /**
-     * Obtient un type depuis son ID MythicMobs
+     * Obtient un type depuis son ID
      */
-    public static ZombieType fromMythicId(String mythicId) {
+    public static ZombieType fromId(String id) {
         for (ZombieType type : values()) {
-            if (type.mythicMobId.equals(mythicId)) {
+            if (type.id.equals(id)) {
                 return type;
             }
         }
