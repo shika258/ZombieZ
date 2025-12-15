@@ -345,6 +345,7 @@ public class DamageIndicator {
 
     /**
      * Formate le texte des dégâts en Component avec styles appropriés
+     * Seuils adaptés au nouveau scaling de dégâts des items
      */
     private static Component formatDamageComponent(double damage, boolean critical) {
         String formattedDamage = FORMAT.format(damage);
@@ -354,22 +355,26 @@ public class DamageIndicator {
             return Component.text("✦ ", TextColor.color(0xFFD700), TextDecoration.BOLD)
                 .append(Component.text(formattedDamage, TextColor.color(0xFF4444), TextDecoration.BOLD))
                 .append(Component.text(" ✦", TextColor.color(0xFFD700), TextDecoration.BOLD));
-        } else if (damage >= 500) {
-            // Dégâts massifs - Rouge foncé gras
+        } else if (damage >= 50000) {
+            // Dégâts apocalyptiques - Rouge foncé gras avec effet
+            return Component.text("☠ ", TextColor.color(0x8B0000), TextDecoration.BOLD)
+                .append(Component.text(formattedDamage, TextColor.color(0x8B0000), TextDecoration.BOLD));
+        } else if (damage >= 20000) {
+            // Dégâts dévastateurs - Rouge foncé gras
             return Component.text(formattedDamage, TextColor.color(0xAA0000), TextDecoration.BOLD);
-        } else if (damage >= 200) {
-            // Très gros dégâts - Rouge gras
+        } else if (damage >= 10000) {
+            // Dégâts massifs - Rouge gras
             return Component.text(formattedDamage, TextColor.color(0xFF3333), TextDecoration.BOLD);
-        } else if (damage >= 100) {
-            // Gros dégâts - Rouge
+        } else if (damage >= 5000) {
+            // Très gros dégâts - Rouge
             return Component.text(formattedDamage, TextColor.color(0xFF5555));
-        } else if (damage >= 50) {
-            // Dégâts moyens-hauts - Orange
+        } else if (damage >= 2000) {
+            // Gros dégâts - Orange
             return Component.text(formattedDamage, TextColor.color(0xFFAA00));
-        } else if (damage >= 20) {
+        } else if (damage >= 500) {
             // Dégâts moyens - Jaune
             return Component.text(formattedDamage, TextColor.color(0xFFFF55));
-        } else if (damage >= 5) {
+        } else if (damage >= 100) {
             // Petits dégâts - Blanc
             return Component.text(formattedDamage, NamedTextColor.WHITE);
         } else {

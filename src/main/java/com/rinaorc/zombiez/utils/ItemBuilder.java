@@ -182,6 +182,17 @@ public class ItemBuilder {
     }
 
     /**
+     * Cache les tooltips vanilla des attributs par défaut (dégâts d'attaque, vitesse)
+     * En définissant un modificateur vide, on supprime les attributs par défaut du matériau
+     */
+    public ItemBuilder hideDefaultAttributes() {
+        // Définir un multimap vide pour supprimer les attributs par défaut du matériau
+        meta.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        return this;
+    }
+
+    /**
      * Rend l'item incassable
      */
     public ItemBuilder unbreakable() {

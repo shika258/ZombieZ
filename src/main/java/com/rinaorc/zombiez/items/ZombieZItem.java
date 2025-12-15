@@ -168,6 +168,9 @@ public class ZombieZItem {
         // Cacher tous les attributs vanilla (enchants, attributs, unbreakable, etc.)
         builder.hideAll();
 
+        // Supprimer les tooltips vanilla par défaut (dégâts d'attaque, vitesse)
+        builder.hideDefaultAttributes();
+
         // Rendre l'item incassable (sans afficher le tag)
         builder.unbreakable();
 
@@ -194,28 +197,24 @@ public class ZombieZItem {
     }
 
     /**
-     * Construit le lore de l'item
+     * Construit le lore de l'item (version simplifiée)
      */
     private List<String> buildLore() {
         List<String> lore = new ArrayList<>();
 
         // ═══════════════════════════════════════
-        // EN-TÊTE: Rareté et niveau
+        // EN-TÊTE: Rareté
         // ═══════════════════════════════════════
         lore.add("");
         lore.add(rarity.getChatColor() + "§l" + rarity.getDisplayName().toUpperCase() + " " + rarity.getStars());
-        lore.add("§8├ iLvl: " + getILVLColor() + itemLevel + " §8│ Zone: §7" + zoneLevel);
         lore.add("");
 
         // ═══════════════════════════════════════
-        // STATS TOTALES (Vue d'ensemble rapide)
+        // STATS TOTALES (Vue d'ensemble compacte)
         // ═══════════════════════════════════════
         Map<StatType, Double> totalStats = getTotalStats();
 
         if (!totalStats.isEmpty()) {
-            lore.add("§f§l✦ STATS TOTALES");
-            lore.add("§8" + "─".repeat(24));
-
             // Grouper par catégorie pour un affichage organisé
             Map<StatType.StatCategory, List<Map.Entry<StatType, Double>>> statsByCategory = new LinkedHashMap<>();
             for (var entry : totalStats.entrySet()) {
@@ -228,27 +227,26 @@ public class ZombieZItem {
                 List<Map.Entry<StatType, Double>> stats = categoryEntry.getValue();
 
                 // Mini header de catégorie
-                lore.add(category.getColor() + "§l" + getCategoryIcon(category) + " " + category.getDisplayName());
+                lore.add(category.getColor() + getCategoryIcon(category) + " " + category.getDisplayName());
 
                 for (var stat : stats) {
                     StatType type = stat.getKey();
                     double value = stat.getValue();
-                    String valueColor = value >= 0 ? "§a" : "§c";
+                    String valueColor = value >= 0 ? "§a+" : "§c";
                     String formattedValue = type.formatValue(value);
 
-                    // Format compact avec indicateur visuel
-                    lore.add("§8  │ " + type.getColor() + type.getIcon() + " §7" + type.getDisplayName() + ": " + valueColor + formattedValue);
+                    // Format compact
+                    lore.add("  §7" + type.getDisplayName() + ": " + valueColor + formattedValue);
                 }
             }
             lore.add("");
         }
 
         // ═══════════════════════════════════════
-        // DÉTAILS DES AFFIXES
+        // AFFIXES (version compacte)
         // ═══════════════════════════════════════
         if (!affixes.isEmpty()) {
-            lore.add("§d§l⚜ AFFIXES §8(" + affixes.size() + ")");
-            lore.add("§8" + "─".repeat(24));
+            lore.add("§d⚜ AFFIXES §8(" + affixes.size() + ")");
 
             for (RolledAffix rolledAffix : affixes) {
                 Affix affix = rolledAffix.getAffix();
@@ -262,26 +260,24 @@ public class ZombieZItem {
                 for (var entry : rolledAffix.getRolledStats().entrySet()) {
                     StatType type = entry.getKey();
                     double value = entry.getValue();
-                    String valueColor = value >= 0 ? "§a" : "§c";
-
-                    // Indiquer si c'est un god roll
+                    String valueColor = value >= 0 ? "§a+" : "§c";
                     String godRollIndicator = type.isGodRoll(value) ? " §6✦" : "";
-                    lore.add("§8    └ " + type.getColor() + type.getIcon() + " §7" + type.getDisplayName() + ": " + valueColor + type.formatValue(value) + godRollIndicator);
+                    lore.add("  §7" + type.getDisplayName() + ": " + valueColor + type.formatValue(value) + godRollIndicator);
                 }
 
                 // Effet spécial
                 if (affix.getSpecialDescription() != null) {
-                    lore.add("§8    └ §d✦ " + affix.getSpecialDescription());
+                    lore.add("  §d✦ " + affix.getSpecialDescription());
                 }
             }
             lore.add("");
         }
 
         // ═══════════════════════════════════════
-        // PIED DE PAGE: Score et ID
+        // PIED DE PAGE: Score uniquement
         // ═══════════════════════════════════════
-        lore.add("§8" + "═".repeat(24));
-        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore + " §8│ §8ID: " + uuid.toString().substring(0, 8));
+        lore.add("§8═════════════════════");
+        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
 
         return lore;
     }
