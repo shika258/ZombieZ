@@ -54,8 +54,18 @@ public class PowerManager {
      * Enregistre les pouvoirs par défaut
      */
     private void registerDefaultPowers() {
+        // Pouvoirs de base
         registerPower(new PandaRollPower());
         registerPower(new BeeSwarmPower());
+
+        // Nouveaux pouvoirs
+        registerPower(new com.rinaorc.zombiez.items.power.impl.LightningStrikePower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.IceNovaPower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.BloodSiphonPower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.ChainLightningPower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.MeteorShowerPower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.ShadowClonePower());
+        registerPower(new com.rinaorc.zombiez.items.power.impl.PhoenixRebirthPower());
     }
 
     /**

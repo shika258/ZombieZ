@@ -167,30 +167,170 @@ powers:
     # - Inflige des dégâts périodiques toutes les 0.5s
     # - Recherche une nouvelle cible toutes les secondes
 
-# =====================================
-# FUTURS POUVOIRS (EXEMPLES)
-# =====================================
+  # ─────────────────────────────────
+  # FRAPPE FOUDROYANTE ⚡
+  # ─────────────────────────────────
+  lightning_strike:
+    enabled: true
+    proc-chance: 0.10        # 10%
+    cooldown: 8              # 8 secondes
+    minimum-rarity: EPIC
 
-# Vous pouvez ajouter vos propres pouvoirs en suivant ce template:
-#
-#  nom_du_pouvoir:
-#    enabled: true
-#    proc-chance: 0.1
-#    cooldown: 10
-#    minimum-rarity: EPIC
-#
-#    # Paramètres spécifiques à votre pouvoir
-#    custom-param-1: 100
-#    custom-param-2: 2.5
-#
-# Exemples d'idées de pouvoirs:
-# - Lightning Strike: Invoque la foudre sur la cible
-# - Ice Nova: Gèle les ennemis autour de vous
-# - Blood Siphon: Vole de la vie aux ennemis
-# - Chain Lightning: La foudre rebondit entre les ennemis
-# - Meteor Shower: Fait tomber des météores
-# - Shadow Clone: Crée un clone qui combat à vos côtés
-# - Phoenix Rebirth: Renaît de vos cendres une fois par combat
+    base-damage: 8.0
+    damage-per-ilvl: 0.8
+    crit-chance-base: 0.15   # 15% de chance de critique
+    crit-chance-per-ilvl: 0.005
+    base-stun-ticks: 20      # 1 seconde
+    stun-per-ilvl: 0.2
+
+    # Notes:
+    # - Invoque la foudre sur la cible
+    # - Chance de coup critique (×2 dégâts)
+    # - Paralyse la cible (Slowness IV)
+
+  # ─────────────────────────────────
+  # NOVA GLACIALE ❄
+  # ─────────────────────────────────
+  ice_nova:
+    enabled: true
+    proc-chance: 0.08        # 8%
+    cooldown: 18             # 18 secondes
+    minimum-rarity: EPIC
+
+    base-damage: 4.0
+    damage-per-ilvl: 0.4
+    base-radius: 4.0
+    radius-per-ilvl: 0.033
+    base-freeze-ticks: 40    # 2 secondes
+    freeze-per-ilvl: 0.4
+    base-ice-duration: 60    # 3 secondes de glace au sol
+    ice-duration-per-ilvl: 0.8
+
+    # Notes:
+    # - Explosion de glace AOE
+    # - Gèle les ennemis (Slowness V, Mining Fatigue III)
+    # - Crée temporairement de la glace au sol
+    # - Dégâts réduits selon la distance
+
+  # ─────────────────────────────────
+  # SIPHON DE SANG 🩸
+  # ─────────────────────────────────
+  blood_siphon:
+    enabled: true
+    proc-chance: 0.20        # 20%
+    cooldown: 6              # 6 secondes
+    minimum-rarity: RARE
+
+    base-damage: 3.0
+    damage-per-ilvl: 0.3
+    base-lifesteal: 0.5      # 50% des dégâts en heal
+    lifesteal-per-ilvl: 0.005
+    low-health-bonus: 0.25   # +25% si cible < 50% HP
+    base-regen-ticks: 60     # 3 secondes
+    regen-per-ilvl: 0.5
+
+    # Notes:
+    # - Vole la vie de la cible
+    # - Bonus si cible blessée (<50% HP)
+    # - Applique Régénération II
+
+  # ─────────────────────────────────
+  # ÉCLAIR EN CHAÎNE 🔗
+  # ─────────────────────────────────
+  chain_lightning:
+    enabled: true
+    proc-chance: 0.12        # 12%
+    cooldown: 10             # 10 secondes
+    minimum-rarity: EPIC
+
+    base-damage: 6.0
+    damage-per-ilvl: 0.6
+    base-bounces: 2          # 2 rebonds de base
+    bounces-per-ilvl: 0.04   # 1 tous les 25 ILVL
+    base-bounce-radius: 6.0
+    radius-per-ilvl: 0.02
+    damage-reduction: 0.25   # -25% par rebond
+
+    # Notes:
+    # - La foudre rebondit entre les ennemis
+    # - Dégâts réduits de 25% à chaque rebond
+    # - Animation d'éclair entre les cibles
+
+  # ─────────────────────────────────
+  # PLUIE DE MÉTÉORES ☄
+  # ─────────────────────────────────
+  meteor_shower:
+    enabled: true
+    proc-chance: 0.05        # 5%
+    cooldown: 25             # 25 secondes
+    minimum-rarity: LEGENDARY
+
+    base-damage-per-meteor: 10.0
+    damage-per-ilvl: 1.0
+    base-meteor-count: 3
+    meteor-count-per-ilvl: 0.05  # 1 tous les 20 ILVL
+    base-zone-radius: 8.0
+    radius-per-ilvl: 0.04
+    base-fire-ticks: 60      # 3 secondes
+    fire-ticks-per-ilvl: 0.67
+
+    # Notes:
+    # - Fait tomber plusieurs météores
+    # - Dégâts AOE massifs par météore
+    # - Met le feu aux ennemis
+    # - Applique Wither II
+    # - Crée du feu au sol temporairement
+
+  # ─────────────────────────────────
+  # CLONE D'OMBRE 👤
+  # ─────────────────────────────────
+  shadow_clone:
+    enabled: true
+    proc-chance: 0.08        # 8%
+    cooldown: 20             # 20 secondes
+    minimum-rarity: LEGENDARY
+
+    base-clone-damage: 0.3   # 30% de vos dégâts
+    damage-per-ilvl: 0.004
+    base-clone-health: 10.0
+    health-per-ilvl: 0.2
+    base-duration-ticks: 160 # 8 secondes
+    duration-per-ilvl: 1.0
+    base-clone-count: 1
+    clone-count-per-ilvl: 0.02  # 1 tous les 50 ILVL (max 3)
+
+    # Notes:
+    # - Invoque un clone qui combat à vos côtés
+    # - Inflige un % de vos dégâts
+    # - Copie votre équipement visuellement
+    # - Invisible (effet de fumée)
+    # - Cherche automatiquement des cibles
+
+  # ─────────────────────────────────
+  # RENAISSANCE DU PHÉNIX 🔥
+  # ─────────────────────────────────
+  phoenix_rebirth:
+    enabled: true
+    proc-chance: 1.0         # 100% - Toujours actif (mais cooldown très long)
+    cooldown: 300            # 5 MINUTES
+    minimum-rarity: MYTHIC
+
+    base-health-percent: 0.20  # 20% de la santé max
+    health-percent-per-ilvl: 0.002
+    base-damage: 15.0
+    damage-per-ilvl: 1.5
+    base-radius: 5.0
+    radius-per-ilvl: 0.025
+    base-invulnerability-ticks: 40  # 2 secondes
+    invulnerability-per-ilvl: 0.2
+
+    # Notes:
+    # - POUVOIR PASSIF - Se déclenche à la mort
+    # - Renaît de vos cendres au lieu de mourir
+    # - Explosion de feu infligeant des dégâts AOE
+    # - Invulnérabilité temporaire après résurrection
+    # - Cooldown de 5 MINUTES
+    # - Applique Fire Resistance, Régénération III, Resistance III
 
 # =====================================
 # NOTES DE GAME DESIGN
