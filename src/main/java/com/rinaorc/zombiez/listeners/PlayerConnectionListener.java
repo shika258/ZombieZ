@@ -89,9 +89,14 @@ public class PlayerConnectionListener implements Listener {
             MessageUtils.broadcast("§a+ §7" + player.getName() + " §7a rejoint le serveur");
         }
 
+        // Appliquer les attributs basés sur l'équipement (ex: bonus de vie max)
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            plugin.getItemListener().applyPlayerAttributes(player);
+        }, 5L);
+
         // Log
         if (plugin.getConfigManager().isDebugMode()) {
-            plugin.log(Level.INFO, "§7Joueur " + player.getName() + " chargé (Niveau " + 
+            plugin.log(Level.INFO, "§7Joueur " + player.getName() + " chargé (Niveau " +
                 data.getLevel().get() + ", Zone " + data.getCurrentZone().get() + ")");
         }
     }

@@ -63,49 +63,80 @@ public class SpawnSystem {
 
     /**
      * Initialise les configurations de spawn par zone
-     * Équilibré pour une expérience de jeu agréable
+     * Génère dynamiquement les configs pour les 50 zones
      */
     private void initializeZoneConfigs() {
         // Zone 0 - Spawn (pas de zombies)
         zoneConfigs.put(0, new ZoneSpawnConfig(0, 0, 0, 0, 0));
 
-        // Zone 1 - Village (introduction douce)
-        zoneConfigs.put(1, new ZoneSpawnConfig(
-            40,     // maxZombies
-            8,      // spawnRate (par minute par joueur)
-            20, 35, // spawnRadius min/max
-            1       // niveau moyen
-        ));
+        // Générer les configs pour les 50 zones dynamiquement
+        for (int zoneId = 1; zoneId <= 50; zoneId++) {
+            // Calculer les paramètres de spawn basés sur la zone
+            int maxZombies;
+            int spawnRate;
+            int minSpawnRadius;
+            int maxSpawnRadius;
 
-        // Zone 2 - Plaines
-        zoneConfigs.put(2, new ZoneSpawnConfig(50, 9, 20, 40, 2));
+            // Calcul du niveau de base - basé sur la formule du ZoneManager:
+            // minLevel = (zoneId - 1) * 2 + 1, maxLevel = zoneId * 2
+            // Ex: Zone 46 -> minLevel = 91, maxLevel = 92
+            int baseLevel = (zoneId - 1) * 2 + 1;
 
-        // Zone 3 - Désert
-        zoneConfigs.put(3, new ZoneSpawnConfig(60, 10, 20, 40, 3));
+            // Essayer d'obtenir le niveau depuis la zone si elle existe
+            Zone zone = plugin.getZoneManager() != null ? plugin.getZoneManager().getZoneById(zoneId) : null;
+            if (zone != null) {
+                baseLevel = zone.getMinZombieLevel();
+            }
 
-        // Zone 4 - Forêt Sombre
-        zoneConfigs.put(4, new ZoneSpawnConfig(50, 9, 15, 35, 4));
+            // Calcul du nombre max de zombies et taux de spawn selon l'acte
+            if (zoneId <= 10) {
+                // ACTE I - LES DERNIERS JOURS: densité modérée
+                maxZombies = 40 + (zoneId * 4);  // 44-80
+                spawnRate = 8 + (zoneId / 2);     // 8-13
+                minSpawnRadius = 20;
+                maxSpawnRadius = 35 + zoneId;
+            } else if (zoneId <= 20) {
+                // ACTE II - LA CONTAMINATION: densité croissante
+                maxZombies = 60 + ((zoneId - 10) * 4);  // 64-100
+                spawnRate = 10 + ((zoneId - 10) / 2);    // 10-15
+                minSpawnRadius = 18;
+                maxSpawnRadius = 40;
+            } else if (zoneId <= 30) {
+                // ACTE III - LE CHAOS: haute densité
+                maxZombies = 80 + ((zoneId - 20) * 4);  // 84-120
+                spawnRate = 12 + ((zoneId - 20) / 3);    // 12-15
+                minSpawnRadius = 15;
+                maxSpawnRadius = 38;
+            } else if (zoneId <= 40) {
+                // ACTE IV - L'EXTINCTION: densité décroissante, zombies plus forts
+                maxZombies = 70 + ((zoneId - 30) * 2);  // 72-90
+                spawnRate = 10 + ((zoneId - 30) / 4);    // 10-12
+                minSpawnRadius = 15;
+                maxSpawnRadius = 35;
+            } else {
+                // ACTE V - L'ORIGINE DU MAL: faible densité, zombies très dangereux
+                maxZombies = 50 + ((zoneId - 40) * 2);  // 52-70
+                spawnRate = 7 + ((zoneId - 40) / 3);     // 7-10
+                minSpawnRadius = 12;
+                maxSpawnRadius = 30;
+            }
 
-        // Zone 5 - Marécages
-        zoneConfigs.put(5, new ZoneSpawnConfig(65, 11, 15, 35, 5));
+            // Ajustements spéciaux pour certaines zones
+            if (zoneId == 26) {
+                // Zone PVP - moins de zombies
+                maxZombies = 50;
+                spawnRate = 8;
+            }
+            if (zoneId == 50) {
+                // Zone Boss finale - très peu de zombies mais très dangereux
+                maxZombies = 40;
+                spawnRate = 5;
+            }
 
-        // Zone 6 - Zone PvP
-        zoneConfigs.put(6, new ZoneSpawnConfig(75, 12, 20, 45, 6));
-
-        // Zone 7 - Montagnes
-        zoneConfigs.put(7, new ZoneSpawnConfig(60, 10, 20, 40, 7));
-
-        // Zone 8 - Toundra
-        zoneConfigs.put(8, new ZoneSpawnConfig(55, 9, 20, 40, 8));
-
-        // Zone 9 - Terres Corrompues
-        zoneConfigs.put(9, new ZoneSpawnConfig(50, 8, 15, 35, 9));
-
-        // Zone 10 - Enfer
-        zoneConfigs.put(10, new ZoneSpawnConfig(45, 7, 15, 30, 10));
-
-        // Zone 11 - Citadelle Finale
-        zoneConfigs.put(11, new ZoneSpawnConfig(30, 5, 10, 25, 12));
+            zoneConfigs.put(zoneId, new ZoneSpawnConfig(
+                maxZombies, spawnRate, minSpawnRadius, maxSpawnRadius, baseLevel
+            ));
+        }
     }
 
     /**
@@ -299,26 +330,26 @@ public class SpawnSystem {
     
     /**
      * Initialise les tables pondérées précalculées (OPTIMISATION)
-     * Appelé UNE SEULE FOIS au démarrage
+     * Appelé UNE SEULE FOIS au démarrage - Support pour 50 zones
      */
     private void initializeWeightedTables() {
-        for (int zoneId = 0; zoneId <= 11; zoneId++) {
+        for (int zoneId = 0; zoneId <= 50; zoneId++) {
             final int currentZoneId = zoneId;
             List<ZombieType> validTypes = Arrays.stream(ZombieType.values())
                 .filter(t -> t.canSpawnInZone(currentZoneId))
                 .filter(t -> !t.isBoss())
                 .toList();
-            
+
             if (validTypes.isEmpty()) {
                 validTypes = List.of(ZombieType.WALKER);
             }
-            
+
             // Construire la table pondérée une seule fois
             WeightedZombieTable table = new WeightedZombieTable(validTypes);
             weightedTables.put(zoneId, table);
         }
-        
-        plugin.log(java.util.logging.Level.INFO, "§a✓ Tables de spawn zombie précalculées");
+
+        plugin.log(java.util.logging.Level.INFO, "§a✓ Tables de spawn zombie précalculées (50 zones)");
     }
 
     /**

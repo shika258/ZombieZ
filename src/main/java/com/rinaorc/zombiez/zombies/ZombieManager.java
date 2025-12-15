@@ -365,6 +365,38 @@ public class ZombieManager {
     }
 
     /**
+     * Met à jour le nom d'un zombie pour afficher 0 HP à sa mort
+     * Appelé par le ZombieListener à la mort du zombie
+     */
+    public void updateZombieHealthDisplayOnDeath(LivingEntity zombie) {
+        if (!isZombieZMob(zombie)) return;
+
+        ActiveZombie activeZombie = getActiveZombie(zombie.getUniqueId());
+        if (activeZombie == null) return;
+
+        // Récupérer les infos
+        ZombieType type = activeZombie.getType();
+        int level = activeZombie.getLevel();
+        String displayName = type.getDisplayName();
+
+        // Récupérer la vie max (vie actuelle = 0 car mort)
+        var maxHealthAttr = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        int maxHealth = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : 20;
+
+        // Construire le nouveau nom avec 0 HP
+        String healthDisplay = formatHealthDisplay(0, maxHealth);
+        String baseName = "§c" + displayName + " §7[Lv." + level + "] " + healthDisplay;
+
+        // Si le zombie a un affix, l'ajouter au nom
+        if (activeZombie.hasAffix()) {
+            ZombieAffix affix = activeZombie.getAffix();
+            zombie.setCustomName(affix.getColorCode() + affix.getPrefix() + " " + baseName);
+        } else {
+            zombie.setCustomName(baseName);
+        }
+    }
+
+    /**
      * Détermine si un zombie doit avoir un affix
      * Scaling progressif sur 50 zones
      */

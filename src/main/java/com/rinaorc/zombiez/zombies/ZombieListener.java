@@ -38,16 +38,19 @@ public class ZombieListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onZombieDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
-        
+
         // Vérifier si c'est un zombie ZombieZ
         if (!zombieManager.isZombieZMob(entity)) {
             return;
         }
-        
+
+        // Mettre à jour le nom pour afficher 0 HP avant la mort
+        zombieManager.updateZombieHealthDisplayOnDeath(entity);
+
         // Annuler les drops vanilla
         event.getDrops().clear();
         event.setDroppedExp(0);
-        
+
         // Obtenir le tueur
         Player killer = entity.getKiller();
         
@@ -148,7 +151,7 @@ public class ZombieListener implements Listener {
         // (Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts)
         if (victim instanceof LivingEntity livingVictim) {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (livingVictim.isValid() && !livingVictim.isDead()) {
+                if (livingVictim.isValid()) {
                     zombieManager.updateZombieHealthDisplay(livingVictim);
                 }
             });

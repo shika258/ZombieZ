@@ -5,7 +5,11 @@ import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -105,7 +109,7 @@ public class ItemListener implements Listener {
         int slot = event.getSlot();
         boolean isArmorSlot = slot >= 36 && slot <= 39;
         boolean isOffhand = slot == 40;
-        
+
         if (!isArmorSlot && !isOffhand) {
             // Vérifier si c'est un shift-click vers l'armure
             if (!event.isShiftClick()) {
@@ -113,10 +117,13 @@ public class ItemListener implements Listener {
             }
         }
 
-        // Invalider le cache de stats du joueur
+        // Invalider le cache de stats du joueur et recalculer les attributs
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             plugin.getItemManager().invalidatePlayerStats(player.getUniqueId());
-            
+
+            // Recalculer et appliquer les attributs du joueur
+            applyPlayerAttributes(player);
+
             // Vérifier si un item ZombieZ a été équipé
             ItemStack equipped = event.getCurrentItem();
             if (equipped != null && ZombieZItem.isZombieZItem(equipped)) {
@@ -297,21 +304,79 @@ public class ItemListener implements Listener {
      */
     public double calculateDamageReduction(Player defender, double incomingDamage) {
         Map<StatType, Double> stats = plugin.getItemManager().calculatePlayerStats(defender);
-        
+
         double damage = incomingDamage;
-        
+
         // Réduction de dégâts en %
         if (stats.containsKey(StatType.DAMAGE_REDUCTION)) {
             damage *= (1 - stats.get(StatType.DAMAGE_REDUCTION) / 100.0);
         }
-        
+
         // Chance d'esquive
         double dodgeChance = stats.getOrDefault(StatType.DODGE_CHANCE, 0.0) / 100.0;
         if (Math.random() < dodgeChance) {
             MessageUtils.sendActionBar(defender, "§a✧ ESQUIVÉ!");
             return 0;
         }
-        
+
         return Math.max(0, damage);
+    }
+
+    // Clé unique pour le modifier de vie max ZombieZ
+    private static final NamespacedKey ZOMBIEZ_HEALTH_KEY = new NamespacedKey("zombiez", "max_health_bonus");
+
+    /**
+     * Applique les attributs du joueur basés sur son équipement ZombieZ
+     * Notamment le bonus de vie maximale (MAX_HEALTH)
+     */
+    public void applyPlayerAttributes(Player player) {
+        Map<StatType, Double> stats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Appliquer le bonus de vie maximale
+        double healthBonus = stats.getOrDefault(StatType.MAX_HEALTH, 0.0);
+        applyMaxHealthBonus(player, healthBonus);
+    }
+
+    /**
+     * Applique le bonus de vie maximale au joueur
+     */
+    private void applyMaxHealthBonus(Player player, double bonus) {
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Supprimer l'ancien modifier ZombieZ s'il existe
+        maxHealthAttr.getModifiers().stream()
+            .filter(mod -> mod.getKey().equals(ZOMBIEZ_HEALTH_KEY))
+            .findFirst()
+            .ifPresent(maxHealthAttr::removeModifier);
+
+        // Ajouter le nouveau modifier si le bonus est positif
+        if (bonus > 0) {
+            AttributeModifier modifier = new AttributeModifier(
+                ZOMBIEZ_HEALTH_KEY,
+                bonus,
+                AttributeModifier.Operation.ADD_NUMBER
+            );
+            maxHealthAttr.addModifier(modifier);
+        }
+
+        // S'assurer que la vie actuelle ne dépasse pas le nouveau max
+        double newMaxHealth = maxHealthAttr.getValue();
+        if (player.getHealth() > newMaxHealth) {
+            player.setHealth(newMaxHealth);
+        }
+    }
+
+    /**
+     * Supprime tous les modifiers ZombieZ d'un joueur (pour cleanup)
+     */
+    public void removeAllModifiers(Player player) {
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthAttr.getModifiers().stream()
+                .filter(mod -> mod.getKey().equals(ZOMBIEZ_HEALTH_KEY))
+                .findFirst()
+                .ifPresent(maxHealthAttr::removeModifier);
+        }
     }
 }
