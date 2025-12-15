@@ -31,13 +31,13 @@ public enum ZombieType {
         new int[]{8, 9, 10, 11, 12, 13, 14, 15}, ZombieCategory.BASIC),
 
     DROWNER("ZZ_Drowner", "Flottacide", 1, 25, 4, 0.22,           // Flotter + homicide
-        new int[]{9, 13, 14, 34, 35}, ZombieCategory.BASIC),
+        new int[]{3, 4, 5, 6, 7, 8, 9, 13, 14, 34, 35}, ZombieCategory.BASIC),
 
     HUSK("ZZ_Husk", "Desséchombie", 1, 30, 5, 0.20,               // Desséché + zombie
-        new int[]{8, 9, 10, 11, 12, 15, 16, 17, 21, 22, 23, 24}, ZombieCategory.BASIC),
+        new int[]{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 21, 22, 23, 24}, ZombieCategory.BASIC),
 
     DROWNED("ZZ_Drowned", "Noyatroz", 1, 28, 5, 0.24,             // Noyé + atroce
-        new int[]{9, 13, 14, 34, 35, 36, 37}, ZombieCategory.BASIC),
+        new int[]{3, 4, 5, 6, 7, 8, 9, 13, 14, 34, 35, 36, 37}, ZombieCategory.BASIC),
 
     // ═══════════════════════════════════════════════════════════════════
     // TIER 2 - Les Intermédiaires (Jeux de mots élaborés) - Zones 6-30
@@ -67,7 +67,7 @@ public enum ZombieType {
         new int[]{11, 13, 14, 15, 25}, ZombieCategory.HAZARD),
 
     ZOMBIE_VILLAGER("ZZ_ZombieVillager", "Villagroin", 2, 35, 5, 0.18,  // Villageois + groin
-        new int[]{6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, ZombieCategory.SUPPORT),
+        new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, ZombieCategory.SUPPORT),
 
     DROWNED_TRIDENT("ZZ_DrownedTrident", "Tridentombie", 2, 40, 7, 0.20, // Trident + zombie
         new int[]{13, 14, 34, 35, 36, 37, 38}, ZombieCategory.RANGED),

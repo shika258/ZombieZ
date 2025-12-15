@@ -215,6 +215,10 @@ public class ZombieZItem {
         Map<StatType, Double> totalStats = getTotalStats();
 
         if (!totalStats.isEmpty()) {
+            // Header "Statistiques" pour distinguer des Affixes
+            lore.add("§6✧ STATISTIQUES");
+            lore.add("");
+
             // Grouper par catégorie pour un affichage organisé
             Map<StatType.StatCategory, List<Map.Entry<StatType, Double>>> statsByCategory = new LinkedHashMap<>();
             for (var entry : totalStats.entrySet()) {

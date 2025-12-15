@@ -9,6 +9,7 @@ import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.*;
+import org.bukkit.entity.Animals;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -73,6 +74,12 @@ public class CombatListener implements Listener {
         // Joueur attaque zombie
         if (damager instanceof Player player && victim instanceof Zombie zombie) {
             handlePlayerAttackZombie(event, player, zombie);
+            return;
+        }
+
+        // Joueur attaque mob passif ZombieZ
+        if (damager instanceof Player player && victim instanceof Animals animal) {
+            handlePlayerAttackPassiveMob(event, player, animal);
             return;
         }
 
@@ -229,6 +236,70 @@ public class CombatListener implements Listener {
 
         // Stocker les infos pour le loot (utilisé à la mort)
         zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+    }
+
+    /**
+     * Gère les attaques de joueur sur mob passif ZombieZ
+     * Affiche les indicateurs de dégâts et applique les stats d'équipement
+     */
+    private void handlePlayerAttackPassiveMob(EntityDamageByEntityEvent event, Player player, Animals animal) {
+        // Vérifier si c'est un mob passif ZombieZ
+        if (!plugin.getPassiveMobManager().isZombieZPassiveMob(animal)) {
+            return;
+        }
+
+        double baseDamage = event.getDamage();
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
+
+        // ============ STATS D'ÉQUIPEMENT ============
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ SYSTÈME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (random.nextDouble() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0;
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // ============ MOMENTUM SYSTEM ============
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(player);
+        finalDamage *= momentumMultiplier;
+
+        // ============ APPLIQUER LES DÉGÂTS FINAUX ============
+        event.setDamage(finalDamage);
+
+        // ============ INDICATEUR DE DÉGÂTS FLOTTANT ============
+        DamageIndicator.display(plugin, animal.getLocation(), finalDamage, isCritical, player);
+
+        // ============ FEEDBACK VISUEL ============
+        if (isCritical) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+            animal.getWorld().spawnParticle(Particle.CRIT, animal.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
+                "§6§l✦ CRITIQUE! §c" + String.format("%.1f", finalDamage) + " dégâts");
+        }
     }
 
     /**

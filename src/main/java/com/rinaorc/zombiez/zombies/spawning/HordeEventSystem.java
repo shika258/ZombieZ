@@ -158,19 +158,21 @@ public class HordeEventSystem {
     }
 
     /**
-     * Spawne un zombie de horde
+     * Spawne un zombie de horde avec type aléatoire selon la zone
      */
     private void spawnHordeZombie() {
         if (currentHordeZone == null) return;
-        
+
         List<Player> players = plugin.getZoneManager().getPlayersInZone(currentHordeZone);
         if (players.isEmpty()) return;
-        
+
         Player target = players.get(new Random().nextInt(players.size()));
         Location spawnLoc = getSpawnLocationNear(target.getLocation());
-        
+
         int level = currentHordeZone.getMinZombieLevel() + hordeWave;
-        zombieManager.spawnZombie(ZombieType.WALKER, spawnLoc, level);
+        // Spawner un type aléatoire pour plus de diversité
+        ZombieType type = ZombieType.randomForZone(currentHordeZone.getId());
+        zombieManager.spawnZombie(type, spawnLoc, level);
     }
 
     /**
