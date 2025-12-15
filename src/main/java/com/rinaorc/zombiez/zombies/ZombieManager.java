@@ -3,26 +3,39 @@ package com.rinaorc.zombiez.zombies;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.generator.LootTable;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
+import com.rinaorc.zombiez.zombies.ai.ZombieAI;
+import com.rinaorc.zombiez.zombies.ai.ZombieAIManager;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
+import lombok.Getter;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manager principal pour les zombies ZombieZ
- * Gère le spawn, les affixes, et l'intégration MythicMobs
+ * Gère le spawn, les affixes et le système d'IA personnalisé
  */
 public class ZombieManager {
 
     private final ZombieZPlugin plugin;
     private final ZombieAffix.ZombieAffixRegistry affixRegistry;
     private final LootTable.LootTableRegistry lootTableRegistry;
-    
+
+    // Gestionnaire d'IA personnalisé
+    @Getter
+    private final ZombieAIManager aiManager;
+
     // Tracking des zombies actifs
     private final Map<UUID, ActiveZombie> activeZombies;
     
@@ -43,11 +56,12 @@ public class ZombieManager {
         this.plugin = plugin;
         this.affixRegistry = ZombieAffix.ZombieAffixRegistry.getInstance();
         this.lootTableRegistry = LootTable.LootTableRegistry.getInstance();
+        this.aiManager = new ZombieAIManager(plugin);
         this.activeZombies = new ConcurrentHashMap<>();
         this.zombieCountByZone = new ConcurrentHashMap<>();
         this.maxZombiesPerZone = new ConcurrentHashMap<>();
         this.lastSpawnByZone = new ConcurrentHashMap<>();
-        
+
         initializeZoneLimits();
     }
 
@@ -74,109 +88,215 @@ public class ZombieManager {
     }
 
     /**
-     * Spawn un zombie via MythicMobs
+     * Spawn un zombie avec IA personnalisée
      */
     public ActiveZombie spawnZombie(ZombieType type, Location location, int level) {
         int zoneId = plugin.getZoneManager().getZoneAt(location).getId();
-        
+
         // Vérifier la limite
         int currentCount = zombieCountByZone.getOrDefault(zoneId, 0);
         int maxCount = maxZombiesPerZone.getOrDefault(zoneId, 50);
-        
+
         if (currentCount >= maxCount) {
             return null;
         }
-        
+
         // Vérifier le cooldown de spawn
         long lastSpawn = lastSpawnByZone.getOrDefault(zoneId, 0L);
         if (System.currentTimeMillis() - lastSpawn < 500) { // 500ms minimum entre spawns
             return null;
         }
-        
-        // Spawner via MythicMobs (simulation - nécessite l'API MythicMobs)
-        Entity entity = spawnMythicMob(type.getMythicMobId(), location, level);
-        
+
+        // Spawner le zombie personnalisé
+        Zombie entity = spawnCustomZombie(type, location, level);
+
         if (entity == null) {
             return null;
         }
-        
+
         // Créer l'ActiveZombie
         ActiveZombie zombie = new ActiveZombie(entity.getUniqueId(), type, level, zoneId);
-        
+
         // Appliquer les affixes si applicable
         if (shouldHaveAffix(zoneId, type)) {
             applyRandomAffix(zombie, entity, zoneId);
         }
-        
+
         // Stocker les métadonnées
-        if (entity instanceof LivingEntity living) {
-            living.setMetadata("zombiez_type", new FixedMetadataValue(plugin, type.name()));
-            living.setMetadata("zombiez_level", new FixedMetadataValue(plugin, level));
-            living.setMetadata("zombiez_zone", new FixedMetadataValue(plugin, zoneId));
-            
-            if (zombie.hasAffix()) {
-                living.setMetadata("zombiez_affix", new FixedMetadataValue(plugin, zombie.getAffix().getId()));
-            }
+        entity.setMetadata("zombiez_type", new FixedMetadataValue(plugin, type.name()));
+        entity.setMetadata("zombiez_level", new FixedMetadataValue(plugin, level));
+        entity.setMetadata("zombiez_zone", new FixedMetadataValue(plugin, zoneId));
+
+        if (zombie.hasAffix()) {
+            entity.setMetadata("zombiez_affix", new FixedMetadataValue(plugin, zombie.getAffix().getId()));
         }
-        
+
+        // Créer l'IA pour ce zombie
+        aiManager.createAI(entity, type, level);
+
         // Enregistrer
         activeZombies.put(entity.getUniqueId(), zombie);
         zombieCountByZone.merge(zoneId, 1, Integer::sum);
         lastSpawnByZone.put(zoneId, System.currentTimeMillis());
         totalSpawned++;
-        
+
         return zombie;
     }
 
     /**
-     * Spawner MythicMob (stub - nécessite l'API MythicMobs)
+     * Crée un zombie personnalisé avec stats et apparence basées sur le type
      */
-    private Entity spawnMythicMob(String mobId, Location location, int level) {
-        // TODO: Intégration avec l'API MythicMobs
-        // io.lumine.mythic.bukkit.MythicBukkit.inst().getMobManager()
-        //     .spawnMob(mobId, location, level);
-
-        // Pour l'instant, on spawn un zombie vanilla comme placeholder
+    private Zombie spawnCustomZombie(ZombieType type, Location location, int level) {
         if (location.getWorld() == null) return null;
 
-        // Récupérer le type de zombie pour le nom français
-        ZombieType type = ZombieType.fromMythicId(mobId);
-        String displayName = type != null ? type.getDisplayName() : mobId.replace("ZZ_", "");
-
-        return location.getWorld().spawn(location, org.bukkit.entity.Zombie.class, zombie -> {
+        return location.getWorld().spawn(location, Zombie.class, zombie -> {
             zombie.setRemoveWhenFarAway(true);
-
-            // Empêcher de brûler au soleil
             zombie.setShouldBurnInDay(false);
 
-            // Appliquer les stats de base selon le niveau
-            double healthMultiplier = 1.0 + (level * 0.15);
-            double damageMultiplier = 1.0 + (level * 0.10);
+            // Calculer les stats selon le type et le niveau
+            double baseHealth = type.getBaseHealth();
+            double baseDamage = type.getBaseDamage();
+            double baseSpeed = type.getBaseSpeed();
 
-            var maxHealth = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
-            double maxHp = 20 * healthMultiplier;
-            if (maxHealth != null) {
-                maxHealth.setBaseValue(maxHp);
-                zombie.setHealth(maxHp);
+            // Bonus de niveau
+            double healthMultiplier = 1.0 + (level * 0.12);
+            double damageMultiplier = 1.0 + (level * 0.08);
+            double speedMultiplier = 1.0 + (level * 0.01);
+
+            double finalHealth = baseHealth * healthMultiplier;
+            double finalDamage = baseDamage * damageMultiplier;
+            double finalSpeed = Math.min(0.45, baseSpeed * speedMultiplier); // Cap speed
+
+            // Appliquer les attributs
+            var maxHealthAttr = zombie.getAttribute(Attribute.MAX_HEALTH);
+            if (maxHealthAttr != null) {
+                maxHealthAttr.setBaseValue(finalHealth);
+                zombie.setHealth(finalHealth);
             }
 
-            var damage = zombie.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
-            if (damage != null) {
-                damage.setBaseValue(3 * damageMultiplier);
+            var damageAttr = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
+            if (damageAttr != null) {
+                damageAttr.setBaseValue(finalDamage);
             }
 
-            var speed = zombie.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
-            if (speed != null) {
-                // Vitesse variable selon le type de mob
-                double baseSpeed = 0.23 + (Math.random() * 0.05);
-                speed.setBaseValue(baseSpeed);
+            var speedAttr = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
+            if (speedAttr != null) {
+                speedAttr.setBaseValue(finalSpeed);
             }
 
-            // Nom avec vie affichée: "Nom [Lv.X] ❤ HP/MaxHP"
-            String healthDisplay = formatHealthDisplay((int) maxHp, (int) maxHp);
-            zombie.setCustomName("§c" + displayName + " §7[Lv." + level + "] " + healthDisplay);
+            var knockbackAttr = zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+            if (knockbackAttr != null) {
+                // Plus le tier est élevé, plus résistant au knockback
+                knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
+            }
+
+            // Équipement basé sur le type
+            applyZombieEquipment(zombie, type, level);
+
+            // Effets de potion basés sur la catégorie
+            applyZombieEffects(zombie, type);
+
+            // Nom avec vie affichée
+            String healthDisplay = formatHealthDisplay((int) finalHealth, (int) finalHealth);
+            String tierColor = getTierColor(type.getTier());
+            zombie.setCustomName(tierColor + type.getDisplayName() + " §7[Lv." + level + "] " + healthDisplay);
             zombie.setCustomNameVisible(true);
+
+            // Configuration additionnelle pour les boss
+            if (type.isBoss()) {
+                zombie.setRemoveWhenFarAway(false);
+                zombie.setPersistent(true);
+            }
         });
+    }
+
+    /**
+     * Applique l'équipement selon le type de zombie
+     */
+    private void applyZombieEquipment(Zombie zombie, ZombieType type, int level) {
+        var equipment = zombie.getEquipment();
+        if (equipment == null) return;
+
+        switch (type.getCategory()) {
+            case TANK -> {
+                // Armure lourde pour les tanks
+                equipment.setHelmet(new ItemStack(level > 5 ? Material.DIAMOND_HELMET : Material.IRON_HELMET));
+                equipment.setChestplate(new ItemStack(level > 5 ? Material.DIAMOND_CHESTPLATE : Material.IRON_CHESTPLATE));
+                equipment.setLeggings(new ItemStack(level > 5 ? Material.DIAMOND_LEGGINGS : Material.IRON_LEGGINGS));
+                equipment.setBoots(new ItemStack(level > 5 ? Material.DIAMOND_BOOTS : Material.IRON_BOOTS));
+            }
+            case MELEE -> {
+                // Arme puissante pour les melee
+                equipment.setItemInMainHand(new ItemStack(level > 7 ? Material.NETHERITE_AXE : Material.IRON_AXE));
+                if (type == ZombieType.BERSERKER) {
+                    equipment.setHelmet(new ItemStack(Material.CHAINMAIL_HELMET));
+                }
+            }
+            case ELITE -> {
+                // Équipement complet pour les élites
+                equipment.setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+                equipment.setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+                equipment.setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
+            }
+            case MINIBOSS, ZONE_BOSS, FINAL_BOSS -> {
+                // Boss ont un équipement unique
+                equipment.setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+                equipment.setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+                equipment.setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
+                equipment.setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+                equipment.setItemInMainHand(new ItemStack(Material.NETHERITE_AXE));
+            }
+            default -> {
+                // Équipement basique basé sur le niveau
+                if (level > 3) {
+                    equipment.setHelmet(new ItemStack(Material.LEATHER_HELMET));
+                }
+                if (level > 6) {
+                    equipment.setChestplate(new ItemStack(Material.LEATHER_CHESTPLATE));
+                }
+            }
+        }
+
+        // Empêcher de dropper l'équipement
+        equipment.setHelmetDropChance(0);
+        equipment.setChestplateDropChance(0);
+        equipment.setLeggingsDropChance(0);
+        equipment.setBootsDropChance(0);
+        equipment.setItemInMainHandDropChance(0);
+    }
+
+    /**
+     * Applique des effets de potion selon la catégorie
+     */
+    private void applyZombieEffects(Zombie zombie, ZombieType type) {
+        switch (type.getCategory()) {
+            case TANK -> {
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0, false, false));
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            }
+            case STEALTH -> {
+                zombie.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
+            }
+            case ELEMENTAL -> {
+                if (type == ZombieType.FROZEN || type == ZombieType.YETI || type == ZombieType.WENDIGO) {
+                    zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                }
+            }
+        }
+    }
+
+    /**
+     * Obtient la couleur selon le tier
+     */
+    private String getTierColor(int tier) {
+        return switch (tier) {
+            case 1 -> "§7"; // Gris
+            case 2 -> "§a"; // Vert
+            case 3 -> "§e"; // Jaune
+            case 4 -> "§c"; // Rouge
+            case 5 -> "§5"; // Violet
+            default -> "§6"; // Or (boss)
+        };
     }
 
     /**
@@ -273,11 +393,14 @@ public class ZombieManager {
     public void onZombieDeath(UUID entityId, Player killer) {
         ActiveZombie zombie = activeZombies.remove(entityId);
         if (zombie == null) return;
-        
+
+        // Notifier l'AIManager
+        aiManager.onZombieDeath(entityId, killer);
+
         // Décrémenter le compteur de zone
         zombieCountByZone.merge(zombie.getZoneId(), -1, (a, b) -> Math.max(0, a + b));
         totalKilled++;
-        
+
         // Donner les récompenses
         if (killer != null) {
             giveRewards(killer, zombie);
