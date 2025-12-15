@@ -67,24 +67,43 @@ public class ZombieManager {
 
     /**
      * Initialise les limites de zombies par zone
-     * AUGMENTÉ: Limites plus élevées pour une expérience plus intense
+     * 50 zones avec limites progressives
      */
     private void initializeZoneLimits() {
         // Zone 0 (Spawn) - Pas de zombies
         maxZombiesPerZone.put(0, 0);
 
-        // Zones progressives - Limites augmentées
-        maxZombiesPerZone.put(1, 80);    // Village
-        maxZombiesPerZone.put(2, 100);   // Plaines
-        maxZombiesPerZone.put(3, 120);   // Désert
-        maxZombiesPerZone.put(4, 100);   // Forêt Sombre
-        maxZombiesPerZone.put(5, 130);   // Marécages
-        maxZombiesPerZone.put(6, 150);   // PvP Arena
-        maxZombiesPerZone.put(7, 120);   // Montagnes
-        maxZombiesPerZone.put(8, 110);   // Toundra
-        maxZombiesPerZone.put(9, 100);   // Terres Corrompues
-        maxZombiesPerZone.put(10, 90);   // Enfer
-        maxZombiesPerZone.put(11, 60);   // Citadelle Finale
+        // 50 zones avec limites calculées dynamiquement
+        for (int zone = 1; zone <= 50; zone++) {
+            int limit;
+            if (zone <= 10) {
+                // ACTE I - LES DERNIERS JOURS: 60-100 zombies
+                limit = 60 + (zone * 4);
+            } else if (zone <= 20) {
+                // ACTE II - LA CONTAMINATION: 80-120 zombies
+                limit = 80 + ((zone - 10) * 4);
+            } else if (zone <= 30) {
+                // ACTE III - LE CHAOS: 100-140 zombies
+                limit = 100 + ((zone - 20) * 4);
+            } else if (zone <= 40) {
+                // ACTE IV - L'EXTINCTION: 90-110 zombies
+                limit = 90 + ((zone - 30) * 2);
+            } else {
+                // ACTE V - L'ORIGINE DU MAL: 70-80 zombies (plus difficile, moins nombreux)
+                limit = 70 + ((zone - 40));
+            }
+
+            // Zone PVP (26) - Moins de zombies
+            if (zone == 26) {
+                limit = 50;
+            }
+            // Zone Boss finale (50) - Moins de zombies mais plus dangereux
+            if (zone == 50) {
+                limit = 40;
+            }
+
+            maxZombiesPerZone.put(zone, limit);
+        }
     }
 
     /**
@@ -145,6 +164,7 @@ public class ZombieManager {
 
     /**
      * Crée un zombie personnalisé avec stats et apparence basées sur le type
+     * Scaling agressif pour atteindre 1000+ HP au niveau 100
      */
     private Zombie spawnCustomZombie(ZombieType type, Location location, int level) {
         if (location.getWorld() == null) return null;
@@ -153,18 +173,13 @@ public class ZombieManager {
             zombie.setRemoveWhenFarAway(true);
             zombie.setShouldBurnInDay(false);
 
-            // Calculer les stats selon le type et le niveau
-            double baseHealth = type.getBaseHealth();
-            double baseDamage = type.getBaseDamage();
+            // Calculer les stats via les méthodes de ZombieType (scaling exponentiel)
+            double finalHealth = type.calculateHealth(level);
+            double finalDamage = type.calculateDamage(level);
+
+            // Vitesse avec scaling léger
             double baseSpeed = type.getBaseSpeed();
-
-            // Bonus de niveau
-            double healthMultiplier = 1.0 + (level * 0.12);
-            double damageMultiplier = 1.0 + (level * 0.08);
-            double speedMultiplier = 1.0 + (level * 0.01);
-
-            double finalHealth = baseHealth * healthMultiplier;
-            double finalDamage = baseDamage * damageMultiplier;
+            double speedMultiplier = 1.0 + (level * 0.005); // +0.5% par niveau
             double finalSpeed = Math.min(0.45, baseSpeed * speedMultiplier); // Cap speed
 
             // Appliquer les attributs
@@ -351,21 +366,38 @@ public class ZombieManager {
 
     /**
      * Détermine si un zombie doit avoir un affix
+     * Scaling progressif sur 50 zones
      */
     private boolean shouldHaveAffix(int zoneId, ZombieType type) {
         if (type.isBoss()) return false; // Les boss ont leurs propres mécaniques
-        
-        // Chance d'affix basée sur la zone
-        double chance = switch (zoneId) {
-            case 1, 2, 3 -> 0.0;      // Pas d'affixes zones 1-3
-            case 4, 5 -> 0.05;        // 5% zones 4-5
-            case 6, 7 -> 0.10;        // 10% zones 6-7
-            case 8 -> 0.15;           // 15% zone 8
-            case 9 -> 0.25;           // 25% zone 9
-            case 10, 11 -> 0.35;      // 35% zones 10-11
-            default -> 0.0;
-        };
-        
+
+        // Chance d'affix basée sur la zone (progressive sur 50 zones)
+        double chance;
+        if (zoneId <= 5) {
+            // Zones 1-5: Pas d'affixes (tutorial)
+            chance = 0.0;
+        } else if (zoneId <= 10) {
+            // Zones 6-10: 2-5%
+            chance = 0.02 + ((zoneId - 5) * 0.006);
+        } else if (zoneId <= 20) {
+            // Zones 11-20: 5-15%
+            chance = 0.05 + ((zoneId - 10) * 0.01);
+        } else if (zoneId <= 30) {
+            // Zones 21-30: 15-25%
+            chance = 0.15 + ((zoneId - 20) * 0.01);
+        } else if (zoneId <= 40) {
+            // Zones 31-40: 25-35%
+            chance = 0.25 + ((zoneId - 30) * 0.01);
+        } else {
+            // Zones 41-50: 35-45% (late game très dangereux)
+            chance = 0.35 + ((zoneId - 40) * 0.01);
+        }
+
+        // Zone PVP (26) - Réduit les affixes
+        if (zoneId == 26) {
+            chance = 0.10;
+        }
+
         return Math.random() < chance;
     }
 
