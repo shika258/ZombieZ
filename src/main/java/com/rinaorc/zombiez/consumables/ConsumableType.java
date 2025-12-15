@@ -12,7 +12,7 @@ public enum ConsumableType {
     // Explosifs
     TNT_GRENADE("Grenade TNT", Material.TNT, ConsumableCategory.EXPLOSIVE,
         "Une grenade explosive qui inflige des dégâts de zone",
-        10.0, 4.0, 3.0), // baseDamage, baseRadius, baseDelay
+        10.0, 4.0, 2.0), // baseDamage, baseRadius, baseDelay (2s fixe, ne scale pas)
 
     INCENDIARY_BOMB("Bombe Incendiaire", Material.FIRE_CHARGE, ConsumableCategory.EXPLOSIVE,
         "Embrase le sol et inflige des dégâts continus",
@@ -20,7 +20,7 @@ public enum ConsumableType {
 
     STICKY_CHARGE("Charge Collante", Material.SLIME_BALL, ConsumableCategory.EXPLOSIVE,
         "Se colle aux zombies et explose après un délai",
-        15.0, 2.0, 1.5), // baseDamage, splashRadius, fuseTime
+        15.0, 2.0, 1.0), // baseDamage, splashRadius, fuseTime (1s fixe, ne scale pas)
 
     ACID_JAR("Bocal d'Acide", Material.FERMENTED_SPIDER_EYE, ConsumableCategory.EXPLOSIVE,
         "Crée une zone de poison affectant les zombies",
@@ -29,7 +29,7 @@ public enum ConsumableType {
     // Mobilité
     JETPACK("Jetpack", Material.FIREWORK_ROCKET, ConsumableCategory.MOBILITY,
         "Un jetpack avec carburant limité pour s'envoler",
-        5.0, 0.5, 0.0), // baseFuel (secondes), fuelConsumptionRate, unused
+        18.0, 0.5, 0.0), // baseFuel (secondes), fuelConsumptionRate, unused
 
     GRAPPLING_HOOK("Grappin", Material.FISHING_ROD, ConsumableCategory.MOBILITY,
         "Permet de se propulser vers un point",
@@ -125,6 +125,19 @@ public enum ConsumableType {
     }
 
     public double calculateScaledStat3(int zoneId, ConsumableRarity rarity) {
+        // Les délais d'explosion (TNT, Sticky) ne doivent PAS augmenter avec la zone/rareté
+        // Ils restent constants ou diminuent légèrement avec la rareté
+        if (this == TNT_GRENADE || this == STICKY_CHARGE) {
+            // Délai constant, légèrement réduit par la rareté (meilleur item = explosion plus rapide)
+            double rarityReduction = 1.0 - (rarity.ordinal() * 0.05); // -5% par niveau de rareté
+            return Math.max(0.5, baseStat3 * rarityReduction); // Minimum 0.5s
+        }
+        // Les cooldowns (grappin, perle) ne doivent pas augmenter non plus
+        if (this == GRAPPLING_HOOK || this == UNSTABLE_PEARL) {
+            // Cooldown constant ou légèrement réduit
+            double rarityReduction = 1.0 - (rarity.ordinal() * 0.1); // -10% par niveau de rareté
+            return Math.max(1.0, baseStat3 * rarityReduction); // Minimum 1s
+        }
         return baseStat3 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
     }
 }

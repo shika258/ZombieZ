@@ -748,6 +748,10 @@ public class ConsumableEffects {
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 1.5f);
         player.sendMessage("§b⚙ §7Tourelle déployée! Durée: " + String.format("%.0f", duration) + "s");
 
+        // Stocker la position initiale pour vérifier la distance
+        final Location spawnLocation = spawnLoc.clone();
+        final double maxDistanceFromOwner = 50.0; // Distance max avant despawn
+
         // Logique de la tourelle
         new BukkitRunnable() {
             int ticks = 0;
@@ -756,6 +760,25 @@ public class ConsumableEffects {
 
             @Override
             public void run() {
+                // Vérifier si le chunk est chargé
+                if (!spawnLocation.getChunk().isLoaded()) {
+                    if (turret.isValid()) {
+                        turret.remove();
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Vérifier si le joueur est toujours en ligne et pas trop loin
+                if (!player.isOnline() || player.getLocation().distance(spawnLocation) > maxDistanceFromOwner) {
+                    if (turret.isValid()) {
+                        turret.getWorld().spawnParticle(Particle.CLOUD, turret.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.03);
+                        turret.remove();
+                    }
+                    cancel();
+                    return;
+                }
+
                 if (!turret.isValid() || ticks++ >= maxTicks) {
                     if (turret.isValid()) {
                         turret.getWorld().spawnParticle(Particle.CLOUD, turret.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.05);

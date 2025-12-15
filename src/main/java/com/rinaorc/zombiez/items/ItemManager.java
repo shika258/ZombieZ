@@ -81,6 +81,13 @@ public class ItemManager {
             (Math.random() - 0.5) * 0.2
         ));
 
+        // Afficher le nom de l'item au sol avec la couleur de rareté
+        droppedItem.setCustomName(zItem.getRarity().getChatColor() + zItem.getGeneratedName());
+        droppedItem.setCustomNameVisible(true);
+
+        // Faire briller l'item avec la couleur de rareté
+        droppedItem.setGlowing(true);
+
         // Effets visuels selon la rareté
         if (zItem.getRarity().isAtLeast(Rarity.RARE)) {
             startDropEffect(droppedItem, zItem);
