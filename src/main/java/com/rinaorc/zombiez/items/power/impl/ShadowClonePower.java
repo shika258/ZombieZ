@@ -110,16 +110,16 @@ public class ShadowClonePower extends Power {
         clone.setRemoveWhenFarAway(false);
 
         // Santé du clone
-        clone.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).setBaseValue(health);
+        clone.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(health);
         clone.setHealth(health);
 
         // Vitesse du clone
-        clone.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(0.3);
+        clone.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.3);
 
         // Dégâts du clone (basé sur le pourcentage des dégâts du joueur)
         double playerDamage = player.getInventory().getItemInMainHand().getType().toString().contains("SWORD") ? 7.0 : 2.0;
         double cloneDamage = playerDamage * damagePercent;
-        clone.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(cloneDamage);
+        clone.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(cloneDamage);
 
         // Invisibilité partielle (fumée d'ombre)
         clone.addPotionEffect(

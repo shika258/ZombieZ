@@ -90,7 +90,7 @@ public class PhoenixRebirthPower extends Power {
 
         // Notification
         player.sendMessage("§6🔥 §e§lRENAISSANCE DU PHÉNIX!");
-        loc.getWorld().playSound(loc, Sound.ENTITY_PHOENIX_DEATH, 2.0f, 1.0f);
+        loc.getWorld().playSound(loc, Sound.ITEM_TOTEM_USE, 2.0f, 1.0f);
 
         // Animation de résurrection
         new BukkitRunnable() {
@@ -157,7 +157,7 @@ public class PhoenixRebirthPower extends Power {
         Location loc = player.getLocation();
 
         // Restaurer la santé
-        double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
         double newHealth = maxHealth * healthPercent;
         player.setHealth(newHealth);
 
