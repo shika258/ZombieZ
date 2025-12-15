@@ -2,17 +2,20 @@ package com.rinaorc.zombiez.items.power;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.ZombieZItem;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityShootBowEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +36,11 @@ public class PowerTriggerListener implements Listener {
     private final NamespacedKey keyPowerId;
     private final NamespacedKey keyItemLevel;
 
+    // Clés PDC pour stocker les données de pouvoir sur les projectiles
+    private final NamespacedKey keyProjectileHasPower;
+    private final NamespacedKey keyProjectilePowerId;
+    private final NamespacedKey keyProjectileItemLevel;
+
     public PowerTriggerListener(ZombieZPlugin plugin, PowerManager powerManager) {
         this.plugin = plugin;
         this.powerManager = powerManager;
@@ -40,19 +48,19 @@ public class PowerTriggerListener implements Listener {
         this.keyHasPower = new NamespacedKey(plugin, "has_power");
         this.keyPowerId = new NamespacedKey(plugin, "power_id");
         this.keyItemLevel = new NamespacedKey(plugin, "item_level");
+
+        // Clés pour les projectiles
+        this.keyProjectileHasPower = new NamespacedKey(plugin, "proj_has_power");
+        this.keyProjectilePowerId = new NamespacedKey(plugin, "proj_power_id");
+        this.keyProjectileItemLevel = new NamespacedKey(plugin, "proj_item_level");
     }
 
     /**
-     * Trigger: Quand un joueur frappe une entité
+     * Trigger: Quand un joueur frappe une entité (mêlée ou projectile)
      * Type de trigger le plus commun pour les pouvoirs
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // Vérifier que c'est un joueur qui attaque
-        if (!(event.getDamager() instanceof Player player)) {
-            return;
-        }
-
         // Vérifier que la victime est une entité vivante
         if (!(event.getEntity() instanceof LivingEntity target)) {
             return;
@@ -63,6 +71,28 @@ public class PowerTriggerListener implements Listener {
             return;
         }
 
+        Entity damager = event.getDamager();
+
+        // ═══════════════════════════════════════════════════════════════
+        // CAS 1: Attaque directe par un joueur (mêlée)
+        // ═══════════════════════════════════════════════════════════════
+        if (damager instanceof Player player) {
+            handleMeleeAttack(player, target);
+            return;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CAS 2: Attaque par projectile (arc, arbalète, trident)
+        // ═══════════════════════════════════════════════════════════════
+        if (damager instanceof Projectile projectile) {
+            handleProjectileAttack(projectile, target);
+        }
+    }
+
+    /**
+     * Gère les attaques au corps à corps
+     */
+    private void handleMeleeAttack(Player player, LivingEntity target) {
         // Obtenir l'item en main
         ItemStack weapon = player.getInventory().getItemInMainHand();
 
@@ -84,6 +114,121 @@ public class PowerTriggerListener implements Listener {
             // Déclencher le pouvoir
             power.trigger(player, target, itemLevel);
         });
+    }
+
+    /**
+     * Gère les attaques par projectile (arc, arbalète, trident)
+     */
+    private void handleProjectileAttack(Projectile projectile, LivingEntity target) {
+        // Vérifier que le tireur est un joueur
+        ProjectileSource shooter = projectile.getShooter();
+        if (!(shooter instanceof Player player)) {
+            return;
+        }
+
+        // Vérifier si le projectile a un pouvoir stocké
+        PersistentDataContainer pdc = projectile.getPersistentDataContainer();
+
+        if (!pdc.has(keyProjectileHasPower, PersistentDataType.BYTE)) {
+            return;
+        }
+
+        Byte hasPower = pdc.get(keyProjectileHasPower, PersistentDataType.BYTE);
+        if (hasPower == null || hasPower != 1) {
+            return;
+        }
+
+        String powerId = pdc.get(keyProjectilePowerId, PersistentDataType.STRING);
+        Integer itemLevel = pdc.get(keyProjectileItemLevel, PersistentDataType.INTEGER);
+
+        if (powerId == null) {
+            return;
+        }
+
+        int finalItemLevel = itemLevel != null ? itemLevel : 1;
+
+        // Déclencher le pouvoir
+        powerManager.getPower(powerId).ifPresent(power -> {
+            power.trigger(player, target, finalItemLevel);
+        });
+    }
+
+    /**
+     * Quand un joueur tire avec un arc/arbalète, stocker les données du pouvoir sur le projectile
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onBowShoot(EntityShootBowEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+
+        if (!(event.getProjectile() instanceof Projectile projectile)) {
+            return;
+        }
+
+        // Vérifier si le système est activé
+        if (!powerManager.isEnabled()) {
+            return;
+        }
+
+        // L'arc/arbalète utilisé
+        ItemStack bow = event.getBow();
+        if (bow == null || !hasPower(bow)) {
+            return;
+        }
+
+        // Transférer les données du pouvoir vers le projectile
+        String powerId = getPowerId(bow);
+        int itemLevel = getItemLevel(bow);
+
+        if (powerId != null) {
+            PersistentDataContainer pdc = projectile.getPersistentDataContainer();
+            pdc.set(keyProjectileHasPower, PersistentDataType.BYTE, (byte) 1);
+            pdc.set(keyProjectilePowerId, PersistentDataType.STRING, powerId);
+            pdc.set(keyProjectileItemLevel, PersistentDataType.INTEGER, itemLevel);
+        }
+    }
+
+    /**
+     * Quand un trident est lancé, stocker les données du pouvoir sur le projectile
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+
+        // Gérer spécifiquement les tridents
+        if (!(projectile instanceof Trident trident)) {
+            return;
+        }
+
+        ProjectileSource shooter = projectile.getShooter();
+        if (!(shooter instanceof Player player)) {
+            return;
+        }
+
+        // Vérifier si le système est activé
+        if (!powerManager.isEnabled()) {
+            return;
+        }
+
+        // Pour les tridents, l'item est dans la main du joueur
+        ItemStack tridentItem = player.getInventory().getItemInMainHand();
+
+        // Vérifier si c'est un trident avec pouvoir
+        if (tridentItem.getType() != Material.TRIDENT || !hasPower(tridentItem)) {
+            return;
+        }
+
+        // Transférer les données du pouvoir vers le projectile
+        String powerId = getPowerId(tridentItem);
+        int itemLevel = getItemLevel(tridentItem);
+
+        if (powerId != null) {
+            PersistentDataContainer pdc = projectile.getPersistentDataContainer();
+            pdc.set(keyProjectileHasPower, PersistentDataType.BYTE, (byte) 1);
+            pdc.set(keyProjectilePowerId, PersistentDataType.STRING, powerId);
+            pdc.set(keyProjectileItemLevel, PersistentDataType.INTEGER, itemLevel);
+        }
     }
 
     /**

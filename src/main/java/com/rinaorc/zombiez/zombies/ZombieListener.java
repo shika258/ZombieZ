@@ -106,31 +106,41 @@ public class ZombieListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onZombieDamaged(EntityDamageByEntityEvent event) {
         Entity victim = event.getEntity();
-        
+
         // Vérifier si le zombie est la victime
         if (!zombieManager.isZombieZMob(victim)) {
             return;
         }
-        
+
         // Obtenir l'attaquant (joueur)
         Player attacker = getPlayerAttacker(event);
         if (attacker == null) {
             return;
         }
-        
+
         // Obtenir l'ActiveZombie
         ZombieManager.ActiveZombie zombie = zombieManager.getActiveZombie(victim.getUniqueId());
         if (zombie == null) {
             return;
         }
-        
+
         // Calculer les dégâts modifiés du joueur
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
-        
+
         // Gérer les abilities spéciales d'affix défensif
         if (zombie.hasAffix()) {
             handleAffixSpecialDefense(zombie.getAffix(), (LivingEntity) victim, attacker, event);
+        }
+
+        // Mettre à jour l'affichage de vie dans le nom du zombie
+        // (Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts)
+        if (victim instanceof LivingEntity livingVictim) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (livingVictim.isValid() && !livingVictim.isDead()) {
+                    zombieManager.updateZombieHealthDisplay(livingVictim);
+                }
+            });
         }
     }
 
