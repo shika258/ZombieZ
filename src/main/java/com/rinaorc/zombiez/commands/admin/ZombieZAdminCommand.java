@@ -26,8 +26,8 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
     private final ZombieZPlugin plugin;
 
     private static final List<String> SUBCOMMANDS = Arrays.asList(
-        "reload", "info", "stats", "setzone", "givexp", "givepoints", 
-        "givegems", "setlevel", "teleport", "debug", "cache"
+        "reload", "info", "stats", "setzone", "givexp", "givepoints",
+        "givegems", "setlevel", "teleport", "debug", "cache", "setspawn", "givekit"
     );
 
     public ZombieZAdminCommand(ZombieZPlugin plugin) {
@@ -63,6 +63,8 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
             case "teleport", "tp" -> handleTeleport(sender, args);
             case "debug" -> handleDebug(sender);
             case "cache" -> handleCache(sender);
+            case "setspawn" -> handleSetSpawn(sender);
+            case "givekit" -> handleGiveKit(sender, args);
             default -> sendHelp(sender);
         }
 
@@ -85,6 +87,8 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zombiez givegems <joueur> <montant> §7- Donner Gems");
         sender.sendMessage("§e/zombiez setlevel <joueur> <niveau> §7- Définir niveau");
         sender.sendMessage("§e/zombiez tp <zone> §7- TP vers une zone");
+        sender.sendMessage("§e/zombiez setspawn §7- Définir le spawn ici");
+        sender.sendMessage("§e/zombiez givekit [joueur] §7- Donner le kit de départ");
         sender.sendMessage("§e/zombiez debug §7- Activer/désactiver debug");
         sender.sendMessage("§e/zombiez cache §7- Statistiques du cache");
         sender.sendMessage("§8§m                                        ");
@@ -331,6 +335,55 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§8§m                                        ");
     }
 
+    /**
+     * Définit le point de spawn à la position actuelle du joueur
+     */
+    private void handleSetSpawn(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cCommande joueur uniquement!");
+            return;
+        }
+
+        org.bukkit.Location loc = player.getLocation();
+
+        // Sauvegarder dans la config
+        org.bukkit.configuration.file.FileConfiguration config = plugin.getConfig();
+        config.set("gameplay.spawn.x", loc.getX());
+        config.set("gameplay.spawn.y", loc.getY());
+        config.set("gameplay.spawn.z", loc.getZ());
+        config.set("gameplay.spawn.yaw", loc.getYaw());
+        config.set("gameplay.spawn.pitch", loc.getPitch());
+
+        plugin.saveConfig();
+
+        sender.sendMessage("§a✓ Point de spawn défini!");
+        sender.sendMessage(String.format("§7  Coordonnées: §e%.1f, %.1f, %.1f", loc.getX(), loc.getY(), loc.getZ()));
+        sender.sendMessage(String.format("§7  Rotation: §e%.1f, %.1f", loc.getYaw(), loc.getPitch()));
+    }
+
+    /**
+     * Donne le kit de départ à un joueur
+     */
+    private void handleGiveKit(CommandSender sender, String[] args) {
+        Player target;
+
+        if (args.length >= 2) {
+            target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage("§cJoueur non trouvé!");
+                return;
+            }
+        } else if (sender instanceof Player player) {
+            target = player;
+        } else {
+            sender.sendMessage("§cUsage: /zombiez givekit <joueur>");
+            return;
+        }
+
+        plugin.getStarterKitManager().giveStarterKit(target);
+        sender.sendMessage("§a✓ Kit de départ donné à " + target.getName());
+    }
+
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                 @NotNull String alias, @NotNull String[] args) {
@@ -349,9 +402,9 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
             }
         } else if (args.length == 2) {
             String subCmd = args[0].toLowerCase();
-            if (subCmd.equals("stats") || subCmd.equals("givexp") || 
-                subCmd.equals("givepoints") || subCmd.equals("givegems") || 
-                subCmd.equals("setlevel")) {
+            if (subCmd.equals("stats") || subCmd.equals("givexp") ||
+                subCmd.equals("givepoints") || subCmd.equals("givegems") ||
+                subCmd.equals("setlevel") || subCmd.equals("givekit")) {
                 // Complétion des noms de joueurs
                 String partial = args[1].toLowerCase();
                 for (Player p : Bukkit.getOnlinePlayers()) {

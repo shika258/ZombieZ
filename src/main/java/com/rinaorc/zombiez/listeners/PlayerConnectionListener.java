@@ -73,6 +73,15 @@ public class PlayerConnectionListener implements Listener {
             // Nouveau joueur
             sendWelcomeMessage(player);
             MessageUtils.broadcast("§a+ §7Bienvenue à §e" + player.getName() + " §7dans l'apocalypse!");
+
+            // Donner le kit de départ après un délai pour laisser le temps au joueur de voir les messages
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    plugin.getStarterKitManager().giveStarterKit(player);
+                    // Téléporter au spawn si configuré
+                    teleportToSpawn(player);
+                }
+            }, 60L); // 3 secondes après la connexion
         } else {
             // Joueur existant
             sendReturnMessage(player, data);
@@ -83,6 +92,27 @@ public class PlayerConnectionListener implements Listener {
         if (plugin.getConfigManager().isDebugMode()) {
             plugin.log(Level.INFO, "§7Joueur " + player.getName() + " chargé (Niveau " + 
                 data.getLevel().get() + ", Zone " + data.getCurrentZone().get() + ")");
+        }
+    }
+
+    /**
+     * Téléporte le joueur au spawn configuré
+     */
+    private void teleportToSpawn(Player player) {
+        // Lire les coordonnées de spawn depuis la config
+        org.bukkit.configuration.file.FileConfiguration config = plugin.getConfig();
+
+        if (config.contains("gameplay.spawn.x")) {
+            double x = config.getDouble("gameplay.spawn.x", 621);
+            double y = config.getDouble("gameplay.spawn.y", 70);
+            double z = config.getDouble("gameplay.spawn.z", 10300);
+            float yaw = (float) config.getDouble("gameplay.spawn.yaw", 0);
+            float pitch = (float) config.getDouble("gameplay.spawn.pitch", 0);
+
+            org.bukkit.World world = plugin.getServer().getWorlds().get(0);
+            org.bukkit.Location spawnLoc = new org.bukkit.Location(world, x, y, z, yaw, pitch);
+
+            player.teleport(spawnLoc);
         }
     }
 

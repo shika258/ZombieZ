@@ -36,7 +36,7 @@ public class SpawnSystem {
     
     // Compteur de spawns pour éviter le lag
     private int spawnsThisTick = 0;
-    private static final int MAX_SPAWNS_PER_TICK = 5;
+    private static final int MAX_SPAWNS_PER_TICK = 20;
     
     // État du système
     @Getter
@@ -63,71 +63,72 @@ public class SpawnSystem {
 
     /**
      * Initialise les configurations de spawn par zone
+     * Valeurs augmentées pour plus de zombies
      */
     private void initializeZoneConfigs() {
         // Zone 0 - Spawn (pas de zombies)
         zoneConfigs.put(0, new ZoneSpawnConfig(0, 0, 0, 0, 0));
-        
+
         // Zone 1 - Village (introduction douce)
         zoneConfigs.put(1, new ZoneSpawnConfig(
-            30,     // maxZombies
-            3,      // spawnRate (par minute par joueur)
-            25, 40, // spawnRadius min/max
+            80,     // maxZombies (augmenté)
+            15,     // spawnRate (par minute par joueur) - augmenté de 3 à 15
+            20, 35, // spawnRadius min/max (réduit pour spawn plus proche)
             1       // niveau moyen
         ));
-        
+
         // Zone 2 - Plaines
-        zoneConfigs.put(2, new ZoneSpawnConfig(40, 4, 25, 45, 2));
-        
+        zoneConfigs.put(2, new ZoneSpawnConfig(100, 18, 20, 40, 2));
+
         // Zone 3 - Désert
-        zoneConfigs.put(3, new ZoneSpawnConfig(45, 5, 25, 45, 3));
-        
+        zoneConfigs.put(3, new ZoneSpawnConfig(120, 20, 20, 40, 3));
+
         // Zone 4 - Forêt Sombre
-        zoneConfigs.put(4, new ZoneSpawnConfig(40, 5, 20, 40, 4));
-        
+        zoneConfigs.put(4, new ZoneSpawnConfig(120, 22, 15, 35, 4));
+
         // Zone 5 - Marécages
-        zoneConfigs.put(5, new ZoneSpawnConfig(50, 6, 20, 40, 5));
-        
+        zoneConfigs.put(5, new ZoneSpawnConfig(140, 25, 15, 35, 5));
+
         // Zone 6 - Zone PvP
-        zoneConfigs.put(6, new ZoneSpawnConfig(60, 8, 25, 50, 6));
-        
+        zoneConfigs.put(6, new ZoneSpawnConfig(160, 30, 20, 45, 6));
+
         // Zone 7 - Montagnes
-        zoneConfigs.put(7, new ZoneSpawnConfig(45, 5, 25, 45, 7));
-        
+        zoneConfigs.put(7, new ZoneSpawnConfig(130, 25, 20, 40, 7));
+
         // Zone 8 - Toundra
-        zoneConfigs.put(8, new ZoneSpawnConfig(40, 5, 25, 45, 8));
-        
+        zoneConfigs.put(8, new ZoneSpawnConfig(120, 22, 20, 40, 8));
+
         // Zone 9 - Terres Corrompues
-        zoneConfigs.put(9, new ZoneSpawnConfig(35, 4, 20, 40, 9));
-        
+        zoneConfigs.put(9, new ZoneSpawnConfig(100, 20, 15, 35, 9));
+
         // Zone 10 - Enfer
-        zoneConfigs.put(10, new ZoneSpawnConfig(30, 4, 20, 35, 10));
-        
+        zoneConfigs.put(10, new ZoneSpawnConfig(90, 18, 15, 30, 10));
+
         // Zone 11 - Citadelle Finale
-        zoneConfigs.put(11, new ZoneSpawnConfig(20, 3, 15, 30, 12));
+        zoneConfigs.put(11, new ZoneSpawnConfig(60, 15, 10, 25, 12));
     }
 
     /**
      * Démarre la tâche de spawn
      */
     private void startSpawnTask() {
-        // Task principal de spawn (toutes les secondes)
+        // Task principal de spawn (toutes les demi-secondes pour spawn plus réactif)
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (!enabled) return;
-                
+
                 spawnsThisTick = 0;
-                
+
                 // Vérifier le cycle jour/nuit pour le boost
                 updateNightBoost();
-                
+
                 // Spawn pour chaque joueur
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     processPlayerSpawn(player);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+        }.runTaskTimer(plugin, 10L, 10L); // Toutes les demi-secondes
         
         // Task de nettoyage (toutes les 30 secondes)
         new BukkitRunnable() {
@@ -287,12 +288,12 @@ public class SpawnSystem {
         if (block.isLiquid()) return false;
         
         // Pas trop proche du joueur
-        if (loc.distance(player.getLocation()) < 15) return false;
-        
-        // Vérifier la luminosité (plus sombre = plus de chance)
+        if (loc.distance(player.getLocation()) < 12) return false;
+
+        // Vérifier la luminosité (plus sombre = plus de chance, mais spawn quand même en lumière)
         int lightLevel = block.getLightLevel();
-        if (lightLevel > 10 && random.nextDouble() > 0.3) return false;
-        
+        if (lightLevel > 12 && random.nextDouble() > 0.7) return false; // 70% chance de spawn même en lumière
+
         return true;
     }
     

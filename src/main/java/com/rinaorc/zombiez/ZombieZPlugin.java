@@ -89,6 +89,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
     // Utilitaires
     @Getter private DamageIndicatorManager damageIndicatorManager;
+    @Getter private com.rinaorc.zombiez.managers.StarterKitManager starterKitManager;
 
     // État du plugin
     @Getter private boolean fullyLoaded = false;
@@ -273,6 +274,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Damage Indicator Manager - Hologrammes de dégâts
         damageIndicatorManager = new DamageIndicatorManager(this);
+
+        // Starter Kit Manager - Kit de départ pour les nouveaux joueurs
+        starterKitManager = new com.rinaorc.zombiez.managers.StarterKitManager(this);
     }
 
     /**

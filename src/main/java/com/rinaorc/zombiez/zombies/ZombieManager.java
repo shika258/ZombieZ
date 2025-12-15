@@ -148,6 +148,17 @@ public class ZombieManager {
             zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(baseHealth);
             zombie.setHealth(baseHealth);
 
+            // Ajuster la vitesse selon le type (simulation d'IA différente)
+            double speedBonus = getSpeedBonusForType(baseName);
+            zombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.23 * (1 + speedBonus));
+
+            // Ajuster les dégâts selon le niveau
+            double attackDamage = 3 + (level * 0.5);
+            zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(attackDamage);
+
+            // DÉSACTIVER LA BRÛLURE AU SOLEIL
+            zombie.setShouldBurnInDay(false);
+
             // Créer le nom avec barre de vie
             String nameWithHealth = HealthBarUtils.createZombieNameWithHealth(
                 baseName, level, baseHealth, baseHealth, null, null
@@ -155,7 +166,76 @@ public class ZombieManager {
             zombie.setCustomName(nameWithHealth);
             zombie.setCustomNameVisible(true);
             zombie.setRemoveWhenFarAway(true);
+
+            // Appliquer des effets selon le type de zombie
+            applyZombieTypeEffects(zombie, baseName, level);
         });
+    }
+
+    /**
+     * Obtient le bonus de vitesse selon le type de zombie
+     */
+    private double getSpeedBonusForType(String typeName) {
+        return switch (typeName.toUpperCase()) {
+            case "RUNNER", "CRAWLER" -> 0.4;      // 40% plus rapide
+            case "SHADOW", "LURKER" -> 0.2;       // 20% plus rapide
+            case "BERSERKER" -> 0.3;              // 30% plus rapide
+            case "GIANT", "BLOATER" -> -0.3;     // 30% plus lent
+            case "YETI", "ABOMINATION" -> -0.2;  // 20% plus lent
+            default -> 0.0;
+        };
+    }
+
+    /**
+     * Applique des effets spéciaux selon le type de zombie
+     */
+    private void applyZombieTypeEffects(org.bukkit.entity.Zombie zombie, String typeName, int level) {
+        switch (typeName.toUpperCase()) {
+            case "GIANT", "YETI", "ABOMINATION" -> {
+                // Plus gros et plus de vie
+                zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombie.getMaxHealth() * 2);
+                zombie.setHealth(zombie.getMaxHealth());
+                zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(
+                    zombie.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 1.5);
+            }
+            case "RUNNER" -> {
+                // Très rapide mais moins de vie
+                zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombie.getMaxHealth() * 0.6);
+                zombie.setHealth(zombie.getMaxHealth());
+            }
+            case "BERSERKER" -> {
+                // Plus de dégâts
+                zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(
+                    zombie.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 2);
+            }
+            case "BLOATER" -> {
+                // Beaucoup de vie, lent
+                zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombie.getMaxHealth() * 3);
+                zombie.setHealth(zombie.getMaxHealth());
+            }
+            case "DEMON", "INFERNAL", "ARCHON" -> {
+                // Résistant au feu et plus dangereux
+                zombie.setFireTicks(0);
+                zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(
+                    zombie.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 1.8);
+            }
+            case "ELITE", "CHAMPION" -> {
+                // Version améliorée
+                zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombie.getMaxHealth() * 2.5);
+                zombie.setHealth(zombie.getMaxHealth());
+                zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(
+                    zombie.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 2);
+                zombie.getAttribute(Attribute.ARMOR).setBaseValue(10);
+            }
+            case "BOSS" -> {
+                // Boss très puissant
+                zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(500 + (level * 50));
+                zombie.setHealth(zombie.getMaxHealth());
+                zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(15 + (level * 2));
+                zombie.getAttribute(Attribute.ARMOR).setBaseValue(20);
+                zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE).setBaseValue(1.0);
+            }
+        }
     }
 
     /**
