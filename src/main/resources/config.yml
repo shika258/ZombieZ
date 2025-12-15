@@ -71,17 +71,17 @@ gameplay:
   
   # Limites de la carte
   map:
-    min-x: -500
-    max-x: 500
-    min-z: 0
-    max-z: 10000
-  
+    min-x: 0
+    max-x: 1242
+    min-z: -90
+    max-z: 10399
+
   # Point de spawn
   spawn:
     world: world
-    x: 0
+    x: 621
     y: 70
-    z: 50
+    z: 10300
   
   # Régénération naturelle désactivée
   disable-natural-regen: true
