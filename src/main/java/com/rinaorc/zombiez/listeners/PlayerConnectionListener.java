@@ -258,32 +258,28 @@ public class PlayerConnectionListener implements Listener {
         // Steak Juteux x8 (UNCOMMON - Vache)
         FoodItem juicySteak = registry.getItem("juicy_steak");
         if (juicySteak != null) {
-            ItemStack steakStack = juicySteak.createItemStack();
-            steakStack.setAmount(8);
+            ItemStack steakStack = juicySteak.createItemStack(8);
             player.getInventory().addItem(steakStack);
         }
 
         // Poulet Grillé x8 (UNCOMMON - Poulet)
         FoodItem grilledChicken = registry.getItem("grilled_chicken");
         if (grilledChicken != null) {
-            ItemStack chickenStack = grilledChicken.createItemStack();
-            chickenStack.setAmount(8);
+            ItemStack chickenStack = grilledChicken.createItemStack(8);
             player.getInventory().addItem(chickenStack);
         }
 
         // Jambon Fumé x4 (UNCOMMON - Cochon)
         FoodItem smokedHam = registry.getItem("smoked_ham");
         if (smokedHam != null) {
-            ItemStack hamStack = smokedHam.createItemStack();
-            hamStack.setAmount(4);
+            ItemStack hamStack = smokedHam.createItemStack(4);
             player.getInventory().addItem(hamStack);
         }
 
         // Côtelette d'Agneau x4 (COMMON - Mouton)
         FoodItem lambChop = registry.getItem("lamb_chop");
         if (lambChop != null) {
-            ItemStack lambStack = lambChop.createItemStack();
-            lambStack.setAmount(4);
+            ItemStack lambStack = lambChop.createItemStack(4);
             player.getInventory().addItem(lambStack);
         }
     }
