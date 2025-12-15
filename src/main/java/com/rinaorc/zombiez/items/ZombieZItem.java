@@ -190,7 +190,7 @@ public class ZombieZItem {
         ItemStack item = toItemStack();
 
         if (power != null && powerListener != null) {
-            powerListener.applyPowerToItem(item, power, itemLevel);
+            powerListener.applyPowerToItem(item, power, itemLevel, zoneLevel, rarity);
         }
 
         return item;
@@ -232,7 +232,7 @@ public class ZombieZItem {
                 for (var stat : stats) {
                     StatType type = stat.getKey();
                     double value = stat.getValue();
-                    String valueColor = value >= 0 ? "§a+" : "§c";
+                    String valueColor = value >= 0 ? "§a" : "§c";
                     String formattedValue = type.formatValue(value);
 
                     // Format compact
@@ -246,6 +246,9 @@ public class ZombieZItem {
         // AFFIXES (version compacte)
         // ═══════════════════════════════════════
         if (!affixes.isEmpty()) {
+            // Séparateur avant les affixes
+            lore.add("§8§m                    ");
+            lore.add("");
             lore.add("§d⚜ AFFIXES §8(" + affixes.size() + ")");
 
             for (RolledAffix rolledAffix : affixes) {
@@ -260,14 +263,9 @@ public class ZombieZItem {
                 for (var entry : rolledAffix.getRolledStats().entrySet()) {
                     StatType type = entry.getKey();
                     double value = entry.getValue();
-                    String valueColor = value >= 0 ? "§a+" : "§c";
+                    String valueColor = value >= 0 ? "§a" : "§c";
                     String godRollIndicator = type.isGodRoll(value) ? " §6✦" : "";
                     lore.add("  §7" + type.getDisplayName() + ": " + valueColor + type.formatValue(value) + godRollIndicator);
-                }
-
-                // Effet spécial
-                if (affix.getSpecialDescription() != null) {
-                    lore.add("  §d✦ " + affix.getSpecialDescription());
                 }
             }
             lore.add("");

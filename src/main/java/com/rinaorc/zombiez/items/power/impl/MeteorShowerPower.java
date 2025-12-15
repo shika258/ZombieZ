@@ -306,12 +306,17 @@ public class MeteorShowerPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts/météore: §c" + String.format("%.1f", calculateDamage(itemLevel)));
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        double scaledRadius = getScaledRadius(calculateRadius(itemLevel), zoneId);
+        int scaledFireDuration = getScaledDuration(calculateFireDuration(itemLevel), zoneId);
+
+        stats.add("§8Dégâts/météore: §c" + String.format("%.1f", scaledDamage));
         stats.add("§8Nombre: §e" + calculateMeteorCount(itemLevel) + " météores");
-        stats.add("§8Rayon: §e" + String.format("%.1f", calculateRadius(itemLevel)) + " blocs");
-        stats.add("§8Feu: §6" + String.format("%.1f", calculateFireDuration(itemLevel) / 20.0) + "s");
+        stats.add("§8Rayon: §e" + String.format("%.1f", scaledRadius) + " blocs");
+        stats.add("§8Feu: §6" + String.format("%.1f", scaledFireDuration / 20.0) + "s");
         stats.add("§8Effets: §6Feu, §8Wither II");
         return stats;
     }

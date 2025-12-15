@@ -160,11 +160,15 @@ public class LightningStrikePower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts: §c" + String.format("%.1f", calculateDamage(itemLevel)));
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        int scaledStunDuration = getScaledDuration(calculateStunDuration(itemLevel), zoneId);
+
+        stats.add("§8Dégâts: §c" + String.format("%.1f", scaledDamage));
         stats.add("§8Chance critique: §e" + String.format("%.1f%%", calculateCritChance(itemLevel) * 100));
-        stats.add("§8Paralysie: §e" + String.format("%.1f", calculateStunDuration(itemLevel) / 20.0) + "s");
+        stats.add("§8Paralysie: §e" + String.format("%.1f", scaledStunDuration / 20.0) + "s");
         stats.add("§8Effet: §bSlowness IV");
         return stats;
     }

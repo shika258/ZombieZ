@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.items.power;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.types.Rarity;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.*;
@@ -302,8 +303,25 @@ public class PowerTriggerListener implements Listener {
     /**
      * Applique un pouvoir à un item
      * Utilisé lors de la génération d'items
+     *
+     * @deprecated Utiliser applyPowerToItem(ItemStack, Power, int, int, Rarity) pour le scaling correct
      */
+    @Deprecated
     public void applyPowerToItem(ItemStack item, Power power, int itemLevel) {
+        applyPowerToItem(item, power, itemLevel, 1, Rarity.RARE);
+    }
+
+    /**
+     * Applique un pouvoir à un item avec le scaling correct par zone et rareté
+     * Utilisé lors de la génération d'items
+     *
+     * @param item L'item sur lequel appliquer le pouvoir
+     * @param power Le pouvoir à appliquer
+     * @param itemLevel L'Item Level de l'item
+     * @param zoneId Zone de l'item (pour scaling des dégâts/effets)
+     * @param rarity Rareté de l'item (pour bonus de proc chance)
+     */
+    public void applyPowerToItem(ItemStack item, Power power, int itemLevel, int zoneId, Rarity rarity) {
         if (item == null || !item.hasItemMeta()) {
             return;
         }
@@ -323,8 +341,24 @@ public class PowerTriggerListener implements Listener {
         lore.add("");
         lore.add("§8§m                    ");
 
-        // Ajouter les lignes du pouvoir
-        lore.addAll(power.getLore(itemLevel));
+        // Ajouter l'en-tête "Pouvoir : nom"
+        lore.add("");
+        lore.add("§d✦ Pouvoir : §l" + power.getDisplayName());
+
+        // Ajouter la description
+        lore.add("§7" + power.getDescription());
+
+        // Ajouter les stats du pouvoir (dégâts, durée, etc.)
+        List<String> powerStats = power.getPowerStats(itemLevel, zoneId);
+        for (String stat : powerStats) {
+            lore.add(stat);
+        }
+
+        // Ajouter la chance et le cooldown
+        lore.add("§8Chance: §e" + String.format("%.1f%%", power.calculateProcChance(zoneId, rarity) * 100));
+        if (power.getCooldownMs() > 0) {
+            lore.add("§8Cooldown: §e" + (power.getCooldownMs() / 1000) + "s");
+        }
 
         meta.setLore(lore);
         item.setItemMeta(meta);

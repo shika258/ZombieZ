@@ -198,11 +198,16 @@ public class PandaRollPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts: §c" + String.format("%.1f", calculateDamage(itemLevel)));
-        stats.add("§8Rayon: §e" + String.format("%.1f", calculateRadius(itemLevel)) + " blocs");
-        stats.add("§8Durée: §e" + String.format("%.1f", calculateDuration(itemLevel) / 20.0) + "s");
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamage(itemLevel), zoneId);
+        double scaledRadius = getScaledRadius(calculateRadius(itemLevel), zoneId);
+        int scaledDuration = getScaledDuration(calculateDuration(itemLevel), zoneId);
+
+        stats.add("§8Dégâts: §c" + String.format("%.1f", scaledDamage));
+        stats.add("§8Rayon: §e" + String.format("%.1f", scaledRadius) + " blocs");
+        stats.add("§8Durée: §e" + String.format("%.1f", scaledDuration / 20.0) + "s");
         return stats;
     }
 }

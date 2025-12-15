@@ -251,11 +251,15 @@ public class BeeSwarmPower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts/abeille: §c" + String.format("%.1f", calculateDamagePerBee(itemLevel)));
+        // Scaling par zone
+        double scaledDamage = getScaledDamage(calculateDamagePerBee(itemLevel), zoneId);
+        int scaledDuration = getScaledDuration(calculateDuration(itemLevel), zoneId);
+
+        stats.add("§8Dégâts/abeille: §c" + String.format("%.1f", scaledDamage));
         stats.add("§8Nombre d'abeilles: §e" + calculateBeeCount(itemLevel));
-        stats.add("§8Durée: §e" + String.format("%.1f", calculateDuration(itemLevel) / 20.0) + "s");
+        stats.add("§8Durée: §e" + String.format("%.1f", scaledDuration / 20.0) + "s");
         stats.add("§8Effet: §2Poison I");
         return stats;
     }

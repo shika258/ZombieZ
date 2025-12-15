@@ -267,13 +267,22 @@ public class ShadowClonePower extends Power {
     }
 
     @Override
-    protected List<String> getPowerStats(int itemLevel) {
+    public List<String> getPowerStats(int itemLevel, int zoneId) {
         List<String> stats = new ArrayList<>();
-        stats.add("§8Dégâts: §c" + String.format("%.0f%%", calculateCloneDamage(itemLevel) * 100) + " des vôtres");
-        stats.add("§8Santé: §a" + String.format("%.0f", calculateCloneHealth(itemLevel)) + " ❤");
-        stats.add("§8Durée: §e" + String.format("%.1f", calculateDuration(itemLevel) / 20.0) + "s");
-        stats.add("§8Nombre: §e" + calculateCloneCount(itemLevel) + " clone" +
-            (calculateCloneCount(itemLevel) > 1 ? "s" : ""));
+        // Scaling par zone pour les stats du clone
+        double zoneDamageMultiplier = getScaledDamage(1.0, zoneId);
+        double zoneHealthMultiplier = getScaledRadius(1.0, zoneId); // Utilise le même scaling que le rayon
+        int zoneDurationBonus = getScaledDuration(0, zoneId);
+
+        double cloneDamage = calculateCloneDamage(itemLevel) * zoneDamageMultiplier;
+        double cloneHealth = calculateCloneHealth(itemLevel) * zoneHealthMultiplier;
+        int duration = calculateDuration(itemLevel) + zoneDurationBonus;
+        int cloneCount = calculateCloneCount(itemLevel);
+
+        stats.add("§8Dégâts: §c" + String.format("%.0f%%", cloneDamage * 100) + " des vôtres");
+        stats.add("§8Santé: §a" + String.format("%.0f", cloneHealth) + " ❤");
+        stats.add("§8Durée: §e" + String.format("%.1f", duration / 20.0) + "s");
+        stats.add("§8Nombre: §e" + cloneCount + " clone" + (cloneCount > 1 ? "s" : ""));
         return stats;
     }
 }
