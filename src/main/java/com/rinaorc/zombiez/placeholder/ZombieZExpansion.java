@@ -256,7 +256,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     }
 
     private String getZoneName(int zoneId) {
-        Zone zone = plugin.getZoneManager().getZone(zoneId);
+        Zone zone = plugin.getZoneManager().getZoneById(zoneId);
         return zone != null ? zone.getName() : "Zone " + zoneId;
     }
 
@@ -343,7 +343,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
 
     private int getTotalAchievements() {
         if (plugin.getAchievementManager() != null) {
-            return plugin.getAchievementManager().getTotalAchievements();
+            return plugin.getAchievementManager().getAchievements().size();
         }
         return 0;
     }
@@ -373,7 +373,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         if (plugin.getPartyManager() == null) return "-";
         var party = plugin.getPartyManager().getParty(player);
         if (party == null) return "-";
-        Player leader = Bukkit.getPlayer(party.getLeader());
+        Player leader = Bukkit.getPlayer(party.getLeaderId());
         return leader != null ? leader.getName() : "-";
     }
 
