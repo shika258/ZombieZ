@@ -104,14 +104,37 @@ public class BossZombieAI extends ZombieAI {
                 if (!playersInFight.contains(p.getUniqueId())) {
                     playersInFight.add(p.getUniqueId());
                     bossBar.addPlayer(p);
+                    // Notifier le système de Boss Bar Dynamique
+                    if (plugin.getDynamicBossBarManager() != null) {
+                        var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
+                        double maxHp = maxHealth != null ? maxHealth.getValue() : 100;
+                        plugin.getDynamicBossBarManager().registerBoss(p, zombie.getUniqueId(),
+                                zombieType.getDisplayName(), maxHp);
+                    }
                 }
             });
+
+        // Mettre à jour la santé du boss pour le système dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            for (UUID uuid : playersInFight) {
+                Player p = plugin.getServer().getPlayer(uuid);
+                if (p != null) {
+                    plugin.getDynamicBossBarManager().updateBossHealth(p, zombie.getUniqueId(), zombie.getHealth());
+                }
+            }
+        }
 
         // Retirer les joueurs trop loin
         playersInFight.removeIf(uuid -> {
             Player p = plugin.getServer().getPlayer(uuid);
             if (p == null || !p.isOnline() || p.getLocation().distance(zombie.getLocation()) > 60) {
-                if (p != null) bossBar.removePlayer(p);
+                if (p != null) {
+                    bossBar.removePlayer(p);
+                    // Notifier le système de Boss Bar Dynamique
+                    if (plugin.getDynamicBossBarManager() != null) {
+                        plugin.getDynamicBossBarManager().removeBoss(p, zombie.getUniqueId());
+                    }
+                }
                 return true;
             }
             return false;
@@ -711,6 +734,16 @@ public class BossZombieAI extends ZombieAI {
         if (bossBar != null) {
             bossBar.removeAll();
             bossBar.setVisible(false);
+        }
+
+        // Nettoyer le système de Boss Bar Dynamique pour tous les joueurs
+        if (plugin.getDynamicBossBarManager() != null) {
+            for (UUID uuid : playersInFight) {
+                Player p = plugin.getServer().getPlayer(uuid);
+                if (p != null) {
+                    plugin.getDynamicBossBarManager().removeBoss(p, zombie.getUniqueId());
+                }
+            }
         }
 
         // Effets de mort épiques

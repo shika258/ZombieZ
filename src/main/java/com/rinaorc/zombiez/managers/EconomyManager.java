@@ -174,8 +174,10 @@ public class EconomyManager {
         long finalAmount = Math.round(amount * multiplier);
         boolean levelUp = data.addXp(finalAmount);
 
-        // Notification XP
-        MessageUtils.sendActionBar(player, "§b+" + formatCompact(finalAmount) + " XP");
+        // Notifier le système de Boss Bar Dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            plugin.getDynamicBossBarManager().notifyXpGain(player, finalAmount);
+        }
 
         // Level up !
         if (levelUp) {
@@ -190,10 +192,15 @@ public class EconomyManager {
      */
     private void onLevelUp(Player player, PlayerData data) {
         int newLevel = data.getLevel().get();
-        
+
+        // Notifier le système de Boss Bar Dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            plugin.getDynamicBossBarManager().notifyLevelUp(player, newLevel);
+        }
+
         // Message
         MessageUtils.sendTitle(player, "§6§lNIVEAU " + newLevel, "§7Félicitations!", 10, 40, 10);
-        
+
         // Son
         player.playSound(player.getLocation(), "entity.player.levelup", 1f, 1f);
         

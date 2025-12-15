@@ -36,30 +36,35 @@ public class MomentumManager {
     public void registerKill(Player player) {
         MomentumData data = getOrCreate(player);
         long now = System.currentTimeMillis();
-        
+
         // Vérifier le combo timeout
         if (now - data.lastKillTime > COMBO_TIMEOUT) {
             data.combo = 0;
         }
-        
+
         // Vérifier le streak timeout
         if (now - data.lastKillTime > STREAK_TIMEOUT) {
             data.streak = 0;
         }
-        
+
         // Incrémenter
         data.combo++;
         data.streak++;
         data.totalKills++;
         data.lastKillTime = now;
-        
+
         // Vérifier Fever
         if (!data.inFever && data.streak >= FEVER_THRESHOLD) {
             activateFever(player, data);
         }
-        
+
         // Notifications selon les milestones
         checkMilestones(player, data);
+
+        // Notifier le système de Boss Bar Dynamique
+        if (plugin.getDynamicBossBarManager() != null) {
+            plugin.getDynamicBossBarManager().notifyKill(player);
+        }
     }
 
     /**

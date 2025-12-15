@@ -91,6 +91,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système de mobs passifs et nourriture
     @Getter private com.rinaorc.zombiez.mobs.PassiveMobManager passiveMobManager;
 
+    // Système de Boss Bar Dynamique
+    @Getter private com.rinaorc.zombiez.ui.DynamicBossBarManager dynamicBossBarManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -151,11 +154,17 @@ public class ZombieZPlugin extends JavaPlugin {
             log(Level.INFO, "§7Sauvegarde des données joueurs...");
             playerDataManager.saveAllSync();
         }
-        
+
         // Cleanup du système d'items
         if (itemManager != null) {
             log(Level.INFO, "§7Nettoyage du cache d'items...");
             itemManager.cleanup();
+        }
+
+        // Cleanup du système de boss bars dynamiques
+        if (dynamicBossBarManager != null) {
+            log(Level.INFO, "§7Nettoyage des boss bars dynamiques...");
+            dynamicBossBarManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -279,6 +288,11 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Passive Mob Manager - Mobs passifs et loot nourriture
         passiveMobManager = new com.rinaorc.zombiez.mobs.PassiveMobManager(this);
+
+        // ===== Système Boss Bar Dynamique =====
+
+        // Dynamic Boss Bar Manager - Affichage contextuel XP, Events, Streaks, Boss
+        dynamicBossBarManager = new com.rinaorc.zombiez.ui.DynamicBossBarManager(this);
     }
 
     /**
