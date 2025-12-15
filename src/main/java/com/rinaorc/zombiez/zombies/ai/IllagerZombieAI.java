@@ -330,7 +330,7 @@ public class IllagerZombieAI extends ZombieAI {
     private void tickEvoker() {
         // Aura magique
         if (tickCounter % 15 == 0) {
-            playParticles(Particle.SPELL_WITCH, zombie.getLocation().add(0, 1, 0), 5, 0.4, 0.5, 0.4);
+            playParticles(Particle.WITCH, zombie.getLocation().add(0, 1, 0), 5, 0.4, 0.5, 0.4);
             playParticles(Particle.ASH, zombie.getLocation().add(0, 0.5, 0), 3, 0.8, 0.3, 0.8);
         }
 
@@ -381,7 +381,7 @@ public class IllagerZombieAI extends ZombieAI {
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
             Location particleLoc = zombie.getLocation().add(Math.cos(rad) * 2, 0.5, Math.sin(rad) * 2);
-            playParticles(Particle.SPELL_WITCH, particleLoc, 10, 0.1, 0.3, 0.1);
+            playParticles(Particle.WITCH, particleLoc, 10, 0.1, 0.3, 0.1);
         }
 
         // Invoquer après délai
@@ -405,7 +405,7 @@ public class IllagerZombieAI extends ZombieAI {
                 createPhantomVex(spawnLoc, target);
             }
 
-            playParticles(Particle.SPELL_WITCH, zombie.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5);
+            playParticles(Particle.WITCH, zombie.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5);
             isChanneling = false;
         }, 40L);
     }
@@ -418,7 +418,7 @@ public class IllagerZombieAI extends ZombieAI {
         UUID vexId = UUID.randomUUID();
         summonedVexes.add(vexId);
 
-        playParticles(Particle.SPELL_WITCH, loc, 20, 0.3, 0.3, 0.3);
+        playParticles(Particle.WITCH, loc, 20, 0.3, 0.3, 0.3);
 
         // Le vex "vit" pendant 10 secondes et attaque périodiquement
         final Location[] vexLoc = {loc.clone()};
@@ -437,7 +437,7 @@ public class IllagerZombieAI extends ZombieAI {
                 vexLoc[0].add(direction.multiply(0.8));
 
                 // Particules du vex
-                zombie.getWorld().spawnParticle(Particle.SPELL_WITCH, vexLoc[0], 5, 0.2, 0.2, 0.2);
+                zombie.getWorld().spawnParticle(Particle.WITCH, vexLoc[0], 5, 0.2, 0.2, 0.2);
 
                 // Attaque si proche
                 if (vexLoc[0].distance(target.getLocation().add(0, 1, 0)) < 2) {
@@ -474,7 +474,7 @@ public class IllagerZombieAI extends ZombieAI {
                 fangLoc.setY(fangLoc.getWorld().getHighestBlockYAt(fangLoc) + 1);
 
                 // Effet visuel du croc
-                playParticles(Particle.SPELL_WITCH, fangLoc, 10, 0.2, 0.5, 0.2);
+                playParticles(Particle.WITCH, fangLoc, 10, 0.2, 0.5, 0.2);
                 playParticles(Particle.DAMAGE_INDICATOR, fangLoc.clone().add(0, 0.5, 0), 5, 0.1, 0.3, 0.1);
                 fangLoc.getWorld().playSound(fangLoc, Sound.ENTITY_EVOKER_FANGS_ATTACK, 0.8f, 1f);
 
@@ -500,10 +500,10 @@ public class IllagerZombieAI extends ZombieAI {
                 .subtract(target.getLocation().toVector()).normalize();
             Location tpLoc = zombie.getLocation().add(away.multiply(6));
 
-            playParticles(Particle.SPELL_WITCH, zombie.getLocation(), 30, 0.5, 1, 0.5);
+            playParticles(Particle.WITCH, zombie.getLocation(), 30, 0.5, 1, 0.5);
             playSound(Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.2f);
             zombie.teleport(tpLoc);
-            playParticles(Particle.SPELL_WITCH, tpLoc, 30, 0.5, 1, 0.5);
+            playParticles(Particle.WITCH, tpLoc, 30, 0.5, 1, 0.5);
         } else {
             // Recul normal
             Vector away = zombie.getLocation().toVector()
@@ -530,7 +530,7 @@ public class IllagerZombieAI extends ZombieAI {
                 for (int angle = 0; angle < 360; angle += 30) {
                     double rad = Math.toRadians(angle + t * 12);
                     Location particleLoc = zombie.getLocation().add(Math.cos(rad) * 2.5, 0.5 + t * 0.05, Math.sin(rad) * 2.5);
-                    playParticles(Particle.SPELL_WITCH, particleLoc, 2, 0, 0, 0);
+                    playParticles(Particle.WITCH, particleLoc, 2, 0, 0, 0);
                 }
             }, t);
         }
@@ -543,7 +543,7 @@ public class IllagerZombieAI extends ZombieAI {
             }
 
             playSound(Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.5f, 1f);
-            playParticles(Particle.SPELL_WITCH, zombie.getLocation().add(0, 1, 0), 50, 1, 1, 1);
+            playParticles(Particle.WITCH, zombie.getLocation().add(0, 1, 0), 50, 1, 1, 1);
 
             // Soins et buffs
             heal(zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue() * 0.25);
@@ -581,7 +581,7 @@ public class IllagerZombieAI extends ZombieAI {
                 // Drain de vie magique
                 target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 60, 0));
                 heal(3);
-                playParticles(Particle.SPELL_WITCH, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3);
+                playParticles(Particle.WITCH, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3);
                 retreatWithMagic(target);
             }
         }
@@ -639,7 +639,7 @@ public class IllagerZombieAI extends ZombieAI {
             }
             case EVOKER -> {
                 playSound(Sound.ENTITY_EVOKER_DEATH, 1f, 1f);
-                playParticles(Particle.SPELL_WITCH, zombie.getLocation(), 50, 1, 1, 1);
+                playParticles(Particle.WITCH, zombie.getLocation(), 50, 1, 1, 1);
 
                 // Les vex deviennent fous
                 for (UUID vexId : summonedVexes) {
