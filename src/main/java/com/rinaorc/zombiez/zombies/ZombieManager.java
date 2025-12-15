@@ -658,35 +658,40 @@ public class ZombieManager {
     private void processLoot(Player killer, ActiveZombie zombie) {
         ZombieType type = zombie.getType();
         int zoneId = zombie.getZoneId();
-        
+
         // Obtenir la table de loot appropriée
-        String tableId = type.isBoss() ? 
+        String tableId = type.isBoss() ?
             (type.getCategory() == ZombieType.ZombieCategory.FINAL_BOSS ? "final_boss" :
              type.getCategory() == ZombieType.ZombieCategory.ZONE_BOSS ? "zone_boss" : "mini_boss") :
             "zombie_tier" + type.getTier();
-        
+
         LootTable table = lootTableRegistry.getTable(tableId);
         if (table == null) {
             table = lootTableRegistry.getTableForZombieTier(type.getTier());
         }
-        
+
         if (table == null) return;
-        
+
         // Calculer le bonus de luck
-        double luckBonus = plugin.getItemManager().getPlayerStat(killer, 
+        double luckBonus = plugin.getItemManager().getPlayerStat(killer,
             com.rinaorc.zombiez.items.types.StatType.LUCK) / 100.0;
-        
+
         // Bonus d'affix
         if (zombie.hasAffix()) {
             luckBonus += zombie.getAffix().getLootBonus();
         }
-        
+
         // Générer et dropper le loot
         var items = table.generateLoot(zoneId, luckBonus);
         Location dropLoc = killer.getLocation();
-        
+
         for (var item : items) {
             plugin.getItemManager().dropItem(dropLoc, item);
+        }
+
+        // Tenter de drop un consommable
+        if (plugin.getConsumableManager() != null) {
+            plugin.getConsumableManager().tryDropConsumable(dropLoc, zoneId, type, luckBonus);
         }
     }
 
