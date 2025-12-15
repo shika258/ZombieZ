@@ -702,10 +702,17 @@ public class PlayerData {
     public void addSkill(String skillId) { unlockedSkills.add(skillId); markDirty(); }
     public Set<String> getUnlockedSkills() { return Set.copyOf(unlockedSkills); }
     public void clearSkills() { unlockedSkills.clear(); markDirty(); }
-    
+
     public int getSpentSkillPoints() { return spentSkillPoints.get(); }
     public void setSpentSkillPoints(int points) { spentSkillPoints.set(points); markDirty(); }
     public void addSpentSkillPoints(int points) { spentSkillPoints.addAndGet(points); markDirty(); }
+
+    // Bonus skill points permanents (gagnés via prestige)
+    private final AtomicInteger bonusSkillPoints = new AtomicInteger(0);
+
+    public int getBonusSkillPoints() { return bonusSkillPoints.get(); }
+    public void setBonusSkillPoints(int points) { bonusSkillPoints.set(points); markDirty(); }
+    public void addBonusSkillPoints(int points) { bonusSkillPoints.addAndGet(points); markDirty(); }
     
     // Achievements
     public boolean hasAchievement(String achievementId) { return unlockedAchievements.contains(achievementId); }
