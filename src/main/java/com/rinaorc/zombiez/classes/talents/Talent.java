@@ -129,6 +129,62 @@ public class Talent {
         LIVING_CITADEL,          // Invuln then explode
         EXTINCTION,              // First hit mega damage
 
+        // === CHASSEUR - Tier 1 ===
+        MULTI_SHOT,              // Chance extra projectiles
+        LYNX_EYE,                // Crit chance + crit damage
+        AGILE_HUNTER,            // Dodge gives invis + damage boost
+        HUNTER_MARK,             // Mark enemies for extra damage
+        PIERCING_ARROWS,         // Projectiles pierce enemies
+
+        // === CHASSEUR - Tier 2 ===
+        BURST_SHOT,              // Combo shot bonus
+        SNIPER,                  // Distance = damage
+        GHOST,                   // Invis bonus crit damage
+        VENOM,                   // Poison DoT
+        RICOCHET,                // Bouncing projectiles
+
+        // === CHASSEUR - Tier 3 ===
+        ARROW_RAIN,              // AoE arrow rain proc
+        PREDATOR_EYE,            // Crit resets dodge cooldown
+        TRACKER,                 // Enhanced mark
+        DEADLY_TOXINS,           // Poison can crit + slow
+        SHARPSHOOTER,            // Stand still = guaranteed crit
+
+        // === CHASSEUR - Tier 4 ===
+        DELUGE,                  // Arrow rain upgrade
+        SUPREME_PREDATOR,        // Stealth chain kills
+        DEATH_SENTENCE,          // Mark explosion on death
+        PANDEMIC,                // Poison spreads on death
+        OVERHEAT,                // Ramping damage
+
+        // === CHASSEUR - Tier 5 ===
+        STEEL_STORM,             // Auto arrow storm
+        SPECTRE,                 // Attack from stealth
+        BOUNTY_HUNTER,           // Mark kill rewards
+        EPIDEMIC,                // Infinite poison stacking
+        KILL_ZONE,               // Personal attack speed zone
+
+        // === CHASSEUR - Tier 6 ===
+        AERIAL_ARMAGEDDON,       // Arrow rain can crit
+        SHADOW_MASTER,           // Permanent stealth
+        BOUNTY_EXECUTIONER,      // Mark execute threshold
+        BLACK_PLAGUE,            // Poison anti-heal + self heal
+        GATLING,                 // Full auto mode
+
+        // === CHASSEUR - Tier 7 ===
+        METEOR_SHOWER,           // Arrows become meteors
+        STEALTH_REAPER,          // Stealth execute
+        LEGENDARY_HUNTER,        // Multi-mark permanent
+        BLIGHT,                  // Passive contagion
+        LIVING_ARSENAL,          // Auto-targeting shots
+
+        // === CHASSEUR - Tier 8 ===
+        ORBITAL_STRIKE,          // Nuke from orbit
+        VOID_WALKER,             // Moving = invincible (EQUILIBRE: -60% DR instead)
+        DEATH_NOTE,              // Delayed instakill
+        TOXIC_APOCALYPSE,        // Passive poison aura
+        BULLET_TIME,             // Time slow
+
         // === PLACEHOLDER pour autres classes ===
         PLACEHOLDER
     }

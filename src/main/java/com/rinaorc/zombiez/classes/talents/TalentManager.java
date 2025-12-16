@@ -39,8 +39,12 @@ public class TalentManager {
         talentsByClass.put(ClassType.GUERRIER, guerrierTalents);
         guerrierTalents.forEach(t -> talentsById.put(t.getId(), t));
 
-        // TODO: Ajouter Chasseur et Occultiste quand ils seront implémentés
-        // talentsByClass.put(ClassType.CHASSEUR, ChasseurTalents.getAll());
+        // Chasseur
+        List<Talent> chasseurTalents = ChasseurTalents.getAll();
+        talentsByClass.put(ClassType.CHASSEUR, chasseurTalents);
+        chasseurTalents.forEach(t -> talentsById.put(t.getId(), t));
+
+        // TODO: Ajouter Occultiste quand il sera implémenté
         // talentsByClass.put(ClassType.OCCULTISTE, OccultisteTalents.getAll());
 
         plugin.getLogger().info("[Talents] Enregistré " + talentsById.size() + " talents pour " +

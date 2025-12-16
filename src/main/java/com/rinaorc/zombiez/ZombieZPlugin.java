@@ -508,6 +508,7 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de talents (effets passifs)
         if (talentManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager), this);
         }
     }
 
