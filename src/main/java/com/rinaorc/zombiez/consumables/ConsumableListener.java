@@ -100,9 +100,9 @@ public class ConsumableListener implements Listener {
         Entity entity = event.getEntity();
 
         if (entity instanceof TNTPrimed tnt && tnt.hasMetadata("zombiez_grenade")) {
-            // C'est une grenade ZombieZ
-            event.setCancelled(true); // Annuler la destruction de blocs
+            // C'est une grenade ZombieZ - empêcher la destruction de blocs mais garder l'événement
             event.blockList().clear();
+            event.setYield(0);
 
             // Récupérer les stats
             String data = tnt.getMetadata("zombiez_grenade").get(0).asString();
@@ -117,18 +117,29 @@ public class ConsumableListener implements Listener {
                 owner = plugin.getServer().getPlayer(UUID.fromString(ownerId));
             }
 
-            // Appliquer les dégâts aux zombies
+            // Appliquer les dégâts aux zombies et autres mobs ZombieZ
             Location center = tnt.getLocation();
             for (Entity nearby : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-                if (isZombieZMob(nearby) && nearby instanceof LivingEntity living) {
+                if (nearby instanceof LivingEntity living && isZombieZMob(nearby)) {
                     double dist = nearby.getLocation().distance(center);
-                    double damageMultiplier = 1 - (dist / radius) * 0.5;
-                    living.damage(damage * damageMultiplier, owner);
+                    // Distance-based falloff: 100% au centre, 50% au bord
+                    double distRatio = Math.min(1.0, dist / radius);
+                    double damageMultiplier = 1.0 - (distRatio * 0.5);
+                    double finalDamage = damage * damageMultiplier;
+
+                    // Appliquer les dégâts
+                    if (owner != null) {
+                        living.damage(finalDamage, owner);
+                    } else {
+                        living.damage(finalDamage);
+                    }
 
                     // Knockback
-                    org.bukkit.util.Vector knockback = nearby.getLocation().subtract(center).toVector().normalize().multiply(0.8);
-                    knockback.setY(0.4);
-                    nearby.setVelocity(knockback);
+                    if (dist > 0.1) {
+                        org.bukkit.util.Vector knockback = nearby.getLocation().subtract(center).toVector().normalize().multiply(0.8);
+                        knockback.setY(0.4);
+                        nearby.setVelocity(knockback);
+                    }
                 }
             }
 

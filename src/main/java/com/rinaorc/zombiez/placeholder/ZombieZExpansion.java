@@ -123,6 +123,8 @@ public class ZombieZExpansion extends PlaceholderExpansion {
 
             // ==================== ITEM LEVEL (ILVL) ====================
             case "ilvl", "itemlevel" -> String.valueOf(calculateAverageIlvl(player));
+            case "iscore" -> String.valueOf(calculateTotalItemScore(player));
+            case "iscore_formatted" -> formatNumber(calculateTotalItemScore(player));
             case "ilvl_weapon" -> String.valueOf(getItemIlvl(player.getInventory().getItemInMainHand()));
             case "ilvl_helmet" -> String.valueOf(getItemIlvl(player.getInventory().getHelmet()));
             case "ilvl_chest" -> String.valueOf(getItemIlvl(player.getInventory().getChestplate()));
@@ -294,6 +296,32 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         }
 
         return count > 0 ? total / count : 0;
+    }
+
+    /**
+     * Calcule le score total d'items (somme de tous les iLvl de l'équipement)
+     * Inclut: arme principale, casque, plastron, jambières, bottes, et arme secondaire
+     */
+    private int calculateTotalItemScore(Player player) {
+        int total = 0;
+
+        ItemStack[] items = {
+            player.getInventory().getItemInMainHand(),
+            player.getInventory().getItemInOffHand(),
+            player.getInventory().getHelmet(),
+            player.getInventory().getChestplate(),
+            player.getInventory().getLeggings(),
+            player.getInventory().getBoots()
+        };
+
+        for (ItemStack item : items) {
+            int ilvl = getItemIlvl(item);
+            if (ilvl > 0) {
+                total += ilvl;
+            }
+        }
+
+        return total;
     }
 
     private int getItemIlvl(ItemStack item) {

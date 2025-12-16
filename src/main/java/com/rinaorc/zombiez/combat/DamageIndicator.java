@@ -214,6 +214,58 @@ public class DamageIndicator {
     }
 
     /**
+     * Affiche un indicateur de headshot avec dégâts
+     */
+    public static void displayHeadshot(ZombieZPlugin plugin, Location location, double damage, Player viewer) {
+        if (location.getWorld() == null) return;
+
+        Vector offset = calculateAntiStackOffset(location, viewer);
+        Location spawnLoc = location.clone().add(offset.getX(), 0.3 + offset.getY(), offset.getZ());
+
+        location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            // Texte de headshot avec dégâts - couleur dorée/orange distinctive
+            String formattedDamage = FORMAT.format(damage);
+            Component text = Component.text("⊕ ", TextColor.color(0xFF6600), TextDecoration.BOLD)
+                .append(Component.text(formattedDamage, TextColor.color(0xFFAA00), TextDecoration.BOLD))
+                .append(Component.text(" ⊕", TextColor.color(0xFF6600), TextDecoration.BOLD));
+            display.text(text);
+
+            // Scale légèrement plus grand pour les headshots
+            float scale = 1.3f;
+
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale * 1.2f, scale * 1.2f, scale * 1.2f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+
+            display.setInterpolationDuration(8);
+            display.setInterpolationDelay(0);
+
+            if (viewer != null) {
+                hideFromOtherPlayers(display, viewer);
+            }
+
+            animateHeadshotIndicator(plugin, display, scale);
+        });
+    }
+
+    /**
+     * Affiche un indicateur de headshot (version legacy)
+     */
+    public static void displayHeadshot(ZombieZPlugin plugin, Location location, double damage) {
+        Player nearestPlayer = findNearestPlayer(location, 50);
+        displayHeadshot(plugin, location, damage, nearestPlayer);
+    }
+
+    /**
      * Affiche un indicateur de bloc
      */
     public static void displayBlock(ZombieZPlugin plugin, Location location, Player viewer) {
@@ -663,6 +715,59 @@ public class DamageIndicator {
                     scale = reducedScale * (1 - easeInQuad(fadeProgress) * 0.6f);
                 } else {
                     scale = reducedScale;
+                }
+
+                display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(scale, scale, scale),
+                    new AxisAngle4f(0, 0, 0, 1)
+                ));
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, ANIMATION_INTERVAL_TICKS);
+    }
+
+    /**
+     * Anime l'indicateur de headshot - effet pop satisfaisant
+     */
+    private static void animateHeadshotIndicator(ZombieZPlugin plugin, TextDisplay display, float targetScale) {
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private final int effectiveDuration = 22 / ANIMATION_INTERVAL_TICKS;
+            private final Location startLoc = display.getLocation().clone();
+
+            @Override
+            public void run() {
+                if (ticks >= effectiveDuration || !display.isValid()) {
+                    display.remove();
+                    cancel();
+                    return;
+                }
+
+                float progress = (float) ticks / effectiveDuration;
+
+                // Mouvement vers le haut fluide avec légère accélération
+                double yOffset = easeOutQuad(progress) * 0.4;
+                Location newLoc = startLoc.clone().add(0, yOffset, 0);
+                display.teleport(newLoc);
+
+                // Animation pop-in puis shrink pour effet satisfaisant
+                float scale;
+                if (progress < 0.1) {
+                    // Pop-in rapide et exagéré
+                    float popProgress = progress / 0.1f;
+                    scale = targetScale * (1.3f - 0.3f * easeOutQuad(popProgress));
+                } else if (progress < 0.2) {
+                    // Stabilisation
+                    scale = targetScale;
+                } else if (progress > 0.7) {
+                    // Fade-out progressif
+                    float fadeProgress = (progress - 0.7f) / 0.3f;
+                    scale = targetScale * (1 - easeInQuad(fadeProgress) * 0.5f);
+                } else {
+                    scale = targetScale;
                 }
 
                 display.setTransformation(new Transformation(
