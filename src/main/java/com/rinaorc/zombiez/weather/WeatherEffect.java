@@ -446,9 +446,8 @@ public class WeatherEffect {
                 }
             }
             case BLOOD_MOON -> {
-                // Particules rouges montantes
-                player.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0),
-                    2, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.RED, 1.2f));
+                // BROUILLARD ROUGE DENSE pour la Lune de Sang!
+                spawnBloodMoonFog(player, loc);
             }
             case AURORA, STARFALL -> {
                 // Particules colorées dans le ciel
@@ -497,6 +496,77 @@ public class WeatherEffect {
                 // Éclair visuel sans dégâts
                 targetWorld.strikeLightningEffect(lightningLoc);
             }
+        }
+    }
+
+    /**
+     * Génère un brouillard rouge dense pour la Lune de Sang
+     * Crée une atmosphère terrifiante et immersive
+     */
+    protected void spawnBloodMoonFog(Player player, Location loc) {
+        // Couleurs de brouillard rouge sang
+        Color bloodRed = Color.fromRGB(139, 0, 0);        // Rouge sang foncé
+        Color crimson = Color.fromRGB(220, 20, 60);       // Cramoisie
+        Color darkRed = Color.fromRGB(100, 0, 0);         // Rouge très sombre
+
+        // Particules de brouillard au sol (dense)
+        for (int i = 0; i < 15; i++) {
+            double offsetX = (Math.random() - 0.5) * 12;
+            double offsetZ = (Math.random() - 0.5) * 12;
+            double offsetY = Math.random() * 2.5; // Brouillard bas
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            // Alterner entre les nuances de rouge
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.4) {
+                fogColor = bloodRed;
+            } else if (colorRoll < 0.7) {
+                fogColor = crimson;
+            } else {
+                fogColor = darkRed;
+            }
+
+            // Particules de taille variable pour un effet plus naturel
+            float size = 2.0f + (float)(Math.random() * 1.5);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.1, 0.3, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Brouillard en hauteur (moins dense, effet atmosphérique)
+        for (int i = 0; i < 8; i++) {
+            double offsetX = (Math.random() - 0.5) * 16;
+            double offsetZ = (Math.random() - 0.5) * 16;
+            double offsetY = 3 + Math.random() * 6; // Plus haut
+
+            Location highFogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            // Rouge plus clair/rosé pour le brouillard en hauteur
+            Color highFogColor = Color.fromRGB(
+                180 + (int)(Math.random() * 40),
+                20 + (int)(Math.random() * 30),
+                20 + (int)(Math.random() * 30)
+            );
+
+            player.spawnParticle(Particle.DUST, highFogLoc, 1, 0.5, 0.3, 0.5, 0,
+                new Particle.DustOptions(highFogColor, 1.5f));
+        }
+
+        // Particules de fumée noire occasionnelles (pour contraste)
+        if (Math.random() < 0.3) {
+            Location smokeLoc = loc.clone().add(
+                (Math.random() - 0.5) * 8,
+                Math.random() * 3,
+                (Math.random() - 0.5) * 8
+            );
+            player.spawnParticle(Particle.SMOKE, smokeLoc, 2, 0.2, 0.1, 0.2, 0.01);
+        }
+
+        // Effet de lueur rouge sur le joueur (aura sinistre)
+        if (Math.random() < 0.2) {
+            player.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 3, 0.4, 0.5, 0.4, 0,
+                new Particle.DustOptions(crimson, 0.8f));
         }
     }
 
