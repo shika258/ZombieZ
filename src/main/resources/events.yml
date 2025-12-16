@@ -1,0 +1,589 @@
+# ===============================================
+# ZombieZ - Configuration des Événements Dynamiques
+# ===============================================
+# Ce fichier contrôle le système d'événements dynamiques
+# qui génère automatiquement des événements près des joueurs.
+#
+# Les événements spawn TOUJOURS près des joueurs et JAMAIS
+# dans les zones safe (spawn).
+#
+# La probabilité de spawn augmente si plusieurs joueurs
+# sont dans la même zone.
+#
+# Variables disponibles dans les messages:
+# %event% - Nom de l'événement
+# %player% - Nom du joueur
+# %zone% - Numéro de la zone
+# %time% - Temps restant
+# %distance% - Distance en blocs
+# %points% - Points gagnés
+# %xp% - XP gagnée
+# %wave% - Numéro de vague (Horde)
+# %boss% - Nom du boss
+# %survivors% - Nombre de survivants
+# %percent% - Pourcentage de progression
+# ===============================================
+
+# ===============================================
+# PARAMÈTRES GLOBAUX
+# ===============================================
+dynamic-events:
+  # Activer/désactiver le système d'événements dynamiques
+  enabled: true
+
+  # Intervalle entre les événements (en secondes)
+  # Un événement sera spawné aléatoirement entre min et max
+  min-interval-seconds: 480      # 8 minutes minimum
+  max-interval-seconds: 900      # 15 minutes maximum
+
+  # Nombre maximum d'événements actifs simultanément
+  max-concurrent: 3
+
+  # Nombre minimum de joueurs en ligne pour que les événements spawn
+  min-players: 1
+
+  # Distance de spawn par rapport au joueur ciblé
+  spawn-radius:
+    min: 30   # Distance minimum en blocs
+    max: 60   # Distance maximum en blocs
+
+  # Multiplicateur de chance par joueur supplémentaire dans une zone
+  # Exemple: avec 0.15, 5 joueurs = 1 + (4 * 0.15) = 1.6x la chance
+  player-count-multiplier: 0.15
+
+  # Cooldown entre le même type d'événement (en secondes)
+  # Empêche d'avoir 2 largages d'affilée par exemple
+  type-cooldown-seconds: 300  # 5 minutes
+
+  # Réduction graduelle du poids après utilisation (en secondes)
+  # Pendant cette durée, le type utilisé aura moins de chance d'être choisi
+  weight-reduction-duration: 600  # 10 minutes
+
+# ===============================================
+# CONFIGURATION PAR TYPE D'ÉVÉNEMENT
+# ===============================================
+types:
+  # =============================================
+  # LARGAGE AÉRIEN
+  # Un crate rare tombe du ciel, les joueurs doivent
+  # le défendre pendant qu'il s'ouvre
+  # =============================================
+  airdrop:
+    enabled: true
+
+    # Poids relatif de spawn (plus élevé = plus fréquent)
+    # Comparé aux autres événements
+    weight: 15
+
+    # Durée maximum avant échec (en secondes)
+    duration-seconds: 300
+
+    # Nombre minimum de joueurs recommandé (affecte le spawn)
+    min-players-recommended: 1
+
+    # Récompenses de base
+    rewards:
+      base-points: 150
+      base-xp: 100
+
+    # Temps de défense requis pour ouvrir le coffre (en secondes)
+    defense-time: 45
+    # Temps supplémentaire par niveau de zone
+    defense-time-per-zone: 2
+
+    # Bonus de vitesse avec plusieurs défenseurs
+    # 1 joueur = 1x, 2 joueurs = 1.25x, etc.
+    defender-speed-bonus: 0.25
+    # Vitesse maximum (cap)
+    max-speed-multiplier: 2.0
+
+    # Régression quand personne ne défend (par seconde)
+    regression-rate: 0.5
+
+    # Zombies pendant la défense
+    zombies:
+      # Nombre max de zombies à spawn
+      max-total: 15
+      # Zombies supplémentaires par niveau de zone
+      max-per-zone: 1
+      # Intervalle entre les spawns (en secondes)
+      spawn-interval: 4
+      # Nombre par spawn
+      per-spawn: 2
+      # Nombre supplémentaire par 10 zones
+      per-spawn-zone-bonus: 1
+
+    # Configuration du loot
+    loot:
+      # Nombre d'items de base
+      base-item-count: 3
+      # Items supplémentaires par 10 zones
+      items-per-10-zones: 1
+      # Nombre de consommables de base
+      base-consumable-count: 2
+      # Consommables supplémentaires par 15 zones
+      consumables-per-15-zones: 1
+
+      # Chances de rareté (en %)
+      # Bonus de zone ajouté automatiquement
+      rarity-chances:
+        legendary: 5
+        epic: 15
+        rare: 25
+        uncommon: 30
+        common: 25
+      # Bonus de rareté par niveau de zone (en %)
+      zone-rarity-bonus: 0.5
+
+  # =============================================
+  # NID DE ZOMBIES
+  # Un spawner de zombies apparaît, les joueurs
+  # doivent le détruire avant qu'il ne spawn trop
+  # =============================================
+  zombie_nest:
+    enabled: true
+    weight: 20
+    duration-seconds: 240
+    min-players-recommended: 1
+
+    rewards:
+      base-points: 200
+      base-xp: 150
+
+    # Vie du nid
+    health:
+      base: 100
+      # Vie supplémentaire par niveau de zone
+      per-zone: 20
+
+    # Zombies spawnés
+    zombies:
+      max-total: 30
+      max-per-zone: 1
+      # Intervalle initial entre spawns (en secondes)
+      initial-spawn-interval: 8
+      # Intervalle minimum (accélère avec le temps)
+      min-spawn-interval: 2
+      # Nombre de zombies par spawn
+      per-spawn: 2
+      per-spawn-zone-bonus: 1
+      # Chance de spawn en représailles quand le nid est frappé (%)
+      retaliation-chance: 30
+
+    # Dégâts des armes au nid
+    weapon-damage:
+      netherite: 15
+      diamond: 12
+      iron: 10
+      stone: 7
+      wood: 5
+      fist: 3
+
+    # Multiplicateur de dégâts des items ZombieZ
+    zombiez-item-damage-multiplier: 1.0
+
+  # =============================================
+  # INVASION DE HORDE
+  # Les joueurs doivent défendre un point contre
+  # plusieurs vagues de zombies
+  # =============================================
+  horde_invasion:
+    enabled: true
+    weight: 12
+    duration-seconds: 180
+    min-players-recommended: 2
+
+    rewards:
+      base-points: 300
+      base-xp: 200
+      # Bonus par vague complétée
+      points-per-wave: 50
+      xp-per-wave: 30
+
+    # Vagues
+    waves:
+      # Nombre de vagues de base
+      base-count: 5
+      # Vagues supplémentaires par 10 zones
+      per-10-zones: 1
+      # Temps entre les vagues (en secondes)
+      interval: 25
+      # Temps de préparation avant la première vague
+      preparation-time: 10
+
+    # Zombies par vague
+    zombies:
+      # Nombre de base par vague
+      base-per-wave: 8
+      # Augmentation par vague
+      increase-per-wave: 3
+      # Augmentation par niveau de zone
+      per-zone: 1
+      # Maximum par vague
+      max-per-wave: 30
+
+    # Zone de défense
+    defense-zone:
+      radius: 25
+      # Bonus de vitesse de kill quand dans la zone
+      in-zone-bonus: 1.0
+
+  # =============================================
+  # CONVOI DE SURVIVANTS
+  # Escorter des PNJ vers un refuge sûr
+  # =============================================
+  survivor_convoy:
+    enabled: true
+    weight: 8
+    duration-seconds: 360
+    min-players-recommended: 1
+
+    rewards:
+      base-points: 250
+      base-xp: 175
+      # Multiplicateur si tous survivants sauvés
+      full-survival-multiplier: 2.0
+      # Points par survivant sauvé
+      points-per-survivor: 50
+      xp-per-survivor: 30
+
+    # Survivants
+    survivors:
+      # Nombre de base
+      base-count: 3
+      # Survivants supplémentaires par 20 zones
+      per-20-zones: 1
+      # Maximum
+      max-count: 6
+
+    # Mouvement
+    movement:
+      # Vitesse de base
+      base-speed: 0.15
+      # Bonus de vitesse par escorteur supplémentaire
+      escort-speed-bonus: 0.1
+      # Vitesse maximum
+      max-speed: 0.3
+
+    # Distance du trajet
+    distance:
+      min: 80
+      max: 120
+
+    # Attaques de zombies
+    zombie-attacks:
+      # Intervalle entre les vagues d'attaque (en secondes)
+      interval: 30
+      # Diminution par niveau de zone (minimum 15s)
+      interval-reduction-per-zone: 1
+      min-interval: 15
+      # Zombies par attaque
+      base-count: 3
+      count-per-10-zones: 1
+
+    # Détection de blocage
+    stuck-detection:
+      # Ticks avant de forcer le déblocage
+      threshold: 100
+      # Distance de téléportation pour débloquer
+      unstuck-distance: 2
+
+  # =============================================
+  # BOSS ERRANT
+  # Un boss puissant se dirige vers une destination,
+  # les joueurs doivent le tuer avant qu'il n'arrive
+  # =============================================
+  wandering_boss:
+    enabled: true
+    weight: 5
+    duration-seconds: 300
+    min-players-recommended: 2
+
+    rewards:
+      base-points: 500
+      base-xp: 300
+      # Bonus si tué avant 50% du trajet
+      fast-kill-multiplier: 1.5
+
+    # Stats du boss
+    boss:
+      # Vie de base
+      base-health: 500
+      # Vie supplémentaire par niveau de zone
+      health-per-zone: 50
+      # Vitesse de déplacement
+      move-speed: 0.08
+      # Vitesse en mode enragé
+      enraged-speed-multiplier: 1.5
+      # Seuil de vie pour enrage (%)
+      enrage-threshold: 30
+
+    # Distance du trajet
+    escape-distance:
+      min: 120
+      max: 180
+
+    # Capacités spéciales
+    special-abilities:
+      # Intervalle entre les capacités (en secondes)
+      interval: 15
+      # Diminution par niveau de zone
+      interval-reduction-per-zone: 0.2
+      min-interval: 8
+
+      # Onde de choc
+      shockwave:
+        damage: 6
+        radius: 8
+        knockback: 1.5
+
+      # Invocation d'adds
+      summon:
+        count: 3
+        count-per-10-zones: 1
+        interval: 20
+
+    # Loot à la mort
+    loot:
+      guaranteed-items: 2
+      bonus-items-per-10-zones: 1
+      # Chance d'item légendaire garanti (%)
+      legendary-chance: 25
+      legendary-chance-per-zone: 0.5
+
+# ===============================================
+# SYSTÈME DE RÉCOMPENSES
+# ===============================================
+rewards:
+  # Formule de scaling des récompenses par zone
+  # Points = base * (1 + zone * linear) * (1 + log10(zone+1) * logarithmic)
+  scaling:
+    # Multiplicateur linéaire par zone
+    linear-multiplier: 0.1
+    # Multiplicateur logarithmique
+    logarithmic-multiplier: 0.5
+
+  # Exemples avec ces valeurs:
+  # Zone 1:  ~1.2x base
+  # Zone 10: ~2.5x base
+  # Zone 25: ~4.5x base
+  # Zone 50: ~8x base
+
+  # Bonus de coopération
+  cooperation:
+    # Activer le bonus de coopération
+    enabled: true
+    # Points bonus par participant supplémentaire
+    points-per-extra-player: 10
+    # XP bonus par participant supplémentaire
+    xp-per-extra-player: 5
+    # Maximum de bonus
+    max-bonus: 50
+
+# ===============================================
+# MESSAGES
+# ===============================================
+messages:
+  # Messages globaux
+  global:
+    event-start: "&e&l[ÉVÉNEMENT] &7Un événement &e%event% &7a démarré!"
+    event-start-distance: "&7Distance: &e%distance% blocs %direction%"
+    event-complete: "&a&l[ÉVÉNEMENT] &7L'événement &e%event% &7a été complété!"
+    event-failed: "&c&l[ÉVÉNEMENT] &7L'événement &e%event% &7a échoué..."
+
+    rewards-header: "&a&l✓ ÉVÉNEMENT COMPLÉTÉ!"
+    rewards-points: "&7Récompenses: &e+%points% Points &7| &b+%xp% XP"
+    rewards-cooperation: "&7Bonus coopération: &a+%bonus% Points"
+
+    # Titres
+    title-success: "&a&l✓ SUCCÈS!"
+    title-failed: "&c&l✗ ÉCHEC!"
+    subtitle-complete: "&7%event% terminé!"
+    subtitle-failed: "&7%event% a échoué..."
+
+  # Messages spécifiques aux événements
+  airdrop:
+    name: "Largage Aérien"
+    icon: "✈"
+    color: "&b"
+
+    falling: "&b&l✈ &7Un largage approche!"
+    landing: "&b&l📦 &7Le crate a atterri! Défendez-le pendant &e%time%s &7pour l'ouvrir!"
+    defending: "&b&l📦 &7Progression: %color%%percent%%"
+    need-defenders: "&c&l⚠ DÉFENSEURS REQUIS!"
+    opened: "&a&l✓ &7Le coffre est ouvert! Récupérez le loot!"
+    zombies-incoming: "&c&l⚠ &7Des zombies approchent du largage!"
+
+    subtitle-start: "Un ravitaillement tombe du ciel!"
+
+  zombie_nest:
+    name: "Nid de Zombies"
+    icon: "🪺"
+    color: "&5"
+
+    spawned: "&5&l🪺 &7Un nid de zombies est apparu!"
+    damaged: "&5&l🪺 &7Le nid a été endommagé! &c%health%❤ &7restants"
+    pulse: "&c&l⚠ &7Le nid pulse! &e%spawned%/%max% &7zombies générés!"
+    destroyed: "&a&l✓ &7Le nid a été détruit!"
+
+    subtitle-start: "Détruisez le nid avant qu'il ne soit trop tard!"
+
+    health-display: "&c&l🪺 NID %color%%percent%% %healthbar%"
+
+  horde_invasion:
+    name: "Invasion de Horde"
+    icon: "⚔"
+    color: "&c"
+
+    preparing: "&c&l⚔ &7Préparez-vous! Première vague dans &e%time%s&7!"
+    wave-start: "&c&l⚔ &7Vague &e%wave%/%total% &7commence! &c%zombies% zombies!"
+    wave-progress: "&c&l⚔ &7Vague %wave%: &e%killed%/%total% &7zombies éliminés"
+    wave-complete: "&a&l✓ &7Vague &e%wave% &7repoussée!"
+    all-waves-complete: "&a&l✓ &7Toutes les vagues ont été repoussées!"
+
+    subtitle-start: "Défendez votre position contre %waves% vagues!"
+
+    rewards-waves: "&7Vagues complétées: &e%completed%/%total%"
+
+  survivor_convoy:
+    name: "Convoi de Survivants"
+    icon: "🚶"
+    color: "&e"
+
+    started: "&e&l🚶 &7Un groupe de &e%count% survivants &7a besoin d'escorte!"
+    moving: "&e&l🚶 &7Le convoi avance... &e%percent%% &7du trajet"
+    no-escort: "&c&l⚠ &7Le convoi est sans escorte! Il ne bougera pas!"
+    survivor-death: "&c&l☠ &7Un survivant est mort! &e%alive%/%total% &7restants"
+    attack-incoming: "&c&l⚠ &7Des zombies attaquent le convoi!"
+    arrived: "&a&l✓ &7Les survivants sont arrivés au refuge!"
+
+    subtitle-start: "Escortez %count% survivants vers le refuge!"
+
+    rewards-survivors: "&7Survivants sauvés: &e%saved%/%total% &7(%percent%%)"
+
+  wandering_boss:
+    name: "Boss Errant"
+    icon: "💀"
+    color: "&4"
+
+    spawned: "&4&l💀 &c%boss% &7est apparu! Éliminez-le avant qu'il ne s'échappe!"
+    damaged: "&4&l💀 &c%boss% &7: &c%health%/%max%❤"
+    enraged: "&4&l💀 &c%boss% &7est &5ENRAGÉ&7! Il devient plus dangereux!"
+    ability-shockwave: "&4&l💀 &c%boss% &7déclenche une onde de choc!"
+    ability-summon: "&4&l💀 &c%boss% &7invoque des sbires!"
+    killed: "&a&l✓ &c%boss% &7a été vaincu!"
+    escaped: "&c&l✗ &c%boss% &7s'est échappé..."
+
+    subtitle-start: "Éliminez-le avant qu'il ne s'échappe!"
+
+    rewards-fast-kill: "&6Bonus &ekill rapide &6appliqué!"
+    rewards-loot: "&7Loot déposé au sol!"
+
+    # Noms des boss (choisi aléatoirement)
+    boss-names:
+      - "Goliath Putride"
+      - "Seigneur des Morts"
+      - "Abomination Ancienne"
+      - "Titan Décomposé"
+      - "Ravageur Infernal"
+      - "Colosse Maudit"
+      - "Destructeur d'Âmes"
+      - "Terreur Ambulante"
+
+# ===============================================
+# EFFETS VISUELS ET SONORES
+# ===============================================
+effects:
+  # Particules
+  particles:
+    enabled: true
+    # Réduire les particules pour les performances
+    reduced-mode: false
+    # Multiplicateur de quantité (0.5 = moitié)
+    quantity-multiplier: 1.0
+
+  # Sons
+  sounds:
+    enabled: true
+    # Volume global (0.0 - 1.0)
+    volume-multiplier: 1.0
+
+  # Boss bars
+  boss-bars:
+    enabled: true
+    # Style de la barre
+    style: SEGMENTED_10
+
+  # Titres d'annonce
+  titles:
+    enabled: true
+    # Durée d'affichage (en ticks)
+    fade-in: 10
+    stay: 60
+    fade-out: 20
+
+  # Rayon d'annonce des événements (en blocs)
+  announcement-radius: 100
+  # Rayon étendu (message simple)
+  extended-announcement-radius: 200
+
+# ===============================================
+# DIFFICULTÉ ET SCALING
+# ===============================================
+difficulty:
+  # Multiplicateur global de difficulté
+  global-multiplier: 1.0
+
+  # Scaling par zone
+  zone-scaling:
+    # Activer le scaling par zone
+    enabled: true
+    # Multiplicateur de vie des ennemis par zone
+    enemy-health-per-zone: 0.02
+    # Multiplicateur de dégâts des ennemis par zone
+    enemy-damage-per-zone: 0.015
+    # Multiplicateur de vitesse des ennemis par zone
+    enemy-speed-per-zone: 0.005
+
+  # Scaling par nombre de joueurs participants
+  player-scaling:
+    enabled: true
+    # Multiplicateur de vie par joueur supplémentaire
+    enemy-health-per-player: 0.15
+    # Multiplicateur de zombies par joueur supplémentaire
+    spawn-count-per-player: 0.2
+
+# ===============================================
+# DEBUG ET ADMINISTRATION
+# ===============================================
+admin:
+  # Logs détaillés dans la console
+  verbose-logging: false
+
+  # Afficher les informations de debug aux admins
+  debug-info-for-ops: true
+
+  # Permettre le spawn manuel d'événements
+  allow-manual-spawn: true
+
+  # Cooldown entre spawns manuels (en secondes)
+  manual-spawn-cooldown: 60
+
+# ===============================================
+# INTÉGRATION
+# ===============================================
+integration:
+  # Notifier via le système de chat global
+  broadcast-to-all: false
+
+  # Intégration avec le système de quêtes
+  quests:
+    enabled: true
+    # Compter les événements comme objectifs de quête
+    count-as-objectives: true
+
+  # Intégration avec le système de succès
+  achievements:
+    enabled: true
+    # Déclencher des succès à la complétion
+    trigger-on-complete: true

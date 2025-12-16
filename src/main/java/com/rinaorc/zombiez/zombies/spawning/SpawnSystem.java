@@ -456,6 +456,23 @@ public class SpawnSystem {
     }
 
     /**
+     * Spawn un seul zombie à une position donnée
+     */
+    public void spawnSingleZombie(Location location, int zoneId) {
+        ZoneSpawnConfig config = zoneConfigs.getOrDefault(zoneId, zoneConfigs.get(1));
+
+        Location groundLoc = findGround(location);
+        if (groundLoc == null) {
+            groundLoc = location; // Fallback à la position originale
+        }
+
+        ZombieType type = selectZombieType(zoneId);
+        int level = config.baseLevel + random.nextInt(3);
+
+        zombieManager.spawnZombie(type, groundLoc, level);
+    }
+
+    /**
      * Force un spawn de vague de zombies
      */
     public void spawnWave(Location center, int count, int zoneId) {

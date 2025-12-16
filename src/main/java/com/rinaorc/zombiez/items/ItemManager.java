@@ -477,6 +477,28 @@ public class ItemManager {
     public ItemGenerator getGenerator() {
         return generator;
     }
+
+    /**
+     * Génère un item avec une rareté spécifique (pour les événements)
+     */
+    public ItemStack generateItem(int zoneId, Rarity rarity) {
+        // Générer un item avec la rareté forcée
+        ZombieZItem zItem = generator.generate(zoneId, rarity, 0.0);
+        if (zItem == null) return null;
+
+        // Cacher l'item
+        itemCache.put(zItem.getUuid(), zItem);
+
+        // Appliquer un pouvoir si éligible
+        return applyPowerIfEligible(zItem);
+    }
+
+    /**
+     * Obtient les données d'un item ZombieZ
+     */
+    public ZombieZItem getItemData(ItemStack itemStack) {
+        return getItem(itemStack);
+    }
     
     /**
      * Obtient le système de loot drop
