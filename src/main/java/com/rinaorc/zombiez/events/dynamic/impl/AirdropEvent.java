@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.events.dynamic.impl;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
 import com.rinaorc.zombiez.items.types.Rarity;
@@ -373,9 +374,9 @@ public class AirdropEvent extends DynamicEvent {
         if (plugin.getConsumableManager() != null) {
             int consumableCount = 2 + zone.getId() / 15;
             for (int i = 0; i < consumableCount; i++) {
-                ItemStack consumable = plugin.getConsumableManager().generateRandomConsumable(zone.getId());
+                Consumable consumable = plugin.getConsumableManager().generateConsumable(zone.getId(), 0.0);
                 if (consumable != null) {
-                    lootItems.add(consumable);
+                    lootItems.add(consumable.createItemStack());
                 }
             }
         }

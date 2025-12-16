@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.events.dynamic;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.dynamic.impl.HordeInvasionEvent;
 import com.rinaorc.zombiez.events.dynamic.impl.ZombieNestEvent;
+import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -182,7 +183,7 @@ public class DynamicEventListener implements Listener {
         // Bonus des stats d'item ZombieZ (si applicable)
         var itemData = plugin.getItemManager().getItemData(player.getInventory().getItemInMainHand());
         if (itemData != null) {
-            baseDamage += itemData.getStat("damage", 0);
+            baseDamage += (int) itemData.getStat(StatType.DAMAGE);
         }
 
         return baseDamage;
