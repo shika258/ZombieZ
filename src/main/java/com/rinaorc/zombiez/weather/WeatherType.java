@@ -700,4 +700,15 @@ public enum WeatherType {
             default -> null;
         };
     }
+
+    /**
+     * Vérifie si cette météo nécessite la nuit (transition automatique vers la nuit au démarrage)
+     * Ces événements déclencheront une animation de transition vers la nuit
+     */
+    public boolean isNightOnly() {
+        return switch (this) {
+            case BLOOD_MOON, HARVEST_MOON, AURORA, STARFALL -> true;
+            default -> false;
+        };
+    }
 }
