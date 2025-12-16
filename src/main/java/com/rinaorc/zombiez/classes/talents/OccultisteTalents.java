@@ -61,8 +61,8 @@ public final class OccultisteTalents {
                 "§7Vos attaques ont §e25%§7 de chance",
                 "§7de §bgeler§7 l'ennemi.",
                 "",
-                "§8Slow: §b50%§8 pendant 2s",
-                "§8Synergie: Frost mage core"
+                "§8Ralentissement: §b50%§8 pendant 2s",
+                "§8Synergie: Mage de givre"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -78,14 +78,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_chain_lightning")
             .name("Arc Electrique")
-            .description("25% chance de chain lightning")
+            .description("25% chance d'eclair en chaine")
             .loreLines(new String[]{
                 "§7Vos attaques ont §e25%§7 de chance",
                 "§7de declencher un §earc electrique§7.",
                 "",
                 "§8Cibles: §e3§8 ennemis proches",
                 "§8Degats: §c60%§8 par cible",
-                "§8Range: 5 blocs"
+                "§8Portee: 5 blocs"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -101,13 +101,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_siphon")
             .name("Siphon d'Ame")
-            .description("Kill = 3% HP + orbe d'ame")
+            .description("Elimination = 3% PV + orbe d'ame")
             .loreLines(new String[]{
-                "§7Chaque kill restaure §a3%§7 de",
-                "§7vos PV max et genere une",
+                "§7Chaque elimination restaure §a3%§7",
+                "§7de vos PV max et genere une",
                 "§dorbe d'ame§7 (max 5).",
                 "",
-                "§8Synergie: Soul/Dark mage core"
+                "§8Synergie: Mage des ames"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -118,15 +118,15 @@ public final class OccultisteTalents {
             .values(new double[]{0.03, 5}) // heal%, max_orbs
             .build());
 
-        // 1.5 - VOID BOLT
+        // 1.5 - PROJECTILE DU VIDE
         TALENTS.add(Talent.builder()
             .id("occultiste_void_bolt")
-            .name("Void Bolt")
-            .description("20% chance de projectile void")
+            .name("Projectile du Vide")
+            .description("20% chance de projectile du vide")
             .loreLines(new String[]{
                 "§7§e20%§7 de chance que votre",
                 "§7attaque soit remplacee par un",
-                "§5projectile void§7.",
+                "§5projectile du vide§7.",
                 "",
                 "§8Degats: §c150%§8 de base",
                 "§8Traverse tous les ennemis"
@@ -154,8 +154,8 @@ public final class OccultisteTalents {
                 "§7Les ennemis en feu §cenflamment§7",
                 "§7les ennemis proches.",
                 "",
-                "§8Range: 2 blocs",
-                "§8Check: Chaque seconde"
+                "§8Portee: 2 blocs",
+                "§8Verification: Chaque seconde"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -170,13 +170,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frozen_heart")
             .name("Coeur de Glace")
-            .description("Geles prennent +30% degats + shatter")
+            .description("Geles prennent +30% degats + brisure")
             .loreLines(new String[]{
                 "§7Les ennemis §bgeles§7 prennent",
                 "§c+30%§7 de degats.",
                 "",
                 "§8Si tues pendant le gel:",
-                "§8AoE de glace (3 blocs)"
+                "§8Explosion de glace (3 blocs)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -191,13 +191,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_overcharge")
             .name("Surcharge")
-            .description("Lightning crit + ajoute une cible")
+            .description("Eclair peut critiquer + ajoute une cible")
             .loreLines(new String[]{
-                "§7Les §echain lightning§7 peuvent",
+                "§7Les §eeclairs en chaine§7 peuvent",
                 "§7faire des coups critiques.",
                 "",
                 "§8Chaque crit ajoute §e+1§8 cible",
-                "§8Synergie: Lightning scaling"
+                "§8Synergie: Mage de foudre"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -212,13 +212,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_reservoir")
             .name("Reservoir d'Ames")
-            .description("Consommez les ames pour burst")
+            .description("Consommez les ames pour explosion")
             .loreLines(new String[]{
-                "§7Activation: §eCrouch + Attack§7",
+                "§7Activation: §eS'accroupir + Attaque§7",
                 "§7Consomme toutes les §dorbes§7 pour",
-                "§7un burst de degats.",
+                "§7une explosion de degats.",
                 "",
-                "§8Degats par orbe: §c100%§8 base"
+                "§8Degats par orbe: §c100%§8 de base"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -306,9 +306,9 @@ public final class OccultisteTalents {
                 "§7Vous generez des §eeclairs§7",
                 "§7en permanence autour de vous.",
                 "",
-                "§8Tick: Toutes les 1.5s",
+                "§8Intervalle: Toutes les 1.5s",
                 "§8Cibles: 2 ennemis proches",
-                "§8Degats: §c40%§8 base, Range: 6"
+                "§8Degats: §c40%§8 base, Portee: 6"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -344,14 +344,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_dimensional_rift")
             .name("Rift Dimensionnel")
-            .description("Void Bolts laissent une faille")
+            .description("Projectiles du Vide laissent une faille")
             .loreLines(new String[]{
-                "§7Les §5Void Bolts§7 laissent une",
-                "§7faille qui tire sur les ennemis.",
+                "§7Les §5Projectiles du Vide§7 laissent",
+                "§7une faille qui tire sur les ennemis.",
                 "",
                 "§8Duree: 3s",
-                "§8Tick: 1 tir/s",
-                "§8Degats: §c50%§8 base"
+                "§8Intervalle: 1 tir/s",
+                "§8Degats: §c50%§8 de base"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -412,12 +412,12 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_conductor")
             .name("Conducteur")
-            .description("Lightning vous soigne")
+            .description("Les eclairs vous soignent")
             .loreLines(new String[]{
                 "§7Les §eeclairs§7 vous soignent",
                 "§7pour §a5%§7 des degats infliges.",
                 "",
-                "§8Synergie: Lightning sustain"
+                "§8Synergie: Survie par la foudre"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -449,16 +449,16 @@ public final class OccultisteTalents {
             .values(new double[]{0.01}) // regen_per_orb%
             .build());
 
-        // 4.5 - ANCRE DU VOID
+        // 4.5 - ANCRE DU VIDE
         TALENTS.add(Talent.builder()
             .id("occultiste_void_anchor")
-            .name("Ancre du Void")
+            .name("Ancre du Vide")
             .description("Les failles attirent les ennemis")
             .loreLines(new String[]{
                 "§7Les §5failles dimensionnelles§7",
                 "§7attirent les ennemis vers elles.",
                 "",
-                "§8Pull: 30% de leur vitesse",
+                "§8Attraction: 30% de leur vitesse",
                 "§8vers le centre"
             })
             .classType(ClassType.OCCULTISTE)
@@ -542,13 +542,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_legion")
             .name("Legion d'Ames")
-            .description("10 orbes max + 5% DR chacune")
+            .description("10 orbes max + 5% reduction degats chacune")
             .loreLines(new String[]{
                 "§7Vous pouvez stocker §d10 orbes§7.",
-                "§7Chaque orbe donne §e5% DR§7.",
+                "§7Chaque orbe reduit les degats de §e5%§7.",
                 "",
-                "§8Max DR: §e50%§8 (10 orbes)",
-                "§8Synergie: Soul tank"
+                "§8Max reduction: §e50%§8 (10 orbes)",
+                "§8Synergie: Defenseur d'ames"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -559,16 +559,16 @@ public final class OccultisteTalents {
             .values(new double[]{10, 0.05}) // max_orbs, dr_per_orb
             .build());
 
-        // 5.5 - MAITRE DU VOID
+        // 5.5 - MAITRE DU VIDE
         TALENTS.add(Talent.builder()
             .id("occultiste_void_master")
-            .name("Maitre du Void")
+            .name("Maitre du Vide")
             .description("Detonez les failles")
             .loreLines(new String[]{
                 "§7Tirez dans une §5faille§7 pour",
                 "§7la faire exploser.",
                 "",
-                "§8Degats: §c300%§8 base",
+                "§8Degats: §c300%§8 de base",
                 "§8Rayon: 5 blocs"
             })
             .classType(ClassType.OCCULTISTE)
@@ -679,7 +679,7 @@ public final class OccultisteTalents {
             .description("25% chance d'eviter les degats")
             .loreLines(new String[]{
                 "§7Vous existez partiellement",
-                "§7dans le §5void§7.",
+                "§7dans le §5vide§7.",
                 "",
                 "§8§e25%§8 de chance d'ignorer",
                 "§8completement les degats"
