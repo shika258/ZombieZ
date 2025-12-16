@@ -782,6 +782,7 @@ public class ConsumableEffects {
             final int maxMissedShots = 3; // Change de cible après 3 tirs ratés
             final Set<UUID> blacklistedTargets = new HashSet<>(); // Cibles temporairement ignorées
             int blacklistClearCooldown = 0;
+            int lastDisplayedSeconds = -1; // Pour éviter les mises à jour inutiles
 
             @Override
             public void run() {
@@ -804,7 +805,7 @@ public class ConsumableEffects {
                     return;
                 }
 
-                if (!turret.isValid() || ticks++ >= maxTicks) {
+                if (!turret.isValid() || ticks >= maxTicks) {
                     if (turret.isValid()) {
                         turret.getWorld().spawnParticle(Particle.CLOUD, turret.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.05);
                         turret.remove();
@@ -906,14 +907,18 @@ public class ConsumableEffects {
                     missedShots = 0;
                 }
 
-                // Mise à jour du nom avec temps restant et barre de vie
-                if (ticks % 20 == 0) {
+                // Mise à jour du nom avec temps restant et barre de vie (à chaque seconde)
+                int secondsRemaining = (maxTicks - ticks) / 20;
+                if (secondsRemaining != lastDisplayedSeconds) {
+                    lastDisplayedSeconds = secondsRemaining;
                     double healthPercent = 1.0 - ((double) ticks / maxTicks);
-                    int secondsRemaining = (maxTicks - ticks) / 20;
                     String healthBar = createHealthBar(healthPercent);
                     String timeColor = secondsRemaining <= 5 ? "§c" : (secondsRemaining <= 10 ? "§e" : "§a");
                     turret.setCustomName("§b⚙ §fTourelle " + healthBar + " " + timeColor + secondsRemaining + "s");
                 }
+
+                // Incrémenter les ticks à la fin
+                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
 

@@ -70,6 +70,7 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
     // Coffre de récompense
     private Block rewardChestBlock;
+    private BukkitTask rewardChestTask; // Tâche de despawn du coffre
 
     // Tâche de zombies targeting
     private BukkitTask zombieTargetTask;
@@ -618,6 +619,105 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         if (block.getState() instanceof Chest chest) {
             fillRewardChest(chest);
         }
+
+        // Démarrer la tâche de despawn automatique (60 secondes ou si vide)
+        startChestDespawnTask();
+    }
+
+    /**
+     * Démarre la tâche de despawn du coffre (après 60s ou si vide)
+     */
+    private void startChestDespawnTask() {
+        if (rewardChestBlock == null) return;
+
+        final int DESPAWN_DELAY_SECONDS = 60;
+
+        rewardChestTask = new BukkitRunnable() {
+            int secondsRemaining = DESPAWN_DELAY_SECONDS;
+
+            @Override
+            public void run() {
+                // Vérifier si le coffre existe toujours
+                if (rewardChestBlock == null || rewardChestBlock.getType() != Material.CHEST) {
+                    cancel();
+                    return;
+                }
+
+                // Vérifier si le coffre est vide
+                if (rewardChestBlock.getState() instanceof Chest chest) {
+                    boolean isEmpty = true;
+                    for (ItemStack item : chest.getInventory().getContents()) {
+                        if (item != null && item.getType() != Material.AIR) {
+                            isEmpty = false;
+                            break;
+                        }
+                    }
+
+                    if (isEmpty) {
+                        // Despawn immédiat si le coffre est vide
+                        despawnRewardChest("§7Le coffre a été vidé!");
+                        cancel();
+                        return;
+                    }
+                }
+
+                secondsRemaining--;
+
+                // Avertissements aux joueurs proches
+                if (secondsRemaining == 30 || secondsRemaining == 10 || secondsRemaining == 5) {
+                    notifyChestDespawn(secondsRemaining);
+                }
+
+                // Despawn après le délai
+                if (secondsRemaining <= 0) {
+                    despawnRewardChest("§c⚠ Le coffre a disparu! (60s écoulées)");
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Vérifier chaque seconde
+    }
+
+    /**
+     * Notifie les joueurs proches du despawn imminent du coffre
+     */
+    private void notifyChestDespawn(int secondsRemaining) {
+        if (rewardChestBlock == null) return;
+        World world = rewardChestBlock.getWorld();
+
+        for (Player player : world.getNearbyEntities(rewardChestBlock.getLocation(), 50, 30, 50).stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .toList()) {
+            player.sendMessage("§e⚠ §7Le coffre de récompense disparaîtra dans §c" + secondsRemaining + " secondes§7!");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 0.8f);
+        }
+    }
+
+    /**
+     * Fait despawn le coffre de récompense
+     */
+    private void despawnRewardChest(String message) {
+        if (rewardChestBlock == null) return;
+
+        World world = rewardChestBlock.getWorld();
+        Location chestLoc = rewardChestBlock.getLocation();
+
+        // Effets visuels
+        world.spawnParticle(Particle.CLOUD, chestLoc.clone().add(0.5, 0.5, 0.5), 20, 0.3, 0.3, 0.3, 0.05);
+        world.playSound(chestLoc, Sound.ENTITY_ITEM_PICKUP, 1f, 0.5f);
+
+        // Supprimer le coffre
+        rewardChestBlock.setType(Material.AIR);
+
+        // Message aux joueurs proches
+        for (Player player : world.getNearbyEntities(chestLoc, 50, 30, 50).stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .toList()) {
+            player.sendMessage(message);
+        }
+
+        rewardChestBlock = null;
     }
 
     /**
@@ -751,6 +851,7 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         attackingZombies.clear();
 
         // Note: Le coffre de récompense reste pour que les joueurs puissent le looter
+        // La tâche de despawn continue à tourner jusqu'à ce que le coffre soit vide ou après 60s
     }
 
     @Override
