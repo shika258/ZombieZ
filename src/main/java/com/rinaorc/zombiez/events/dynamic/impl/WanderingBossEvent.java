@@ -59,6 +59,7 @@ public class WanderingBossEvent extends DynamicEvent {
     // État
     private boolean isEnraged = false;
     private int tickCounter = 0;
+    private int targetingTimer = 0;
 
     // Types de boss selon la zone
     private static final String[] BOSS_NAMES = {
@@ -167,11 +168,19 @@ public class WanderingBossEvent extends DynamicEvent {
             zombie.setBaby(false);
         }
 
-        // Armure
-        if (boss instanceof Zombie zombie) {
-            zombie.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
-            zombie.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
-            zombie.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_AXE));
+        // Armure - SANS DROP (empêcher le loot des équipements)
+        if (boss.getEquipment() != null) {
+            boss.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+            boss.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+            boss.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_AXE));
+
+            // IMPORTANT: Empêcher le drop des équipements
+            boss.getEquipment().setHelmetDropChance(0f);
+            boss.getEquipment().setChestplateDropChance(0f);
+            boss.getEquipment().setLeggingsDropChance(0f);
+            boss.getEquipment().setBootsDropChance(0f);
+            boss.getEquipment().setItemInMainHandDropChance(0f);
+            boss.getEquipment().setItemInOffHandDropChance(0f);
         }
 
         // Marquer comme boss d'événement
@@ -224,6 +233,13 @@ public class WanderingBossEvent extends DynamicEvent {
         // Mouvement vers la destination
         moveBoss();
 
+        // Faire focus le boss sur le joueur le plus proche (toutes les 2 secondes)
+        targetingTimer++;
+        if (targetingTimer >= 4) { // 4 ticks de 10 = 2 secondes
+            targetNearestPlayer();
+            targetingTimer = 0;
+        }
+
         // Capacités spéciales
         specialAbilityTimer++;
         if (specialAbilityTimer >= specialAbilityInterval * 2) {
@@ -261,6 +277,36 @@ public class WanderingBossEvent extends DynamicEvent {
                 world.spawnParticle(Particle.ANGRY_VILLAGER, bossLoc.clone().add(0, 2, 0),
                     3, 0.3, 0.3, 0.3, 0);
             }
+        }
+    }
+
+    /**
+     * Fait target le boss sur le joueur le plus proche
+     * Le boss ne doit cibler QUE les joueurs, pas les autres mobs
+     */
+    private void targetNearestPlayer() {
+        if (boss == null || !boss.isValid()) return;
+        if (!(boss instanceof Mob mob)) return;
+
+        World world = boss.getLocation().getWorld();
+        if (world == null) return;
+
+        Player nearestPlayer = null;
+        double nearestDistance = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(boss.getLocation(), 20, 10, 20)) {
+            if (entity instanceof Player player) {
+                double distance = safeDistance(boss.getLocation(), player.getLocation());
+                if (distance < nearestDistance && distance != Double.MAX_VALUE) {
+                    nearestDistance = distance;
+                    nearestPlayer = player;
+                }
+            }
+        }
+
+        // Target le joueur le plus proche (uniquement les joueurs!)
+        if (nearestPlayer != null) {
+            mob.setTarget(nearestPlayer);
         }
     }
 
@@ -359,7 +405,7 @@ public class WanderingBossEvent extends DynamicEvent {
                         .map(e -> (Player) e)
                         .toList()) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 0));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 40, 0));
                     player.sendMessage("§c" + bossName + " §7vous terrorise!");
                 }
                 world.playSound(bossLoc, Sound.ENTITY_WARDEN_ROAR, 2f, 0.6f);

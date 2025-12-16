@@ -312,8 +312,8 @@ public class ZombieAffix {
                 .rewardMultiplier(2.2)
                 .lootBonus(0.25)
                 .attackEffects(List.of(
-                    new PotionEffect(PotionEffectType.WEAKNESS, 60, 0),
-                    new PotionEffect(PotionEffectType.SLOWNESS, 40, 0)
+                    new PotionEffect(PotionEffectType.SLOWNESS, 60, 0),
+                    new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 0)
                 ))
                 .specialAbility("mana_drain")
                 .build());

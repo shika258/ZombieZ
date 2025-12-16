@@ -18,6 +18,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
 /**
@@ -103,6 +104,21 @@ public class DynamicEventListener implements Listener {
                     hordeEvent.onZombieKilled(deathLoc);
                 }
             }
+        }
+    }
+
+    /**
+     * Empêche le trading avec les villageois survivants
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onVillagerInteract(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Villager villager)) return;
+
+        // Vérifier si c'est un survivant de l'événement (ne peut pas trader)
+        if (villager.getScoreboardTags().contains("no_trading") ||
+            villager.getScoreboardTags().contains("convoy_survivor")) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§e§l🛡 §7Ce survivant a besoin de votre protection, pas de commerce!");
         }
     }
 

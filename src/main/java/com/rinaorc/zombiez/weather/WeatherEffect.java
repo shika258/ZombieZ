@@ -631,11 +631,6 @@ public class WeatherEffect {
     protected void applyEnvironmentalDamage() {
         if (!type.isDangerous()) return;
 
-        double damage = type.getEnvironmentalDamage();
-        if (damageMultiplierOverride > 0) {
-            damage *= damageMultiplierOverride;
-        }
-
         for (Player player : cachedPlayers) {
             // Vérifier abri
             if (isPlayerSheltered(player)) {
@@ -643,6 +638,18 @@ public class WeatherEffect {
                 continue;
             } else {
                 shelteredPlayers.remove(player.getUniqueId());
+            }
+
+            // Calculer les dégâts - Pour ASHFALL, utiliser 5% des HP max
+            double damage;
+            if (type == WeatherType.ASHFALL) {
+                double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                damage = maxHealth * 0.05; // 5% des HP max
+            } else {
+                damage = type.getEnvironmentalDamage();
+                if (damageMultiplierOverride > 0) {
+                    damage *= damageMultiplierOverride;
+                }
             }
 
             // Réduction par armure
@@ -654,8 +661,10 @@ public class WeatherEffect {
 
                 // Avertissement périodique
                 if (tickCounter % 10 == 0) {
+                    String damageMsg = type == WeatherType.ASHFALL ?
+                        "§7(-5% HP max)" : "§7(-" + String.format("%.1f", finalDamage) + " HP)";
                     player.sendMessage(type.getColor() + type.getIcon() +
-                        " §cTrouvez un abri! §7(-" + String.format("%.1f", finalDamage) + " HP)");
+                        " §cTrouvez un abri! " + damageMsg);
                 }
             }
         }
