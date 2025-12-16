@@ -384,44 +384,51 @@ public class MissionManager {
     /**
      * Génère les missions d'un joueur
      */
-    public void generateMissions(UUID playerId) {
+    public PlayerMissions generateMissions(UUID playerId) {
         PlayerMissions missions = new PlayerMissions(playerId);
-        
+
         // Générer les missions journalières
         List<Mission> dailyPool = missionPool.values().stream()
             .filter(m -> m.getType() == MissionType.DAILY)
             .toList();
-        
-        Collections.shuffle(new ArrayList<>(dailyPool));
-        for (int i = 0; i < Math.min(DAILY_MISSION_COUNT, dailyPool.size()); i++) {
-            missions.addDailyMission(dailyPool.get(i));
+
+        List<Mission> shuffledDaily = new ArrayList<>(dailyPool);
+        Collections.shuffle(shuffledDaily);
+        for (int i = 0; i < Math.min(DAILY_MISSION_COUNT, shuffledDaily.size()); i++) {
+            missions.addDailyMission(shuffledDaily.get(i));
         }
-        
+
         // Générer les missions hebdomadaires
         List<Mission> weeklyPool = missionPool.values().stream()
             .filter(m -> m.getType() == MissionType.WEEKLY)
             .toList();
-        
-        Collections.shuffle(new ArrayList<>(weeklyPool));
-        for (int i = 0; i < Math.min(WEEKLY_MISSION_COUNT, weeklyPool.size()); i++) {
-            missions.addWeeklyMission(weeklyPool.get(i));
+
+        List<Mission> shuffledWeekly = new ArrayList<>(weeklyPool);
+        Collections.shuffle(shuffledWeekly);
+        for (int i = 0; i < Math.min(WEEKLY_MISSION_COUNT, shuffledWeekly.size()); i++) {
+            missions.addWeeklyMission(shuffledWeekly.get(i));
         }
-        
+
+        // Stocker et retourner les missions
         playerMissions.put(playerId, missions);
+        return missions;
     }
 
     /**
      * Obtient les missions d'un joueur
      */
     public PlayerMissions getMissions(UUID playerId) {
-        return playerMissions.computeIfAbsent(playerId, this::loadOrGenerate);
+        PlayerMissions missions = playerMissions.get(playerId);
+        if (missions == null) {
+            missions = loadOrGenerate(playerId);
+        }
+        return missions;
     }
 
     private PlayerMissions loadOrGenerate(UUID playerId) {
         // Essayer de charger depuis la BDD, sinon générer
-        PlayerMissions missions = new PlayerMissions(playerId);
-        generateMissions(playerId);
-        return playerMissions.get(playerId);
+        // TODO: Implémenter le chargement depuis la BDD
+        return generateMissions(playerId);
     }
 
     /**
