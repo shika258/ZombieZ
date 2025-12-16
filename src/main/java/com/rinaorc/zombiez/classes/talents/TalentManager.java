@@ -176,7 +176,7 @@ public class TalentManager {
             // Notification
             player.sendMessage("");
             player.sendMessage("§a§l+ TALENT SÉLECTIONNÉ +");
-            player.sendMessage("§7" + talent.getTier().getName() + ": " + talent.getColoredName());
+            player.sendMessage("§7" + talent.getTier().getDisplayName() + ": " + talent.getColoredName());
             player.sendMessage("");
 
             // Effet sonore

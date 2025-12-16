@@ -703,7 +703,7 @@ public class ChasseurTalentListener implements Listener {
             if (entity instanceof LivingEntity nearby && entity != player && entity != target) {
                 nearby.damage(damage, player);
                 nearby.getWorld().playSound(nearby.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.0f, 1.5f);
-                nearby.getWorld().spawnParticle(Particle.CRIT_MAGIC, nearby.getLocation(), 10, 0.3, 0.3, 0.3, 0);
+                nearby.getWorld().spawnParticle(Particle.ENCHANTED_HIT, nearby.getLocation(), 10, 0.3, 0.3, 0.3, 0);
                 break;
             }
         }
@@ -975,7 +975,7 @@ public class ChasseurTalentListener implements Listener {
         }
 
         // Visual
-        target.getWorld().spawnParticle(Particle.VILLAGER_ANGRY, target.getLocation().add(0, 2, 0), 5, 0.2, 0.2, 0.2, 0);
+        target.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, target.getLocation().add(0, 2, 0), 5, 0.2, 0.2, 0.2, 0);
     }
 
     private boolean isMarked(Player player, LivingEntity target) {

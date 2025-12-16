@@ -673,7 +673,7 @@ public class OccultisteTalentListener implements Listener {
 
         // Visual
         victim.getWorld().spawnParticle(Particle.SNOWFLAKE, victim.getLocation(), 50, radius/2, radius/2, radius/2, 0.1);
-        victim.getWorld().spawnParticle(Particle.ITEM_CRACK, victim.getLocation(), 30, radius/2, radius/2, radius/2, 0.1,
+        victim.getWorld().spawnParticle(Particle.ITEM, victim.getLocation(), 30, radius/2, radius/2, radius/2, 0.1,
             new org.bukkit.inventory.ItemStack(Material.ICE));
         victim.getWorld().playSound(victim.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
     }
@@ -1462,7 +1462,7 @@ public class OccultisteTalentListener implements Listener {
                     }
 
                     // Visual (reduit)
-                    le.getWorld().spawnParticle(Particle.ITEM_CRACK, le.getLocation().add(0, 1, 0), 25, 0.5, 1, 0.5, 0.1,
+                    le.getWorld().spawnParticle(Particle.ITEM, le.getLocation().add(0, 1, 0), 25, 0.5, 1, 0.5, 0.1,
                         new org.bukkit.inventory.ItemStack(Material.ICE));
                     le.getWorld().playSound(le.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.8f, 0.3f);
 

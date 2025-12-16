@@ -472,7 +472,7 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
             if (talent.getTier() != currentTier) {
                 currentTier = talent.getTier();
                 sender.sendMessage("");
-                sender.sendMessage("§e§l" + currentTier.getName() + " §7(Niveau " + currentTier.getRequiredLevel() + "+)");
+                sender.sendMessage("§e§l" + currentTier.getDisplayName() + " §7(Niveau " + currentTier.getRequiredLevel() + "+)");
             }
             sender.sendMessage("  §7- §f" + talent.getId() + " §7: " + talent.getColoredName());
         }
