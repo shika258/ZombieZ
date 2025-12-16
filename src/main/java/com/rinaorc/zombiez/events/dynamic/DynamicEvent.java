@@ -13,6 +13,13 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
+import com.rinaorc.zombiez.items.scaling.ZoneScaling;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -52,6 +59,12 @@ public abstract class DynamicEvent {
     protected final Set<Player> nearbyPlayersCache = ConcurrentHashMap.newKeySet();
     protected long lastNearbyUpdateTime = 0;
     protected static final long NEARBY_CACHE_DURATION_MS = 1000; // 1 seconde
+
+    // Système de téléportation
+    protected final Set<UUID> teleportedPlayers = ConcurrentHashMap.newKeySet();
+    protected final Set<UUID> deadDuringEvent = ConcurrentHashMap.newKeySet();
+    protected boolean teleportEnabled = true;
+    protected double itemScoreTolerance = 0.4; // 40% de tolérance sur l'item score requis
 
     // Tâches planifiées
     protected BukkitTask mainTask;
@@ -277,10 +290,15 @@ public abstract class DynamicEvent {
     /**
      * Annonce le début de l'événement
      * OPTIMISÉ: Utilise safeDistance pour éviter les exceptions entre mondes
+     * AMÉLIORÉ: Inclut un message clickable pour la téléportation
      */
     protected void announceStart() {
         World eventWorld = location.getWorld();
         if (eventWorld == null) return;
+
+        // Créer le message de téléportation clickable
+        Component teleportComponent = createTeleportMessage();
+        int minScore = (int) (getRequiredItemScore() * (1.0 - itemScoreTolerance));
 
         // Notifier les joueurs proches
         for (Player player : plugin.getServer().getOnlinePlayers()) {
@@ -301,11 +319,31 @@ public abstract class DynamicEvent {
                 player.sendMessage(type.getColor() + "§l" + type.getIcon() + " ÉVÉNEMENT: " + type.getDisplayName());
                 player.sendMessage("§7" + type.getDescription());
                 player.sendMessage("§7Distance: §e" + (int) distance + " blocs " + getDirectionFrom(player.getLocation()));
+                player.sendMessage("§7Zone: §e" + zone.getDisplayName() + " §7| Item Score requis: §e" + minScore + "+");
                 player.sendMessage("");
+
+                // Message clickable pour la téléportation (si le joueur est éligible)
+                if (teleportEnabled) {
+                    player.sendMessage(teleportComponent);
+                    player.sendMessage("");
+                }
+
                 player.playSound(player.getLocation(), type.getStartSound(), 1f, 1f);
             } else if (distance <= type.getAnnouncementRadius() * 2) {
-                // Joueurs moyennement proches (juste un message)
+                // Joueurs moyennement proches (message + téléport)
                 player.sendMessage(type.getColor() + "§l" + type.getIcon() + " §7Un événement §e" + type.getDisplayName() + " §7a démarré à §e" + (int) distance + " blocs!");
+                player.sendMessage("§7Zone: §e" + zone.getDisplayName() + " §7| Item Score requis: §e" + minScore + "+");
+
+                if (teleportEnabled) {
+                    player.sendMessage(teleportComponent);
+                }
+            } else if (distance <= type.getAnnouncementRadius() * 4) {
+                // Joueurs éloignés (notification de téléportation possible)
+                if (teleportEnabled) {
+                    player.sendMessage(type.getColor() + "§l" + type.getIcon() + " §7Événement §e" + type.getDisplayName() +
+                        " §7en Zone §e" + zone.getId() + " §7- Trop loin? ");
+                    player.sendMessage(teleportComponent);
+                }
             }
         }
     }
@@ -448,6 +486,203 @@ public abstract class DynamicEvent {
         long elapsed = System.currentTimeMillis() - startTime;
         long max = (maxDuration / 20) * 1000L;
         return Math.max(0, 1.0 - ((double) elapsed / max));
+    }
+
+    // ==================== SYSTÈME DE TÉLÉPORTATION ====================
+
+    /**
+     * Calcule le score d'item requis pour la zone de l'événement
+     * Basé sur ZoneScaling pour cohérence avec le système d'items
+     *
+     * @return Score minimum recommandé pour participer
+     */
+    public int getRequiredItemScore() {
+        // Score de base pour la zone (progression exponentielle)
+        int baseScore = ZoneScaling.getBaseScoreForZone(zone.getId());
+
+        // On prend le score d'un équipement complet moyen (6 pièces)
+        // avec un multiplicateur modéré
+        return (int) (baseScore * 4.5);
+    }
+
+    /**
+     * Vérifie si un joueur peut se téléporter à cet événement
+     *
+     * @param player Le joueur à vérifier
+     * @return null si autorisé, sinon le message d'erreur
+     */
+    public String canPlayerTeleport(Player player) {
+        if (!active) {
+            return "§c§l⚠ §7Cet événement n'est plus actif!";
+        }
+
+        if (!teleportEnabled) {
+            return "§c§l⚠ §7La téléportation est désactivée pour cet événement!";
+        }
+
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si le joueur s'est déjà téléporté
+        if (teleportedPlayers.contains(uuid)) {
+            return "§c§l⚠ §7Vous vous êtes déjà téléporté à cet événement!";
+        }
+
+        // Vérifier si le joueur est mort pendant l'événement
+        if (deadDuringEvent.contains(uuid)) {
+            return "§c§l⚠ §7Vous êtes mort pendant cet événement et ne pouvez plus vous y téléporter!";
+        }
+
+        // Vérifier l'item score du joueur
+        int playerScore = plugin.getItemManager().calculateTotalItemScore(player);
+        int requiredScore = getRequiredItemScore();
+        int minScore = (int) (requiredScore * (1.0 - itemScoreTolerance));
+
+        if (playerScore < minScore) {
+            return "§c§l⚠ §7Votre équipement est trop faible pour cet événement!\n" +
+                   "§7Votre score: §c" + playerScore + " §7| Requis: §e" + minScore + "+";
+        }
+
+        // Vérifier que le joueur n'est pas déjà dans la zone de l'événement
+        if (isInEventWorld(player)) {
+            double distance = safeDistance(player.getLocation(), location);
+            if (distance != Double.MAX_VALUE && distance < 50) {
+                return "§c§l⚠ §7Vous êtes déjà proche de cet événement!";
+            }
+        }
+
+        return null; // Autorisé
+    }
+
+    /**
+     * Téléporte un joueur à l'événement s'il remplit les conditions
+     *
+     * @param player Le joueur à téléporter
+     * @return true si téléporté avec succès
+     */
+    public boolean teleportPlayer(Player player) {
+        String error = canPlayerTeleport(player);
+        if (error != null) {
+            player.sendMessage(error);
+            return false;
+        }
+
+        World world = location.getWorld();
+        if (world == null) {
+            player.sendMessage("§c§l⚠ §7Erreur: Monde de l'événement introuvable!");
+            return false;
+        }
+
+        // Trouver une position de spawn sécurisée près de l'événement
+        Location teleportLoc = findSafeTeleportLocation();
+        if (teleportLoc == null) {
+            player.sendMessage("§c§l⚠ §7Impossible de trouver une position de téléportation sécurisée!");
+            return false;
+        }
+
+        // Marquer le joueur comme téléporté
+        teleportedPlayers.add(player.getUniqueId());
+        addParticipant(player);
+
+        // Téléporter le joueur
+        player.teleport(teleportLoc);
+
+        // Effets visuels et sonores
+        world.spawnParticle(Particle.PORTAL, teleportLoc, 30, 1, 2, 1, 0.1);
+        player.playSound(teleportLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
+
+        // Message de confirmation
+        player.sendMessage("");
+        player.sendMessage(type.getColor() + "§l" + type.getIcon() + " §aTéléportation réussie!");
+        player.sendMessage("§7Vous avez rejoint l'événement §e" + type.getDisplayName() + " §7en §e" + zone.getDisplayName());
+        player.sendMessage("§c§l⚠ §7Attention: Si vous mourez, vous ne pourrez pas revenir!");
+        player.sendMessage("");
+
+        return true;
+    }
+
+    /**
+     * Trouve une position de téléportation sécurisée près de l'événement
+     */
+    protected Location findSafeTeleportLocation() {
+        World world = location.getWorld();
+        if (world == null) return null;
+
+        Random random = new Random();
+
+        // Essayer plusieurs positions
+        for (int attempt = 0; attempt < 20; attempt++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double distance = 15 + random.nextDouble() * 15; // 15-30 blocs de l'événement
+
+            double x = location.getX() + Math.cos(angle) * distance;
+            double z = location.getZ() + Math.sin(angle) * distance;
+            int y = world.getHighestBlockYAt((int) x, (int) z);
+
+            Location checkLoc = new Location(world, x, y + 1, z);
+
+            // Vérifier que c'est sûr
+            if (checkLoc.getBlock().getType().isAir() &&
+                checkLoc.clone().add(0, 1, 0).getBlock().getType().isAir() &&
+                checkLoc.clone().add(0, -1, 0).getBlock().getType().isSolid()) {
+
+                // Orienter vers l'événement
+                double dx = location.getX() - x;
+                double dz = location.getZ() - z;
+                float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+                checkLoc.setYaw(yaw);
+
+                return checkLoc;
+            }
+        }
+
+        // Fallback: position au-dessus de l'événement
+        Location fallback = location.clone().add(0, 5, 0);
+        return fallback;
+    }
+
+    /**
+     * Enregistre qu'un joueur est mort pendant l'événement
+     * Appelé par le listener quand un participant meurt
+     */
+    public void recordPlayerDeath(UUID playerUuid) {
+        if (participants.contains(playerUuid) || teleportedPlayers.contains(playerUuid)) {
+            deadDuringEvent.add(playerUuid);
+        }
+    }
+
+    /**
+     * Vérifie si un joueur s'est téléporté à cet événement
+     */
+    public boolean hasTeleported(UUID playerUuid) {
+        return teleportedPlayers.contains(playerUuid);
+    }
+
+    /**
+     * Vérifie si un joueur est mort pendant cet événement
+     */
+    public boolean hasDiedDuringEvent(UUID playerUuid) {
+        return deadDuringEvent.contains(playerUuid);
+    }
+
+    /**
+     * Crée le message clickable pour la téléportation
+     */
+    protected Component createTeleportMessage() {
+        int requiredScore = getRequiredItemScore();
+        int minScore = (int) (requiredScore * (1.0 - itemScoreTolerance));
+
+        return Component.text("")
+            .append(Component.text("§7[")
+                .append(Component.text("⚡ CLIQUEZ ICI POUR VOUS TÉLÉPORTER")
+                    .color(NamedTextColor.GREEN)
+                    .decorate(TextDecoration.BOLD)
+                    .clickEvent(ClickEvent.runCommand("/event tp " + id))
+                    .hoverEvent(HoverEvent.showText(
+                        Component.text("§aClic pour rejoindre l'événement!\n")
+                            .append(Component.text("§7Item Score requis: §e" + minScore + "+\n"))
+                            .append(Component.text("§c⚠ Une seule téléportation par événement!"))
+                    )))
+                .append(Component.text("§7]")));
     }
 
     // ==================== MÉTHODES ABSTRAITES ====================

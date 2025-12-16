@@ -16,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
 /**
@@ -195,5 +196,43 @@ public class DynamicEventListener implements Listener {
                entity.getType() == org.bukkit.entity.EntityType.HUSK ||
                entity.getType() == org.bukkit.entity.EntityType.DROWNED ||
                entity.getScoreboardTags().contains("zombiez_mob");
+    }
+
+    /**
+     * Gère la mort d'un joueur pour bloquer la re-téléportation
+     * Si un joueur meurt pendant un événement, il ne peut plus s'y téléporter
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        Location deathLoc = player.getLocation();
+
+        // Vérifier si le joueur est près d'un événement actif
+        for (DynamicEvent dynamicEvent : eventManager.getActiveEvents().values()) {
+            if (!dynamicEvent.isActive()) continue;
+
+            // Calculer la distance de manière sécurisée
+            Location eventLoc = dynamicEvent.getLocation();
+            if (eventLoc.getWorld() == null || deathLoc.getWorld() == null) continue;
+            if (!eventLoc.getWorld().equals(deathLoc.getWorld())) continue;
+
+            double distance = deathLoc.distance(eventLoc);
+
+            // Si le joueur est mort dans un rayon raisonnable de l'événement (100 blocs)
+            if (distance <= 100) {
+                dynamicEvent.recordPlayerDeath(player.getUniqueId());
+
+                // Message au joueur
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (player.isOnline()) {
+                        player.sendMessage("");
+                        player.sendMessage("§c§l☠ §7Vous êtes mort près de l'événement §e" +
+                            dynamicEvent.getType().getDisplayName() + "§7!");
+                        player.sendMessage("§7Vous ne pourrez §cplus §7vous y téléporter.");
+                        player.sendMessage("");
+                    }
+                }, 40L); // 2 secondes après le respawn
+            }
+        }
     }
 }

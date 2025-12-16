@@ -4,6 +4,11 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventManager;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -16,7 +21,7 @@ import java.util.stream.Collectors;
 /**
  * Commande admin pour gérer les événements dynamiques
  *
- * Usage:
+ * Usage Admin:
  * /zzevent spawn <type> [player] - Force le spawn d'un événement
  * /zzevent list - Liste les événements actifs
  * /zzevent stop <id|all> - Arrête un ou tous les événements
@@ -25,6 +30,10 @@ import java.util.stream.Collectors;
  * /zzevent toggle <type> - Active/désactive un type d'événement
  * /zzevent interval <min> <max> - Définit l'intervalle entre événements
  * /zzevent debug - Affiche les informations de debug
+ *
+ * Usage Joueur (via alias /event):
+ * /event - Liste les événements actifs avec option de téléportation
+ * /event tp <id> - Se téléporte à un événement (si éligible)
  */
 public class EventAdminCommand implements CommandExecutor, TabCompleter {
 
@@ -36,23 +45,49 @@ public class EventAdminCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("zombiez.admin.events")) {
-            sender.sendMessage("§cVous n'avez pas la permission d'utiliser cette commande.");
-            return true;
-        }
-
         DynamicEventManager eventManager = plugin.getDynamicEventManager();
         if (eventManager == null) {
             sender.sendMessage("§cLe système d'événements dynamiques n'est pas initialisé.");
             return true;
         }
 
+        // Commandes joueur (accessibles à tous via /event)
         if (args.length == 0) {
-            showHelp(sender);
+            // Sans argument, montrer la liste des événements pour les joueurs
+            if (sender instanceof Player player) {
+                showPlayerEventList(player, eventManager);
+            } else {
+                if (sender.hasPermission("zombiez.admin.events")) {
+                    showHelp(sender);
+                } else {
+                    sender.sendMessage("§cCette commande est réservée aux joueurs.");
+                }
+            }
             return true;
         }
 
         String subCommand = args[0].toLowerCase();
+
+        // Commandes accessibles aux joueurs (sans permission admin)
+        if (subCommand.equals("tp") || subCommand.equals("teleport")) {
+            if (sender instanceof Player player) {
+                handlePlayerTeleport(player, args, eventManager);
+            } else {
+                sender.sendMessage("§cCette commande est réservée aux joueurs.");
+            }
+            return true;
+        }
+
+        // Commandes admin (nécessitent la permission)
+        if (!sender.hasPermission("zombiez.admin.events")) {
+            // Montrer la liste joueur si pas de permission admin
+            if (sender instanceof Player player) {
+                showPlayerEventList(player, eventManager);
+            } else {
+                sender.sendMessage("§cVous n'avez pas la permission d'utiliser cette commande.");
+            }
+            return true;
+        }
 
         switch (subCommand) {
             case "spawn" -> handleSpawn(sender, args, eventManager);
@@ -260,16 +295,118 @@ public class EventAdminCommand implements CommandExecutor, TabCompleter {
         return String.format("%.1f, %.1f, %.1f", loc.getX(), loc.getY(), loc.getZ());
     }
 
-    @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("zombiez.admin.events")) {
-            return Collections.emptyList();
+    // ==================== COMMANDES JOUEUR ====================
+
+    /**
+     * Affiche la liste des événements pour un joueur avec options de téléportation
+     */
+    private void showPlayerEventList(Player player, DynamicEventManager eventManager) {
+        Map<String, DynamicEvent> events = eventManager.getActiveEvents();
+
+        player.sendMessage("");
+        player.sendMessage("§6§l=== Événements Actifs ===");
+
+        if (events.isEmpty()) {
+            player.sendMessage("§7Aucun événement en cours.");
+            player.sendMessage("§7Les événements apparaissent régulièrement près des joueurs!");
+            player.sendMessage("");
+            return;
         }
 
+        player.sendMessage("");
+
+        int playerScore = plugin.getItemManager().calculateTotalItemScore(player);
+
+        for (DynamicEvent event : events.values()) {
+            if (!event.isActive()) continue;
+
+            // Calculer les scores requis
+            int requiredScore = (int) (event.getRequiredItemScore() * 0.6); // 40% tolérance
+
+            // Status de téléportation
+            boolean canTeleport = event.canPlayerTeleport(player) == null;
+            boolean hasTeleported = event.hasTeleported(player.getUniqueId());
+            boolean hasDied = event.hasDiedDuringEvent(player.getUniqueId());
+
+            // Afficher l'événement
+            player.sendMessage(event.getType().getColor() + "§l" + event.getType().getIcon() +
+                " " + event.getType().getDisplayName());
+            player.sendMessage("§7  Zone: §e" + event.getZone().getDisplayName() +
+                " §7| Temps restant: §e" + event.getRemainingTimeSeconds() + "s");
+            player.sendMessage("§7  Item Score requis: §e" + requiredScore + "+ §7(Votre: §e" + playerScore + "§7)");
+
+            // Status et bouton de téléportation
+            if (hasDied) {
+                player.sendMessage("§7  Status: §c☠ Vous êtes mort pendant cet événement");
+            } else if (hasTeleported) {
+                player.sendMessage("§7  Status: §e⚡ Déjà téléporté");
+            } else if (canTeleport) {
+                // Message clickable
+                Component teleportButton = Component.text("  ")
+                    .append(Component.text("[")
+                        .color(NamedTextColor.GRAY))
+                    .append(Component.text("⚡ TÉLÉPORTER")
+                        .color(NamedTextColor.GREEN)
+                        .decorate(TextDecoration.BOLD)
+                        .clickEvent(ClickEvent.runCommand("/event tp " + event.getId()))
+                        .hoverEvent(HoverEvent.showText(
+                            Component.text("§aClic pour rejoindre l'événement!\n")
+                                .append(Component.text("§c⚠ Une seule téléportation par événement!")))))
+                    .append(Component.text("]")
+                        .color(NamedTextColor.GRAY));
+                player.sendMessage(teleportButton);
+            } else {
+                player.sendMessage("§7  Status: §c✗ Équipement insuffisant");
+            }
+
+            player.sendMessage("");
+        }
+    }
+
+    /**
+     * Gère la téléportation d'un joueur vers un événement
+     */
+    private void handlePlayerTeleport(Player player, String[] args, DynamicEventManager eventManager) {
+        if (args.length < 2) {
+            player.sendMessage("§cUsage: /event tp <id>");
+            player.sendMessage("§7Utilisez §e/event §7pour voir les événements disponibles.");
+            return;
+        }
+
+        String eventId = args[1];
+        DynamicEvent event = eventManager.getEvent(eventId);
+
+        if (event == null) {
+            player.sendMessage("§c§l⚠ §7Événement non trouvé ou terminé: §e" + eventId);
+            return;
+        }
+
+        // Tenter la téléportation (les vérifications sont faites dans teleportPlayer)
+        event.teleportPlayer(player);
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
 
+        // Complétion pour joueurs (tp uniquement)
+        if (!sender.hasPermission("zombiez.admin.events")) {
+            if (args.length == 1) {
+                completions.add("tp");
+            } else if (args.length == 2 && args[0].equalsIgnoreCase("tp")) {
+                DynamicEventManager eventManager = plugin.getDynamicEventManager();
+                if (eventManager != null) {
+                    completions.addAll(eventManager.getActiveEvents().keySet());
+                }
+            }
+            return completions.stream()
+                .filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase()))
+                .collect(Collectors.toList());
+        }
+
+        // Complétion admin complète
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("spawn", "list", "stop", "info", "stats", "toggle", "interval", "debug"));
+            completions.addAll(Arrays.asList("spawn", "list", "stop", "info", "stats", "toggle", "interval", "debug", "tp"));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "spawn", "toggle" -> {
@@ -277,7 +414,7 @@ public class EventAdminCommand implements CommandExecutor, TabCompleter {
                         completions.add(type.getConfigKey());
                     }
                 }
-                case "stop", "info" -> {
+                case "stop", "info", "tp" -> {
                     DynamicEventManager eventManager = plugin.getDynamicEventManager();
                     if (eventManager != null) {
                         completions.addAll(eventManager.getActiveEvents().keySet());
