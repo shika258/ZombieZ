@@ -243,25 +243,14 @@ public class ConsumableListener implements Listener {
     }
 
     /**
-     * Gère les dégâts des tourelles
+     * Gère les dégâts des tourelles - elles sont indestructibles
+     * Annule tous types de dégâts (entités, feu, chute, suffocation, etc.)
      */
     @EventHandler(priority = EventPriority.HIGH)
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        Entity damager = event.getDamager();
-
-        // Empêcher les tourelles de prendre des dégâts des joueurs
+    public void onEntityDamage(EntityDamageEvent event) {
+        // Les tourelles sont indestructibles - seule leur durée peut les enlever
         if (event.getEntity() instanceof Snowman snowman && snowman.hasMetadata("zombiez_turret_owner")) {
-            if (damager instanceof Player) {
-                event.setCancelled(true);
-            }
-        }
-
-        // Les zombies ne peuvent pas cibler les tourelles
-        if (event.getEntity() instanceof Snowman snowman && snowman.hasMetadata("zombiez_turret_owner")) {
-            if (isZombieZMob(damager)) {
-                // Réduire drastiquement les dégâts des zombies sur les tourelles
-                event.setDamage(event.getDamage() * 0.2);
-            }
+            event.setCancelled(true);
         }
     }
 
