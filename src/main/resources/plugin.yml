@@ -45,6 +45,12 @@ commands:
     permission: zombiez.admin.events
     aliases: [zze, event]
 
+  zzweather:
+    description: Gestion du systeme meteo dynamique
+    usage: /<command> <set|clear|list|toggle|stats|interval|debug|reload>
+    permission: zombiez.admin.weather
+    aliases: [zzw, weather, meteo]
+
   # Commandes Joueur
   spawn:
     description: Téléportation au spawn
@@ -115,6 +121,7 @@ permissions:
       zombiez.admin.zombies: true
       zombiez.admin.consumables: true
       zombiez.admin.events: true
+      zombiez.admin.weather: true
 
   zombiez.admin.items:
     description: Gestion des items procéduraux
@@ -130,6 +137,10 @@ permissions:
 
   zombiez.admin.events:
     description: Gestion des événements dynamiques
+    default: op
+
+  zombiez.admin.weather:
+    description: Gestion du systeme meteo dynamique
     default: op
 
   zombiez.reload:

@@ -1,0 +1,236 @@
+# ========================================
+# Configuration du Systeme de Meteo Dynamique v2.0
+# ZombieZ
+# ========================================
+#
+# PHILOSOPHIE v2.0:
+# - La meteo enrichit le gameplay sans frustrer les joueurs
+# - Plus de debuffs penibles (Blindness, Weakness supprimés!)
+# - Focus sur les BONUS: XP, Loot, Vitesse, Regeneration
+# - Risque = Recompense (meteos dangereuses = meilleur loot)
+# - Utilisation du fog natif Minecraft pour l'ambiance
+#
+
+weather:
+  # Activer/desactiver le systeme de meteo dynamique
+  enabled: true
+
+  # Intervalle entre les changements de meteo (en secondes)
+  min-interval-seconds: 480    # 8 minutes minimum
+  max-interval-seconds: 1200   # 20 minutes maximum
+
+  # Nombre minimum de joueurs en ligne pour declencher la meteo
+  min-players: 1
+
+  # Chance d'avoir un temps clair lors d'un changement (0.0 - 1.0)
+  clear-weather-chance: 0.30
+
+  # La Lune de Sang et Lune des Moissons uniquement la nuit
+  night-only-moon-events: true
+
+  # Cooldown avant qu'un meme type de meteo puisse reapparaitre (en secondes)
+  type-cooldown-seconds: 600   # 10 minutes
+
+  # ========================================
+  # Configuration par type de meteo
+  # ========================================
+  types:
+    # === METEOS NEUTRES/STANDARD ===
+
+    # Temps Clair - Conditions ideales, leger bonus XP
+    clear:
+      enabled: true
+      weight: 30
+      duration-multiplier: 1.0
+      # Bonus: +5% XP, +2% vitesse
+
+    # Pluie - Ambiance calme, legere regeneration
+    rain:
+      enabled: true
+      weight: 25
+      duration-multiplier: 1.0
+      # Bonus: Regeneration legere
+
+    # === METEOS A RISQUE (Danger = Recompense) ===
+
+    # Tempete - Zombies agites, +15% loot en recompense
+    storm:
+      enabled: true
+      weight: 15
+      duration-multiplier: 1.0
+      # Zombies: +40% spawn, +15% degats, +10% vitesse
+      # Bonus: +10% XP, +15% Loot
+
+    # Blizzard - Zombies RALENTIS (-30% vitesse!)
+    blizzard:
+      enabled: true
+      weight: 12
+      duration-multiplier: 1.0
+      fog-level: 6
+      # Zombies: -30% vitesse (geles!)
+      # Bonus: +10% loot, ambiance fog
+
+    # Brouillard - Danger accru mais +20% XP
+    fog:
+      enabled: true
+      weight: 18
+      duration-multiplier: 1.2
+      fog-level: 4
+      # Zombies: +35% spawn, +10% degats
+      # Bonus: +20% XP, +5% loot
+
+    # Pluie de Cendres - Legers degats, +25% loot
+    ashfall:
+      enabled: true
+      weight: 10
+      duration-multiplier: 0.8
+      environmental-damage: 0.5
+      damage-interval-seconds: 5
+      fog-level: 3
+      # Bonus: +15% XP, +25% LOOT!
+
+    # Lune de Sang - Tres dangereux, ENORMES recompenses
+    blood_moon:
+      enabled: true
+      weight: 5
+      duration-multiplier: 1.0
+      night-only: true
+      min-zone: 5
+      # Zombies: x2.5 spawn, +40% degats, +20% vitesse
+      # Bonus: +50% XP, +50% LOOT, Force I!
+
+    # Pluie Acide - Court mais intense
+    acid_rain:
+      enabled: true
+      weight: 6
+      duration-multiplier: 0.7
+      environmental-damage: 0.75
+      damage-interval-seconds: 3
+      fog-level: 2
+      # Bonus: +30% XP, +35% LOOT!
+
+    # Tempete de Sable - Zombies ralentis, fog ambiance
+    sandstorm:
+      enabled: true
+      weight: 10
+      duration-multiplier: 1.0
+      fog-level: 5
+      # Zombies: -15% vitesse
+      # Bonus: +10% XP, +10% loot
+
+    # === METEOS BENEFIQUES (Calme et Bonus) ===
+
+    # Aurore Boreale - Tres benefique, zombies affaiblis
+    aurora:
+      enabled: true
+      weight: 8
+      duration-multiplier: 1.2
+      # Zombies: -50% spawn, -25% degats, -15% vitesse
+      # Bonus: +25% XP, +20% loot, +5% vitesse, Regen, Luck!
+
+    # Benediction Solaire - XP et regeneration max
+    solar_blessing:
+      enabled: true
+      weight: 6
+      duration-multiplier: 1.0
+      # Zombies: -30% spawn, -20% degats
+      # Bonus: +40% XP, +10% loot, Regeneration I!
+
+    # Lune des Moissons - Focus LOOT
+    harvest_moon:
+      enabled: true
+      weight: 7
+      duration-multiplier: 1.0
+      night-only: true
+      # Zombies: -10% spawn, -10% degats
+      # Bonus: +20% XP, +40% LOOT, Luck!
+
+    # Brise Legere - Mobilite et vitesse
+    gentle_breeze:
+      enabled: true
+      weight: 12
+      duration-multiplier: 1.2
+      # Zombies: -15% spawn, -10% vitesse
+      # Bonus: +10% XP, +10% vitesse, Speed I!
+
+    # Pluie d'Etoiles - Rare et magique
+    starfall:
+      enabled: true
+      weight: 4
+      duration-multiplier: 0.8
+      # Zombies: -20% spawn, -15% degats
+      # Bonus: +35% XP, +50% LOOT, Luck!
+
+  # ========================================
+  # Effets visuels
+  # ========================================
+  visuals:
+    # Intensite des particules (0.5 - 2.0)
+    particle-intensity: 1.0
+
+    # Distance des particules autour du joueur
+    particle-radius: 8
+
+    # Sons ambiants
+    ambient-sounds: true
+    sound-volume: 0.4
+
+    # Fog levels (1-10, plus haut = plus dense)
+    # 0 = pas de fog, utilise render distance normale
+    fog-enabled: true
+
+  # ========================================
+  # Integration avec les systemes
+  # ========================================
+  integration:
+    # Modifier le spawn rate des zombies selon la meteo
+    affect-spawn-rate: true
+
+    # Modifier les degats/vitesse des zombies
+    affect-zombie-stats: true
+
+    # Appliquer les bonus XP de la meteo
+    affect-xp: true
+
+    # Appliquer les bonus loot de la meteo
+    affect-loot: true
+
+    # Notifier les joueurs des changements
+    broadcast-changes: true
+
+    # Afficher les bonus dans la boss bar
+    show-bonuses-in-bar: true
+
+  # ========================================
+  # Messages personnalises (optionnel)
+  # ========================================
+  messages:
+    weather-change: "&7Changement de meteo: &e{weather}"
+    bonus-active: "&aBonus actifs: {bonuses}"
+
+# ========================================
+# Resume des meteos v2.0
+# ========================================
+#
+# METEOS BENEFIQUES (spawn reduit, bonus joueurs):
+# - Clear: +5% XP, +2% vitesse
+# - Aurora: +25% XP, +20% loot, regen, Luck
+# - Solar Blessing: +40% XP, Regeneration I
+# - Harvest Moon: +40% LOOT, Luck (nuit)
+# - Gentle Breeze: +10% vitesse, Speed I
+# - Starfall: +50% LOOT (rare!)
+#
+# METEOS A RISQUE (danger = recompense):
+# - Storm: +15% loot, zombies agites
+# - Blizzard: zombies -30% vitesse, +10% loot
+# - Fog: +20% XP, spawn augmente
+# - Ashfall: +25% loot, legers degats
+# - Blood Moon: +50% XP/loot, zombies x2.5 (nuit)
+# - Acid Rain: +35% loot, degats (court)
+# - Sandstorm: zombies ralentis, fog ambiance
+#
+# PLUS DE DEBUFFS ENNUYEUX:
+# - Blindness: SUPPRIME (remplace par fog natif)
+# - Weakness: SUPPRIME
+# - Slowness: SUPPRIME (sauf zombies)
+#

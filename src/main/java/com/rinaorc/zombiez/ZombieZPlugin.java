@@ -101,6 +101,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système d'Événements Dynamiques
     @Getter private com.rinaorc.zombiez.events.dynamic.DynamicEventManager dynamicEventManager;
 
+    // Système de Météo Dynamique
+    @Getter private com.rinaorc.zombiez.weather.WeatherManager weatherManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -188,6 +191,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (dynamicEventManager != null) {
             log(Level.INFO, "§7Arrêt des événements dynamiques...");
             dynamicEventManager.shutdown();
+        }
+
+        // Cleanup du système de météo dynamique
+        if (weatherManager != null) {
+            log(Level.INFO, "§7Arrêt du système météo...");
+            weatherManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -325,6 +334,13 @@ public class ZombieZPlugin extends JavaPlugin {
         dynamicEventManager = new com.rinaorc.zombiez.events.dynamic.DynamicEventManager(this);
         dynamicEventManager.loadConfig(configManager.getEventsConfig());
         dynamicEventManager.start();
+
+        // ===== Système Météo Dynamique =====
+
+        // Weather Manager - Météo dynamique avec effets gameplay
+        weatherManager = new com.rinaorc.zombiez.weather.WeatherManager(this);
+        weatherManager.loadConfig(configManager.loadConfig("weather.yml"));
+        weatherManager.start();
     }
 
     /**
@@ -355,6 +371,12 @@ public class ZombieZPlugin extends JavaPlugin {
             new com.rinaorc.zombiez.commands.admin.EventAdminCommand(this);
         getCommand("zzevent").setExecutor(eventCmd);
         getCommand("zzevent").setTabCompleter(eventCmd);
+
+        // Commandes Admin Météo Dynamique
+        com.rinaorc.zombiez.commands.admin.WeatherAdminCommand weatherCmd =
+            new com.rinaorc.zombiez.commands.admin.WeatherAdminCommand(this);
+        getCommand("zzweather").setExecutor(weatherCmd);
+        getCommand("zzweather").setTabCompleter(weatherCmd);
 
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
@@ -420,6 +442,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système événements dynamiques
         if (dynamicEventManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.events.dynamic.DynamicEventListener(this, dynamicEventManager), this);
+        }
+
+        // Listener système météo dynamique
+        if (weatherManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.weather.WeatherListener(this, weatherManager), this);
         }
 
         // Listeners système de progression
