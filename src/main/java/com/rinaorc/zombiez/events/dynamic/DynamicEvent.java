@@ -60,6 +60,7 @@ public abstract class DynamicEvent {
     protected final Set<Player> nearbyPlayersCache = ConcurrentHashMap.newKeySet();
     protected long lastNearbyUpdateTime = 0;
     protected static final long NEARBY_CACHE_DURATION_MS = 1000; // 1 seconde
+    protected static final double MAX_BOSSBAR_VISIBILITY_RADIUS = 64.0; // Rayon max pour afficher la boss bar
 
     // Système de téléportation
     protected final Set<UUID> teleportedPlayers = ConcurrentHashMap.newKeySet();
@@ -221,6 +222,7 @@ public abstract class DynamicEvent {
     /**
      * Met à jour le cache des joueurs proches si le cache est expiré
      * OPTIMISATION: Évite de recalculer les distances à chaque tick
+     * La boss bar s'affiche uniquement dans un rayon de 64 blocs maximum
      */
     protected void updateNearbyPlayersCache() {
         long now = System.currentTimeMillis();
@@ -234,7 +236,8 @@ public abstract class DynamicEvent {
         World eventWorld = location.getWorld();
         if (eventWorld == null) return;
 
-        double radius = type.getVisibilityRadius();
+        // Utiliser le rayon le plus petit entre le type et le max (64 blocs)
+        double radius = Math.min(type.getVisibilityRadius(), MAX_BOSSBAR_VISIBILITY_RADIUS);
         double radiusSquared = radius * radius;
 
         for (Player player : plugin.getServer().getOnlinePlayers()) {
