@@ -185,7 +185,60 @@ public class Talent {
         TOXIC_APOCALYPSE,        // Passive poison aura
         BULLET_TIME,             // Time slow
 
-        // === PLACEHOLDER pour autres classes ===
-        PLACEHOLDER
+        // === OCCULTISTE - Tier 1 ===
+        IGNITE,                  // Fire DoT on attack
+        FROST_BITE,              // Slow on attack
+        CHAIN_LIGHTNING,         // Chain lightning proc
+        SOUL_SIPHON,             // Heal on kill + soul orbs
+        VOID_BOLT,               // Special void projectile
+
+        // === OCCULTISTE - Tier 2 ===
+        FIRE_SPREAD,             // Fire spreads to nearby enemies
+        FROZEN_HEART,            // Frozen enemies take more damage + shatter
+        OVERCHARGE,              // Lightning can crit + bonus target
+        SOUL_RESERVOIR,          // Consume souls for burst damage
+        VOID_INSTABILITY,        // Void bolts explode
+
+        // === OCCULTISTE - Tier 3 ===
+        FIRESTORM,               // Meteor proc on attack
+        BLIZZARD,                // Frozen enemies create freeze aura
+        LIGHTNING_STORM,         // Passive lightning around you
+        SOUL_PACT,               // Damage per soul orb
+        DIMENSIONAL_RIFT,        // Void bolts leave rifts
+
+        // === OCCULTISTE - Tier 4 ===
+        PHOENIX_FLAME,           // Fire kills can explode
+        ABSOLUTE_ZERO,           // Deep freeze execute
+        CONDUCTOR,               // Lightning heals you
+        ETERNAL_HARVEST,         // Soul orbs regen HP
+        VOID_ANCHOR,             // Rifts pull enemies
+
+        // === OCCULTISTE - Tier 5 ===
+        FIRE_AVATAR,             // Fire aura around you
+        FROST_LORD,              // 100% freeze chance, double duration
+        THUNDER_GOD,             // Unlimited chain targets
+        SOUL_LEGION,             // 10 orbs + DR per orb
+        VOID_MASTER,             // Detonate rifts for damage
+
+        // === OCCULTISTE - Tier 6 ===
+        INFERNO,                 // Periodic fire nova
+        ICE_AGE,                 // Frost zones on kill
+        PERPETUAL_STORM,         // Lightning storm aura
+        NECROMANCER,             // Summon skeletons from souls
+        CORRUPTED_DIMENSION,     // 25% damage dodge chance
+
+        // === OCCULTISTE - Tier 7 ===
+        BLACK_SUN,               // Summon damaging fire sun
+        ETERNAL_WINTER,          // Permanent slow aura + damage bonus
+        MJOLNIR,                 // Triple strike lightning
+        LORD_OF_THE_DEAD,        // Raise killed enemies as minions
+        BLACK_HOLE,              // Merge rifts into black hole
+
+        // === OCCULTISTE - Tier 8 ===
+        METEOR_RAIN,             // Periodic massive meteor shower
+        TIME_STASIS,             // Freeze all enemies in time
+        DIVINE_JUDGMENT,         // Screen-wide lightning strike
+        IMMORTAL_ARMY,           // Minions respawn + buffed
+        ERASURE                  // Instakill zone (bosses = 70% HP)
     }
 }

@@ -509,6 +509,7 @@ public class ZombieZPlugin extends JavaPlugin {
         if (talentManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager), this);
         }
     }
 
