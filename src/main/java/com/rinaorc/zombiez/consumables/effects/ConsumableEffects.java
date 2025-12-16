@@ -814,6 +814,19 @@ public class ConsumableEffects {
                     return;
                 }
 
+                // Mise à jour du nom avec temps restant et barre de vie (à chaque seconde)
+                int secondsRemaining = (maxTicks - ticks) / 20;
+                if (secondsRemaining != lastDisplayedSeconds) {
+                    lastDisplayedSeconds = secondsRemaining;
+                    double healthPercent = 1.0 - ((double) ticks / maxTicks);
+                    String healthBar = createHealthBar(healthPercent);
+                    String timeColor = secondsRemaining <= 5 ? "§c" : (secondsRemaining <= 10 ? "§e" : "§a");
+                    turret.setCustomName("§b⚙ §fTourelle " + healthBar + " " + timeColor + secondsRemaining + "s");
+                }
+
+                // Incrémenter les ticks AVANT le cooldown pour que le compteur avance toujours
+                ticks++;
+
                 // Nettoyer la blacklist périodiquement (toutes les 3 secondes)
                 if (blacklistClearCooldown > 0) {
                     blacklistClearCooldown--;
@@ -906,19 +919,6 @@ public class ConsumableEffects {
                     currentTargetId = null;
                     missedShots = 0;
                 }
-
-                // Mise à jour du nom avec temps restant et barre de vie (à chaque seconde)
-                int secondsRemaining = (maxTicks - ticks) / 20;
-                if (secondsRemaining != lastDisplayedSeconds) {
-                    lastDisplayedSeconds = secondsRemaining;
-                    double healthPercent = 1.0 - ((double) ticks / maxTicks);
-                    String healthBar = createHealthBar(healthPercent);
-                    String timeColor = secondsRemaining <= 5 ? "§c" : (secondsRemaining <= 10 ? "§e" : "§a");
-                    turret.setCustomName("§b⚙ §fTourelle " + healthBar + " " + timeColor + secondsRemaining + "s");
-                }
-
-                // Incrémenter les ticks à la fin
-                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
 
