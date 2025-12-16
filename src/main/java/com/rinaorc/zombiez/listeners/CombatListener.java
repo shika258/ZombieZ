@@ -527,7 +527,7 @@ public class CombatListener implements Listener {
         Location headLoc = victim.getEyeLocation();
 
         // Particules de headshot (petite explosion de sang/étoiles)
-        victim.getWorld().spawnParticle(Particle.CRIT_MAGIC, headLoc, 15, 0.2, 0.2, 0.2, 0.1);
+        victim.getWorld().spawnParticle(Particle.ENCHANTED_HIT, headLoc, 15, 0.2, 0.2, 0.2, 0.1);
         victim.getWorld().spawnParticle(Particle.DUST, headLoc, 8, 0.15, 0.15, 0.15, 0,
             new Particle.DustOptions(Color.fromRGB(255, 50, 50), 0.8f));
 
