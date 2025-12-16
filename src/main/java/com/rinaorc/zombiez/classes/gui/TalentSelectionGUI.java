@@ -23,7 +23,7 @@ import java.util.*;
 /**
  * GUI de selection des talents
  * Affiche uniquement les talents de la branche sélectionnée
- * Tous les 8 talents sur une seule page
+ * Tous les 9 talents sur une seule page
  */
 public class TalentSelectionGUI implements Listener {
 
@@ -33,13 +33,13 @@ public class TalentSelectionGUI implements Listener {
 
     private static final String GUI_TITLE = "§0§l+ TALENTS +";
 
-    // Layout: 8 talents sur une seule page
+    // Layout: 9 talents sur une seule page
     // Row 0: Slot 4 = Info branche
-    // Row 1: Slots 9-12 = Tiers 1-4, Slots 14-17 = Tiers 5-8
+    // Row 2: Slots 18-26 = Tiers 1-9 (centré)
     // Row 5: Navigation
     private static final int SLOT_BRANCH_INFO = 4;
-    // 8 talents: 4 à gauche (tiers 1-4), 4 à droite (tiers 5-8)
-    private static final int[] TALENT_SLOTS = {9, 10, 11, 12, 14, 15, 16, 17};
+    // 9 talents sur la 3ème ligne (row 2, slots 18-26)
+    private static final int[] TALENT_SLOTS = {18, 19, 20, 21, 22, 23, 24, 25, 26};
 
     // Navigation
     private static final int SLOT_CHANGE_BRANCH = 49;
@@ -84,9 +84,9 @@ public class TalentSelectionGUI implements Listener {
         // Info de la branche en haut
         gui.setItem(SLOT_BRANCH_INFO, createBranchInfoItem(branch, data));
 
-        // Afficher les 8 tiers avec leurs talents de branche
+        // Afficher les 9 tiers avec leurs talents de branche
         TalentTier[] allTiers = TalentTier.values();
-        for (int tierIndex = 0; tierIndex < 8 && tierIndex < allTiers.length; tierIndex++) {
+        for (int tierIndex = 0; tierIndex < 9 && tierIndex < allTiers.length; tierIndex++) {
             TalentTier tier = allTiers[tierIndex];
             boolean unlocked = data.isTalentTierUnlocked(tier);
             String selectedTalentId = data.getSelectedTalentId(tier);
@@ -143,7 +143,7 @@ public class TalentSelectionGUI implements Listener {
         lore.add("");
         lore.add("§8──────────────");
         lore.add("");
-        lore.add("§7Talents actifs: §a" + data.getSelectedTalentCount() + "§7/§a8");
+        lore.add("§7Talents actifs: §a" + data.getSelectedTalentCount() + "§7/§a9");
 
         return new ItemBuilder(branch.getIcon())
             .name(branch.getColor() + "§l" + branch.getDisplayName().toUpperCase())
