@@ -3,6 +3,10 @@ package com.rinaorc.zombiez.classes;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.classes.archetypes.ArchetypeManager;
+import com.rinaorc.zombiez.classes.archetypes.ArchetypeSkillModifier;
+import com.rinaorc.zombiez.classes.archetypes.ArchetypeTalentBonus;
+import com.rinaorc.zombiez.classes.archetypes.BuildArchetype;
 import com.rinaorc.zombiez.classes.buffs.ArcadeBuff;
 import com.rinaorc.zombiez.classes.buffs.ArcadeBuffRegistry;
 import com.rinaorc.zombiez.classes.mutations.DailyMutation;
@@ -39,6 +43,7 @@ public class ClassManager {
     private final ClassWeaponRegistry weaponRegistry;
     private final ArcadeBuffRegistry buffRegistry;
     private final MutationManager mutationManager;
+    private final ArchetypeManager archetypeManager;
 
     // Cache des données
     private final Cache<UUID, ClassData> classDataCache;
@@ -57,6 +62,7 @@ public class ClassManager {
         this.weaponRegistry = new ClassWeaponRegistry();
         this.buffRegistry = new ArcadeBuffRegistry();
         this.mutationManager = new MutationManager(plugin);
+        this.archetypeManager = new ArchetypeManager();
 
         // Cache
         this.classDataCache = Caffeine.newBuilder()
@@ -555,6 +561,163 @@ public class ClassManager {
             }
         }
         return total;
+    }
+
+    // ==================== ARCHÉTYPES ====================
+
+    /**
+     * Obtient l'archétype actif d'un joueur basé sur ses choix
+     * L'archétype est calculé dynamiquement, pas choisi directement
+     */
+    public BuildArchetype getPlayerArchetype(Player player) {
+        ClassData data = getClassData(player);
+        return archetypeManager.calculateArchetype(data, data.getEquippedSkillIds());
+    }
+
+    /**
+     * Obtient l'archétype actif d'un joueur par UUID
+     */
+    public BuildArchetype getPlayerArchetype(UUID uuid) {
+        ClassData data = getClassData(uuid);
+        return archetypeManager.calculateArchetype(data, data.getEquippedSkillIds());
+    }
+
+    /**
+     * Obtient les scores détaillés d'archétypes pour debug/UI
+     */
+    public Map<BuildArchetype, Integer> getArchetypeScores(Player player) {
+        ClassData data = getClassData(player);
+        return archetypeManager.getDetailedScores(data, data.getEquippedSkillIds());
+    }
+
+    /**
+     * Obtient le résumé textuel de l'archétype actif
+     */
+    public String getArchetypeSummary(Player player) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        return archetypeManager.getArchetypeSummary(archetype);
+    }
+
+    /**
+     * Obtient les modificateurs de skill pour l'archétype actif
+     */
+    public ArchetypeSkillModifier.SkillModification getSkillModification(Player player, String skillId) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        return ArchetypeSkillModifier.getModification(skillId, archetype);
+    }
+
+    /**
+     * Calcule les dégâts d'un skill avec les modificateurs d'archétype
+     */
+    public double calculateSkillDamage(Player player, ActiveSkill skill, boolean isAoe) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        ArchetypeSkillModifier.SkillModification mod = ArchetypeSkillModifier.getModification(skill.getId(), archetype);
+
+        // Dégâts de base du skill
+        double baseDamage = skill.getDamageValue();
+
+        // Appliquer le modificateur de skill de l'archétype
+        baseDamage = mod.applyDamageModifier(baseDamage);
+
+        // Appliquer le multiplicateur AoE ou single-target de l'archétype
+        if (isAoe) {
+            baseDamage *= archetypeManager.getAoeDamageModifier(archetype);
+        } else {
+            baseDamage *= archetypeManager.getSingleTargetModifier(archetype);
+        }
+
+        // Appliquer le multiplicateur de dégâts global du joueur
+        baseDamage *= getTotalDamageMultiplier(player);
+
+        return baseDamage;
+    }
+
+    /**
+     * Calcule le cooldown effectif d'un skill avec les modificateurs d'archétype
+     */
+    public int calculateSkillCooldown(Player player, ActiveSkill skill) {
+        ClassData data = getClassData(player);
+        BuildArchetype archetype = getPlayerArchetype(player);
+        ArchetypeSkillModifier.SkillModification mod = ArchetypeSkillModifier.getModification(skill.getId(), archetype);
+
+        // Cooldown de base
+        double cooldown = skill.getCooldown();
+
+        // Modificateur d'archétype
+        cooldown = mod.applyCooldownModifier(cooldown);
+
+        // CDR du joueur
+        boolean isUltimate = skill.getType() == ActiveSkill.SkillType.ULTIMATE;
+        double cdrBonus = getTotalCooldownReduction(data, isUltimate);
+        cooldown = cooldown * (1 - cdrBonus / 100);
+
+        return Math.max(1, (int) cooldown);
+    }
+
+    /**
+     * Calcule le rayon AoE effectif d'un skill avec les modificateurs d'archétype
+     */
+    public double calculateSkillRadius(Player player, ActiveSkill skill) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        ArchetypeSkillModifier.SkillModification mod = ArchetypeSkillModifier.getModification(skill.getId(), archetype);
+
+        // Rayon de base
+        double radius = skill.getRadius();
+
+        // Modificateur d'archétype
+        radius = mod.applyRadiusModifier(radius);
+
+        // Bonus de rayon AoE des talents
+        ClassData data = getClassData(player);
+        double aoeBonus = getTalentBonus(data, ClassTalent.TalentEffect.AOE_RADIUS);
+        radius *= (1 + aoeBonus / 100);
+
+        return radius;
+    }
+
+    /**
+     * Vérifie si un skill a un effet bonus d'archétype actif
+     */
+    public boolean hasArchetypeSkillBonus(Player player, String skillId) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        ArchetypeSkillModifier.SkillModification mod = ArchetypeSkillModifier.getModification(skillId, archetype);
+        return mod.hasModification();
+    }
+
+    /**
+     * Obtient la valeur effective d'un talent avec les bonus d'archétype
+     */
+    public double getEffectiveTalentValue(Player player, String talentId) {
+        ClassData data = getClassData(player);
+        BuildArchetype archetype = getPlayerArchetype(player);
+
+        ClassTalent talent = talentTree.getTalent(talentId);
+        if (talent == null) return 0;
+
+        int level = data.getTalentLevel(talentId);
+        if (level <= 0) return 0;
+
+        double baseValue = talent.getBaseValue();
+
+        // Appliquer les bonus d'archétype
+        return ArchetypeTalentBonus.calculateEffectiveValue(archetype, talentId, baseValue, level);
+    }
+
+    /**
+     * Vérifie si un talent a un effet spécial avec l'archétype actif
+     */
+    public boolean hasTalentSpecialEffect(Player player, String talentId) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        return ArchetypeTalentBonus.hasSpecialEffect(archetype, talentId);
+    }
+
+    /**
+     * Obtient le modificateur de réduction de dégâts basé sur l'archétype
+     * (pour les archétypes tank comme Mur Vivant)
+     */
+    public double getArchetypeTankModifier(Player player) {
+        BuildArchetype archetype = getPlayerArchetype(player);
+        return archetypeManager.getTankModifier(archetype);
     }
 
     // ==================== ARMES ====================

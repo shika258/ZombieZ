@@ -184,6 +184,20 @@ public class ClassData {
     }
 
     /**
+     * Obtient tous les IDs de compétences équipées
+     */
+    public Set<String> getEquippedSkillIds() {
+        return new HashSet<>(equippedSkills.values());
+    }
+
+    /**
+     * Obtient les IDs de tous les talents débloqués
+     */
+    public Set<String> getUnlockedTalentIds() {
+        return unlockedTalents.keySet();
+    }
+
+    /**
      * Vérifie si une compétence est en cooldown
      */
     public boolean isSkillOnCooldown(String skillId) {
