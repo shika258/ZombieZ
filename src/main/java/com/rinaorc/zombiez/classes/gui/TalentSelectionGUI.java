@@ -34,12 +34,11 @@ public class TalentSelectionGUI implements Listener {
 
     // Slots pour chaque tier (4 tiers par page, 5 talents par tier)
     // Layout: Chaque tier prend une ligne
-    // Row 0: Info tier
-    // Row 1: Tier 1 - slots 10, 11, 12, 13, 14
-    // Row 2: Tier 2 - slots 19, 20, 21, 22, 23
-    // Row 3: Tier 3 - slots 28, 29, 30, 31, 32
-    // Row 4: Tier 4 - slots 37, 38, 39, 40, 41
-    private static final int[] TIER_INFO_SLOTS = {0, 9, 18, 27, 36};
+    // Row 1: Tier 1 - slots 9 (info), 10, 11, 12, 13, 14 (talents)
+    // Row 2: Tier 2 - slots 18 (info), 19, 20, 21, 22, 23 (talents)
+    // Row 3: Tier 3 - slots 27 (info), 28, 29, 30, 31, 32 (talents)
+    // Row 4: Tier 4 - slots 36 (info), 37, 38, 39, 40, 41 (talents)
+    private static final int[] TIER_INFO_SLOTS = {9, 18, 27, 36};
     private static final int[][] TALENT_SLOTS = {
         {10, 11, 12, 13, 14}, // Tier 1
         {19, 20, 21, 22, 23}, // Tier 2
