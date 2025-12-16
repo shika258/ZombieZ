@@ -85,6 +85,7 @@ public class ZombieZPlugin extends JavaPlugin {
     // Listeners stockés pour accès externe
     @Getter private PlayerMoveListener playerMoveListener;
     @Getter private ItemListener itemListener;
+    @Getter private BowListener bowListener;
 
     // Systèmes de spawn spécialisés
     @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
@@ -460,6 +461,10 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(itemListener, this);
         pm.registerEvents(new ItemCompareGUI.GUIListener(this), this);
         pm.registerEvents(new LootRevealGUI.LootGUIListener(this), this);
+
+        // Listener système de tir amélioré (arcs/arbalètes)
+        bowListener = new BowListener(this);
+        pm.registerEvents(bowListener, this);
 
         // Listener système de pouvoirs
         if (powerTriggerListener != null) {

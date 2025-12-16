@@ -740,6 +740,126 @@ public class AffixRegistry {
             .minZone(8)
             .build());
 
+        // ==================== AFFIXES ARCS/ARBALÈTES (CADENCE DE TIR) ====================
+
+        registerAffix(Affix.builder()
+            .id("swift")
+            .displayName("Rapide")
+            .specialDescription("Cadence de tir améliorée")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_1)
+            .weight(80)
+            .stats(Map.of(StatType.DRAW_SPEED, new double[]{5, 12}))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(1)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("rapid")
+            .displayName("Véloce")
+            .specialDescription("Cadence de tir grandement améliorée")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(60)
+            .stats(Map.of(StatType.DRAW_SPEED, new double[]{12, 20}))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(3)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("hasty")
+            .displayName("Hâtif")
+            .specialDescription("Tir en rafale")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(40)
+            .stats(Map.of(
+                StatType.DRAW_SPEED, new double[]{20, 30},
+                StatType.CRIT_CHANCE, new double[]{3, 8}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(5)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("gatling")
+            .displayName("Mitrailleur")
+            .specialDescription("Cadence de tir extrême")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(20)
+            .stats(Map.of(
+                StatType.DRAW_SPEED, new double[]{30, 40},
+                StatType.DAMAGE_PERCENT, new double[]{5, 15}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(7)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("machinegun")
+            .displayName("Mitrailleuse")
+            .specialDescription("Cadence de tir légendaire")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_5)
+            .weight(6)
+            .stats(Map.of(
+                StatType.DRAW_SPEED, new double[]{40, 50},
+                StatType.DAMAGE_PERCENT, new double[]{10, 25},
+                StatType.CRIT_CHANCE, new double[]{5, 12}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(9)
+            .build());
+
+        // ==================== SUFFIXES SPÉCIAUX ARCS/ARBALÈTES ====================
+
+        registerAffix(Affix.builder()
+            .id("of_the_hunter")
+            .displayName("Chasseur")
+            .specialDescription("Bonus de précision et cadence")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(50)
+            .stats(Map.of(
+                StatType.DRAW_SPEED, new double[]{8, 15},
+                StatType.CRIT_CHANCE, new double[]{3, 8}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(2)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_sniper")
+            .displayName("Tireur d'élite")
+            .specialDescription("Critiques dévastateurs")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(35)
+            .stats(Map.of(
+                StatType.CRIT_CHANCE, new double[]{8, 15},
+                StatType.CRIT_DAMAGE, new double[]{20, 40}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(4)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_marksman")
+            .displayName("Maître archer")
+            .specialDescription("Maîtrise ultime de l'arc")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_5)
+            .weight(8)
+            .stats(Map.of(
+                StatType.DRAW_SPEED, new double[]{15, 25},
+                StatType.CRIT_CHANCE, new double[]{10, 18},
+                StatType.CRIT_DAMAGE, new double[]{30, 60}
+            ))
+            .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
+            .minZone(8)
+            .build());
+
         // ==================== AFFIXES SPÉCIAUX UNIQUES ====================
 
         registerAffix(Affix.builder()
@@ -837,8 +957,10 @@ public class AffixRegistry {
      * Obtient les affixes applicables à un type d'item
      */
     public List<Affix> getAffixesForItemType(ItemType itemType, int zoneId) {
+        // Récupérer les affixes par catégorie puis filtrer par type spécifique
         return byCategory.getOrDefault(itemType.getCategory(), List.of()).stream()
             .filter(a -> a.canDropInZone(zoneId))
+            .filter(a -> a.canApplyTo(itemType))
             .collect(Collectors.toList());
     }
 

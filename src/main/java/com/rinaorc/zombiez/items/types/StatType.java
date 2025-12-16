@@ -95,6 +95,18 @@ public enum StatType {
         0, 30,
         "{value}%"
     ),
+
+    DRAW_SPEED(
+        "Cadence de tir",
+        "➹",
+        "§b",
+        StatCategory.OFFENSIVE,
+        false,
+        true,
+        null,
+        0, 50,
+        "+{value}%"
+    ),
     
     LIFESTEAL(
         "Vol de vie",
