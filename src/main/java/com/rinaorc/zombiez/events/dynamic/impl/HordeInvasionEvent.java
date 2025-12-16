@@ -45,6 +45,9 @@ public class HordeInvasionEvent extends DynamicEvent {
     private ArmorStand waveMarker;
     private ArmorStand centerMarker;
 
+    // Tâche de particules (pour cleanup)
+    private BukkitTask particleTask;
+
     // Statistiques
     private boolean waveClear = true;
 
@@ -110,12 +113,13 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     /**
      * Affiche la zone de défense avec des particules
+     * OPTIMISÉ: Stocke la tâche pour cleanup propre
      */
     private void showDefenseZone() {
         World world = location.getWorld();
         if (world == null) return;
 
-        new BukkitRunnable() {
+        particleTask = new BukkitRunnable() {
             int angle = 0;
 
             @Override
@@ -349,12 +353,14 @@ public class HordeInvasionEvent extends DynamicEvent {
     /**
      * Appelé quand un zombie est tué dans la zone
      * (Appelé par le listener)
+     * OPTIMISÉ: Utilise safeDistance pour éviter les exceptions
      */
     public void onZombieKilled(Location killLocation) {
         if (!active || waveClear) return;
 
-        // Vérifier que le kill est dans la zone
-        if (killLocation.distance(location) <= defenseRadius + 20) {
+        // Vérifier que le kill est dans la zone (avec validation du monde)
+        double distance = safeDistance(killLocation, location);
+        if (distance <= defenseRadius + 20) {
             zombiesKilledThisWave++;
             totalZombiesKilled++;
         }
@@ -362,9 +368,11 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     /**
      * Vérifie si une location est dans la zone de défense
+     * OPTIMISÉ: Utilise safeDistance pour éviter les exceptions
      */
     public boolean isInDefenseZone(Location loc) {
-        return loc.distance(location) <= defenseRadius + 20;
+        double distance = safeDistance(loc, location);
+        return distance != Double.MAX_VALUE && distance <= defenseRadius + 20;
     }
 
     @Override
@@ -400,6 +408,11 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     @Override
     protected void onCleanup() {
+        // Annuler la tâche de particules
+        if (particleTask != null && !particleTask.isCancelled()) {
+            particleTask.cancel();
+        }
+
         // Supprimer les marqueurs
         if (centerMarker != null && centerMarker.isValid()) {
             centerMarker.remove();

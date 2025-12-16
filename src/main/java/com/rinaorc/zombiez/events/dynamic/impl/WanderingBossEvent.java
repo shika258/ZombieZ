@@ -238,7 +238,8 @@ public class WanderingBossEvent extends DynamicEvent {
         }
 
         // Vérifier si arrivé à destination (échec)
-        if (boss.getLocation().distance(destination) < 10) {
+        double distToDest = safeDistance(boss.getLocation(), destination);
+        if (distToDest != Double.MAX_VALUE && distToDest < 10) {
             onBossEscaped();
             return;
         }
@@ -498,10 +499,16 @@ public class WanderingBossEvent extends DynamicEvent {
 
     /**
      * Met à jour les boss bars
+     * OPTIMISÉ: Vérifie les null et utilise safeDistance
      */
     private void updateBossBars() {
+        if (boss == null || !boss.isValid()) return;
+
         // Boss bar principale (progression vers destination)
-        double distanceToDestination = boss.getLocation().distance(destination);
+        double distanceToDestination = safeDistance(boss.getLocation(), destination);
+        if (distanceToDestination == Double.MAX_VALUE) {
+            distanceToDestination = totalDistance; // Fallback
+        }
         double progress = 1.0 - (distanceToDestination / totalDistance);
         updateBossBar(Math.max(0, Math.min(1, progress)),
             "- §e" + (int) distanceToDestination + "m restants");
@@ -518,13 +525,24 @@ public class WanderingBossEvent extends DynamicEvent {
 
     /**
      * Met à jour la visibilité des boss bars
+     * OPTIMISÉ: Vérifie les mondes et utilise safeDistance
      */
     private void updateBossBarVisibility() {
-        if (boss == null || bossBossBar == null) return;
+        if (boss == null || !boss.isValid() || bossBossBar == null) return;
+
+        Location bossLoc = boss.getLocation();
+        World bossWorld = bossLoc.getWorld();
+        if (bossWorld == null) return;
 
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            double distance = player.getLocation().distance(boss.getLocation());
-            if (distance <= 60) {
+            // Vérifier le monde
+            if (!player.getWorld().equals(bossWorld)) {
+                bossBossBar.removePlayer(player);
+                continue;
+            }
+
+            double distance = safeDistance(player.getLocation(), bossLoc);
+            if (distance != Double.MAX_VALUE && distance <= 60) {
                 if (!bossBossBar.getPlayers().contains(player)) {
                     bossBossBar.addPlayer(player);
                 }
@@ -536,16 +554,19 @@ public class WanderingBossEvent extends DynamicEvent {
 
     @Override
     protected void distributeRewards() {
-        // Grosses récompenses pour avoir tué le boss
-        int totalPoints = basePointsReward + (zone.getId() * 20);
-        int totalXp = baseXpReward + (zone.getId() * 15);
+        // Grosses récompenses pour avoir tué le boss - formule exponentielle
+        double zoneMultiplier = 1.0 + (zone.getId() * 0.12) + (Math.log10(zone.getId() + 1) * 0.6);
+        int totalPoints = (int) (basePointsReward * zoneMultiplier);
+        int totalXp = (int) (baseXpReward * zoneMultiplier);
 
         // Bonus si tué rapidement (avant 50% du chemin)
-        if (boss != null) {
-            double distanceToDestination = boss.getLocation().distance(destination);
-            if (distanceToDestination > totalDistance * 0.5) {
+        boolean fastKill = false;
+        if (boss != null && boss.isValid()) {
+            double distanceToDestination = safeDistance(boss.getLocation(), destination);
+            if (distanceToDestination != Double.MAX_VALUE && distanceToDestination > totalDistance * 0.5) {
                 totalPoints = (int) (totalPoints * 1.5);
                 totalXp = (int) (totalXp * 1.5);
+                fastKill = true;
             }
         }
 
@@ -563,6 +584,9 @@ public class WanderingBossEvent extends DynamicEvent {
                 player.sendMessage("§a§l✓ BOSS VAINCU!");
                 player.sendMessage("§7Vous avez terrassé §c" + bossName + "§7!");
                 player.sendMessage("§7Récompenses: §e+" + totalPoints + " Points §7| §b+" + totalXp + " XP");
+                if (fastKill) {
+                    player.sendMessage("§6Bonus §ekill rapide §6appliqué!");
+                }
                 player.sendMessage("§7Loot déposé au sol!");
                 player.sendMessage("");
 
@@ -591,7 +615,13 @@ public class WanderingBossEvent extends DynamicEvent {
 
     @Override
     public String getDebugInfo() {
-        double distToDestination = boss != null ? boss.getLocation().distance(destination) : 0;
+        double distToDestination = 0;
+        if (boss != null && boss.isValid()) {
+            distToDestination = safeDistance(boss.getLocation(), destination);
+            if (distToDestination == Double.MAX_VALUE) {
+                distToDestination = -1; // Indication d'erreur
+            }
+        }
         return String.format("Boss: %s | Health: %.0f/%.0f | DistToDest: %.0f | Enraged: %s",
             bossName, bossCurrentHealth, bossMaxHealth, distToDestination, isEnraged);
     }

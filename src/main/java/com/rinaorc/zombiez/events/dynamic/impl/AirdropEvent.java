@@ -48,9 +48,9 @@ public class AirdropEvent extends DynamicEvent {
     private Location landingLocation;
     private Block chestBlock;
 
-    // Défense
+    // Défense - OPTIMISÉ: utiliser double pour précision
     private int defenseTimeRequired = 45; // Secondes pour ouvrir
-    private int currentDefenseTime = 0;
+    private double currentDefenseTime = 0; // Double pour précision avec multiplicateur
     private int defendersNearby = 0;
 
     // Spawn de zombies pendant la défense
@@ -214,31 +214,40 @@ public class AirdropEvent extends DynamicEvent {
         // Progression seulement si des joueurs sont présents
         if (defendersNearby > 0) {
             // Bonus de vitesse avec plusieurs défenseurs (cap à 2x)
+            // 1 joueur = 1x, 2 joueurs = 1.25x, 3 = 1.5x, 4 = 1.75x, 5+ = 2x
             double speedMultiplier = Math.min(2.0, 1.0 + (defendersNearby - 1) * 0.25);
             currentDefenseTime += speedMultiplier;
 
             // Mise à jour du marqueur
-            int percent = (int) ((double) currentDefenseTime / defenseTimeRequired * 100);
+            int percent = (int) (currentDefenseTime / defenseTimeRequired * 100);
+            percent = Math.min(100, percent); // Cap at 100%
             if (crateMarker != null && crateMarker.isValid()) {
                 String color = percent < 33 ? "§c" : (percent < 66 ? "§e" : "§a");
                 crateMarker.setCustomName("§b§l📦 LARGAGE - " + color + percent + "%");
             }
 
             // Mise à jour de la boss bar
-            double progress = (double) currentDefenseTime / defenseTimeRequired;
-            updateBossBar(1.0 - progress, "- §e" + (defenseTimeRequired - currentDefenseTime) + "s");
+            double progress = currentDefenseTime / defenseTimeRequired;
+            int remainingSeconds = (int) Math.ceil(defenseTimeRequired - currentDefenseTime);
+            updateBossBar(1.0 - Math.min(1.0, progress), "- §e" + Math.max(0, remainingSeconds) + "s");
 
             // Particules de progression
             world.spawnParticle(Particle.HAPPY_VILLAGER, landingLocation.clone().add(0.5, 1, 0.5),
                 3, 0.5, 0.5, 0.5, 0);
         } else {
-            // Régression lente si personne n'est là
+            // Régression lente si personne n'est là (0.5 par tick = plus lent que la progression)
             if (currentDefenseTime > 0) {
-                currentDefenseTime = Math.max(0, currentDefenseTime - 1);
-            }
+                currentDefenseTime = Math.max(0, currentDefenseTime - 0.5);
 
-            if (crateMarker != null && crateMarker.isValid()) {
-                crateMarker.setCustomName("§c§l⚠ DÉFENSEURS REQUIS!");
+                // Mise à jour du marqueur de régression
+                int percent = (int) (currentDefenseTime / defenseTimeRequired * 100);
+                if (crateMarker != null && crateMarker.isValid()) {
+                    crateMarker.setCustomName("§c§l⚠ DÉFENSEURS REQUIS! §7(" + percent + "%)");
+                }
+            } else {
+                if (crateMarker != null && crateMarker.isValid()) {
+                    crateMarker.setCustomName("§c§l⚠ DÉFENSEURS REQUIS!");
+                }
             }
         }
 

@@ -58,6 +58,10 @@ public class DynamicEventManager {
     private BukkitTask schedulerTask;
     private BukkitTask tickTask;
 
+    // Cooldowns par type d'événement (évite la répétition)
+    private final Map<DynamicEventType, Long> typeCooldowns = new EnumMap<>(DynamicEventType.class);
+    private long typeCooldownDuration = 1000 * 60 * 5; // 5 minutes entre même type
+
     // Statistiques
     @Getter
     private int totalEventsSpawned = 0;
@@ -222,6 +226,9 @@ public class DynamicEventManager {
         DynamicEvent event = createEvent(eventType, spawnLocation, selectedZone);
         if (event == null) return false;
 
+        // Enregistrer le cooldown pour ce type
+        recordEventTypeUsed(eventType);
+
         // Enregistrer et démarrer
         activeEvents.put(event.getId(), event);
         event.start();
@@ -298,21 +305,45 @@ public class DynamicEventManager {
 
     /**
      * Sélectionne un type d'événement basé sur les poids
+     * OPTIMISÉ: Inclut un système de cooldown pour éviter la répétition
      */
     private DynamicEventType selectEventType(int playerCount) {
-        // Filtrer les types activés
+        long now = System.currentTimeMillis();
+
+        // Filtrer les types activés et hors cooldown
         List<DynamicEventType> validTypes = Arrays.stream(DynamicEventType.values())
             .filter(t -> enabledTypes.getOrDefault(t, true))
             .filter(t -> playerCount >= t.getMinPlayersRecommended())
+            .filter(t -> !isTypeOnCooldown(t, now))
             .collect(Collectors.toList());
+
+        if (validTypes.isEmpty()) {
+            // Si tous les types sont en cooldown, ignorer les cooldowns
+            validTypes = Arrays.stream(DynamicEventType.values())
+                .filter(t -> enabledTypes.getOrDefault(t, true))
+                .filter(t -> playerCount >= t.getMinPlayersRecommended())
+                .collect(Collectors.toList());
+        }
 
         if (validTypes.isEmpty()) return null;
 
-        // Calculer les poids
+        // Calculer les poids (réduire le poids des types récemment utilisés)
         Map<DynamicEventType, Double> weights = new HashMap<>();
         for (DynamicEventType type : validTypes) {
             double weight = typeWeightOverrides.getOrDefault(type, (double) type.getSpawnWeight());
-            weights.put(type, weight);
+
+            // Réduire le poids si le type a été utilisé récemment (même si hors cooldown)
+            Long lastUsed = typeCooldowns.get(type);
+            if (lastUsed != null) {
+                long timeSince = now - lastUsed;
+                // Réduction graduelle: 50% à 0% sur 10 minutes
+                if (timeSince < 1000 * 60 * 10) {
+                    double reduction = 0.5 * (1.0 - (timeSince / (1000.0 * 60 * 10)));
+                    weight *= (1.0 - reduction);
+                }
+            }
+
+            weights.put(type, Math.max(0.1, weight)); // Minimum 0.1 pour garder une chance
         }
 
         // Sélection pondérée
@@ -328,6 +359,22 @@ public class DynamicEventManager {
         }
 
         return validTypes.get(0);
+    }
+
+    /**
+     * Vérifie si un type d'événement est en cooldown
+     */
+    private boolean isTypeOnCooldown(DynamicEventType type, long now) {
+        Long lastUsed = typeCooldowns.get(type);
+        if (lastUsed == null) return false;
+        return (now - lastUsed) < typeCooldownDuration;
+    }
+
+    /**
+     * Enregistre l'utilisation d'un type d'événement
+     */
+    private void recordEventTypeUsed(DynamicEventType type) {
+        typeCooldowns.put(type, System.currentTimeMillis());
     }
 
     /**

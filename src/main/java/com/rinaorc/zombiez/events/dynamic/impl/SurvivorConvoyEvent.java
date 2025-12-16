@@ -34,6 +34,7 @@ public class SurvivorConvoyEvent extends DynamicEvent {
     private Location destination;
     private double totalDistance;
     private ArmorStand destinationMarker;
+    private BukkitTask destinationParticleTask; // Pour cleanup propre
 
     // Mouvement
     private double moveSpeed = 0.15;
@@ -170,6 +171,7 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
     /**
      * Crée le marqueur de destination
+     * OPTIMISÉ: Stocke la tâche de particules pour cleanup propre
      */
     private void createDestinationMarker() {
         World world = destination.getWorld();
@@ -183,8 +185,8 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         destinationMarker.setCustomNameVisible(true);
         destinationMarker.setGlowing(true);
 
-        // Particules au sol
-        new BukkitRunnable() {
+        // Particules au sol - stocker la référence pour cleanup
+        destinationParticleTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!active || destinationMarker == null || !destinationMarker.isValid()) {
@@ -360,8 +362,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             v.setRotation(getYaw(direction), 0);
         }
 
-        // Vérifier si bloqué
-        if (convoyCenter.distance(lastPosition) < 0.5) {
+        // Vérifier si bloqué - utiliser safeDistance pour éviter les exceptions
+        double distanceFromLast = safeDistance(convoyCenter, lastPosition);
+        if (distanceFromLast < 0.5 && distanceFromLast != Double.MAX_VALUE) {
             stuckTimer++;
             if (stuckTimer > 100) {
                 // Téléporter légèrement vers l'avant
@@ -429,6 +432,7 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
     /**
      * Obtient la distance moyenne des survivants à la destination
+     * OPTIMISÉ: Utilise safeDistance pour éviter les exceptions entre mondes
      */
     private double getAverageDistanceToDestination() {
         if (survivors.isEmpty()) return Double.MAX_VALUE;
@@ -438,8 +442,11 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
         for (Villager v : survivors) {
             if (v.isValid() && !v.isDead()) {
-                total += v.getLocation().distance(destination);
-                count++;
+                double dist = safeDistance(v.getLocation(), destination);
+                if (dist != Double.MAX_VALUE) {
+                    total += dist;
+                    count++;
+                }
             }
         }
 
@@ -479,6 +486,11 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
     @Override
     protected void onCleanup() {
+        // Annuler la tâche de particules
+        if (destinationParticleTask != null && !destinationParticleTask.isCancelled()) {
+            destinationParticleTask.cancel();
+        }
+
         // Supprimer le marqueur de destination
         if (destinationMarker != null && destinationMarker.isValid()) {
             destinationMarker.remove();
