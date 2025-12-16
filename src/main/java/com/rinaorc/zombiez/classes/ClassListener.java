@@ -95,13 +95,13 @@ public class ClassListener implements Listener {
         ClassType classType = data.getSelectedClass();
         ItemStack weapon = player.getInventory().getItemInMainHand();
 
-        // Berserker = bonus mêlée
-        if (classType == ClassType.BERSERKER && isMeleeWeapon(weapon)) {
+        // Guerrier = bonus mêlée
+        if (classType == ClassType.GUERRIER && isMeleeWeapon(weapon)) {
             damage *= 1.10; // 10% bonus mêlée supplémentaire
         }
 
-        // Sniper = bonus headshot (géré ailleurs, mais on ajoute un bonus de base)
-        if (classType == ClassType.SNIPER && isRangedWeapon(weapon)) {
+        // Chasseur = bonus headshot (géré ailleurs, mais on ajoute un bonus de base)
+        if (classType == ClassType.CHASSEUR && isRangedWeapon(weapon)) {
             // Le bonus headshot est appliqué dans CombatListener
         }
 

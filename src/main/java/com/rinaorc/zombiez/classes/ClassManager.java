@@ -92,7 +92,7 @@ public class ClassManager {
                     if (data.hasClass()) {
                         int regenAmount = ENERGY_REGEN_RATE;
                         double mutationBonus = mutationManager.getMultiplier(
-                            DailyMutation.MutationEffect.ENERGY_REGEN);
+                            DailyMutation.MutationEffect.PLAYER_REGEN);
                         regenAmount = (int) (regenAmount * mutationBonus);
                         data.regenerateEnergy(regenAmount);
                     }
@@ -628,7 +628,7 @@ public class ClassManager {
         ArchetypeSkillModifier.SkillModification mod = ArchetypeSkillModifier.getModification(skill.getId(), archetype);
 
         // Dégâts de base du skill
-        double baseDamage = skill.getDamageValue();
+        double baseDamage = skill.getDamage();
 
         // Appliquer le modificateur de skill de l'archétype
         baseDamage = mod.applyDamageModifier(baseDamage);

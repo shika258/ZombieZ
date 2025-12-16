@@ -461,46 +461,46 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             // Position autour du groupe de survivants
             double angle = Math.random() * Math.PI * 2;
             double distance = 12 + Math.random() * 8;
-            double x = location.getX() + Math.cos(angle) * distance;
-            double z = location.getZ() + Math.sin(angle) * distance;
-            int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
+            double spawnX = location.getX() + Math.cos(angle) * distance;
+            double spawnZ = location.getZ() + Math.sin(angle) * distance;
+            int spawnY = world.getHighestBlockYAt((int) spawnX, (int) spawnZ) + 1;
 
-            Location spawnLoc = new Location(world, x, y, z);
+            Location spawnLoc = new Location(world, spawnX, spawnY, spawnZ);
 
             // Créer un zombie configuré comme mob ZombieZ
-            Zombie zombie = world.spawn(spawnLoc, Zombie.class, z -> {
-                z.setBaby(false);
-                z.setShouldBurnInDay(false); // Ne brûle pas au soleil
-                z.setRemoveWhenFarAway(true);
+            Zombie zombie = world.spawn(spawnLoc, Zombie.class, zomb -> {
+                zomb.setBaby(false);
+                zomb.setShouldBurnInDay(false); // Ne brûle pas au soleil
+                zomb.setRemoveWhenFarAway(true);
 
                 // Tags d'identification ZombieZ
-                z.addScoreboardTag("zombiez_mob");
-                z.addScoreboardTag("event_" + id);
-                z.addScoreboardTag("survivor_attacker");
+                zomb.addScoreboardTag("zombiez_mob");
+                zomb.addScoreboardTag("event_" + id);
+                zomb.addScoreboardTag("survivor_attacker");
 
                 // Metadata pour le système ZombieZ
-                z.setMetadata("zombiez_type", new org.bukkit.metadata.FixedMetadataValue(plugin, "EVENT_ZOMBIE"));
-                z.setMetadata("zombiez_zone", new org.bukkit.metadata.FixedMetadataValue(plugin, zone.getId()));
+                zomb.setMetadata("zombiez_type", new org.bukkit.metadata.FixedMetadataValue(plugin, "EVENT_ZOMBIE"));
+                zomb.setMetadata("zombiez_zone", new org.bukkit.metadata.FixedMetadataValue(plugin, zone.getId()));
 
                 // Stats basées sur la zone
                 double healthMultiplier = 1.0 + (zone.getId() * 0.05);
                 double damageMultiplier = 1.0 + (zone.getId() * 0.03);
 
-                var maxHealthAttr = z.getAttribute(Attribute.MAX_HEALTH);
+                var maxHealthAttr = zomb.getAttribute(Attribute.MAX_HEALTH);
                 if (maxHealthAttr != null) {
                     double health = 20 * healthMultiplier;
                     maxHealthAttr.setBaseValue(health);
-                    z.setHealth(health);
+                    zomb.setHealth(health);
                 }
 
-                var damageAttr = z.getAttribute(Attribute.ATTACK_DAMAGE);
+                var damageAttr = zomb.getAttribute(Attribute.ATTACK_DAMAGE);
                 if (damageAttr != null) {
                     damageAttr.setBaseValue(3 * damageMultiplier);
                 }
 
                 // Nom visible
-                z.setCustomName("§c☠ §7Zombie [§e" + zone.getDisplayName() + "§7]");
-                z.setCustomNameVisible(false);
+                zomb.setCustomName("§c☠ §7Zombie [§e" + zone.getDisplayName() + "§7]");
+                zomb.setCustomNameVisible(false);
             });
 
             // Trouver un survivant à cibler

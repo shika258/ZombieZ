@@ -84,7 +84,7 @@ public class ClassCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
-            case "use", "skill" -> {
+            case "use" -> {
                 if (args.length < 2) {
                     player.sendMessage("§cUsage: /class use <1|2|3|primary|secondary|ultimate>");
                     return true;
