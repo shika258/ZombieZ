@@ -744,14 +744,21 @@ public class ConsumableEffects {
         Location spawnLoc = player.getLocation();
 
         // Créer un Snow Golem
+        int durationSeconds = (int) duration;
         Snowman turret = player.getWorld().spawn(spawnLoc, Snowman.class, golem -> {
             golem.setDerp(false);
-            golem.setCustomName("§b⚙ §fTourelle §7[" + player.getName() + "]");
+            // Nom initial avec durée de vie
+            String healthBar = createHealthBar(1.0);
+            golem.setCustomName("§b⚙ §fTourelle " + healthBar + " §a" + durationSeconds + "s");
             golem.setCustomNameVisible(true);
-            golem.setAI(false); // On contrôle manuellement
+            golem.setAI(true); // AI activée pour le pathfinding
             golem.addScoreboardTag("zombiez_turret");
             golem.setMetadata("zombiez_turret_owner", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
             golem.setMetadata("zombiez_turret_damage", new FixedMetadataValue(plugin, damage));
+            // Vitesse très lente
+            if (golem.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+                golem.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.05); // Très lent (défaut: 0.2)
+            }
         });
 
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 1.5f);
@@ -819,9 +826,12 @@ public class ConsumableEffects {
 
                 // Tirer sur la cible
                 if (target != null) {
-                    // Faire regarder la tourelle vers la cible
+                    // Faire regarder la tourelle vers la cible et se déplacer lentement vers elle
                     Location turretLoc = turret.getLocation();
                     Vector direction = target.getLocation().add(0, 1, 0).subtract(turretLoc.add(0, 1, 0)).toVector().normalize();
+
+                    // Déplacer lentement le golem vers la cible
+                    turret.getPathfinder().moveTo(target);
 
                     // Projectile
                     Snowball snowball = turret.getWorld().spawn(turretLoc.add(0, 1.5, 0), Snowball.class, s -> {
@@ -834,6 +844,9 @@ public class ConsumableEffects {
                     turret.getWorld().playSound(turret.getLocation(), Sound.ENTITY_SNOW_GOLEM_SHOOT, 1.0f, 1.2f);
 
                     fireCooldown = 15; // 0.75s entre les tirs
+                } else {
+                    // Pas de cible, arrêter de bouger
+                    turret.getPathfinder().stopPathfinding();
                 }
 
                 // Mise à jour du nom avec temps restant et barre de vie
