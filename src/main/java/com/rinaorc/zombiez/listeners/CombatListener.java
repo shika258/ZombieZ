@@ -468,6 +468,7 @@ public class CombatListener implements Listener {
 
     /**
      * Applique le bonus de dégâts pour les headshots et affiche les indicateurs de dégâts pour tous les projectiles
+     * Applique aussi les stats d'équipement, skills, et autres bonus (comme pour les attaques de mêlée)
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileDamage(EntityDamageByEntityEvent event) {
@@ -486,20 +487,124 @@ public class CombatListener implements Listener {
         // Vérifier si c'est un mob ZombieZ
         if (!isZombieZMob(victim)) return;
 
-        double finalDamage = event.getDamage();
+        double baseDamage = event.getDamage();
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
         boolean isHeadshot = projectile.hasMetadata("zombiez_headshot");
 
-        // Appliquer le bonus de dégâts headshot (+50%)
+        // ============ 1. STATS D'ÉQUIPEMENT ============
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ 2. SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+
+        // Bonus dégâts passifs (Puissance I/II/III)
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ 3. SYSTÈME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (random.nextDouble() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0; // 150% de base
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // ============ 4. MOMENTUM SYSTEM ============
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(player);
+        finalDamage *= momentumMultiplier;
+
+        // ============ 5. HEADSHOT BONUS (+50%) ============
         if (isHeadshot) {
             double headshotMultiplier = 1.5;
-            finalDamage = finalDamage * headshotMultiplier;
-            event.setDamage(finalDamage);
+            finalDamage *= headshotMultiplier;
+        }
 
-            // Afficher l'indicateur de headshot
+        // ============ 6. EXECUTE DAMAGE (<20% HP) - pour zombies uniquement ============
+        if (victim instanceof Zombie zombie) {
+            double zombieHealthPercent = zombie.getHealth() / zombie.getMaxHealth() * 100;
+            double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+
+            if (zombieHealthPercent <= executeThreshold) {
+                double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+                double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+                finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+            }
+        }
+
+        // ============ 7. BERSERKER (<30% HP joueur) ============
+        double playerHealthPercent = player.getHealth() / player.getMaxHealth() * 100;
+        if (playerHealthPercent <= 30) {
+            double berserkerBonus = skillManager.getSkillBonus(player, SkillBonus.BERSERKER);
+            if (berserkerBonus > 0) {
+                finalDamage *= (1 + berserkerBonus / 100.0);
+            }
+        }
+
+        // ============ 8. LIFESTEAL ============
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+
+        if (totalLifesteal > 0) {
+            double healAmount = finalDamage * (totalLifesteal / 100.0);
+            double newHealth = Math.min(player.getHealth() + healAmount, player.getMaxHealth());
+            player.setHealth(newHealth);
+
+            // Effet visuel lifesteal
+            if (healAmount > 1) {
+                player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 2, 0.2, 0.2, 0.2);
+            }
+        }
+
+        // ============ APPLIQUER LES DÉGÂTS FINAUX ============
+        event.setDamage(finalDamage);
+
+        // ============ INDICATEUR DE DÉGÂTS FLOTTANT ============
+        if (isHeadshot) {
+            // Afficher l'indicateur de headshot avec les dégâts finaux
             DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, player);
         } else {
-            // Afficher l'indicateur de dégâts normal pour les projectiles sans headshot
-            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, false, player);
+            // Afficher l'indicateur de dégâts normal pour les projectiles
+            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, player);
+        }
+
+        // ============ FEEDBACK VISUEL CRITIQUE ============
+        if (isCritical) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+            victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+
+            String critText = isHeadshot ? "§6§l✦ HEADSHOT CRITIQUE! §c" : "§6§l✦ CRITIQUE! §c";
+            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
+                critText + String.format("%.1f", finalDamage) + " dégâts");
+        }
+
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ZOMBIE ============
+        if (victim instanceof Zombie zombie && plugin.getZombieManager().isZombieZMob(zombie)) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (zombie.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+                }
+            });
+
+            // Stocker les infos pour le loot (utilisé à la mort)
+            zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
         }
     }
 
