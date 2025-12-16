@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassManager;
 import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentBranch;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
 import com.rinaorc.zombiez.utils.ItemBuilder;
@@ -21,6 +22,7 @@ import java.util.*;
 
 /**
  * GUI de selection des talents
+ * Affiche uniquement les talents de la branche sélectionnée
  * 2 pages: Page 1 = Tiers 1-4, Page 2 = Tiers 5-8
  */
 public class TalentSelectionGUI implements Listener {
@@ -32,23 +34,19 @@ public class TalentSelectionGUI implements Listener {
     private static final String GUI_TITLE_PAGE_1 = "§0§l+ TALENTS §0(1/2) +";
     private static final String GUI_TITLE_PAGE_2 = "§0§l+ TALENTS §0(2/2) +";
 
-    // Slots pour chaque tier (4 tiers par page, 5 talents par tier)
-    // Layout: Chaque tier prend une ligne (decale de 2 pour centrer)
-    // Row 1: Tier 1 - slots 11 (info), 12, 13, 14, 15, 16 (talents)
-    // Row 2: Tier 2 - slots 20 (info), 21, 22, 23, 24, 25 (talents)
-    // Row 3: Tier 3 - slots 29 (info), 30, 31, 32, 33, 34 (talents)
-    // Row 4: Tier 4 - slots 38 (info), 39, 40, 41, 42, 43 (talents)
+    // Nouveau layout simplifié (1 talent par tier, centré)
+    // Row 0: Slot 4 = Info branche
+    // Row 1: Slot 11 = Tier info, Slot 13 = Talent
+    // Row 2: Slot 20 = Tier info, Slot 22 = Talent
+    // Row 3: Slot 29 = Tier info, Slot 31 = Talent
+    // Row 4: Slot 38 = Tier info, Slot 40 = Talent
+    private static final int SLOT_BRANCH_INFO = 4;
     private static final int[] TIER_INFO_SLOTS = {11, 20, 29, 38};
-    private static final int[][] TALENT_SLOTS = {
-        {12, 13, 14, 15, 16}, // Tier 1
-        {21, 22, 23, 24, 25}, // Tier 2
-        {30, 31, 32, 33, 34}, // Tier 3
-        {39, 40, 41, 42, 43}  // Tier 4
-    };
+    private static final int[] TALENT_SLOTS = {13, 22, 31, 40};
 
     // Navigation
     private static final int SLOT_PREV_PAGE = 45;
-    private static final int SLOT_INFO = 49;
+    private static final int SLOT_CHANGE_BRANCH = 49;
     private static final int SLOT_NEXT_PAGE = 53;
     private static final int SLOT_BACK = 47;
     private static final int SLOT_CLOSE = 51;
@@ -75,6 +73,18 @@ public class TalentSelectionGUI implements Listener {
             return;
         }
 
+        // Si pas de branche sélectionnée, ouvrir le menu de sélection de branche
+        if (!data.hasBranch()) {
+            plugin.getBranchSelectionGUI().open(player);
+            return;
+        }
+
+        TalentBranch branch = data.getSelectedBranch();
+        if (branch == null) {
+            plugin.getBranchSelectionGUI().open(player);
+            return;
+        }
+
         playerPages.put(player.getUniqueId(), page);
 
         String title = page == 1 ? GUI_TITLE_PAGE_1 : GUI_TITLE_PAGE_2;
@@ -86,36 +96,35 @@ public class TalentSelectionGUI implements Listener {
             gui.setItem(i, border);
         }
 
-        // Tiers a afficher selon la page
+        // Info de la branche en haut
+        gui.setItem(SLOT_BRANCH_INFO, createBranchInfoItem(branch, data));
+
+        // Tiers à afficher selon la page
         TalentTier[] tiersToShow = page == 1
             ? new TalentTier[]{TalentTier.TIER_1, TalentTier.TIER_2, TalentTier.TIER_3, TalentTier.TIER_4}
             : new TalentTier[]{TalentTier.TIER_5, TalentTier.TIER_6, TalentTier.TIER_7, TalentTier.TIER_8};
 
-        // Afficher chaque tier
+        // Afficher chaque tier avec son talent de branche
         for (int tierIndex = 0; tierIndex < 4; tierIndex++) {
             TalentTier tier = tiersToShow[tierIndex];
             boolean unlocked = data.isTalentTierUnlocked(tier);
             String selectedTalentId = data.getSelectedTalentId(tier);
 
-            // Info du tier (colonne de gauche)
+            // Info du tier
             gui.setItem(TIER_INFO_SLOTS[tierIndex], createTierInfoItem(tier, data, selectedTalentId));
 
-            // Talents du tier
-            List<Talent> talents = talentManager.getTalentsForTier(data.getSelectedClass(), tier);
-            int[] slots = TALENT_SLOTS[tierIndex];
-
-            for (int i = 0; i < Math.min(5, talents.size()); i++) {
-                Talent talent = talents.get(i);
-                boolean isSelected = talent.getId().equals(selectedTalentId);
-                gui.setItem(slots[i], createTalentItem(talent, unlocked, isSelected, data));
+            // Le talent de la branche pour ce tier
+            Talent branchTalent = getBranchTalentForTier(data, tier, branch);
+            if (branchTalent != null) {
+                boolean isSelected = branchTalent.getId().equals(selectedTalentId);
+                gui.setItem(TALENT_SLOTS[tierIndex], createTalentItem(branchTalent, unlocked, isSelected, data));
             }
         }
 
-        // Navigation
-        // Page precedente
+        // Navigation - Page précédente
         if (page > 1) {
             gui.setItem(SLOT_PREV_PAGE, new ItemBuilder(Material.ARROW)
-                .name("§e< Page precedente")
+                .name("§e< Page précédente")
                 .lore("", "§7Tiers 1-4 (Niv. 0-15)")
                 .build());
         } else {
@@ -132,20 +141,23 @@ public class TalentSelectionGUI implements Listener {
             gui.setItem(SLOT_NEXT_PAGE, border);
         }
 
-        // Info centrale
-        gui.setItem(SLOT_INFO, new ItemBuilder(Material.BOOK)
-            .name("§6§lTALENTS")
-            .lore(
-                "",
-                "§7Selectionnez §e1 talent§7 par palier.",
-                "",
-                "§7Chaque talent modifie votre",
-                "§7facon de jouer de maniere unique.",
-                "",
-                "§8Clic sur un talent pour le selectionner.",
-                "",
-                talentManager.getTalentSummary(player)
-            )
+        // Changer de branche
+        List<String> changeLore = new ArrayList<>();
+        changeLore.add("");
+        changeLore.add("§7Branche actuelle: " + branch.getColoredName());
+        changeLore.add("");
+        if (data.isOnBranchChangeCooldown()) {
+            long minutes = data.getBranchChangeCooldownRemaining() / (60 * 1000);
+            changeLore.add("§cChangement en cooldown");
+            changeLore.add("§7" + minutes + " min restantes");
+        } else {
+            changeLore.add("§e> Clic pour changer");
+            changeLore.add("§c⚠ Reset tous les talents!");
+        }
+
+        gui.setItem(SLOT_CHANGE_BRANCH, new ItemBuilder(Material.COMPARATOR)
+            .name("§6§lCHANGER DE BRANCHE")
+            .lore(changeLore)
             .build());
 
         // Retour
@@ -162,6 +174,38 @@ public class TalentSelectionGUI implements Listener {
         player.openInventory(gui);
     }
 
+    private ItemStack createBranchInfoItem(TalentBranch branch, ClassData data) {
+        List<String> lore = new ArrayList<>();
+
+        // Ajouter la description de la branche
+        for (String line : branch.getDescription()) {
+            lore.add(line);
+        }
+
+        lore.add("");
+        lore.add("§8──────────────");
+        lore.add("");
+        lore.add("§7Talents actifs: §a" + data.getSelectedTalentCount() + "§7/§a8");
+
+        return new ItemBuilder(branch.getIcon())
+            .name(branch.getColor() + "§l" + branch.getDisplayName().toUpperCase())
+            .lore(lore)
+            .glow(true)
+            .build();
+    }
+
+    private Talent getBranchTalentForTier(ClassData data, TalentTier tier, TalentBranch branch) {
+        List<Talent> talents = talentManager.getTalentsForTier(data.getSelectedClass(), tier);
+        int branchSlotIndex = branch.getSlotIndex();
+
+        for (Talent talent : talents) {
+            if (talent.getSlotIndex() == branchSlotIndex) {
+                return talent;
+            }
+        }
+        return null;
+    }
+
     private ItemStack createTierInfoItem(TalentTier tier, ClassData data, String selectedTalentId) {
         boolean unlocked = data.isTalentTierUnlocked(tier);
         int playerLevel = data.getClassLevel().get();
@@ -170,7 +214,7 @@ public class TalentSelectionGUI implements Listener {
         lore.add("");
 
         if (unlocked) {
-            lore.add("§aDebloque!");
+            lore.add("§aDébloqué!");
             lore.add("");
             if (selectedTalentId != null) {
                 Talent selected = talentManager.getTalent(selectedTalentId);
@@ -179,11 +223,11 @@ public class TalentSelectionGUI implements Listener {
                     lore.add(selected.getColoredName());
                 }
             } else {
-                lore.add("§cAucun talent selectionne!");
-                lore.add("§7Cliquez sur un talent.");
+                lore.add("§cAucun talent sélectionné!");
+                lore.add("§7Cliquez sur le talent.");
             }
         } else {
-            lore.add("§cVerrouille");
+            lore.add("§cVerrouillé");
             lore.add("");
             lore.add("§7Niveau requis: §e" + tier.getRequiredLevel());
             lore.add("§7Votre niveau: §f" + playerLevel);
@@ -215,28 +259,18 @@ public class TalentSelectionGUI implements Listener {
         lore.add("");
 
         if (!tierUnlocked) {
-            lore.add("§c✗ Palier verrouille");
+            lore.add("§c✗ Palier verrouillé");
             lore.add("§7Niveau " + talent.getTier().getRequiredLevel() + " requis");
         } else if (isSelected) {
-            lore.add("§a✓ SELECTIONNE");
+            lore.add("§a✓ SÉLECTIONNÉ");
         } else {
-            // Verifier cooldown
-            if (data.isOnTalentChangeCooldown(talent.getTier()) && data.getSelectedTalentId(talent.getTier()) != null) {
-                long remaining = data.getTalentChangeCooldownRemaining(talent.getTier());
-                long minutes = remaining / (60 * 1000);
-                lore.add("§cChangement en cooldown");
-                lore.add("§7" + minutes + " min restantes");
-            } else {
-                lore.add("§e> Clic pour selectionner");
-            }
+            lore.add("§e> Clic pour sélectionner");
         }
 
-        // Determiner l'icone
+        // Déterminer l'icône
         Material icon;
         if (!tierUnlocked) {
             icon = Material.BARRIER;
-        } else if (isSelected) {
-            icon = talent.getIcon();
         } else {
             icon = talent.getIcon();
         }
@@ -264,6 +298,7 @@ public class TalentSelectionGUI implements Listener {
 
         int slot = event.getRawSlot();
         int currentPage = playerPages.getOrDefault(player.getUniqueId(), 1);
+        ClassData data = classManager.getClassData(player);
 
         // Navigation
         if (slot == SLOT_PREV_PAGE && currentPage > 1) {
@@ -275,6 +310,13 @@ public class TalentSelectionGUI implements Listener {
         if (slot == SLOT_NEXT_PAGE && currentPage < 2) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
             open(player, currentPage + 1);
+            return;
+        }
+
+        if (slot == SLOT_CHANGE_BRANCH) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.closeInventory();
+            plugin.getBranchSelectionGUI().open(player);
             return;
         }
 
@@ -299,25 +341,20 @@ public class TalentSelectionGUI implements Listener {
 
     private Talent getTalentFromSlot(int slot, int page, Player player) {
         ClassData data = classManager.getClassData(player);
-        if (!data.hasClass()) return null;
+        if (!data.hasClass() || !data.hasBranch()) return null;
 
-        // Trouver quel tier et quel index dans le tier
-        for (int tierIndex = 0; tierIndex < 4; tierIndex++) {
-            int[] slots = TALENT_SLOTS[tierIndex];
-            for (int i = 0; i < slots.length; i++) {
-                if (slots[i] == slot) {
-                    // Calculer le tier reel
-                    int realTierIndex = (page - 1) * 4 + tierIndex;
-                    if (realTierIndex >= TalentTier.values().length) return null;
+        TalentBranch branch = data.getSelectedBranch();
+        if (branch == null) return null;
 
-                    TalentTier tier = TalentTier.values()[realTierIndex];
-                    List<Talent> talents = talentManager.getTalentsForTier(data.getSelectedClass(), tier);
+        // Trouver quel tier correspond au slot
+        for (int tierIndex = 0; tierIndex < TALENT_SLOTS.length; tierIndex++) {
+            if (TALENT_SLOTS[tierIndex] == slot) {
+                // Calculer le tier réel
+                int realTierIndex = (page - 1) * 4 + tierIndex;
+                if (realTierIndex >= TalentTier.values().length) return null;
 
-                    if (i < talents.size()) {
-                        return talents.get(i);
-                    }
-                    return null;
-                }
+                TalentTier tier = TalentTier.values()[realTierIndex];
+                return getBranchTalentForTier(data, tier, branch);
             }
         }
         return null;
@@ -326,40 +363,30 @@ public class TalentSelectionGUI implements Listener {
     private void handleTalentClick(Player player, Talent talent) {
         ClassData data = classManager.getClassData(player);
 
-        // Verifier si le tier est debloque
+        // Vérifier si le tier est débloqué
         if (!data.isTalentTierUnlocked(talent.getTier())) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            player.sendMessage("§cCe palier de talent est verrouille!");
+            player.sendMessage("§cCe palier de talent est verrouillé!");
             player.sendMessage("§7Niveau requis: §e" + talent.getTier().getRequiredLevel());
             return;
         }
 
-        // Verifier si c'est deja le talent selectionne
+        // Vérifier si c'est déjà le talent sélectionné
         String currentTalentId = data.getSelectedTalentId(talent.getTier());
         if (talent.getId().equals(currentTalentId)) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
-            player.sendMessage("§7Ce talent est deja selectionne.");
+            player.sendMessage("§7Ce talent est déjà sélectionné.");
             return;
         }
 
-        // Verifier cooldown
-        if (currentTalentId != null && data.isOnTalentChangeCooldown(talent.getTier())) {
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            long remaining = data.getTalentChangeCooldownRemaining(talent.getTier());
-            long minutes = remaining / (60 * 1000);
-            player.sendMessage("§cVous ne pouvez pas encore changer ce talent!");
-            player.sendMessage("§7Temps restant: §f" + minutes + " minutes");
-            return;
-        }
-
-        // Selectionner le talent
+        // Sélectionner le talent
         if (talentManager.selectTalent(player, talent)) {
-            // Rafraichir le GUI
+            // Rafraîchir le GUI
             int page = playerPages.getOrDefault(player.getUniqueId(), 1);
             open(player, page);
         } else {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            player.sendMessage("§cImpossible de selectionner ce talent!");
+            player.sendMessage("§cImpossible de sélectionner ce talent!");
         }
     }
 }

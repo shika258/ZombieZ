@@ -111,6 +111,7 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
     @Getter private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
     @Getter private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
+    @Getter private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
 
     // État du plugin
     @Getter private boolean fullyLoaded = false;
@@ -369,6 +370,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Talent Selection GUI - Menu de sélection des talents
         talentSelectionGUI = new com.rinaorc.zombiez.classes.gui.TalentSelectionGUI(this, classManager, talentManager);
+
+        // Branch Selection GUI - Menu de sélection de branche/spécialisation
+        branchSelectionGUI = new com.rinaorc.zombiez.classes.gui.BranchSelectionGUI(this, classManager);
     }
 
     /**

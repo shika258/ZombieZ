@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.classes;
 
 import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentBranch;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
 import lombok.Data;
 import lombok.Getter;
@@ -51,8 +52,14 @@ public class ClassData {
     // Préférences utilisateur
     private final AtomicBoolean talentMessagesEnabled = new AtomicBoolean(true);
 
+    // Branche de talents sélectionnée
+    private volatile String selectedBranchId = null;
+    private long lastBranchChange = 0;
+
     // Cooldown de changement de talent (1 heure)
     public static final long TALENT_CHANGE_COOLDOWN_MS = 60 * 60 * 1000L;
+    // Cooldown de changement de branche (1 heure)
+    public static final long BRANCH_CHANGE_COOLDOWN_MS = 60 * 60 * 1000L;
 
     public ClassData(UUID playerUuid) {
         this.playerUuid = playerUuid;
@@ -228,6 +235,7 @@ public class ClassData {
     public void resetTalents() {
         selectedTalents.clear();
         talentChangeCooldowns.clear();
+        resetBranch();
         markDirty();
     }
 
@@ -248,11 +256,12 @@ public class ClassData {
     }
 
     /**
-     * Reset tous les cooldowns (classe + talents)
+     * Reset tous les cooldowns (classe + talents + branche)
      */
     public void resetAllCooldowns() {
         resetClassChangeCooldown();
         resetTalentCooldowns();
+        resetBranchChangeCooldown();
     }
 
     /**
@@ -271,6 +280,85 @@ public class ClassData {
             if (isTalentTierUnlocked(tier)) count++;
         }
         return count;
+    }
+
+    // ==================== BRANCHE DE TALENTS ====================
+
+    /**
+     * Sélectionne une branche de talents
+     * @return true si la sélection a réussi
+     */
+    public boolean selectBranch(TalentBranch branch) {
+        if (branch == null) return false;
+        if (selectedClass == null || branch.getClassType() != selectedClass) return false;
+        if (isOnBranchChangeCooldown() && selectedBranchId != null) return false;
+
+        // Si changement de branche, appliquer cooldown et reset talents
+        if (selectedBranchId != null && !selectedBranchId.equals(branch.getId())) {
+            lastBranchChange = System.currentTimeMillis();
+            // Reset les talents car on change de branche
+            selectedTalents.clear();
+            talentChangeCooldowns.clear();
+        }
+
+        this.selectedBranchId = branch.getId();
+        markDirty();
+        return true;
+    }
+
+    /**
+     * Obtient la branche sélectionnée
+     */
+    public TalentBranch getSelectedBranch() {
+        return TalentBranch.fromId(selectedBranchId);
+    }
+
+    /**
+     * Obtient l'ID de la branche sélectionnée
+     */
+    public String getSelectedBranchId() {
+        return selectedBranchId;
+    }
+
+    /**
+     * Vérifie si une branche est sélectionnée
+     */
+    public boolean hasBranch() {
+        return selectedBranchId != null;
+    }
+
+    /**
+     * Vérifie si le joueur est en cooldown pour changer de branche
+     */
+    public boolean isOnBranchChangeCooldown() {
+        if (lastBranchChange == 0) return false;
+        return System.currentTimeMillis() - lastBranchChange < BRANCH_CHANGE_COOLDOWN_MS;
+    }
+
+    /**
+     * Obtient le temps restant avant de pouvoir changer de branche (en ms)
+     */
+    public long getBranchChangeCooldownRemaining() {
+        if (lastBranchChange == 0) return 0;
+        long remaining = BRANCH_CHANGE_COOLDOWN_MS - (System.currentTimeMillis() - lastBranchChange);
+        return Math.max(0, remaining);
+    }
+
+    /**
+     * Reset la branche (lors d'un changement de classe)
+     */
+    public void resetBranch() {
+        selectedBranchId = null;
+        lastBranchChange = 0;
+        markDirty();
+    }
+
+    /**
+     * Reset le cooldown de changement de branche
+     */
+    public void resetBranchChangeCooldown() {
+        lastBranchChange = 0;
+        markDirty();
     }
 
     // ==================== CACHE & DIRTY ====================
@@ -347,6 +435,9 @@ public class ClassData {
         this.selectedTalents.putAll(other.selectedTalents);
         this.talentChangeCooldowns.clear();
         this.talentChangeCooldowns.putAll(other.talentChangeCooldowns);
+        // Copier la branche
+        this.selectedBranchId = other.selectedBranchId;
+        this.lastBranchChange = other.lastBranchChange;
         // Copier les préférences
         this.talentMessagesEnabled.set(other.talentMessagesEnabled.get());
     }
