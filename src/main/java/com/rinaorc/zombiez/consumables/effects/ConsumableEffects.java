@@ -535,6 +535,9 @@ public class ConsumableEffects {
         player.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.8f);
         player.sendMessage("§b➹ §7Grappin accroché!");
 
+        // Appliquer le cooldown du grappin (3 secondes fixes) après chaque utilisation
+        applyCooldown(player, ConsumableType.GRAPPLING_HOOK, 3000);
+
         // Décrémenter les utilisations
         boolean fullyUsed = consumable.use();
         consumable.updateItemStack(item);
