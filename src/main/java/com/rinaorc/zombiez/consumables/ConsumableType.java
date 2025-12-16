@@ -119,13 +119,33 @@ public enum ConsumableType {
 
     /**
      * Calcule une stat scalée pour une zone et rareté données
+     * Applique des maximums pour l'équilibrage
      */
     public double calculateScaledStat1(int zoneId, ConsumableRarity rarity) {
-        return baseStat1 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+        double value = baseStat1 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+
+        // Appliquer les maximums de stat1
+        return switch (this) {
+            case GRAPPLING_HOOK -> Math.min(value, 150.0); // Portée max 150 blocs
+            case UNSTABLE_PEARL -> Math.min(value, 100.0); // Portée max 100 blocs
+            case DECOY -> Math.min(value, 30.0); // Durée max 30s
+            default -> value;
+        };
     }
 
     public double calculateScaledStat2(int zoneId, ConsumableRarity rarity) {
-        return baseStat2 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+        double value = baseStat2 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+
+        // Appliquer les maximums de stat2
+        return switch (this) {
+            case TNT_GRENADE -> Math.min(value, 64.0); // Rayon max 64 blocs
+            case INCENDIARY_BOMB -> Math.min(value, 48.0); // Rayon max 48 blocs
+            case STICKY_CHARGE -> Math.min(value, 48.0); // Rayon max 48 blocs
+            case ACID_JAR -> Math.min(value, 48.0); // Rayon max 48 blocs (cohérence)
+            case COBWEB_TRAP -> Math.min(value, 20.0); // Durée max 20s
+            case DECOY -> Math.min(value, 128.0); // Rayon d'aggro max 128 blocs
+            default -> value;
+        };
     }
 
     public double calculateScaledStat3(int zoneId, ConsumableRarity rarity) {
@@ -136,12 +156,23 @@ public enum ConsumableType {
             double rarityReduction = 1.0 - (rarity.ordinal() * 0.05); // -5% par niveau de rareté
             return Math.max(0.5, baseStat3 * rarityReduction); // Minimum 0.5s
         }
-        // Les cooldowns (grappin, perle) ne doivent pas augmenter non plus
-        if (this == GRAPPLING_HOOK || this == UNSTABLE_PEARL) {
-            // Cooldown constant ou légèrement réduit
+        // Le grappin a un cooldown FIXE de 3 secondes, peu importe la rareté ou la zone
+        if (this == GRAPPLING_HOOK) {
+            return 3.0; // Cooldown fixe 3s
+        }
+        // La perle instable garde un cooldown réduit par rareté
+        if (this == UNSTABLE_PEARL) {
             double rarityReduction = 1.0 - (rarity.ordinal() * 0.1); // -10% par niveau de rareté
             return Math.max(1.0, baseStat3 * rarityReduction); // Minimum 1s
         }
-        return baseStat3 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+
+        double value = baseStat3 * getZoneMultiplier(zoneId) * rarity.getStatMultiplier();
+
+        // Appliquer les maximums de stat3
+        return switch (this) {
+            case INCENDIARY_BOMB -> Math.min(value, 20.0); // Durée max 20s
+            case ACID_JAR -> Math.min(value, 20.0); // Durée max 20s
+            default -> value;
+        };
     }
 }

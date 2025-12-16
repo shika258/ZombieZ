@@ -1142,7 +1142,7 @@ public class ConsumableEffects {
         return switch (type) {
             case TNT_GRENADE, INCENDIARY_BOMB, ACID_JAR -> 2000;
             case STICKY_CHARGE -> 1500;
-            case GRAPPLING_HOOK -> (long) (consumable.getStat3() * 1000);
+            case GRAPPLING_HOOK -> 3000; // Cooldown fixe 3s, peu importe la rareté ou zone
             case UNSTABLE_PEARL -> (long) (consumable.getStat3() * 1000);
             case COBWEB_TRAP, DECOY, TURRET -> 5000;
             case BANDAGE, ANTIDOTE, ADRENALINE_KIT -> 3000;
