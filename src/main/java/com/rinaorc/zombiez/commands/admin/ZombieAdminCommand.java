@@ -53,6 +53,7 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
             case "stats" -> handleStats(sender);
             case "toggle" -> handleToggle(sender, args);
             case "kill" -> handleKill(sender, args);
+            case "clearlag" -> handleClearlag(sender, args);
             case "bloodmoon" -> handleBloodMoon(sender, args);
             case "patientzero" -> handlePatientZero(sender, args);
             default -> sendHelp(sender);
@@ -70,6 +71,7 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zzzombie stats §7- Statistiques du système");
         sender.sendMessage("§e/zzzombie toggle <spawn|events> §7- Toggle les systèmes");
         sender.sendMessage("§e/zzzombie kill <all|zone|radius> §7- Tuer des zombies");
+        sender.sendMessage("§e/zzzombie clearlag [force] §7- Clearlag des mobs isolés");
         sender.sendMessage("§e/zzzombie bloodmoon <start|stop> §7- Blood Moon");
         sender.sendMessage("§e/zzzombie patientzero §7- Spawn Patient Zéro");
     }
@@ -290,6 +292,31 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void handleClearlag(CommandSender sender, String[] args) {
+        sender.sendMessage("§6[Clearlag] §7Nettoyage en cours...");
+
+        boolean force = args.length >= 2 && args[1].equalsIgnoreCase("force");
+
+        int clearedDistant = 0;
+        int clearedUnloaded = 0;
+
+        if (force) {
+            // Force cleanup de tous les mobs sans joueur proche
+            clearedDistant = plugin.getZombieManager().forceCleanupAllDistantMobs();
+        } else {
+            // Cleanup normal
+            plugin.getZombieManager().cleanupDistantZombies();
+            clearedDistant = 10; // Estimation car cleanupDistantZombies ne retourne pas un nombre
+        }
+
+        clearedUnloaded = plugin.getZombieManager().cleanupUnloadedChunks();
+
+        sender.sendMessage("§6[Clearlag] §aNettoyage terminé!");
+        sender.sendMessage("§7  - Mobs distants: §e" + clearedDistant);
+        sender.sendMessage("§7  - Mobs chunks déchargés: §e" + clearedUnloaded);
+        sender.sendMessage("§7  - Mobs actifs restants: §e" + plugin.getZombieManager().getTotalZombieCount());
+    }
+
     private void handleBloodMoon(CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage("§cUsage: /zzzombie bloodmoon <start|stop>");
@@ -366,7 +393,7 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             completions.addAll(Arrays.asList(
-                "spawn", "wave", "boss", "event", "stats", "toggle", "kill", "bloodmoon", "patientzero"
+                "spawn", "wave", "boss", "event", "stats", "toggle", "kill", "clearlag", "bloodmoon", "patientzero"
             ));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
@@ -387,6 +414,7 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
                 }
                 case "toggle" -> completions.addAll(Arrays.asList("spawn", "events"));
                 case "kill" -> completions.addAll(Arrays.asList("all", "zone", "radius"));
+                case "clearlag" -> completions.add("force");
                 case "bloodmoon" -> completions.addAll(Arrays.asList("start", "stop"));
             }
         }

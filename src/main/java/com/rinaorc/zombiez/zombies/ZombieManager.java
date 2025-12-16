@@ -832,37 +832,222 @@ public class ZombieManager {
         return activeZombies.size();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYSTÈME CLEARLAG OPTIMISÉ
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Configuration du clearlag
+    private static final double PLAYER_NEARBY_RADIUS = 64.0;     // Rayon pour joueur proche
+    private static final double ISOLATION_RADIUS = 20.0;         // Rayon pour vérifier isolation
+    private static final int MIN_MOBS_FOR_GROUP = 2;             // Minimum pour considérer un groupe
+    private static final long MOB_MAX_AGE_MS = 5 * 60 * 1000;    // 5 minutes max d'existence si isolé
+    private static final int CLEANUP_BATCH_SIZE = 50;            // Nombre max de mobs à traiter par tick
+
     /**
-     * Nettoie les zombies trop loin des joueurs
+     * Système de clearlag principal - appelé toutes les 30 secondes
+     * Optimisé pour éviter les lags
      */
     public void cleanupDistantZombies() {
         List<UUID> toRemove = new ArrayList<>();
-        
+        int processed = 0;
+
         for (var entry : activeZombies.entrySet()) {
-            Entity entity = plugin.getServer().getEntity(entry.getKey());
-            
-            if (entity == null || !entity.isValid()) {
-                toRemove.add(entry.getKey());
+            if (processed >= CLEANUP_BATCH_SIZE) break; // Limiter par batch
+            processed++;
+
+            UUID entityId = entry.getKey();
+            ActiveZombie zombie = entry.getValue();
+            Entity entity = plugin.getServer().getEntity(entityId);
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 1: Entité invalide ou morte
+            // ═══════════════════════════════════════════════════════════════════
+            if (entity == null || !entity.isValid() || entity.isDead()) {
+                toRemove.add(entityId);
                 continue;
             }
-            
-            // Vérifier si un joueur est proche
-            boolean playerNearby = entity.getWorld().getNearbyEntities(
-                entity.getLocation(), 64, 64, 64).stream()
-                .anyMatch(e -> e instanceof Player);
-            
-            if (!playerNearby) {
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 2: Chunk non chargé
+            // ═══════════════════════════════════════════════════════════════════
+            if (!entity.getLocation().getChunk().isLoaded()) {
                 entity.remove();
-                toRemove.add(entry.getKey());
+                toRemove.add(entityId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 3: Pas de joueur à proximité
+            // ═══════════════════════════════════════════════════════════════════
+            if (!hasPlayerNearby(entity, PLAYER_NEARBY_RADIUS)) {
+                entity.remove();
+                toRemove.add(entityId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 4: Mob isolé depuis trop longtemps (pas un boss)
+            // ═══════════════════════════════════════════════════════════════════
+            if (!zombie.getType().isBoss()) {
+                long age = System.currentTimeMillis() - zombie.getSpawnTime();
+                if (age > MOB_MAX_AGE_MS && isIsolated(entity)) {
+                    entity.remove();
+                    toRemove.add(entityId);
+                }
             }
         }
-        
+
+        // Nettoyer les entrées
         for (UUID id : toRemove) {
             ActiveZombie zombie = activeZombies.remove(id);
             if (zombie != null) {
                 zombieCountByZone.merge(zombie.getZoneId(), -1, (a, b) -> Math.max(0, a + b));
             }
         }
+
+        // Log si beaucoup de mobs nettoyés
+        if (toRemove.size() > 10) {
+            plugin.getLogger().info("[Clearlag] " + toRemove.size() + " mobs nettoyés");
+        }
+    }
+
+    /**
+     * Vérifie si un joueur est à proximité d'une entité
+     * Optimisé: utilise getNearbyEntities avec filtrage rapide
+     */
+    private boolean hasPlayerNearby(Entity entity, double radius) {
+        // Vérification rapide des joueurs en ligne
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (player.getWorld().equals(entity.getWorld())) {
+                double distSq = player.getLocation().distanceSquared(entity.getLocation());
+                if (distSq <= radius * radius) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Vérifie si un mob est isolé (pas d'autres mobs proches)
+     * Les mobs isolés sont candidats au nettoyage s'ils sont vieux
+     */
+    private boolean isIsolated(Entity entity) {
+        int nearbyMobs = 0;
+
+        for (Entity nearby : entity.getWorld().getNearbyEntities(
+                entity.getLocation(), ISOLATION_RADIUS, ISOLATION_RADIUS, ISOLATION_RADIUS)) {
+            if (nearby.getUniqueId().equals(entity.getUniqueId())) continue;
+            if (isZombieZMob(nearby)) {
+                nearbyMobs++;
+                if (nearbyMobs >= MIN_MOBS_FOR_GROUP) {
+                    return false; // Pas isolé, fait partie d'un groupe
+                }
+            }
+        }
+        return true; // Isolé
+    }
+
+    /**
+     * Force un nettoyage complet de tous les mobs sans joueur proche
+     * À appeler manuellement par un admin ou lors d'événements spéciaux
+     */
+    public int forceCleanupAllDistantMobs() {
+        List<UUID> toRemove = new ArrayList<>();
+
+        for (var entry : activeZombies.entrySet()) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+
+            if (entity == null || !entity.isValid()) {
+                toRemove.add(entry.getKey());
+                continue;
+            }
+
+            if (!hasPlayerNearby(entity, PLAYER_NEARBY_RADIUS)) {
+                entity.remove();
+                toRemove.add(entry.getKey());
+            }
+        }
+
+        for (UUID id : toRemove) {
+            ActiveZombie zombie = activeZombies.remove(id);
+            if (zombie != null) {
+                zombieCountByZone.merge(zombie.getZoneId(), -1, (a, b) -> Math.max(0, a + b));
+            }
+        }
+
+        return toRemove.size();
+    }
+
+    /**
+     * Nettoie tous les mobs dans les chunks non chargés
+     * Appelé périodiquement ou lors d'un cleanup manuel
+     */
+    public int cleanupUnloadedChunks() {
+        List<UUID> toRemove = new ArrayList<>();
+
+        for (var entry : activeZombies.entrySet()) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+
+            if (entity == null) {
+                toRemove.add(entry.getKey());
+                continue;
+            }
+
+            if (!entity.getLocation().getChunk().isLoaded()) {
+                entity.remove();
+                toRemove.add(entry.getKey());
+            }
+        }
+
+        for (UUID id : toRemove) {
+            ActiveZombie zombie = activeZombies.remove(id);
+            if (zombie != null) {
+                zombieCountByZone.merge(zombie.getZoneId(), -1, (a, b) -> Math.max(0, a + b));
+            }
+        }
+
+        return toRemove.size();
+    }
+
+    /**
+     * Nettoie les mobs les plus vieux dans une zone si elle dépasse sa limite
+     * Utile pour forcer la rotation des mobs
+     */
+    public int cleanupOldestMobsInZone(int zoneId, int targetCount) {
+        int currentCount = zombieCountByZone.getOrDefault(zoneId, 0);
+        if (currentCount <= targetCount) return 0;
+
+        int toCleanup = currentCount - targetCount;
+        List<Map.Entry<UUID, ActiveZombie>> zoneMobs = new ArrayList<>();
+
+        // Collecter les mobs de cette zone
+        for (var entry : activeZombies.entrySet()) {
+            if (entry.getValue().getZoneId() == zoneId) {
+                zoneMobs.add(entry);
+            }
+        }
+
+        // Trier par temps de spawn (plus vieux en premier)
+        zoneMobs.sort(Comparator.comparingLong(e -> e.getValue().getSpawnTime()));
+
+        int removed = 0;
+        for (var entry : zoneMobs) {
+            if (removed >= toCleanup) break;
+
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+            if (entity != null && entity.isValid()) {
+                // Ne pas supprimer les boss
+                if (entry.getValue().getType().isBoss()) continue;
+
+                entity.remove();
+            }
+            activeZombies.remove(entry.getKey());
+            zombieCountByZone.merge(zoneId, -1, (a, b) -> Math.max(0, a + b));
+            removed++;
+        }
+
+        return removed;
     }
 
     /**
