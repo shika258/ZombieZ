@@ -744,14 +744,21 @@ public class ConsumableEffects {
         Location spawnLoc = player.getLocation();
 
         // Créer un Snow Golem
+        int durationSeconds = (int) duration;
         Snowman turret = player.getWorld().spawn(spawnLoc, Snowman.class, golem -> {
             golem.setDerp(false);
-            golem.setCustomName("§b⚙ §fTourelle §7[" + player.getName() + "]");
+            // Nom initial avec durée de vie
+            String healthBar = createHealthBar(1.0);
+            golem.setCustomName("§b⚙ §fTourelle " + healthBar + " §a" + durationSeconds + "s");
             golem.setCustomNameVisible(true);
-            golem.setAI(false); // On contrôle manuellement
+            golem.setAI(true); // AI activée pour le pathfinding
             golem.addScoreboardTag("zombiez_turret");
             golem.setMetadata("zombiez_turret_owner", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
             golem.setMetadata("zombiez_turret_damage", new FixedMetadataValue(plugin, damage));
+            // Vitesse très lente
+            if (golem.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+                golem.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.05); // Très lent (défaut: 0.2)
+            }
         });
 
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_PLACE, 1.0f, 1.5f);
@@ -766,6 +773,12 @@ public class ConsumableEffects {
             int ticks = 0;
             final int maxTicks = (int) (duration * 20);
             int fireCooldown = 0;
+            // Système anti-blocage : change de cible si pas de ligne de vue après plusieurs tirs
+            UUID currentTargetId = null;
+            int missedShots = 0;
+            final int maxMissedShots = 3; // Change de cible après 3 tirs ratés
+            final Set<UUID> blacklistedTargets = new HashSet<>(); // Cibles temporairement ignorées
+            int blacklistClearCooldown = 0;
 
             @Override
             public void run() {
@@ -797,18 +810,30 @@ public class ConsumableEffects {
                     return;
                 }
 
+                // Nettoyer la blacklist périodiquement (toutes les 3 secondes)
+                if (blacklistClearCooldown > 0) {
+                    blacklistClearCooldown--;
+                } else if (!blacklistedTargets.isEmpty()) {
+                    blacklistedTargets.clear();
+                    blacklistClearCooldown = 60; // 3 secondes
+                }
+
                 // Cooldown entre les tirs
                 if (fireCooldown > 0) {
                     fireCooldown--;
                     return;
                 }
 
-                // Trouver la cible la plus proche
+                // Trouver la cible la plus proche (en excluant les cibles blacklistées)
                 LivingEntity target = null;
                 double closestDist = range;
 
                 for (Entity entity : turret.getWorld().getNearbyEntities(turret.getLocation(), range, range, range)) {
                     if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
+                        // Ignorer les cibles blacklistées
+                        if (blacklistedTargets.contains(entity.getUniqueId())) {
+                            continue;
+                        }
                         double dist = entity.getLocation().distance(turret.getLocation());
                         if (dist < closestDist) {
                             closestDist = dist;
@@ -819,13 +844,50 @@ public class ConsumableEffects {
 
                 // Tirer sur la cible
                 if (target != null) {
-                    // Faire regarder la tourelle vers la cible
                     Location turretLoc = turret.getLocation();
-                    Vector direction = target.getLocation().add(0, 1, 0).subtract(turretLoc.add(0, 1, 0)).toVector().normalize();
+                    Location targetLoc = target.getLocation().add(0, 1, 0);
+                    Location shootFrom = turretLoc.clone().add(0, 1.5, 0);
 
-                    // Projectile
-                    Snowball snowball = turret.getWorld().spawn(turretLoc.add(0, 1.5, 0), Snowball.class, s -> {
-                        s.setVelocity(direction.multiply(2));
+                    // Vérifier la ligne de vue avec un raycast
+                    Vector direction = targetLoc.subtract(shootFrom).toVector().normalize();
+                    double distToTarget = shootFrom.distance(target.getLocation().add(0, 1, 0));
+
+                    RayTraceResult rayTrace = turret.getWorld().rayTraceBlocks(
+                        shootFrom, direction, distToTarget, FluidCollisionMode.NEVER, true
+                    );
+
+                    boolean hasLineOfSight = (rayTrace == null || rayTrace.getHitBlock() == null);
+
+                    // Vérifier si c'est une nouvelle cible
+                    if (currentTargetId == null || !currentTargetId.equals(target.getUniqueId())) {
+                        currentTargetId = target.getUniqueId();
+                        missedShots = 0;
+                    }
+
+                    // Si pas de ligne de vue, compter comme un tir raté
+                    if (!hasLineOfSight) {
+                        missedShots++;
+                        if (missedShots >= maxMissedShots) {
+                            // Blacklister cette cible et en chercher une autre
+                            blacklistedTargets.add(target.getUniqueId());
+                            currentTargetId = null;
+                            missedShots = 0;
+                            fireCooldown = 5; // Court délai avant de réessayer
+                            return;
+                        }
+                    } else {
+                        // Ligne de vue OK, réinitialiser le compteur
+                        missedShots = 0;
+                    }
+
+                    // Déplacer lentement le golem vers la cible
+                    turret.getPathfinder().moveTo(target);
+
+                    // Projectile (même si pas de ligne de vue, pour que le joueur voie que la tourelle essaie)
+                    final LivingEntity finalTarget = target;
+                    Snowball snowball = turret.getWorld().spawn(shootFrom, Snowball.class, s -> {
+                        Vector shootDir = finalTarget.getLocation().add(0, 1, 0).subtract(shootFrom).toVector().normalize();
+                        s.setVelocity(shootDir.multiply(2));
                         s.setMetadata("zombiez_turret_projectile", new FixedMetadataValue(plugin, damage));
                         s.setMetadata("zombiez_owner", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
                     });
@@ -834,6 +896,11 @@ public class ConsumableEffects {
                     turret.getWorld().playSound(turret.getLocation(), Sound.ENTITY_SNOW_GOLEM_SHOOT, 1.0f, 1.2f);
 
                     fireCooldown = 15; // 0.75s entre les tirs
+                } else {
+                    // Pas de cible, arrêter de bouger
+                    turret.getPathfinder().stopPathfinding();
+                    currentTargetId = null;
+                    missedShots = 0;
                 }
 
                 // Mise à jour du nom avec temps restant et barre de vie
