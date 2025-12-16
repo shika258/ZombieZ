@@ -138,17 +138,26 @@ public class AirdropEvent extends DynamicEvent {
         World world = location.getWorld();
         if (world == null) return;
 
+        // Éviter la double exécution
+        if (phase != Phase.FALLING) return;
+
         // Déterminer la position d'atterrissage
         if (fallingCrate != null && fallingCrate.isValid()) {
             landingLocation = fallingCrate.getLocation().clone();
+            // Supprimer le falling block pour éviter qu'il crée un coffre lui-même
+            fallingCrate.remove();
         } else {
             landingLocation = location.clone();
             landingLocation.setY(world.getHighestBlockYAt(location) + 1);
         }
 
-        // Créer le coffre
+        // S'assurer qu'il n'y a qu'un seul coffre
         Block block = landingLocation.getBlock();
-        block.setType(Material.CHEST);
+        if (block.getType() == Material.CHEST) {
+            // Déjà un coffre, ne pas en recréer
+        } else {
+            block.setType(Material.CHEST);
+        }
         chestBlock = block;
 
         // Créer un marqueur visuel
@@ -268,6 +277,9 @@ public class AirdropEvent extends DynamicEvent {
         if (chestBlock != null && chestBlock.getState() instanceof Chest chest) {
             if (Arrays.stream(chest.getInventory().getContents())
                     .allMatch(item -> item == null || item.getType() == Material.AIR)) {
+                // Supprimer le coffre après pillage
+                chest.getInventory().clear();
+                chestBlock.setType(Material.AIR);
                 complete();
             }
         }
@@ -405,8 +417,13 @@ public class AirdropEvent extends DynamicEvent {
             fallingCrate.remove();
         }
 
-        // Ne pas supprimer le coffre - les joueurs peuvent encore le looter
-        // Il disparaîtra naturellement ou sera cassé
+        // Supprimer le coffre pour éviter de spammer la map
+        if (chestBlock != null && chestBlock.getType() == Material.CHEST) {
+            if (chestBlock.getState() instanceof Chest chest) {
+                chest.getInventory().clear();
+            }
+            chestBlock.setType(Material.AIR);
+        }
     }
 
     @Override

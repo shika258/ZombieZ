@@ -5,12 +5,19 @@ import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
-import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.*;
 
@@ -29,22 +36,24 @@ public class HordeInvasionEvent extends DynamicEvent {
     private int totalWaves;
     @Getter
     private int currentWave = 0;
-    private int waveIntervalSeconds = 20;  // Temps entre chaque vague
+    private int waveIntervalSeconds = 5;  // Temps entre chaque vague (réduit de 20 à 5)
     private int secondsUntilNextWave;
 
-    // Zombies
-    private int baseZombiesPerWave = 5;
+    // Zombies - Augmenté pour une vraie horde
+    private int baseZombiesPerWave = 15;  // Augmenté de 5 à 15
     private int zombiesThisWave = 0;
     private int zombiesKilledThisWave = 0;
     private int totalZombiesKilled = 0;
+    private int totalZombiesToKill;  // Objectif total de kills
 
     // Défense
     private int defendersInArea = 0;
     private int defenseRadius = 25;
 
-    // Marqueur visuel
-    private ArmorStand waveMarker;
-    private ArmorStand centerMarker;
+    // Marqueur visuel avec TextDisplay (scalable)
+    private TextDisplay waveMarker;
+    private TextDisplay centerMarker;
+    private TextDisplay killCounterMarker;
 
     // Tâche de particules (pour cleanup)
     private BukkitTask particleTask;
@@ -55,10 +64,16 @@ public class HordeInvasionEvent extends DynamicEvent {
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
 
-        // Configuration basée sur la zone
+        // Configuration basée sur la zone - Plus dynamique
         this.totalWaves = 5 + zone.getId() / 10;  // 5-10 vagues
-        this.baseZombiesPerWave = 5 + zone.getId() / 5;  // Plus de zombies par vague
+        this.baseZombiesPerWave = 15 + zone.getId() / 3;  // Beaucoup plus de zombies par vague (15-25+)
         this.secondsUntilNextWave = waveIntervalSeconds;
+
+        // Calculer l'objectif total de kills (estimation)
+        this.totalZombiesToKill = 0;
+        for (int w = 1; w <= totalWaves; w++) {
+            totalZombiesToKill += baseZombiesPerWave + (w * 5);
+        }
 
         // Réduire la durée max car c'est basé sur les vagues
         this.maxDuration = 20 * 60 * (totalWaves + 2); // Temps max basé sur les vagues
@@ -86,27 +101,59 @@ public class HordeInvasionEvent extends DynamicEvent {
     }
 
     /**
-     * Crée les marqueurs visuels du centre de défense
+     * Crée les marqueurs visuels du centre de défense avec TextDisplay scalable
      */
     private void createMarkers() {
         World world = location.getWorld();
         if (world == null) return;
 
-        // Marqueur central
-        centerMarker = (ArmorStand) world.spawnEntity(location.clone().add(0, 0.5, 0), EntityType.ARMOR_STAND);
-        centerMarker.setVisible(false);
-        centerMarker.setGravity(false);
-        centerMarker.setMarker(true);
-        centerMarker.setCustomName("§4§l💀 POINT DE DÉFENSE 💀");
-        centerMarker.setCustomNameVisible(true);
+        // Marqueur central - Grand et visible
+        centerMarker = world.spawn(location.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(true);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
+            display.text(Component.text("💀 INVASION DE HORDE 💀", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(2.5f, 2.5f, 2.5f), // Grande taille!
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        });
 
-        // Marqueur de vague
-        waveMarker = (ArmorStand) world.spawnEntity(location.clone().add(0, 2, 0), EntityType.ARMOR_STAND);
-        waveMarker.setVisible(false);
-        waveMarker.setGravity(false);
-        waveMarker.setMarker(true);
-        waveMarker.setCustomName("§e⏳ Préparation...");
-        waveMarker.setCustomNameVisible(true);
+        // Marqueur de vague - Sous le titre principal
+        waveMarker = world.spawn(location.clone().add(0, 2.5, 0), TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(true);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(80, 0, 0, 0));
+            display.text(Component.text("⏳ Préparation...", NamedTextColor.YELLOW));
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(1.8f, 1.8f, 1.8f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        });
+
+        // Marqueur de compteur de kills - Encore plus bas
+        killCounterMarker = world.spawn(location.clone().add(0, 1.5, 0), TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(true);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(60, 0, 0, 0));
+            display.text(Component.text("☠ 0/" + totalZombiesToKill + " zombies tués", NamedTextColor.GRAY));
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(1.5f, 1.5f, 1.5f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        });
 
         // Particules de zone
         showDefenseZone();
@@ -168,14 +215,21 @@ public class HordeInvasionEvent extends DynamicEvent {
                 }
                 startNextWave();
             } else {
-                // Mise à jour du marqueur
+                // Mise à jour du marqueur TextDisplay
                 if (waveMarker != null && waveMarker.isValid()) {
-                    waveMarker.setCustomName("§e⏳ Vague " + (currentWave + 1) + " dans §c" + secondsUntilNextWave + "s");
+                    waveMarker.text(Component.text("⏳ Vague " + (currentWave + 1) + " dans ", NamedTextColor.YELLOW)
+                        .append(Component.text(secondsUntilNextWave + "s", NamedTextColor.RED, TextDecoration.BOLD)));
                 }
             }
         } else {
             // Vérifier si la vague est terminée
             checkWaveComplete();
+        }
+
+        // Mettre à jour le compteur de kills
+        if (killCounterMarker != null && killCounterMarker.isValid()) {
+            NamedTextColor killColor = totalZombiesKilled > totalZombiesToKill / 2 ? NamedTextColor.GREEN : NamedTextColor.GRAY;
+            killCounterMarker.text(Component.text("☠ " + totalZombiesKilled + "/" + totalZombiesToKill + " zombies tués", killColor));
         }
 
         // Mettre à jour la boss bar
@@ -184,10 +238,12 @@ public class HordeInvasionEvent extends DynamicEvent {
             "§cVague " + currentWave + "/" + totalWaves + " - " + zombiesKilledThisWave + "/" + zombiesThisWave + " tués";
         updateBossBar(progress, status);
 
-        // Particules ambient pendant les vagues
-        if (!waveClear && elapsedTicks % 40 == 0) {
+        // Particules ambient pendant les vagues - Plus intenses
+        if (!waveClear && elapsedTicks % 20 == 0) {
             world.spawnParticle(Particle.SMOKE, location.clone().add(0, 2, 0),
-                10, 3, 2, 3, 0.02);
+                15, 4, 2, 4, 0.03);
+            world.spawnParticle(Particle.SOUL_FIRE_FLAME, location.clone().add(0, 1, 0),
+                5, 2, 0.5, 2, 0.01);
         }
     }
 
@@ -207,10 +263,12 @@ public class HordeInvasionEvent extends DynamicEvent {
             addParticipant(player);
         }
 
-        // Mettre à jour le marqueur central
+        // Mettre à jour le marqueur central TextDisplay
         if (centerMarker != null && centerMarker.isValid()) {
-            String color = defendersInArea > 0 ? "§a" : "§c";
-            centerMarker.setCustomName("§4§l💀 " + color + defendersInArea + " Défenseur(s) §4§l💀");
+            NamedTextColor countColor = defendersInArea > 0 ? NamedTextColor.GREEN : NamedTextColor.RED;
+            centerMarker.text(Component.text("💀 INVASION DE HORDE 💀", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+                .appendNewline()
+                .append(Component.text(defendersInArea + " Défenseur(s)", countColor, TextDecoration.BOLD)));
         }
     }
 
@@ -222,47 +280,57 @@ public class HordeInvasionEvent extends DynamicEvent {
         waveClear = false;
         zombiesKilledThisWave = 0;
 
-        // Calculer le nombre de zombies pour cette vague
-        // Plus de zombies si plus de défenseurs
-        int defenderBonus = Math.max(0, defendersInArea - 1) * 2;
-        zombiesThisWave = baseZombiesPerWave + (currentWave * 3) + defenderBonus;
+        // Calculer le nombre de zombies pour cette vague - AUGMENTÉ pour une vraie horde
+        // Plus de zombies si plus de défenseurs, scaling agressif par vague
+        int defenderBonus = Math.max(0, defendersInArea - 1) * 3;
+        zombiesThisWave = baseZombiesPerWave + (currentWave * 5) + defenderBonus;
 
         World world = location.getWorld();
         if (world == null) return;
 
-        // Annoncer la vague
+        // Annoncer la vague avec effet dramatique
         for (Player player : world.getNearbyEntities(location, 80, 40, 80).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
                 .toList()) {
             player.sendTitle(
-                "§c§lVAGUE " + currentWave,
+                "§c§lVAGUE " + currentWave + "/" + totalWaves,
                 "§7" + zombiesThisWave + " zombies approchent!",
                 10, 40, 10
             );
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
+            player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.3f, 1.5f);
         }
 
-        // Mettre à jour le marqueur
+        // Mettre à jour le marqueur TextDisplay - Animation visuelle
         if (waveMarker != null && waveMarker.isValid()) {
-            waveMarker.setCustomName("§c§l⚔ VAGUE " + currentWave + " ⚔");
+            waveMarker.text(Component.text("⚔ VAGUE " + currentWave + " ⚔", NamedTextColor.RED, TextDecoration.BOLD)
+                .appendNewline()
+                .append(Component.text(zombiesKilledThisWave + "/" + zombiesThisWave + " tués", NamedTextColor.GOLD)));
+            // Animation de scale pour l'impact
+            waveMarker.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(2.2f, 2.2f, 2.2f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
         }
 
-        // Spawn les zombies en plusieurs fois
+        // Spawn les zombies en plusieurs fois - Plus agressif
         spawnWaveZombies();
     }
 
     /**
-     * Spawn les zombies de la vague
+     * Spawn les zombies de la vague - Version agressive pour une vraie horde
      */
     private void spawnWaveZombies() {
         World world = location.getWorld();
         if (world == null) return;
 
-        // Spawn progressif
+        // Spawn très rapide pour un effet de horde massif
         new BukkitRunnable() {
             int spawned = 0;
-            int spawnPerTick = Math.max(1, zombiesThisWave / 10);
+            int spawnPerTick = Math.max(3, zombiesThisWave / 5); // Spawn 3-6 zombies par tick
 
             @Override
             public void run() {
@@ -272,9 +340,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 }
 
                 for (int i = 0; i < spawnPerTick && spawned < zombiesThisWave; i++) {
-                    // Position autour du périmètre de défense
+                    // Position autour du périmètre de défense - Plus proche pour plus de pression
                     double angle = Math.random() * Math.PI * 2;
-                    double distance = defenseRadius + 5 + Math.random() * 15;
+                    double distance = defenseRadius + 3 + Math.random() * 12;
                     double x = location.getX() + Math.cos(angle) * distance;
                     double z = location.getZ() + Math.sin(angle) * distance;
                     int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
@@ -285,10 +353,15 @@ public class HordeInvasionEvent extends DynamicEvent {
                     int levelBonus = currentWave - 1;
                     plugin.getSpawnSystem().spawnSingleZombie(spawnLoc, zone.getId() + levelBonus);
 
+                    // Effet de spawn pour l'immersion
+                    if (spawned % 5 == 0) {
+                        world.spawnParticle(Particle.SMOKE, spawnLoc, 5, 0.3, 0.3, 0.3, 0.02);
+                    }
+
                     spawned++;
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L);
+        }.runTaskTimer(plugin, 0L, 5L); // Tick toutes les 5 ticks au lieu de 10
     }
 
     /**
@@ -313,7 +386,7 @@ public class HordeInvasionEvent extends DynamicEvent {
         World world = location.getWorld();
         if (world == null) return;
 
-        // Annoncer
+        // Annoncer avec plus d'impact
         for (Player player : world.getNearbyEntities(location, 80, 40, 80).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
@@ -322,12 +395,13 @@ public class HordeInvasionEvent extends DynamicEvent {
             if (currentWave >= totalWaves) {
                 player.sendTitle(
                     "§a§l✓ VICTOIRE!",
-                    "§7Toutes les vagues repoussées!",
+                    "§7Toutes les vagues repoussées! §e" + totalZombiesKilled + " zombies éliminés!",
                     10, 60, 20
                 );
+                player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             } else {
                 player.sendTitle(
-                    "§a§l✓ Vague " + currentWave + " repoussée!",
+                    "§a§l✓ Vague " + currentWave + "/" + totalWaves + " repoussée!",
                     "§7Prochaine vague dans " + secondsUntilNextWave + "s",
                     10, 40, 10
                 );
@@ -335,8 +409,8 @@ public class HordeInvasionEvent extends DynamicEvent {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1f);
         }
 
-        // Bonus de points pour la vague
-        int waveBonus = 25 * currentWave;
+        // Bonus de points pour la vague - Augmenté
+        int waveBonus = 35 * currentWave;
         for (UUID uuid : participants) {
             Player player = plugin.getServer().getPlayer(uuid);
             if (player != null && player.isOnline()) {
@@ -345,9 +419,15 @@ public class HordeInvasionEvent extends DynamicEvent {
             }
         }
 
-        // Mettre à jour le marqueur
+        // Mettre à jour le marqueur TextDisplay
         if (waveMarker != null && waveMarker.isValid()) {
-            waveMarker.setCustomName("§a§l✓ Vague " + currentWave + " terminée!");
+            waveMarker.text(Component.text("✓ Vague " + currentWave + " terminée!", NamedTextColor.GREEN, TextDecoration.BOLD));
+            waveMarker.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(1.8f, 1.8f, 1.8f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
         }
     }
 
@@ -414,12 +494,15 @@ public class HordeInvasionEvent extends DynamicEvent {
             particleTask.cancel();
         }
 
-        // Supprimer les marqueurs
+        // Supprimer les marqueurs TextDisplay
         if (centerMarker != null && centerMarker.isValid()) {
             centerMarker.remove();
         }
         if (waveMarker != null && waveMarker.isValid()) {
             waveMarker.remove();
+        }
+        if (killCounterMarker != null && killCounterMarker.isValid()) {
+            killCounterMarker.remove();
         }
     }
 
