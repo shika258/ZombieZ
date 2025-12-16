@@ -57,7 +57,10 @@ public enum WeatherType {
         null,               // Pas de buff de potion
         30,                 // Poids élevé (fréquent)
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        false,              // Pas de fog BossBar
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -89,7 +92,10 @@ public enum WeatherType {
         null,               // Pas de buff
         25,                 // Poids moyen
         true,               // Pluie Minecraft
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        false,              // Pas de fog BossBar
+        false               // Pas de ciel sombre
     ),
 
     // ==================== MÉTÉOS DANGEREUSES ====================
@@ -123,7 +129,10 @@ public enum WeatherType {
         null,               // Pas de buff
         15,                 // Moins fréquent
         true,               // Pluie Minecraft
-        true                // Tonnerre Minecraft
+        true,               // Tonnerre Minecraft
+        // BossBar flags
+        true,               // CREATE_FOG - atmosphère orageuse
+        true                // DARKEN_SKY - ciel sombre
     ),
 
     /**
@@ -155,7 +164,10 @@ public enum WeatherType {
         null,               // PAS de slowness - juste l'ambiance fog
         12,                 // Assez rare
         true,               // Pluie (neige)
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        true,               // CREATE_FOG - tempête de neige
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -188,7 +200,10 @@ public enum WeatherType {
         null,               // PAS de Blindness! Juste le fog natif
         18,                 // Moyennement fréquent
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        true,               // CREATE_FOG - brouillard dense!
+        true                // DARKEN_SKY - atmosphère oppressante
     ),
 
     /**
@@ -220,7 +235,10 @@ public enum WeatherType {
         null,               // Pas de debuff
         10,                 // Rare
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        true,               // CREATE_FOG - cendres volcaniques
+        true                // DARKEN_SKY - ciel sombre volcanique
     ),
 
     /**
@@ -252,7 +270,10 @@ public enum WeatherType {
         PotionEffectType.STRENGTH, // Force I pour aider les joueurs!
         5,                  // Très rare
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - EFFET MAXIMUM POUR LUNE DE SANG!
+        true,               // CREATE_FOG - brouillard rouge sang
+        true                // DARKEN_SKY - ciel apocalyptique!
     ),
 
     /**
@@ -284,7 +305,10 @@ public enum WeatherType {
         null,               // Pas de debuff
         6,                  // Rare
         true,               // Pluie Minecraft
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        true,               // CREATE_FOG - brume toxique verte
+        false               // Pas de ciel sombre (vert lumineux)
     ),
 
     /**
@@ -316,7 +340,10 @@ public enum WeatherType {
         null,               // PAS de Blindness! Juste fog
         10,                 // Assez rare
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags
+        true,               // CREATE_FOG - tempête de sable
+        false               // Pas de ciel sombre
     ),
 
     // ==================== MÉTÉOS BÉNÉFIQUES ====================
@@ -350,7 +377,10 @@ public enum WeatherType {
         PotionEffectType.LUCK, // Chance!
         8,                  // Assez rare mais bénéfique
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - météo bénéfique, pas de fog
+        false,              // Pas de fog
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -382,7 +412,10 @@ public enum WeatherType {
         PotionEffectType.REGENERATION, // Régénération I
         6,                  // Rare
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - météo bénéfique, pas de fog
+        false,              // Pas de fog
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -414,7 +447,10 @@ public enum WeatherType {
         PotionEffectType.LUCK, // Chance accrue
         7,                  // Assez rare
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - météo bénéfique, pas de fog
+        false,              // Pas de fog
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -446,7 +482,10 @@ public enum WeatherType {
         PotionEffectType.SPEED, // Speed I!
         12,                 // Moyennement fréquent
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - météo bénéfique, pas de fog
+        false,              // Pas de fog
+        false               // Pas de ciel sombre
     ),
 
     /**
@@ -478,7 +517,10 @@ public enum WeatherType {
         PotionEffectType.LUCK, // CHANCE maximale
         4,                  // TRÈS RARE
         false,              // Pas de pluie
-        false               // Pas de tonnerre
+        false,              // Pas de tonnerre
+        // BossBar flags - météo bénéfique, pas de fog
+        false,              // Pas de fog
+        false               // Pas de ciel sombre
     );
 
     // ==================== PROPRIÉTÉS ====================
@@ -511,6 +553,10 @@ public enum WeatherType {
     private final boolean minecraftRain;
     private final boolean minecraftThunder;
 
+    // BossBar flags pour les effets visuels (fog et ciel sombre)
+    private final boolean bossBarFog;          // BarFlag.CREATE_FOG
+    private final boolean bossBarDarkenSky;    // BarFlag.DARKEN_SKY
+
     WeatherType(String displayName, String configKey, String icon, String color,
                 String description, BarColor barColor, Particle particle, Sound ambientSound,
                 int minDuration, int maxDuration, double spawnMultiplier,
@@ -518,7 +564,8 @@ public enum WeatherType {
                 double environmentalDamage, int damageInterval, int fogLevel,
                 double xpMultiplier, double lootMultiplier, double playerSpeedBonus,
                 double regenAmount, PotionEffectType buffEffect,
-                int spawnWeight, boolean minecraftRain, boolean minecraftThunder) {
+                int spawnWeight, boolean minecraftRain, boolean minecraftThunder,
+                boolean bossBarFog, boolean bossBarDarkenSky) {
         this.displayName = displayName;
         this.configKey = configKey;
         this.icon = icon;
@@ -543,6 +590,8 @@ public enum WeatherType {
         this.spawnWeight = spawnWeight;
         this.minecraftRain = minecraftRain;
         this.minecraftThunder = minecraftThunder;
+        this.bossBarFog = bossBarFog;
+        this.bossBarDarkenSky = bossBarDarkenSky;
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================

@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.*;
+import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
@@ -173,8 +174,11 @@ public class WeatherEffect {
         cancelTask(damageTask);
         cancelTask(buffTask);
 
-        // Supprimer la boss bar
+        // Supprimer la boss bar et ses flags visuels
         if (bossBar != null) {
+            // Retirer les flags avant de supprimer
+            bossBar.removeFlag(BarFlag.CREATE_FOG);
+            bossBar.removeFlag(BarFlag.DARKEN_SKY);
             bossBar.removeAll();
         }
 
@@ -203,6 +207,14 @@ public class WeatherEffect {
         bossBar = plugin.getServer().createBossBar(title, type.getBarColor(), BarStyle.SEGMENTED_20);
         bossBar.setProgress(1.0);
         bossBar.setVisible(true);
+
+        // Appliquer les flags visuels de la BossBar (fog et ciel sombre)
+        if (type.isBossBarFog()) {
+            bossBar.addFlag(BarFlag.CREATE_FOG);
+        }
+        if (type.isBossBarDarkenSky()) {
+            bossBar.addFlag(BarFlag.DARKEN_SKY);
+        }
 
         // Ajouter tous les joueurs
         for (Player player : getAffectedPlayers()) {
