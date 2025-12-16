@@ -113,7 +113,7 @@ public class TalentCommand implements CommandExecutor, TabCompleter {
         } else {
             for (Talent talent : activeTalents) {
                 TalentTier tier = talent.getTier();
-                String status = tier.isUnlocked(data.getClassLevel()) ? "§a✓" : "§c✗";
+                String status = tier.isUnlocked(data.getClassLevel().get()) ? "§a✓" : "§c✗";
                 player.sendMessage(status + " " + tier.getColor() + "[" + tier.getDisplayName() + "] §f" + talent.getName());
                 player.sendMessage("   §7" + talent.getDescription());
             }
@@ -127,7 +127,7 @@ public class TalentCommand implements CommandExecutor, TabCompleter {
     private int getUnlockedTiersCount(ClassData data) {
         int count = 0;
         for (TalentTier tier : TalentTier.values()) {
-            if (tier.isUnlocked(data.getClassLevel())) {
+            if (tier.isUnlocked(data.getClassLevel().get())) {
                 count++;
             }
         }
