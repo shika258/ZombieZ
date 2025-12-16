@@ -443,6 +443,11 @@ public class ZombieZPlugin extends JavaPlugin {
             }
             return true;
         });
+
+        // Commandes Joueur - Talents
+        TalentCommand talentCmd = new TalentCommand(this);
+        getCommand("talent").setExecutor(talentCmd);
+        getCommand("talent").setTabCompleter(talentCmd);
     }
 
     /**
