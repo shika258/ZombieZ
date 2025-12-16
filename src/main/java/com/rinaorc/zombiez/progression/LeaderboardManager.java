@@ -289,10 +289,10 @@ public class LeaderboardManager {
         PRESTIGE("Prestige", "prestige", "§d★"),
         POINTS("Points", "points", "§e⛃"),
         GEMS("Gemmes", "gems", "§d💎"),
-        PLAYTIME("Temps de Jeu", "playtime_seconds", "§b⏱"),
+        PLAYTIME("Temps de Jeu", "playtime", "§b⏱"),
         ACHIEVEMENTS("Achievements", "achievement_count", "§6🏆"),
         BOSS_KILLS("Boss Tués", "boss_kills", "§4👹"),
-        MAX_ZONE("Zone Max", "highest_zone", "§2🗺"),
+        MAX_ZONE("Zone Max", "max_zone", "§2🗺"),
         KILL_STREAK("Meilleur Streak", "best_kill_streak", "§c🔥");
         
         private final String displayName;

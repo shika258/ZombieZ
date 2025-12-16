@@ -192,6 +192,9 @@ public class DatabaseManager {
                         current_zone INT DEFAULT 1,
                         max_zone INT DEFAULT 1,
                         current_checkpoint INT DEFAULT 0,
+                        achievement_count INT DEFAULT 0,
+                        boss_kills BIGINT DEFAULT 0,
+                        best_kill_streak INT DEFAULT 0,
                         vip_rank VARCHAR(32) DEFAULT 'FREE',
                         vip_expiry DATETIME NULL,
                         first_join DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -219,6 +222,9 @@ public class DatabaseManager {
                         current_zone INT DEFAULT 1,
                         max_zone INT DEFAULT 1,
                         current_checkpoint INT DEFAULT 0,
+                        achievement_count INT DEFAULT 0,
+                        boss_kills BIGINT DEFAULT 0,
+                        best_kill_streak INT DEFAULT 0,
                         vip_rank VARCHAR(32) DEFAULT 'FREE',
                         vip_expiry DATETIME NULL,
                         first_join DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -373,11 +379,71 @@ public class DatabaseManager {
                 stmt.executeUpdate();
             }
 
+            // Migration: ajouter les colonnes manquantes pour les bases existantes
+            migratePlayersTable(conn, isMySQL);
+
             plugin.log(Level.INFO, "§a✓ Tables créées/vérifiées (" + databaseType + ")");
 
         } catch (SQLException e) {
             plugin.log(Level.SEVERE, "§cErreur création tables: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Migre la table players pour ajouter les nouvelles colonnes si nécessaires
+     */
+    private void migratePlayersTable(Connection conn, boolean isMySQL) {
+        String[] columnsToAdd = {
+            "achievement_count INT DEFAULT 0",
+            "boss_kills BIGINT DEFAULT 0",
+            "best_kill_streak INT DEFAULT 0"
+        };
+
+        for (String columnDef : columnsToAdd) {
+            String columnName = columnDef.split(" ")[0];
+            try {
+                // Vérifie si la colonne existe
+                String checkSql;
+                if (isMySQL) {
+                    checkSql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";
+                } else {
+                    // SQLite - utilise PRAGMA
+                    checkSql = null; // On va utiliser une approche différente
+                }
+
+                boolean columnExists = false;
+
+                if (isMySQL) {
+                    try (PreparedStatement stmt = conn.prepareStatement(checkSql)) {
+                        stmt.setString(1, tablePrefix + "players");
+                        stmt.setString(2, columnName);
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            columnExists = rs.getInt(1) > 0;
+                        }
+                    }
+                } else {
+                    // SQLite - essayer de sélectionner la colonne
+                    try (PreparedStatement stmt = conn.prepareStatement(
+                        "SELECT " + columnName + " FROM " + tablePrefix + "players LIMIT 1")) {
+                        stmt.executeQuery();
+                        columnExists = true;
+                    } catch (SQLException e) {
+                        columnExists = false;
+                    }
+                }
+
+                if (!columnExists) {
+                    String alterSql = "ALTER TABLE " + tablePrefix + "players ADD COLUMN " + columnDef;
+                    try (PreparedStatement stmt = conn.prepareStatement(alterSql)) {
+                        stmt.executeUpdate();
+                        plugin.log(Level.INFO, "§a✓ Colonne " + columnName + " ajoutée à la table players");
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.log(Level.WARNING, "§eImpossible d'ajouter la colonne " + columnName + ": " + e.getMessage());
+            }
         }
     }
 
