@@ -33,6 +33,7 @@ public class Affix {
 
     // Restrictions
     private final List<ItemType.ItemCategory> allowedCategories;
+    private final List<ItemType> allowedTypes;  // Types d'items spécifiques (BOW, CROSSBOW, etc.)
     private final int minZone;             // Zone minimum pour drop
 
     // Effets spéciaux (optionnel)
@@ -95,6 +96,12 @@ public class Affix {
      * Vérifie si cet affix peut être appliqué à un type d'item
      */
     public boolean canApplyTo(ItemType itemType) {
+        // Vérifier les types spécifiques d'abord (plus restrictif)
+        if (allowedTypes != null && !allowedTypes.isEmpty()) {
+            return allowedTypes.contains(itemType);
+        }
+
+        // Sinon vérifier par catégorie
         if (allowedCategories == null || allowedCategories.isEmpty()) {
             return true;
         }
