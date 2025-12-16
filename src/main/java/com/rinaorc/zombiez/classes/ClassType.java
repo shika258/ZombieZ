@@ -20,11 +20,11 @@ public enum ClassType {
         "Guerrier",
         "§c",
         Material.NETHERITE_CHESTPLATE,
-        "§7Tank brutal spécialisé en combat rapproché",
+        "§7Tank brutal au cœur de la mêlée",
         new String[]{
-            "§c⚔ §7+20% dégâts en mêlée",
-            "§c❤ §7+25% points de vie max",
-            "§c✦ §710% vol de vie naturel"
+            "§c⚔ §7Frappe au corps à corps",
+            "§c❤ §7Résistant aux coups",
+            "§c✦ §7Se soigne en frappant"
         },
         "§e★§7☆☆ Facile",
         // Stats de base
@@ -32,7 +32,7 @@ public enum ClassType {
         0.95,   // Vitesse légèrement réduite
         1.25,   // +25% HP
         0.90,   // Moins de critiques
-        0.10    // Vol de vie naturel
+        0.05    // Vol de vie naturel RÉDUIT (10%→5%)
     ),
 
     /**
@@ -45,11 +45,11 @@ public enum ClassType {
         "Chasseur",
         "§a",
         Material.BOW,
-        "§7Tireur d'élite maîtrisant les coups critiques",
+        "§7Tireur d'élite rapide et mortel",
         new String[]{
-            "§a⚡ §7+30% chance de critique",
-            "§a✧ §7+50% dégâts critiques",
-            "§a➤ §7+15% vitesse de déplacement"
+            "§a⚡ §7Coups critiques dévastateurs",
+            "§a✧ §7Agile et insaisissable",
+            "§a➤ §7Tue à distance"
         },
         "§e★★§7☆ Moyen",
         // Stats de base
@@ -72,12 +72,12 @@ public enum ClassType {
         Material.AMETHYST_SHARD,
         "§7Mage sombre aux pouvoirs dévastateurs",
         new String[]{
-            "§5✦ §7+40% dégâts des compétences",
-            "§5⏱ §7-25% temps de recharge",
-            "§5☠ §7Dégâts AoE améliorés"
+            "§5✦ §7Sorts surpuissants",
+            "§5☠ §7Destruction de masse",
+            "§5⚡ §7Fragile mais mortel"
         },
         "§e★★★ §7Expert",
-        // Stats de base
+        // Stats de base (NOTE: pas de CDR naturel, c'est du skill power)
         1.40,   // +40% dégâts de compétences
         1.0,    // Vitesse normale
         0.80,   // Moins de HP (verre cannon)

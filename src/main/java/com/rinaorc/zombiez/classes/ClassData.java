@@ -54,6 +54,11 @@ public class ClassData {
     // État de modification
     private final transient AtomicBoolean dirty = new AtomicBoolean(false);
 
+    // Cache d'archétype (évite les recalculs constants)
+    private transient String cachedArchetypeId = null;
+    private transient long archetypeCacheTime = 0;
+    private static final long ARCHETYPE_CACHE_DURATION_MS = 5000; // 5 secondes
+
     // Timestamps
     private long lastClassChange = 0;
     private long totalPlaytimeAsClass = 0;
@@ -123,6 +128,7 @@ public class ClassData {
         unlockedTalents.merge(talentId, 1, Integer::sum);
         spentTalentPoints.addAndGet(cost);
         statsNeedRefresh = true;
+        invalidateArchetypeCache(); // L'archétype peut changer
         markDirty();
         return true;
     }
@@ -165,6 +171,7 @@ public class ClassData {
      */
     public void equipSkill(String slot, String skillId) {
         equippedSkills.put(slot, skillId);
+        invalidateArchetypeCache(); // L'archétype peut changer
         markDirty();
     }
 
@@ -173,6 +180,7 @@ public class ClassData {
      */
     public void unequipSkill(String slot) {
         equippedSkills.remove(slot);
+        invalidateArchetypeCache(); // L'archétype peut changer
         markDirty();
     }
 
@@ -348,6 +356,32 @@ public class ClassData {
 
     public void invalidateStatsCache() {
         statsNeedRefresh = true;
+    }
+
+    /**
+     * Invalide le cache d'archétype (appelé quand talents/skills changent)
+     */
+    public void invalidateArchetypeCache() {
+        cachedArchetypeId = null;
+        archetypeCacheTime = 0;
+    }
+
+    /**
+     * Obtient l'archétype caché, ou null si expiré
+     */
+    public String getCachedArchetypeId() {
+        if (System.currentTimeMillis() - archetypeCacheTime > ARCHETYPE_CACHE_DURATION_MS) {
+            return null;
+        }
+        return cachedArchetypeId;
+    }
+
+    /**
+     * Met à jour le cache d'archétype
+     */
+    public void setCachedArchetypeId(String archetypeId) {
+        this.cachedArchetypeId = archetypeId;
+        this.archetypeCacheTime = System.currentTimeMillis();
     }
 
     /**

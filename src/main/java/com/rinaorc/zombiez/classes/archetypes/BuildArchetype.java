@@ -18,118 +18,112 @@ import lombok.Getter;
 public enum BuildArchetype {
 
     // ==================== GUERRIER ====================
+    // ÉQUILIBRÉ: Chaque archétype a ~même potentiel total, mais différemment réparti
 
     /**
      * TORNADE - "J'avance non-stop, je rase la horde"
-     * Loop: Charge dans les packs, reste en mouvement, AoE en continu
-     * Forces: Clear de horde excellent, mobilité
-     * Faiblesses: Vulnérable à l'arrêt, single-target faible
+     * LOOP: Charge → AoE sur le pack → avance → répète
+     * SIGNATURE: Traînée de dégâts derrière la charge, dégâts passifs en mouvement
      */
     GUERRIER_TORNADE(ClassType.GUERRIER, "Tornade", "§c⚔",
-        "Tu clean les hordes en mouvement constant.",
-        new String[]{"gue_cleave", "gue_dmg_1", "gue_rage"},  // Talents clés
-        new String[]{"gue_charge", "gue_slam"},               // Skills clés
-        0.8, 1.3, 0.7),  // tankMod, aoeMod, singleTargetMod
+        "Mouvement constant, destruction de masse.",
+        new String[]{"gue_cleave", "gue_dmg_1", "gue_rage"},
+        new String[]{"gue_charge", "gue_slam"},
+        0.85, 1.35, 0.80),  // tankMod, aoeMod, singleTargetMod (total ~3.0)
 
     /**
-     * MUR VIVANT - "Je tiens la ligne, je tombe jamais"
-     * Loop: Tank stable, absorbe les hits, punit les attaquants
-     * Forces: Survie extrême, contrôle de groupe
-     * Faiblesses: Mobilité réduite, DPS faible
+     * MUR VIVANT - "Je tiens la ligne, personne ne passe"
+     * LOOP: Taunt → Encaisse → Contre-attaque → Régén
+     * SIGNATURE: Réduction massive, taunt de groupe, riposte automatique
      */
     GUERRIER_MUR(ClassType.GUERRIER, "Mur Vivant", "§6⛨",
-        "Tu encaisses pour l'équipe, tu contrôles les packs.",
+        "Forteresse mobile. Impossible à tuer.",
         new String[]{"gue_hp_1", "gue_armor", "gue_laststand"},
         new String[]{"gue_warcry", "gue_slam"},
-        1.5, 0.8, 0.6),
+        1.50, 0.85, 0.65),  // (total ~3.0)
 
     /**
-     * BOUCHER - "Je marque, je finis, je one-shot"
-     * Loop: Focus une cible, prépare, exécute avec burst massif
-     * Forces: Destruction d'élites/boss, burst
-     * Faiblesses: Mauvais en horde, setup requis
+     * BOUCHER - "Je marque, j'exécute, je recommence"
+     * LOOP: Marque cible → Charge → Execute → Kill → Reset
+     * SIGNATURE: Dégâts massifs single-target, reset sur kill
      */
     GUERRIER_BOUCHER(ClassType.GUERRIER, "Boucher", "§4☠",
-        "Tu détruis les élites avec des finishers.",
+        "Chasseur d'élites. Un coup, une mort.",
         new String[]{"gue_execute", "gue_rage", "gue_warlord"},
         new String[]{"gue_charge", "gue_rage"},
-        0.9, 0.6, 1.5),
+        0.90, 0.70, 1.45),  // (total ~3.05)
 
     // ==================== CHASSEUR ====================
+    // ÉQUILIBRÉ: Gatling = DPS stable, Fantôme = burst spike, Piégeur = contrôle
 
     /**
-     * GATLING - "Je mitraille, je kite, jamais d'arrêt"
-     * Loop: Tir continu, gestion de position, stack pressure
-     * Forces: DPS soutenu, kiting
-     * Faiblesses: Vulnérable si coincé, demande skill
+     * GATLING - "Je tire sans arrêt, je recule sans cesse"
+     * LOOP: Tir rapide → Repositionnement → Tir rapide → Esquive → Répète
+     * SIGNATURE: DPS constant, mobilité fluide, punishment si stoppé
      */
     CHASSEUR_GATLING(ClassType.CHASSEUR, "Gatling", "§a⚡",
-        "Tu mitrailles en continu, tu kites au millimètre.",
+        "Pluie de projectiles. Jamais à l'arrêt.",
         new String[]{"cha_reload", "cha_crit_1", "cha_speed"},
         new String[]{"cha_multishot", "cha_roll"},
-        0.7, 1.1, 1.2),
+        0.75, 1.15, 1.15),  // Équilibré AoE/single (total ~3.05)
 
     /**
-     * FANTÔME - "Je disparais, je headshot, je repars"
-     * Loop: Stealth, burst sur une cible, disparition
-     * Forces: Pick-off, survie, burst single-target
-     * Faiblesses: Mauvais en horde, dépendant de l'invisibilité
+     * FANTÔME - "Une balle, une mort, je disparais"
+     * LOOP: Invisibilité → Positionnement → Headshot → Disparition
+     * SIGNATURE: Burst massive conditionnel (stealth), faible en combat prolongé
      */
     CHASSEUR_FANTOME(ClassType.CHASSEUR, "Fantôme", "§b👻",
-        "Tu pick une cible, tu l'effaces, tu t'évanouis.",
+        "Invisible et mortel. Tu meurs avant de le voir.",
         new String[]{"cha_stealth", "cha_headshot", "cha_deadeye"},
         new String[]{"cha_deadeye", "cha_roll"},
-        0.8, 0.5, 1.6),
+        0.85, 0.65, 1.55),  // Très fort single, faible horde (total ~3.05)
 
     /**
-     * PIÉGEUR - "Je piège le terrain, je fais exploser"
-     * Loop: Pose, kite vers les pièges, déclenche, enchaîne
-     * Forces: Contrôle de zone, clear défensif
-     * Faiblesses: Faible mono-cible, setup requis
+     * PIÉGEUR - "Le terrain est mon arme"
+     * LOOP: Pose piège → Kite vers piège → Déclenche → Repose
+     * SIGNATURE: Contrôle de zone, clear défensif, setup required
      */
     CHASSEUR_PIEGEUR(ClassType.CHASSEUR, "Piégeur", "§e💣",
-        "Tu transformes la map en champ de mines.",
+        "La map devient un champ de mines mortel.",
         new String[]{"cha_pierce", "cha_speed", "cha_reload"},
         new String[]{"cha_trap", "cha_roll"},
-        0.9, 1.4, 0.7),
+        1.00, 1.30, 0.75),  // Survie + AoE (total ~3.05)
 
     // ==================== OCCULTISTE ====================
+    // ÉQUILIBRÉ: Déflagration = horde, Sang = sustain risqué, Archimage = polyvalent
 
     /**
-     * DÉFLAGRATION - "J'empile, j'explose, j'efface"
-     * Loop: Stack corruption, puis détonate en AoE massif
-     * Forces: Clear de horde absolu
-     * Faiblesses: Setup time, très fragile, coûteux
+     * DÉFLAGRATION - "J'empile, j'explose, je recommence"
+     * LOOP: Orb (stack) → Orb (stack) → Nova (detonate) → BOOM
+     * SIGNATURE: Clear de horde absolu, explosion en chaîne
      */
     OCCULTISTE_DEFLAGRATION(ClassType.OCCULTISTE, "Déflagration", "§5🔥",
-        "Tu setup puis tu fais exploser des packs entiers.",
+        "Stack. Explose. Recommence.",
         new String[]{"occ_dot", "occ_aoe", "occ_power_1"},
         new String[]{"occ_orb", "occ_nova", "occ_apocalypse"},
-        0.6, 1.6, 0.7),
+        0.65, 1.55, 0.80),  // (total ~3.0)
 
     /**
-     * MAGE DE SANG - "Je draine, je tank à ma façon"
-     * Loop: Combat rapproché, drain pour sustain, risque/reward
-     * Forces: Sustain unique, mid-range tank
-     * Faiblesses: Très punissable si mal joué
+     * MAGE DE SANG - "Ma vie pour mon pouvoir"
+     * LOOP: Drain (heal) → Nova (damage/heal) → Low HP = boost → Drain
+     * SIGNATURE: Risk/reward, HP comme ressource, quasi-immortel si bien joué
      */
     OCCULTISTE_SANG(ClassType.OCCULTISTE, "Mage de Sang", "§4❤",
-        "Tu voles la vie, mais tu joues au bord du gouffre.",
+        "Ta vie est ton arme. Joue au bord du gouffre.",
         new String[]{"occ_leech", "occ_shield", "occ_immortal"},
         new String[]{"occ_drain", "occ_nova"},
-        1.2, 1.0, 1.0),
+        1.25, 0.95, 0.90),  // Tank mage (total ~3.1)
 
     /**
-     * ARCHIMAGE - "Je gère ma ressource, je contrôle le tempo"
-     * Loop: Rotation propre, combos, efficacité maximale
-     * Forces: Polyvalent, excellent late-game
-     * Faiblesses: Courbe d'apprentissage, faible si spam
+     * ARCHIMAGE - "Efficacité maximale, combos parfaits"
+     * LOOP: Orb → Drain (reset orb) → Orb boost → Nova (finisher)
+     * SIGNATURE: Combos, gestion d'énergie, scaling late-game
      */
     OCCULTISTE_ARCHIMAGE(ClassType.OCCULTISTE, "Archimage", "§9✧",
-        "Tu joues propre : combos, tempo, contrôle.",
+        "Maîtrise absolue. Chaque sort compte.",
         new String[]{"occ_energy_1", "occ_regen_energy", "occ_cdr"},
         new String[]{"occ_orb", "occ_drain", "occ_nova"},
-        0.8, 1.1, 1.1),
+        0.85, 1.10, 1.10),  // Polyvalent (total ~3.05)
 
     // Archétype par défaut quand pas de dominante claire
     NONE(null, "Aucun", "§7?", "Style de combat non défini.",

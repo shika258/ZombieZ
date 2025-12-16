@@ -1,8 +1,7 @@
 package com.rinaorc.zombiez.classes.archetypes;
 
+import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
-import com.rinaorc.zombiez.classes.data.ClassData;
-import com.rinaorc.zombiez.classes.talents.ClassTalent;
 import lombok.RequiredArgsConstructor;
 
 import java.util.*;
@@ -16,21 +15,28 @@ import java.util.*;
  * - Change au fil du temps selon les choix du joueur
  * - Pas de UI spécial, c'est une "orientation détectée"
  *
- * SCORING:
- * - Chaque talent/skill "clé" pour un archétype donne des points
- * - L'archétype avec le plus de points devient actif
- * - Minimum 3 points pour qu'un archétype soit considéré
+ * SCORING ÉQUILIBRÉ:
+ * - Talents clés: 2 points chacun (investissement à long terme)
+ * - Skills équipés: 2 points chacun (choix actif)
+ * - Buffs arcade: 1 point chacun (bonus mineur)
+ * - Minimum 5 points requis pour activer un archétype
+ *
+ * Cela signifie qu'il faut au moins:
+ * - 2 talents + 1 skill, OU
+ * - 1 talent + 2 skills, OU
+ * - 3 talents, etc.
  */
 @RequiredArgsConstructor
 public class ArchetypeManager {
 
     // Points minimum pour qu'un archétype soit considéré actif
-    private static final int MIN_POINTS_FOR_ARCHETYPE = 3;
+    // Augmenté de 3 à 5 pour éviter l'activation trop facile
+    private static final int MIN_POINTS_FOR_ARCHETYPE = 5;
 
-    // Points attribués par type d'élément
+    // Points attribués par type d'élément (équilibrés)
     private static final int POINTS_PER_KEY_TALENT = 2;
-    private static final int POINTS_PER_KEY_SKILL = 3;  // Skills équipés comptent plus
-    private static final int POINTS_PER_KEY_BUFF = 1;   // Buffs arcade (bonus)
+    private static final int POINTS_PER_KEY_SKILL = 2;   // Réduit de 3 à 2 (équilibré)
+    private static final int POINTS_PER_KEY_BUFF = 1;    // Buffs arcade (bonus mineur)
 
     /**
      * Calcule l'archétype actif d'un joueur basé sur ses choix
@@ -195,43 +201,82 @@ public class ArchetypeManager {
 
     /**
      * Génère un résumé textuel de l'archétype pour affichage
+     * Sans formules/pourcentages - axé sur le feeling
      */
     public String getArchetypeSummary(BuildArchetype archetype) {
         if (archetype == null || archetype == BuildArchetype.NONE) {
-            return "§7Style de combat: §8Non défini";
+            return "§7Style: §8Adaptable\n§8Aucune spécialisation dominante.";
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("§7Style de combat: ").append(archetype.getColoredName()).append("\n");
-        sb.append("§8").append(archetype.getDescription()).append("\n");
+        sb.append(archetype.getColoredName()).append("\n");
+        sb.append("§7").append(archetype.getDescription()).append("\n");
         sb.append("\n");
 
-        // Afficher les modificateurs significatifs
-        if (archetype.getAoeModifier() > 1.0) {
-            sb.append("§a▲ ").append(String.format("+%.0f%%", (archetype.getAoeModifier() - 1) * 100))
-              .append(" dégâts de zone\n");
-        } else if (archetype.getAoeModifier() < 1.0) {
-            sb.append("§c▼ ").append(String.format("%.0f%%", (archetype.getAoeModifier() - 1) * 100))
-              .append(" dégâts de zone\n");
-        }
-
-        if (archetype.getSingleTargetModifier() > 1.0) {
-            sb.append("§a▲ ").append(String.format("+%.0f%%", (archetype.getSingleTargetModifier() - 1) * 100))
-              .append(" dégâts mono-cible\n");
-        } else if (archetype.getSingleTargetModifier() < 1.0) {
-            sb.append("§c▼ ").append(String.format("%.0f%%", (archetype.getSingleTargetModifier() - 1) * 100))
-              .append(" dégâts mono-cible\n");
-        }
-
-        if (archetype.getTankModifier() > 1.0) {
-            sb.append("§a▲ ").append(String.format("+%.0f%%", (archetype.getTankModifier() - 1) * 100))
-              .append(" efficacité défensive\n");
-        } else if (archetype.getTankModifier() < 1.0) {
-            sb.append("§c▼ ").append(String.format("%.0f%%", (archetype.getTankModifier() - 1) * 100))
-              .append(" efficacité défensive\n");
-        }
+        // Afficher forces/faiblesses en texte (pas de %)
+        sb.append(getStrengthsWeaknesses(archetype));
 
         return sb.toString();
+    }
+
+    /**
+     * Génère les forces/faiblesses en texte lisible
+     */
+    private String getStrengthsWeaknesses(BuildArchetype archetype) {
+        return switch (archetype) {
+            // GUERRIER
+            case GUERRIER_TORNADE -> """
+                §a✦ Fort contre les hordes
+                §a✦ Mobile et agressif
+                §c✗ Fragile à l'arrêt
+                §c✗ Faible contre les boss""";
+            case GUERRIER_MUR -> """
+                §a✦ Quasi-unkillable
+                §a✦ Protège les alliés
+                §c✗ Dégâts faibles
+                §c✗ Lent à clear""";
+            case GUERRIER_BOUCHER -> """
+                §a✦ Détruit les boss
+                §a✦ Burst dévastateur
+                §c✗ Mauvais en horde
+                §c✗ Nécessite du setup""";
+
+            // CHASSEUR
+            case CHASSEUR_GATLING -> """
+                §a✦ DPS constant
+                §a✦ Efficace contre tout
+                §c✗ Fragile si coincé
+                §c✗ Demande du skill""";
+            case CHASSEUR_FANTOME -> """
+                §a✦ One-shot les cibles
+                §a✦ Difficile à toucher
+                §c✗ Mauvais en groupe
+                §c✗ Dépend de l'invisibilité""";
+            case CHASSEUR_PIEGEUR -> """
+                §a✦ Contrôle le terrain
+                §a✦ Défense excellente
+                §c✗ DPS limité
+                §c✗ Temps de préparation""";
+
+            // OCCULTISTE
+            case OCCULTISTE_DEFLAGRATION -> """
+                §a✦ Clear de horde absolu
+                §a✦ Explosions en chaîne
+                §c✗ Très fragile
+                §c✗ Setup obligatoire""";
+            case OCCULTISTE_SANG -> """
+                §a✦ Sustain unique
+                §a✦ Risk/reward intense
+                §c✗ Punissable si mal joué
+                §c✗ HP instable""";
+            case OCCULTISTE_ARCHIMAGE -> """
+                §a✦ Polyvalent
+                §a✦ Fort en late-game
+                §c✗ Complexe à maîtriser
+                §c✗ Faible si spam""";
+
+            default -> "§7Style standard";
+        };
     }
 
     /**

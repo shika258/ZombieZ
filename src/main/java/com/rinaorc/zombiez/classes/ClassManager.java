@@ -567,19 +567,33 @@ public class ClassManager {
 
     /**
      * Obtient l'archétype actif d'un joueur basé sur ses choix
-     * L'archétype est calculé dynamiquement, pas choisi directement
+     * L'archétype est calculé dynamiquement, puis caché pour performance
      */
     public BuildArchetype getPlayerArchetype(Player player) {
-        ClassData data = getClassData(player);
-        return archetypeManager.calculateArchetype(data, data.getEquippedSkillIds());
+        return getPlayerArchetype(player.getUniqueId());
     }
 
     /**
      * Obtient l'archétype actif d'un joueur par UUID
+     * Utilise un cache pour éviter les recalculs constants
      */
     public BuildArchetype getPlayerArchetype(UUID uuid) {
         ClassData data = getClassData(uuid);
-        return archetypeManager.calculateArchetype(data, data.getEquippedSkillIds());
+
+        // Vérifier le cache d'abord
+        String cachedId = data.getCachedArchetypeId();
+        if (cachedId != null) {
+            try {
+                return BuildArchetype.valueOf(cachedId);
+            } catch (IllegalArgumentException ignored) {
+                // Cache invalide, recalculer
+            }
+        }
+
+        // Calculer et cacher
+        BuildArchetype archetype = archetypeManager.calculateArchetype(data, data.getEquippedSkillIds());
+        data.setCachedArchetypeId(archetype.name());
+        return archetype;
     }
 
     /**
