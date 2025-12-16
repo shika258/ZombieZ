@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -37,7 +38,12 @@ public class SpawnSystem {
     // Compteur de spawns pour éviter le lag
     private int spawnsThisTick = 0;
     private static final int MAX_SPAWNS_PER_TICK = 15; // Augmenté de 5 à 15
-    
+
+    // Configuration de densité de spawn
+    private static final double MIN_DISTANCE_BETWEEN_ZOMBIES = 5.0; // Distance minimum entre zombies
+    private static final int MAX_ZOMBIES_IN_AREA = 8; // Max zombies dans un rayon de 10 blocs
+    private static final double DENSITY_CHECK_RADIUS = 10.0; // Rayon pour vérifier la densité
+
     // État du système
     @Getter
     private boolean enabled = true;
@@ -161,13 +167,24 @@ public class SpawnSystem {
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
         
-        // Task de nettoyage (toutes les 30 secondes)
+        // Task de nettoyage principal (toutes les 30 secondes)
         new BukkitRunnable() {
             @Override
             public void run() {
                 zombieManager.cleanupDistantZombies();
             }
         }.runTaskTimer(plugin, 600L, 600L); // 30 secondes
+
+        // Task de nettoyage léger plus fréquent (toutes les 10 secondes)
+        // Vérifie uniquement les chunks déchargés et entités invalides
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                zombieManager.cleanupUnloadedChunks();
+            }
+        }.runTaskTimer(plugin, 200L, 200L); // 10 secondes
+
+        plugin.log(java.util.logging.Level.INFO, "§a✓ Système de clearlag démarré");
     }
 
     /**
@@ -304,28 +321,62 @@ public class SpawnSystem {
     private boolean isValidSpawnLocation(Location loc, Player player) {
         World world = loc.getWorld();
         if (world == null) return false;
-        
+
         Block block = loc.getBlock();
         Block below = block.getRelative(BlockFace.DOWN);
-        
+
         // Vérifier que le sol est solide
         if (!below.getType().isSolid()) return false;
-        
+
         // Vérifier que l'espace est libre
         if (block.getType().isSolid()) return false;
         if (block.getRelative(BlockFace.UP).getType().isSolid()) return false;
-        
+
         // Pas dans l'eau (sauf pour les noyés)
         if (block.isLiquid()) return false;
-        
+
         // Pas trop proche du joueur
         if (loc.distance(player.getLocation()) < 15) return false;
-        
+
         // Vérifier la luminosité (plus sombre = plus de chance)
         int lightLevel = block.getLightLevel();
         if (lightLevel > 10 && random.nextDouble() > 0.3) return false;
-        
+
+        // ═══════════════════════════════════════════════════════════════════
+        // OPTIMISATION: Vérifier la densité de zombies pour éviter le clustering
+        // ═══════════════════════════════════════════════════════════════════
+        if (!isSpawnDensityValid(loc)) {
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * Vérifie si la densité de spawn est acceptable à cette position
+     * Évite le clustering de zombies au même endroit
+     */
+    private boolean isSpawnDensityValid(Location loc) {
+        World world = loc.getWorld();
+        if (world == null) return true;
+
+        int nearbyZombies = 0;
+
+        // Utiliser getNearbyEntities qui est optimisé par Bukkit
+        for (Entity entity : world.getNearbyEntities(loc, DENSITY_CHECK_RADIUS, DENSITY_CHECK_RADIUS, DENSITY_CHECK_RADIUS)) {
+            if (zombieManager.isZombieZMob(entity)) {
+                // Vérifier la distance minimale
+                double distance = entity.getLocation().distance(loc);
+                if (distance < MIN_DISTANCE_BETWEEN_ZOMBIES) {
+                    // Trop proche d'un autre zombie
+                    return false;
+                }
+                nearbyZombies++;
+            }
+        }
+
+        // Vérifier le nombre max dans la zone
+        return nearbyZombies < MAX_ZOMBIES_IN_AREA;
     }
     
     /**
@@ -474,28 +525,38 @@ public class SpawnSystem {
 
     /**
      * Force un spawn de vague de zombies
+     * Utilise un système de distribution uniforme pour éviter le clustering
      */
     public void spawnWave(Location center, int count, int zoneId) {
         ZoneSpawnConfig config = zoneConfigs.getOrDefault(zoneId, zoneConfigs.get(1));
-        
-        for (int i = 0; i < count; i++) {
-            // Point aléatoire autour du centre
-            double angle = random.nextDouble() * 2 * Math.PI;
-            double distance = 10 + random.nextDouble() * 20;
-            
+
+        // Utiliser des angles distribués uniformément pour éviter le clustering
+        double angleStep = (2 * Math.PI) / count;
+        int spawned = 0;
+        int maxAttempts = count * 3; // Maximum d'essais pour éviter boucle infinie
+        int attempts = 0;
+
+        while (spawned < count && attempts < maxAttempts) {
+            // Distribuer les spawns en cercles concentriques
+            double baseAngle = angleStep * spawned + (random.nextDouble() * 0.5 - 0.25);
+            double distance = 10 + (spawned % 3) * 8 + random.nextDouble() * 5; // Cercles à 10, 18, 26 blocs
+
             Location spawnLoc = center.clone().add(
-                distance * Math.cos(angle),
+                distance * Math.cos(baseAngle),
                 0,
-                distance * Math.sin(angle)
+                distance * Math.sin(baseAngle)
             );
-            
+
             Location groundLoc = findGround(spawnLoc);
-            if (groundLoc == null) continue;
-            
-            ZombieType type = selectZombieType(zoneId);
-            int level = config.baseLevel + random.nextInt(3);
-            
-            zombieManager.spawnZombie(type, groundLoc, level);
+            if (groundLoc != null && isSpawnDensityValid(groundLoc)) {
+                ZombieType type = selectZombieType(zoneId);
+                int level = config.baseLevel + random.nextInt(3);
+
+                if (zombieManager.spawnZombie(type, groundLoc, level) != null) {
+                    spawned++;
+                }
+            }
+            attempts++;
         }
     }
 
