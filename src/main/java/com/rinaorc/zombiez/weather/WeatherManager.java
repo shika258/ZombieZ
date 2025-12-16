@@ -473,6 +473,26 @@ public class WeatherManager {
     }
 
     /**
+     * Obtient le multiplicateur d'XP actuel basé sur la météo
+     */
+    public double getCurrentXpMultiplier() {
+        if (currentWeather == null || !currentWeather.isValid()) {
+            return 1.0;
+        }
+        return currentWeather.getEffectiveXpMultiplier();
+    }
+
+    /**
+     * Obtient le multiplicateur de loot actuel basé sur la météo
+     */
+    public double getCurrentLootMultiplier() {
+        if (currentWeather == null || !currentWeather.isValid()) {
+            return 1.0;
+        }
+        return currentWeather.getEffectiveLootMultiplier();
+    }
+
+    /**
      * Vérifie si la météo actuelle est dangereuse
      */
     public boolean isCurrentWeatherDangerous() {

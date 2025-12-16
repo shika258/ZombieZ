@@ -184,6 +184,22 @@ public class WeatherListener implements Listener {
                 player.sendMessage("§a✓ Conditions favorables aux survivants.");
             }
 
+            if (currentWeather.debuffZombies()) {
+                player.sendMessage("§a✓ Les zombies sont affaiblis!");
+            }
+
+            // Afficher les bonus actifs
+            StringBuilder bonuses = new StringBuilder();
+            if (currentWeather.getXpMultiplier() > 1.0) {
+                bonuses.append("§e+").append((int)((currentWeather.getXpMultiplier()-1)*100)).append("%XP ");
+            }
+            if (currentWeather.getLootMultiplier() > 1.0) {
+                bonuses.append("§b+").append((int)((currentWeather.getLootMultiplier()-1)*100)).append("%Loot ");
+            }
+            if (bonuses.length() > 0) {
+                player.sendMessage("§aBonus: " + bonuses);
+            }
+
             WeatherEffect effect = weatherManager.getCurrentWeather();
             if (effect != null) {
                 player.sendMessage("§7Temps restant: §e" + effect.getRemainingTimeSeconds() + "s");

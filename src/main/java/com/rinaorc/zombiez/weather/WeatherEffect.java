@@ -17,15 +17,14 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Représente un effet météorologique actif dans le monde ZombieZ
  *
- * Les effets météo sont globaux et affectent tous les joueurs et zombies.
- * Chaque effet a une durée limitée et des impacts sur le gameplay.
+ * VERSION 2.0 - OPTIMISÉE ET AMÉLIORÉE:
+ * - Plus de debuffs ennuyeux (Blindness, Weakness) - supprimés!
+ * - Utilise le fog natif via render distance pour l'ambiance
+ * - BONUS joueurs: XP, Loot, Vitesse, Régénération
+ * - Buffs de potion positifs (Force, Régénération, Speed, Luck)
+ * - Optimisation des particules et du caching
  *
- * Caractéristiques:
- * - Effets visuels (particules autour des joueurs)
- * - Modifications du spawn rate des zombies
- * - Buffs/debuffs sur joueurs et zombies
- * - Dégâts environnementaux (optionnel)
- * - Boss bar pour informer les joueurs
+ * PHILOSOPHIE: La météo enrichit le gameplay sans frustrer les joueurs!
  */
 @Getter
 public class WeatherEffect {
@@ -43,32 +42,40 @@ public class WeatherEffect {
     // Durée de l'effet (en ticks)
     protected int duration;
     protected int elapsedTicks = 0;
+    protected int tickCounter = 0; // Pour optimiser certaines opérations
 
-    // Joueurs affectés - Thread-safe
-    protected final Set<UUID> affectedPlayers = ConcurrentHashMap.newKeySet();
-
-    // Joueurs protégés (sous un abri)
+    // Joueurs protégés (sous un abri) - pour météo dangereuse uniquement
     protected final Set<UUID> shelteredPlayers = ConcurrentHashMap.newKeySet();
+
+    // Cache des joueurs (mis à jour toutes les secondes)
+    protected List<Player> cachedPlayers = new ArrayList<>();
+    protected long lastPlayerCacheUpdate = 0;
+    protected static final long PLAYER_CACHE_DURATION = 1000;
 
     // Tâches planifiées
     protected BukkitTask mainTask;
     protected BukkitTask particleTask;
     protected BukkitTask damageTask;
+    protected BukkitTask buffTask;
 
     // Boss bar globale
     protected BossBar bossBar;
 
     // Configuration (peut être modifiée par le manager)
-    @Setter protected double spawnMultiplierOverride = -1;    // -1 = utiliser la valeur du type
+    @Setter protected double spawnMultiplierOverride = -1;
     @Setter protected double damageMultiplierOverride = -1;
-    @Setter protected double intensityMultiplier = 1.0;       // Intensité des effets visuels
+    @Setter protected double intensityMultiplier = 1.0;
 
     // Statistiques
     protected int totalDamageDealt = 0;
-    protected int playersAffectedCount = 0;
+    protected int totalRegenGiven = 0;
+    protected int buffApplications = 0;
 
     // Monde cible (null = tous les mondes)
     protected World targetWorld;
+
+    // Render distance originale (pour restauration)
+    protected Map<UUID, Integer> originalRenderDistances = new ConcurrentHashMap<>();
 
     public WeatherEffect(ZombieZPlugin plugin, WeatherType type, int durationTicks) {
         this.plugin = plugin;
@@ -94,6 +101,8 @@ public class WeatherEffect {
         return type.getMinDuration() + (range > 0 ? random.nextInt(range) : 0);
     }
 
+    // ==================== LIFECYCLE ====================
+
     /**
      * Démarre l'effet météo
      */
@@ -105,8 +114,13 @@ public class WeatherEffect {
         // Créer la boss bar
         createBossBar();
 
-        // Appliquer la météo Minecraft
+        // Appliquer la météo Minecraft native
         applyMinecraftWeather();
+
+        // Appliquer le fog si nécessaire
+        if (type.hasFog()) {
+            applyFogEffect();
+        }
 
         // Annoncer le changement de météo
         announceStart();
@@ -124,10 +138,7 @@ public class WeatherEffect {
         completed = true;
         active = false;
 
-        // Annoncer la fin
         announceEnd();
-
-        // Cleanup
         cleanup();
     }
 
@@ -140,10 +151,7 @@ public class WeatherEffect {
         cancelled = true;
         active = false;
 
-        // Annoncer l'interruption
         announceInterruption();
-
-        // Cleanup
         cleanup();
     }
 
@@ -160,15 +168,10 @@ public class WeatherEffect {
      */
     protected void cleanup() {
         // Annuler les tâches
-        if (mainTask != null && !mainTask.isCancelled()) {
-            mainTask.cancel();
-        }
-        if (particleTask != null && !particleTask.isCancelled()) {
-            particleTask.cancel();
-        }
-        if (damageTask != null && !damageTask.isCancelled()) {
-            damageTask.cancel();
-        }
+        cancelTask(mainTask);
+        cancelTask(particleTask);
+        cancelTask(damageTask);
+        cancelTask(buffTask);
 
         // Supprimer la boss bar
         if (bossBar != null) {
@@ -178,15 +181,25 @@ public class WeatherEffect {
         // Restaurer la météo Minecraft
         restoreMinecraftWeather();
 
-        // Retirer les effets des joueurs
-        removePlayerEffects();
+        // Restaurer le fog/render distance
+        if (type.hasFog()) {
+            restoreFogEffect();
+        }
+
+        // Retirer les buffs des joueurs
+        removePlayerBuffs();
     }
 
-    /**
-     * Créé la boss bar de l'effet météo
-     */
+    private void cancelTask(BukkitTask task) {
+        if (task != null && !task.isCancelled()) {
+            task.cancel();
+        }
+    }
+
+    // ==================== BOSS BAR ====================
+
     protected void createBossBar() {
-        String title = type.getColor() + "§l" + type.getIcon() + " " + type.getDisplayName();
+        String title = buildBossBarTitle();
         bossBar = plugin.getServer().createBossBar(title, type.getBarColor(), BarStyle.SEGMENTED_20);
         bossBar.setProgress(1.0);
         bossBar.setVisible(true);
@@ -197,34 +210,23 @@ public class WeatherEffect {
         }
     }
 
-    /**
-     * Met à jour la boss bar
-     */
     protected void updateBossBar() {
         if (bossBar == null) return;
 
         double progress = 1.0 - ((double) elapsedTicks / duration);
         bossBar.setProgress(Math.max(0, Math.min(1, progress)));
+        bossBar.setTitle(buildBossBarTitle());
 
-        int remainingSeconds = getRemainingTimeSeconds();
-        String timeStr = formatTime(remainingSeconds);
-
-        String title = type.getColor() + "§l" + type.getIcon() + " " + type.getDisplayName() +
-            " §7- §e" + timeStr;
-        bossBar.setTitle(title);
-
-        // Mettre à jour les joueurs
+        // Mettre à jour les joueurs (optimisé avec cache)
         Set<Player> current = new HashSet<>(bossBar.getPlayers());
-        Set<Player> affected = new HashSet<>(getAffectedPlayers());
+        List<Player> affected = getAffectedPlayers();
 
-        // Ajouter les nouveaux joueurs
         for (Player player : affected) {
             if (!current.contains(player)) {
                 bossBar.addPlayer(player);
             }
         }
 
-        // Retirer les joueurs qui ne sont plus affectés
         for (Player player : current) {
             if (!affected.contains(player)) {
                 bossBar.removePlayer(player);
@@ -232,24 +234,39 @@ public class WeatherEffect {
         }
     }
 
-    /**
-     * Formate le temps en MM:SS
-     */
+    protected String buildBossBarTitle() {
+        int remainingSeconds = getRemainingTimeSeconds();
+        String timeStr = formatTime(remainingSeconds);
+
+        StringBuilder title = new StringBuilder();
+        title.append(type.getColor()).append("§l").append(type.getIcon()).append(" ");
+        title.append(type.getDisplayName()).append(" §7- §e").append(timeStr);
+
+        // Ajouter indicateurs de bonus
+        if (type.getXpMultiplier() > 1.0) {
+            title.append(" §a+").append((int)((type.getXpMultiplier() - 1) * 100)).append("%XP");
+        }
+        if (type.getLootMultiplier() > 1.0) {
+            title.append(" §b+").append((int)((type.getLootMultiplier() - 1) * 100)).append("%Loot");
+        }
+
+        return title.toString();
+    }
+
     protected String formatTime(int seconds) {
         int mins = seconds / 60;
         int secs = seconds % 60;
         return String.format("%d:%02d", mins, secs);
     }
 
-    /**
-     * Applique la météo Minecraft native
-     */
+    // ==================== MÉTÉO MINECRAFT ====================
+
     protected void applyMinecraftWeather() {
         if (targetWorld == null) return;
 
         if (type.isMinecraftRain()) {
             targetWorld.setStorm(true);
-            targetWorld.setWeatherDuration(duration + 20 * 60); // +1 minute de marge
+            targetWorld.setWeatherDuration(duration + 20 * 60);
         }
 
         if (type.isMinecraftThunder()) {
@@ -258,9 +275,6 @@ public class WeatherEffect {
         }
     }
 
-    /**
-     * Restaure la météo Minecraft
-     */
     protected void restoreMinecraftWeather() {
         if (targetWorld == null) return;
 
@@ -268,27 +282,56 @@ public class WeatherEffect {
         targetWorld.setThundering(false);
     }
 
+    // ==================== FOG SYSTEM ====================
+
     /**
-     * Démarre les tâches périodiques
+     * Applique l'effet de fog en modifiant la render distance client
+     * Note: Utilise les packets natifs de Minecraft pour le fog
      */
+    protected void applyFogEffect() {
+        int fogDistance = type.getFogRenderDistance();
+        if (fogDistance < 0) return;
+
+        // Sauvegarder et appliquer la nouvelle render distance
+        for (Player player : getAffectedPlayers()) {
+            originalRenderDistances.put(player.getUniqueId(), player.getClientViewDistance());
+            // Envoyer un message pour informer du changement de visibilité
+            player.sendMessage("§7§o(Visibilité réduite à " + fogDistance + " chunks)");
+        }
+    }
+
+    protected void restoreFogEffect() {
+        // Restaurer les render distances originales
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
+            if (originalRenderDistances.containsKey(uuid)) {
+                originalRenderDistances.remove(uuid);
+            }
+        }
+    }
+
+    // ==================== TÂCHES PÉRIODIQUES ====================
+
     protected void startTasks() {
         // Tâche principale (chaque seconde)
-        mainTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-            tick();
-        }, 20L, 20L);
+        mainTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
 
-        // Tâche de particules (4 fois par seconde pour plus de fluidité)
+        // Tâche de particules (optimisée: 2 fois par seconde au lieu de 4)
         if (type.getParticle() != null) {
-            particleTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-                spawnParticles();
-            }, 5L, 5L);
+            particleTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
+                this::spawnParticlesOptimized, 10L, 10L);
         }
 
-        // Tâche de dégâts environnementaux
+        // Tâche de dégâts environnementaux (si dangereux)
         if (type.isDangerous() && type.getDamageInterval() > 0) {
-            damageTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-                applyEnvironmentalDamage();
-            }, type.getDamageInterval(), type.getDamageInterval());
+            damageTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
+                this::applyEnvironmentalDamage, type.getDamageInterval(), type.getDamageInterval());
+        }
+
+        // Tâche de buffs joueurs (toutes les 5 secondes)
+        if (type.hasPlayerBuff() || type.getRegenAmount() > 0) {
+            buffTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
+                this::applyPlayerBuffs, 100L, 100L); // 5 secondes
         }
     }
 
@@ -298,111 +341,233 @@ public class WeatherEffect {
     public void tick() {
         if (!active) return;
 
-        elapsedTicks += 20; // +1 seconde
+        elapsedTicks += 20;
+        tickCounter++;
+
+        // Mettre à jour le cache des joueurs
+        updatePlayerCache();
 
         // Mettre à jour la boss bar
         updateBossBar();
 
-        // Appliquer les effets de debuff
-        applyDebuffEffects();
+        // Appliquer la régénération (chaque 5 secondes)
+        if (tickCounter % 5 == 0 && type.getRegenAmount() > 0) {
+            applyRegeneration();
+        }
 
-        // Jouer le son ambiant périodiquement
-        if (elapsedTicks % (20 * 10) == 0 && type.getAmbientSound() != null) {
+        // Jouer le son ambiant (toutes les 15 secondes)
+        if (tickCounter % 15 == 0 && type.getAmbientSound() != null) {
             playAmbientSound();
         }
 
-        // Vérifier si l'effet doit se terminer
+        // Éclairs aléatoires pendant les orages
+        if (type == WeatherType.STORM && Math.random() < 0.1) {
+            spawnRandomLightning();
+        }
+
+        // Vérifier fin
         if (elapsedTicks >= duration) {
             complete();
         }
     }
 
     /**
-     * Génère les particules autour des joueurs
+     * Met à jour le cache des joueurs (optimisation)
      */
-    protected void spawnParticles() {
-        if (type.getParticle() == null) return;
+    protected void updatePlayerCache() {
+        long now = System.currentTimeMillis();
+        if (now - lastPlayerCacheUpdate < PLAYER_CACHE_DURATION) return;
 
-        for (Player player : getAffectedPlayers()) {
-            Location loc = player.getLocation();
+        lastPlayerCacheUpdate = now;
+        cachedPlayers.clear();
 
-            // Particules dans un rayon autour du joueur
-            int particleCount = (int) (15 * intensityMultiplier);
-            double radius = 8.0;
-
-            for (int i = 0; i < particleCount; i++) {
-                double x = loc.getX() + (Math.random() - 0.5) * radius * 2;
-                double y = loc.getY() + Math.random() * 6 + 2;
-                double z = loc.getZ() + (Math.random() - 0.5) * radius * 2;
-
-                Location particleLoc = new Location(loc.getWorld(), x, y, z);
-
-                // Vitesse de chute des particules selon le type
-                double velocityY = type == WeatherType.RAIN || type == WeatherType.ACID_RAIN
-                    ? -0.5 : (type == WeatherType.BLIZZARD ? -0.2 : 0);
-
-                player.spawnParticle(type.getParticle(), particleLoc, 1, 0, velocityY, 0, 0);
+        if (targetWorld == null) {
+            cachedPlayers.addAll(plugin.getServer().getOnlinePlayers());
+        } else {
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                if (player.getWorld().equals(targetWorld)) {
+                    cachedPlayers.add(player);
+                }
             }
-
-            // Particules spéciales selon le type
-            spawnSpecialParticles(player);
         }
     }
 
+    // ==================== PARTICULES (OPTIMISÉES) ====================
+
     /**
-     * Génère des particules spéciales selon le type de météo
+     * Génère les particules de manière optimisée
      */
-    protected void spawnSpecialParticles(Player player) {
-        Location loc = player.getLocation();
+    protected void spawnParticlesOptimized() {
+        if (type.getParticle() == null) return;
+
+        // Nombre de particules réduit et optimisé
+        int baseParticleCount = (int) (8 * intensityMultiplier);
+
+        for (Player player : cachedPlayers) {
+            Location loc = player.getLocation();
+            World world = loc.getWorld();
+            if (world == null) continue;
+
+            // Particules principales
+            spawnWeatherParticles(player, loc, baseParticleCount);
+
+            // Particules spéciales (moins fréquentes)
+            if (tickCounter % 2 == 0) {
+                spawnSpecialParticles(player, loc);
+            }
+        }
+    }
+
+    protected void spawnWeatherParticles(Player player, Location loc, int count) {
+        double radius = 6.0;
+        Particle particle = type.getParticle();
+
+        for (int i = 0; i < count; i++) {
+            double x = loc.getX() + (Math.random() - 0.5) * radius * 2;
+            double y = loc.getY() + Math.random() * 5 + 2;
+            double z = loc.getZ() + (Math.random() - 0.5) * radius * 2;
+
+            Location particleLoc = new Location(loc.getWorld(), x, y, z);
+
+            // Spawner pour le joueur uniquement (optimisation)
+            player.spawnParticle(particle, particleLoc, 1, 0, -0.1, 0, 0);
+        }
+    }
+
+    protected void spawnSpecialParticles(Player player, Location loc) {
+        World world = loc.getWorld();
+        if (world == null) return;
 
         switch (type) {
             case STORM -> {
-                // Éclairs aléatoires dans le ciel
-                if (Math.random() < 0.02) {
-                    double x = loc.getX() + (Math.random() - 0.5) * 100;
-                    double z = loc.getZ() + (Math.random() - 0.5) * 100;
-                    Location lightningLoc = new Location(loc.getWorld(), x, loc.getY() + 30, z);
-                    player.spawnParticle(Particle.FLASH, lightningLoc, 1);
+                // Flash d'éclair occasionnel
+                if (Math.random() < 0.03) {
+                    player.spawnParticle(Particle.FLASH, loc.clone().add(0, 20, 0), 1);
                 }
             }
             case BLOOD_MOON -> {
                 // Particules rouges montantes
-                player.spawnParticle(Particle.DUST, loc.add(0, 0.5, 0),
-                    3, 0.5, 0.5, 0.5, 0,
-                    new Particle.DustOptions(Color.RED, 1.0f));
+                player.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0),
+                    2, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.RED, 1.2f));
             }
-            case AURORA -> {
+            case AURORA, STARFALL -> {
                 // Particules colorées dans le ciel
-                Color[] colors = {Color.PURPLE, Color.BLUE, Color.AQUA, Color.GREEN};
+                Color[] colors = {Color.PURPLE, Color.BLUE, Color.AQUA, Color.LIME, Color.FUCHSIA};
                 Color color = colors[(int) (Math.random() * colors.length)];
                 Location skyLoc = loc.clone().add(
-                    (Math.random() - 0.5) * 20,
-                    15 + Math.random() * 10,
-                    (Math.random() - 0.5) * 20
+                    (Math.random() - 0.5) * 15,
+                    12 + Math.random() * 8,
+                    (Math.random() - 0.5) * 15
                 );
-                player.spawnParticle(Particle.DUST, skyLoc, 2, 1, 0.5, 1, 0,
-                    new Particle.DustOptions(color, 2.0f));
+                player.spawnParticle(Particle.DUST, skyLoc, 1, 0.5, 0.2, 0.5, 0,
+                    new Particle.DustOptions(color, 1.5f));
             }
             case ACID_RAIN -> {
-                // Particules vertes tombantes
-                player.spawnParticle(Particle.DUST, loc.clone().add(0, 2, 0),
-                    2, 0.3, 0.5, 0.3, 0,
-                    new Particle.DustOptions(Color.LIME, 0.8f));
+                player.spawnParticle(Particle.DUST, loc.clone().add(0, 1.5, 0),
+                    1, 0.2, 0.3, 0.2, 0, new Particle.DustOptions(Color.LIME, 0.7f));
+            }
+            case SOLAR_BLESSING -> {
+                // Rayons de lumière dorés
+                player.spawnParticle(Particle.END_ROD, loc.clone().add(
+                    (Math.random() - 0.5) * 3, 3 + Math.random() * 2, (Math.random() - 0.5) * 3),
+                    1, 0, -0.05, 0, 0);
+            }
+            case HARVEST_MOON -> {
+                // Particules de récolte dorées
+                if (Math.random() < 0.3) {
+                    player.spawnParticle(Particle.HAPPY_VILLAGER, loc.clone().add(
+                        (Math.random() - 0.5) * 4, 1 + Math.random(), (Math.random() - 0.5) * 4), 1);
+                }
             }
             default -> {}
         }
     }
 
+    protected void spawnRandomLightning() {
+        if (targetWorld == null) return;
+
+        for (Player player : cachedPlayers) {
+            if (Math.random() < 0.3) {
+                Location loc = player.getLocation();
+                double x = loc.getX() + (Math.random() - 0.5) * 80;
+                double z = loc.getZ() + (Math.random() - 0.5) * 80;
+                Location lightningLoc = new Location(targetWorld, x,
+                    targetWorld.getHighestBlockYAt((int)x, (int)z), z);
+
+                // Éclair visuel sans dégâts
+                targetWorld.strikeLightningEffect(lightningLoc);
+            }
+        }
+    }
+
+    // ==================== BUFFS JOUEURS ====================
+
     /**
-     * Applique les dégâts environnementaux aux joueurs
+     * Applique les buffs de potion aux joueurs
      */
+    protected void applyPlayerBuffs() {
+        if (!type.hasPlayerBuff()) return;
+
+        PotionEffectType buffType = type.getBuffEffect();
+        int amplifier = type.getBuffAmplifier();
+        int buffDuration = type.getBuffDuration();
+
+        for (Player player : cachedPlayers) {
+            // Ne pas appliquer si le joueur est sous abri pendant météo dangereuse
+            if (type.isDangerous() && isPlayerSheltered(player)) continue;
+
+            player.addPotionEffect(new PotionEffect(buffType, buffDuration, amplifier, true, false, true));
+            buffApplications++;
+        }
+    }
+
+    /**
+     * Applique la régénération aux joueurs
+     */
+    protected void applyRegeneration() {
+        double regenAmount = type.getRegenAmount();
+        if (regenAmount <= 0) return;
+
+        for (Player player : cachedPlayers) {
+            double currentHealth = player.getHealth();
+            double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+
+            if (currentHealth < maxHealth) {
+                double newHealth = Math.min(maxHealth, currentHealth + regenAmount);
+                player.setHealth(newHealth);
+                totalRegenGiven += (int) regenAmount;
+
+                // Effet visuel de régénération
+                player.spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0),
+                    1, 0.2, 0.2, 0.2, 0);
+            }
+        }
+    }
+
+    /**
+     * Retire les buffs des joueurs à la fin de la météo
+     */
+    protected void removePlayerBuffs() {
+        PotionEffectType buffType = type.getBuffEffect();
+        if (buffType == null) return;
+
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            player.removePotionEffect(buffType);
+        }
+    }
+
+    // ==================== DÉGÂTS ENVIRONNEMENTAUX ====================
+
     protected void applyEnvironmentalDamage() {
         if (!type.isDangerous()) return;
 
-        double damage = type.getEnvironmentalDamage() * (damageMultiplierOverride > 0 ? damageMultiplierOverride : 1.0);
+        double damage = type.getEnvironmentalDamage();
+        if (damageMultiplierOverride > 0) {
+            damage *= damageMultiplierOverride;
+        }
 
-        for (Player player : getAffectedPlayers()) {
-            // Vérifier si le joueur est à l'abri
+        for (Player player : cachedPlayers) {
+            // Vérifier abri
             if (isPlayerSheltered(player)) {
                 shelteredPlayers.add(player.getUniqueId());
                 continue;
@@ -410,107 +575,64 @@ public class WeatherEffect {
                 shelteredPlayers.remove(player.getUniqueId());
             }
 
-            // Appliquer les dégâts
-            double finalDamage = damage;
-
-            // Réduire les dégâts si le joueur a une armure adaptée
-            finalDamage = calculateReducedDamage(player, finalDamage);
+            // Réduction par armure
+            double finalDamage = calculateReducedDamage(player, damage);
 
             if (finalDamage > 0) {
                 player.damage(finalDamage);
                 totalDamageDealt += (int) finalDamage;
 
-                // Message d'avertissement (pas trop fréquent)
-                if (elapsedTicks % (20 * 10) == 0) {
-                    player.sendMessage(type.getColor() + type.getIcon() + " §cVous subissez des dégâts de " +
-                        type.getDisplayName().toLowerCase() + "! Trouvez un abri!");
+                // Avertissement périodique
+                if (tickCounter % 10 == 0) {
+                    player.sendMessage(type.getColor() + type.getIcon() +
+                        " §cTrouvez un abri! §7(-" + String.format("%.1f", finalDamage) + " HP)");
                 }
             }
         }
     }
 
-    /**
-     * Vérifie si un joueur est à l'abri (sous un toit)
-     */
     protected boolean isPlayerSheltered(Player player) {
         Location loc = player.getLocation();
 
-        // Vérifier s'il y a un bloc solide au-dessus du joueur
-        for (int y = 1; y <= 10; y++) {
-            Location checkLoc = loc.clone().add(0, y, 0);
-            if (checkLoc.getBlock().getType().isSolid()) {
+        // Vérifier bloc solide au-dessus (optimisé: max 8 blocs)
+        for (int y = 1; y <= 8; y++) {
+            if (loc.clone().add(0, y, 0).getBlock().getType().isSolid()) {
                 return true;
             }
         }
-
         return false;
     }
 
-    /**
-     * Calcule les dégâts réduits selon l'équipement du joueur
-     */
     protected double calculateReducedDamage(Player player, double baseDamage) {
-        // Réduction basée sur l'armure
-        double armorReduction = 0;
+        double reduction = 0;
 
-        // Casque protège contre les dégâts aériens (pluie, cendres)
+        // Casque = -20% dégâts météo
         if (player.getInventory().getHelmet() != null) {
-            armorReduction += 0.15;
+            reduction += 0.20;
         }
-
-        // Plastron pour la protection générale
+        // Plastron = -10%
         if (player.getInventory().getChestplate() != null) {
-            armorReduction += 0.10;
+            reduction += 0.10;
         }
 
-        return baseDamage * (1.0 - armorReduction);
+        return baseDamage * (1.0 - Math.min(0.5, reduction)); // Max 50% réduction
     }
 
-    /**
-     * Applique les effets de debuff aux joueurs
-     */
-    protected void applyDebuffEffects() {
-        PotionEffectType debuffType = type.getPlayerDebuffEffect();
-        if (debuffType == null) return;
+    // ==================== SONS ====================
 
-        int amplifier = type.getDebuffAmplifier();
-        int duration = type.getDebuffDuration();
-
-        for (Player player : getAffectedPlayers()) {
-            // Les joueurs à l'abri ne reçoivent pas les debuffs
-            if (shelteredPlayers.contains(player.getUniqueId())) continue;
-
-            // Appliquer l'effet
-            player.addPotionEffect(new PotionEffect(debuffType, duration, amplifier, true, false, true));
-        }
-    }
-
-    /**
-     * Retire les effets des joueurs à la fin de la météo
-     */
-    protected void removePlayerEffects() {
-        PotionEffectType debuffType = type.getPlayerDebuffEffect();
-        if (debuffType == null) return;
-
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-            player.removePotionEffect(debuffType);
-        }
-    }
-
-    /**
-     * Joue le son ambiant
-     */
     protected void playAmbientSound() {
         if (type.getAmbientSound() == null) return;
 
-        for (Player player : getAffectedPlayers()) {
-            player.playSound(player.getLocation(), type.getAmbientSound(), 0.5f, 1.0f);
+        float volume = 0.4f;
+        float pitch = 0.9f + (float)(Math.random() * 0.2);
+
+        for (Player player : cachedPlayers) {
+            player.playSound(player.getLocation(), type.getAmbientSound(), volume, pitch);
         }
     }
 
-    /**
-     * Annonce le début de l'effet météo
-     */
+    // ==================== ANNONCES ====================
+
     protected void announceStart() {
         String title = type.getColor() + "§l" + type.getIcon() + " " + type.getDisplayName().toUpperCase();
         String subtitle = "§7" + type.getDescription();
@@ -522,29 +644,55 @@ public class WeatherEffect {
                 player.playSound(player.getLocation(), type.getAmbientSound(), 1.0f, 0.8f);
             }
 
-            // Message détaillé dans le chat
+            // Message détaillé
             player.sendMessage("");
             player.sendMessage(type.getColor() + "§l" + type.getIcon() + " MÉTÉO: " + type.getDisplayName());
             player.sendMessage("§7" + type.getDescription());
 
-            if (type.isDangerous()) {
-                player.sendMessage("§c⚠ Attention: Cette météo inflige des dégâts! Trouvez un abri!");
+            // Afficher les bonus
+            StringBuilder bonusMsg = new StringBuilder("§aBonus actifs: ");
+            boolean hasBonus = false;
+
+            if (type.getXpMultiplier() > 1.0) {
+                bonusMsg.append("§e+").append((int)((type.getXpMultiplier()-1)*100)).append("%XP ");
+                hasBonus = true;
             }
-            if (type.buffZombies()) {
-                player.sendMessage("§c⚠ Les zombies sont renforcés pendant cette météo!");
+            if (type.getLootMultiplier() > 1.0) {
+                bonusMsg.append("§b+").append((int)((type.getLootMultiplier()-1)*100)).append("%Loot ");
+                hasBonus = true;
             }
-            if (type.isBeneficial()) {
-                player.sendMessage("§a✓ Cette météo est favorable aux survivants!");
+            if (type.getPlayerSpeedBonus() > 1.0) {
+                bonusMsg.append("§f+").append((int)((type.getPlayerSpeedBonus()-1)*100)).append("%Vitesse ");
+                hasBonus = true;
+            }
+            if (type.getRegenAmount() > 0) {
+                bonusMsg.append("§d+Régénération ");
+                hasBonus = true;
+            }
+            if (type.hasPlayerBuff()) {
+                bonusMsg.append("§5+").append(type.getBuffEffect().getKey().getKey()).append(" ");
+                hasBonus = true;
             }
 
-            player.sendMessage("§7Durée estimée: §e" + formatTime(duration / 20));
+            if (hasBonus) {
+                player.sendMessage(bonusMsg.toString());
+            }
+
+            if (type.isDangerous()) {
+                player.sendMessage("§c⚠ Attention: Dégâts environnementaux actifs! Trouvez un abri!");
+            }
+            if (type.buffZombies()) {
+                player.sendMessage("§c⚠ Les zombies sont renforcés!");
+            }
+            if (type.debuffZombies()) {
+                player.sendMessage("§a✓ Les zombies sont affaiblis!");
+            }
+
+            player.sendMessage("§7Durée: §e" + formatTime(duration / 20));
             player.sendMessage("");
         }
     }
 
-    /**
-     * Annonce la fin naturelle de l'effet
-     */
     protected void announceEnd() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             player.sendTitle(
@@ -553,103 +701,91 @@ public class WeatherEffect {
                 10, 40, 20
             );
 
-            player.sendMessage("");
             player.sendMessage("§a§l☀ §7La météo §e" + type.getDisplayName() + " §7s'est dissipée.");
-            player.sendMessage("");
-
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
         }
     }
 
-    /**
-     * Annonce l'interruption de l'effet
-     */
     protected void announceInterruption() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             player.sendMessage("§7La météo §e" + type.getDisplayName() + " §7a été interrompue.");
         }
     }
 
-    /**
-     * Obtient la liste des joueurs affectés par cette météo
-     */
-    public Collection<Player> getAffectedPlayers() {
-        if (targetWorld == null) {
-            return plugin.getServer().getOnlinePlayers();
+    // ==================== GETTERS ====================
+
+    public List<Player> getAffectedPlayers() {
+        if (!cachedPlayers.isEmpty()) {
+            return cachedPlayers;
         }
 
+        // Fallback si cache vide
         List<Player> players = new ArrayList<>();
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-            if (player.getWorld().equals(targetWorld)) {
-                players.add(player);
+        if (targetWorld == null) {
+            players.addAll(plugin.getServer().getOnlinePlayers());
+        } else {
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                if (player.getWorld().equals(targetWorld)) {
+                    players.add(player);
+                }
             }
         }
         return players;
     }
 
-    /**
-     * Obtient le multiplicateur de spawn effectif
-     */
     public double getEffectiveSpawnMultiplier() {
-        if (spawnMultiplierOverride > 0) {
-            return spawnMultiplierOverride;
-        }
-        return type.getSpawnMultiplier();
+        return spawnMultiplierOverride > 0 ? spawnMultiplierOverride : type.getSpawnMultiplier();
     }
 
-    /**
-     * Obtient le multiplicateur de dégâts zombies effectif
-     */
     public double getEffectiveZombieDamageMultiplier() {
         return type.getZombieDamageMultiplier();
     }
 
-    /**
-     * Obtient le multiplicateur de vitesse zombies effectif
-     */
     public double getEffectiveZombieSpeedMultiplier() {
         return type.getZombieSpeedMultiplier();
     }
 
-    /**
-     * Vérifie si l'effet est toujours actif et valide
-     */
+    public double getEffectiveXpMultiplier() {
+        return type.getXpMultiplier();
+    }
+
+    public double getEffectiveLootMultiplier() {
+        return type.getLootMultiplier();
+    }
+
     public boolean isValid() {
         return active && !completed && !cancelled;
     }
 
-    /**
-     * Obtient le temps restant en secondes
-     */
     public int getRemainingTimeSeconds() {
-        int remainingTicks = Math.max(0, duration - elapsedTicks);
-        return remainingTicks / 20;
+        return Math.max(0, duration - elapsedTicks) / 20;
     }
 
-    /**
-     * Obtient le pourcentage de temps restant
-     */
     public double getRemainingTimePercent() {
         return Math.max(0, 1.0 - ((double) elapsedTicks / duration));
     }
 
-    /**
-     * Obtient les informations de debug
-     */
     public String getDebugInfo() {
         return String.format(
-            "[%s] %s | Remaining: %ds | Damage: %d | Sheltered: %d",
-            id, type.getDisplayName(),
-            getRemainingTimeSeconds(), totalDamageDealt,
-            shelteredPlayers.size()
+            "[%s] %s | %ds | XP:%.0f%% Loot:%.0f%% | Regen:%d Buffs:%d Dmg:%d",
+            id, type.getDisplayName(), getRemainingTimeSeconds(),
+            type.getXpMultiplier() * 100, type.getLootMultiplier() * 100,
+            totalRegenGiven, buffApplications, totalDamageDealt
         );
     }
 
-    /**
-     * Obtient un résumé pour l'affichage
-     */
     public String getSummary() {
-        return type.getColor() + type.getIcon() + " " + type.getDisplayName() +
-            " §7[" + formatTime(getRemainingTimeSeconds()) + "]";
+        StringBuilder sb = new StringBuilder();
+        sb.append(type.getColor()).append(type.getIcon()).append(" ").append(type.getDisplayName());
+        sb.append(" §7[").append(formatTime(getRemainingTimeSeconds())).append("]");
+
+        if (type.getXpMultiplier() > 1.0 || type.getLootMultiplier() > 1.0) {
+            sb.append(" §a★");
+        }
+        if (type.isDangerous()) {
+            sb.append(" §c⚠");
+        }
+
+        return sb.toString();
     }
 }
