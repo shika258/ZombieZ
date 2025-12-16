@@ -340,6 +340,18 @@ public class ClassData {
         return (double) classKills.get() / deaths;
     }
 
+    /**
+     * Reset les statistiques de session (kills, deaths, damage, skills)
+     */
+    public void resetSessionStats() {
+        classKills.set(0);
+        classDeaths.set(0);
+        damageDealt.set(0);
+        damageReceived.set(0);
+        skillsUsed.set(0);
+        markDirty();
+    }
+
     // ==================== CACHE & DIRTY ====================
 
     public void markDirty() {

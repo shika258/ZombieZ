@@ -50,7 +50,7 @@ public class ArchetypeManager {
             return BuildArchetype.NONE;
         }
 
-        ClassType playerClass = data.getClassType();
+        ClassType playerClass = data.getSelectedClass();
         BuildArchetype[] possibleArchetypes = BuildArchetype.getArchetypesForClass(playerClass);
 
         // Calculer les scores pour chaque archétype possible
@@ -84,7 +84,7 @@ public class ArchetypeManager {
         int score = 0;
 
         // Points pour les talents clés débloqués
-        Set<String> unlockedTalents = data.getUnlockedTalents();
+        Set<String> unlockedTalents = data.getUnlockedTalentIds();
         for (String keyTalent : archetype.getKeyTalents()) {
             if (unlockedTalents.contains(keyTalent)) {
                 score += POINTS_PER_KEY_TALENT;
@@ -287,7 +287,7 @@ public class ArchetypeManager {
             return Collections.emptyMap();
         }
 
-        ClassType playerClass = data.getClassType();
+        ClassType playerClass = data.getSelectedClass();
         BuildArchetype[] possibleArchetypes = BuildArchetype.getArchetypesForClass(playerClass);
 
         Map<BuildArchetype, Integer> scores = new EnumMap<>(BuildArchetype.class);
