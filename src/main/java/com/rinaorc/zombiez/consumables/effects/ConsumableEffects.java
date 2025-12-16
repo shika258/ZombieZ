@@ -189,7 +189,7 @@ public class ConsumableEffects {
                 if (ticks % 10 == 0) {
                     for (Entity entity : center.getWorld().getNearbyEntities(center, radius, 3, radius)) {
                         if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
-                            living.damage(dps / 2, owner);
+                            applyConsumableDamage(living, dps / 2, owner);
                             living.setFireTicks(40);
                         }
                     }
@@ -274,7 +274,7 @@ public class ConsumableEffects {
             if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
                 double dist = entity.getLocation().distance(center);
                 double damageMultiplier = 1 - (dist / splashRadius) * 0.5; // 100% au centre, 50% au bord
-                living.damage(damage * damageMultiplier, owner);
+                applyConsumableDamage(living, damage * damageMultiplier, owner);
             }
         }
     }
@@ -330,7 +330,7 @@ public class ConsumableEffects {
                 if (ticks % 10 == 0) {
                     for (Entity entity : center.getWorld().getNearbyEntities(center, radius, 3, radius)) {
                         if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
-                            living.damage(dps / 2, owner);
+                            applyConsumableDamage(living, dps / 2, owner);
                             living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1, false, false));
                         }
                     }
@@ -1054,6 +1054,27 @@ public class ConsumableEffects {
             case BANDAGE, ANTIDOTE, ADRENALINE_KIT -> 3000;
             default -> 1000;
         };
+    }
+
+    /**
+     * Applique les dégâts d'un consommable avec un marqueur pour éviter
+     * que CombatListener n'applique les stats d'arme du joueur
+     */
+    private void applyConsumableDamage(LivingEntity target, double damage, Player owner) {
+        // Marquer l'entité pour indiquer que les dégâts viennent d'un consommable
+        target.setMetadata("zombiez_consumable_damage", new FixedMetadataValue(plugin, damage));
+
+        // Appliquer les dégâts
+        if (owner != null) {
+            target.damage(damage, owner);
+        } else {
+            target.damage(damage);
+        }
+
+        // Retirer le marqueur après l'application (au tick suivant pour être sûr)
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            target.removeMetadata("zombiez_consumable_damage", plugin);
+        });
     }
 
     /**

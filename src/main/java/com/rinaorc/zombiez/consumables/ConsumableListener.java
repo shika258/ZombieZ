@@ -15,6 +15,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 
 import java.util.List;
@@ -127,12 +128,8 @@ public class ConsumableListener implements Listener {
                     double damageMultiplier = 1.0 - (distRatio * 0.5);
                     double finalDamage = damage * damageMultiplier;
 
-                    // Appliquer les dégâts
-                    if (owner != null) {
-                        living.damage(finalDamage, owner);
-                    } else {
-                        living.damage(finalDamage);
-                    }
+                    // Appliquer les dégâts avec marqueur de consommable
+                    applyConsumableDamage(living, finalDamage, owner);
 
                     // Knockback
                     if (dist > 0.1) {
@@ -197,7 +194,7 @@ public class ConsumableListener implements Listener {
                     if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
                         double dist = entity.getLocation().distance(loc);
                         double damageMultiplier = 1 - (dist / splashRadius) * 0.5;
-                        living.damage(damage * damageMultiplier, owner);
+                        applyConsumableDamage(living, damage * damageMultiplier, owner);
                     }
                 }
             }
@@ -235,7 +232,8 @@ public class ConsumableListener implements Listener {
                     owner = plugin.getServer().getPlayer(UUID.fromString(ownerId));
                 }
 
-                living.damage(damage, owner);
+                // Appliquer les dégâts avec marqueur de consommable
+                applyConsumableDamage(living, damage, owner);
 
                 // Effet de givre
                 living.setFreezeTicks(40);
@@ -333,6 +331,27 @@ public class ConsumableListener implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
             }
         }
+    }
+
+    /**
+     * Applique les dégâts d'un consommable avec un marqueur pour éviter
+     * que CombatListener n'applique les stats d'arme du joueur
+     */
+    private void applyConsumableDamage(LivingEntity target, double damage, Player owner) {
+        // Marquer l'entité pour indiquer que les dégâts viennent d'un consommable
+        target.setMetadata("zombiez_consumable_damage", new FixedMetadataValue(plugin, damage));
+
+        // Appliquer les dégâts
+        if (owner != null) {
+            target.damage(damage, owner);
+        } else {
+            target.damage(damage);
+        }
+
+        // Retirer le marqueur après l'application (au tick suivant pour être sûr)
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            target.removeMetadata("zombiez_consumable_damage", plugin);
+        });
     }
 
     /**

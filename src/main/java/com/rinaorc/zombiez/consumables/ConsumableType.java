@@ -9,22 +9,22 @@ import org.bukkit.Material;
  */
 @Getter
 public enum ConsumableType {
-    // Explosifs
+    // Explosifs (dégâts de base augmentés pour un meilleur scaling late-game)
     TNT_GRENADE("Grenade TNT", Material.TNT, ConsumableCategory.EXPLOSIVE,
         "Une grenade explosive qui inflige des dégâts de zone",
-        10.0, 4.0, 2.0), // baseDamage, baseRadius, baseDelay (2s fixe, ne scale pas)
+        15.0, 4.0, 2.0), // baseDamage, baseRadius, baseDelay (2s fixe, ne scale pas)
 
     INCENDIARY_BOMB("Bombe Incendiaire", Material.FIRE_CHARGE, ConsumableCategory.EXPLOSIVE,
         "Embrase le sol et inflige des dégâts continus",
-        3.0, 3.0, 5.0), // baseDPS, baseRadius, baseDuration
+        5.0, 3.0, 5.0), // baseDPS, baseRadius, baseDuration
 
     STICKY_CHARGE("Charge Collante", Material.SLIME_BALL, ConsumableCategory.EXPLOSIVE,
         "Se colle aux zombies et explose après un délai",
-        15.0, 2.0, 1.0), // baseDamage, splashRadius, fuseTime (1s fixe, ne scale pas)
+        25.0, 2.0, 1.0), // baseDamage, splashRadius, fuseTime (1s fixe, ne scale pas)
 
     ACID_JAR("Bocal d'Acide", Material.FERMENTED_SPIDER_EYE, ConsumableCategory.EXPLOSIVE,
         "Crée une zone de poison affectant les zombies",
-        2.0, 3.0, 5.0), // baseDPS, baseRadius, baseDuration
+        4.0, 3.0, 5.0), // baseDPS, baseRadius, baseDuration
 
     // Mobilité
     JETPACK("Jetpack", Material.FIREWORK_ROCKET, ConsumableCategory.MOBILITY,
@@ -50,7 +50,7 @@ public enum ConsumableType {
 
     TURRET("Tourelle Golem", Material.SNOWBALL, ConsumableCategory.SUMMON,
         "Invoque une mini tourelle qui tire sur les zombies",
-        2.0, 15.0, 10.0), // baseDamage, baseDuration, baseRange
+        4.0, 15.0, 10.0), // baseDamage, baseDuration, baseRange
 
     // Soins et Survie
     BANDAGE("Bandage", Material.PAPER, ConsumableCategory.HEALING,
@@ -107,10 +107,14 @@ public enum ConsumableType {
     }
 
     /**
-     * Calcule le scaling de zone (1.0 à 3.5 sur 50 zones)
+     * Calcule le scaling de zone avec croissance polynomiale
+     * Zone 1: ~1.03, Zone 10: ~2.0, Zone 25: ~5.0, Zone 50: ~14.2
+     * Cette formule correspond mieux à la croissance des HP des mobs en late-game
      */
     public static double getZoneMultiplier(int zoneId) {
-        return 1.0 + (zoneId * 0.05); // Zone 50 = 3.5x
+        // Croissance polynomiale (exposant 1.6) au lieu de linéaire
+        // Permet aux consommables de rester pertinents en fin de jeu
+        return 1.0 + Math.pow(zoneId / 10.0, 1.6);
     }
 
     /**

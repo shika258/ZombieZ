@@ -116,6 +116,26 @@ public class CombatListener implements Listener {
      * Applique: Stats d'items, Momentum, Skills, Critiques, Effets
      */
     private void handlePlayerAttackZombie(EntityDamageByEntityEvent event, Player player, Zombie zombie) {
+        // ============ CONSUMABLE DAMAGE CHECK ============
+        // Si les dégâts viennent d'un consommable, ne pas appliquer les stats d'arme
+        if (zombie.hasMetadata("zombiez_consumable_damage")) {
+            double consumableDamage = event.getDamage();
+
+            // Afficher l'indicateur de dégâts pour le consommable
+            DamageIndicator.display(plugin, zombie.getLocation(), consumableDamage, false, player);
+
+            // Mise à jour de l'affichage de vie
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (zombie.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+                }
+            });
+
+            // Enregistrer le joueur pour le loot
+            zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            return; // Ne pas appliquer les stats d'arme
+        }
+
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
