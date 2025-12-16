@@ -197,7 +197,7 @@ public class TalentSelectionGUI implements Listener {
         String color = unlocked ? tier.getColor() : "§8";
 
         return new ItemBuilder(icon)
-            .name(color + "§l" + tier.getName())
+            .name(color + "§l" + tier.getDisplayName())
             .lore(lore)
             .build();
     }
