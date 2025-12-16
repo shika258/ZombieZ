@@ -16,30 +16,22 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * GUI de sélection de classe
- * Affiche les 6 classes avec leurs descriptions et bonus
+ * GUI de sélection de classe simplifié - 3 classes
+ * Interface accessible et claire avec descriptions détaillées
  */
 public class ClassSelectionGUI implements Listener {
 
     private final ZombieZPlugin plugin;
     private final ClassManager classManager;
     private static final String GUI_TITLE = "§0§l✦ CHOIX DE CLASSE ✦";
-    private static final Map<Integer, ClassType> SLOT_TO_CLASS = new HashMap<>();
 
-    static {
-        // Positions des classes dans le GUI (format 6x9)
-        SLOT_TO_CLASS.put(10, ClassType.COMMANDO);
-        SLOT_TO_CLASS.put(12, ClassType.SCOUT);
-        SLOT_TO_CLASS.put(14, ClassType.MEDIC);
-        SLOT_TO_CLASS.put(16, ClassType.ENGINEER);
-        SLOT_TO_CLASS.put(28, ClassType.BERSERKER);
-        SLOT_TO_CLASS.put(34, ClassType.SNIPER);
-    }
+    // Slots des 3 classes (centré)
+    private static final int SLOT_GUERRIER = 11;
+    private static final int SLOT_CHASSEUR = 13;
+    private static final int SLOT_OCCULTISTE = 15;
 
     public ClassSelectionGUI(ZombieZPlugin plugin, ClassManager classManager) {
         this.plugin = plugin;
@@ -47,109 +39,77 @@ public class ClassSelectionGUI implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Ouvre le GUI de sélection de classe
-     */
     public void open(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 54, GUI_TITLE);
+        Inventory gui = Bukkit.createInventory(null, 27, GUI_TITLE);
         ClassData data = classManager.getClassData(player);
 
-        // Bordure décorative
-        ItemStack border = new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE)
-            .name(" ")
-            .build();
-
-        for (int i = 0; i < 54; i++) {
-            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
-                gui.setItem(i, border);
-            }
+        // Bordure
+        ItemStack border = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, border);
         }
 
-        // Titre central
+        // Titre
         gui.setItem(4, new ItemBuilder(Material.NETHER_STAR)
-            .name("§6§lCHOISSIS TA CLASSE")
+            .name("§6§lCHOIX DE CLASSE")
             .lore(
                 "",
-                "§7Chaque classe a un style de jeu unique",
-                "§7avec ses propres talents, compétences",
-                "§7et armes exclusives.",
+                "§7Choisissez une classe qui",
+                "§7correspond à votre style de jeu.",
                 "",
                 data.hasClass()
                     ? "§aClasse actuelle: " + data.getSelectedClass().getColoredName()
-                    : "§cAucune classe sélectionnée"
+                    : "§eCliquez sur une classe pour la sélectionner"
             )
             .build());
 
-        // Afficher les 6 classes
-        for (Map.Entry<Integer, ClassType> entry : SLOT_TO_CLASS.entrySet()) {
-            ClassType classType = entry.getValue();
-            boolean isSelected = data.getSelectedClass() == classType;
+        // === GUERRIER ===
+        gui.setItem(SLOT_GUERRIER, createClassItem(ClassType.GUERRIER, data));
 
-            List<String> lore = new ArrayList<>();
-            lore.add("");
-            lore.add(classType.getDescription());
-            lore.add("");
-            lore.add("§6Bonus de classe:");
-            for (String bonus : classType.getBonusDescription()) {
-                lore.add(bonus);
-            }
-            lore.add("");
-            lore.add("§eMultiplicateurs:");
-            lore.add("§7• Dégâts: §f" + formatMultiplier(classType.getDamageMultiplier()));
-            lore.add("§7• Vitesse: §f" + formatMultiplier(classType.getSpeedMultiplier()));
-            lore.add("§7• HP: §f" + formatMultiplier(classType.getHealthMultiplier()));
-            lore.add("§7• Critique: §f" + formatMultiplier(classType.getCritMultiplier()));
-            lore.add("§7• Loot: §f" + formatMultiplier(classType.getLootMultiplier()));
-            lore.add("");
+        // === CHASSEUR ===
+        gui.setItem(SLOT_CHASSEUR, createClassItem(ClassType.CHASSEUR, data));
 
-            if (isSelected) {
-                lore.add("§a✓ CLASSE ACTUELLE");
-            } else {
-                lore.add("§e▶ Clic pour sélectionner");
-            }
+        // === OCCULTISTE ===
+        gui.setItem(SLOT_OCCULTISTE, createClassItem(ClassType.OCCULTISTE, data));
 
-            Material icon = isSelected
-                ? Material.ENCHANTED_GOLDEN_APPLE
-                : classType.getIcon();
-
-            ItemStack item = new ItemBuilder(icon)
-                .name(classType.getColoredName() + (isSelected ? " §a✓" : ""))
-                .lore(lore)
-                .glow(isSelected)
-                .build();
-
-            gui.setItem(entry.getKey(), item);
-        }
-
-        // Bouton retour
-        gui.setItem(49, new ItemBuilder(Material.BARRIER)
-            .name("§c← Retour")
-            .lore("", "§7Retourner au menu principal")
-            .build());
-
-        // Info supplémentaire au milieu bas
-        gui.setItem(31, new ItemBuilder(Material.BOOK)
-            .name("§e§lINFORMATIONS")
-            .lore(
-                "",
-                "§7• Le changement de classe a un",
-                "§7  cooldown de §f24 heures",
-                "",
-                "§7• Vos talents et buffs sont",
-                "§7  conservés par classe",
-                "",
-                "§7• Chaque classe a §f3 armes uniques",
-                "§7  et §f6 compétences actives"
-            )
+        // Bouton fermer
+        gui.setItem(22, new ItemBuilder(Material.BARRIER)
+            .name("§c✕ Fermer")
             .build());
 
         player.openInventory(gui);
     }
 
-    private String formatMultiplier(double mult) {
-        if (mult == 1.0) return "§7100%";
-        if (mult > 1.0) return "§a+" + (int)((mult - 1) * 100) + "%";
-        return "§c" + (int)((mult - 1) * 100) + "%";
+    private ItemStack createClassItem(ClassType classType, ClassData data) {
+        boolean isSelected = data.hasClass() && data.getSelectedClass() == classType;
+
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+        lore.add(classType.getDescription());
+        lore.add("");
+        lore.add("§7Difficulté: " + classType.getDifficultyDisplay());
+        lore.add("");
+        lore.add("§6Bonus de classe:");
+
+        for (String bonus : classType.getBonusDescription()) {
+            lore.add(bonus);
+        }
+
+        lore.add("");
+        lore.add("§8──────────────");
+        lore.add("");
+
+        if (isSelected) {
+            lore.add("§a✓ CLASSE ACTUELLE");
+        } else {
+            lore.add("§e▶ Clic pour sélectionner");
+        }
+
+        return new ItemBuilder(isSelected ? Material.ENCHANTED_GOLDEN_APPLE : classType.getIcon())
+            .name(classType.getColoredName() + (isSelected ? " §a✓" : ""))
+            .lore(lore)
+            .glow(isSelected)
+            .build();
     }
 
     @EventHandler
@@ -158,31 +118,32 @@ public class ClassSelectionGUI implements Listener {
         event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (event.getCurrentItem() == null) return;
+        if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.GRAY_STAINED_GLASS_PANE) return;
 
         int slot = event.getRawSlot();
 
-        // Clic sur une classe
-        if (SLOT_TO_CLASS.containsKey(slot)) {
-            ClassType selectedClass = SLOT_TO_CLASS.get(slot);
+        ClassType selectedClass = switch (slot) {
+            case SLOT_GUERRIER -> ClassType.GUERRIER;
+            case SLOT_CHASSEUR -> ClassType.CHASSEUR;
+            case SLOT_OCCULTISTE -> ClassType.OCCULTISTE;
+            default -> null;
+        };
 
+        if (selectedClass != null) {
             if (classManager.selectClass(player, selectedClass)) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                 player.closeInventory();
 
-                // Ouvrir le GUI des talents après sélection
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    new TalentTreeGUI(plugin, classManager).open(player);
-                }, 20L);
+                // Ouvrir les talents après
+                Bukkit.getScheduler().runTaskLater(plugin, () ->
+                    new TalentTreeGUI(plugin, classManager).open(player), 20L);
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
         }
 
-        // Bouton retour
-        if (slot == 49) {
+        if (slot == 22) {
             player.closeInventory();
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
         }
     }
 }

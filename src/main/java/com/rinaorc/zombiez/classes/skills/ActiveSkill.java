@@ -5,12 +5,15 @@ import lombok.Getter;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Représente une compétence active de classe
- * Chaque classe a 4-6 compétences actives
- * Le joueur peut équiper jusqu'à 3 compétences
+ * Système de compétences actives simplifié
+ * Chaque classe a 4 compétences:
+ * - 2 compétences de base (débloquées automatiquement)
+ * - 1 compétence avancée (niveau 5 de classe requis)
+ * - 1 ultime (niveau 10 de classe requis)
  */
 @Getter
 public class ActiveSkill {
@@ -19,95 +22,111 @@ public class ActiveSkill {
     private final String name;
     private final String description;
     private final ClassType classType;
-    private final SkillSlot slot;        // Slot de compétence (PRIMARY, SECONDARY, ULTIMATE)
+    private final SkillType type;
     private final Material icon;
-    private final int baseCooldown;       // Cooldown en secondes
-    private final int manaCost;           // Coût en "énergie de classe"
-    private final boolean requiresUnlock; // Nécessite un talent pour débloquer
-    private final String unlockTalentId;  // ID du talent qui débloque cette compétence
+    private final int cooldown;           // En secondes
+    private final int energyCost;
+    private final int requiredLevel;      // 0 = débloqué de base
 
     // Paramètres de l'effet
     private final SkillEffect effectType;
-    private final double baseDamage;
-    private final double damageScaling;   // Bonus par niveau de classe
-    private final double baseRadius;      // Rayon d'effet (si AoE)
-    private final double baseDuration;    // Durée de l'effet (si applicable)
+    private final double damage;
+    private final double radius;          // Rayon AoE (0 = cible unique)
+    private final double duration;        // Durée de l'effet
     private final Sound castSound;
 
     public ActiveSkill(String id, String name, String description, ClassType classType,
-                       SkillSlot slot, Material icon, int baseCooldown, int manaCost,
-                       boolean requiresUnlock, String unlockTalentId,
-                       SkillEffect effectType, double baseDamage, double damageScaling,
-                       double baseRadius, double baseDuration, Sound castSound) {
+                       SkillType type, Material icon, int cooldown, int energyCost,
+                       int requiredLevel, SkillEffect effectType, double damage,
+                       double radius, double duration, Sound castSound) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.classType = classType;
-        this.slot = slot;
+        this.type = type;
         this.icon = icon;
-        this.baseCooldown = baseCooldown;
-        this.manaCost = manaCost;
-        this.requiresUnlock = requiresUnlock;
-        this.unlockTalentId = unlockTalentId;
+        this.cooldown = cooldown;
+        this.energyCost = energyCost;
+        this.requiredLevel = requiredLevel;
         this.effectType = effectType;
-        this.baseDamage = baseDamage;
-        this.damageScaling = damageScaling;
-        this.baseRadius = baseRadius;
-        this.baseDuration = baseDuration;
+        this.damage = damage;
+        this.radius = radius;
+        this.duration = duration;
         this.castSound = castSound;
     }
 
     /**
-     * Calcule les dégâts pour un niveau de classe donné
+     * Calcule les dégâts scalés avec le niveau de classe
      */
-    public double getDamageAtLevel(int classLevel) {
-        return baseDamage + (damageScaling * classLevel);
+    public double getScaledDamage(int classLevel) {
+        // +5% par niveau de classe
+        return damage * (1.0 + (classLevel * 0.05));
+    }
+
+    /**
+     * Vérifie si la compétence est débloquée pour un niveau donné
+     */
+    public boolean isUnlocked(int classLevel) {
+        return classLevel >= requiredLevel;
     }
 
     /**
      * Génère le lore pour l'affichage GUI
      */
-    public List<String> getLore(int classLevel, boolean isEquipped, boolean isUnlocked) {
-        double damage = getDamageAtLevel(classLevel);
+    public List<String> getLore(int classLevel, boolean isEquipped) {
+        List<String> lore = new ArrayList<>();
 
-        return List.of(
-            "",
-            "§7" + description,
-            "",
-            "§6Dégâts: §f" + String.format("%.0f", damage),
-            baseRadius > 0 ? "§6Rayon: §f" + String.format("%.1f", baseRadius) + " blocs" : "",
-            baseDuration > 0 ? "§6Durée: §f" + String.format("%.1f", baseDuration) + "s" : "",
-            "",
-            "§9Recharge: §f" + baseCooldown + "s",
-            "§9Énergie: §f" + manaCost,
-            "",
-            slot.getColor() + slot.getDisplayName(),
-            "",
-            !isUnlocked
-                ? "§c✗ Talent requis: " + unlockTalentId
-                : (isEquipped
-                    ? "§a✓ Équipée - Clic pour retirer"
-                    : "§e▶ Clic pour équiper")
-        ).stream().filter(s -> !s.isEmpty()).toList();
+        lore.add("");
+        lore.add("§7" + description);
+        lore.add("");
+
+        // Stats
+        if (damage > 0) {
+            lore.add("§c⚔ Dégâts: §f" + String.format("%.0f", getScaledDamage(classLevel)));
+        }
+        if (radius > 0) {
+            lore.add("§e◎ Rayon: §f" + String.format("%.0f", radius) + " blocs");
+        }
+        if (duration > 0) {
+            lore.add("§b⏱ Durée: §f" + String.format("%.0f", duration) + "s");
+        }
+
+        lore.add("");
+        lore.add("§9⟳ Recharge: §f" + cooldown + "s");
+        lore.add("§d✦ Énergie: §f" + energyCost);
+        lore.add("");
+        lore.add(type.getColor() + "● " + type.getDisplayName());
+        lore.add("");
+
+        if (!isUnlocked(classLevel)) {
+            lore.add("§c✗ Niveau §4" + requiredLevel + " §crequis");
+        } else if (isEquipped) {
+            lore.add("§a✓ Équipée");
+            lore.add("§7Clic pour retirer");
+        } else {
+            lore.add("§e▶ Clic pour équiper");
+        }
+
+        return lore;
     }
 
     /**
-     * Types de slots de compétence
+     * Types de compétences - simplifié
      */
     @Getter
-    public enum SkillSlot {
-        PRIMARY("Primaire", "§a", 1),      // Touche 1 - Compétences de base
-        SECONDARY("Secondaire", "§e", 2),   // Touche 2 - Compétences intermédiaires
-        ULTIMATE("Ultime", "§c", 3);        // Touche 3 - Compétences puissantes
+    public enum SkillType {
+        BASE("Compétence de base", "§a", 0),
+        ADVANCED("Compétence avancée", "§e", 5),
+        ULTIMATE("Ultime", "§c", 10);
 
         private final String displayName;
         private final String color;
-        private final int slotNumber;
+        private final int defaultRequiredLevel;
 
-        SkillSlot(String displayName, String color, int slotNumber) {
+        SkillType(String displayName, String color, int defaultRequiredLevel) {
             this.displayName = displayName;
             this.color = color;
-            this.slotNumber = slotNumber;
+            this.defaultRequiredLevel = defaultRequiredLevel;
         }
 
         public String getColoredName() {
@@ -116,48 +135,29 @@ public class ActiveSkill {
     }
 
     /**
-     * Types d'effets de compétence
+     * Types d'effets simplifié
      */
     public enum SkillEffect {
-        // Dégâts directs
-        SINGLE_TARGET_DAMAGE,    // Dégâts sur une cible
-        AOE_DAMAGE,              // Dégâts en zone
-        CONE_DAMAGE,             // Dégâts en cône
-        LINE_DAMAGE,             // Dégâts en ligne
-        DOT_DAMAGE,              // Dégâts sur le temps
-
-        // Soins
-        SELF_HEAL,               // Se soigner
-        AOE_HEAL,                // Soigner en zone
-        HOT_HEAL,                // Soins sur le temps
-        RESURRECT,               // Ressusciter
-
-        // Buff/Debuff
-        BUFF_SELF,               // Buff sur soi
-        BUFF_ALLIES,             // Buff sur alliés
-        DEBUFF_ENEMIES,          // Débuff sur ennemis
-        STUN,                    // Étourdir
-        SLOW,                    // Ralentir
-        ROOT,                    // Immobiliser
+        // Dégâts
+        DAMAGE,              // Dégâts directs
+        AOE_DAMAGE,          // Dégâts en zone
+        DOT_DAMAGE,          // Dégâts sur le temps
 
         // Mobilité
-        DASH,                    // Ruée
-        TELEPORT,                // Téléportation
-        KNOCKBACK,               // Repousser
-
-        // Invocations
-        SUMMON_TURRET,           // Invoquer tourelle
-        SUMMON_MINION,           // Invoquer créature
-        SUMMON_TRAP,             // Poser piège
+        DASH,                // Ruée vers l'avant
+        LEAP,                // Saut
 
         // Défensifs
-        SHIELD,                  // Bouclier
-        INVISIBILITY,            // Invisibilité
-        INVULNERABILITY,         // Invulnérabilité temporaire
+        HEAL,                // Soins
+        SHIELD,              // Bouclier absorbant
+
+        // Buff/Debuff
+        BUFF,                // Amélioration temporaire
+        STUN,                // Étourdir
+        SLOW,                // Ralentir
 
         // Spéciaux
-        EXECUTE,                 // Exécution
-        MARK,                    // Marquer une cible
-        TRANSFORM                // Transformation
+        SUMMON,              // Invocation
+        EXECUTE              // Exécution (bonus dégâts low HP)
     }
 }

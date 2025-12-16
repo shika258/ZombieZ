@@ -4,7 +4,6 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassManager;
 import com.rinaorc.zombiez.classes.skills.ActiveSkill;
-import com.rinaorc.zombiez.classes.skills.ActiveSkill.SkillSlot;
 import com.rinaorc.zombiez.classes.skills.SkillRegistry;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
@@ -20,8 +19,9 @@ import org.bukkit.inventory.ItemStack;
 import java.util.*;
 
 /**
- * GUI de gestion des compétences actives
- * Permet d'équiper/retirer les compétences dans les 3 slots
+ * GUI des compétences simplifié - 4 compétences par classe
+ * 2 de base, 1 avancée (nv5), 1 ultime (nv10)
+ * Le joueur peut équiper jusqu'à 3 compétences dans les slots 1-2-3
  */
 public class SkillsGUI implements Listener {
 
@@ -42,114 +42,123 @@ public class SkillsGUI implements Listener {
     public void open(Player player) {
         ClassData data = classManager.getClassData(player);
         if (!data.hasClass()) {
-            player.sendMessage("§cVous devez d'abord choisir une classe!");
+            player.sendMessage("§cChoisissez d'abord une classe!");
             return;
         }
 
-        Inventory gui = Bukkit.createInventory(null, 54, GUI_TITLE);
+        Inventory gui = Bukkit.createInventory(null, 45, GUI_TITLE);
         slotToSkill.clear();
 
         // Fond
-        ItemStack background = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
-            .name(" ")
-            .build();
-        for (int i = 0; i < 54; i++) {
-            gui.setItem(i, background);
+        ItemStack bg = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 0; i < 45; i++) {
+            gui.setItem(i, bg);
         }
 
         // Header
         gui.setItem(4, new ItemBuilder(data.getSelectedClass().getIcon())
-            .name("§6§lCOMPÉTENCES - " + data.getSelectedClass().getDisplayName())
+            .name(data.getSelectedClass().getColoredName() + " §7- Compétences")
             .lore(
                 "",
-                "§7Équipez vos compétences actives",
-                "§7dans les 3 slots disponibles.",
+                "§9Énergie: §f" + data.getEnergy().get() + "/" + data.getMaxEnergy().get(),
+                "§7Niveau de classe: §f" + data.getClassLevel().get(),
                 "",
-                "§9Énergie: §f" + data.getEnergy().get() + "/" + data.getMaxEnergy().get()
+                "§8Cliquez sur une compétence",
+                "§8pour l'équiper dans un slot"
             )
             .build());
 
-        // Slots équipés (en haut)
-        String[] slots = {"PRIMARY", "SECONDARY", "ULTIMATE"};
-        int[] equippedSlots = {19, 22, 25};
-        Material[] slotMaterials = {Material.GREEN_STAINED_GLASS_PANE, Material.YELLOW_STAINED_GLASS_PANE, Material.RED_STAINED_GLASS_PANE};
+        // Slots équipés (haut)
+        int[] equippedSlots = {11, 13, 15};
+        Material[] slotColors = {Material.GREEN_STAINED_GLASS_PANE, Material.YELLOW_STAINED_GLASS_PANE, Material.RED_STAINED_GLASS_PANE};
+        String[] slotNames = {"§a[1]", "§e[2]", "§c[3]"};
 
-        for (int i = 0; i < slots.length; i++) {
-            String slot = slots[i];
-            String equippedId = data.getEquippedSkill(slot);
-            SkillSlot skillSlot = SkillSlot.valueOf(slot);
+        for (int i = 0; i < 3; i++) {
+            String slotKey = "SLOT_" + (i + 1);
+            String equippedId = data.getEquippedSkill(slotKey);
 
             if (equippedId != null) {
                 ActiveSkill skill = skillRegistry.getSkill(equippedId);
                 if (skill != null) {
-                    int cooldown = data.getRemainingCooldown(skill.getId());
-
                     gui.setItem(equippedSlots[i], new ItemBuilder(skill.getIcon())
-                        .name(skillSlot.getColor() + "§l[" + skillSlot.getDisplayName() + "] §f" + skill.getName())
-                        .lore(skill.getLore(data.getClassLevel().get(), true, true))
-                        .glow(cooldown > 0)
+                        .name(slotNames[i] + " §f" + skill.getName())
+                        .lore(skill.getLore(data.getClassLevel().get(), true))
+                        .glow(true)
                         .build());
+                    continue;
                 }
-            } else {
-                gui.setItem(equippedSlots[i], new ItemBuilder(slotMaterials[i])
-                    .name(skillSlot.getColor() + "§l[" + skillSlot.getDisplayName() + "] §8Vide")
-                    .lore(
-                        "",
-                        "§7Aucune compétence équipée",
-                        "",
-                        "§8Cliquez sur une compétence",
-                        "§8ci-dessous pour l'équiper"
-                    )
-                    .build());
             }
+
+            gui.setItem(equippedSlots[i], new ItemBuilder(slotColors[i])
+                .name(slotNames[i] + " §8Vide")
+                .lore("", "§7Aucune compétence", "§7équipée dans ce slot")
+                .build());
         }
 
         // Séparateur
-        for (int i = 27; i < 36; i++) {
-            gui.setItem(i, new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE)
-                .name(" ")
-                .build());
-        }
-
-        // Label
-        gui.setItem(31, new ItemBuilder(Material.BOOK)
+        gui.setItem(20, new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).name(" ").build());
+        gui.setItem(22, new ItemBuilder(Material.BOOK)
             .name("§e▼ COMPÉTENCES DISPONIBLES ▼")
             .build());
+        gui.setItem(24, new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).name(" ").build());
 
-        // Compétences disponibles (en bas)
+        // Compétences disponibles (4 compétences en ligne)
         List<ActiveSkill> skills = skillRegistry.getSkillsForClass(data.getSelectedClass());
-        Set<String> unlockedTalents = data.getUnlockedTalents().keySet();
 
-        int skillSlot = 37;
+        int[] skillSlots = {29, 30, 32, 33}; // 4 slots centrés
+        int idx = 0;
+
         for (ActiveSkill skill : skills) {
-            if (skillSlot >= 53) break;
+            if (idx >= skillSlots.length) break;
 
-            boolean isUnlocked = !skill.isRequiresUnlock() ||
-                unlockedTalents.contains(skill.getUnlockTalentId());
-            boolean isEquipped = skill.getId().equals(data.getEquippedSkill(skill.getSlot().name()));
+            boolean isUnlocked = skill.isUnlocked(data.getClassLevel().get());
+            boolean isEquipped = isSkillEquipped(data, skill.getId());
 
-            Material icon = skill.getIcon();
-            if (!isUnlocked) {
-                icon = Material.BARRIER;
-            }
+            Material icon = isUnlocked ? skill.getIcon() : Material.BARRIER;
+            String namePrefix = isEquipped ? "§a✓ " : (isUnlocked ? "§f" : "§8");
 
-            gui.setItem(skillSlot, new ItemBuilder(icon)
-                .name(skill.getSlot().getColor() + skill.getName() +
-                    (isEquipped ? " §a✓" : ""))
-                .lore(skill.getLore(data.getClassLevel().get(), isEquipped, isUnlocked))
+            List<String> lore = skill.getLore(data.getClassLevel().get(), isEquipped);
+
+            gui.setItem(skillSlots[idx], new ItemBuilder(icon)
+                .name(namePrefix + skill.getName())
+                .lore(lore)
                 .glow(isEquipped)
                 .build());
 
-            slotToSkill.put(skillSlot, skill.getId());
-            skillSlot++;
+            if (isUnlocked) {
+                slotToSkill.put(skillSlots[idx], skill.getId());
+            }
+
+            idx++;
         }
 
-        // Retour
-        gui.setItem(45, new ItemBuilder(Material.ARROW)
+        // Navigation
+        gui.setItem(36, new ItemBuilder(Material.ARROW)
             .name("§c← Retour aux talents")
             .build());
 
+        gui.setItem(40, new ItemBuilder(Material.KNOWLEDGE_BOOK)
+            .name("§eAide")
+            .lore(
+                "",
+                "§7Touche 1 = Compétence slot 1",
+                "§7Touche 2 = Compétence slot 2",
+                "§7Touche 3 = Compétence slot 3",
+                "",
+                "§7Ou /class use <1-3>"
+            )
+            .build());
+
         player.openInventory(gui);
+    }
+
+    private boolean isSkillEquipped(ClassData data, String skillId) {
+        for (int i = 1; i <= 3; i++) {
+            if (skillId.equals(data.getEquippedSkill("SLOT_" + i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @EventHandler
@@ -163,14 +172,14 @@ public class SkillsGUI implements Listener {
         int slot = event.getRawSlot();
         ClassData data = classManager.getClassData(player);
 
-        // Clic sur compétence équipée = retirer
-        if (slot == 19 || slot == 22 || slot == 25) {
-            String slotName = slot == 19 ? "PRIMARY" : (slot == 22 ? "SECONDARY" : "ULTIMATE");
-            String equipped = data.getEquippedSkill(slotName);
+        // Clic sur slot équipé = retirer
+        if (slot == 11 || slot == 13 || slot == 15) {
+            int slotNum = slot == 11 ? 1 : (slot == 13 ? 2 : 3);
+            String slotKey = "SLOT_" + slotNum;
 
-            if (equipped != null) {
-                data.unequipSkill(slotName);
-                player.sendMessage("§e✗ Compétence retirée du slot " + SkillSlot.valueOf(slotName).getDisplayName());
+            if (data.getEquippedSkill(slotKey) != null) {
+                data.unequipSkill(slotKey);
+                player.sendMessage("§e✗ Compétence retirée du slot " + slotNum);
                 player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 0.8f);
                 open(player);
             }
@@ -180,7 +189,31 @@ public class SkillsGUI implements Listener {
         // Clic sur compétence disponible = équiper
         if (slotToSkill.containsKey(slot)) {
             String skillId = slotToSkill.get(slot);
-            if (classManager.equipSkill(player, skillId)) {
+
+            // Trouver le premier slot libre ou remplacer si déjà équipé
+            int targetSlot = -1;
+            for (int i = 1; i <= 3; i++) {
+                String equipped = data.getEquippedSkill("SLOT_" + i);
+                if (equipped == null) {
+                    targetSlot = i;
+                    break;
+                }
+                if (equipped.equals(skillId)) {
+                    // Déjà équipé, retirer
+                    data.unequipSkill("SLOT_" + i);
+                    player.sendMessage("§e✗ Compétence retirée");
+                    player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 0.8f);
+                    open(player);
+                    return;
+                }
+            }
+
+            if (targetSlot == -1) {
+                // Tous les slots sont pleins, remplacer le slot 1
+                targetSlot = 1;
+            }
+
+            if (classManager.equipSkill(player, skillId, targetSlot)) {
                 player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_DIAMOND, 1.0f, 1.2f);
                 open(player);
             } else {
@@ -190,9 +223,8 @@ public class SkillsGUI implements Listener {
         }
 
         // Retour
-        if (slot == 45) {
+        if (slot == 36) {
             new TalentTreeGUI(plugin, classManager).open(player);
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
         }
     }
 }

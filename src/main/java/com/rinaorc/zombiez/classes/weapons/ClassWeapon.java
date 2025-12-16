@@ -5,11 +5,14 @@ import lombok.Getter;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Représente une arme exclusive à une classe
- * Ces armes ne peuvent être utilisées que par les joueurs de la classe appropriée
+ * Système d'armes de classe simplifié
+ * Chaque classe a 2 armes exclusives:
+ * - 1 arme de BASE (niveau 1)
+ * - 1 arme LÉGENDAIRE (niveau 10)
  */
 @Getter
 public class ClassWeapon {
@@ -18,106 +21,109 @@ public class ClassWeapon {
     private final String name;
     private final String description;
     private final ClassType requiredClass;
-    private final WeaponTier tier;         // Tier de l'arme (BASIC, ADVANCED, LEGENDARY)
-    private final Material material;        // Matériau Minecraft utilisé
-    private final WeaponType type;          // Type d'arme (melee, ranged, special)
-    private final String unlockTalentId;    // Talent qui débloque cette arme
+    private final WeaponTier tier;
+    private final Material material;
+    private final int requiredLevel;      // 0 = de base, 10 = légendaire
 
-    // Stats de base
+    // Stats
     private final double baseDamage;
     private final double attackSpeed;
     private final double critChance;
-    private final double critMultiplier;
 
-    // Effet spécial de l'arme
-    private final WeaponEffect specialEffect;
-    private final double effectChance;      // Chance de proc (0-100)
-    private final double effectValue;       // Valeur de l'effet
+    // Effet spécial
+    private final WeaponEffect effect;
+    private final double effectValue;
     private final Sound attackSound;
 
     public ClassWeapon(String id, String name, String description, ClassType requiredClass,
-                       WeaponTier tier, Material material, WeaponType type, String unlockTalentId,
-                       double baseDamage, double attackSpeed, double critChance, double critMultiplier,
-                       WeaponEffect specialEffect, double effectChance, double effectValue,
-                       Sound attackSound) {
+                       WeaponTier tier, Material material, int requiredLevel,
+                       double baseDamage, double attackSpeed, double critChance,
+                       WeaponEffect effect, double effectValue, Sound attackSound) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.requiredClass = requiredClass;
         this.tier = tier;
         this.material = material;
-        this.type = type;
-        this.unlockTalentId = unlockTalentId;
+        this.requiredLevel = requiredLevel;
         this.baseDamage = baseDamage;
         this.attackSpeed = attackSpeed;
         this.critChance = critChance;
-        this.critMultiplier = critMultiplier;
-        this.specialEffect = specialEffect;
-        this.effectChance = effectChance;
+        this.effect = effect;
         this.effectValue = effectValue;
         this.attackSound = attackSound;
     }
 
     /**
-     * Calcule les dégâts scalés selon le niveau de zone
+     * Calcule les dégâts scalés selon le niveau de classe
      */
-    public double getScaledDamage(int zoneLevel) {
-        double zoneMultiplier = 1.0 + (zoneLevel * 0.08);
-        double tierMultiplier = switch (tier) {
-            case BASIC -> 1.0;
-            case ADVANCED -> 1.35;
-            case LEGENDARY -> 1.75;
-        };
-        return baseDamage * zoneMultiplier * tierMultiplier;
+    public double getScaledDamage(int classLevel) {
+        double levelMultiplier = 1.0 + (classLevel * 0.05);
+        double tierMultiplier = tier == WeaponTier.LEGENDARY ? 1.5 : 1.0;
+        return baseDamage * levelMultiplier * tierMultiplier;
+    }
+
+    /**
+     * Vérifie si l'arme est débloquée
+     */
+    public boolean isUnlocked(int classLevel) {
+        return classLevel >= requiredLevel;
     }
 
     /**
      * Génère le lore pour l'affichage
      */
-    public List<String> getLore(int zoneLevel, boolean canUse, boolean isUnlocked) {
-        double scaledDamage = getScaledDamage(zoneLevel);
+    public List<String> getLore(int classLevel, boolean isCorrectClass) {
+        List<String> lore = new ArrayList<>();
+        double scaledDamage = getScaledDamage(classLevel);
 
-        return List.of(
-            "",
-            tier.getColor() + tier.getDisplayName(),
-            "",
-            "§7" + description,
-            "",
-            "§c⚔ Dégâts: §f" + String.format("%.1f", scaledDamage),
-            "§e⚡ Vitesse: §f" + String.format("%.2f", attackSpeed),
-            "§6✦ Critique: §f" + String.format("%.1f", critChance) + "% (x" + String.format("%.1f", critMultiplier) + ")",
-            "",
-            "§d✧ Effet Spécial: §f" + specialEffect.getDisplayName(),
-            "§8  " + specialEffect.getDescription(effectValue),
-            "§8  Chance: " + String.format("%.0f", effectChance) + "%",
-            "",
-            "§9Classe requise: " + requiredClass.getColoredName(),
-            "",
-            !isUnlocked
-                ? "§c✗ Talent requis pour débloquer"
-                : (!canUse
-                    ? "§c✗ Vous n'êtes pas " + requiredClass.getDisplayName()
-                    : "§a✓ Vous pouvez utiliser cette arme")
-        );
+        lore.add("");
+        lore.add(tier.getColor() + "● " + tier.getDisplayName());
+        lore.add("");
+        lore.add("§7" + description);
+        lore.add("");
+
+        // Stats
+        lore.add("§c⚔ Dégâts: §f" + String.format("%.0f", scaledDamage));
+        lore.add("§e⚡ Vitesse: §f" + String.format("%.1f", attackSpeed));
+        lore.add("§6✦ Critique: §f" + String.format("%.0f", critChance) + "%");
+        lore.add("");
+
+        // Effet spécial
+        lore.add("§d✧ Effet: " + effect.getDisplayName());
+        lore.add("§8  " + effect.getDescription(effectValue));
+        lore.add("");
+
+        // Classe requise
+        lore.add("§9Classe: " + requiredClass.getColoredName());
+        lore.add("");
+
+        // État
+        if (!isCorrectClass) {
+            lore.add("§c✗ Classe incorrecte");
+        } else if (!isUnlocked(classLevel)) {
+            lore.add("§c✗ Niveau §4" + requiredLevel + " §crequis");
+        } else {
+            lore.add("§a✓ Utilisable");
+        }
+
+        return lore;
     }
 
     /**
-     * Tiers d'armes de classe
+     * Tiers d'armes simplifié
      */
     @Getter
     public enum WeaponTier {
-        BASIC("Basique", "§a", 1),
-        ADVANCED("Avancée", "§6", 2),
-        LEGENDARY("Légendaire", "§c", 3);
+        BASE("Arme de Classe", "§a"),
+        LEGENDARY("Arme Légendaire", "§c");
 
         private final String displayName;
         private final String color;
-        private final int level;
 
-        WeaponTier(String displayName, String color, int level) {
+        WeaponTier(String displayName, String color) {
             this.displayName = displayName;
             this.color = color;
-            this.level = level;
         }
 
         public String getColoredName() {
@@ -126,51 +132,21 @@ public class ClassWeapon {
     }
 
     /**
-     * Types d'armes
-     */
-    @Getter
-    public enum WeaponType {
-        MELEE("Mêlée", Material.IRON_SWORD),
-        RANGED("Distance", Material.BOW),
-        HEAVY("Lourde", Material.CROSSBOW),
-        SPECIAL("Spéciale", Material.BLAZE_ROD);
-
-        private final String displayName;
-        private final Material icon;
-
-        WeaponType(String displayName, Material icon) {
-            this.displayName = displayName;
-            this.icon = icon;
-        }
-    }
-
-    /**
-     * Effets spéciaux des armes
+     * Effets spéciaux simplifiés
      */
     @Getter
     public enum WeaponEffect {
-        // Effets de dégâts
-        EXPLOSIVE("Explosion", "Explose à l'impact ({value} rayon)"),
-        CHAIN("Chaîne", "Les dégâts rebondissent sur {value} cibles"),
-        PIERCE("Perforant", "Traverse {value} ennemis"),
-        BLEED("Saignement", "Inflige {value} dégâts/s pendant 5s"),
-        BURN("Brûlure", "Enflamme la cible pendant {value}s"),
-        FREEZE("Gel", "Ralentit de {value}% pendant 3s"),
-        SHOCK("Électrocution", "Étourdit pendant {value}s"),
+        // Guerrier
+        LIFESTEAL("Vol de Vie", "Soigne de {value}% des dégâts infligés"),
+        CLEAVE("Balayage", "Touche {value} ennemis supplémentaires"),
 
-        // Effets utilitaires
-        LIFESTEAL("Vol de Vie", "Soigne de {value}% des dégâts"),
-        EXECUTE("Exécution", "+{value}% dégâts aux <20% HP"),
-        CLEAVE("Tranchant", "Touche {value} ennemis supplémentaires"),
-        KNOCKBACK("Recul", "Repousse de {value} blocs"),
+        // Chasseur
+        PIERCE("Perforant", "Traverse jusqu'à {value} ennemis"),
+        CRIT_BOOST("Critique Amélioré", "+{value}% dégâts critiques"),
 
-        // Effets spéciaux
-        SUMMON("Invocation", "Invoque une créature alliée (durée {value}s)"),
-        HEAL_PULSE("Impulsion Soin", "Soigne les alliés proches de {value} HP"),
-        TURRET_BOOST("Boost Tourelles", "+{value}% dégâts des tourelles"),
-        RAGE_BUILD("Génération Rage", "+{value} rage par coup"),
-        MARK_TARGET("Marquage", "Marque la cible {value}s"),
-        STEALTH_BREAK("Briseur Furtif", "+{value}% dégâts depuis l'invisibilité");
+        // Occultiste
+        AOE_BLAST("Explosion Magique", "Explose et inflige {value}% des dégâts en zone"),
+        MANA_DRAIN("Drain de Mana", "Restaure {value} énergie par coup");
 
         private final String displayName;
         private final String descriptionTemplate;

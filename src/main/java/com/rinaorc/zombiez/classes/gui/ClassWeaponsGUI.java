@@ -4,7 +4,6 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassManager;
 import com.rinaorc.zombiez.classes.weapons.ClassWeapon;
-import com.rinaorc.zombiez.classes.weapons.ClassWeapon.WeaponTier;
 import com.rinaorc.zombiez.classes.weapons.ClassWeaponRegistry;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
@@ -15,11 +14,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 
 /**
- * GUI affichant les armes exclusives de la classe du joueur
+ * GUI des armes de classe simplifié - 2 armes par classe
+ * 1 arme de base (niveau 1), 1 arme légendaire (niveau 10)
  */
 public class ClassWeaponsGUI implements Listener {
 
@@ -39,126 +40,84 @@ public class ClassWeaponsGUI implements Listener {
     public void open(Player player) {
         ClassData data = classManager.getClassData(player);
         if (!data.hasClass()) {
-            player.sendMessage("§cVous devez d'abord choisir une classe!");
+            player.sendMessage("§cChoisissez d'abord une classe!");
             return;
         }
 
-        Inventory gui = Bukkit.createInventory(null, 45, GUI_TITLE);
+        Inventory gui = Bukkit.createInventory(null, 27, GUI_TITLE);
 
         // Fond
-        for (int i = 0; i < 45; i++) {
-            gui.setItem(i, new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
-                .name(" ")
-                .build());
+        ItemStack bg = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, bg);
         }
 
         // Header
         gui.setItem(4, new ItemBuilder(data.getSelectedClass().getIcon())
-            .name("§6§lARMES - " + data.getSelectedClass().getDisplayName())
+            .name(data.getSelectedClass().getColoredName() + " §7- Armes")
             .lore(
                 "",
-                "§7Armes exclusives à votre classe",
-                "§7Débloquez-les via les talents!",
+                "§7Armes exclusives à votre classe.",
+                "§7Niveau de classe: §f" + data.getClassLevel().get(),
                 "",
                 "§8Ces armes ne peuvent être utilisées",
-                "§8que par les " + data.getSelectedClass().getDisplayName() + "s"
+                "§8que par votre classe."
             )
             .build());
 
-        // Armes de la classe
+        // Récupérer les armes
         List<ClassWeapon> weapons = weaponRegistry.getWeaponsForClass(data.getSelectedClass());
 
-        // Positions: Tier 1 à gauche, Tier 2 au milieu, Tier 3 à droite
-        int[] positions = {20, 22, 24};
+        // Arme de base (slot 11)
+        ClassWeapon baseWeapon = weapons.stream()
+            .filter(w -> w.getTier() == ClassWeapon.WeaponTier.BASE)
+            .findFirst().orElse(null);
 
-        for (int i = 0; i < weapons.size() && i < positions.length; i++) {
-            ClassWeapon weapon = weapons.get(i);
-            boolean isUnlocked = data.hasTalent(weapon.getUnlockTalentId());
-
-            int zoneLevel = plugin.getPlayerDataManager().getPlayer(player).getCurrentZone().get();
-
-            // Label de tier au-dessus
-            int labelSlot = positions[i] - 9;
-            gui.setItem(labelSlot, new ItemBuilder(getTierIcon(weapon.getTier()))
-                .name(weapon.getTier().getColoredName())
-                .lore(
-                    "",
-                    "§7Arme de Tier " + weapon.getTier().getLevel()
-                )
+        if (baseWeapon != null) {
+            boolean unlocked = baseWeapon.isUnlocked(data.getClassLevel().get());
+            gui.setItem(11, new ItemBuilder(unlocked ? baseWeapon.getMaterial() : Material.BARRIER)
+                .name((unlocked ? "§a" : "§8") + baseWeapon.getName())
+                .lore(baseWeapon.getLore(data.getClassLevel().get(), true))
+                .glow(unlocked)
                 .build());
-
-            // L'arme
-            Material icon = isUnlocked ? weapon.getMaterial() : Material.BARRIER;
-
-            gui.setItem(positions[i], new ItemBuilder(icon)
-                .name(weapon.getTier().getColor() + weapon.getName() +
-                    (isUnlocked ? "" : " §c✗"))
-                .lore(weapon.getLore(zoneLevel, true, isUnlocked))
-                .glow(isUnlocked)
-                .build());
-
-            // Requirement en-dessous
-            int reqSlot = positions[i] + 9;
-            if (!isUnlocked) {
-                gui.setItem(reqSlot, new ItemBuilder(Material.BOOK)
-                    .name("§cPrérequis")
-                    .lore(
-                        "",
-                        "§7Talent requis:",
-                        "§e" + weapon.getUnlockTalentId(),
-                        "",
-                        "§8Débloquez ce talent pour",
-                        "§8obtenir cette arme!"
-                    )
-                    .build());
-            } else {
-                gui.setItem(reqSlot, new ItemBuilder(Material.LIME_DYE)
-                    .name("§a✓ DÉBLOQUÉE")
-                    .lore(
-                        "",
-                        "§7Cette arme peut drop",
-                        "§7dans le monde!",
-                        "",
-                        "§8Les stats dépendent de",
-                        "§8la zone où elle drop."
-                    )
-                    .build());
-            }
         }
 
-        // Info sur les autres classes
-        gui.setItem(40, new ItemBuilder(Material.COMPARATOR)
-            .name("§e§lAUTRES CLASSES")
+        // Arme légendaire (slot 15)
+        ClassWeapon legendaryWeapon = weapons.stream()
+            .filter(w -> w.getTier() == ClassWeapon.WeaponTier.LEGENDARY)
+            .findFirst().orElse(null);
+
+        if (legendaryWeapon != null) {
+            boolean unlocked = legendaryWeapon.isUnlocked(data.getClassLevel().get());
+            gui.setItem(15, new ItemBuilder(unlocked ? legendaryWeapon.getMaterial() : Material.BARRIER)
+                .name((unlocked ? "§c§l" : "§8") + legendaryWeapon.getName())
+                .lore(legendaryWeapon.getLore(data.getClassLevel().get(), true))
+                .glow(unlocked)
+                .build());
+        }
+
+        // Info centrale
+        gui.setItem(13, new ItemBuilder(Material.BOOK)
+            .name("§eComment obtenir les armes?")
             .lore(
                 "",
-                "§7Chaque classe a 3 armes uniques:",
+                "§a● Arme de Base",
+                "§7  Disponible au niveau 1",
                 "",
-                "§c• Commando §7- Armes lourdes",
-                "§a• Éclaireur §7- Armes silencieuses",
-                "§d• Médic §7- Armes médicales",
-                "§e• Ingénieur §7- Armes technologiques",
-                "§4• Berserker §7- Armes de mêlée",
-                "§b• Sniper §7- Armes de précision",
+                "§c● Arme Légendaire",
+                "§7  Disponible au niveau 10",
                 "",
-                "§8Les armes d'autres classes",
-                "§8sont inutilisables pour vous."
+                "§8Les armes drop des boss et",
+                "§8zombies élites en jeu."
             )
             .build());
 
         // Retour
-        gui.setItem(36, new ItemBuilder(Material.ARROW)
+        gui.setItem(22, new ItemBuilder(Material.ARROW)
             .name("§c← Retour aux talents")
             .build());
 
         player.openInventory(gui);
-    }
-
-    private Material getTierIcon(WeaponTier tier) {
-        return switch (tier) {
-            case BASIC -> Material.IRON_INGOT;
-            case ADVANCED -> Material.GOLD_INGOT;
-            case LEGENDARY -> Material.NETHERITE_INGOT;
-        };
     }
 
     @EventHandler
@@ -167,8 +126,9 @@ public class ClassWeaponsGUI implements Listener {
         event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getCurrentItem() == null) return;
 
-        if (event.getRawSlot() == 36) {
+        if (event.getRawSlot() == 22) {
             new TalentTreeGUI(plugin, classManager).open(player);
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
         }

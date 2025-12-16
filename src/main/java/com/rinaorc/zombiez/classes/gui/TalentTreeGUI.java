@@ -21,8 +21,9 @@ import org.bukkit.inventory.ItemStack;
 import java.util.*;
 
 /**
- * GUI de l'arbre de talents
- * Affiche les 3 branches de talents avec possibilité de débloquer
+ * GUI des talents simplifié - 2 branches par classe
+ * Branche COMBAT (gauche) et Branche SURVIE (droite)
+ * 5 talents par branche, progression linéaire
  */
 public class TalentTreeGUI implements Listener {
 
@@ -31,15 +32,11 @@ public class TalentTreeGUI implements Listener {
     private final ClassTalentTree talentTree;
 
     private static final String GUI_TITLE_PREFIX = "§0§l✦ TALENTS: ";
-    private final Map<UUID, TalentBranch> playerBranch = new HashMap<>();
     private final Map<Integer, String> slotToTalent = new HashMap<>();
 
-    // Layout: 6 rows x 9 cols
-    // Colonne 1 = Tier indicators
-    // Colonnes 2-3 = Branche 1
-    // Colonnes 4-5 = Branche 2
-    // Colonnes 6-7 = Branche 3
-    // Colonne 8 = Navigation
+    // Layout: 2 branches, 5 tiers chacune
+    // Branche OFFENSE: colonne 2
+    // Branche DEFENSE: colonne 6
 
     public TalentTreeGUI(ZombieZPlugin plugin, ClassManager classManager) {
         this.plugin = plugin;
@@ -48,21 +45,11 @@ public class TalentTreeGUI implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Ouvre le GUI des talents pour un joueur
-     */
     public void open(Player player) {
-        open(player, TalentBranch.OFFENSE);
-    }
-
-    /**
-     * Ouvre le GUI des talents avec une branche spécifique
-     */
-    public void open(Player player, TalentBranch branch) {
         ClassData data = classManager.getClassData(player);
 
         if (!data.hasClass()) {
-            player.sendMessage("§cVous devez d'abord choisir une classe!");
+            player.sendMessage("§cChoisissez d'abord une classe!");
             new ClassSelectionGUI(plugin, classManager).open(player);
             return;
         }
@@ -71,200 +58,122 @@ public class TalentTreeGUI implements Listener {
         String title = GUI_TITLE_PREFIX + classType.getDisplayName().toUpperCase() + " ✦";
         Inventory gui = Bukkit.createInventory(null, 54, title);
 
-        playerBranch.put(player.getUniqueId(), branch);
         slotToTalent.clear();
 
         // Fond
-        ItemStack background = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
-            .name(" ")
-            .build();
+        ItemStack bg = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE).name(" ").build();
         for (int i = 0; i < 54; i++) {
-            gui.setItem(i, background);
+            gui.setItem(i, bg);
         }
 
         // Header - Info classe
         gui.setItem(4, new ItemBuilder(classType.getIcon())
-            .name(classType.getColoredName() + " §7- Niveau " + data.getClassLevel().get())
+            .name(classType.getColoredName() + " §7Nv." + data.getClassLevel().get())
             .lore(
                 "",
-                "§7Points de talent: §e" + data.getAvailableTalentPoints(),
-                "§7XP de classe: §f" + data.getClassXp().get() + "/" + data.getRequiredXpForNextClassLevel(),
+                "§ePoints disponibles: §f" + data.getAvailableTalentPoints(),
+                "§7XP: §f" + data.getClassXp().get() + "/" + data.getRequiredXpForNextClassLevel(),
                 "",
-                "§8Clic droit pour changer de classe"
+                "§8Clic droit = Changer de classe"
             )
             .build());
 
-        // Onglets de branches (en haut)
-        int[] branchSlots = {1, 4, 7}; // Sera ajusté pour le layout réel
-        for (int i = 0; i < TalentBranch.values().length; i++) {
-            TalentBranch b = TalentBranch.values()[i];
-            boolean isSelected = b == branch;
+        // Titre branche COMBAT
+        gui.setItem(1, new ItemBuilder(Material.DIAMOND_SWORD)
+            .name("§c§lBRANCHE COMBAT")
+            .lore("", "§7Augmente vos dégâts", "§7et votre potentiel offensif")
+            .build());
 
-            gui.setItem(i == 0 ? 1 : (i == 1 ? 4 : 7), new ItemBuilder(b.getIcon())
-                .name(b.getColoredName() + (isSelected ? " §e◄" : ""))
-                .lore(
-                    "",
-                    "§7" + b.getDescription(),
-                    "",
-                    isSelected ? "§a✓ Sélectionné" : "§e▶ Clic pour voir"
-                )
-                .glow(isSelected)
-                .build());
+        // Titre branche SURVIE
+        gui.setItem(7, new ItemBuilder(Material.GOLDEN_APPLE)
+            .name("§6§lBRANCHE SURVIE")
+            .lore("", "§7Augmente votre résistance", "§7et votre utilité")
+            .build());
+
+        // Afficher les talents OFFENSE (colonne 2)
+        List<ClassTalent> offenseTalents = talentTree.getTalentsForBranch(classType, TalentBranch.OFFENSE);
+        for (ClassTalent talent : offenseTalents) {
+            int slot = 11 + (talent.getTier() - 1) * 9; // Tiers 1-5
+            placeTalent(gui, slot, talent, data);
         }
 
-        // Afficher les talents de la branche sélectionnée
-        List<ClassTalent> branchTalents = talentTree.getTalentsForBranch(classType, branch);
-
-        // Layout: 5 tiers, 2 talents par tier possible
-        // Lignes 1-5 pour les tiers
-        for (ClassTalent talent : branchTalents) {
-            int tier = talent.getTier();
-            int row = tier; // Tier 1 = row 1, etc.
-
-            // Trouver le slot disponible dans cette ligne
-            int baseSlot = row * 9 + 2; // Commence colonne 2
-            List<ClassTalent> sameTierTalents = branchTalents.stream()
-                .filter(t -> t.getTier() == tier)
-                .toList();
-
-            int indexInTier = sameTierTalents.indexOf(talent);
-            int slot = baseSlot + (indexInTier * 3); // Espacer les talents
-
-            if (slot < 54 && slot >= 0) {
-                int currentLevel = data.getTalentLevel(talent.getId());
-                boolean canUnlock = talentTree.canUnlock(data.getUnlockedTalents(), talent.getId());
-                boolean isMaxed = currentLevel >= talent.getMaxLevel();
-
-                Material icon = talent.getIcon();
-                if (isMaxed) {
-                    icon = Material.ENCHANTED_GOLDEN_APPLE;
-                } else if (currentLevel > 0) {
-                    icon = Material.GOLDEN_APPLE;
-                } else if (!canUnlock) {
-                    icon = Material.BARRIER;
-                }
-
-                List<String> lore = new ArrayList<>();
-                lore.add("");
-                lore.add(talent.getDescriptionAtLevel(Math.max(1, currentLevel)));
-                lore.add("");
-                lore.add("§7Tier " + tier + " | Coût: §e" + talent.getPointCost() + " point(s)");
-                lore.add("");
-
-                if (currentLevel > 0) {
-                    lore.add("§aNiveau actuel: §f" + currentLevel + "/" + talent.getMaxLevel());
-                } else {
-                    lore.add("§8Non débloqué");
-                }
-
-                if (talent.getPrerequisiteId() != null) {
-                    ClassTalent prereq = talentTree.getTalent(talent.getPrerequisiteId());
-                    boolean hasPrereq = data.getTalentLevel(talent.getPrerequisiteId()) >= prereq.getMaxLevel();
-                    lore.add("");
-                    lore.add(hasPrereq
-                        ? "§a✓ Prérequis: " + prereq.getName()
-                        : "§c✗ Requiert: " + prereq.getName() + " max");
-                }
-
-                lore.add("");
-                if (isMaxed) {
-                    lore.add("§a✓ NIVEAU MAXIMUM");
-                } else if (canUnlock && data.getAvailableTalentPoints() >= talent.getPointCost()) {
-                    lore.add("§e▶ Clic pour améliorer");
-                } else if (!canUnlock) {
-                    lore.add("§c✗ Prérequis manquant");
-                } else {
-                    lore.add("§c✗ Points insuffisants");
-                }
-
-                gui.setItem(slot, new ItemBuilder(icon)
-                    .name((currentLevel > 0 ? "§a" : "§7") + talent.getName() +
-                        (isMaxed ? " §6✦" : ""))
-                    .lore(lore)
-                    .glow(isMaxed)
-                    .build());
-
-                slotToTalent.put(slot, talent.getId());
-            }
+        // Afficher les talents DEFENSE (colonne 6)
+        List<ClassTalent> defenseTalents = talentTree.getTalentsForBranch(classType, TalentBranch.DEFENSE);
+        for (ClassTalent talent : defenseTalents) {
+            int slot = 15 + (talent.getTier() - 1) * 9; // Tiers 1-5
+            placeTalent(gui, slot, talent, data);
         }
 
-        // Indicateurs de tier à gauche
-        for (int tier = 1; tier <= 5; tier++) {
-            int slot = tier * 9;
-            String tierName = switch (tier) {
-                case 1 -> "§7Tier I - Novice";
-                case 2 -> "§a Tier II - Apprenti";
-                case 3 -> "§bTier III - Expert";
-                case 4 -> "§dTier IV - Maître";
-                case 5 -> "§6Tier V - Ultime";
-                default -> "";
-            };
+        // Lignes de connexion (visuelles)
+        for (int tier = 1; tier <= 4; tier++) {
+            int offenseSlot = 11 + tier * 9 - 9 + 9;
+            int defenseSlot = 15 + tier * 9 - 9 + 9;
 
-            gui.setItem(slot, new ItemBuilder(
-                tier == 5 ? Material.NETHER_STAR : Material.BOOK)
-                .name(tierName)
-                .lore("", "§8Débloquez les talents", "§8pour accéder au tier suivant")
-                .build());
+            // Indicateur de progression
+            ItemStack connector = new ItemBuilder(Material.CHAIN)
+                .name("§8↓")
+                .build();
         }
 
-        // Navigation à droite
-        gui.setItem(8, new ItemBuilder(Material.ARROW)
+        // Navigation
+        gui.setItem(45, new ItemBuilder(Material.ARROW)
             .name("§c← Retour")
-            .lore("", "§7Retour au menu principal")
             .build());
 
-        gui.setItem(17, new ItemBuilder(Material.GOLDEN_APPLE)
-            .name("§6Buffs Arcade")
-            .lore(
-                "",
-                "§7Buffs collectés: §f" + data.getTotalBuffCount(),
-                "",
-                "§e▶ Clic pour voir vos buffs"
-            )
-            .build());
-
-        gui.setItem(26, new ItemBuilder(Material.DIAMOND_SWORD)
-            .name("§9Compétences Actives")
-            .lore(
-                "",
-                "§7Gérez vos compétences équipées",
-                "",
-                "§e▶ Clic pour ouvrir"
-            )
-            .build());
-
-        gui.setItem(35, new ItemBuilder(Material.NETHERITE_SWORD)
-            .name("§cArmes de Classe")
-            .lore(
-                "",
-                "§7Armes exclusives à votre classe",
-                "",
-                "§e▶ Clic pour voir"
-            )
-            .build());
-
-        gui.setItem(44, new ItemBuilder(Material.TNT)
+        gui.setItem(49, new ItemBuilder(Material.TNT)
             .name("§4Reset Talents")
-            .lore(
-                "",
-                "§7Réinitialise tous vos talents",
-                "§7Coût: §c100 Gemmes",
-                "",
-                "§c⚠ Cette action est définitive!"
-            )
+            .lore("", "§7Coût: §c100 Gemmes", "", "§cShift+Clic pour confirmer")
             .build());
 
-        gui.setItem(53, new ItemBuilder(Material.COMPASS)
-            .name("§eMutations du Jour")
-            .lore(
-                "",
-                "§7Voir les mutations actives",
-                "",
-                "§e▶ Clic pour voir"
-            )
+        gui.setItem(47, new ItemBuilder(Material.COMPASS)
+            .name("§eCompétences")
+            .lore("", "§7Voir vos compétences", "", "§e▶ Clic pour ouvrir")
+            .build());
+
+        gui.setItem(51, new ItemBuilder(Material.NETHERITE_SWORD)
+            .name("§6Armes de Classe")
+            .lore("", "§7Voir vos armes", "", "§e▶ Clic pour ouvrir")
+            .build());
+
+        gui.setItem(53, new ItemBuilder(Material.EXPERIENCE_BOTTLE)
+            .name("§bBuffs Collectés")
+            .lore("", "§7Total: §f" + data.getTotalBuffCount(), "", "§e▶ Clic pour voir")
             .build());
 
         player.openInventory(gui);
+    }
+
+    private void placeTalent(Inventory gui, int slot, ClassTalent talent, ClassData data) {
+        int currentLevel = data.getTalentLevel(talent.getId());
+        boolean canUnlock = talentTree.canUnlock(data.getUnlockedTalents(), talent.getId());
+        boolean isMaxed = currentLevel >= talent.getMaxLevel();
+
+        Material icon;
+        String namePrefix;
+
+        if (isMaxed) {
+            icon = Material.ENCHANTED_GOLDEN_APPLE;
+            namePrefix = "§a✓ ";
+        } else if (currentLevel > 0) {
+            icon = talent.getIcon();
+            namePrefix = "§e";
+        } else if (canUnlock) {
+            icon = talent.getIcon();
+            namePrefix = "§7";
+        } else {
+            icon = Material.BARRIER;
+            namePrefix = "§8";
+        }
+
+        List<String> lore = talent.getLore(currentLevel, data.getAvailableTalentPoints());
+
+        gui.setItem(slot, new ItemBuilder(icon)
+            .name(namePrefix + talent.getName())
+            .lore(lore)
+            .glow(isMaxed)
+            .build());
+
+        slotToTalent.put(slot, talent.getId());
     }
 
     @EventHandler
@@ -277,81 +186,40 @@ public class TalentTreeGUI implements Listener {
         if (event.getCurrentItem() == null) return;
 
         int slot = event.getRawSlot();
-        ClassData data = classManager.getClassData(player);
 
-        // Onglets de branches
-        if (slot == 1) {
-            open(player, TalentBranch.OFFENSE);
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            return;
-        }
-        if (slot == 4) {
-            open(player, TalentBranch.DEFENSE);
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            return;
-        }
-        if (slot == 7) {
-            open(player, TalentBranch.SPECIALTY);
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            return;
-        }
-
-        // Clic sur un talent
+        // Clic sur talent
         if (slotToTalent.containsKey(slot)) {
             String talentId = slotToTalent.get(slot);
             if (classManager.unlockTalent(player, talentId)) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.2f);
-                open(player, playerBranch.getOrDefault(player.getUniqueId(), TalentBranch.OFFENSE));
+                open(player);
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1.0f);
             }
             return;
         }
 
-        // Boutons de navigation
+        // Navigation
         switch (slot) {
-            case 8 -> { // Retour
-                player.closeInventory();
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+            case 4 -> { // Header = clic droit pour changer classe
+                if (event.isRightClick()) {
+                    new ClassSelectionGUI(plugin, classManager).open(player);
+                }
             }
-            case 17 -> { // Buffs Arcade
-                new BuffsGUI(plugin, classManager).open(player);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            }
-            case 26 -> { // Compétences
-                new SkillsGUI(plugin, classManager).open(player);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            }
-            case 35 -> { // Armes
-                new ClassWeaponsGUI(plugin, classManager).open(player);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-            }
-            case 44 -> { // Reset talents
+            case 45 -> player.closeInventory();
+            case 47 -> new SkillsGUI(plugin, classManager).open(player);
+            case 49 -> { // Reset
                 if (event.isShiftClick()) {
                     if (classManager.resetTalents(player, false)) {
                         player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 0.8f);
-                        open(player, playerBranch.getOrDefault(player.getUniqueId(), TalentBranch.OFFENSE));
+                        open(player);
                     }
                 } else {
-                    player.sendMessage("§c⚠ Shift+Clic pour confirmer le reset (100 gemmes)");
+                    player.sendMessage("§c⚠ Shift+Clic pour confirmer");
                 }
             }
-            case 53 -> { // Mutations
-                showMutations(player);
-            }
+            case 51 -> new ClassWeaponsGUI(plugin, classManager).open(player);
+            case 53 -> new BuffsGUI(plugin, classManager).open(player);
         }
-
-        // Clic droit sur header = changer de classe
-        if (slot == 4 && event.isRightClick()) {
-            new ClassSelectionGUI(plugin, classManager).open(player);
-        }
-    }
-
-    private void showMutations(Player player) {
-        List<String> summary = classManager.getMutationManager().getMutationSummary();
-        for (String line : summary) {
-            player.sendMessage(line);
-        }
-        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
     }
 }

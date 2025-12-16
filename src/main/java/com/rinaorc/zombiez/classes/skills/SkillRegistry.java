@@ -2,7 +2,7 @@ package com.rinaorc.zombiez.classes.skills;
 
 import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.skills.ActiveSkill.SkillEffect;
-import com.rinaorc.zombiez.classes.skills.ActiveSkill.SkillSlot;
+import com.rinaorc.zombiez.classes.skills.ActiveSkill.SkillType;
 import lombok.Getter;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -10,8 +10,14 @@ import org.bukkit.Sound;
 import java.util.*;
 
 /**
- * Registre de toutes les compétences actives par classe
- * Chaque classe a 6 compétences: 2 primaires, 2 secondaires, 2 ultimes
+ * Registre des compétences simplifié - 4 compétences par classe
+ *
+ * Structure par classe:
+ * - 2 compétences de BASE (niveau 1)
+ * - 1 compétence AVANCÉE (niveau 5)
+ * - 1 compétence ULTIME (niveau 10)
+ *
+ * Le joueur peut équiper jusqu'à 3 compétences actives.
  */
 @Getter
 public class SkillRegistry {
@@ -32,276 +38,159 @@ public class SkillRegistry {
     }
 
     private void registerAllSkills() {
-        registerCommandoSkills();
-        registerScoutSkills();
-        registerMedicSkills();
-        registerEngineerSkills();
-        registerBerserkerSkills();
-        registerSniperSkills();
+        registerGuerrierSkills();
+        registerChasseurSkills();
+        registerOccultisteSkills();
     }
 
-    // ==================== COMMANDO ====================
-    private void registerCommandoSkills() {
-        ClassType c = ClassType.COMMANDO;
+    // ==================== GUERRIER ====================
+    // Focus: Mêlée, survie, dégâts bruts
+    private void registerGuerrierSkills() {
+        ClassType c = ClassType.GUERRIER;
 
-        // === PRIMAIRES ===
-        register(new ActiveSkill("cmd_burst", "Tir en Rafale",
-            "Tire une rafale de 5 projectiles en succession rapide",
-            c, SkillSlot.PRIMARY, Material.BLAZE_ROD, 8, 20,
-            false, null,
-            SkillEffect.LINE_DAMAGE, 15, 2, 0, 0, Sound.ENTITY_FIREWORK_ROCKET_BLAST));
+        // COMPÉTENCE 1 - Charge (BASE)
+        // Fonce vers l'avant et frappe les ennemis
+        register(new ActiveSkill(
+            "gue_charge", "Charge Brutale",
+            "Foncez vers l'avant et frappez tous les ennemis sur votre passage",
+            c, SkillType.BASE, Material.IRON_SWORD,
+            8, 20, 0,
+            SkillEffect.DASH, 50, 3, 0,
+            Sound.ENTITY_RAVAGER_ATTACK
+        ));
 
-        register(new ActiveSkill("cmd_grenade", "Grenade Frag",
-            "Lance une grenade explosive qui inflige des dégâts en zone",
-            c, SkillSlot.PRIMARY, Material.FIRE_CHARGE, 12, 30,
-            false, null,
-            SkillEffect.AOE_DAMAGE, 40, 4, 4, 0, Sound.ENTITY_GENERIC_EXPLODE));
+        // COMPÉTENCE 2 - Cri de guerre (BASE)
+        // Buff de dégâts temporaire
+        register(new ActiveSkill(
+            "gue_warcry", "Cri de Guerre",
+            "Poussez un cri terrifiant qui augmente vos dégâts de 30%",
+            c, SkillType.BASE, Material.GOAT_HORN,
+            20, 30, 0,
+            SkillEffect.BUFF, 0, 0, 8,
+            Sound.EVENT_RAID_HORN
+        ));
 
-        // === SECONDAIRES ===
-        register(new ActiveSkill("cmd_suppression", "Tir de Suppression",
-            "Tire en continu pendant 3s, ralentissant tous les ennemis touchés",
-            c, SkillSlot.SECONDARY, Material.CHAIN, 20, 50,
-            false, null,
-            SkillEffect.SLOW, 25, 3, 6, 3, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE));
+        // COMPÉTENCE 3 - Frappe sismique (AVANCÉE)
+        // Gros AoE au sol
+        register(new ActiveSkill(
+            "gue_slam", "Frappe Sismique",
+            "Frappez le sol avec une force dévastatrice, infligeant des dégâts en zone",
+            c, SkillType.ADVANCED, Material.MACE,
+            15, 50, 5,
+            SkillEffect.AOE_DAMAGE, 100, 5, 0,
+            Sound.ENTITY_WARDEN_SONIC_BOOM
+        ));
 
-        register(new ActiveSkill("cmd_flashbang", "Grenade Flashbang",
-            "Aveugle et étourdit les ennemis dans la zone pendant 2s",
-            c, SkillSlot.SECONDARY, Material.GLOWSTONE_DUST, 25, 40,
-            false, null,
-            SkillEffect.STUN, 0, 0, 5, 2, Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("cmd_airstrike", "Frappe Aérienne",
-            "Appelle une frappe aérienne dévastatrice sur la zone ciblée",
-            c, SkillSlot.ULTIMATE, Material.TNT, 60, 100,
-            true, "cmd_barrage",
-            SkillEffect.AOE_DAMAGE, 200, 15, 8, 0, Sound.ENTITY_LIGHTNING_BOLT_THUNDER));
-
-        register(new ActiveSkill("cmd_siege", "Mode Siège",
-            "S'ancre au sol, +50% dégâts et résistance, mais immobile pendant 10s",
-            c, SkillSlot.ULTIMATE, Material.NETHERITE_CHESTPLATE, 90, 80,
-            true, "cmd_fortress",
-            SkillEffect.BUFF_SELF, 0, 0, 0, 10, Sound.BLOCK_ANVIL_LAND));
+        // COMPÉTENCE 4 - Rage immortelle (ULTIME)
+        // Invulnérable + boost de dégâts massif
+        register(new ActiveSkill(
+            "gue_rage", "Rage Immortelle",
+            "Devenez invulnérable et gagnez +100% dégâts pendant 5 secondes",
+            c, SkillType.ULTIMATE, Material.TOTEM_OF_UNDYING,
+            90, 100, 10,
+            SkillEffect.BUFF, 0, 0, 5,
+            Sound.ITEM_TOTEM_USE
+        ));
     }
 
-    // ==================== ÉCLAIREUR (SCOUT) ====================
-    private void registerScoutSkills() {
-        ClassType c = ClassType.SCOUT;
+    // ==================== CHASSEUR ====================
+    // Focus: Distance, critiques, mobilité
+    private void registerChasseurSkills() {
+        ClassType c = ClassType.CHASSEUR;
 
-        // === PRIMAIRES ===
-        register(new ActiveSkill("sct_backstab", "Coup dans le Dos",
-            "Dash derrière la cible et inflige des dégâts critiques garantis",
-            c, SkillSlot.PRIMARY, Material.IRON_SWORD, 10, 25,
-            false, null,
-            SkillEffect.SINGLE_TARGET_DAMAGE, 30, 3, 0, 0, Sound.ENTITY_PLAYER_ATTACK_SWEEP));
+        // COMPÉTENCE 1 - Tir rapide (BASE)
+        // Tire plusieurs projectiles rapidement
+        register(new ActiveSkill(
+            "cha_multishot", "Tir Rapide",
+            "Tirez une rafale de 3 flèches en succession rapide",
+            c, SkillType.BASE, Material.ARROW,
+            6, 15, 0,
+            SkillEffect.DAMAGE, 30, 0, 0,
+            Sound.ENTITY_ARROW_SHOOT
+        ));
 
-        register(new ActiveSkill("sct_trap", "Piège à Loup",
-            "Pose un piège invisible qui immobilise et endommage les ennemis",
-            c, SkillSlot.PRIMARY, Material.TRIPWIRE_HOOK, 15, 20,
-            false, null,
-            SkillEffect.SUMMON_TRAP, 20, 2, 0, 5, Sound.BLOCK_TRIPWIRE_ATTACH));
+        // COMPÉTENCE 2 - Roulade (BASE)
+        // Dash d'évasion
+        register(new ActiveSkill(
+            "cha_roll", "Roulade Tactique",
+            "Effectuez une roulade rapide pour esquiver et repositionner",
+            c, SkillType.BASE, Material.FEATHER,
+            5, 10, 0,
+            SkillEffect.DASH, 0, 0, 0,
+            Sound.ENTITY_PHANTOM_FLAP
+        ));
 
-        // === SECONDAIRES ===
-        register(new ActiveSkill("sct_vanish", "Disparition",
-            "Devient invisible pendant 5s, le prochain coup inflige +100% dégâts",
-            c, SkillSlot.SECONDARY, Material.POTION, 25, 50,
-            false, null,
-            SkillEffect.INVISIBILITY, 0, 0, 0, 5, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE));
+        // COMPÉTENCE 3 - Piège explosif (AVANCÉE)
+        // Pose un piège qui explose
+        register(new ActiveSkill(
+            "cha_trap", "Piège Explosif",
+            "Posez un piège invisible qui explose au passage des ennemis",
+            c, SkillType.ADVANCED, Material.TRIPWIRE_HOOK,
+            12, 40, 5,
+            SkillEffect.AOE_DAMAGE, 80, 4, 30,
+            Sound.BLOCK_TRIPWIRE_ATTACH
+        ));
 
-        register(new ActiveSkill("sct_smokebomb", "Bombe Fumigène",
-            "Crée un nuage de fumée qui aveugle les ennemis et augmente l'esquive",
-            c, SkillSlot.SECONDARY, Material.GRAY_DYE, 20, 35,
-            false, null,
-            SkillEffect.BUFF_SELF, 0, 0, 5, 4, Sound.ENTITY_SPLASH_POTION_BREAK));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("sct_bladedance", "Danse des Lames",
-            "Enchaîne 8 coups rapides sur les ennemis proches en 3s",
-            c, SkillSlot.ULTIMATE, Material.DIAMOND_SWORD, 60, 100,
-            true, "sct_shadow",
-            SkillEffect.AOE_DAMAGE, 150, 12, 5, 3, Sound.ENTITY_PLAYER_ATTACK_CRIT));
-
-        register(new ActiveSkill("sct_shadowcloak", "Voile d'Ombre",
-            "Invisibilité totale 10s + 200% dégâts au premier coup + reset cooldowns",
-            c, SkillSlot.ULTIMATE, Material.ENDER_EYE, 90, 80,
-            true, "sct_phantom",
-            SkillEffect.INVISIBILITY, 0, 0, 0, 10, Sound.ENTITY_ENDERMAN_TELEPORT));
+        // COMPÉTENCE 4 - Tir mortel (ULTIME)
+        // Gros crit garanti
+        register(new ActiveSkill(
+            "cha_deadeye", "Tir Mortel",
+            "Concentrez-vous pour un tir parfait: critique garanti x3 dégâts",
+            c, SkillType.ULTIMATE, Material.ENDER_EYE,
+            60, 80, 10,
+            SkillEffect.EXECUTE, 200, 0, 0,
+            Sound.ENTITY_ARROW_HIT_PLAYER
+        ));
     }
 
-    // ==================== MÉDIC ====================
-    private void registerMedicSkills() {
-        ClassType c = ClassType.MEDIC;
+    // ==================== OCCULTISTE ====================
+    // Focus: AoE, sorts puissants, contrôle
+    private void registerOccultisteSkills() {
+        ClassType c = ClassType.OCCULTISTE;
 
-        // === PRIMAIRES ===
-        register(new ActiveSkill("med_heal", "Soin d'Urgence",
-            "Soigne instantanément vous-même ou un allié ciblé",
-            c, SkillSlot.PRIMARY, Material.GLISTERING_MELON_SLICE, 8, 30,
-            false, null,
-            SkillEffect.SELF_HEAL, 50, 5, 0, 0, Sound.ENTITY_PLAYER_LEVELUP));
+        // COMPÉTENCE 1 - Orbe d'ombre (BASE)
+        // Projectile magique
+        register(new ActiveSkill(
+            "occ_orb", "Orbe d'Ombre",
+            "Lancez un orbe d'énergie sombre qui explose à l'impact",
+            c, SkillType.BASE, Material.ENDER_PEARL,
+            4, 15, 0,
+            SkillEffect.AOE_DAMAGE, 40, 3, 0,
+            Sound.ENTITY_ENDER_DRAGON_SHOOT
+        ));
 
-        register(new ActiveSkill("med_injection", "Injection Stimulante",
-            "Injecte un stim qui augmente la vitesse et les dégâts de 25% pendant 8s",
-            c, SkillSlot.PRIMARY, Material.BLAZE_POWDER, 15, 35,
-            false, null,
-            SkillEffect.BUFF_SELF, 0, 0, 0, 8, Sound.ENTITY_WITCH_DRINK));
+        // COMPÉTENCE 2 - Drain vital (BASE)
+        // Dégâts + heal
+        register(new ActiveSkill(
+            "occ_drain", "Drain Vital",
+            "Drainez la vie d'un ennemi pour vous soigner de 50% des dégâts",
+            c, SkillType.BASE, Material.GHAST_TEAR,
+            10, 25, 0,
+            SkillEffect.DAMAGE, 60, 0, 0,
+            Sound.ENTITY_ILLUSIONER_CAST_SPELL
+        ));
 
-        // === SECONDAIRES ===
-        register(new ActiveSkill("med_aura", "Aura de Régénération",
-            "Crée une zone de soin qui régénère tous les alliés proches",
-            c, SkillSlot.SECONDARY, Material.GOLDEN_APPLE, 25, 60,
-            false, null,
-            SkillEffect.AOE_HEAL, 10, 2, 6, 8, Sound.BLOCK_BEACON_AMBIENT));
+        // COMPÉTENCE 3 - Nova de feu (AVANCÉE)
+        // Grosse explosion AoE
+        register(new ActiveSkill(
+            "occ_nova", "Nova Infernale",
+            "Déclenchez une explosion de flammes autour de vous",
+            c, SkillType.ADVANCED, Material.FIRE_CHARGE,
+            15, 60, 5,
+            SkillEffect.AOE_DAMAGE, 120, 6, 0,
+            Sound.ENTITY_BLAZE_SHOOT
+        ));
 
-        register(new ActiveSkill("med_toxin", "Toxine Paralysante",
-            "Tire une seringue qui empoisonne et ralentit la cible",
-            c, SkillSlot.SECONDARY, Material.SPIDER_EYE, 18, 40,
-            false, null,
-            SkillEffect.DOT_DAMAGE, 30, 3, 0, 6, Sound.ENTITY_SPIDER_AMBIENT));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("med_revive", "Résurrection de Masse",
-            "Ressuscite tous les alliés morts dans la zone avec 50% HP",
-            c, SkillSlot.ULTIMATE, Material.TOTEM_OF_UNDYING, 120, 100,
-            true, "med_immortal",
-            SkillEffect.RESURRECT, 0, 0, 10, 0, Sound.ITEM_TOTEM_USE));
-
-        register(new ActiveSkill("med_plague", "Nuage Toxique",
-            "Libère un nuage de poison qui inflige des dégâts massifs sur la durée",
-            c, SkillSlot.ULTIMATE, Material.DRAGON_BREATH, 60, 80,
-            true, "med_pandemic",
-            SkillEffect.DOT_DAMAGE, 200, 15, 6, 10, Sound.ENTITY_ENDER_DRAGON_GROWL));
-    }
-
-    // ==================== INGÉNIEUR ====================
-    private void registerEngineerSkills() {
-        ClassType c = ClassType.ENGINEER;
-
-        // === PRIMAIRES ===
-        register(new ActiveSkill("eng_turret", "Tourelle Automatique",
-            "Déploie une tourelle qui tire sur les ennemis pendant 30s",
-            c, SkillSlot.PRIMARY, Material.DISPENSER, 30, 50,
-            false, null,
-            SkillEffect.SUMMON_TURRET, 15, 2, 0, 30, Sound.BLOCK_PISTON_EXTEND));
-
-        register(new ActiveSkill("eng_mine", "Mine de Proximité",
-            "Pose une mine invisible qui explose au passage des ennemis",
-            c, SkillSlot.PRIMARY, Material.HEAVY_WEIGHTED_PRESSURE_PLATE, 12, 25,
-            false, null,
-            SkillEffect.SUMMON_TRAP, 60, 5, 3, 60, Sound.BLOCK_STONE_BUTTON_CLICK_ON));
-
-        // === SECONDAIRES ===
-        register(new ActiveSkill("eng_shield", "Bouclier Énergétique",
-            "Crée un bouclier qui absorbe les prochains dégâts",
-            c, SkillSlot.SECONDARY, Material.END_CRYSTAL, 25, 50,
-            false, null,
-            SkillEffect.SHIELD, 100, 10, 0, 8, Sound.BLOCK_BEACON_ACTIVATE));
-
-        register(new ActiveSkill("eng_drone", "Drone de Combat",
-            "Déploie un drone qui suit et attaque les ennemis",
-            c, SkillSlot.SECONDARY, Material.BAT_SPAWN_EGG, 35, 60,
-            false, null,
-            SkillEffect.SUMMON_MINION, 20, 3, 0, 20, Sound.ENTITY_BEE_LOOP));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("eng_orbital", "Frappe Orbitale",
-            "Appelle un bombardement orbital massif sur la zone ciblée",
-            c, SkillSlot.ULTIMATE, Material.TNT_MINECART, 90, 100,
-            true, "eng_artillery",
-            SkillEffect.AOE_DAMAGE, 300, 20, 10, 3, Sound.ENTITY_WITHER_SPAWN));
-
-        register(new ActiveSkill("eng_dome", "Dôme Protecteur",
-            "Crée un dôme qui bloque tous les projectiles pendant 10s",
-            c, SkillSlot.ULTIMATE, Material.BEACON, 60, 80,
-            true, "eng_bunker",
-            SkillEffect.SHIELD, 500, 30, 6, 10, Sound.BLOCK_BEACON_POWER_SELECT));
-    }
-
-    // ==================== BERSERKER ====================
-    private void registerBerserkerSkills() {
-        ClassType c = ClassType.BERSERKER;
-
-        // === PRIMAIRES ===
-        register(new ActiveSkill("ber_charge", "Charge Brutale",
-            "Fonce vers l'ennemi, l'étourdit et inflige des dégâts",
-            c, SkillSlot.PRIMARY, Material.NETHERITE_AXE, 10, 25,
-            false, null,
-            SkillEffect.DASH, 40, 4, 0, 1, Sound.ENTITY_RAVAGER_STEP));
-
-        register(new ActiveSkill("ber_warcry", "Cri de Guerre",
-            "Pousse un cri qui augmente vos dégâts de 30% et effraie les faibles",
-            c, SkillSlot.PRIMARY, Material.GOAT_HORN, 20, 30,
-            false, null,
-            SkillEffect.BUFF_SELF, 0, 0, 8, 10, Sound.EVENT_RAID_HORN));
-
-        // === SECONDAIRES ===
-        register(new ActiveSkill("ber_slam", "Frappe Sismique",
-            "Frappe le sol, infligeant des dégâts et projetant les ennemis",
-            c, SkillSlot.SECONDARY, Material.MACE, 15, 40,
-            false, null,
-            SkillEffect.AOE_DAMAGE, 60, 6, 5, 0, Sound.ENTITY_IRON_GOLEM_ATTACK));
-
-        register(new ActiveSkill("ber_frenzy", "Frénésie",
-            "Entre en frénésie: +50% vitesse d'attaque, vol de vie doublé pendant 8s",
-            c, SkillSlot.SECONDARY, Material.BLAZE_POWDER, 30, 50,
-            false, null,
-            SkillEffect.BUFF_SELF, 0, 0, 0, 8, Sound.ENTITY_VINDICATOR_AMBIENT));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("ber_whirlwind", "Tourbillon Sanglant",
-            "Tournoie sur place pendant 5s, infligeant des dégâts massifs autour",
-            c, SkillSlot.ULTIMATE, Material.NETHERITE_AXE, 60, 100,
-            true, "ber_rampage",
-            SkillEffect.AOE_DAMAGE, 250, 20, 4, 5, Sound.ENTITY_PLAYER_ATTACK_SWEEP));
-
-        register(new ActiveSkill("ber_immortal", "Rage Éternelle",
-            "Devient immortel pendant 5s, puis récupère 50% des dégâts subis en HP",
-            c, SkillSlot.ULTIMATE, Material.TOTEM_OF_UNDYING, 120, 80,
-            true, "ber_undying",
-            SkillEffect.INVULNERABILITY, 0, 0, 0, 5, Sound.ITEM_TOTEM_USE));
-    }
-
-    // ==================== SNIPER ====================
-    private void registerSniperSkills() {
-        ClassType c = ClassType.SNIPER;
-
-        // === PRIMAIRES ===
-        register(new ActiveSkill("snp_pierce", "Tir Perforant",
-            "Tire un projectile qui traverse tous les ennemis en ligne",
-            c, SkillSlot.PRIMARY, Material.SPECTRAL_ARROW, 12, 30,
-            false, null,
-            SkillEffect.LINE_DAMAGE, 50, 5, 0, 0, Sound.ENTITY_ARROW_HIT));
-
-        register(new ActiveSkill("snp_mark", "Marque du Chasseur",
-            "Marque un ennemi, révélant sa position et augmentant les dégâts reçus",
-            c, SkillSlot.PRIMARY, Material.GLOW_INK_SAC, 15, 20,
-            false, null,
-            SkillEffect.MARK, 0, 0, 0, 15, Sound.ENTITY_EVOKER_PREPARE_ATTACK));
-
-        // === SECONDAIRES ===
-        register(new ActiveSkill("snp_camo", "Camouflage",
-            "Devient invisible et gagne +50% dégâts au prochain tir",
-            c, SkillSlot.SECONDARY, Material.GREEN_DYE, 20, 40,
-            false, null,
-            SkillEffect.INVISIBILITY, 0, 0, 0, 8, Sound.ENTITY_PHANTOM_AMBIENT));
-
-        register(new ActiveSkill("snp_explosive", "Tir Explosif",
-            "Tire un projectile qui explose à l'impact",
-            c, SkillSlot.SECONDARY, Material.FIRE_CHARGE, 18, 45,
-            false, null,
-            SkillEffect.AOE_DAMAGE, 80, 8, 4, 0, Sound.ENTITY_GENERIC_EXPLODE));
-
-        // === ULTIMES ===
-        register(new ActiveSkill("snp_deadeye", "Tir Parfait",
-            "Le prochain tir est un headshot garanti x3 dégâts, ignore armure",
-            c, SkillSlot.ULTIMATE, Material.ENDER_EYE, 45, 80,
-            true, "snp_deadeye",
-            SkillEffect.SINGLE_TARGET_DAMAGE, 300, 25, 0, 0, Sound.ENTITY_ARROW_HIT_PLAYER));
-
-        register(new ActiveSkill("snp_spectral", "Tir Spectral",
-            "Tire un projectile qui ignore les murs et touche tous les ennemis marqués",
-            c, SkillSlot.ULTIMATE, Material.SCULK_SENSOR, 90, 100,
-            true, "snp_shadow_sniper",
-            SkillEffect.AOE_DAMAGE, 150, 15, 50, 0, Sound.ENTITY_VEX_CHARGE));
+        // COMPÉTENCE 4 - Apocalypse (ULTIME)
+        // Dégâts AoE massifs sur la durée
+        register(new ActiveSkill(
+            "occ_apocalypse", "Apocalypse",
+            "Invoquez une pluie de météores dévastateurs sur la zone ciblée",
+            c, SkillType.ULTIMATE, Material.NETHER_STAR,
+            90, 100, 10,
+            SkillEffect.AOE_DAMAGE, 300, 10, 5,
+            Sound.ENTITY_WITHER_SPAWN
+        ));
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================
@@ -321,29 +210,44 @@ public class SkillRegistry {
     }
 
     /**
-     * Obtient les compétences d'un slot spécifique
+     * Obtient les compétences débloquées pour un niveau de classe
      */
-    public List<ActiveSkill> getSkillsBySlot(ClassType classType, SkillSlot slot) {
+    public List<ActiveSkill> getUnlockedSkills(ClassType classType, int classLevel) {
         return getSkillsForClass(classType).stream()
-            .filter(s -> s.getSlot() == slot)
+            .filter(s -> s.isUnlocked(classLevel))
             .toList();
     }
 
     /**
-     * Obtient les compétences débloquées (sans prérequis de talent)
+     * Obtient les compétences par type
      */
-    public List<ActiveSkill> getUnlockedSkills(ClassType classType, Set<String> unlockedTalents) {
+    public List<ActiveSkill> getSkillsByType(ClassType classType, SkillType type) {
         return getSkillsForClass(classType).stream()
-            .filter(s -> !s.isRequiresUnlock() || unlockedTalents.contains(s.getUnlockTalentId()))
+            .filter(s -> s.getType() == type)
             .toList();
     }
 
     /**
-     * Obtient toutes les compétences de base (sans prérequis)
+     * Obtient toutes les compétences de base (niveau 0)
      */
     public List<ActiveSkill> getBaseSkills(ClassType classType) {
-        return getSkillsForClass(classType).stream()
-            .filter(s -> !s.isRequiresUnlock())
-            .toList();
+        return getSkillsByType(classType, SkillType.BASE);
+    }
+
+    /**
+     * Obtient la compétence ultime d'une classe
+     */
+    public ActiveSkill getUltimateSkill(ClassType classType) {
+        return getSkillsByType(classType, SkillType.ULTIMATE).stream()
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Vérifie si une compétence appartient à une classe
+     */
+    public boolean isSkillForClass(String skillId, ClassType classType) {
+        ActiveSkill skill = getSkill(skillId);
+        return skill != null && skill.getClassType() == classType;
     }
 }

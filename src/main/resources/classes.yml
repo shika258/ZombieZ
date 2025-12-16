@@ -1,5 +1,6 @@
 # ============================================
 # Configuration du système de classes ZombieZ
+# Version simplifiée - 3 classes
 # ============================================
 
 # Paramètres généraux
@@ -28,12 +29,12 @@ class-xp:
 
 # Configuration des compétences
 skills:
+  # Nombre de slots de compétences actives
+  skill-slots: 3
   # Réduction maximale de cooldown (%)
   max-cooldown-reduction: 50
   # Énergie régénérée par kill
   energy-per-kill: 10
-  # Bonus d'énergie pour les kills en streak
-  streak-energy-bonus: 2
 
 # Configuration des armes de classe
 class-weapons:
@@ -54,8 +55,6 @@ mutations:
   reset-hour: 0
   # Annoncer les nouvelles mutations au login
   announce-on-login: true
-  # Bonus d'XP pour jour de mutation légendaire
-  legendary-day-xp-bonus: 25
 
 # Configuration des buffs arcade
 arcade-buffs:
@@ -64,7 +63,7 @@ arcade-buffs:
   # Peut-on sauter un choix?
   allow-skip: false
   # Bonus de chance pour buffs de sa classe (%)
-  class-buff-weight-bonus: 50
+  class-buff-weight-bonus: 40
 
 # Messages
 messages:
@@ -79,44 +78,25 @@ messages:
   weapon-class-restricted: "&cCette arme est réservée aux {class}!"
   buff-selected: "&a✓ Buff obtenu: {buff}"
   class-levelup: "&6&l✦ NIVEAU DE CLASSE {level} ✦"
-  mutation-announcement: "&6&l✦ MUTATIONS DU JOUR ✦"
 
-# Multiplicateurs par défaut des classes
+# Multiplicateurs des 3 classes
 # Ces valeurs sont en backup, les vraies valeurs sont dans ClassType.java
 class-defaults:
-  commando:
-    damage: 1.15
-    speed: 1.0
-    health: 1.10
-    crit: 0.95
-    loot: 1.0
-  scout:
-    damage: 0.95
-    speed: 1.20
-    health: 0.90
-    crit: 1.15
-    loot: 1.10
-  medic:
-    damage: 0.90
-    speed: 1.05
-    health: 1.15
-    crit: 1.0
-    loot: 1.0
-  engineer:
-    damage: 0.95
-    speed: 1.0
-    health: 1.05
-    crit: 1.0
-    loot: 1.15
-  berserker:
-    damage: 1.25
+  guerrier:
+    damage: 1.20
     speed: 0.95
-    health: 1.20
+    health: 1.25
     crit: 0.90
-    loot: 0.90
-  sniper:
-    damage: 1.10
-    speed: 0.90
-    health: 0.85
-    crit: 1.25
-    loot: 1.05
+    lifesteal: 0.10
+  chasseur:
+    damage: 1.05
+    speed: 1.15
+    health: 0.90
+    crit: 1.30
+    lifesteal: 0.0
+  occultiste:
+    damage: 1.40
+    speed: 1.0
+    health: 0.80
+    crit: 1.10
+    lifesteal: 0.0

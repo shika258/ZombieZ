@@ -7,8 +7,9 @@ import org.bukkit.Material;
 import java.util.List;
 
 /**
- * Représente un talent de classe
- * Les talents sont organisés en arbres avec des prérequis
+ * Représente un talent de classe simplifié
+ * Les talents sont organisés en 2 branches: OFFENSE et DEFENSE
+ * Progression linéaire facile à comprendre
  */
 @Getter
 public class ClassTalent {
@@ -62,7 +63,7 @@ public class ClassTalent {
      */
     public String getDescriptionAtLevel(int level) {
         double value = getValueAtLevel(level);
-        return description.replace("{value}", String.format("%.1f", value))
+        return description.replace("{value}", String.format("%.0f", value))
                          .replace("{value_int}", String.valueOf((int) value));
     }
 
@@ -72,31 +73,36 @@ public class ClassTalent {
     public List<String> getLore(int currentLevel, int availablePoints) {
         return new java.util.ArrayList<>(List.of(
             "",
-            "§7" + branch.getColor() + branch.getDisplayName(),
+            branch.getColor() + branch.getDisplayName(),
             "",
             getDescriptionAtLevel(Math.max(1, currentLevel)),
             "",
             currentLevel > 0
-                ? "§aActuel: §f" + currentLevel + "/" + maxLevel
+                ? "§7Niveau: " + branch.getColor() + currentLevel + "§7/" + maxLevel
                 : "§8Non débloqué",
             "",
             currentLevel < maxLevel
                 ? (availablePoints >= pointCost
-                    ? "§e▶ Clic pour améliorer (" + pointCost + " points)"
-                    : "§cPoints insuffisants (" + pointCost + " requis)")
-                : "§a✓ Niveau maximum atteint"
+                    ? "§e▶ Clic pour améliorer (§6" + pointCost + " point" + (pointCost > 1 ? "s" : "") + "§e)"
+                    : "§cPoints insuffisants (§4" + pointCost + "§c requis)")
+                : "§a✓ Maximum atteint!"
         ));
     }
 
     /**
-     * Branches des arbres de talents
+     * Vérifie si ce talent est un talent capstone (tier 5)
+     */
+    public boolean isCapstone() {
+        return tier == 5;
+    }
+
+    /**
+     * Branches des arbres de talents - Simplifié à 2 branches
      */
     @Getter
     public enum TalentBranch {
-        // Branches communes (chaque classe a ces 3 branches)
-        OFFENSE("Offensive", "§c", Material.DIAMOND_SWORD, "Améliore vos capacités offensives"),
-        DEFENSE("Défensive", "§a", Material.SHIELD, "Améliore votre survie"),
-        SPECIALTY("Spécialité", "§6", Material.NETHER_STAR, "Talents uniques de votre classe");
+        OFFENSE("Combat", "§c", Material.DIAMOND_SWORD, "Améliore vos dégâts et attaques"),
+        DEFENSE("Survie", "§6", Material.GOLDEN_APPLE, "Améliore votre défense et utilité");
 
         private final String displayName;
         private final String color;
@@ -116,52 +122,41 @@ public class ClassTalent {
     }
 
     /**
-     * Types d'effets des talents
+     * Types d'effets des talents - Simplifié
      */
     public enum TalentEffect {
-        // Offensifs
+        // === OFFENSIFS ===
         DAMAGE_PERCENT,         // +% dégâts
-        DAMAGE_FLAT,            // +dégâts fixes
         CRIT_CHANCE,            // +% chance critique
         CRIT_DAMAGE,            // +% dégâts critiques
-        ATTACK_SPEED,           // +% vitesse d'attaque
-        ARMOR_PENETRATION,      // +% pénétration d'armure
         HEADSHOT_DAMAGE,        // +% dégâts headshot
-        EXECUTE_DAMAGE,         // +% dégâts sur cibles low HP
+        EXECUTE_DAMAGE,         // +% dégâts aux cibles low HP
+        CLEAVE_TARGETS,         // +nombre d'ennemis touchés
+        PIERCE_TARGETS,         // +nombre d'ennemis traversés
+        RAGE_DAMAGE,            // +% dégâts quand low HP
+        GUARANTEED_CRIT,        // Critique garanti
+        SKILL_POWER,            // +% puissance des compétences
+        AOE_RADIUS,             // +% rayon des AoE
+        DOT_DAMAGE,             // +% dégâts sur la durée
 
-        // Défensifs
+        // === DÉFENSIFS ===
         HEALTH_PERCENT,         // +% HP max
-        HEALTH_FLAT,            // +HP fixe
         DAMAGE_REDUCTION,       // +% réduction de dégâts
         DODGE_CHANCE,           // +% chance d'esquive
-        BLOCK_CHANCE,           // +% chance de bloquer
         LIFESTEAL,              // +% vol de vie
-        REGEN_PERCENT,          // +% régénération
-        THORNS,                 // +% dégâts de renvoi
+        REGEN_PERCENT,          // +% régénération de vie
+        LAST_STAND,             // Survit à un coup fatal
+        RESURRECT,              // Ressuscite après mort
 
-        // Utilitaires
+        // === UTILITAIRES ===
         MOVEMENT_SPEED,         // +% vitesse de déplacement
-        LOOT_CHANCE,            // +% chance de loot
-        XP_BONUS,               // +% XP gagné
-        COOLDOWN_REDUCTION,     // -% temps de recharge compétences
-        SKILL_DURATION,         // +% durée des compétences
-
-        // Spéciaux (propres à certaines classes)
-        TURRET_DAMAGE,          // +% dégâts des tourelles (Ingénieur)
-        TURRET_DURATION,        // +durée des tourelles (Ingénieur)
-        HEAL_POWER,             // +% puissance de soin (Médic)
-        HEAL_RANGE,             // +portée des soins (Médic)
-        RAGE_GENERATION,        // +% génération de rage (Berserker)
-        RAGE_DAMAGE,            // +% dégâts en rage (Berserker)
-        STEALTH_DURATION,       // +durée invisibilité (Éclaireur)
-        STEALTH_DAMAGE,         // +% dégâts depuis furtivité (Éclaireur)
-        SUPPRESSION_RANGE,      // +portée suppression (Commando)
-        EXPLOSIVE_DAMAGE,       // +% dégâts explosifs (Commando)
-        SCOPE_ZOOM,             // +% zoom (Sniper)
-        MARK_DURATION,          // +durée des marques (Sniper)
-
-        // Passifs spéciaux
-        UNLOCK_SKILL,           // Débloque une compétence active
-        UNLOCK_WEAPON           // Débloque une arme de classe
+        COOLDOWN_REDUCTION,     // -% temps de recharge
+        STEALTH_DAMAGE,         // +% dégâts depuis furtivité
+        STEALTH_ON_KILL,        // Invisibilité après kill
+        ENERGY_MAX,             // +énergie max
+        ENERGY_REGEN,           // +% régénération d'énergie
+        DAMAGE_TO_ENERGY,       // Dégâts absorbés en énergie
+        SPELL_LIFESTEAL,        // +% vol de vie des sorts
+        ULTIMATE_RESET          // Reset du cooldown ultime
     }
 }
