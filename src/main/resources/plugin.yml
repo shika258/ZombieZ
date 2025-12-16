@@ -39,6 +39,12 @@ commands:
     permission: zombiez.admin.consumables
     aliases: [zzc, consumable]
 
+  zzevent:
+    description: Gestion des événements dynamiques
+    usage: /<command> <spawn|list|stop|info|stats|toggle|interval|debug>
+    permission: zombiez.admin.events
+    aliases: [zze, event]
+
   # Commandes Joueur
   spawn:
     description: Téléportation au spawn
@@ -108,6 +114,7 @@ permissions:
       zombiez.admin.items: true
       zombiez.admin.zombies: true
       zombiez.admin.consumables: true
+      zombiez.admin.events: true
 
   zombiez.admin.items:
     description: Gestion des items procéduraux
@@ -119,6 +126,10 @@ permissions:
 
   zombiez.admin.consumables:
     description: Gestion des consommables
+    default: op
+
+  zombiez.admin.events:
+    description: Gestion des événements dynamiques
     default: op
 
   zombiez.reload:

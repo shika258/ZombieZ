@@ -1,0 +1,144 @@
+# ===============================================
+# ZombieZ - Configuration des Événements Dynamiques
+# ===============================================
+# Ce fichier contrôle le système d'événements dynamiques
+# qui génère automatiquement des événements près des joueurs.
+#
+# Les événements spawn TOUJOURS près des joueurs et JAMAIS
+# dans les zones safe (spawn).
+#
+# La probabilité de spawn augmente si plusieurs joueurs
+# sont dans la même zone.
+# ===============================================
+
+dynamic-events:
+  # Activer/désactiver le système d'événements dynamiques
+  enabled: true
+
+  # Intervalle entre les événements (en secondes)
+  # Un événement sera spawné aléatoirement entre min et max
+  min-interval-seconds: 600    # 10 minutes minimum
+  max-interval-seconds: 1200   # 20 minutes maximum
+
+  # Nombre maximum d'événements actifs simultanément
+  max-concurrent: 3
+
+  # Nombre minimum de joueurs en ligne pour que les événements spawn
+  min-players: 1
+
+  # Distance de spawn par rapport au joueur ciblé
+  spawn-radius:
+    min: 30   # Distance minimum en blocs
+    max: 60   # Distance maximum en blocs
+
+  # Multiplicateur de chance par joueur supplémentaire dans une zone
+  # Exemple: avec 0.15, 5 joueurs = 1 + (4 * 0.15) = 1.6x la chance
+  player-count-multiplier: 0.15
+
+  # Configuration par type d'événement
+  types:
+    # Largage Aérien - Un crate rare tombe du ciel
+    airdrop:
+      enabled: true
+      # Poids relatif de spawn (plus élevé = plus fréquent)
+      weight-override: 15
+      # Durée maximum en secondes
+      duration-seconds: 300
+      # Récompenses
+      base-points: 150
+      base-xp: 100
+
+    # Nid de Zombies - Détruire un spawner
+    zombie_nest:
+      enabled: true
+      weight-override: 20
+      duration-seconds: 240
+      base-points: 200
+      base-xp: 150
+      # Vie de base du nid (multipliée par le niveau de zone)
+      base-health: 100
+
+    # Invasion de Horde - Défendre un point
+    horde_invasion:
+      enabled: true
+      weight-override: 12
+      duration-seconds: 180
+      base-points: 300
+      base-xp: 200
+      # Nombre de vagues de base
+      base-waves: 5
+
+    # Convoi de Survivants - Escorter des PNJ
+    survivor_convoy:
+      enabled: true
+      weight-override: 8
+      duration-seconds: 360
+      base-points: 250
+      base-xp: 175
+      # Nombre de survivants à escorter
+      base-survivors: 3
+
+    # Boss Errant - Tuer un boss puissant
+    wandering_boss:
+      enabled: true
+      weight-override: 5   # Plus rare
+      duration-seconds: 300
+      base-points: 500
+      base-xp: 300
+      # Vie de base du boss (multipliée par le niveau de zone)
+      base-health: 500
+
+# ===============================================
+# Messages des événements
+# ===============================================
+messages:
+  event-start: "&e&l[ÉVÉNEMENT] &7Un événement &e%event% &7a démarré!"
+  event-complete: "&a&l[ÉVÉNEMENT] &7L'événement &e%event% &7a été complété!"
+  event-failed: "&c&l[ÉVÉNEMENT] &7L'événement &e%event% &7a échoué..."
+
+  airdrop:
+    landing: "&b&l[LARGAGE] &7Le crate a atterri! Défendez-le!"
+    opened: "&a&l[LARGAGE] &7Le coffre est ouvert! Récupérez le loot!"
+
+  zombie_nest:
+    damaged: "&c&l[NID] &7Le nid a été endommagé!"
+    destroyed: "&a&l[NID] &7Le nid a été détruit!"
+
+  horde_invasion:
+    wave-start: "&c&l[HORDE] &7Vague %wave% commence!"
+    wave-complete: "&a&l[HORDE] &7Vague %wave% repoussée!"
+
+  survivor_convoy:
+    survivor-death: "&c&l[CONVOI] &7Un survivant est mort!"
+    arrived: "&a&l[CONVOI] &7Les survivants sont arrivés au refuge!"
+
+  wandering_boss:
+    enraged: "&4&l[BOSS] &c%boss% est enragé!"
+    killed: "&a&l[BOSS] &7%boss% a été vaincu!"
+    escaped: "&c&l[BOSS] &7%boss% s'est échappé..."
+
+# ===============================================
+# Récompenses bonus par zone
+# ===============================================
+zone-bonuses:
+  # Points bonus par niveau de zone
+  points-per-zone: 10
+  # XP bonus par niveau de zone
+  xp-per-zone: 5
+  # Multiplicateur de difficulté par zone
+  difficulty-multiplier: 0.02
+
+# ===============================================
+# Effets visuels et sonores
+# ===============================================
+effects:
+  # Afficher les particules
+  particles: true
+  # Jouer les sons
+  sounds: true
+  # Afficher les boss bars
+  boss-bars: true
+  # Afficher les titres d'annonce
+  titles: true
+  # Rayon d'annonce des événements (en blocs)
+  announcement-radius: 100

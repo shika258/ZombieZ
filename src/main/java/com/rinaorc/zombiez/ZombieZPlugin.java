@@ -98,6 +98,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système de Consommables
     @Getter private com.rinaorc.zombiez.consumables.ConsumableManager consumableManager;
 
+    // Système d'Événements Dynamiques
+    @Getter private com.rinaorc.zombiez.events.dynamic.DynamicEventManager dynamicEventManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -179,6 +182,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (consumableManager != null) {
             log(Level.INFO, "§7Nettoyage du système de consommables...");
             consumableManager.cleanup();
+        }
+
+        // Cleanup du système d'événements dynamiques
+        if (dynamicEventManager != null) {
+            log(Level.INFO, "§7Arrêt des événements dynamiques...");
+            dynamicEventManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -309,6 +318,13 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Consumable Manager - Items consommables droppés par les zombies
         consumableManager = new com.rinaorc.zombiez.consumables.ConsumableManager(this);
+
+        // ===== Système Événements Dynamiques =====
+
+        // Dynamic Event Manager - Événements automatiques près des joueurs
+        dynamicEventManager = new com.rinaorc.zombiez.events.dynamic.DynamicEventManager(this);
+        dynamicEventManager.loadConfig(configManager.getEventsConfig());
+        dynamicEventManager.start();
     }
 
     /**
@@ -333,6 +349,12 @@ public class ZombieZPlugin extends JavaPlugin {
             new com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand(this);
         getCommand("zzconsumable").setExecutor(consumableCmd);
         getCommand("zzconsumable").setTabCompleter(consumableCmd);
+
+        // Commandes Admin Événements Dynamiques
+        com.rinaorc.zombiez.commands.admin.EventAdminCommand eventCmd =
+            new com.rinaorc.zombiez.commands.admin.EventAdminCommand(this);
+        getCommand("zzevent").setExecutor(eventCmd);
+        getCommand("zzevent").setTabCompleter(eventCmd);
 
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
@@ -393,6 +415,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système consommables
         if (consumableManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.consumables.ConsumableListener(this, consumableManager), this);
+        }
+
+        // Listener système événements dynamiques
+        if (dynamicEventManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.events.dynamic.DynamicEventListener(this, dynamicEventManager), this);
         }
 
         // Listeners système de progression
