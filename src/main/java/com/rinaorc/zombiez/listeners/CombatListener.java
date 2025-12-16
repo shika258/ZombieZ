@@ -467,26 +467,39 @@ public class CombatListener implements Listener {
     }
 
     /**
-     * Applique le bonus de dégâts pour les headshots
+     * Applique le bonus de dégâts pour les headshots et affiche les indicateurs de dégâts pour tous les projectiles
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileDamage(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
 
-        // Vérifier si c'est un projectile avec headshot
+        // Vérifier si c'est un projectile
         if (!(damager instanceof Projectile projectile)) return;
-        if (!projectile.hasMetadata("zombiez_headshot")) return;
 
-        // Appliquer le bonus de dégâts (+50%)
-        double baseDamage = event.getDamage();
-        double headshotMultiplier = 1.5;
-        double finalDamage = baseDamage * headshotMultiplier;
+        // Obtenir le tireur
+        if (!(projectile.getShooter() instanceof Player player)) return;
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
 
-        event.setDamage(finalDamage);
+        // Ne pas traiter les joueurs comme victimes
+        if (victim instanceof Player) return;
 
-        // Afficher l'indicateur de headshot
-        if (projectile.getShooter() instanceof Player player && event.getEntity() instanceof LivingEntity victim) {
+        // Vérifier si c'est un mob ZombieZ
+        if (!isZombieZMob(victim)) return;
+
+        double finalDamage = event.getDamage();
+        boolean isHeadshot = projectile.hasMetadata("zombiez_headshot");
+
+        // Appliquer le bonus de dégâts headshot (+50%)
+        if (isHeadshot) {
+            double headshotMultiplier = 1.5;
+            finalDamage = finalDamage * headshotMultiplier;
+            event.setDamage(finalDamage);
+
+            // Afficher l'indicateur de headshot
             DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, player);
+        } else {
+            // Afficher l'indicateur de dégâts normal pour les projectiles sans headshot
+            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, false, player);
         }
     }
 

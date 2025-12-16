@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.*;
+import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
@@ -101,6 +102,9 @@ public class WeatherEffect {
         return type.getMinDuration() + (range > 0 ? random.nextInt(range) : 0);
     }
 
+    // Tâche de transition de nuit
+    protected BukkitTask nightTransitionTask;
+
     // ==================== LIFECYCLE ====================
 
     /**
@@ -110,6 +114,11 @@ public class WeatherEffect {
         if (active) return;
 
         active = true;
+
+        // Transition vers la nuit si nécessaire (ex: Lune de Sang)
+        if (type.isNightOnly() && targetWorld != null) {
+            transitionToNight();
+        }
 
         // Créer la boss bar
         createBossBar();
@@ -127,6 +136,80 @@ public class WeatherEffect {
 
         // Démarrer les tâches
         startTasks();
+    }
+
+    /**
+     * Transition animée vers la nuit
+     * Accélère le temps jusqu'à atteindre la nuit (13000 ticks)
+     */
+    protected void transitionToNight() {
+        if (targetWorld == null) return;
+
+        long currentTime = targetWorld.getTime();
+        long targetTime = 14000; // Début de la nuit
+
+        // Si déjà nuit, pas de transition nécessaire
+        if (currentTime >= 13000 && currentTime <= 23000) {
+            return;
+        }
+
+        // Calculer le nombre de ticks à avancer
+        long ticksToAdvance;
+        if (currentTime < 13000) {
+            ticksToAdvance = targetTime - currentTime;
+        } else {
+            // Après 23000, on va vers le lendemain soir
+            ticksToAdvance = (24000 - currentTime) + targetTime;
+        }
+
+        // Animation: avancer le temps graduellement sur 3 secondes (60 ticks)
+        final int transitionTicks = 60;
+        final long ticksPerStep = ticksToAdvance / transitionTicks;
+
+        // Notifier les joueurs
+        for (Player player : getAffectedPlayers()) {
+            player.sendMessage("§5§l⏳ §7Le temps s'assombrit rapidement...");
+        }
+
+        // Jouer un son sinistre
+        for (Player player : getAffectedPlayers()) {
+            player.playSound(player.getLocation(), Sound.AMBIENT_CAVE, 1.0f, 0.5f);
+        }
+
+        // Démarrer la transition animée
+        nightTransitionTask = plugin.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (step >= transitionTicks || targetWorld == null) {
+                    // Fin de la transition - s'assurer qu'on est bien à la nuit
+                    if (targetWorld != null) {
+                        targetWorld.setTime(targetTime);
+                    }
+                    if (nightTransitionTask != null) {
+                        nightTransitionTask.cancel();
+                    }
+                    return;
+                }
+
+                // Avancer le temps
+                long newTime = (targetWorld.getTime() + ticksPerStep) % 24000;
+                targetWorld.setTime(newTime);
+
+                // Effets visuels pendant la transition (toutes les 10 steps)
+                if (step % 10 == 0) {
+                    for (Player player : getAffectedPlayers()) {
+                        // Particules sombres
+                        player.spawnParticle(Particle.SMOKE,
+                            player.getLocation().add(0, 2, 0),
+                            10, 2, 1, 2, 0.02);
+                    }
+                }
+
+                step++;
+            }
+        }, 1L, 1L); // Chaque tick
     }
 
     /**
@@ -172,9 +255,13 @@ public class WeatherEffect {
         cancelTask(particleTask);
         cancelTask(damageTask);
         cancelTask(buffTask);
+        cancelTask(nightTransitionTask);
 
-        // Supprimer la boss bar
+        // Supprimer la boss bar et ses flags visuels
         if (bossBar != null) {
+            // Retirer les flags avant de supprimer
+            bossBar.removeFlag(BarFlag.CREATE_FOG);
+            bossBar.removeFlag(BarFlag.DARKEN_SKY);
             bossBar.removeAll();
         }
 
@@ -203,6 +290,14 @@ public class WeatherEffect {
         bossBar = plugin.getServer().createBossBar(title, type.getBarColor(), BarStyle.SEGMENTED_20);
         bossBar.setProgress(1.0);
         bossBar.setVisible(true);
+
+        // Appliquer les flags visuels de la BossBar (fog et ciel sombre)
+        if (type.isBossBarFog()) {
+            bossBar.addFlag(BarFlag.CREATE_FOG);
+        }
+        if (type.isBossBarDarkenSky()) {
+            bossBar.addFlag(BarFlag.DARKEN_SKY);
+        }
 
         // Ajouter tous les joueurs
         for (Player player : getAffectedPlayers()) {

@@ -32,7 +32,7 @@ public class ZombieListener implements Listener {
     }
 
     /**
-     * Gère la mort d'un zombie
+     * Gère la mort d'un zombie ZombieZ
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onZombieDeath(EntityDeathEvent event) {
@@ -52,16 +52,43 @@ public class ZombieListener implements Listener {
 
         // Obtenir le tueur
         Player killer = entity.getKiller();
-        
+
         // Traiter la mort via le ZombieManager
         zombieManager.onZombieDeath(entity.getUniqueId(), killer);
-        
+
         // Bonus de sets si applicable
         if (killer != null) {
             SetBonusManager setBonusManager = plugin.getItemManager().getSetBonusManager();
             if (setBonusManager != null) {
                 setBonusManager.onPlayerKill(killer, entity);
             }
+        }
+    }
+
+    /**
+     * Désactive TOUS les drops vanilla des mobs dans le monde ZombieZ
+     * Cette méthode capture tous les mobs non-ZombieZ pour s'assurer qu'aucun drop vanilla n'apparaît
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onAnyMobDeath(EntityDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+
+        // Ne pas traiter les joueurs
+        if (entity instanceof Player) {
+            return;
+        }
+
+        // Si c'est déjà un mob ZombieZ, laisser l'autre handler s'en occuper
+        if (zombieManager.isZombieZMob(entity)) {
+            return;
+        }
+
+        // Vérifier si on est dans un monde géré par ZombieZ
+        // (tous les mobs non-ZombieZ ne doivent pas drop d'items vanilla)
+        if (plugin.getZoneManager().getZoneAt(entity.getLocation()) != null) {
+            // Supprimer tous les drops vanilla (rotten_flesh, bones, etc.)
+            event.getDrops().clear();
+            event.setDroppedExp(0);
         }
     }
 

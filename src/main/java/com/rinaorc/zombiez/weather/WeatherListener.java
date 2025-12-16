@@ -9,8 +9,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
 
 /**
@@ -220,6 +222,48 @@ public class WeatherListener implements Listener {
         if (effect != null) {
             effect.getAffectedPlayers();
             effect.getShelteredPlayers().remove(event.getPlayer().getUniqueId());
+        }
+    }
+
+    /**
+     * Intercepte la commande /weather clear pour également arrêter la météo ZombieZ
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onWeatherCommand(PlayerCommandPreprocessEvent event) {
+        if (!weatherManager.isEnabled()) {
+            return;
+        }
+
+        String message = event.getMessage().toLowerCase().trim();
+
+        // Vérifier si c'est une commande /weather clear
+        if (message.startsWith("/weather clear") || message.startsWith("/weather ") && message.contains("clear")) {
+            // Arrêter la météo ZombieZ
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                weatherManager.clearWeather();
+                event.getPlayer().sendMessage("§a✓ Météo ZombieZ également réinitialisée.");
+            });
+        }
+    }
+
+    /**
+     * Intercepte la commande /weather clear depuis la console
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onServerWeatherCommand(ServerCommandEvent event) {
+        if (!weatherManager.isEnabled()) {
+            return;
+        }
+
+        String command = event.getCommand().toLowerCase().trim();
+
+        // Vérifier si c'est une commande weather clear
+        if (command.startsWith("weather clear") || command.startsWith("weather ") && command.contains("clear")) {
+            // Arrêter la météo ZombieZ
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                weatherManager.clearWeather();
+                plugin.getServer().getConsoleSender().sendMessage("§a✓ Météo ZombieZ également réinitialisée.");
+            });
         }
     }
 }
