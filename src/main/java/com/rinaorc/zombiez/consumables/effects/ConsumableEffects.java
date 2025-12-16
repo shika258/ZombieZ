@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.consumables.effects;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.combat.DamageIndicator;
 import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.consumables.ConsumableType;
 import org.bukkit.*;
@@ -14,7 +15,13 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.RayTraceResult;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -829,11 +836,13 @@ public class ConsumableEffects {
                     fireCooldown = 15; // 0.75s entre les tirs
                 }
 
-                // Particules de vie
+                // Mise à jour du nom avec temps restant et barre de vie
                 if (ticks % 20 == 0) {
                     double healthPercent = 1.0 - ((double) ticks / maxTicks);
+                    int secondsRemaining = (maxTicks - ticks) / 20;
                     String healthBar = createHealthBar(healthPercent);
-                    turret.setCustomName("§b⚙ §fTourelle " + healthBar);
+                    String timeColor = secondsRemaining <= 5 ? "§c" : (secondsRemaining <= 10 ? "§e" : "§a");
+                    turret.setCustomName("§b⚙ §fTourelle " + healthBar + " " + timeColor + secondsRemaining + "s");
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
@@ -865,6 +874,13 @@ public class ConsumableEffects {
         // Effets
         player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 1.2f);
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+
+        // Hologramme de soin (positionné sur le côté pour ne pas gêner la vue)
+        Location holoLoc = player.getLocation().add(player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.5));
+        DamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
+
+        // Hologramme de régénération (petite icône à côté)
+        displayRegenHologram(player, regenDuration, 1);
 
         player.sendMessage("§a❤ §7Bandage appliqué! §a+" + String.format("%.1f", heal) + " HP");
 
@@ -915,6 +931,9 @@ public class ConsumableEffects {
         player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_DRINK, 1.0f, 1.2f);
         player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0);
 
+        // Hologramme d'immunité (positionné sur le côté)
+        displayImmunityHologram(player, immunityDuration);
+
         player.sendMessage("§a✓ §7Antidote! §d" + purgedCount + " §7effet(s) purgé(s) + §b" +
                            String.format("%.1f", immunityDuration) + "s §7d'immunité");
 
@@ -952,6 +971,14 @@ public class ConsumableEffects {
         // Effets
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 20, 0.5, 1, 0.5, 0.1);
+
+        // Hologramme de soin (positionné sur le côté)
+        Location holoLoc = player.getLocation().add(player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.5));
+        DamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
+
+        // Hologramme de régénération et vitesse
+        displayRegenHologram(player, regenDuration, 2);
+        displaySpeedHologram(player, speedDuration);
 
         player.sendMessage("§c⚡ §7ADRÉNALINE! §a+" + String.format("%.1f", heal) + " HP §7+ §dRegen §7+ §bSpeed!");
 
@@ -1075,6 +1102,169 @@ public class ConsumableEffects {
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             target.removeMetadata("zombiez_consumable_damage", plugin);
         });
+    }
+
+    // ==================== HOLOGRAMMES DE SOINS ====================
+
+    /**
+     * Affiche un hologramme de régénération non-intrusif
+     * Positionné sur le côté gauche du joueur, petit et discret
+     */
+    private void displayRegenHologram(Player player, double duration, int level) {
+        // Position sur le côté gauche du joueur (ne bloque pas la vue)
+        Location loc = player.getLocation().add(
+            player.getLocation().getDirection().rotateAroundY(-Math.PI / 2).multiply(0.6)
+        ).add(0, 0.5, 0);
+
+        player.getWorld().spawn(loc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            String levelText = level > 1 ? " II" : "";
+            Component text = Component.text("♥", NamedTextColor.LIGHT_PURPLE)
+                .append(Component.text(" Regen" + levelText + " ", NamedTextColor.LIGHT_PURPLE))
+                .append(Component.text(String.format("%.0fs", duration), NamedTextColor.WHITE));
+            display.text(text);
+
+            // Petite taille pour ne pas gêner
+            float scale = 0.6f;
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+            display.setInterpolationDuration(6);
+            display.setInterpolationDelay(0);
+
+            // Visible uniquement pour le joueur concerné
+            display.setVisibleByDefault(false);
+            player.showEntity(plugin, display);
+
+            // Animation courte vers le haut puis suppression
+            animateEffectHologram(display, 25);
+        });
+    }
+
+    /**
+     * Affiche un hologramme d'immunité non-intrusif
+     */
+    private void displayImmunityHologram(Player player, double duration) {
+        // Position légèrement au-dessus et sur le côté
+        Location loc = player.getLocation().add(
+            player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.5)
+        ).add(0, 0.6, 0);
+
+        player.getWorld().spawn(loc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            Component text = Component.text("✦", TextColor.color(0x55FFFF))
+                .append(Component.text(" Immunité ", TextColor.color(0x55FFFF)))
+                .append(Component.text(String.format("%.0fs", duration), NamedTextColor.WHITE));
+            display.text(text);
+
+            float scale = 0.6f;
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+            display.setInterpolationDuration(6);
+            display.setInterpolationDelay(0);
+
+            display.setVisibleByDefault(false);
+            player.showEntity(plugin, display);
+
+            animateEffectHologram(display, 25);
+        });
+    }
+
+    /**
+     * Affiche un hologramme de vitesse non-intrusif
+     */
+    private void displaySpeedHologram(Player player, double duration) {
+        // Position sur le côté droit, légèrement plus bas
+        Location loc = player.getLocation().add(
+            player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.6)
+        ).add(0, 0.2, 0);
+
+        player.getWorld().spawn(loc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            Component text = Component.text("»", TextColor.color(0x55FFFF))
+                .append(Component.text(" Speed II ", TextColor.color(0x55FFFF)))
+                .append(Component.text(String.format("%.0fs", duration), NamedTextColor.WHITE));
+            display.text(text);
+
+            float scale = 0.6f;
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+            display.setInterpolationDuration(6);
+            display.setInterpolationDelay(0);
+
+            display.setVisibleByDefault(false);
+            player.showEntity(plugin, display);
+
+            animateEffectHologram(display, 25);
+        });
+    }
+
+    /**
+     * Animation courte pour les hologrammes d'effets
+     * Monte légèrement puis disparaît - non-intrusif
+     */
+    private void animateEffectHologram(TextDisplay display, int durationTicks) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            final Location startLoc = display.getLocation().clone();
+
+            @Override
+            public void run() {
+                if (ticks >= durationTicks || !display.isValid()) {
+                    display.remove();
+                    cancel();
+                    return;
+                }
+
+                float progress = (float) ticks / durationTicks;
+
+                // Mouvement lent vers le haut
+                double yOffset = progress * 0.3;
+                display.teleport(startLoc.clone().add(0, yOffset, 0));
+
+                // Fade-out progressif via scale
+                float scale = 0.6f;
+                if (progress > 0.7f) {
+                    float fadeProgress = (progress - 0.7f) / 0.3f;
+                    scale = 0.6f * (1 - fadeProgress * 0.5f);
+                }
+
+                display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(scale, scale, scale),
+                    new AxisAngle4f(0, 0, 0, 1)
+                ));
+
+                ticks += 2;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
     }
 
     /**
