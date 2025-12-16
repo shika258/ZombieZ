@@ -124,6 +124,12 @@ commands:
     permission: zombiez.class
     aliases: [mutation, daily]
 
+  talent:
+    description: Gestion des talents de classe
+    usage: /<command> [info|branch|help]
+    permission: zombiez.class
+    aliases: [talents, t]
+
 # Permissions
 permissions:
   # Permission wildcard admin

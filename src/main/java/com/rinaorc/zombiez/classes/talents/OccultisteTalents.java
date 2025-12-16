@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Registre de tous les talents de l'Occultiste
- * 40 talents au total, 5 par palier sur 8 paliers
+ * 45 talents au total, 5 par palier sur 9 paliers
  * Identite: Mage devastateur, AoE magique, manipulation des elements et des ames
  */
 public final class OccultisteTalents {
@@ -25,6 +25,7 @@ public final class OccultisteTalents {
         registerTier6Talents();
         registerTier7Talents();
         registerTier8Talents();
+        registerTier9Talents();
     }
 
     // ==================== PALIER 1 - NIVEAU 0 (Fondation) ====================
@@ -581,9 +582,124 @@ public final class OccultisteTalents {
             .build());
     }
 
-    // ==================== PALIER 6 - NIVEAU 30 (Transcendance) ====================
+    // ==================== PALIER 6 - NIVEAU 25 (Ascension) ====================
 
     private static void registerTier6Talents() {
+        // 6.1 - PYROCLASME
+        TALENTS.add(Talent.builder()
+            .id("occultiste_pyroclasm")
+            .name("Pyroclasme")
+            .description("Kill feu: 50% chance explosion en chaine")
+            .loreLines(new String[]{
+                "§7Les ennemis tues par le feu ont",
+                "§7§e50%§7 de chance d'exploser et",
+                "§7d'§cenflammer§7 les ennemis proches.",
+                "",
+                "§8Degats: §c100%§8 de base",
+                "§8Rayon: §e3§8 blocs",
+                "§8Peut se propager!"
+            })
+            .classType(ClassType.OCCULTISTE)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(0)
+            .icon(Material.MAGMA_BLOCK)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.PYROCLASM)
+            .values(new double[]{0.50, 1.0, 3.0}) // chance, damage%, radius
+            .build());
+
+        // 6.2 - PERMAFROST
+        TALENTS.add(Talent.builder()
+            .id("occultiste_permafrost")
+            .name("Permafrost")
+            .description("Geles ralentissent les ennemis autour d'eux")
+            .loreLines(new String[]{
+                "§7Les ennemis §bgeles§7 emettent",
+                "§7une aura de froid qui §bralentit§7",
+                "§7les autres de §b-40%§7.",
+                "",
+                "§8Rayon: §e2.5§8 blocs",
+                "§8Synergie: Controle de zone"
+            })
+            .classType(ClassType.OCCULTISTE)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(1)
+            .icon(Material.PACKED_ICE)
+            .iconColor("§b")
+            .effectType(Talent.TalentEffectType.PERMAFROST)
+            .values(new double[]{0.40, 2.5}) // slow%, radius
+            .build());
+
+        // 6.3 - CHAMP STATIQUE
+        TALENTS.add(Talent.builder()
+            .id("occultiste_static_field")
+            .name("Champ Statique")
+            .description("Eclairs laissent une zone de degats")
+            .loreLines(new String[]{
+                "§7Les §eeclairs§7 creent des zones",
+                "§7electriques pendant §a2s§7.",
+                "",
+                "§8Degats: §c20%§8/s",
+                "§8Rayon zone: §e2§8 blocs",
+                "§8Synergie: Controle de zone"
+            })
+            .classType(ClassType.OCCULTISTE)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(2)
+            .icon(Material.YELLOW_WOOL)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.STATIC_FIELD)
+            .values(new double[]{2000, 0.20, 2.0}) // duration_ms, damage%_per_second, radius
+            .build());
+
+        // 6.4 - LIEN D'AMES
+        TALENTS.add(Talent.builder()
+            .id("occultiste_soul_bond")
+            .name("Lien d'Ames")
+            .description("Orbes absorbent 5% des degats recus chacune")
+            .loreLines(new String[]{
+                "§7Chaque §dorbe d'ame§7 absorbe",
+                "§7§a5%§7 des degats que vous recevez.",
+                "",
+                "§8Max: §a25%§8 (5 orbes)",
+                "§8L'orbe disparait apres 50 PV absorbes",
+                "§8Synergie: Defenseur d'ames"
+            })
+            .classType(ClassType.OCCULTISTE)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(3)
+            .icon(Material.SOUL_TORCH)
+            .iconColor("§d")
+            .effectType(Talent.TalentEffectType.SOUL_BOND)
+            .values(new double[]{0.05, 50}) // absorption_per_orb, max_absorb_per_orb
+            .build());
+
+        // 6.5 - CORRUPTION DU VIDE
+        TALENTS.add(Talent.builder()
+            .id("occultiste_void_corruption")
+            .name("Corruption du Vide")
+            .description("Void Bolts corrompent: -20% degats infliges")
+            .loreLines(new String[]{
+                "§7Les §5Void Bolts§7 corrompent",
+                "§7les ennemis touches.",
+                "",
+                "§8Effet: §c-20%§8 degats infliges",
+                "§8Duree: §a4s",
+                "§8Synergie: Debuff du vide"
+            })
+            .classType(ClassType.OCCULTISTE)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(4)
+            .icon(Material.CHORUS_FRUIT)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.VOID_CORRUPTION)
+            .values(new double[]{0.20, 4000}) // damage_reduction%, duration_ms
+            .build());
+    }
+
+    // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
+
+    private static void registerTier7Talents() {
         // 6.1 - INFERNO
         TALENTS.add(Talent.builder()
             .id("occultiste_inferno")
@@ -598,7 +714,7 @@ public final class OccultisteTalents {
                 "§8Enflamme tous les touches"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(0)
             .icon(Material.MAGMA_CREAM)
             .iconColor("§6")
@@ -620,7 +736,7 @@ public final class OccultisteTalents {
                 "§8Rayon: 2 blocs"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(1)
             .icon(Material.BLUE_STAINED_GLASS)
             .iconColor("§b")
@@ -642,7 +758,7 @@ public final class OccultisteTalents {
                 "§8Cibles: 3 random, §c25%§8 dmg"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(2)
             .icon(Material.PRISMARINE_SHARD)
             .iconColor("§e")
@@ -664,7 +780,7 @@ public final class OccultisteTalents {
                 "§8Duree: 10s, Max: 5"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(3)
             .icon(Material.SKELETON_SKULL)
             .iconColor("§8")
@@ -685,7 +801,7 @@ public final class OccultisteTalents {
                 "§8completement les degats"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(4)
             .icon(Material.OBSIDIAN)
             .iconColor("§5")
@@ -694,9 +810,9 @@ public final class OccultisteTalents {
             .build());
     }
 
-    // ==================== PALIER 7 - NIVEAU 40 (Apex) ====================
+    // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
-    private static void registerTier7Talents() {
+    private static void registerTier8Talents() {
         // 7.1 - SOLEIL NOIR
         TALENTS.add(Talent.builder()
             .id("occultiste_black_sun")
@@ -711,7 +827,7 @@ public final class OccultisteTalents {
                 "§8Rayon: 8 blocs"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(0)
             .icon(Material.SUNFLOWER)
             .iconColor("§c")
@@ -732,7 +848,7 @@ public final class OccultisteTalents {
                 "§8Bonus: §c+50%§8 degats aux slowed"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(1)
             .icon(Material.FLOWER_BANNER_PATTERN)
             .iconColor("§f")
@@ -753,7 +869,7 @@ public final class OccultisteTalents {
                 "§8Synergie: Lightning legendary"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(2)
             .icon(Material.TRIDENT)
             .iconColor("§e")
@@ -775,7 +891,7 @@ public final class OccultisteTalents {
                 "§8Duree: 15s, Max: 10"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(3)
             .icon(Material.WITHER_SKELETON_SKULL)
             .iconColor("§8")
@@ -796,7 +912,7 @@ public final class OccultisteTalents {
                 "§8Aspire tous les ennemis"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(4)
             .icon(Material.BLACK_CONCRETE)
             .iconColor("§0")
@@ -805,9 +921,9 @@ public final class OccultisteTalents {
             .build());
     }
 
-    // ==================== PALIER 8 - NIVEAU 50 (Legendaire) ====================
+    // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
-    private static void registerTier8Talents() {
+    private static void registerTier9Talents() {
         // 8.1 - PLUIE DE METEORES
         TALENTS.add(Talent.builder()
             .id("occultiste_meteor_rain")
@@ -821,7 +937,7 @@ public final class OccultisteTalents {
                 "§8Zone: 20 blocs"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(0)
             .icon(Material.DRAGON_EGG)
             .iconColor("§4")
@@ -842,7 +958,7 @@ public final class OccultisteTalents {
                 "§8Cooldown: 90s"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(1)
             .icon(Material.CLOCK)
             .iconColor("§3")
@@ -863,7 +979,7 @@ public final class OccultisteTalents {
                 "§8Synergie: Ultimate lightning"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(2)
             .icon(Material.NETHER_STAR)
             .iconColor("§f")
@@ -884,7 +1000,7 @@ public final class OccultisteTalents {
                 "§8Synergie: Ultimate soul fantasy"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(3)
             .icon(Material.TOTEM_OF_UNDYING)
             .iconColor("§6")
@@ -906,7 +1022,7 @@ public final class OccultisteTalents {
                 "§8Cooldown: 120s"
             })
             .classType(ClassType.OCCULTISTE)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(4)
             .icon(Material.BARRIER)
             .iconColor("§5")
