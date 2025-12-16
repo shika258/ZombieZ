@@ -7,16 +7,19 @@ import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.FallingBlock;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.*;
 
@@ -44,8 +47,8 @@ public class AirdropEvent extends DynamicEvent {
     private Phase phase = Phase.FALLING;
 
     // Entités
-    private FallingBlock fallingCrate;
-    private ArmorStand crateMarker;
+    private ArmorStand fallingCrate;
+    private TextDisplay crateMarker;
     private Location landingLocation;
     private Block chestBlock;
 
@@ -94,6 +97,7 @@ public class AirdropEvent extends DynamicEvent {
 
     /**
      * Fait tomber le crate depuis le ciel
+     * Utilise un ArmorStand avec un item chest pour éviter le problème de double coffre
      */
     private void spawnFallingCrate() {
         World world = location.getWorld();
@@ -103,28 +107,43 @@ public class AirdropEvent extends DynamicEvent {
         Location spawnLoc = location.clone();
         spawnLoc.setY(world.getMaxHeight() - 10);
 
-        // Créer un bloc qui tombe (chest)
-        fallingCrate = world.spawnFallingBlock(spawnLoc, Material.CHEST.createBlockData());
-        fallingCrate.setDropItem(false);
+        // Créer un ArmorStand invisible avec un coffre sur la tête (évite le placement automatique de bloc)
+        fallingCrate = (ArmorStand) world.spawnEntity(spawnLoc, EntityType.ARMOR_STAND);
+        fallingCrate.setVisible(false);
         fallingCrate.setGravity(true);
-        fallingCrate.setVelocity(new Vector(0, -0.5, 0));
+        fallingCrate.setMarker(false); // Permet la collision et la gravité
+        fallingCrate.setSmall(false);
+        fallingCrate.getEquipment().setHelmet(new ItemStack(Material.CHEST));
         fallingCrate.setCustomName("§b§l✈ LARGAGE AÉRIEN");
         fallingCrate.setCustomNameVisible(true);
         fallingCrate.setGlowing(true);
+
+        // Définir la position d'atterrissage cible
+        landingLocation = location.clone();
+        landingLocation.setY(world.getHighestBlockYAt(location) + 1);
 
         // Effets de chute
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (fallingCrate == null || fallingCrate.isDead() || !fallingCrate.isValid()) {
-                    // Le crate a atterri
+                if (fallingCrate == null || !fallingCrate.isValid()) {
+                    onCrateLanded();
+                    cancel();
+                    return;
+                }
+
+                Location crateLoc = fallingCrate.getLocation();
+
+                // Vérifier si l'ArmorStand a atterri (proche du sol)
+                if (crateLoc.getY() <= landingLocation.getY() + 0.5) {
+                    // Supprimer l'ArmorStand et créer le coffre
+                    fallingCrate.remove();
                     onCrateLanded();
                     cancel();
                     return;
                 }
 
                 // Particules de fumée pendant la chute
-                Location crateLoc = fallingCrate.getLocation();
                 world.spawnParticle(Particle.CLOUD, crateLoc, 5, 0.3, 0.3, 0.3, 0.02);
                 world.spawnParticle(Particle.FIREWORK, crateLoc.clone().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0.01);
             }
@@ -141,32 +160,53 @@ public class AirdropEvent extends DynamicEvent {
         // Éviter la double exécution
         if (phase != Phase.FALLING) return;
 
-        // Déterminer la position d'atterrissage
-        if (fallingCrate != null && fallingCrate.isValid()) {
-            landingLocation = fallingCrate.getLocation().clone();
-            // Supprimer le falling block pour éviter qu'il crée un coffre lui-même
-            fallingCrate.remove();
-        } else {
+        // Utiliser la position d'atterrissage déjà définie ou la calculer
+        if (landingLocation == null) {
             landingLocation = location.clone();
             landingLocation.setY(world.getHighestBlockYAt(location) + 1);
         }
 
-        // S'assurer qu'il n'y a qu'un seul coffre
-        Block block = landingLocation.getBlock();
-        if (block.getType() == Material.CHEST) {
-            // Déjà un coffre, ne pas en recréer
-        } else {
-            block.setType(Material.CHEST);
+        // Supprimer l'ArmorStand de chute si encore présent
+        if (fallingCrate != null && fallingCrate.isValid()) {
+            fallingCrate.remove();
         }
+
+        // Créer UN SEUL coffre à la position d'atterrissage
+        Block block = landingLocation.getBlock();
+        // Nettoyer tout coffre existant pour éviter les doublons
+        if (block.getType() == Material.CHEST) {
+            if (block.getState() instanceof Chest existingChest) {
+                existingChest.getInventory().clear();
+            }
+        }
+        block.setType(Material.CHEST);
         chestBlock = block;
 
-        // Créer un marqueur visuel
-        crateMarker = (ArmorStand) world.spawnEntity(landingLocation.clone().add(0.5, 1.5, 0.5), EntityType.ARMOR_STAND);
-        crateMarker.setVisible(false);
-        crateMarker.setGravity(false);
-        crateMarker.setMarker(true);
-        crateMarker.setCustomName("§b§l📦 LARGAGE - §e0%");
-        crateMarker.setCustomNameVisible(true);
+        // Créer un marqueur visuel avec TextDisplay (plus grand et plus visible)
+        Location displayLoc = landingLocation.clone().add(0.5, 2.0, 0.5);
+        crateMarker = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(100, 0, 0, 0)); // Fond semi-transparent
+
+            // Texte initial avec style
+            Component text = Component.text("📦 ", NamedTextColor.AQUA, TextDecoration.BOLD)
+                .append(Component.text("LARGAGE", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" - ", NamedTextColor.GRAY))
+                .append(Component.text("0%", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            display.text(text);
+
+            // Échelle plus grande pour meilleure visibilité
+            float scale = 2.0f;
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        });
 
         // Effet d'atterrissage
         world.playSound(landingLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
@@ -228,12 +268,16 @@ public class AirdropEvent extends DynamicEvent {
             double speedMultiplier = Math.min(2.0, 1.0 + (defendersNearby - 1) * 0.25);
             currentDefenseTime += speedMultiplier;
 
-            // Mise à jour du marqueur
+            // Mise à jour du marqueur TextDisplay
             int percent = (int) (currentDefenseTime / defenseTimeRequired * 100);
             percent = Math.min(100, percent); // Cap at 100%
             if (crateMarker != null && crateMarker.isValid()) {
-                String color = percent < 33 ? "§c" : (percent < 66 ? "§e" : "§a");
-                crateMarker.setCustomName("§b§l📦 LARGAGE - " + color + percent + "%");
+                NamedTextColor percentColor = percent < 33 ? NamedTextColor.RED : (percent < 66 ? NamedTextColor.YELLOW : NamedTextColor.GREEN);
+                Component text = Component.text("📦 ", NamedTextColor.AQUA, TextDecoration.BOLD)
+                    .append(Component.text("LARGAGE", NamedTextColor.AQUA, TextDecoration.BOLD))
+                    .append(Component.text(" - ", NamedTextColor.GRAY))
+                    .append(Component.text(percent + "%", percentColor, TextDecoration.BOLD));
+                crateMarker.text(text);
             }
 
             // Mise à jour de la boss bar
@@ -249,14 +293,19 @@ public class AirdropEvent extends DynamicEvent {
             if (currentDefenseTime > 0) {
                 currentDefenseTime = Math.max(0, currentDefenseTime - 0.5);
 
-                // Mise à jour du marqueur de régression
+                // Mise à jour du marqueur TextDisplay de régression
                 int percent = (int) (currentDefenseTime / defenseTimeRequired * 100);
                 if (crateMarker != null && crateMarker.isValid()) {
-                    crateMarker.setCustomName("§c§l⚠ DÉFENSEURS REQUIS! §7(" + percent + "%)");
+                    Component text = Component.text("⚠ ", NamedTextColor.RED, TextDecoration.BOLD)
+                        .append(Component.text("DÉFENSEURS REQUIS!", NamedTextColor.RED, TextDecoration.BOLD))
+                        .append(Component.text(" (" + percent + "%)", NamedTextColor.GRAY));
+                    crateMarker.text(text);
                 }
             } else {
                 if (crateMarker != null && crateMarker.isValid()) {
-                    crateMarker.setCustomName("§c§l⚠ DÉFENSEURS REQUIS!");
+                    Component text = Component.text("⚠ ", NamedTextColor.RED, TextDecoration.BOLD)
+                        .append(Component.text("DÉFENSEURS REQUIS!", NamedTextColor.RED, TextDecoration.BOLD));
+                    crateMarker.text(text);
                 }
             }
         }
@@ -341,9 +390,12 @@ public class AirdropEvent extends DynamicEvent {
         world.spawnParticle(Particle.TOTEM_OF_UNDYING, landingLocation.clone().add(0.5, 1.5, 0.5),
             50, 0.5, 1, 0.5, 0.1);
 
-        // Mettre à jour le marqueur
+        // Mettre à jour le marqueur TextDisplay
         if (crateMarker != null && crateMarker.isValid()) {
-            crateMarker.setCustomName("§a§l✓ OUVERT! Récupérez le loot!");
+            Component text = Component.text("✓ ", NamedTextColor.GREEN, TextDecoration.BOLD)
+                .append(Component.text("OUVERT!", NamedTextColor.GREEN, TextDecoration.BOLD))
+                .append(Component.text(" Récupérez le loot!", NamedTextColor.WHITE));
+            crateMarker.text(text);
         }
 
         // Annoncer
