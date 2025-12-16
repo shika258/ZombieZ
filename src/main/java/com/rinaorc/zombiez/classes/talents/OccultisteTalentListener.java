@@ -237,8 +237,8 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.CORRUPTED_DIMENSION);
             if (Math.random() < talent.getValue(0)) {
                 event.setCancelled(true);
-                // Visual
-                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                // Visual (optimise)
+                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 10, 0.3, 0.7, 0.3, 0.05);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.5f, 1.5f);
                 return;
             }
@@ -478,22 +478,40 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Sound
-            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 1.5f);
+            // Sound (volume reduit pour eviter le spam sonore)
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.3f, 1.8f);
         }
     }
 
+    /**
+     * Genere un eclair visuel entre deux points (particules uniquement, pas de vrai eclair)
+     * Utilise END_ROD pour le coeur lumineux et ELECTRIC_SPARK pour l'effet electrique
+     */
     private void spawnLightningVisual(Location from, Location to) {
         Vector direction = to.toVector().subtract(from.toVector());
         double distance = direction.length();
-        direction.normalize();
+        if (distance < 0.5) return;
 
-        for (double d = 0; d < distance; d += 0.5) {
+        direction.normalize();
+        World world = from.getWorld();
+
+        // Tracer l'eclair avec un leger zigzag
+        Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
+        double zigzagOffset = 0;
+
+        for (double d = 0; d < distance; d += 0.8) {
+            // Zigzag aleatoire pour effet naturel
+            zigzagOffset = (Math.random() - 0.5) * 0.3;
+
             Location point = from.clone().add(direction.clone().multiply(d));
-            // Add some randomness for electric effect
-            point.add((Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2);
-            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 1, 0, 0, 0, 0);
+            point.add(perpendicular.clone().multiply(zigzagOffset));
+
+            // Coeur lumineux (moins de particules, plus visible)
+            world.spawnParticle(Particle.END_ROD, point, 1, 0.02, 0.02, 0.02, 0);
         }
+
+        // Impact au point d'arrivee (petit burst)
+        world.spawnParticle(Particle.ELECTRIC_SPARK, to, 5, 0.15, 0.15, 0.15, 0.02);
     }
 
     private void processVoidBolt(Player player, LivingEntity target, double baseDamage) {
@@ -515,8 +533,8 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Explosion visual
-                target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 50, radius/2, radius/2, radius/2, 0.05);
+                // Explosion visual (optimise)
+                target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 15, radius/2, radius/2, radius/2, 0.03);
             }
 
             // Dimensional Rift - leave a rift
@@ -527,8 +545,8 @@ public class OccultisteTalentListener implements Listener {
             // Deal void bolt damage
             target.damage(damage, player);
 
-            // Visual
-            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 40, 0.3, 0.5, 0.3, 0.5);
+            // Visual (optimise)
+            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 12, 0.2, 0.4, 0.2, 0.3);
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 0.5f);
         }
     }
@@ -544,8 +562,8 @@ public class OccultisteTalentListener implements Listener {
             tickInterval, damagePercent, System.currentTimeMillis());
         activeRifts.put(riftId, rift);
 
-        // Visual spawn
-        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, location, 30, 0.5, 0.5, 0.5, 0.1);
+        // Visual spawn (optimise)
+        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, location, 10, 0.3, 0.3, 0.3, 0.05);
         location.getWorld().playSound(location, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.5f);
     }
 
@@ -819,13 +837,15 @@ public class OccultisteTalentListener implements Listener {
                     return;
                 }
 
-                // Visual
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
-                    double x = Math.cos(angle) * radius;
-                    double z = Math.sin(angle) * radius;
-                    center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0.5, z), 2, 0, 0, 0, 0);
+                // Visual (optimise - afficher le cercle seulement toutes les 5 ticks)
+                if (ticks % 5 == 0) {
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0.5, z), 1, 0, 0, 0, 0);
+                    }
+                    center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 6, radius/2, 0.5, radius/2, 0.05);
                 }
-                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 20, radius/2, 1, radius/2, 0.1);
 
                 // Damage/kill enemies
                 for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
@@ -873,9 +893,9 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Visual
-                rift.location.getWorld().spawnParticle(Particle.EXPLOSION, rift.location, 3, 0, 0, 0, 0);
-                rift.location.getWorld().spawnParticle(Particle.DRAGON_BREATH, rift.location, 100, detonateRadius/2, detonateRadius/2, detonateRadius/2, 0.1);
+                // Visual (optimise)
+                rift.location.getWorld().spawnParticle(Particle.EXPLOSION, rift.location, 1, 0, 0, 0, 0);
+                rift.location.getWorld().spawnParticle(Particle.DRAGON_BREATH, rift.location, 25, detonateRadius/2, detonateRadius/2, detonateRadius/2, 0.05);
                 rift.location.getWorld().playSound(rift.location, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
 
                 iterator.remove();
@@ -945,7 +965,10 @@ public class OccultisteTalentListener implements Listener {
             }
 
             if (!nearbyEnemies.isEmpty()) {
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.3f, 1.5f);
+                // Son leger pour indiquer l'activation
+                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.2f, 1.8f);
+                // Petit effet electrique autour du joueur
+                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 1.5, 0), 4, 0.3, 0.3, 0.3, 0.01);
             }
         }
     }
@@ -981,8 +1004,12 @@ public class OccultisteTalentListener implements Listener {
                 count++;
             }
 
-            // Storm visual around player
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 2.5, 0), 5, radius/2, 0.5, radius/2, 0);
+            // Storm visual around player - aura electrique
+            if (count > 0) {
+                // Petit arc electrique autour du joueur
+                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2, 0), 3, 0.5, 0.3, 0.5, 0.01);
+                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.15f, 2.0f);
+            }
         }
     }
 
@@ -1163,7 +1190,10 @@ public class OccultisteTalentListener implements Listener {
 
             if (struck > 0) {
                 sendActionBar(player, "§e§l+ JUGEMENT DIVIN + §7" + struck + " cibles");
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.5f);
+                // Son reduit pour eviter le spam sonore avec plusieurs joueurs
+                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 0.8f);
+                // Effet visuel de charge au joueur
+                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1.5, 0), 8, 0.3, 0.5, 0.3, 0.02);
             }
         }
     }
@@ -1270,8 +1300,8 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Rift visual
-            rift.location.getWorld().spawnParticle(Particle.PORTAL, rift.location, 10, 0.3, 0.3, 0.3, 0.1);
+            // Rift visual (optimise)
+            rift.location.getWorld().spawnParticle(Particle.PORTAL, rift.location, 3, 0.2, 0.2, 0.2, 0.05);
         }
 
         // Check for Black Hole formation
@@ -1364,9 +1394,9 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Visual
-                center.getWorld().spawnParticle(Particle.PORTAL, center, 50, radius/2, radius/2, radius/2, 0.5);
-                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 30, 0.5, 0.5, 0.5, 0.1);
+                // Visual (optimise pour eviter le lag)
+                center.getWorld().spawnParticle(Particle.PORTAL, center, 15, radius/2, radius/2, radius/2, 0.3);
+                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 8, 0.3, 0.3, 0.3, 0.05);
 
                 if (ticks % 20 == 0) {
                     center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 1.0f, 0.3f);

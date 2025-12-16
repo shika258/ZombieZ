@@ -56,7 +56,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_lynx_eye")
             .name("Oeil de Lynx")
-            .description("+25% crit chance, +30% crit damage")
+            .description("+25% chance critique, +30% degats critiques")
             .loreLines(new String[]{
                 "§7Votre precision est accrue:",
                 "§7- §e+25%§7 chance de critique",
@@ -77,13 +77,13 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_agile_hunter")
             .name("Chasseur Agile")
-            .description("Esquive = invis 1s + 50% degats")
+            .description("Esquive = invisible 1s + 50% degats")
             .loreLines(new String[]{
-                "§7Esquiver (double tap direction)",
-                "§7vous rend §binvisible 1s§7 et boost",
+                "§7Esquiver (double appui direction)",
+                "§7vous rend §binvisible 1s§7 et augmente",
                 "§7les degats suivants de §c+50%§7.",
                 "",
-                "§8Cooldown: 3s"
+                "§8Temps de recharge: 3s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -149,7 +149,7 @@ public final class ChasseurTalents {
                 "§7Apres §e3 tirs§7 sur la meme cible,",
                 "§7le 4eme inflige §c+100%§7 degats!",
                 "",
-                "§8Combo devastateur"
+                "§8Enchainez vos tirs!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -185,7 +185,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_ghost")
             .name("Fantome")
-            .description("3s+ invis: +100% crit damage")
+            .description("3s+ invisible: +100% degats critiques")
             .loreLines(new String[]{
                 "§7Rester invisible §e3s+§7 confere",
                 "§7§c+100%§7 degats critique sur",
@@ -212,7 +212,7 @@ public final class ChasseurTalents {
                 "§7infligeant §c40%§7 degats bonus",
                 "§7sur §a3s§7.",
                 "",
-                "§8Stackable!"
+                "§8Cumulable!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -234,7 +234,7 @@ public final class ChasseurTalents {
                 "§7ennemi proche.",
                 "",
                 "§8Degats ricochet: §c70%",
-                "§8Range: §e5§8 blocs"
+                "§8Portee: §e5§8 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -275,11 +275,11 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_predator_eye")
             .name("Oeil du Predateur")
-            .description("Crit = 30% chance reset esquive")
+            .description("Critique = 30% chance reinit. esquive")
             .loreLines(new String[]{
                 "§7Les critiques ont §e30%§7 de",
-                "§7chance de reset le cooldown",
-                "§7d'esquive!",
+                "§7chance de reinitialiser le temps",
+                "§7de recharge de l'esquive!",
                 "",
                 "§8Hyper mobilite"
             })
@@ -317,7 +317,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_deadly_toxins")
             .name("Toxines Mortelles")
-            .description("Poison peut crit + slow -30%")
+            .description("Poison peut faire des critiques + ralentit -30%")
             .loreLines(new String[]{
                 "§7Le poison peut §ecritiquer§7!",
                 "§7Les ennemis empoisonnes ont",
@@ -338,7 +338,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_sharpshooter")
             .name("Tireur d'Elite")
-            .description("Immobile 1.5s = crit garanti")
+            .description("Immobile 1.5s = critique garanti")
             .loreLines(new String[]{
                 "§7Rester immobile §e1.5s§7 garantit",
                 "§7un §ecritique§7 sur le prochain tir!",
@@ -383,12 +383,12 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_supreme_predator")
             .name("Predateur Supreme")
-            .description("Kill en invis: +2s invis (max 10s)")
+            .description("Elimination en invisible: +2s (max 10s)")
             .loreLines(new String[]{
-                "§7Les kills pendant l'invisibilite",
+                "§7Les eliminations pendant l'invisibilite",
                 "§7prolongent l'invisibilite de §e+2s§7.",
                 "",
-                "§8Cap: 10s max"
+                "§8Limite: 10s max"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -403,12 +403,12 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_death_sentence")
             .name("Sentence de Mort")
-            .description("Marque explose a la mort (AoE)")
+            .description("Marque explose a la mort (zone)")
             .loreLines(new String[]{
                 "§7Les ennemis marques qui meurent",
                 "§7font §cexploser§7 leur marque!",
                 "",
-                "§8Degats: §c100%§8 du killing blow",
+                "§8Degats: §c100%§8 du coup fatal",
                 "§8Rayon: §e3§8 blocs"
             })
             .classType(ClassType.CHASSEUR)
@@ -430,7 +430,7 @@ public final class ChasseurTalents {
                 "§7le poison se §apropage§7 aux",
                 "§7ennemis proches!",
                 "",
-                "§8Range: §e4§8 blocs"
+                "§8Portee: §e4§8 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -451,7 +451,7 @@ public final class ChasseurTalents {
                 "§7de §c+5%§7 mais aussi le recul.",
                 "",
                 "§8Max: §c+50%",
-                "§8Reset apres 2s sans tirer"
+                "§8Reinitialisation apres 2s sans tirer"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -514,7 +514,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_bounty_hunter")
             .name("Chasseur de Primes")
-            .description("Kill marque: +10% HP, +20% degats 5s")
+            .description("Tuer marque: +10% PV, +20% degats 5s")
             .loreLines(new String[]{
                 "§7Tuer un ennemi marque vous",
                 "§7soigne de §c10%§7 PV et donne",
@@ -535,10 +535,10 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_epidemic")
             .name("Epidemie")
-            .description("Poison stack infini, 10+ = x2 degats")
+            .description("Poison cumul infini, 10+ = x2 degats")
             .loreLines(new String[]{
-                "§7Le poison stack §eindefiniment§7!",
-                "§7A §e10+ stacks§7, les degats de",
+                "§7Le poison se cumule §eindefiniment§7!",
+                "§7A §e10+ cumuls§7, les degats de",
                 "§7poison sont §cx2§7!",
                 "",
                 "§8Infection mortelle"
@@ -556,7 +556,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_kill_zone")
             .name("Zone de Mort")
-            .description("+100% attack speed autour de vous")
+            .description("+100% vitesse d'attaque autour de vous")
             .loreLines(new String[]{
                 "§7Creez une zone ou votre",
                 "§7vitesse de tir est §c+100%§7!",
@@ -581,13 +581,13 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_aerial_armageddon")
             .name("Armageddon Aerien")
-            .description("Pluie peut crit + fleches bonus")
+            .description("Pluie peut faire des critiques + fleches bonus")
             .loreLines(new String[]{
-                "§7La pluie de fleches peut §ecrit§7!",
-                "§7Les crits font spawn §e2 fleches§7",
-                "§7bonus!",
+                "§7La pluie de fleches peut §ecritiquer§7!",
+                "§7Les critiques font apparaitre",
+                "§7§e2 fleches§7 bonus!",
                 "",
-                "§8Fleches dorees sur crit"
+                "§8Fleches dorees sur critique"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -623,10 +623,10 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_bounty_executioner")
             .name("Executeur de Primes")
-            .description("Marques <20% HP = instakill")
+            .description("Marques sous 20% PV = mort instantanee")
             .loreLines(new String[]{
                 "§7Les ennemis marques sous",
-                "§7§c20%§7 HP meurent §cinstantanement§7!",
+                "§7§c20%§7 PV meurent §cinstantanement§7!",
                 "",
                 "§8Contrat rempli"
             })
@@ -643,7 +643,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_black_plague")
             .name("Peste Noire")
-            .description("Poison: -75% soins ennemis, +5% self heal")
+            .description("Poison: -75% soins ennemis, +5% auto-soin")
             .loreLines(new String[]{
                 "§7Le poison reduit les soins",
                 "§7recus par l'ennemi de §c-75%§7",
@@ -665,13 +665,13 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_gatling")
             .name("Gatling")
-            .description("20 tirs = mode gatling 5s (+200% AS)")
+            .description("20 tirs = mode gatling 5s (+200% vitesse)")
             .loreLines(new String[]{
                 "§7Apres §e20 tirs§7 consecutifs,",
-                "§7passez en §cmode gatling§7!",
+                "§7passez en §cmode mitrailleuse§7!",
                 "",
                 "§8Duree: §a5s",
-                "§8Bonus: §c+200%§8 attack speed",
+                "§8Bonus: §c+200%§8 vitesse d'attaque",
                 "§8Tir automatique!"
             })
             .classType(ClassType.CHASSEUR)
@@ -687,10 +687,10 @@ public final class ChasseurTalents {
     // ==================== PALIER 7 - NIVEAU 40 (Apex) ====================
 
     private static void registerTier7Talents() {
-        // 7.1 - METEOR SHOWER
+        // 7.1 - PLUIE DE METEORES
         TALENTS.add(Talent.builder()
             .id("chasseur_meteor_shower")
-            .name("Meteor Shower")
+            .name("Pluie de Meteores")
             .description("Pluie = meteores explosifs")
             .loreLines(new String[]{
                 "§7La pluie de fleches est",
@@ -699,7 +699,7 @@ public final class ChasseurTalents {
                 "",
                 "§8Degats: §c150%§8 x10 meteores",
                 "§8Zone: §e10x10§8 blocs",
-                "§8Explosion: §e2§8 blocs/meteor"
+                "§8Explosion: §e2§8 blocs/meteore"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -710,15 +710,15 @@ public final class ChasseurTalents {
             .values(new double[]{1.50, 10, 10.0, 2.0}) // damage_per_meteor%, meteors, zone_radius, explosion_radius
             .build());
 
-        // 7.2 - REAPER
+        // 7.2 - FAUCHEUR
         TALENTS.add(Talent.builder()
             .id("chasseur_stealth_reaper")
-            .name("Reaper")
-            .description("Attaque stealth: <30% HP = instakill")
+            .name("Faucheur")
+            .description("Attaque furtive: <30% PV = mort instantanee")
             .loreLines(new String[]{
                 "§7Vos attaques depuis l'invisibilite",
-                "§7§cinstakill§7 les ennemis sous",
-                "§7§c30%§7 HP!",
+                "§7§ctuent instantanement§7 les ennemis",
+                "§7sous §c30%§7 PV!",
                 "",
                 "§8Faux de la mort"
             })
@@ -752,18 +752,18 @@ public final class ChasseurTalents {
             .values(new double[]{5}) // max_marks
             .build());
 
-        // 7.4 - BLIGHT
+        // 7.4 - FLEAU
         TALENTS.add(Talent.builder()
             .id("chasseur_blight")
-            .name("Blight")
+            .name("Fleau")
             .description("Poison se propage passivement")
             .loreLines(new String[]{
                 "§7Le poison peut se propager",
                 "§7meme aux ennemis a §epleine vie§7",
                 "§7proches d'un infecte!",
                 "",
-                "§8Range: §e3§8 blocs",
-                "§8Check: toutes 2s"
+                "§8Portee: §e3§8 blocs",
+                "§8Verification: toutes les 2s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -785,7 +785,7 @@ public final class ChasseurTalents {
                 "§7toutes les §a0.5s§7!",
                 "",
                 "§8Degats: §c80%",
-                "§8Range: §e10§8 blocs"
+                "§8Portee: §e10§8 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -800,10 +800,10 @@ public final class ChasseurTalents {
     // ==================== PALIER 8 - NIVEAU 50 (Legendaire) ====================
 
     private static void registerTier8Talents() {
-        // 8.1 - ORBITAL STRIKE
+        // 8.1 - FRAPPE ORBITALE
         TALENTS.add(Talent.builder()
             .id("chasseur_orbital_strike")
-            .name("Orbital Strike")
+            .name("Frappe Orbitale")
             .description("Toutes 45s: bombardement orbital")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
@@ -811,7 +811,7 @@ public final class ChasseurTalents {
                 "§7Toutes les §e45s§7, un bombardement",
                 "§7orbital devastateur frappe!",
                 "",
-                "§8Degats: §c1000%§8 base",
+                "§8Degats: §c1000%§8 de base",
                 "§8Zone: §e15§8 blocs de rayon"
             })
             .classType(ClassType.CHASSEUR)
@@ -824,10 +824,10 @@ public final class ChasseurTalents {
             .internalCooldownMs(45000)
             .build());
 
-        // 8.2 - VOID WALKER (EQUILIBRE - pas d'invincibilite totale!)
+        // 8.2 - MARCHEUR DU VIDE (EQUILIBRE - pas d'invincibilite totale!)
         TALENTS.add(Talent.builder()
             .id("chasseur_void_walker")
-            .name("Void Walker")
+            .name("Marcheur du Vide")
             .description("-60% degats en mouvement")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
@@ -848,10 +848,10 @@ public final class ChasseurTalents {
             .values(new double[]{0.60}) // damage_reduction%
             .build());
 
-        // 8.3 - DEATH NOTE
+        // 8.3 - CARNET DE LA MORT
         TALENTS.add(Talent.builder()
             .id("chasseur_death_note")
-            .name("Death Note")
+            .name("Carnet de la Mort")
             .description("Marquer = mort apres 10s")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
@@ -859,8 +859,8 @@ public final class ChasseurTalents {
                 "§7Marquer un ennemi le tue",
                 "§7apres §e10s§7, peu importe ses PV!",
                 "",
-                "§8Boss: §c-50%§8 HP direct",
-                "§8Cooldown: 60s"
+                "§8Boss: §c-50%§8 PV direct",
+                "§8Temps de recharge: 60s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -896,20 +896,20 @@ public final class ChasseurTalents {
             .values(new double[]{5.0, 0.20}) // radius, damage%_per_second
             .build());
 
-        // 8.5 - BULLET TIME
+        // 8.5 - TEMPS SUSPENDU
         TALENTS.add(Talent.builder()
             .id("chasseur_bullet_time")
-            .name("Bullet Time")
+            .name("Temps Suspendu")
             .description("Ralentit le temps a 25% pendant 5s")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
                 "",
-                "§7Activation (Crouch + Jump):",
+                "§7Activation (S'accroupir + Sauter):",
                 "§7Ralentit le temps a §e25%§7!",
                 "§7Vous bougez normalement.",
                 "",
                 "§8Duree: §a5s",
-                "§8Cooldown: 60s"
+                "§8Temps de recharge: 60s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)

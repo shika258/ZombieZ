@@ -229,6 +229,30 @@ public class ClassData {
     }
 
     /**
+     * Reset tous les cooldowns de changement de talents
+     */
+    public void resetTalentCooldowns() {
+        talentChangeCooldowns.clear();
+        markDirty();
+    }
+
+    /**
+     * Reset le cooldown de changement de classe
+     */
+    public void resetClassChangeCooldown() {
+        lastClassChange = 0;
+        markDirty();
+    }
+
+    /**
+     * Reset tous les cooldowns (classe + talents)
+     */
+    public void resetAllCooldowns() {
+        resetClassChangeCooldown();
+        resetTalentCooldowns();
+    }
+
+    /**
      * Compte le nombre de talents sélectionnés
      */
     public int getSelectedTalentCount() {
