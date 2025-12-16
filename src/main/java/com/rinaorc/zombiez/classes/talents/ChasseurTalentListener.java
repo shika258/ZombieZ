@@ -730,40 +730,81 @@ public class ChasseurTalentListener implements Listener {
             return;
         }
 
-        player.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.0f, 0.5f);
+        // Son d'annonce
+        player.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.5f);
+        player.getWorld().playSound(center, Sound.ITEM_CROSSBOW_LOADING_MIDDLE, 1.0f, 0.8f);
 
         for (int wave = 0; wave < waves; wave++) {
             int finalWave = wave;
+            boolean finalPierce = pierce;
+            boolean finalCanCrit = canCrit;
+
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // Son de volée de flèches
+                center.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.2f);
+
                 for (int i = 0; i < arrows; i++) {
+                    // Position de chute aléatoire dans le rayon
                     double x = center.getX() + (Math.random() - 0.5) * radius * 2;
                     double z = center.getZ() + (Math.random() - 0.5) * radius * 2;
-                    Location arrowLoc = new Location(center.getWorld(), x, center.getY(), z);
+                    Location impactLoc = new Location(center.getWorld(), x, center.getY(), z);
 
-                    // Visual
-                    center.getWorld().spawnParticle(Particle.CRIT, arrowLoc, 3, 0.1, 0.1, 0.1, 0);
+                    // Spawner une vraie flèche qui tombe du ciel
+                    Location spawnLoc = impactLoc.clone().add(0, 15 + Math.random() * 5, 0);
+                    int arrowDelay = (int) (Math.random() * 10); // Décalage pour effet de pluie
 
-                    // Damage
-                    for (Entity entity : center.getWorld().getNearbyEntities(arrowLoc, 0.5, 0.5, 0.5)) {
-                        if (entity instanceof LivingEntity target && entity != player) {
-                            double finalDamage = damagePerArrow;
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        Arrow arrow = center.getWorld().spawnArrow(spawnLoc, new Vector(0, -3, 0), 2.0f, 0);
+                        arrow.setShooter(player);
+                        arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+                        arrow.setDamage(0); // Dégâts gérés manuellement
+                        arrow.setGravity(true);
+                        arrow.setPierceLevel(finalPierce ? 3 : 0);
 
-                            // Crit check
-                            if (canCrit) {
-                                Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
-                                if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
-                                    finalDamage *= 1.5;
-                                    // Spawn bonus arrows
-                                    center.getWorld().spawnParticle(Particle.ENCHANTED_HIT, arrowLoc, 5, 0.2, 0.2, 0.2, 0);
+                        // Particules de traînée sur la flèche
+                        new BukkitRunnable() {
+                            int ticks = 0;
+                            @Override
+                            public void run() {
+                                if (arrow.isDead() || arrow.isOnGround() || ticks > 40) {
+                                    // Impact au sol
+                                    Location loc = arrow.getLocation();
+                                    center.getWorld().spawnParticle(Particle.CRIT, loc, 8, 0.3, 0.1, 0.3, 0.1);
+                                    center.getWorld().spawnParticle(Particle.DUST, loc, 5, 0.2, 0.1, 0.2, 0,
+                                        new Particle.DustOptions(Color.fromRGB(139, 90, 43), 1.0f));
+
+                                    // Appliquer les dégâts aux entités proches
+                                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.0, 1.0, 1.0)) {
+                                        if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                            double finalDamage = damagePerArrow;
+
+                                            // Crit check
+                                            if (finalCanCrit) {
+                                                Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
+                                                if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
+                                                    finalDamage *= 1.5;
+                                                    loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 10, 0.3, 0.3, 0.3, 0.1);
+                                                }
+                                            }
+
+                                            target.damage(finalDamage, player);
+                                            if (!finalPierce) break;
+                                        }
+                                    }
+
+                                    arrow.remove();
+                                    this.cancel();
+                                    return;
                                 }
+                                // Particules de traînée
+                                center.getWorld().spawnParticle(Particle.CRIT, arrow.getLocation(), 1, 0, 0, 0, 0);
+                                ticks++;
                             }
+                        }.runTaskTimer(plugin, 0L, 1L);
 
-                            target.damage(finalDamage, player);
-                            if (!pierce) break;
-                        }
-                    }
+                    }, arrowDelay);
                 }
-            }, wave * 20L);
+            }, wave * 25L);
         }
     }
 
