@@ -1,11 +1,16 @@
 package com.rinaorc.zombiez.events.dynamic;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableType;
 import com.rinaorc.zombiez.events.dynamic.impl.HordeInvasionEvent;
 import com.rinaorc.zombiez.events.dynamic.impl.ZombieNestEvent;
 import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -20,6 +25,8 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * Listener pour les interactions avec les événements dynamiques
@@ -108,18 +115,130 @@ public class DynamicEventListener implements Listener {
     }
 
     /**
-     * Empêche le trading avec les villageois survivants
+     * Gère l'interaction avec les villageois survivants (trading interdit, soin autorisé)
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onVillagerInteract(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Villager villager)) return;
+        if (event.getHand() == EquipmentSlot.OFF_HAND) return;
 
-        // Vérifier si c'est un survivant de l'événement (ne peut pas trader)
-        if (villager.getScoreboardTags().contains("no_trading") ||
-            villager.getScoreboardTags().contains("convoy_survivor")) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage("§e§l🛡 §7Ce survivant a besoin de votre protection, pas de commerce!");
+        // Vérifier si c'est un survivant de l'événement
+        if (!villager.getScoreboardTags().contains("convoy_survivor")) return;
+
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        // Vérifier si le joueur tient un item de soin
+        if (tryHealSurvivor(player, villager, item)) {
+            return;
         }
+
+        // Sinon, message standard
+        player.sendMessage("§e§l🛡 §7Ce survivant a besoin de votre protection!");
+        player.sendMessage("§a💉 §7Utilisez un §eBandage §7ou un §eKit d'Adrénaline §7pour le soigner!");
+    }
+
+    /**
+     * Tente de soigner un survivant avec un item de soin
+     * @return true si le soin a été effectué
+     */
+    private boolean tryHealSurvivor(Player player, Villager villager, ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return false;
+
+        double healAmount = 0;
+        boolean consumeItem = false;
+        String healMessage = "";
+
+        // Vérifier si c'est un consommable ZombieZ de type soin
+        if (Consumable.isConsumable(item)) {
+            ConsumableType type = Consumable.getType(item);
+            if (type != null && type.getCategory() == ConsumableType.ConsumableCategory.HEALING) {
+                Consumable consumable = Consumable.fromItemStack(item);
+                if (consumable != null) {
+                    switch (type) {
+                        case BANDAGE -> {
+                            healAmount = consumable.getStat1(); // Le soin du bandage
+                            healMessage = "§a💉 §7Vous avez soigné le survivant avec un §eBandage§7!";
+                        }
+                        case ADRENALINE_KIT -> {
+                            healAmount = consumable.getStat1() * 1.5; // Bonus pour le kit
+                            healMessage = "§c⚡ §7Vous avez soigné le survivant avec un §eKit d'Adrénaline§7!";
+                        }
+                        case ANTIDOTE -> {
+                            healAmount = 5; // L'antidote soigne peu mais peut être utilisé
+                            healMessage = "§a✓ §7Vous avez utilisé un §eAntidote §7sur le survivant!";
+                        }
+                    }
+                    consumeItem = true;
+                }
+            }
+        }
+
+        // Vérifier les items vanilla de soin (pour plus de flexibilité)
+        if (healAmount == 0) {
+            switch (item.getType()) {
+                case GOLDEN_APPLE -> {
+                    healAmount = 8;
+                    healMessage = "§6🍎 §7Vous avez donné une §ePomme Dorée §7au survivant!";
+                    consumeItem = true;
+                }
+                case ENCHANTED_GOLDEN_APPLE -> {
+                    healAmount = 20;
+                    healMessage = "§6§l🍎 §7Vous avez donné une §ePomme Dorée Enchantée §7au survivant!";
+                    consumeItem = true;
+                }
+                case POTION -> {
+                    // Vérifier si c'est une potion de soin
+                    if (item.hasItemMeta() && item.getItemMeta().hasDisplayName() &&
+                        item.getItemMeta().getDisplayName().toLowerCase().contains("soin")) {
+                        healAmount = 8;
+                        healMessage = "§d💧 §7Vous avez donné une §ePotion de Soin §7au survivant!";
+                        consumeItem = true;
+                    }
+                }
+            }
+        }
+
+        // Appliquer le soin si applicable
+        if (healAmount > 0) {
+            var maxHealthAttr = villager.getAttribute(Attribute.MAX_HEALTH);
+            double maxHealth = maxHealthAttr != null ? maxHealthAttr.getValue() : 20;
+            double currentHealth = villager.getHealth();
+
+            // Vérifier si le survivant a besoin de soin
+            if (currentHealth >= maxHealth) {
+                player.sendMessage("§e§l🛡 §7Ce survivant est déjà en pleine santé!");
+                return true; // Ne pas consommer l'item mais annuler l'interaction
+            }
+
+            // Appliquer le soin
+            double newHealth = Math.min(maxHealth, currentHealth + healAmount);
+            villager.setHealth(newHealth);
+
+            // Effets visuels et sonores
+            villager.getWorld().spawnParticle(Particle.HEART, villager.getLocation().add(0, 2, 0), 8, 0.4, 0.4, 0.4, 0);
+            villager.getWorld().playSound(villager.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1.2f);
+            player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1f, 1f);
+
+            // Message au joueur
+            player.sendMessage(healMessage);
+            player.sendMessage("§7Vie: §a" + String.format("%.0f", newHealth) + "/" + String.format("%.0f", maxHealth) +
+                " §7(§a+" + String.format("%.1f", newHealth - currentHealth) + " HP§7)");
+
+            // Consommer l'item
+            if (consumeItem) {
+                if (item.getAmount() > 1) {
+                    item.setAmount(item.getAmount() - 1);
+                } else {
+                    player.getInventory().setItemInMainHand(null);
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

@@ -46,12 +46,16 @@ public class SurvivorConvoyEvent extends DynamicEvent {
     private int survivorsAlive;
 
     // Configuration
-    private int protectionDuration = 120; // 2 minutes de protection
+    private int protectionDuration = 60; // Durée entre 50-70 secondes (défaut 60)
     private int elapsedProtectionTime = 0;
     private int zombieWaveInterval = 8; // Secondes entre vagues
     private int zombiesPerWave = 4;
     private int waveTimer = 0;
     private int wavesSpawned = 0;
+
+    // Délai avant le spawn des mobs (en secondes)
+    private static final int MOB_SPAWN_DELAY = 5;
+    private boolean mobSpawningEnabled = false;
 
     // Zombies qui focus les survivants
     private final List<Zombie> attackingZombies = new ArrayList<>();
@@ -77,7 +81,8 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         this.initialSurvivorCount = 3 + zone.getId() / 20; // 3-5 survivants
         this.zombiesPerWave = 4 + zone.getId() / 8;
         this.zombieWaveInterval = Math.max(5, 8 - zone.getId() / 15); // Plus fréquent en zone avancée
-        this.protectionDuration = 90 + zone.getId() * 2; // 90-150 secondes
+        // Durée aléatoire entre 50 et 70 secondes
+        this.protectionDuration = 50 + (int) (Math.random() * 21); // 50-70 secondes
     }
 
     @Override
@@ -137,8 +142,8 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             villager.setInvulnerable(false);
             villager.setSilent(false);
 
-            // Augmenter la vie des survivants pour qu'ils tiennent plus longtemps
-            double baseHealth = 30 + zone.getId() * 2; // 30-70 HP selon la zone
+            // Vie des survivants: entre 35 et 45 HP (aléatoire)
+            double baseHealth = 35 + (Math.random() * 11); // 35-45 HP
             villager.getAttribute(Attribute.MAX_HEALTH).setBaseValue(baseHealth);
             villager.setHealth(baseHealth);
 
@@ -167,6 +172,8 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             player.sendMessage("§e§l🛡 SURVIVANTS EN DÉTRESSE!");
             player.sendMessage("§7Des survivants ont besoin de votre protection!");
             player.sendMessage("§7Protégez-les des zombies pendant §e" + protectionDuration + " secondes§7!");
+            player.sendMessage("§b⏳ Les zombies arrivent dans §e" + MOB_SPAWN_DELAY + " secondes§b!");
+            player.sendMessage("§a💉 Vous pouvez soigner les survivants avec des bandages!");
             player.sendMessage("§c⚠ Les zombies vont les attaquer directement!");
             player.sendMessage("");
         }
@@ -349,8 +356,21 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             }
         }
 
-        // Spawn de vagues de zombies
-        if (waveTimer >= zombieWaveInterval) {
+        // Activer le spawn de mobs après le délai initial
+        if (!mobSpawningEnabled && elapsedProtectionTime >= MOB_SPAWN_DELAY) {
+            mobSpawningEnabled = true;
+            // Annoncer l'arrivée des zombies
+            for (Player player : world.getNearbyEntities(location, 50, 30, 50).stream()
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .toList()) {
+                player.sendMessage("§c§l⚠ §7Les zombies arrivent! Défendez les survivants!");
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
+            }
+        }
+
+        // Spawn de vagues de zombies (seulement après le délai)
+        if (mobSpawningEnabled && waveTimer >= zombieWaveInterval) {
             spawnZombieWave();
             waveTimer = 0;
             wavesSpawned++;
@@ -447,11 +467,41 @@ public class SurvivorConvoyEvent extends DynamicEvent {
 
             Location spawnLoc = new Location(world, x, y, z);
 
-            // Créer un zombie qui va focus les survivants
-            Zombie zombie = (Zombie) world.spawnEntity(spawnLoc, EntityType.ZOMBIE);
-            zombie.setBaby(false);
-            zombie.addScoreboardTag("event_" + id);
-            zombie.addScoreboardTag("survivor_attacker");
+            // Créer un zombie configuré comme mob ZombieZ
+            Zombie zombie = world.spawn(spawnLoc, Zombie.class, z -> {
+                z.setBaby(false);
+                z.setShouldBurnInDay(false); // Ne brûle pas au soleil
+                z.setRemoveWhenFarAway(true);
+
+                // Tags d'identification ZombieZ
+                z.addScoreboardTag("zombiez_mob");
+                z.addScoreboardTag("event_" + id);
+                z.addScoreboardTag("survivor_attacker");
+
+                // Metadata pour le système ZombieZ
+                z.setMetadata("zombiez_type", new org.bukkit.metadata.FixedMetadataValue(plugin, "EVENT_ZOMBIE"));
+                z.setMetadata("zombiez_zone", new org.bukkit.metadata.FixedMetadataValue(plugin, zone.getId()));
+
+                // Stats basées sur la zone
+                double healthMultiplier = 1.0 + (zone.getId() * 0.05);
+                double damageMultiplier = 1.0 + (zone.getId() * 0.03);
+
+                var maxHealthAttr = z.getAttribute(Attribute.MAX_HEALTH);
+                if (maxHealthAttr != null) {
+                    double health = 20 * healthMultiplier;
+                    maxHealthAttr.setBaseValue(health);
+                    z.setHealth(health);
+                }
+
+                var damageAttr = z.getAttribute(Attribute.ATTACK_DAMAGE);
+                if (damageAttr != null) {
+                    damageAttr.setBaseValue(3 * damageMultiplier);
+                }
+
+                // Nom visible
+                z.setCustomName("§c☠ §7Zombie [§e" + zone.getDisplayName() + "§7]");
+                z.setCustomNameVisible(false);
+            });
 
             // Trouver un survivant à cibler
             Villager target = findNearestSurvivor(spawnLoc);
