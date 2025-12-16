@@ -15,6 +15,8 @@ import com.rinaorc.zombiez.classes.weapons.ClassWeapon;
 import com.rinaorc.zombiez.classes.weapons.ClassWeaponRegistry;
 import lombok.Getter;
 import org.bukkit.entity.Player;
+
+import static com.rinaorc.zombiez.classes.StatCalculator.*;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
@@ -252,8 +254,10 @@ public class ClassManager {
         }
 
         // Appliquer cooldown avec réduction
+        // IMPORTANT: Les ultimes ont un cap de CDR séparé (15% max)
         int cooldown = skill.getCooldown();
-        double cdrBonus = getTotalCooldownReduction(data);
+        boolean isUltimate = skill.getType() == ActiveSkill.SkillType.ULTIMATE;
+        double cdrBonus = getTotalCooldownReduction(data, isUltimate);
         cooldown = (int) (cooldown * (1 - cdrBonus / 100));
         data.putSkillOnCooldown(skillId, Math.max(1, cooldown));
 
@@ -263,7 +267,12 @@ public class ClassManager {
             player.playSound(player.getLocation(), skill.getCastSound(), 1.0f, 1.0f);
         }
 
-        player.sendMessage("§a✦ " + skill.getName() + " §7activé!");
+        // Message différent pour les ultimes
+        if (isUltimate) {
+            player.sendMessage("§c§l✦ " + skill.getName() + " §c§l✦");
+        } else {
+            player.sendMessage("§a✦ " + skill.getName() + " §7activé!");
+        }
         return true;
     }
 
@@ -347,19 +356,49 @@ public class ClassManager {
     }
 
     // ==================== CALCULS DE STATS ====================
+    // Tous les bonus % sont soumis aux diminishing returns via StatCalculator
 
+    /**
+     * Multiplicateur de dégâts avec soft cap à +50% et hard cap à +100%
+     */
     public double getTotalDamageMultiplier(Player player) {
         ClassData data = getClassData(player);
         if (!data.hasClass()) return 1.0;
 
-        double mult = data.getSelectedClass().getDamageMultiplier();
-        mult += getTalentBonus(data, ClassTalent.TalentEffect.DAMAGE_PERCENT) / 100;
-        mult += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.DAMAGE) / 100;
-        mult *= mutationManager.getMultiplier(DailyMutation.MutationEffect.PLAYER_DAMAGE);
+        // Base class multiplier (non capé - fait partie de l'identité de classe)
+        double baseMult = data.getSelectedClass().getDamageMultiplier();
 
-        return mult;
+        // Bonus additifs (talents + buffs) - soumis aux caps
+        double rawBonus = 0;
+        rawBonus += getTalentBonus(data, ClassTalent.TalentEffect.DAMAGE_PERCENT);
+        rawBonus += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.DAMAGE);
+
+        // Appliquer diminishing returns sur les bonus
+        double effectiveBonus = calculateEffectiveDamageBonus(rawBonus);
+
+        // Mutation (multiplicative, non capée - événement temporaire)
+        double mutationMult = mutationManager.getMultiplier(DailyMutation.MutationEffect.PLAYER_DAMAGE);
+
+        return (baseMult + effectiveBonus / 100) * mutationMult;
     }
 
+    /**
+     * Obtenir les valeurs raw et effective pour l'affichage
+     */
+    public double[] getDamageMultiplierDetails(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return new double[]{1.0, 1.0};
+
+        double rawBonus = getTalentBonus(data, ClassTalent.TalentEffect.DAMAGE_PERCENT)
+            + buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.DAMAGE);
+        double effectiveBonus = calculateEffectiveDamageBonus(rawBonus);
+
+        return new double[]{rawBonus, effectiveBonus};
+    }
+
+    /**
+     * Multiplicateur de vie (pas de cap - les tanks doivent pouvoir investir)
+     */
     public double getTotalHealthMultiplier(Player player) {
         ClassData data = getClassData(player);
         if (!data.hasClass()) return 1.0;
@@ -372,27 +411,139 @@ public class ClassManager {
         return mult;
     }
 
+    /**
+     * Chance de critique avec soft cap à 40% et hard cap à 75%
+     */
     public double getTotalCritChance(Player player) {
         ClassData data = getClassData(player);
         if (!data.hasClass()) return 15;
 
-        double crit = 15 * data.getSelectedClass().getCritMultiplier();
-        crit += getTalentBonus(data, ClassTalent.TalentEffect.CRIT_CHANCE);
-        crit += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.CRIT_CHANCE);
-        crit *= mutationManager.getMultiplier(DailyMutation.MutationEffect.PLAYER_CRIT);
+        // Crit de base modifié par le multiplicateur de classe
+        double baseCrit = 15 * data.getSelectedClass().getCritMultiplier();
 
-        return crit;
+        // Bonus additifs (soumis aux caps)
+        double rawBonus = 0;
+        rawBonus += getTalentBonus(data, ClassTalent.TalentEffect.CRIT_CHANCE);
+        rawBonus += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.CRIT_CHANCE);
+
+        // Appliquer diminishing returns
+        double effectiveBonus = calculateEffectiveCritChance(rawBonus);
+
+        // Résultat final avec mutation
+        double total = baseCrit + effectiveBonus;
+        total *= mutationManager.getMultiplier(DailyMutation.MutationEffect.PLAYER_CRIT);
+
+        return Math.min(total, CRIT_CHANCE_HARD_CAP);
     }
 
-    public double getTotalCooldownReduction(ClassData data) {
+    /**
+     * Dégâts critiques avec soft cap à +100% et hard cap à +200%
+     */
+    public double getTotalCritDamage(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return 50; // Base +50%
+
+        double rawBonus = getTalentBonus(data, ClassTalent.TalentEffect.CRIT_DAMAGE);
+        rawBonus += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.CRIT_DAMAGE);
+
+        return 50 + calculateEffectiveCritDamage(rawBonus);
+    }
+
+    /**
+     * Vol de vie avec soft cap à 15% et hard cap à 30%
+     * CRITIQUE pour éviter les builds immortels
+     */
+    public double getTotalLifesteal(Player player) {
+        ClassData data = getClassData(player);
         if (!data.hasClass()) return 0;
 
-        double cdr = 0;
-        cdr += getTalentBonus(data, ClassTalent.TalentEffect.COOLDOWN_REDUCTION);
-        cdr += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.COOLDOWN);
-        cdr += mutationManager.getModifier(DailyMutation.MutationEffect.PLAYER_COOLDOWN);
+        // Base de classe (Guerrier a 10%)
+        double baseLifesteal = data.getSelectedClass().getLifesteal() * 100;
 
-        return Math.min(cdr, 50);
+        // Bonus talents + buffs
+        double rawBonus = getTalentBonus(data, ClassTalent.TalentEffect.LIFESTEAL);
+        rawBonus += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.LIFESTEAL);
+
+        // Total raw puis diminishing returns
+        double rawTotal = baseLifesteal + rawBonus;
+        return calculateEffectiveLifesteal(rawTotal);
+    }
+
+    /**
+     * Réduction de dégâts avec soft cap à 20% et hard cap à 50%
+     */
+    public double getTotalDamageReduction(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return 0;
+
+        double rawReduction = getTalentBonus(data, ClassTalent.TalentEffect.DAMAGE_REDUCTION);
+        rawReduction += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.DAMAGE_REDUCTION);
+
+        return calculateEffectiveDamageReduction(rawReduction);
+    }
+
+    /**
+     * Vitesse avec soft cap à 20% et hard cap à 35%
+     */
+    public double getTotalSpeedBonus(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return 0;
+
+        // Base de classe
+        double baseBonus = (data.getSelectedClass().getSpeedMultiplier() - 1.0) * 100;
+
+        double rawBonus = baseBonus + getTalentBonus(data, ClassTalent.TalentEffect.MOVEMENT_SPEED);
+        rawBonus += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.SPEED);
+
+        return calculateEffectiveSpeed(rawBonus);
+    }
+
+    /**
+     * Esquive avec soft cap à 15% et hard cap à 30%
+     */
+    public double getTotalDodgeChance(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return 0;
+
+        double rawDodge = getTalentBonus(data, ClassTalent.TalentEffect.DODGE_CHANCE);
+        rawDodge += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.DODGE);
+
+        return calculateEffectiveDodge(rawDodge);
+    }
+
+    /**
+     * Réduction de cooldown avec soft cap à 25% et hard cap à 40%
+     * IMPORTANT: Les ultimes ont un cap séparé de 15%
+     */
+    public double getTotalCooldownReduction(ClassData data, boolean isUltimate) {
+        if (!data.hasClass()) return 0;
+
+        double rawCdr = 0;
+        rawCdr += getTalentBonus(data, ClassTalent.TalentEffect.COOLDOWN_REDUCTION);
+        rawCdr += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.COOLDOWN);
+        rawCdr += mutationManager.getModifier(DailyMutation.MutationEffect.PLAYER_COOLDOWN);
+
+        return calculateEffectiveCDR(rawCdr, isUltimate);
+    }
+
+    /**
+     * Version legacy pour compatibilité - considère non-ultime
+     */
+    public double getTotalCooldownReduction(ClassData data) {
+        return getTotalCooldownReduction(data, false);
+    }
+
+    /**
+     * Régénération avec soft cap à 30% et hard cap à 60%
+     */
+    public double getTotalRegenBonus(Player player) {
+        ClassData data = getClassData(player);
+        if (!data.hasClass()) return 0;
+
+        double rawRegen = getTalentBonus(data, ClassTalent.TalentEffect.REGEN_PERCENT);
+        rawRegen += buffRegistry.getTotalBonus(data.getArcadeBuffs(), ArcadeBuff.BuffEffect.REGEN);
+
+        return calculateEffectiveRegen(rawRegen);
     }
 
     private double getTalentBonus(ClassData data, ClassTalent.TalentEffect effectType) {

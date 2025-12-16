@@ -148,8 +148,10 @@ public class ArcadeBuff {
 
         // Défensifs
         HEALTH(true),           // +% HP max
-        ARMOR(true),            // +% réduction dégâts
+        DAMAGE_REDUCTION(true), // +% réduction de dégâts
+        ARMOR(true),            // +% réduction dégâts (alias)
         REGEN(true),            // +% régénération
+        DODGE(true),            // +% chance d'esquive
 
         // Utilitaires
         SPEED(true),            // +% vitesse

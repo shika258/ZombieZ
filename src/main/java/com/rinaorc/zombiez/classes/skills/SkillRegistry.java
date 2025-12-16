@@ -45,6 +45,7 @@ public class SkillRegistry {
 
     // ==================== GUERRIER ====================
     // Focus: Mêlée, survie, dégâts bruts
+    // Équilibré pour travailler avec soft caps et CDR ultime 15% max
     private void registerGuerrierSkills() {
         ClassType c = ClassType.GUERRIER;
 
@@ -54,141 +55,147 @@ public class SkillRegistry {
             "gue_charge", "Charge Brutale",
             "Foncez vers l'avant et frappez tous les ennemis sur votre passage",
             c, SkillType.BASE, Material.IRON_SWORD,
-            8, 20, 0,
-            SkillEffect.DASH, 50, 3, 0,
+            10, 25, 0,  // CD 8->10, énergie 20->25
+            SkillEffect.DASH, 40, 3, 0,  // dégâts 50->40
             Sound.ENTITY_RAVAGER_ATTACK
         ));
 
         // COMPÉTENCE 2 - Cri de guerre (BASE)
-        // Buff de dégâts temporaire
+        // Buff de dégâts temporaire (réduit)
         register(new ActiveSkill(
             "gue_warcry", "Cri de Guerre",
-            "Poussez un cri terrifiant qui augmente vos dégâts de 30%",
+            "Poussez un cri terrifiant qui augmente vos dégâts de 25%",
             c, SkillType.BASE, Material.GOAT_HORN,
-            20, 30, 0,
-            SkillEffect.BUFF, 0, 0, 8,
+            25, 35, 0,  // CD 20->25, énergie 30->35
+            SkillEffect.BUFF, 0, 0, 6,  // durée 8->6
             Sound.EVENT_RAID_HORN
         ));
 
         // COMPÉTENCE 3 - Frappe sismique (AVANCÉE)
-        // Gros AoE au sol
+        // AoE équilibré
         register(new ActiveSkill(
             "gue_slam", "Frappe Sismique",
             "Frappez le sol avec une force dévastatrice, infligeant des dégâts en zone",
             c, SkillType.ADVANCED, Material.MACE,
-            15, 50, 5,
-            SkillEffect.AOE_DAMAGE, 100, 5, 0,
+            18, 55, 5,  // CD 15->18
+            SkillEffect.AOE_DAMAGE, 80, 4, 0,  // dégâts 100->80, rayon 5->4
             Sound.ENTITY_WARDEN_SONIC_BOOM
         ));
 
-        // COMPÉTENCE 4 - Rage immortelle (ULTIME)
-        // Invulnérable + boost de dégâts massif
+        // COMPÉTENCE 4 - Rage du Berserker (ULTIME)
+        // Changé: Plus invulnérable, mais réduction de dégâts massive + boost
+        // CDR max 15% = CD minimum ~102s
         register(new ActiveSkill(
-            "gue_rage", "Rage Immortelle",
-            "Devenez invulnérable et gagnez +100% dégâts pendant 5 secondes",
-            c, SkillType.ULTIMATE, Material.TOTEM_OF_UNDYING,
-            90, 100, 10,
-            SkillEffect.BUFF, 0, 0, 5,
-            Sound.ITEM_TOTEM_USE
+            "gue_rage", "Rage du Berserker",
+            "Réduction de dégâts 70% et +50% dégâts pendant 4s. Prend 10% HP en fin.",
+            c, SkillType.ULTIMATE, Material.BLAZE_POWDER,
+            120, 80, 10,  // CD 90->120 (avec 15% CDR = 102s), énergie 100->80
+            SkillEffect.BUFF, 0, 0, 4,  // durée 5->4
+            Sound.ENTITY_RAVAGER_ROAR
         ));
     }
 
     // ==================== CHASSEUR ====================
     // Focus: Distance, critiques, mobilité
+    // Équilibré: dégâts conditionnels, pas de burst gratuit
     private void registerChasseurSkills() {
         ClassType c = ClassType.CHASSEUR;
 
         // COMPÉTENCE 1 - Tir rapide (BASE)
-        // Tire plusieurs projectiles rapidement
+        // Tire plusieurs projectiles - dégâts moyens, bon pour le farming
         register(new ActiveSkill(
             "cha_multishot", "Tir Rapide",
-            "Tirez une rafale de 3 flèches en succession rapide",
+            "Tirez une rafale de 3 flèches (25 dégâts chacune)",
             c, SkillType.BASE, Material.ARROW,
-            6, 15, 0,
-            SkillEffect.DAMAGE, 30, 0, 0,
+            8, 20, 0,  // CD 6->8, énergie 15->20
+            SkillEffect.DAMAGE, 25, 0, 0,  // dégâts 30->25 (x3 = 75 total)
             Sound.ENTITY_ARROW_SHOOT
         ));
 
         // COMPÉTENCE 2 - Roulade (BASE)
-        // Dash d'évasion
+        // Dash d'évasion - utilité pure
         register(new ActiveSkill(
             "cha_roll", "Roulade Tactique",
             "Effectuez une roulade rapide pour esquiver et repositionner",
             c, SkillType.BASE, Material.FEATHER,
-            5, 10, 0,
+            6, 15, 0,  // CD 5->6, énergie 10->15
             SkillEffect.DASH, 0, 0, 0,
             Sound.ENTITY_PHANTOM_FLAP
         ));
 
         // COMPÉTENCE 3 - Piège explosif (AVANCÉE)
-        // Pose un piège qui explose
+        // Contrôle de zone, pas juste des dégâts
         register(new ActiveSkill(
             "cha_trap", "Piège Explosif",
-            "Posez un piège invisible qui explose au passage des ennemis",
+            "Posez un piège qui explose et ralentit les ennemis 3s",
             c, SkillType.ADVANCED, Material.TRIPWIRE_HOOK,
-            12, 40, 5,
-            SkillEffect.AOE_DAMAGE, 80, 4, 30,
+            15, 45, 5,  // CD 12->15
+            SkillEffect.AOE_DAMAGE, 60, 3, 20,  // dégâts 80->60, rayon 4->3
             Sound.BLOCK_TRIPWIRE_ATTACH
         ));
 
-        // COMPÉTENCE 4 - Tir mortel (ULTIME)
-        // Gros crit garanti
+        // COMPÉTENCE 4 - Tir de Précision (ULTIME)
+        // Changé: Plus x3 dégâts auto. Crit garanti mais dégâts normaux.
+        // L'intérêt c'est le crit garanti + headshot si bien visé
+        // CDR max 15% = CD minimum ~68s
         register(new ActiveSkill(
-            "cha_deadeye", "Tir Mortel",
-            "Concentrez-vous pour un tir parfait: critique garanti x3 dégâts",
+            "cha_deadeye", "Tir de Précision",
+            "Tir à charge: critique garanti, +100% dégâts si headshot",
             c, SkillType.ULTIMATE, Material.ENDER_EYE,
-            60, 80, 10,
-            SkillEffect.EXECUTE, 200, 0, 0,
+            80, 60, 10,  // CD 60->80
+            SkillEffect.EXECUTE, 120, 0, 0,  // dégâts 200->120
             Sound.ENTITY_ARROW_HIT_PLAYER
         ));
     }
 
     // ==================== OCCULTISTE ====================
     // Focus: AoE, sorts puissants, contrôle
+    // Équilibré: Fragile, dépendant de l'énergie, pas de spam
     private void registerOccultisteSkills() {
         ClassType c = ClassType.OCCULTISTE;
 
         // COMPÉTENCE 1 - Orbe d'ombre (BASE)
-        // Projectile magique
+        // Projectile magique - bon dégât single target avec petit AoE
         register(new ActiveSkill(
             "occ_orb", "Orbe d'Ombre",
             "Lancez un orbe d'énergie sombre qui explose à l'impact",
             c, SkillType.BASE, Material.ENDER_PEARL,
-            4, 15, 0,
-            SkillEffect.AOE_DAMAGE, 40, 3, 0,
+            5, 20, 0,  // CD 4->5, énergie 15->20
+            SkillEffect.AOE_DAMAGE, 35, 2, 0,  // dégâts 40->35, rayon 3->2
             Sound.ENTITY_ENDER_DRAGON_SHOOT
         ));
 
         // COMPÉTENCE 2 - Drain vital (BASE)
-        // Dégâts + heal
+        // Dégâts + heal réduit (travaille avec spell lifesteal cap)
         register(new ActiveSkill(
             "occ_drain", "Drain Vital",
-            "Drainez la vie d'un ennemi pour vous soigner de 50% des dégâts",
+            "Drainez la vie d'un ennemi pour vous soigner de 30% des dégâts",
             c, SkillType.BASE, Material.GHAST_TEAR,
-            10, 25, 0,
-            SkillEffect.DAMAGE, 60, 0, 0,
+            12, 30, 0,  // CD 10->12, énergie 25->30
+            SkillEffect.DAMAGE, 50, 0, 0,  // dégâts 60->50
             Sound.ENTITY_ILLUSIONER_CAST_SPELL
         ));
 
         // COMPÉTENCE 3 - Nova de feu (AVANCÉE)
-        // Grosse explosion AoE
+        // AoE équilibré autour du joueur
         register(new ActiveSkill(
             "occ_nova", "Nova Infernale",
             "Déclenchez une explosion de flammes autour de vous",
             c, SkillType.ADVANCED, Material.FIRE_CHARGE,
-            15, 60, 5,
-            SkillEffect.AOE_DAMAGE, 120, 6, 0,
+            18, 65, 5,  // CD 15->18
+            SkillEffect.AOE_DAMAGE, 90, 5, 0,  // dégâts 120->90, rayon 6->5
             Sound.ENTITY_BLAZE_SHOOT
         ));
 
-        // COMPÉTENCE 4 - Apocalypse (ULTIME)
-        // Dégâts AoE massifs sur la durée
+        // COMPÉTENCE 4 - Tempête Arcanique (ULTIME)
+        // Changé: Plus de 300 dégâts. Zone plus petite, effet de ralentissement
+        // CDR max 15% = CD minimum ~102s
         register(new ActiveSkill(
-            "occ_apocalypse", "Apocalypse",
-            "Invoquez une pluie de météores dévastateurs sur la zone ciblée",
+            "occ_apocalypse", "Tempête Arcanique",
+            "Invoquez une tempête de magie pendant 4s. Ralentit de 50%.",
             c, SkillType.ULTIMATE, Material.NETHER_STAR,
-            90, 100, 10,
-            SkillEffect.AOE_DAMAGE, 300, 10, 5,
+            120, 90, 10,  // CD 90->120
+            SkillEffect.AOE_DAMAGE, 150, 7, 4,  // dégâts 300->150, rayon 10->7
             Sound.ENTITY_WITHER_SPAWN
         ));
     }

@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.classes.buffs;
 
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.classes.StatCalculator;
 import com.rinaorc.zombiez.classes.buffs.ArcadeBuff.BuffCategory;
 import com.rinaorc.zombiez.classes.buffs.ArcadeBuff.BuffEffect;
 import com.rinaorc.zombiez.classes.buffs.ArcadeBuff.BuffRarity;
@@ -201,12 +202,47 @@ public class ArcadeBuffRegistry {
     }
 
     /**
+     * Compte les stacks par catégorie
+     * Utilisé pour les caps de catégorie anti-power creep
+     */
+    public Map<BuffCategory, Integer> getCategoryStacks(Map<String, Integer> currentBuffs) {
+        Map<BuffCategory, Integer> counts = new EnumMap<>(BuffCategory.class);
+        for (BuffCategory cat : BuffCategory.values()) {
+            counts.put(cat, 0);
+        }
+
+        for (Map.Entry<String, Integer> entry : currentBuffs.entrySet()) {
+            ArcadeBuff buff = getBuff(entry.getKey());
+            if (buff != null) {
+                counts.merge(buff.getCategory(), entry.getValue(), Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    /**
+     * Vérifie si une catégorie est au cap
+     */
+    public boolean isCategoryAtCap(BuffCategory category, Map<String, Integer> currentBuffs) {
+        int currentStacks = getCategoryStacks(currentBuffs).getOrDefault(category, 0);
+        return switch (category) {
+            case OFFENSE -> currentStacks >= StatCalculator.MAX_OFFENSE_BUFF_STACKS;
+            case DEFENSE -> currentStacks >= StatCalculator.MAX_DEFENSE_BUFF_STACKS;
+            case UTILITY -> currentStacks >= StatCalculator.MAX_UTILITY_BUFF_STACKS;
+        };
+    }
+
+    /**
      * Génère 3 buffs aléatoires pour un level up
+     * Respecte les caps de catégorie pour éviter le power creep
      */
     public List<ArcadeBuff> generateChoices(ClassType playerClass, Map<String, Integer> currentBuffs) {
         List<ArcadeBuff> choices = new ArrayList<>();
         Set<String> usedIds = new HashSet<>();
         Random random = ThreadLocalRandom.current();
+
+        // Calculer les catégories encore disponibles
+        Map<BuffCategory, Integer> categoryStacks = getCategoryStacks(currentBuffs);
 
         int attempts = 0;
         while (choices.size() < 3 && attempts < 30) {
@@ -227,8 +263,7 @@ public class ArcadeBuffRegistry {
                 List<ArcadeBuff> classBuffs = buffsByClass.get(playerClass);
                 if (!classBuffs.isEmpty()) {
                     ArcadeBuff classBuff = classBuffs.get(random.nextInt(classBuffs.size()));
-                    if (!usedIds.contains(classBuff.getId()) &&
-                        currentBuffs.getOrDefault(classBuff.getId(), 0) < classBuff.getMaxStacks()) {
+                    if (isBuffAvailable(classBuff, usedIds, currentBuffs, categoryStacks)) {
                         choices.add(classBuff);
                         usedIds.add(classBuff.getId());
                         continue;
@@ -236,10 +271,9 @@ public class ArcadeBuffRegistry {
                 }
             }
 
-            // Filtrer les buffs déjà au max ou déjà sélectionnés
+            // Filtrer les buffs non disponibles
             pool = pool.stream()
-                .filter(b -> !usedIds.contains(b.getId()))
-                .filter(b -> currentBuffs.getOrDefault(b.getId(), 0) < b.getMaxStacks())
+                .filter(b -> isBuffAvailable(b, usedIds, currentBuffs, categoryStacks))
                 .toList();
 
             if (!pool.isEmpty()) {
@@ -252,8 +286,7 @@ public class ArcadeBuffRegistry {
         // Compléter si nécessaire
         if (choices.size() < 3) {
             List<ArcadeBuff> fallback = allBuffs.stream()
-                .filter(b -> !usedIds.contains(b.getId()))
-                .filter(b -> currentBuffs.getOrDefault(b.getId(), 0) < b.getMaxStacks())
+                .filter(b -> isBuffAvailable(b, usedIds, currentBuffs, categoryStacks))
                 .toList();
 
             while (choices.size() < 3 && !fallback.isEmpty()) {
@@ -270,13 +303,33 @@ public class ArcadeBuffRegistry {
     }
 
     /**
+     * Vérifie si un buff peut être sélectionné
+     */
+    private boolean isBuffAvailable(ArcadeBuff buff, Set<String> usedIds,
+                                    Map<String, Integer> currentBuffs,
+                                    Map<BuffCategory, Integer> categoryStacks) {
+        if (usedIds.contains(buff.getId())) return false;
+        if (currentBuffs.getOrDefault(buff.getId(), 0) >= buff.getMaxStacks()) return false;
+
+        // Vérifier le cap de catégorie
+        int catCap = switch (buff.getCategory()) {
+            case OFFENSE -> StatCalculator.MAX_OFFENSE_BUFF_STACKS;
+            case DEFENSE -> StatCalculator.MAX_DEFENSE_BUFF_STACKS;
+            case UTILITY -> StatCalculator.MAX_UTILITY_BUFF_STACKS;
+        };
+
+        return categoryStacks.getOrDefault(buff.getCategory(), 0) < catCap;
+    }
+
+    /**
      * Calcule le bonus total d'un effet spécifique
+     * Gère les alias (ARMOR = DAMAGE_REDUCTION)
      */
     public double getTotalBonus(Map<String, Integer> currentBuffs, BuffEffect effect) {
         double total = 0;
         for (Map.Entry<String, Integer> entry : currentBuffs.entrySet()) {
             ArcadeBuff buff = getBuff(entry.getKey());
-            if (buff != null && buff.getEffect() == effect) {
+            if (buff != null && matchesEffect(buff.getEffect(), effect)) {
                 total += buff.getTotalValue(entry.getValue());
             }
         }
@@ -284,9 +337,36 @@ public class ArcadeBuffRegistry {
     }
 
     /**
+     * Vérifie si un effet correspond (avec gestion des alias)
+     */
+    private boolean matchesEffect(BuffEffect buffEffect, BuffEffect requestedEffect) {
+        if (buffEffect == requestedEffect) return true;
+        // ARMOR et DAMAGE_REDUCTION sont équivalents
+        if ((buffEffect == BuffEffect.ARMOR && requestedEffect == BuffEffect.DAMAGE_REDUCTION) ||
+            (buffEffect == BuffEffect.DAMAGE_REDUCTION && requestedEffect == BuffEffect.ARMOR)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Obtient le nombre total de buffs collectés
      */
     public int getTotalBuffCount(Map<String, Integer> currentBuffs) {
         return currentBuffs.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    /**
+     * Génère un résumé des caps pour l'affichage
+     */
+    public List<String> getCategoryCapInfo(Map<String, Integer> currentBuffs) {
+        Map<BuffCategory, Integer> stacks = getCategoryStacks(currentBuffs);
+        List<String> info = new ArrayList<>();
+
+        info.add("§c⚔ Offensif: §f" + stacks.get(BuffCategory.OFFENSE) + "/" + StatCalculator.MAX_OFFENSE_BUFF_STACKS);
+        info.add("§6⛨ Défensif: §f" + stacks.get(BuffCategory.DEFENSE) + "/" + StatCalculator.MAX_DEFENSE_BUFF_STACKS);
+        info.add("§b✧ Utilitaire: §f" + stacks.get(BuffCategory.UTILITY) + "/" + StatCalculator.MAX_UTILITY_BUFF_STACKS);
+
+        return info;
     }
 }
