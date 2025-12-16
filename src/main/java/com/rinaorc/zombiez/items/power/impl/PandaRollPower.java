@@ -159,11 +159,13 @@ public class PandaRollPower extends Power {
 
                 // Effet de knockback
                 Vector knockback = target.getLocation().toVector()
-                    .subtract(center.toVector())
-                    .normalize()
-                    .multiply(0.5)
-                    .setY(0.3);
-                target.setVelocity(knockback);
+                    .subtract(center.toVector());
+
+                // Vérifier que le vecteur a une longueur suffisante pour être normalisé
+                if (knockback.lengthSquared() > 0.001) {
+                    knockback.normalize().multiply(0.5).setY(0.3);
+                    target.setVelocity(knockback);
+                }
 
                 // Effet visuel sur la cible
                 target.getWorld().spawnParticle(
