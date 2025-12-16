@@ -311,7 +311,8 @@ public class WeatherAdminCommand implements CommandExecutor, TabCompleter {
     private void handleReload(CommandSender sender) {
         try {
             // Recharger la configuration météo
-            var weatherConfig = plugin.getConfigManager().reloadConfig("weather.yml");
+            plugin.getConfigManager().reloadConfig("weather.yml");
+            var weatherConfig = plugin.getConfigManager().getConfig("weather.yml");
             if (plugin.getWeatherManager() != null) {
                 plugin.getWeatherManager().loadConfig(weatherConfig);
             }
