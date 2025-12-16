@@ -48,6 +48,9 @@ public class ClassData {
     private final AtomicLong damageDealt = new AtomicLong(0);
     private final AtomicLong damageReceived = new AtomicLong(0);
 
+    // Préférences utilisateur
+    private final AtomicBoolean talentMessagesEnabled = new AtomicBoolean(true);
+
     // Cooldown de changement de talent (1 heure)
     public static final long TALENT_CHANGE_COOLDOWN_MS = 60 * 60 * 1000L;
 
@@ -291,6 +294,34 @@ public class ClassData {
         return selectedClass != null;
     }
 
+    // ==================== PRÉFÉRENCES ====================
+
+    /**
+     * Vérifie si les messages de talents sont activés
+     */
+    public boolean isTalentMessagesEnabled() {
+        return talentMessagesEnabled.get();
+    }
+
+    /**
+     * Active ou désactive les messages de talents
+     */
+    public void setTalentMessagesEnabled(boolean enabled) {
+        talentMessagesEnabled.set(enabled);
+        markDirty();
+    }
+
+    /**
+     * Inverse l'état des messages de talents
+     * @return le nouvel état
+     */
+    public boolean toggleTalentMessages() {
+        boolean newState = !talentMessagesEnabled.get();
+        talentMessagesEnabled.set(newState);
+        markDirty();
+        return newState;
+    }
+
     /**
      * Obtient l'ID de la classe pour la base de données
      */
@@ -316,6 +347,8 @@ public class ClassData {
         this.selectedTalents.putAll(other.selectedTalents);
         this.talentChangeCooldowns.clear();
         this.talentChangeCooldowns.putAll(other.talentChangeCooldowns);
+        // Copier les préférences
+        this.talentMessagesEnabled.set(other.talentMessagesEnabled.get());
     }
 
     @Override

@@ -35,6 +35,7 @@ public class ClassInfoGUI implements Listener {
     private static final int SLOT_STATS_INFO = 15;
     private static final int SLOT_TALENTS = 22;
     private static final int SLOT_CHANGE_CLASS = 31;
+    private static final int SLOT_TALENT_MESSAGES_TOGGLE = 44;
     private static final int SLOT_CLOSE = 36;
 
     public ClassInfoGUI(ZombieZPlugin plugin, ClassManager classManager) {
@@ -85,6 +86,9 @@ public class ClassInfoGUI implements Listener {
 
         // === CHANGER DE CLASSE ===
         gui.setItem(SLOT_CHANGE_CLASS, createChangeClassButton(data));
+
+        // === TOGGLE MESSAGES DE TALENTS ===
+        gui.setItem(SLOT_TALENT_MESSAGES_TOGGLE, createTalentMessagesToggle(data));
 
         // Bouton fermer
         gui.setItem(SLOT_CLOSE, new ItemBuilder(Material.BARRIER)
@@ -265,6 +269,27 @@ public class ClassInfoGUI implements Listener {
             .build();
     }
 
+    private ItemStack createTalentMessagesToggle(ClassData data) {
+        boolean enabled = data.isTalentMessagesEnabled();
+
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+        lore.add("§7Statut: " + (enabled ? "§aActivé" : "§cDésactivé"));
+        lore.add("");
+        lore.add("§7Contrôle les messages de notification");
+        lore.add("§7des talents dans le chat:");
+        lore.add("§8- Sélection de talent");
+        lore.add("§8- Talents disponibles");
+        lore.add("");
+        lore.add("§e> Clic pour " + (enabled ? "désactiver" : "activer"));
+
+        return new ItemBuilder(enabled ? Material.BELL : Material.BARRIER)
+            .name(enabled ? "§a§lMESSAGES TALENTS" : "§c§lMESSAGES TALENTS")
+            .lore(lore)
+            .glow(enabled)
+            .build();
+    }
+
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (!event.getView().getTitle().equals(GUI_TITLE)) return;
@@ -293,6 +318,16 @@ public class ClassInfoGUI implements Listener {
                 } else {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
+            }
+            case SLOT_TALENT_MESSAGES_TOGGLE -> {
+                ClassData data = classManager.getClassData(player);
+                boolean newState = data.toggleTalentMessages();
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                player.sendMessage(newState
+                    ? "§a§l+ Messages de talents activés"
+                    : "§c§l- Messages de talents désactivés");
+                // Refresh le menu
+                open(player);
             }
             case SLOT_CLOSE -> player.closeInventory();
         }

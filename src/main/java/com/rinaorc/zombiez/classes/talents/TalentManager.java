@@ -173,11 +173,13 @@ public class TalentManager {
         boolean success = data.selectTalent(talent.getTier(), talent.getId());
 
         if (success) {
-            // Notification
-            player.sendMessage("");
-            player.sendMessage("§a§l+ TALENT SÉLECTIONNÉ +");
-            player.sendMessage("§7" + talent.getTier().getDisplayName() + ": " + talent.getColoredName());
-            player.sendMessage("");
+            // Notification (si activée)
+            if (data.isTalentMessagesEnabled()) {
+                player.sendMessage("");
+                player.sendMessage("§a§l+ TALENT SÉLECTIONNÉ +");
+                player.sendMessage("§7" + talent.getTier().getDisplayName() + ": " + talent.getColoredName());
+                player.sendMessage("");
+            }
 
             // Effet sonore
             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
@@ -239,6 +241,9 @@ public class TalentManager {
      * Notifie un joueur s'il a des talents à sélectionner
      */
     public void notifyUnselectedTalents(Player player) {
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.isTalentMessagesEnabled()) return;
+
         List<TalentTier> unselected = getUnselectedTiers(player);
         if (!unselected.isEmpty()) {
             player.sendMessage("");
