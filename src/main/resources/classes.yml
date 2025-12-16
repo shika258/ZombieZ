@@ -1,0 +1,122 @@
+# ============================================
+# Configuration du système de classes ZombieZ
+# ============================================
+
+# Paramètres généraux
+general:
+  # Cooldown pour changer de classe (en heures)
+  class-change-cooldown: 24
+  # Niveau minimum pour accéder aux classes
+  min-level-required: 5
+  # Points de talent par niveau de classe
+  talent-points-per-level: 1
+  # Énergie de base
+  base-energy: 100
+  # Régénération d'énergie par seconde
+  energy-regen-rate: 5
+
+# Configuration de l'XP de classe
+class-xp:
+  # XP de classe gagné par kill de zombie (% de l'XP normal)
+  zombie-kill-percent: 50
+  # XP de classe gagné par kill d'élite
+  elite-kill-percent: 100
+  # XP de classe gagné par kill de boss
+  boss-kill-percent: 200
+  # Bonus d'XP de classe en groupe
+  party-bonus-percent: 20
+
+# Configuration des compétences
+skills:
+  # Réduction maximale de cooldown (%)
+  max-cooldown-reduction: 50
+  # Énergie régénérée par kill
+  energy-per-kill: 10
+  # Bonus d'énergie pour les kills en streak
+  streak-energy-bonus: 2
+
+# Configuration des armes de classe
+class-weapons:
+  # Les armes de classe peuvent-elles drop naturellement?
+  can-drop-naturally: true
+  # Chance de drop d'arme de classe (% par kill de boss)
+  boss-drop-chance: 5
+  # Chance de drop d'arme de classe (% par kill d'élite)
+  elite-drop-chance: 1
+  # Zone minimum pour que les armes de classe puissent drop
+  min-zone-for-drops: 5
+
+# Configuration des mutations quotidiennes
+mutations:
+  # Nombre de mutations actives par jour
+  active-count: 3
+  # Heure de reset (0-23, heure serveur)
+  reset-hour: 0
+  # Annoncer les nouvelles mutations au login
+  announce-on-login: true
+  # Bonus d'XP pour jour de mutation légendaire
+  legendary-day-xp-bonus: 25
+
+# Configuration des buffs arcade
+arcade-buffs:
+  # Nombre de choix au level up
+  choices-per-levelup: 3
+  # Peut-on sauter un choix?
+  allow-skip: false
+  # Bonus de chance pour buffs de sa classe (%)
+  class-buff-weight-bonus: 50
+
+# Messages
+messages:
+  class-selected: "&a✓ Vous êtes maintenant {class}!"
+  class-on-cooldown: "&cVous devez attendre {hours}h avant de changer de classe!"
+  no-class-selected: "&cVous devez d'abord choisir une classe!"
+  talent-unlocked: "&a✓ Talent amélioré: &e{talent} &7(Niveau {level}/{max})"
+  talent-maxed: "&cCe talent est déjà au niveau maximum!"
+  skill-equipped: "&a✓ Compétence équipée: &e{skill}"
+  skill-on-cooldown: "&cCompétence en recharge! ({seconds}s)"
+  not-enough-energy: "&cPas assez d'énergie! (Requis: {cost})"
+  weapon-class-restricted: "&cCette arme est réservée aux {class}!"
+  buff-selected: "&a✓ Buff obtenu: {buff}"
+  class-levelup: "&6&l✦ NIVEAU DE CLASSE {level} ✦"
+  mutation-announcement: "&6&l✦ MUTATIONS DU JOUR ✦"
+
+# Multiplicateurs par défaut des classes
+# Ces valeurs sont en backup, les vraies valeurs sont dans ClassType.java
+class-defaults:
+  commando:
+    damage: 1.15
+    speed: 1.0
+    health: 1.10
+    crit: 0.95
+    loot: 1.0
+  scout:
+    damage: 0.95
+    speed: 1.20
+    health: 0.90
+    crit: 1.15
+    loot: 1.10
+  medic:
+    damage: 0.90
+    speed: 1.05
+    health: 1.15
+    crit: 1.0
+    loot: 1.0
+  engineer:
+    damage: 0.95
+    speed: 1.0
+    health: 1.05
+    crit: 1.0
+    loot: 1.15
+  berserker:
+    damage: 1.25
+    speed: 0.95
+    health: 1.20
+    crit: 0.90
+    loot: 0.90
+  sniper:
+    damage: 1.10
+    speed: 0.90
+    health: 0.85
+    crit: 1.25
+    loot: 1.05
