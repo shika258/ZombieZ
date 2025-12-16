@@ -51,6 +51,12 @@ commands:
     permission: zombiez.admin.weather
     aliases: [zzw, weather, meteo]
 
+  zzclassadmin:
+    description: Gestion admin des classes (XP, points, niveau, unlock all)
+    usage: /<command> <info|setclass|setlevel|givexp|givepoints|unlockall|reset|resettalents>
+    permission: zombiez.admin.class
+    aliases: [zzca, classadmin]
+
   # Commandes Joueur
   spawn:
     description: Téléportation au spawn
@@ -135,6 +141,7 @@ permissions:
       zombiez.admin.consumables: true
       zombiez.admin.events: true
       zombiez.admin.weather: true
+      zombiez.admin.class: true
 
   zombiez.admin.items:
     description: Gestion des items procéduraux
@@ -154,6 +161,10 @@ permissions:
 
   zombiez.admin.weather:
     description: Gestion du systeme meteo dynamique
+    default: op
+
+  zombiez.admin.class:
+    description: Gestion admin des classes
     default: op
 
   zombiez.reload:

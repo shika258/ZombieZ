@@ -1,5 +1,6 @@
 package com.rinaorc.zombiez;
 
+import com.rinaorc.zombiez.commands.admin.ClassAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ItemAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ZombieAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ZombieZAdminCommand;
@@ -391,6 +392,11 @@ public class ZombieZPlugin extends JavaPlugin {
             new com.rinaorc.zombiez.commands.admin.WeatherAdminCommand(this);
         getCommand("zzweather").setExecutor(weatherCmd);
         getCommand("zzweather").setTabCompleter(weatherCmd);
+
+        // Commandes Admin Classes
+        ClassAdminCommand classAdminCmd = new ClassAdminCommand(this);
+        getCommand("zzclassadmin").setExecutor(classAdminCmd);
+        getCommand("zzclassadmin").setTabCompleter(classAdminCmd);
 
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
