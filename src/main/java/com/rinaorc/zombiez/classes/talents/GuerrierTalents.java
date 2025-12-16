@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Registre de tous les talents du Guerrier
- * 40 talents au total, 5 par palier sur 8 paliers
+ * 45 talents au total, 5 par palier sur 9 paliers
  *
  * Valeurs dans le tableau values[]:
  * - Index 0: Valeur principale (pourcentage, degats, etc.)
@@ -29,6 +29,7 @@ public final class GuerrierTalents {
         registerTier6Talents();
         registerTier7Talents();
         registerTier8Talents();
+        registerTier9Talents();
     }
 
     // ==================== PALIER 1 - NIVEAU 0 (Fondation) ====================
@@ -574,9 +575,125 @@ public final class GuerrierTalents {
             .build());
     }
 
-    // ==================== PALIER 6 - NIVEAU 30 (Transcendance) ====================
+    // ==================== PALIER 6 - NIVEAU 25 (Ascension) ====================
 
     private static void registerTier6Talents() {
+        // 6.1 - SECOUSSES RESIDUELLES
+        TALENTS.add(Talent.builder()
+            .id("guerrier_seismic_aftermath")
+            .name("Secousses Residuelles")
+            .description("Attaques AoE creent des fissures persistantes")
+            .loreLines(new String[]{
+                "§7Vos attaques de zone laissent",
+                "§7des §efissures§7 sur le sol qui",
+                "§7infligent des degats continus.",
+                "",
+                "§8Duree: §a4s",
+                "§8Degats: §c25%§8/s",
+                "§8Rayon fissure: §e2§8 blocs"
+            })
+            .classType(ClassType.GUERRIER)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(0)
+            .icon(Material.CRACKED_DEEPSLATE_BRICKS)
+            .iconColor("§7")
+            .effectType(Talent.TalentEffectType.SEISMIC_AFTERMATH)
+            .values(new double[]{4000, 0.25, 2.0}) // duration_ms, damage%_per_second, radius
+            .build());
+
+        // 6.2 - FRENESIE SANGUINAIRE
+        TALENTS.add(Talent.builder()
+            .id("guerrier_blood_frenzy")
+            .name("Frenesie Sanguinaire")
+            .description("+2% vitesse attaque par 5% PV manquants")
+            .loreLines(new String[]{
+                "§7Votre vitesse d'attaque augmente",
+                "§7de §e+2%§7 par §c5%§7 de PV manquants.",
+                "",
+                "§8Max: §e+40%§8 vitesse d'attaque",
+                "§8(a 0% PV)",
+                "§8Synergie: Build berserker"
+            })
+            .classType(ClassType.GUERRIER)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(1)
+            .icon(Material.NETHER_WART)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.BLOOD_FRENZY)
+            .values(new double[]{0.02, 0.05, 0.40}) // bonus_per_step, hp_step, max_bonus
+            .build());
+
+        // 6.3 - RAGE IMPARABLE
+        TALENTS.add(Talent.builder()
+            .id("guerrier_unstoppable_rage")
+            .name("Rage Imparable")
+            .description("A 15+ stacks rage: -50% degats recus 2s")
+            .loreLines(new String[]{
+                "§7Quand vous atteignez §e15+ stacks§7",
+                "§7de Fureur Croissante, gagnez",
+                "§7§a-50%§7 degats recus pendant §a2s§7.",
+                "",
+                "§8Cooldown: 10s",
+                "§8Synergie: Build rage stacking"
+            })
+            .classType(ClassType.GUERRIER)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(2)
+            .icon(Material.BLAZE_ROD)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.UNSTOPPABLE_RAGE)
+            .values(new double[]{15, 0.50, 2000, 10000}) // stacks_required, DR%, duration_ms, cooldown_ms
+            .internalCooldownMs(10000)
+            .build());
+
+        // 6.4 - MUR INEBRANLABLE
+        TALENTS.add(Talent.builder()
+            .id("guerrier_unyielding_wall")
+            .name("Mur Inebranlable")
+            .description("Immobile: -5% degats/s (max -35%)")
+            .loreLines(new String[]{
+                "§7Rester immobile accumule",
+                "§7§a-5%§7 de reduction de degats",
+                "§7par seconde.",
+                "",
+                "§8Max: §a-35%§8 reduction",
+                "§8Reinitialise en bougeant"
+            })
+            .classType(ClassType.GUERRIER)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(3)
+            .icon(Material.STONE_BRICKS)
+            .iconColor("§8")
+            .effectType(Talent.TalentEffectType.UNYIELDING_WALL)
+            .values(new double[]{0.05, 0.35, 1000}) // DR_per_second, max_DR, tick_ms
+            .build());
+
+        // 6.5 - ELAN
+        TALENTS.add(Talent.builder()
+            .id("guerrier_momentum")
+            .name("Elan")
+            .description("Chaque kill en courant: +25% degats (max +100%)")
+            .loreLines(new String[]{
+                "§7Les eliminations pendant la course",
+                "§7augmentent les degats de §c+25%§7.",
+                "",
+                "§8Max: §c+100%§8 (4 kills)",
+                "§8Reinitialise apres 5s sans course",
+                "§8Synergie: Build mobilite"
+            })
+            .classType(ClassType.GUERRIER)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(4)
+            .icon(Material.WIND_CHARGE)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.MOMENTUM)
+            .values(new double[]{0.25, 1.0, 5000}) // bonus_per_kill, max_bonus, reset_ms
+            .build());
+    }
+
+    // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
+
+    private static void registerTier7Talents() {
         // 6.1 - TREMOR ETERNAL
         TALENTS.add(Talent.builder()
             .id("guerrier_eternal_tremor")
@@ -590,7 +707,7 @@ public final class GuerrierTalents {
                 "§8Rayon: §e3§8 blocs"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(0)
             .icon(Material.DEEPSLATE)
             .iconColor("§8")
@@ -612,7 +729,7 @@ public final class GuerrierTalents {
                 "§8Auto-soin: §c30%§8 PV max"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(1)
             .icon(Material.DRAGON_BREATH)
             .iconColor("§4")
@@ -633,7 +750,7 @@ public final class GuerrierTalents {
                 "§8Reinit. apres 10s sans contre-attaque"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(2)
             .icon(Material.SPECTRAL_ARROW)
             .iconColor("§e")
@@ -654,7 +771,7 @@ public final class GuerrierTalents {
                 "§8Survie passive"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(3)
             .icon(Material.NETHERITE_CHESTPLATE)
             .iconColor("§5")
@@ -675,7 +792,7 @@ public final class GuerrierTalents {
                 "§8Execute passif"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(4)
             .icon(Material.WITHER_SKELETON_SKULL)
             .iconColor("§0")
@@ -684,9 +801,9 @@ public final class GuerrierTalents {
             .build());
     }
 
-    // ==================== PALIER 7 - NIVEAU 40 (Apex) ====================
+    // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
-    private static void registerTier7Talents() {
+    private static void registerTier8Talents() {
         // 7.1 - APOCALYPSE TERRESTRE
         TALENTS.add(Talent.builder()
             .id("guerrier_earth_apocalypse")
@@ -701,7 +818,7 @@ public final class GuerrierTalents {
                 "§8Etourdissement: §e1s"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(0)
             .icon(Material.BEDROCK)
             .iconColor("§5")
@@ -724,7 +841,7 @@ public final class GuerrierTalents {
                 "§8Perte: §8-5%/s hors combat"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(1)
             .icon(Material.REDSTONE_BLOCK)
             .iconColor("§4")
@@ -744,7 +861,7 @@ public final class GuerrierTalents {
                 "§8Renvoi de degats automatique"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(2)
             .icon(Material.CACTUS)
             .iconColor("§2")
@@ -766,7 +883,7 @@ public final class GuerrierTalents {
                 "§8Taille +20%"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(3)
             .icon(Material.IRON_BLOCK)
             .iconColor("§7")
@@ -788,7 +905,7 @@ public final class GuerrierTalents {
                 "§8Intervalle: §80.5s"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(4)
             .icon(Material.WITHER_ROSE)
             .iconColor("§0")
@@ -797,9 +914,9 @@ public final class GuerrierTalents {
             .build());
     }
 
-    // ==================== PALIER 8 - NIVEAU 50 (Legendaire) ====================
+    // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
-    private static void registerTier8Talents() {
+    private static void registerTier9Talents() {
         // 8.1 - RAGNAROK
         TALENTS.add(Talent.builder()
             .id("guerrier_ragnarok")
@@ -816,7 +933,7 @@ public final class GuerrierTalents {
                 "§8Etourdissement: §e2s§8 + projection"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(0)
             .icon(Material.END_CRYSTAL)
             .iconColor("§6§l")
@@ -841,7 +958,7 @@ public final class GuerrierTalents {
                 "§8Note: Vous pouvez toujours mourir!"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(1)
             .icon(Material.DRAGON_EGG)
             .iconColor("§4§l")
@@ -866,7 +983,7 @@ public final class GuerrierTalents {
                 "§8Rayon: §e6§8 blocs"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(2)
             .icon(Material.NETHERITE_BLOCK)
             .iconColor("§5§l")
@@ -891,7 +1008,7 @@ public final class GuerrierTalents {
                 "§8Temps de recharge: 20s"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(3)
             .icon(Material.BEACON)
             .iconColor("§b§l")
@@ -915,7 +1032,7 @@ public final class GuerrierTalents {
                 "§8Animation divine!"
             })
             .classType(ClassType.GUERRIER)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(4)
             .icon(Material.LIGHTNING_ROD)
             .iconColor("§e§l")

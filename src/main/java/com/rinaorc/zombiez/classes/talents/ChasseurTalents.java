@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Registre de tous les talents du Chasseur
- * 40 talents au total, 5 par palier sur 8 paliers
+ * 45 talents au total, 5 par palier sur 9 paliers
  * Identite: DPS a distance, critiques devastateurs, mobilite et precision
  */
 public final class ChasseurTalents {
@@ -25,6 +25,7 @@ public final class ChasseurTalents {
         registerTier6Talents();
         registerTier7Talents();
         registerTier8Talents();
+        registerTier9Talents();
     }
 
     // ==================== PALIER 1 - NIVEAU 0 (Fondation) ====================
@@ -574,9 +575,123 @@ public final class ChasseurTalents {
             .build());
     }
 
-    // ==================== PALIER 6 - NIVEAU 30 (Transcendance) ====================
+    // ==================== PALIER 6 - NIVEAU 25 (Ascension) ====================
 
     private static void registerTier6Talents() {
+        // 6.1 - MAITRE DE LA VOLEE
+        TALENTS.add(Talent.builder()
+            .id("chasseur_volley_master")
+            .name("Maitre de la Volee")
+            .description("5 tirs consecutifs: +1 projectile bonus")
+            .loreLines(new String[]{
+                "§7Tous les §e5 tirs§7 consecutifs",
+                "§7sur la meme cible, gagnez",
+                "§e+1 projectile§7 bonus permanent.",
+                "",
+                "§8Max: §e+3§8 projectiles",
+                "§8Reinitialise si vous changez de cible"
+            })
+            .classType(ClassType.CHASSEUR)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(0)
+            .icon(Material.SPECTRAL_ARROW)
+            .iconColor("§f")
+            .effectType(Talent.TalentEffectType.VOLLEY_MASTER)
+            .values(new double[]{5, 1, 3}) // hits_per_stack, projectiles_per_stack, max_stacks
+            .build());
+
+        // 6.2 - VISION D'AIGLE
+        TALENTS.add(Talent.builder()
+            .id("chasseur_eagle_sight")
+            .name("Vision d'Aigle")
+            .description("+5% degats critiques par 3 blocs de distance")
+            .loreLines(new String[]{
+                "§7Vos degats critiques augmentent",
+                "§7de §c+5%§7 par §e3 blocs§7 de distance.",
+                "",
+                "§8Max: §c+50%§8 degats critiques",
+                "§8(a 30+ blocs)",
+                "§8Synergie: Build sniper"
+            })
+            .classType(ClassType.CHASSEUR)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(1)
+            .icon(Material.SPYGLASS)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.EAGLE_SIGHT)
+            .values(new double[]{0.05, 3, 0.50}) // bonus_per_step, blocks_per_step, max_bonus
+            .build());
+
+        // 6.3 - FRAPPE DES OMBRES
+        TALENTS.add(Talent.builder()
+            .id("chasseur_shadow_strike")
+            .name("Frappe des Ombres")
+            .description("Attaque depuis l'ombre: +75% degats")
+            .loreLines(new String[]{
+                "§7Vos attaques depuis l'invisibilite",
+                "§7infligent §c+75%§7 de degats bonus.",
+                "",
+                "§8S'applique uniquement a la",
+                "§8premiere attaque",
+                "§8Synergie: Build assassin"
+            })
+            .classType(ClassType.CHASSEUR)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(2)
+            .icon(Material.BLACK_DYE)
+            .iconColor("§8")
+            .effectType(Talent.TalentEffectType.SHADOW_STRIKE)
+            .values(new double[]{0.75}) // damage_bonus
+            .build());
+
+        // 6.4 - FAIBLESSE DE LA PROIE
+        TALENTS.add(Talent.builder()
+            .id("chasseur_prey_weakness")
+            .name("Faiblesse de la Proie")
+            .description("Marques: +40% degats critiques subis")
+            .loreLines(new String[]{
+                "§7Les ennemis marques prennent",
+                "§7§c+40%§7 de degats critiques.",
+                "",
+                "§8S'applique en plus de l'amplification",
+                "§8de base des marques",
+                "§8Synergie: Build traqueur"
+            })
+            .classType(ClassType.CHASSEUR)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(3)
+            .icon(Material.CROSSBOW)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.PREY_WEAKNESS)
+            .values(new double[]{0.40}) // crit_damage_amp
+            .build());
+
+        // 6.5 - DECHIQUETEUR D'ARMURE
+        TALENTS.add(Talent.builder()
+            .id("chasseur_armor_shred")
+            .name("Dechiqueteur d'Armure")
+            .description("Tirs percants: -10% armure ennemi (cumul)")
+            .loreLines(new String[]{
+                "§7Les attaques qui traversent",
+                "§7reduisent l'armure de §c-10%§7.",
+                "",
+                "§8Cumul max: §c-50%§8 armure",
+                "§8Duree: 5s par cumul",
+                "§8Synergie: Build perforation"
+            })
+            .classType(ClassType.CHASSEUR)
+            .tier(TalentTier.TIER_6)
+            .slotIndex(4)
+            .icon(Material.SHEARS)
+            .iconColor("§a")
+            .effectType(Talent.TalentEffectType.ARMOR_SHRED)
+            .values(new double[]{0.10, 0.50, 5000}) // reduction_per_stack, max_reduction, duration_ms
+            .build());
+    }
+
+    // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
+
+    private static void registerTier7Talents() {
         // 6.1 - ARMAGEDDON AERIEN
         TALENTS.add(Talent.builder()
             .id("chasseur_aerial_armageddon")
@@ -590,7 +705,7 @@ public final class ChasseurTalents {
                 "§8Fleches dorees sur critique"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(0)
             .icon(Material.END_CRYSTAL)
             .iconColor("§e")
@@ -611,7 +726,7 @@ public final class ChasseurTalents {
                 "§8Attaques ne brisent plus l'invis"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(1)
             .icon(Material.BLACK_WOOL)
             .iconColor("§8")
@@ -631,7 +746,7 @@ public final class ChasseurTalents {
                 "§8Contrat rempli"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(2)
             .icon(Material.DIAMOND_SWORD)
             .iconColor("§c")
@@ -653,7 +768,7 @@ public final class ChasseurTalents {
                 "§8Peste devorante"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(3)
             .icon(Material.WITHER_ROSE)
             .iconColor("§0")
@@ -675,7 +790,7 @@ public final class ChasseurTalents {
                 "§8Tir automatique!"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_6)
+            .tier(TalentTier.TIER_7)
             .slotIndex(4)
             .icon(Material.DISPENSER)
             .iconColor("§7")
@@ -684,9 +799,9 @@ public final class ChasseurTalents {
             .build());
     }
 
-    // ==================== PALIER 7 - NIVEAU 40 (Apex) ====================
+    // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
-    private static void registerTier7Talents() {
+    private static void registerTier8Talents() {
         // 7.1 - PLUIE DE METEORES
         TALENTS.add(Talent.builder()
             .id("chasseur_meteor_shower")
@@ -702,7 +817,7 @@ public final class ChasseurTalents {
                 "§8Explosion: §e2§8 blocs/meteore"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(0)
             .icon(Material.FIRE_CHARGE)
             .iconColor("§5")
@@ -723,7 +838,7 @@ public final class ChasseurTalents {
                 "§8Faux de la mort"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(1)
             .icon(Material.NETHERITE_HOE)
             .iconColor("§4")
@@ -744,7 +859,7 @@ public final class ChasseurTalents {
                 "§8Chasseur supreme"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(2)
             .icon(Material.BEACON)
             .iconColor("§6")
@@ -766,7 +881,7 @@ public final class ChasseurTalents {
                 "§8Verification: toutes les 2s"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(3)
             .icon(Material.MYCELIUM)
             .iconColor("§5")
@@ -788,7 +903,7 @@ public final class ChasseurTalents {
                 "§8Portee: §e10§8 blocs"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_7)
+            .tier(TalentTier.TIER_8)
             .slotIndex(4)
             .icon(Material.DISPENSER)
             .iconColor("§c")
@@ -797,9 +912,9 @@ public final class ChasseurTalents {
             .build());
     }
 
-    // ==================== PALIER 8 - NIVEAU 50 (Legendaire) ====================
+    // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
-    private static void registerTier8Talents() {
+    private static void registerTier9Talents() {
         // 8.1 - FRAPPE ORBITALE
         TALENTS.add(Talent.builder()
             .id("chasseur_orbital_strike")
@@ -815,7 +930,7 @@ public final class ChasseurTalents {
                 "§8Zone: §e15§8 blocs de rayon"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(0)
             .icon(Material.END_CRYSTAL)
             .iconColor("§6§l")
@@ -839,7 +954,7 @@ public final class ChasseurTalents {
                 "§8Note: Vous pouvez toujours mourir!"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(1)
             .icon(Material.ENDER_PEARL)
             .iconColor("§5§l")
@@ -863,7 +978,7 @@ public final class ChasseurTalents {
                 "§8Temps de recharge: 60s"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(2)
             .icon(Material.WRITTEN_BOOK)
             .iconColor("§0§l")
@@ -888,7 +1003,7 @@ public final class ChasseurTalents {
                 "§8Tous vos bonus poison s'appliquent"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(3)
             .icon(Material.DRAGON_BREATH)
             .iconColor("§2§l")
@@ -912,7 +1027,7 @@ public final class ChasseurTalents {
                 "§8Temps de recharge: 60s"
             })
             .classType(ClassType.CHASSEUR)
-            .tier(TalentTier.TIER_8)
+            .tier(TalentTier.TIER_9)
             .slotIndex(4)
             .icon(Material.CLOCK)
             .iconColor("§b§l")

@@ -3,7 +3,7 @@ package com.rinaorc.zombiez.classes.talents;
 import lombok.Getter;
 
 /**
- * Les 8 paliers de talents
+ * Les 9 paliers de talents
  * Chaque palier correspond a un niveau de classe requis
  */
 @Getter
@@ -14,9 +14,10 @@ public enum TalentTier {
     TIER_3(10, "Specialisation", "§e"),
     TIER_4(15, "Evolution", "§6"),
     TIER_5(20, "Maitrise", "§c"),
-    TIER_6(30, "Transcendance", "§d"),
-    TIER_7(40, "Apex", "§5"),
-    TIER_8(50, "Legendaire", "§6§l");
+    TIER_6(25, "Ascension", "§9"),
+    TIER_7(30, "Transcendance", "§d"),
+    TIER_8(40, "Apex", "§5"),
+    TIER_9(50, "Legendaire", "§6§l");
 
     private final int requiredLevel;
     private final String displayName;
@@ -67,7 +68,7 @@ public enum TalentTier {
     }
 
     /**
-     * Obtient le palier par son index (0-7)
+     * Obtient le palier par son index (0-8)
      */
     public static TalentTier fromIndex(int index) {
         if (index < 0 || index >= values().length) return null;
@@ -75,7 +76,7 @@ public enum TalentTier {
     }
 
     /**
-     * Retourne le numero du palier (1-8)
+     * Retourne le numero du palier (1-9)
      */
     public int getNumber() {
         return ordinal() + 1;

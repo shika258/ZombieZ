@@ -108,7 +108,14 @@ public class Talent {
         ETERNAL_AEGIS,           // Perfect parry reflect
         WARLORD,                 // Chain execute
 
-        // === GUERRIER - Tier 6 ===
+        // === GUERRIER - Tier 6 (Niveau 25 - Ascension) ===
+        SEISMIC_AFTERMATH,       // AoE attacks leave lingering damage zones
+        BLOOD_FRENZY,            // Attack speed per missing HP
+        UNSTOPPABLE_RAGE,        // Damage immunity during rage buildup
+        UNYIELDING_WALL,         // Damage reduction scales with stillness
+        MOMENTUM,                // Sprint damage bonus stacks
+
+        // === GUERRIER - Tier 7 ===
         ETERNAL_TREMOR,          // Passive AoE pulse
         BLOOD_AVATAR,            // Blood bomb on lifesteal cap
         INFINITE_RETALIATION,    // Riposte scaling
@@ -164,7 +171,14 @@ public class Talent {
         EPIDEMIC,                // Infinite poison stacking
         KILL_ZONE,               // Personal attack speed zone
 
-        // === CHASSEUR - Tier 6 ===
+        // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
+        VOLLEY_MASTER,           // Extra projectiles based on consecutive hits
+        EAGLE_SIGHT,             // Crit damage scales with distance
+        SHADOW_STRIKE,           // Backstab bonus from stealth
+        PREY_WEAKNESS,           // Marked enemies take more crit damage
+        ARMOR_SHRED,             // Piercing attacks reduce enemy armor
+
+        // === CHASSEUR - Tier 7 ===
         AERIAL_ARMAGEDDON,       // Arrow rain can crit
         SHADOW_MASTER,           // Permanent stealth
         BOUNTY_EXECUTIONER,      // Mark execute threshold
@@ -220,7 +234,14 @@ public class Talent {
         SOUL_LEGION,             // 10 orbs + DR per orb
         VOID_MASTER,             // Detonate rifts for damage
 
-        // === OCCULTISTE - Tier 6 ===
+        // === OCCULTISTE - Tier 6 (Niveau 25 - Ascension) ===
+        PYROCLASM,               // Fire kills explode in chain reaction
+        PERMAFROST,              // Frozen enemies slow nearby enemies
+        STATIC_FIELD,            // Lightning creates damaging field
+        SOUL_BOND,               // Soul orbs share damage taken
+        VOID_CORRUPTION,         // Void bolts corrupt enemies
+
+        // === OCCULTISTE - Tier 7 ===
         INFERNO,                 // Periodic fire nova
         ICE_AGE,                 // Frost zones on kill
         PERPETUAL_STORM,         // Lightning storm aura
