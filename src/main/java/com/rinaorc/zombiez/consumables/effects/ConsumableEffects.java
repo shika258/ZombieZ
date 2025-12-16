@@ -88,7 +88,9 @@ public class ConsumableEffects {
         Location loc = player.getEyeLocation();
         TNTPrimed tnt = player.getWorld().spawn(loc, TNTPrimed.class, entity -> {
             entity.setFuseTicks((int) (delay * 20));
-            entity.setYield(0); // Pas de destruction de blocs
+            // Utiliser une petite explosion pour déclencher EntityExplodeEvent
+            // Le listener annulera la destruction de blocs
+            entity.setYield(0.1f);
             entity.setIsIncendiary(false);
             entity.setMetadata("zombiez_grenade", new FixedMetadataValue(plugin, damage + ":" + radius));
             entity.setMetadata("zombiez_owner", new FixedMetadataValue(plugin, player.getUniqueId().toString()));

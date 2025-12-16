@@ -278,8 +278,16 @@ public class WeatherEffect {
     protected void restoreMinecraftWeather() {
         if (targetWorld == null) return;
 
+        // Forcer l'arrêt de la pluie/orage
         targetWorld.setStorm(false);
         targetWorld.setThundering(false);
+
+        // Réinitialiser les durées pour éviter que la météo reprenne
+        targetWorld.setWeatherDuration(0);
+        targetWorld.setThunderDuration(0);
+
+        // Forcer le temps clair
+        targetWorld.setClearWeatherDuration(20 * 60 * 5); // 5 minutes de temps clair minimum
     }
 
     // ==================== FOG SYSTEM ====================
@@ -462,8 +470,24 @@ public class WeatherEffect {
                     new Particle.DustOptions(color, 1.5f));
             }
             case ACID_RAIN -> {
-                player.spawnParticle(Particle.DUST, loc.clone().add(0, 1.5, 0),
-                    1, 0.2, 0.3, 0.2, 0, new Particle.DustOptions(Color.LIME, 0.7f));
+                // Brouillard vert toxique pour la pluie acide
+                spawnAcidRainFog(player, loc);
+            }
+            case BLIZZARD -> {
+                // Brouillard blanc glacé pour le blizzard
+                spawnBlizzardFog(player, loc);
+            }
+            case SANDSTORM -> {
+                // Brouillard de sable pour la tempête de sable
+                spawnSandstormFog(player, loc);
+            }
+            case ASHFALL -> {
+                // Brouillard de cendres volcaniques
+                spawnAshfallFog(player, loc);
+            }
+            case FOG -> {
+                // Brouillard dense gris
+                spawnDenseFog(player, loc);
             }
             case SOLAR_BLESSING -> {
                 // Rayons de lumière dorés
@@ -567,6 +591,238 @@ public class WeatherEffect {
         if (Math.random() < 0.2) {
             player.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 3, 0.4, 0.5, 0.4, 0,
                 new Particle.DustOptions(crimson, 0.8f));
+        }
+    }
+
+    /**
+     * Génère un brouillard vert toxique pour la pluie acide
+     */
+    protected void spawnAcidRainFog(Player player, Location loc) {
+        // Couleurs vertes toxiques
+        Color toxicGreen = Color.fromRGB(50, 205, 50);       // Vert lime
+        Color darkGreen = Color.fromRGB(0, 100, 0);          // Vert foncé
+        Color acidYellow = Color.fromRGB(173, 255, 47);      // Vert-jaune acide
+
+        // Brouillard toxique au sol
+        for (int i = 0; i < 10; i++) {
+            double offsetX = (Math.random() - 0.5) * 10;
+            double offsetZ = (Math.random() - 0.5) * 10;
+            double offsetY = Math.random() * 2;
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.5) {
+                fogColor = toxicGreen;
+            } else if (colorRoll < 0.8) {
+                fogColor = acidYellow;
+            } else {
+                fogColor = darkGreen;
+            }
+
+            float size = 1.5f + (float)(Math.random() * 1.0);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.2, 0.1, 0.2, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Particules de slime occasionnelles (effet acide)
+        if (Math.random() < 0.3) {
+            Location slimeLoc = loc.clone().add(
+                (Math.random() - 0.5) * 6,
+                0.5 + Math.random(),
+                (Math.random() - 0.5) * 6
+            );
+            player.spawnParticle(Particle.ITEM_SLIME, slimeLoc, 2, 0.1, 0.1, 0.1, 0);
+        }
+    }
+
+    /**
+     * Génère un brouillard blanc glacé pour le blizzard
+     */
+    protected void spawnBlizzardFog(Player player, Location loc) {
+        // Couleurs blanches et bleu glacier
+        Color white = Color.fromRGB(255, 255, 255);
+        Color iceBlue = Color.fromRGB(200, 230, 255);
+        Color lightBlue = Color.fromRGB(173, 216, 230);
+
+        // Brouillard dense de neige
+        for (int i = 0; i < 12; i++) {
+            double offsetX = (Math.random() - 0.5) * 12;
+            double offsetZ = (Math.random() - 0.5) * 12;
+            double offsetY = Math.random() * 3;
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.6) {
+                fogColor = white;
+            } else if (colorRoll < 0.85) {
+                fogColor = iceBlue;
+            } else {
+                fogColor = lightBlue;
+            }
+
+            float size = 2.0f + (float)(Math.random() * 1.5);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.15, 0.3, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Flocons de neige en hauteur
+        for (int i = 0; i < 5; i++) {
+            Location snowLoc = loc.clone().add(
+                (Math.random() - 0.5) * 14,
+                3 + Math.random() * 5,
+                (Math.random() - 0.5) * 14
+            );
+            player.spawnParticle(Particle.SNOWFLAKE, snowLoc, 1, 0.3, 0.2, 0.3, 0.02);
+        }
+
+        // Effet de givre autour du joueur
+        if (Math.random() < 0.15) {
+            player.spawnParticle(Particle.SNOWFLAKE, loc.clone().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0.01);
+        }
+    }
+
+    /**
+     * Génère un brouillard de sable pour la tempête de sable
+     */
+    protected void spawnSandstormFog(Player player, Location loc) {
+        // Couleurs sable/désert
+        Color sand = Color.fromRGB(210, 180, 140);           // Tan
+        Color darkSand = Color.fromRGB(189, 154, 122);       // Sable foncé
+        Color dustyBrown = Color.fromRGB(160, 130, 100);     // Brun poussiéreux
+
+        // Brouillard de sable dense
+        for (int i = 0; i < 15; i++) {
+            double offsetX = (Math.random() - 0.5) * 14;
+            double offsetZ = (Math.random() - 0.5) * 14;
+            double offsetY = Math.random() * 3.5;
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.5) {
+                fogColor = sand;
+            } else if (colorRoll < 0.8) {
+                fogColor = darkSand;
+            } else {
+                fogColor = dustyBrown;
+            }
+
+            float size = 2.5f + (float)(Math.random() * 1.5);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.4, 0.2, 0.4, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Effet de tourbillon de sable
+        if (Math.random() < 0.2) {
+            Location whirlLoc = loc.clone().add(
+                (Math.random() - 0.5) * 8,
+                0.5,
+                (Math.random() - 0.5) * 8
+            );
+            player.spawnParticle(Particle.DUST, whirlLoc, 5, 0.1, 0.8, 0.1, 0,
+                new Particle.DustOptions(sand, 1.0f));
+        }
+    }
+
+    /**
+     * Génère un brouillard de cendres volcaniques
+     */
+    protected void spawnAshfallFog(Player player, Location loc) {
+        // Couleurs cendres/volcaniques
+        Color darkGray = Color.fromRGB(80, 80, 80);          // Gris foncé
+        Color ash = Color.fromRGB(120, 120, 120);            // Cendres
+        Color emberOrange = Color.fromRGB(200, 80, 20);      // Braise orange
+
+        // Brouillard de cendres
+        for (int i = 0; i < 12; i++) {
+            double offsetX = (Math.random() - 0.5) * 12;
+            double offsetZ = (Math.random() - 0.5) * 12;
+            double offsetY = Math.random() * 4;
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.5) {
+                fogColor = darkGray;
+            } else if (colorRoll < 0.85) {
+                fogColor = ash;
+            } else {
+                fogColor = emberOrange; // Braises chaudes
+            }
+
+            float size = 1.8f + (float)(Math.random() * 1.2);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.15, 0.3, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Particules de fumée
+        if (Math.random() < 0.25) {
+            Location smokeLoc = loc.clone().add(
+                (Math.random() - 0.5) * 8,
+                Math.random() * 2,
+                (Math.random() - 0.5) * 8
+            );
+            player.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, smokeLoc, 1, 0.1, 0.1, 0.1, 0.01);
+        }
+
+        // Braises occasionnelles
+        if (Math.random() < 0.1) {
+            Location emberLoc = loc.clone().add(
+                (Math.random() - 0.5) * 6,
+                1 + Math.random() * 2,
+                (Math.random() - 0.5) * 6
+            );
+            player.spawnParticle(Particle.LAVA, emberLoc, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Génère un brouillard dense gris
+     */
+    protected void spawnDenseFog(Player player, Location loc) {
+        // Couleurs grises variées
+        Color lightGray = Color.fromRGB(180, 180, 180);
+        Color mediumGray = Color.fromRGB(140, 140, 140);
+        Color darkGray = Color.fromRGB(100, 100, 100);
+
+        // Brouillard très dense
+        for (int i = 0; i < 18; i++) {
+            double offsetX = (Math.random() - 0.5) * 14;
+            double offsetZ = (Math.random() - 0.5) * 14;
+            double offsetY = Math.random() * 3;
+
+            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+
+            Color fogColor;
+            double colorRoll = Math.random();
+            if (colorRoll < 0.4) {
+                fogColor = lightGray;
+            } else if (colorRoll < 0.75) {
+                fogColor = mediumGray;
+            } else {
+                fogColor = darkGray;
+            }
+
+            float size = 2.5f + (float)(Math.random() * 2.0);
+            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.4, 0.2, 0.4, 0,
+                new Particle.DustOptions(fogColor, size));
+        }
+
+        // Brouillard en hauteur (moins dense)
+        for (int i = 0; i < 6; i++) {
+            double offsetX = (Math.random() - 0.5) * 16;
+            double offsetZ = (Math.random() - 0.5) * 16;
+            double offsetY = 4 + Math.random() * 4;
+
+            Location highFogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
+            player.spawnParticle(Particle.DUST, highFogLoc, 1, 0.5, 0.3, 0.5, 0,
+                new Particle.DustOptions(lightGray, 1.5f));
         }
     }
 

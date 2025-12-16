@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import com.rinaorc.zombiez.zones.Zone;
+import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.*;
@@ -16,7 +18,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.util.Vector;
 
 import java.util.Map;
 import java.util.Random;
@@ -423,5 +428,118 @@ public class CombatListener implements Listener {
 
         // Récompenser le joueur
         plugin.getEconomyManager().rewardZombieKill(killer, zombieType, zombieLevel);
+    }
+
+    // ==================== SYSTÈME DE HEADSHOT ====================
+
+    /**
+     * Détecte les headshots pour les projectiles (arc, arbalète, trident)
+     * Applique un bonus de dégâts et joue une animation légère
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onProjectileHit(ProjectileHitEvent event) {
+        Projectile projectile = event.getEntity();
+        Entity hitEntity = event.getHitEntity();
+
+        // Vérifier que c'est un projectile valide pour headshot
+        if (!isHeadshotProjectile(projectile)) return;
+        if (hitEntity == null) return;
+        if (!(hitEntity instanceof LivingEntity victim)) return;
+
+        // Ne pas appliquer aux joueurs
+        if (victim instanceof Player) return;
+
+        // Vérifier si c'est un mob ZombieZ
+        if (!isZombieZMob(victim)) return;
+
+        // Obtenir le tireur
+        ProjectileSource shooter = projectile.getShooter();
+        if (!(shooter instanceof Player player)) return;
+
+        // Calculer si c'est un headshot
+        if (isHeadshot(projectile, victim)) {
+            // Marquer le projectile pour le bonus de dégâts
+            projectile.setMetadata("zombiez_headshot", new FixedMetadataValue(plugin, true));
+
+            // Animation de headshot
+            playHeadshotEffect(victim, player);
+        }
+    }
+
+    /**
+     * Applique le bonus de dégâts pour les headshots
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onProjectileDamage(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+
+        // Vérifier si c'est un projectile avec headshot
+        if (!(damager instanceof Projectile projectile)) return;
+        if (!projectile.hasMetadata("zombiez_headshot")) return;
+
+        // Appliquer le bonus de dégâts (+50%)
+        double baseDamage = event.getDamage();
+        double headshotMultiplier = 1.5;
+        double finalDamage = baseDamage * headshotMultiplier;
+
+        event.setDamage(finalDamage);
+
+        // Afficher l'indicateur de headshot
+        if (projectile.getShooter() instanceof Player player && event.getEntity() instanceof LivingEntity victim) {
+            DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, player);
+        }
+    }
+
+    /**
+     * Vérifie si un projectile peut faire un headshot
+     */
+    private boolean isHeadshotProjectile(Projectile projectile) {
+        return projectile instanceof Arrow ||
+               projectile instanceof SpectralArrow ||
+               projectile instanceof Trident;
+    }
+
+    /**
+     * Détermine si le projectile a touché la tête de la victime
+     * Calcule la position d'impact relative à la hitbox de l'entité
+     */
+    private boolean isHeadshot(Projectile projectile, LivingEntity victim) {
+        Location projectileLoc = projectile.getLocation();
+        Location victimLoc = victim.getLocation();
+
+        // Hauteur de l'entité
+        double entityHeight = victim.getHeight();
+
+        // Position Y relative du projectile par rapport à l'entité
+        double relativeY = projectileLoc.getY() - victimLoc.getY();
+
+        // Zone de la tête = 25% supérieur de la hitbox (environ les épaules et au-dessus)
+        double headThreshold = entityHeight * 0.75;
+
+        // Le projectile a touché la tête si la position Y est dans le quart supérieur
+        return relativeY >= headThreshold;
+    }
+
+    /**
+     * Joue l'effet visuel et sonore de headshot
+     */
+    private void playHeadshotEffect(LivingEntity victim, Player shooter) {
+        Location headLoc = victim.getEyeLocation();
+
+        // Particules de headshot (petite explosion de sang/étoiles)
+        victim.getWorld().spawnParticle(Particle.CRIT_MAGIC, headLoc, 15, 0.2, 0.2, 0.2, 0.1);
+        victim.getWorld().spawnParticle(Particle.DUST, headLoc, 8, 0.15, 0.15, 0.15, 0,
+            new Particle.DustOptions(Color.fromRGB(255, 50, 50), 0.8f));
+
+        // Son de headshot (satisfaisant et distinct)
+        shooter.playSound(shooter.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 0.8f, 1.8f);
+        shooter.playSound(shooter.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.5f, 1.5f);
+    }
+
+    /**
+     * Vérifie si une entité est un mob ZombieZ
+     */
+    private boolean isZombieZMob(Entity entity) {
+        return entity.hasMetadata("zombiez_type") || entity.getScoreboardTags().contains("zombiez_mob");
     }
 }
