@@ -83,13 +83,32 @@ public class TalentListener implements Listener {
     // Vengeance Ardente - burning stacks
     private final Map<UUID, Integer> burningStacks = new ConcurrentHashMap<>();
 
+    // Cache des joueurs Guerriers actifs
+    private final Set<UUID> activeGuerriers = ConcurrentHashMap.newKeySet();
+    private long lastCacheUpdate = 0;
+    private static final long CACHE_TTL = 2000;
+
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Note: registration handled by ZombieZPlugin, not here
 
         // Taches periodiques
         startPeriodicTasks();
+    }
+
+    private void updateGuerriersCache() {
+        long now = System.currentTimeMillis();
+        if (now - lastCacheUpdate < CACHE_TTL) return;
+        lastCacheUpdate = now;
+
+        activeGuerriers.clear();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            ClassData data = plugin.getClassManager().getClassData(player);
+            if (data.hasClass() && data.getSelectedClass() == com.rinaorc.zombiez.classes.ClassType.GUERRIER) {
+                activeGuerriers.add(player.getUniqueId());
+            }
+        }
     }
 
     // ==================== DEGATS INFLIGES ====================
@@ -346,16 +365,19 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Extinction - first hit instakill
+        // Extinction - first hit instakill (balance: seulement mobs < 50 HP)
         Talent extinction = getActiveTalentIfHas(player, Talent.TalentEffectType.EXTINCTION);
         if (extinction != null) {
             long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
             if (System.currentTimeMillis() - lastCombat > extinction.getValue(0)) {
                 // First hit!
-                String targetName = target.getCustomName();
-                if (targetName != null && (targetName.contains("Boss") || targetName.contains("Elite"))) {
-                    // Boss/Elite = 30% HP
-                    damage = target.getAttribute(Attribute.MAX_HEALTH).getValue() * extinction.getValue(1);
+                double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
+                                        target.getScoreboardTags().contains("elite") ||
+                                        maxHp > 50;
+                if (isBossOrElite) {
+                    // Boss/Elite = 25% HP (reduit de 30%)
+                    damage = maxHp * Math.min(extinction.getValue(1), 0.25);
                 } else {
                     // Normal = instakill
                     damage = target.getHealth() + 1000;
@@ -507,12 +529,13 @@ public class TalentListener implements Listener {
 
         // === TIER 8 ===
 
-        // Dieu du Sang - DR while attacking
+        // Dieu du Sang - DR while attacking (capped a 50%)
         Talent bloodGod = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_GOD);
         if (bloodGod != null) {
             long lastDamage = lastDamageDealt.getOrDefault(uuid, 0L);
             if (System.currentTimeMillis() - lastDamage < bloodGod.getValue(0)) {
-                damage *= (1 - bloodGod.getValue(1)); // -70% DR
+                double dr = Math.min(bloodGod.getValue(1), 0.50); // Cap a 50% au lieu de 70%
+                damage *= (1 - dr);
             }
         }
 
@@ -658,159 +681,162 @@ public class TalentListener implements Listener {
         }
     }
 
-    // ==================== TACHES PERIODIQUES ====================
+    // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
-        // Reset fury stacks
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            long now = System.currentTimeMillis();
-            furyLastHit.forEach((uuid, time) -> {
-                if (now - time > 3000) {
-                    furyStacks.remove(uuid);
-                }
-            });
-        }, 20L, 20L);
+        // FAST TICK (10L = 0.5s) - Execute auras
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                updateGuerriersCache();
+                if (activeGuerriers.isEmpty()) return;
 
-        // Reset retaliation stacks
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            long now = System.currentTimeMillis();
-            retaliationLastProc.forEach((uuid, time) -> {
-                if (now - time > 10000) {
-                    retaliationStacks.remove(uuid);
-                }
-            });
-        }, 20L, 20L);
+                // Faucheur auto execute + Ange de la Mort
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
 
-        // Tremor Eternal
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent tremor = getActiveTalentIfHas(player, Talent.TalentEffectType.ETERNAL_TREMOR);
-                if (tremor != null) {
-                    // Check if in combat
-                    long lastCombat = lastCombatTime.getOrDefault(player.getUniqueId(), 0L);
-                    if (System.currentTimeMillis() - lastCombat < 10000) {
-                        procTremor(player, tremor.getValue(1), tremor.getValue(2));
+                    // Faucheur
+                    Talent reaper = getActiveTalentIfHas(player, Talent.TalentEffectType.REAPER);
+                    if (reaper != null) {
+                        double threshold = reaper.getValue(0);
+                        for (Entity entity : player.getNearbyEntities(10, 10, 10)) {
+                            if (entity instanceof LivingEntity target && entity.getScoreboardTags().contains("zombiez_reaper_" + uuid)) {
+                                double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                                // Seulement instakill les mobs < 50 HP max
+                                if (target.getHealth() / maxHp < threshold && maxHp <= 50) {
+                                    target.damage(target.getHealth() + 100, player);
+                                }
+                            }
+                        }
                     }
-                }
-            }
-        }, 40L, 40L); // Every 2 seconds
 
-        // Ragnarok auto nuke
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
-                if (ragnarok != null && !isOnCooldown(player.getUniqueId(), "ragnarok")) {
-                    procRagnarok(player, ragnarok);
-                    setCooldown(player.getUniqueId(), "ragnarok", (long) ragnarok.getValue(0));
-                }
-            }
-        }, 20L * 30, 20L * 30); // Every 30 seconds
+                    // Ange de la Mort
+                    Talent deathAngel = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_ANGEL);
+                    if (deathAngel != null) {
+                        double radius = Math.min(deathAngel.getValue(0), 10.0);
+                        double threshold = deathAngel.getValue(1);
+                        double chance = deathAngel.getValue(2);
 
-        // Faucheur auto execute
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent reaper = getActiveTalentIfHas(player, Talent.TalentEffectType.REAPER);
-                if (reaper != null) {
-                    double threshold = reaper.getValue(0);
-                    for (Entity entity : player.getNearbyEntities(10, 10, 10)) {
-                        if (entity instanceof LivingEntity target && entity.getScoreboardTags().contains("zombiez_reaper_" + player.getUniqueId())) {
-                            double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
-                            if (target.getHealth() / maxHp < threshold) {
-                                target.damage(target.getHealth() + 100, player);
+                        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
+                                double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                                // Seulement instakill les mobs < 50 HP max
+                                if (target.getHealth() / maxHp < threshold && Math.random() < chance && maxHp <= 50) {
+                                    target.damage(target.getHealth() + 100, player);
+                                    target.getWorld().spawnParticle(Particle.SOUL, target.getLocation(), 5, 0.3, 0.3, 0.3, 0.02);
+                                }
                             }
                         }
                     }
                 }
             }
-        }, 10L, 10L);
+        }.runTaskTimer(plugin, 10L, 10L);
 
-        // Ange de la Mort aura
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent deathAngel = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_ANGEL);
-                if (deathAngel != null) {
-                    double radius = deathAngel.getValue(0);
-                    double threshold = deathAngel.getValue(1);
-                    double chance = deathAngel.getValue(2);
+        // NORMAL TICK (20L = 1s) - Regen, decay, stacks cleanup
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeGuerriers.isEmpty()) return;
+                long now = System.currentTimeMillis();
 
-                    for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                        if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
-                            double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
-                            if (target.getHealth() / maxHp < threshold && Math.random() < chance) {
-                                target.damage(target.getHealth() + 100, player);
-                                target.getWorld().spawnParticle(Particle.SOUL, target.getLocation(), 10, 0.5, 0.5, 0.5, 0.02);
+                // Cleanup fury stacks
+                furyLastHit.forEach((uuid, time) -> {
+                    if (now - time > 3000) furyStacks.remove(uuid);
+                });
+
+                // Cleanup retaliation stacks
+                retaliationLastProc.forEach((uuid, time) -> {
+                    if (now - time > 10000) retaliationStacks.remove(uuid);
+                });
+
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    // Bastille Imprenable regen
+                    Talent impregnable = getActiveTalentIfHas(player, Talent.TalentEffectType.IMPREGNABLE_BASTION);
+                    if (impregnable != null) {
+                        long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
+                        if (now - lastCombat < 10000) {
+                            double regen = player.getAttribute(Attribute.MAX_HEALTH).getValue() * impregnable.getValue(1);
+                            applyLifesteal(player, Math.min(regen, player.getMaxHealth() * 0.03)); // Cap 3%/s
+                        }
+                    }
+
+                    // Dieu du Sang regen
+                    Talent bloodGod = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_GOD);
+                    if (bloodGod != null) {
+                        long lastDamage = lastDamageDealt.getOrDefault(uuid, 0L);
+                        if (now - lastDamage < bloodGod.getValue(0)) {
+                            double regen = player.getAttribute(Attribute.MAX_HEALTH).getValue() * bloodGod.getValue(2);
+                            applyLifesteal(player, Math.min(regen, player.getMaxHealth() * 0.05)); // Cap 5%/s
+                        }
+                    }
+
+                    // Vampire Lord shield decay
+                    Talent vampireLord = getActiveTalentIfHas(player, Talent.TalentEffectType.VAMPIRE_LORD);
+                    if (vampireLord != null) {
+                        long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
+                        if (now - lastCombat > 5000) {
+                            double shield = tempShield.getOrDefault(uuid, 0.0);
+                            if (shield > 0) {
+                                double decay = player.getAttribute(Attribute.MAX_HEALTH).getValue() * vampireLord.getValue(1);
+                                tempShield.put(uuid, Math.max(0, shield - decay));
                             }
                         }
                     }
-                }
-            }
-        }, 10L, 10L);
 
-        // Bastille Imprenable regen
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent impregnable = getActiveTalentIfHas(player, Talent.TalentEffectType.IMPREGNABLE_BASTION);
-                if (impregnable != null) {
-                    long lastCombat = lastCombatTime.getOrDefault(player.getUniqueId(), 0L);
-                    if (System.currentTimeMillis() - lastCombat < 10000) {
-                        double regen = player.getAttribute(Attribute.MAX_HEALTH).getValue() * impregnable.getValue(1);
-                        applyLifesteal(player, regen);
+                    // Colosse + Peau de Fer slowness
+                    Talent colossus = getActiveTalentIfHas(player, Talent.TalentEffectType.COLOSSUS);
+                    if (colossus != null) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false));
+                    }
+                    Talent ironSkin = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_SKIN);
+                    if (ironSkin != null) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
                     }
                 }
             }
-        }, 20L, 20L);
+        }.runTaskTimer(plugin, 20L, 20L);
 
-        // Dieu du Sang regen
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent bloodGod = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_GOD);
-                if (bloodGod != null) {
-                    long lastDamage = lastDamageDealt.getOrDefault(player.getUniqueId(), 0L);
-                    if (System.currentTimeMillis() - lastDamage < bloodGod.getValue(0)) {
-                        double regen = player.getAttribute(Attribute.MAX_HEALTH).getValue() * bloodGod.getValue(2);
-                        applyLifesteal(player, regen);
-                    }
-                }
-            }
-        }, 20L, 20L);
+        // SLOW TICK (40L = 2s) - Tremor
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeGuerriers.isEmpty()) return;
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
 
-        // Vampire Lord shield decay
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                UUID uuid = player.getUniqueId();
-                Talent vampireLord = getActiveTalentIfHas(player, Talent.TalentEffectType.VAMPIRE_LORD);
-                if (vampireLord != null) {
-                    long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
-                    if (System.currentTimeMillis() - lastCombat > 5000) {
-                        double shield = tempShield.getOrDefault(uuid, 0.0);
-                        if (shield > 0) {
-                            double decay = player.getAttribute(Attribute.MAX_HEALTH).getValue() * vampireLord.getValue(1);
-                            tempShield.put(uuid, Math.max(0, shield - decay));
+                    Talent tremor = getActiveTalentIfHas(player, Talent.TalentEffectType.ETERNAL_TREMOR);
+                    if (tremor != null) {
+                        long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
+                        if (System.currentTimeMillis() - lastCombat < 10000) {
+                            procTremor(player, tremor.getValue(1), Math.min(tremor.getValue(2), 10.0));
                         }
                     }
                 }
             }
-        }, 20L, 20L);
+        }.runTaskTimer(plugin, 40L, 40L);
 
-        // Colosse effects
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent colossus = getActiveTalentIfHas(player, Talent.TalentEffectType.COLOSSUS);
-                if (colossus != null) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false));
+        // RAGNAROK TICK (30s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeGuerriers.isEmpty()) return;
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
+                    if (ragnarok != null && !isOnCooldown(uuid, "ragnarok")) {
+                        procRagnarok(player, ragnarok);
+                        setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
+                    }
                 }
             }
-        }, 20L, 20L);
-
-        // Peau de Fer slowness
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent ironSkin = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_SKIN);
-                if (ironSkin != null) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
-                }
-            }
-        }, 20L, 20L);
+        }.runTaskTimer(plugin, 20L * 30, 20L * 30);
     }
 
     // ==================== PROCS ====================

@@ -77,12 +77,31 @@ public class ChasseurTalentListener implements Listener {
     private final Map<UUID, Location> lastLocation = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> isMoving = new ConcurrentHashMap<>();
 
+    // Cache des joueurs Chasseurs actifs
+    private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
+    private long lastCacheUpdate = 0;
+    private static final long CACHE_TTL = 2000;
+
     public ChasseurTalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
-        Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Note: registration handled by ZombieZPlugin, not here
 
         startPeriodicTasks();
+    }
+
+    private void updateChasseursCache() {
+        long now = System.currentTimeMillis();
+        if (now - lastCacheUpdate < CACHE_TTL) return;
+        lastCacheUpdate = now;
+
+        activeChasseurs.clear();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            ClassData data = plugin.getClassManager().getClassData(player);
+            if (data.hasClass() && data.getSelectedClass() == ClassType.CHASSEUR) {
+                activeChasseurs.add(player.getUniqueId());
+            }
+        }
     }
 
     // ==================== DEGATS INFLIGES ====================
@@ -331,10 +350,11 @@ public class ChasseurTalentListener implements Listener {
         double damage = event.getDamage();
         UUID uuid = player.getUniqueId();
 
-        // Void Walker - DR while moving
+        // Void Walker - DR while moving (capped a 45%)
         Talent voidWalker = getActiveTalentIfHas(player, Talent.TalentEffectType.VOID_WALKER);
         if (voidWalker != null && isMoving.getOrDefault(uuid, false)) {
-            damage *= (1 - voidWalker.getValue(0)); // -60% DR
+            double dr = Math.min(voidWalker.getValue(0), 0.45); // Cap a 45% au lieu de 60%
+            damage *= (1 - dr);
         }
 
         // Maitre des Ombres - break stealth on damage
@@ -469,150 +489,179 @@ public class ChasseurTalentListener implements Listener {
         }
     }
 
-    // ==================== TACHES PERIODIQUES ====================
+    // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
-        // Overheat reset
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            long now = System.currentTimeMillis();
-            lastShotTime.forEach((uuid, time) -> {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player == null) return;
-                Talent overheat = getActiveTalentIfHas(player, Talent.TalentEffectType.OVERHEAT);
-                if (overheat != null && now - time > overheat.getValue(2)) {
-                    overheatStacks.remove(uuid);
-                    consecutiveShots.remove(uuid);
-                }
-            });
-        }, 20L, 20L);
+        // FAST TICK (10L = 0.5s) - Auto shots
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                updateChasseursCache();
+                if (activeChasseurs.isEmpty()) return;
 
-        // Steel Storm auto proc
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent steelStorm = getActiveTalentIfHas(player, Talent.TalentEffectType.STEEL_STORM);
-                if (steelStorm != null && !isOnCooldown(player.getUniqueId(), "steel_storm")) {
-                    procSteelStorm(player, steelStorm);
-                    setCooldown(player.getUniqueId(), "steel_storm", (long) steelStorm.getValue(0));
-                }
-            }
-        }, 20L * 15, 20L * 15);
+                for (UUID uuid : activeChasseurs) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
 
-        // Orbital Strike auto proc
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent orbital = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
-                if (orbital != null && !isOnCooldown(player.getUniqueId(), "orbital_strike")) {
-                    procOrbitalStrike(player, orbital);
-                    setCooldown(player.getUniqueId(), "orbital_strike", (long) orbital.getValue(0));
-                }
-            }
-        }, 20L * 45, 20L * 45);
-
-        // Toxic Apocalypse aura
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent toxicApoc = getActiveTalentIfHas(player, Talent.TalentEffectType.TOXIC_APOCALYPSE);
-                if (toxicApoc != null) {
-                    procToxicAura(player, toxicApoc);
-                }
-            }
-        }, 20L, 20L);
-
-        // Living Arsenal auto shots
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent livingArsenal = getActiveTalentIfHas(player, Talent.TalentEffectType.LIVING_ARSENAL);
-                if (livingArsenal != null) {
-                    procAutoShot(player, livingArsenal);
-                }
-            }
-        }, 10L, 10L); // Every 0.5s
-
-        // Blight passive contagion
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                Talent blight = getActiveTalentIfHas(player, Talent.TalentEffectType.BLIGHT);
-                if (blight != null) {
-                    procBlightSpread(player, blight);
-                }
-            }
-        }, 40L, 40L); // Every 2s
-
-        // Death Note delayed kill
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            long now = System.currentTimeMillis();
-            deathNoteTargets.entrySet().removeIf(entry -> {
-                if (now >= entry.getValue()) {
-                    Entity entity = Bukkit.getEntity(entry.getKey());
-                    if (entity instanceof LivingEntity target && target.isValid()) {
-                        // Check if boss
-                        String name = target.getCustomName();
-                        if (name != null && (name.contains("Boss") || name.contains("BOSS"))) {
-                            target.damage(target.getAttribute(Attribute.MAX_HEALTH).getValue() * 0.5);
-                        } else {
-                            target.damage(target.getHealth() + 1000);
-                        }
-                        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_DEATH, 1.0f, 0.5f);
+                    // Living Arsenal auto shots
+                    Talent livingArsenal = getActiveTalentIfHas(player, Talent.TalentEffectType.LIVING_ARSENAL);
+                    if (livingArsenal != null) {
+                        procAutoShot(player, livingArsenal);
                     }
-                    return true;
                 }
-                return false;
-            });
-        }, 20L, 20L);
+            }
+        }.runTaskTimer(plugin, 10L, 10L);
 
-        // Poison tick damage
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            poisonStacks.forEach((playerUuid, targets) -> {
-                Player player = Bukkit.getPlayer(playerUuid);
-                if (player == null) return;
+        // NORMAL TICK (20L = 1s) - Cleanup, poison, auras
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeChasseurs.isEmpty()) return;
+                long now = System.currentTimeMillis();
 
-                targets.forEach((targetUuid, stacks) -> {
-                    Entity entity = Bukkit.getEntity(targetUuid);
-                    if (entity instanceof LivingEntity target && target.isValid()) {
-                        // Base poison damage
-                        double baseDamage = 2.0 * stacks;
-
-                        // Deadly Toxins - poison can crit
-                        Talent deadlyToxins = getActiveTalentIfHas(player, Talent.TalentEffectType.DEADLY_TOXINS);
-                        if (deadlyToxins != null) {
-                            Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
-                            if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
-                                baseDamage *= 1.5;
-                            }
-                            // Slow
-                            if (target instanceof Mob mob) {
-                                mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
-                                    40, (int)(deadlyToxins.getValue(0) * 10), false, false));
-                            }
-                        }
-
-                        // Epidemic - double damage at 10+ stacks
-                        Talent epidemic = getActiveTalentIfHas(player, Talent.TalentEffectType.EPIDEMIC);
-                        if (epidemic != null && stacks >= epidemic.getValue(0)) {
-                            baseDamage *= epidemic.getValue(1);
-                        }
-
-                        // Black Plague - self heal from poison
-                        Talent blackPlague = getActiveTalentIfHas(player, Talent.TalentEffectType.BLACK_PLAGUE);
-                        if (blackPlague != null) {
-                            double heal = baseDamage * blackPlague.getValue(1);
-                            player.setHealth(Math.min(player.getAttribute(Attribute.MAX_HEALTH).getValue(),
-                                player.getHealth() + heal));
-                        }
-
-                        target.damage(baseDamage, player);
-                        target.getWorld().spawnParticle(Particle.ITEM_SLIME, target.getLocation().add(0, 1, 0),
-                            5, 0.3, 0.3, 0.3, 0);
+                // Overheat reset
+                lastShotTime.forEach((uuid, time) -> {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null) return;
+                    Talent overheat = getActiveTalentIfHas(player, Talent.TalentEffectType.OVERHEAT);
+                    if (overheat != null && now - time > overheat.getValue(2)) {
+                        overheatStacks.remove(uuid);
+                        consecutiveShots.remove(uuid);
                     }
                 });
-            });
-        }, 20L, 20L); // Every second
 
-        // Mark expiry cleanup
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            long now = System.currentTimeMillis();
-            markExpiry.entrySet().removeIf(entry -> now >= entry.getValue());
-        }, 20L, 20L);
+                // Mark expiry cleanup
+                markExpiry.entrySet().removeIf(entry -> now >= entry.getValue());
+
+                // Death Note delayed kill
+                deathNoteTargets.entrySet().removeIf(entry -> {
+                    if (now >= entry.getValue()) {
+                        Entity entity = Bukkit.getEntity(entry.getKey());
+                        if (entity instanceof LivingEntity target && target.isValid()) {
+                            double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                            boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
+                                                    target.getScoreboardTags().contains("elite") ||
+                                                    maxHp > 50;
+                            if (isBossOrElite) {
+                                // Boss/Elite: 30% max HP damage (capped)
+                                target.damage(maxHp * 0.30);
+                            } else {
+                                target.damage(target.getHealth() + 1000);
+                            }
+                            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.8f, 0.5f);
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+
+                // Poison tick damage
+                poisonStacks.forEach((playerUuid, targets) -> {
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (player == null) return;
+
+                    targets.forEach((targetUuid, stacks) -> {
+                        Entity entity = Bukkit.getEntity(targetUuid);
+                        if (entity instanceof LivingEntity target && target.isValid()) {
+                            double baseDamage = 2.0 * Math.min(stacks, 10); // Cap stacks a 10
+
+                            Talent deadlyToxins = getActiveTalentIfHas(player, Talent.TalentEffectType.DEADLY_TOXINS);
+                            if (deadlyToxins != null) {
+                                Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
+                                if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
+                                    baseDamage *= 1.5;
+                                }
+                                if (target instanceof Mob mob) {
+                                    mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
+                                        40, Math.min((int)(deadlyToxins.getValue(0) * 10), 2), false, false));
+                                }
+                            }
+
+                            Talent epidemic = getActiveTalentIfHas(player, Talent.TalentEffectType.EPIDEMIC);
+                            if (epidemic != null && stacks >= epidemic.getValue(0)) {
+                                baseDamage *= epidemic.getValue(1);
+                            }
+
+                            Talent blackPlague = getActiveTalentIfHas(player, Talent.TalentEffectType.BLACK_PLAGUE);
+                            if (blackPlague != null) {
+                                double heal = baseDamage * blackPlague.getValue(1);
+                                heal = Math.min(heal, player.getMaxHealth() * 0.03); // Cap 3%/s
+                                player.setHealth(Math.min(player.getAttribute(Attribute.MAX_HEALTH).getValue(),
+                                    player.getHealth() + heal));
+                            }
+
+                            target.damage(baseDamage, player);
+                            target.getWorld().spawnParticle(Particle.ITEM_SLIME, target.getLocation().add(0, 1, 0),
+                                3, 0.2, 0.2, 0.2, 0);
+                        }
+                    });
+                });
+
+                // Toxic Apocalypse aura
+                for (UUID uuid : activeChasseurs) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    Talent toxicApoc = getActiveTalentIfHas(player, Talent.TalentEffectType.TOXIC_APOCALYPSE);
+                    if (toxicApoc != null) {
+                        procToxicAura(player, toxicApoc);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+
+        // SLOW TICK (40L = 2s) - Blight spread
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeChasseurs.isEmpty()) return;
+                for (UUID uuid : activeChasseurs) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    Talent blight = getActiveTalentIfHas(player, Talent.TalentEffectType.BLIGHT);
+                    if (blight != null) {
+                        procBlightSpread(player, blight);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 40L, 40L);
+
+        // STEEL STORM (15s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeChasseurs.isEmpty()) return;
+                for (UUID uuid : activeChasseurs) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    Talent steelStorm = getActiveTalentIfHas(player, Talent.TalentEffectType.STEEL_STORM);
+                    if (steelStorm != null && !isOnCooldown(uuid, "steel_storm")) {
+                        procSteelStorm(player, steelStorm);
+                        setCooldown(uuid, "steel_storm", (long) steelStorm.getValue(0));
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L * 15, 20L * 15);
+
+        // ORBITAL STRIKE (45s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeChasseurs.isEmpty()) return;
+                for (UUID uuid : activeChasseurs) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    Talent orbital = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
+                    if (orbital != null && !isOnCooldown(uuid, "orbital_strike")) {
+                        procOrbitalStrike(player, orbital);
+                        setCooldown(uuid, "orbital_strike", (long) orbital.getValue(0));
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L * 45, 20L * 45);
     }
 
     // ==================== PROCS ====================

@@ -69,128 +69,75 @@ public class OccultisteTalentListener implements Listener {
         startPeriodicTasks();
     }
 
-    // ==================== TACHES PERIODIQUES ====================
+    // ==================== TACHES PERIODIQUES OPTIMISEES ====================
+
+    // Cache des joueurs Occultistes actifs pour eviter des iterations inutiles
+    private final Set<UUID> activeOccultistes = ConcurrentHashMap.newKeySet();
+    private long lastCacheUpdate = 0;
+    private static final long CACHE_TTL = 2000; // 2 secondes
 
     private void startPeriodicTasks() {
-        // Fire spread tick (every second)
+        // FAST TICK (10L = 0.5s) - Auras haute frequence
         new BukkitRunnable() {
             @Override
             public void run() {
-                processFireSpread();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
+                updateOccultistesCache();
+                if (activeOccultistes.isEmpty()) return;
 
-        // Lightning storm tick (every 1.5s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processLightningStorm();
-            }
-        }.runTaskTimer(plugin, 30L, 30L);
-
-        // Perpetual storm tick (every 0.5s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
                 processPerpetualStorm();
-            }
-        }.runTaskTimer(plugin, 10L, 10L);
-
-        // Fire avatar aura tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processFireAvatar();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Inferno nova tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processInferno();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Black sun tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processBlackSun();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Eternal winter aura tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
                 processEternalWinter();
-            }
-        }.runTaskTimer(plugin, 10L, 10L);
-
-        // Divine judgment tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processDivineJudgment();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Meteor rain tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processMeteorRain();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Rift tick (damage + pull)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processRifts();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Soul regen tick (Eternal Harvest)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processSoulRegen();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Blizzard aura tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
                 processBlizzardAura();
-            }
-        }.runTaskTimer(plugin, 10L, 10L);
-
-        // Absolute Zero check tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                processAbsoluteZero();
-            }
-        }.runTaskTimer(plugin, 20L, 20L);
-
-        // Ice zones tick
-        new BukkitRunnable() {
-            @Override
-            public void run() {
                 processIceZones();
             }
         }.runTaskTimer(plugin, 10L, 10L);
 
-        // Cleanup expired data
+        // NORMAL TICK (20L = 1s) - Effets standards
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeOccultistes.isEmpty()) return;
+
+                processFireSpread();
+                processFireAvatar();
+                processInferno();
+                processBlackSun();
+                processDivineJudgment();
+                processMeteorRain();
+                processRifts();
+                processSoulRegen();
+                processAbsoluteZero();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+
+        // SLOW TICK (30L = 1.5s) - Effets moins frequents
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeOccultistes.isEmpty()) return;
+                processLightningStorm();
+            }
+        }.runTaskTimer(plugin, 30L, 30L);
+
+        // CLEANUP (200L = 10s) - Nettoyage des donnees expirees
         new BukkitRunnable() {
             @Override
             public void run() {
                 cleanupExpiredData();
             }
         }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    private void updateOccultistesCache() {
+        long now = System.currentTimeMillis();
+        if (now - lastCacheUpdate < CACHE_TTL) return;
+        lastCacheUpdate = now;
+
+        activeOccultistes.clear();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (isOccultiste(player)) {
+                activeOccultistes.add(player.getUniqueId());
+            }
+        }
     }
 
     // ==================== DAMAGE EVENTS ====================
@@ -297,12 +244,12 @@ public class OccultisteTalentListener implements Listener {
             }
         }
 
-        // Soul Legion - DR per orb
+        // Soul Legion - DR per orb (capped a 40%)
         if (hasTalentEffect(player, Talent.TalentEffectType.SOUL_LEGION)) {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.SOUL_LEGION);
             int orbs = getSoulOrbs(player);
             double drPerOrb = talent.getValue(1);
-            double totalDR = Math.min(0.50, drPerOrb * orbs);
+            double totalDR = Math.min(0.40, drPerOrb * orbs); // Cap reduit de 50% a 40%
             if (totalDR > 0) {
                 event.setDamage(event.getDamage() * (1 - totalDR));
             }
@@ -971,14 +918,15 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processLightningStorm() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.LIGHTNING_STORM)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.LIGHTNING_STORM);
             int targets = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double range = talent.getValue(3);
+            double range = Math.min(talent.getValue(3), 20.0); // Cap a 20 blocs
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1003,12 +951,13 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processPerpetualStorm() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.PERPETUAL_STORM)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PERPETUAL_STORM);
-            double radius = talent.getValue(1);
+            double radius = Math.min(talent.getValue(1), 15.0); // Cap a 15 blocs
             int targets = (int) talent.getValue(2);
             double damagePercent = talent.getValue(3);
 
@@ -1038,12 +987,13 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processFireAvatar() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.FIRE_AVATAR)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FIRE_AVATAR);
-            double radius = talent.getValue(0);
+            double radius = Math.min(talent.getValue(0), 8.0); // Cap a 8 blocs
             double damagePercent = talent.getValue(1);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
@@ -1056,25 +1006,26 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Visual aura
-            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            // Visual aura (reduit de 16 a 8 particules)
+            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                 double x = Math.cos(angle) * radius;
                 double z = Math.sin(angle) * radius;
-                player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(x, 0.5, z), 2, 0.1, 0.1, 0.1, 0.01);
+                player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(x, 0.5, z), 1, 0.1, 0.1, 0.1, 0.01);
             }
         }
     }
 
     private void processInferno() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.INFERNO)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.INFERNO);
             if (!checkCooldown(player, "inferno", (long) talent.getValue(0))) continue;
 
             double damagePercent = talent.getValue(1);
-            double radius = talent.getValue(2);
+            double radius = Math.min(talent.getValue(2), 12.0); // Cap a 12 blocs
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1087,9 +1038,9 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Nova visual
-            for (double r = 0; r <= radius; r += 1) {
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            // Nova visual optimise (moins de particules)
+            for (double r = 1; r <= radius; r += 2) {
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(x, 0.3, z), 1, 0, 0, 0, 0.05);
@@ -1097,7 +1048,7 @@ public class OccultisteTalentListener implements Listener {
             }
 
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f);
-            player.sendMessage("§6§l+ INFERNO +");
+            sendActionBar(player, "§6§l+ INFERNO +");
         }
     }
 
@@ -1161,15 +1112,16 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processEternalWinter() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.ETERNAL_WINTER)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ETERNAL_WINTER);
-            double radius = talent.getValue(0);
+            double radius = Math.min(talent.getValue(0), 10.0); // Cap a 10 blocs
             double slowPercent = talent.getValue(1);
 
-            int amplifier = (int)(slowPercent * 5); // 70% = amplifier 3-4
+            int amplifier = Math.min((int)(slowPercent * 5), 3); // Cap amplifier a 3
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
@@ -1177,14 +1129,15 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Winter visual
-            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation(), 10, radius/2, 1, radius/2, 0.01);
+            // Winter visual (reduit)
+            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation(), 5, radius/2, 1, radius/2, 0.01);
         }
     }
 
     private void processDivineJudgment() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.DIVINE_JUDGMENT)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DIVINE_JUDGMENT);
@@ -1194,44 +1147,46 @@ public class OccultisteTalentListener implements Listener {
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
-            // Strike ALL nearby enemies
+            // Strike enemies - RANGE REDUIT de 50 a 25 blocs pour eviter l'abus
+            double range = 25.0;
             int struck = 0;
-            for (Entity entity : player.getNearbyEntities(50, 50, 50)) {
+            int maxTargets = 30; // Limite le nombre de cibles
+            for (Entity entity : player.getNearbyEntities(range, range, range)) {
+                if (struck >= maxTargets) break;
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
                     le.damage(damage, player);
-                    // Lightning visual
-                    le.getWorld().strikeLightningEffect(le.getLocation());
+                    // Lightning visual (sans strikeLightningEffect qui est lourd)
+                    spawnLightningVisual(player.getLocation().add(0, 10, 0), le.getLocation().add(0, 1, 0));
                     struck++;
                 }
             }
 
             if (struck > 0) {
-                player.sendMessage("§e§l+ JUGEMENT DIVIN +");
-                player.sendMessage("§7" + struck + " ennemis frappes par la foudre divine!");
+                sendActionBar(player, "§e§l+ JUGEMENT DIVIN + §7" + struck + " cibles");
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.5f);
             }
         }
     }
 
     private void processMeteorRain() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.METEOR_RAIN)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.METEOR_RAIN);
             if (!checkCooldown(player, "meteor_rain", (long) talent.getValue(0))) continue;
 
-            int meteors = (int) talent.getValue(1);
+            int meteors = Math.min((int) talent.getValue(1), 15); // Cap a 15 meteores
             double damagePercent = talent.getValue(2);
-            double zone = talent.getValue(3);
+            double zone = Math.min(talent.getValue(3), 20.0); // Cap zone a 20 blocs
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             Location center = player.getLocation();
 
-            player.sendMessage("§4§l+ PLUIE DE METEORES +");
-            player.sendMessage("§7L'apocalypse de feu s'abat!");
+            sendActionBar(player, "§4§l+ PLUIE DE METEORES +");
 
             for (int i = 0; i < meteors; i++) {
                 final int index = i;
@@ -1248,11 +1203,10 @@ public class OccultisteTalentListener implements Listener {
                         }
                     }
 
-                    // Visual
-                    impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 2, 0, 0, 0, 0);
-                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 50, 2, 1, 2, 0.2);
-                    impactLoc.getWorld().spawnParticle(Particle.LAVA, impactLoc, 10, 1, 0.5, 1, 0);
-                    impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.8f);
+                    // Visual (reduit)
+                    impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 1, 0, 0, 0, 0);
+                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 25, 2, 1, 2, 0.2);
+                    impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 0.8f);
                 }, index * 3L);
             }
         }
@@ -1325,8 +1279,9 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void checkBlackHoleFormation() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.BLACK_HOLE)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.BLACK_HOLE);
@@ -1423,8 +1378,9 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processSoulRegen() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.ETERNAL_HARVEST)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ETERNAL_HARVEST);
@@ -1433,6 +1389,8 @@ public class OccultisteTalentListener implements Listener {
 
             if (orbs > 0) {
                 double totalRegen = player.getMaxHealth() * regenPerOrb * orbs;
+                // Cap la regen a 5% HP max par tick
+                totalRegen = Math.min(totalRegen, player.getMaxHealth() * 0.05);
                 player.setHealth(Math.min(player.getMaxHealth(), player.getHealth() + totalRegen));
             }
         }
@@ -1474,13 +1432,14 @@ public class OccultisteTalentListener implements Listener {
 
         long now = System.currentTimeMillis();
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isOccultiste(player)) continue;
+        for (UUID uuid : activeOccultistes) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO);
             long freezeTime = (long) talent.getValue(0);
-            double bossDamageMultiplier = talent.getValue(1);
+            double bossDamageMultiplier = Math.min(talent.getValue(1), 3.0); // Cap a 300% pour les boss
 
             for (Map.Entry<UUID, Long> entry : frozenEnemies.entrySet()) {
                 if (now - entry.getValue() >= freezeTime) {
@@ -1488,20 +1447,24 @@ public class OccultisteTalentListener implements Listener {
                     if (entity == null || entity.isDead()) continue;
                     if (!(entity instanceof LivingEntity le)) continue;
 
-                    // Check if boss
-                    boolean isBoss = le.getScoreboardTags().contains("boss") || le.getMaxHealth() > 100;
+                    // Check if boss ou elite (> 50 HP)
+                    boolean isBossOrElite = le.getScoreboardTags().contains("boss") ||
+                                            le.getScoreboardTags().contains("elite") ||
+                                            le.getMaxHealth() > 50;
 
-                    if (isBoss) {
-                        double damage = le.getMaxHealth() * (bossDamageMultiplier / 10.0); // 500% over time
+                    if (isBossOrElite) {
+                        // Boss/Elite: degats % capped
+                        double damage = le.getMaxHealth() * (bossDamageMultiplier / 10.0);
                         le.damage(damage, player);
                     } else {
+                        // Mobs normaux: instakill
                         le.setHealth(0);
                     }
 
-                    // Visual
-                    le.getWorld().spawnParticle(Particle.ITEM_CRACK, le.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1,
+                    // Visual (reduit)
+                    le.getWorld().spawnParticle(Particle.ITEM_CRACK, le.getLocation().add(0, 1, 0), 25, 0.5, 1, 0.5, 0.1,
                         new org.bukkit.inventory.ItemStack(Material.ICE));
-                    le.getWorld().playSound(le.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.3f);
+                    le.getWorld().playSound(le.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.8f, 0.3f);
 
                     // Reset freeze time so it doesn't trigger again immediately
                     entry.setValue(now);
@@ -1684,6 +1647,14 @@ public class OccultisteTalentListener implements Listener {
     private boolean isFrozen(LivingEntity entity) {
         return frozenEnemies.containsKey(entity.getUniqueId()) ||
                entity.hasPotionEffect(PotionEffectType.SLOWNESS);
+    }
+
+    /**
+     * Envoie un message dans l'actionbar au lieu du chat pour eviter le spam
+     */
+    private void sendActionBar(Player player, String message) {
+        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+            net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
     }
 
     // ==================== DATA CLASSES ====================
