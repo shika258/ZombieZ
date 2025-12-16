@@ -134,9 +134,9 @@ public class ClassSelectionGUI implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                 player.closeInventory();
 
-                // Ouvrir les talents après
+                // Ouvrir le menu d'info de classe apres
                 Bukkit.getScheduler().runTaskLater(plugin, () ->
-                    new TalentTreeGUI(plugin, classManager).open(player), 20L);
+                    new ClassInfoGUI(plugin, classManager).open(player), 20L);
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
