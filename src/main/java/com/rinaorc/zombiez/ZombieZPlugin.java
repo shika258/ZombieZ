@@ -104,6 +104,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système de Météo Dynamique
     @Getter private com.rinaorc.zombiez.weather.WeatherManager weatherManager;
 
+    // Système de Classes
+    @Getter private com.rinaorc.zombiez.classes.ClassManager classManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -197,6 +200,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (weatherManager != null) {
             log(Level.INFO, "§7Arrêt du système météo...");
             weatherManager.shutdown();
+        }
+
+        // Cleanup du système de classes
+        if (classManager != null) {
+            log(Level.INFO, "§7Sauvegarde des données de classe...");
+            classManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -341,6 +350,11 @@ public class ZombieZPlugin extends JavaPlugin {
         weatherManager = new com.rinaorc.zombiez.weather.WeatherManager(this);
         weatherManager.loadConfig(configManager.loadConfig("weather.yml"));
         weatherManager.start();
+
+        // ===== Système de Classes =====
+
+        // Class Manager - Système de classes complet
+        classManager = new com.rinaorc.zombiez.classes.ClassManager(this);
     }
 
     /**
@@ -394,6 +408,18 @@ public class ZombieZPlugin extends JavaPlugin {
         ProgressionCommand progressionCmd = new ProgressionCommand(this);
         getCommand("progression").setExecutor(progressionCmd);
         getCommand("progression").setTabCompleter(progressionCmd);
+
+        // Commandes Joueur - Classes
+        ClassCommand classCmd = new ClassCommand(this);
+        getCommand("class").setExecutor(classCmd);
+        getCommand("class").setTabCompleter(classCmd);
+        getCommand("mutations").setExecutor((sender, cmd, label, args) -> {
+            if (sender instanceof org.bukkit.entity.Player player) {
+                classManager.getMutationManager().getMutationSummary()
+                    .forEach(player::sendMessage);
+            }
+            return true;
+        });
     }
 
     /**
@@ -452,6 +478,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);
         pm.registerEvents(new BattlePassGUI.BattlePassGUIListener(this), this);
+
+        // Listener système de classes
+        if (classManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.classes.ClassListener(this), this);
+        }
     }
 
     /**

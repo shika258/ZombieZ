@@ -105,6 +105,19 @@ commands:
     permission: zombiez.progression
     aliases: [prog, ach, bp]
 
+  # Commandes Classes
+  class:
+    description: Système de classes
+    usage: /<command> [select|talents|skills|info|buff|use|mutations|help]
+    permission: zombiez.class
+    aliases: [classe, c]
+
+  mutations:
+    description: Voir les mutations quotidiennes
+    usage: /<command>
+    permission: zombiez.class
+    aliases: [mutation, daily]
+
 # Permissions
 permissions:
   # Permission wildcard admin
@@ -177,6 +190,7 @@ permissions:
       zombiez.balance: true
       zombiez.bank: true
       zombiez.progression: true
+      zombiez.class: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -212,6 +226,10 @@ permissions:
 
   zombiez.progression:
     description: Accès au système de progression
+    default: true
+
+  zombiez.class:
+    description: Accès au système de classes
     default: true
 
   # Permissions VIP
