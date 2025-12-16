@@ -33,17 +33,17 @@ public class TalentSelectionGUI implements Listener {
     private static final String GUI_TITLE_PAGE_2 = "§0§l+ TALENTS §0(2/2) +";
 
     // Slots pour chaque tier (4 tiers par page, 5 talents par tier)
-    // Layout: Chaque tier prend une ligne
-    // Row 1: Tier 1 - slots 9 (info), 10, 11, 12, 13, 14 (talents)
-    // Row 2: Tier 2 - slots 18 (info), 19, 20, 21, 22, 23 (talents)
-    // Row 3: Tier 3 - slots 27 (info), 28, 29, 30, 31, 32 (talents)
-    // Row 4: Tier 4 - slots 36 (info), 37, 38, 39, 40, 41 (talents)
-    private static final int[] TIER_INFO_SLOTS = {9, 18, 27, 36};
+    // Layout: Chaque tier prend une ligne (decale de 2 pour centrer)
+    // Row 1: Tier 1 - slots 11 (info), 12, 13, 14, 15, 16 (talents)
+    // Row 2: Tier 2 - slots 20 (info), 21, 22, 23, 24, 25 (talents)
+    // Row 3: Tier 3 - slots 29 (info), 30, 31, 32, 33, 34 (talents)
+    // Row 4: Tier 4 - slots 38 (info), 39, 40, 41, 42, 43 (talents)
+    private static final int[] TIER_INFO_SLOTS = {11, 20, 29, 38};
     private static final int[][] TALENT_SLOTS = {
-        {10, 11, 12, 13, 14}, // Tier 1
-        {19, 20, 21, 22, 23}, // Tier 2
-        {28, 29, 30, 31, 32}, // Tier 3
-        {37, 38, 39, 40, 41}  // Tier 4
+        {12, 13, 14, 15, 16}, // Tier 1
+        {21, 22, 23, 24, 25}, // Tier 2
+        {30, 31, 32, 33, 34}, // Tier 3
+        {39, 40, 41, 42, 43}  // Tier 4
     };
 
     // Navigation
