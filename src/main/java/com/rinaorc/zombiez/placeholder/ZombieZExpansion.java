@@ -467,7 +467,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     private String getClassName(Player player) {
         ClassData data = getClassData(player);
         if (data == null || !data.hasClass()) return "Aucune";
-        return data.getSelectedClass().getName();
+        return data.getSelectedClass().getDisplayName();
     }
 
     private String getClassId(Player player) {
@@ -547,7 +547,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         if (data == null || !data.hasClass()) return "0";
         int count = 0;
         for (TalentTier tier : TalentTier.values()) {
-            if (data.getSelectedTalent(tier) != null) {
+            if (data.getSelectedTalentId(tier) != null) {
                 count++;
             }
         }
@@ -569,7 +569,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     private String getClassTalentForTier(Player player, TalentTier tier) {
         ClassData data = getClassData(player);
         if (data == null || !data.hasClass()) return "-";
-        String talentId = data.getSelectedTalent(tier);
+        String talentId = data.getSelectedTalentId(tier);
         if (talentId == null || talentId.isEmpty()) return "-";
 
         if (plugin.getTalentManager() != null) {

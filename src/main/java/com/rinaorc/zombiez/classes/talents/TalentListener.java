@@ -497,7 +497,7 @@ public class TalentListener implements Listener {
             double reflect = damage * aegis.getValue(1);
             if (event.getDamager() instanceof LivingEntity attacker) {
                 attacker.damage(reflect, player);
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SHIELD_BLOCK, 1.0f, 2.0f);
+                player.getWorld().playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0f, 2.0f);
             }
         }
 

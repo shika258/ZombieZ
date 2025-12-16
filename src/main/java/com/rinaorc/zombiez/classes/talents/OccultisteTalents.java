@@ -734,7 +734,7 @@ public final class OccultisteTalents {
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
             .slotIndex(1)
-            .icon(Material.SNOWFLAKE_BANNER_PATTERN)
+            .icon(Material.POWDER_SNOW_BUCKET)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.ETERNAL_WINTER)
             .values(new double[]{8.0, 0.70, 0.50}) // radius, slow%, damage_bonus%
