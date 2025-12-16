@@ -1,0 +1,180 @@
+# ========================================
+# Configuration du Systeme de Meteo Dynamique
+# ZombieZ v1.0
+# ========================================
+
+weather:
+  # Activer/desactiver le systeme de meteo dynamique
+  enabled: true
+
+  # Intervalle entre les changements de meteo (en secondes)
+  min-interval-seconds: 480    # 8 minutes minimum
+  max-interval-seconds: 1200   # 20 minutes maximum
+
+  # Nombre minimum de joueurs en ligne pour declencher la meteo
+  min-players: 1
+
+  # Chance d'avoir un temps clair lors d'un changement (0.0 - 1.0)
+  # Plus cette valeur est haute, plus le temps clair sera frequent
+  clear-weather-chance: 0.35
+
+  # La Lune de Sang ne peut apparaitre que la nuit
+  night-only-blood-moon: true
+
+  # Adapter la meteo aux biomes (tempete de sable dans desert, etc.)
+  respect-biomes: true
+
+  # Duree de transition entre deux meteos (en secondes)
+  transition-duration-seconds: 5
+
+  # Cooldown avant qu'un meme type de meteo puisse reapparaitre (en secondes)
+  type-cooldown-seconds: 600   # 10 minutes
+
+  # ========================================
+  # Configuration par type de meteo
+  # ========================================
+  types:
+    # Temps Clair - Conditions ideales
+    clear:
+      enabled: true
+      weight: 30
+      duration-multiplier: 1.0
+
+    # Pluie - Legere augmentation du spawn
+    rain:
+      enabled: true
+      weight: 25
+      duration-multiplier: 1.0
+      # Modificateurs personnalises (optionnel)
+      # spawn-multiplier: 1.15
+      # zombie-damage-multiplier: 1.0
+      # zombie-speed-multiplier: 1.0
+
+    # Tempete - Zombies plus agressifs
+    storm:
+      enabled: true
+      weight: 15
+      duration-multiplier: 1.0
+
+    # Blizzard - Froid intense, ralentissement
+    blizzard:
+      enabled: true
+      weight: 12
+      duration-multiplier: 1.0
+      # Zones affectees (optionnel - liste d'IDs de zones)
+      # affected-zones: [30, 31, 32, 33, 34, 35]
+
+    # Brouillard - Visibilite reduite
+    fog:
+      enabled: true
+      weight: 18
+      duration-multiplier: 1.2
+
+    # Pluie de Cendres - Toxique
+    ashfall:
+      enabled: true
+      weight: 10
+      duration-multiplier: 0.8
+      # Degats environnementaux
+      environmental-damage: 1.0
+      damage-interval-seconds: 4
+
+    # Lune de Sang - Spawn x3, zombies renforces
+    blood_moon:
+      enabled: true
+      weight: 5
+      duration-multiplier: 1.0
+      # Restrictions speciales
+      min-zone: 5            # Zone minimum pour apparition
+      night-only: true       # Uniquement la nuit
+
+    # Pluie Acide - Corrosive, dangereuse
+    acid_rain:
+      enabled: true
+      weight: 8
+      duration-multiplier: 0.7
+      environmental-damage: 1.5
+      damage-interval-seconds: 2
+      # Protection
+      shelter-reduces-damage: true
+      armor-reduces-damage: true
+
+    # Aurore Boreale - Benefique, spawn reduit
+    aurora:
+      enabled: true
+      weight: 6
+      duration-multiplier: 1.5
+
+    # Tempete de Sable - Zones desertes
+    sandstorm:
+      enabled: true
+      weight: 10
+      duration-multiplier: 1.0
+      # Biomes affectes
+      biomes:
+        - DESERT
+        - BADLANDS
+
+  # ========================================
+  # Effets visuels
+  # ========================================
+  visuals:
+    # Intensite des particules (0.5 - 2.0)
+    particle-intensity: 1.0
+
+    # Distance des particules autour du joueur
+    particle-radius: 10
+
+    # Sons ambiants
+    ambient-sounds: true
+    sound-volume: 0.5
+
+  # ========================================
+  # Integration avec les systemes
+  # ========================================
+  integration:
+    # Modifier le spawn rate des zombies selon la meteo
+    affect-spawn-rate: true
+
+    # Modifier les degats/vitesse des zombies
+    affect-zombie-stats: true
+
+    # Modifier le loot selon la meteo (bonus pendant meteo dangereuse)
+    affect-loot: true
+    dangerous-weather-loot-bonus: 0.15
+
+    # Notifier les joueurs des changements
+    broadcast-changes: true
+
+  # ========================================
+  # Messages personnalises
+  # ========================================
+  messages:
+    weather-change: "&7La meteo change... &e{weather}"
+    dangerous-warning: "&c⚠ Attention: {weather} - Trouvez un abri!"
+    beneficial-info: "&a✓ Conditions favorables: {weather}"
+    blood-moon-alert: "&4&l⚠ LUNE DE SANG! &cLes morts se levent en masse!"
+
+# ========================================
+# Notes de configuration
+# ========================================
+#
+# Poids (weight):
+#   - Plus le poids est eleve, plus la meteo apparaitra frequemment
+#   - Poids total = somme de tous les poids actives
+#   - Probabilite = poids_type / poids_total
+#
+# Multiplicateurs:
+#   - spawn-multiplier: Affecte le taux d'apparition des zombies (1.0 = normal)
+#   - zombie-damage-multiplier: Degats infliges par les zombies (1.0 = normal)
+#   - zombie-speed-multiplier: Vitesse des zombies (1.0 = normal)
+#   - duration-multiplier: Modifie la duree de base du type
+#
+# Degats environnementaux:
+#   - Les joueurs sous un abri ne subissent pas de degats
+#   - L'armure reduit les degats de 15-25%
+#
+# Compatibilite:
+#   - Le systeme utilise la meteo native de Minecraft pour la pluie/neige
+#   - Les particules sont generees cote serveur pour tous les joueurs
+#
