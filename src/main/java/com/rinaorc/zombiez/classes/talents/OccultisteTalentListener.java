@@ -237,8 +237,8 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.CORRUPTED_DIMENSION);
             if (Math.random() < talent.getValue(0)) {
                 event.setCancelled(true);
-                // Visual
-                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                // Visual (optimise)
+                player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 10, 0.3, 0.7, 0.3, 0.05);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.5f, 1.5f);
                 return;
             }
@@ -515,8 +515,8 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Explosion visual
-                target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 50, radius/2, radius/2, radius/2, 0.05);
+                // Explosion visual (optimise)
+                target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target.getLocation(), 15, radius/2, radius/2, radius/2, 0.03);
             }
 
             // Dimensional Rift - leave a rift
@@ -527,8 +527,8 @@ public class OccultisteTalentListener implements Listener {
             // Deal void bolt damage
             target.damage(damage, player);
 
-            // Visual
-            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 40, 0.3, 0.5, 0.3, 0.5);
+            // Visual (optimise)
+            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 12, 0.2, 0.4, 0.2, 0.3);
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 0.5f);
         }
     }
@@ -544,8 +544,8 @@ public class OccultisteTalentListener implements Listener {
             tickInterval, damagePercent, System.currentTimeMillis());
         activeRifts.put(riftId, rift);
 
-        // Visual spawn
-        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, location, 30, 0.5, 0.5, 0.5, 0.1);
+        // Visual spawn (optimise)
+        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, location, 10, 0.3, 0.3, 0.3, 0.05);
         location.getWorld().playSound(location, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.5f);
     }
 
@@ -819,13 +819,15 @@ public class OccultisteTalentListener implements Listener {
                     return;
                 }
 
-                // Visual
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
-                    double x = Math.cos(angle) * radius;
-                    double z = Math.sin(angle) * radius;
-                    center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0.5, z), 2, 0, 0, 0, 0);
+                // Visual (optimise - afficher le cercle seulement toutes les 5 ticks)
+                if (ticks % 5 == 0) {
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        center.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0.5, z), 1, 0, 0, 0, 0);
+                    }
+                    center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 6, radius/2, 0.5, radius/2, 0.05);
                 }
-                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 20, radius/2, 1, radius/2, 0.1);
 
                 // Damage/kill enemies
                 for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
@@ -873,9 +875,9 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Visual
-                rift.location.getWorld().spawnParticle(Particle.EXPLOSION, rift.location, 3, 0, 0, 0, 0);
-                rift.location.getWorld().spawnParticle(Particle.DRAGON_BREATH, rift.location, 100, detonateRadius/2, detonateRadius/2, detonateRadius/2, 0.1);
+                // Visual (optimise)
+                rift.location.getWorld().spawnParticle(Particle.EXPLOSION, rift.location, 1, 0, 0, 0, 0);
+                rift.location.getWorld().spawnParticle(Particle.DRAGON_BREATH, rift.location, 25, detonateRadius/2, detonateRadius/2, detonateRadius/2, 0.05);
                 rift.location.getWorld().playSound(rift.location, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
 
                 iterator.remove();
@@ -1270,8 +1272,8 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Rift visual
-            rift.location.getWorld().spawnParticle(Particle.PORTAL, rift.location, 10, 0.3, 0.3, 0.3, 0.1);
+            // Rift visual (optimise)
+            rift.location.getWorld().spawnParticle(Particle.PORTAL, rift.location, 3, 0.2, 0.2, 0.2, 0.05);
         }
 
         // Check for Black Hole formation
@@ -1364,9 +1366,9 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Visual
-                center.getWorld().spawnParticle(Particle.PORTAL, center, 50, radius/2, radius/2, radius/2, 0.5);
-                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 30, 0.5, 0.5, 0.5, 0.1);
+                // Visual (optimise pour eviter le lag)
+                center.getWorld().spawnParticle(Particle.PORTAL, center, 15, radius/2, radius/2, radius/2, 0.3);
+                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 8, 0.3, 0.3, 0.3, 0.05);
 
                 if (ticks % 20 == 0) {
                     center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 1.0f, 0.3f);
