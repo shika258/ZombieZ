@@ -11,29 +11,25 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
- * Gestionnaire des saisons pour le système de classes
+ * Gestionnaire des saisons pour le systeme de classes
  *
  * PHILOSOPHIE:
  * - Les saisons durent typiquement 2-3 mois
- * - À chaque nouvelle saison:
- *   - Reset des talents et buffs arcade (power reset)
- *   - Conservation des cosmétiques et achievements
- *   - Rotation du pool de buffs disponibles
+ * - A chaque nouvelle saison:
+ *   - Reset du niveau de classe (power reset)
+ *   - Conservation des cosmetiques et achievements
  *   - Nouveaux objectifs saisonniers
  *
  * RESET PARTIEL:
  * Ce qui est reset:
  * - Niveau de classe -> 1
- * - Points de talent -> remboursés
- * - Buffs arcade -> 0
- * - Armes collectées -> gardées mais évolution reset
  *
- * Ce qui est conservé:
- * - Classe sélectionnée
- * - Cosmétiques débloqués
+ * Ce qui est conserve:
+ * - Classe selectionnee
+ * - Cosmetiques debloques
  * - Achievements
  * - Monnaie premium
- * - Historique des saisons passées
+ * - Historique des saisons passees
  */
 @Getter
 public class SeasonManager {
@@ -41,7 +37,7 @@ public class SeasonManager {
     private final ZombieZPlugin plugin;
     private final ClassManager classManager;
 
-    // État de la saison actuelle
+    // Etat de la saison actuelle
     private int currentSeasonNumber;
     private LocalDate seasonStartDate;
     private LocalDate seasonEndDate;
@@ -50,16 +46,12 @@ public class SeasonManager {
     // Configuration
     private static final int DEFAULT_SEASON_DURATION_DAYS = 90;  // 3 mois
 
-    // Pool de buffs actif pour la saison (rotation)
-    private final Set<String> activeBuffPool;
-
-    // Statistiques saisonnières
+    // Statistiques saisonnieres
     private final Map<UUID, SeasonStats> seasonStats;
 
     public SeasonManager(ZombieZPlugin plugin, ClassManager classManager) {
         this.plugin = plugin;
         this.classManager = classManager;
-        this.activeBuffPool = new HashSet<>();
         this.seasonStats = new HashMap<>();
 
         loadSeasonConfig();
@@ -70,37 +62,13 @@ public class SeasonManager {
         this.currentSeasonNumber = 1;
         this.seasonStartDate = LocalDate.now();
         this.seasonEndDate = seasonStartDate.plusDays(DEFAULT_SEASON_DURATION_DAYS);
-        this.seasonTheme = "Éveil des Morts";
-
-        // Pool de buffs par défaut (tous actifs en saison 1)
-        initializeDefaultBuffPool();
-    }
-
-    private void initializeDefaultBuffPool() {
-        // En saison 1, tous les buffs sont actifs
-        // Les saisons suivantes peuvent désactiver certains buffs pour forcer la diversité
-        activeBuffPool.addAll(Arrays.asList(
-            // Offensifs
-            "dmg_up", "crit_chance", "crit_dmg", "lifesteal",
-            // Défensifs
-            "hp_up", "armor_up", "regen_up",
-            // Utilitaires
-            "speed_up", "xp_up", "cdr_up", "energy_up",
-            // Rares
-            "berserker", "tank", "assassin", "survivor",
-            // Classe - Guerrier
-            "gue_melee", "gue_tank", "gue_sustain",
-            // Classe - Chasseur
-            "cha_precision", "cha_lethality", "cha_agility",
-            // Classe - Occultiste
-            "occ_power", "occ_haste", "occ_mana"
-        ));
+        this.seasonTheme = "Eveil des Morts";
     }
 
     // ==================== GESTION DE SAISON ====================
 
     /**
-     * Vérifie si la saison doit être terminée et lance la transition
+     * Verifie si la saison doit etre terminee et lance la transition
      */
     public void checkSeasonEnd() {
         if (LocalDate.now().isAfter(seasonEndDate)) {
@@ -109,10 +77,10 @@ public class SeasonManager {
     }
 
     /**
-     * Démarre une nouvelle saison
+     * Demarre une nouvelle saison
      */
     public void startNewSeason() {
-        plugin.getLogger().info("[Saisons] Démarrage de la saison " + (currentSeasonNumber + 1));
+        plugin.getLogger().info("[Saisons] Demarrage de la saison " + (currentSeasonNumber + 1));
 
         // Archiver les stats de la saison actuelle
         archiveSeasonStats();
@@ -120,16 +88,13 @@ public class SeasonManager {
         // Reset tous les joueurs
         resetAllPlayers();
 
-        // Mettre à jour la config de saison
+        // Mettre a jour la config de saison
         currentSeasonNumber++;
         seasonStartDate = LocalDate.now();
         seasonEndDate = seasonStartDate.plusDays(DEFAULT_SEASON_DURATION_DAYS);
 
-        // Rotation des buffs
-        rotateBuffPool();
-
-        // TODO: Broadcast à tous les joueurs
-        plugin.getLogger().info("[Saisons] Saison " + currentSeasonNumber + " démarrée!");
+        // TODO: Broadcast a tous les joueurs
+        plugin.getLogger().info("[Saisons] Saison " + currentSeasonNumber + " demarree!");
     }
 
     /**
@@ -139,21 +104,20 @@ public class SeasonManager {
         ClassData data = classManager.getClassData(player);
         if (data == null) return;
 
-        // Sauvegarder ce qui doit être conservé
+        // Sauvegarder ce qui doit etre conserve
         SeasonResetResult result = performPartialReset(data);
 
         // Informer le joueur
         player.sendMessage("");
-        player.sendMessage("§6§l✦ NOUVELLE SAISON " + currentSeasonNumber + " ✦");
+        player.sendMessage("§6§l+ NOUVELLE SAISON " + currentSeasonNumber + " +");
         player.sendMessage("");
-        player.sendMessage("§7Vos progrès ont été partiellement reset:");
+        player.sendMessage("§7Vos progres ont ete partiellement reset:");
         player.sendMessage("§c- Niveau de classe: §f1");
-        player.sendMessage("§c- Talents: §fRéinitialisés (" + result.talentPointsRefunded + " points)");
-        player.sendMessage("§c- Buffs arcade: §fReset");
         player.sendMessage("");
-        player.sendMessage("§aCe qui est conservé:");
-        player.sendMessage("§a+ Classe: §f" + data.getSelectedClass().getColoredName());
-        player.sendMessage("§a+ Armes débloquées");
+        player.sendMessage("§aCe qui est conserve:");
+        if (data.hasClass()) {
+            player.sendMessage("§a+ Classe: §f" + data.getSelectedClass().getColoredName());
+        }
         player.sendMessage("§a+ Achievements");
         player.sendMessage("");
         player.sendMessage("§eBonne chance pour cette nouvelle saison!");
@@ -161,29 +125,17 @@ public class SeasonManager {
     }
 
     /**
-     * Effectue le reset partiel des données d'un joueur
+     * Effectue le reset partiel des donnees d'un joueur
      */
     private SeasonResetResult performPartialReset(ClassData data) {
         SeasonResetResult result = new SeasonResetResult();
 
-        // Compter les points de talent à rembourser
-        result.talentPointsRefunded = data.getUnlockedTalents().values().stream()
-            .mapToInt(Integer::intValue)
-            .sum();
-
         // Sauvegarder stats pour l'historique
         result.previousClassLevel = data.getClassLevel().get();
-        result.previousBuffCount = data.getTotalBuffCount();
 
         // === RESET ===
-        // Reset niveau de classe à 1
+        // Reset niveau de classe a 1
         data.getClassLevel().set(1);
-
-        // Reset talents
-        data.resetTalents();
-
-        // Reset buffs arcade
-        data.getArcadeBuffs().clear();
 
         // Reset XP de classe
         data.getClassXp().set(0);
@@ -192,19 +144,17 @@ public class SeasonManager {
         data.resetSessionStats();
 
         // === CONSERVATION ===
-        // Classe sélectionnée - conservée
-        // Armes débloquées - conservées (mais évolution potentiellement reset selon config)
-        // Note: L'évolution d'arme dépend de maxZoneCompleted qui peut être reset ou non
+        // Classe selectionnee - conservee
 
         return result;
     }
 
     /**
-     * Reset tous les joueurs connectés
+     * Reset tous les joueurs connectes
      */
     private void resetAllPlayers() {
         plugin.getServer().getOnlinePlayers().forEach(this::resetPlayerForSeason);
-        // Note: Les joueurs offline seront reset à leur connexion
+        // Note: Les joueurs offline seront reset a leur connexion
     }
 
     /**
@@ -213,29 +163,6 @@ public class SeasonManager {
     private void archiveSeasonStats() {
         // TODO: Sauvegarder en BDD
         seasonStats.clear();
-    }
-
-    // ==================== ROTATION DES BUFFS ====================
-
-    /**
-     * Fait tourner le pool de buffs disponibles
-     * Retire certains buffs et en ajoute de nouveaux
-     */
-    private void rotateBuffPool() {
-        // Exemple de rotation: retirer 20% des buffs les moins utilisés
-        // et possiblement ajouter de nouveaux buffs saisonniers
-
-        // Pour l'instant, on garde tous les buffs
-        // Cette méthode sera étendue avec les stats d'utilisation
-
-        plugin.getLogger().info("[Saisons] Pool de buffs mis à jour: " + activeBuffPool.size() + " buffs actifs");
-    }
-
-    /**
-     * Vérifie si un buff est actif dans le pool de la saison
-     */
-    public boolean isBuffActiveThisSeason(String buffId) {
-        return activeBuffPool.contains(buffId);
     }
 
     /**
@@ -254,7 +181,7 @@ public class SeasonManager {
         return Math.min(100.0, (elapsed * 100.0) / totalDays);
     }
 
-    // ==================== STATISTIQUES SAISONNIÈRES ====================
+    // ==================== STATISTIQUES SAISONNIERES ====================
 
     /**
      * Enregistre les stats d'un joueur pour la saison
@@ -273,13 +200,11 @@ public class SeasonManager {
     // ==================== CLASSES INTERNES ====================
 
     /**
-     * Résultat d'un reset de saison
+     * Resultat d'un reset de saison
      */
     @Getter
     public static class SeasonResetResult {
-        int talentPointsRefunded;
         int previousClassLevel;
-        int previousBuffCount;
     }
 
     /**

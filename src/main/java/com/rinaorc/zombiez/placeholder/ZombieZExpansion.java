@@ -1,6 +1,10 @@
 package com.rinaorc.zombiez.placeholder;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.classes.ClassData;
+import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentTier;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ItemManager;
 import com.rinaorc.zombiez.zones.Zone;
@@ -183,6 +187,33 @@ public class ZombieZExpansion extends PlaceholderExpansion {
             case "rank_level" -> getLeaderboardRank(player, "LEVEL");
             case "rank_points" -> getLeaderboardRank(player, "POINTS");
             case "rank_zone" -> getLeaderboardRank(player, "MAX_ZONE");
+
+            // ==================== CLASSES ====================
+            case "class", "class_name" -> getClassName(player);
+            case "class_id" -> getClassId(player);
+            case "class_color" -> getClassColor(player);
+            case "class_formatted" -> getClassFormatted(player);
+            case "class_level", "class_lvl" -> getClassLevel(player);
+            case "class_xp" -> getClassXp(player);
+            case "class_xp_raw" -> getClassXpRaw(player);
+            case "class_xp_required", "class_xpnext" -> getClassXpRequired(player);
+            case "class_xp_progress" -> getClassXpProgress(player);
+            case "class_xp_bar" -> getClassXpBar(player);
+            case "class_kills" -> getClassKills(player);
+            case "class_deaths" -> getClassDeaths(player);
+            case "class_kd", "class_kdr" -> getClassKD(player);
+            case "class_talents" -> getClassTalentsCount(player);
+            case "class_tier" -> getClassCurrentTier(player);
+            case "class_talent_tier1" -> getClassTalentForTier(player, TalentTier.TIER_1);
+            case "class_talent_tier2" -> getClassTalentForTier(player, TalentTier.TIER_2);
+            case "class_talent_tier3" -> getClassTalentForTier(player, TalentTier.TIER_3);
+            case "class_talent_tier4" -> getClassTalentForTier(player, TalentTier.TIER_4);
+            case "class_talent_tier5" -> getClassTalentForTier(player, TalentTier.TIER_5);
+            case "class_talent_tier6" -> getClassTalentForTier(player, TalentTier.TIER_6);
+            case "class_talent_tier7" -> getClassTalentForTier(player, TalentTier.TIER_7);
+            case "class_talent_tier8" -> getClassTalentForTier(player, TalentTier.TIER_8);
+            case "class_damage_dealt" -> getClassDamageDealt(player);
+            case "class_damage_received" -> getClassDamageReceived(player);
 
             // ==================== SERVER STATS ====================
             case "online" -> String.valueOf(Bukkit.getOnlinePlayers().size());
@@ -424,5 +455,141 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         else if (currentTps >= 15) color = "&e";
         else color = "&c";
         return color + String.format("%.1f", currentTps);
+    }
+
+    // ==================== CLASS HELPER METHODS ====================
+
+    private ClassData getClassData(Player player) {
+        if (plugin.getClassManager() == null) return null;
+        return plugin.getClassManager().getClassData(player);
+    }
+
+    private String getClassName(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "Aucune";
+        return data.getSelectedClass().getName();
+    }
+
+    private String getClassId(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "none";
+        return data.getSelectedClass().getId();
+    }
+
+    private String getClassColor(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "&7";
+        return data.getSelectedClass().getColor();
+    }
+
+    private String getClassFormatted(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "&7Aucune";
+        return data.getSelectedClass().getColoredName();
+    }
+
+    private String getClassLevel(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return String.valueOf(data.getClassLevel().get());
+    }
+
+    private String getClassXp(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getClassXp().get());
+    }
+
+    private String getClassXpRaw(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return String.valueOf(data.getClassXp().get());
+    }
+
+    private String getClassXpRequired(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getRequiredXpForNextClassLevel());
+    }
+
+    private String getClassXpProgress(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0%";
+        return decimalFormat.format(data.getClassLevelProgress()) + "%";
+    }
+
+    private String getClassXpBar(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return createProgressBar(0, 10);
+        return createProgressBar(data.getClassLevelProgress(), 10);
+    }
+
+    private String getClassKills(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getClassKills().get());
+    }
+
+    private String getClassDeaths(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getClassDeaths().get());
+    }
+
+    private String getClassKD(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0.00";
+        return decimalFormat.format(data.getClassKDRatio());
+    }
+
+    private String getClassTalentsCount(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        int count = 0;
+        for (TalentTier tier : TalentTier.values()) {
+            if (data.getSelectedTalent(tier) != null) {
+                count++;
+            }
+        }
+        return String.valueOf(count);
+    }
+
+    private String getClassCurrentTier(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        int highestTier = 0;
+        for (TalentTier tier : TalentTier.values()) {
+            if (data.isTalentTierUnlocked(tier)) {
+                highestTier = tier.ordinal() + 1;
+            }
+        }
+        return String.valueOf(highestTier);
+    }
+
+    private String getClassTalentForTier(Player player, TalentTier tier) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "-";
+        String talentId = data.getSelectedTalent(tier);
+        if (talentId == null || talentId.isEmpty()) return "-";
+
+        if (plugin.getTalentManager() != null) {
+            Talent talent = plugin.getTalentManager().getTalent(talentId);
+            if (talent != null) {
+                return talent.getName();
+            }
+        }
+        return talentId;
+    }
+
+    private String getClassDamageDealt(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getDamageDealt().get());
+    }
+
+    private String getClassDamageReceived(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "0";
+        return formatNumber(data.getDamageReceived().get());
     }
 }

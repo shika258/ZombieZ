@@ -107,6 +107,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
     // Système de Classes
     @Getter private com.rinaorc.zombiez.classes.ClassManager classManager;
+    @Getter private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
+    @Getter private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
+    @Getter private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
 
     // État du plugin
     @Getter private boolean fullyLoaded = false;
@@ -356,6 +359,15 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Class Manager - Système de classes complet
         classManager = new com.rinaorc.zombiez.classes.ClassManager(this);
+
+        // Talent Manager - Registre et gestion des talents
+        talentManager = new com.rinaorc.zombiez.classes.talents.TalentManager(this);
+
+        // Class Info GUI - Menu info de classe
+        classInfoGUI = new com.rinaorc.zombiez.classes.gui.ClassInfoGUI(this, classManager);
+
+        // Talent Selection GUI - Menu de sélection des talents
+        talentSelectionGUI = new com.rinaorc.zombiez.classes.gui.TalentSelectionGUI(this, classManager, talentManager);
     }
 
     /**
@@ -491,6 +503,13 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de classes
         if (classManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.ClassListener(this), this);
+        }
+
+        // Listener système de talents (effets passifs)
+        if (talentManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager), this);
         }
     }
 
