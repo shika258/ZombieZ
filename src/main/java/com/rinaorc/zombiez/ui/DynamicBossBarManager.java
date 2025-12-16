@@ -343,7 +343,7 @@ public class DynamicBossBarManager {
 
         bar.setTitle("§b§l✧ +" + formatXp(xpGained) + " XP §b✧ §7Niveau " + level +
                 " §8| §7" + formatXp(currentXp) + "/" + formatXp(requiredXp));
-        bar.setProgress(progress);
+        bar.setProgress(Math.max(0, Math.min(1, progress)));
 
         // Animation de fade
         long elapsed = System.currentTimeMillis() - data.lastXpGainTime;
@@ -382,7 +382,7 @@ public class DynamicBossBarManager {
         bar.setTitle(comboText + " x" + combo + " §7| §a+" +
                 String.format("%.0f", (speedBonus - 1) * 100) + "% §7vitesse §8| §f" +
                 String.format("%.1f", timer) + "s");
-        bar.setProgress(timer / 5.0); // 5 secondes max
+        bar.setProgress(Math.max(0, Math.min(1, timer / 5.0))); // 5 secondes max
     }
 
     /**
@@ -421,7 +421,7 @@ public class DynamicBossBarManager {
         }
 
         bar.setTitle(title.toString());
-        bar.setProgress(progress);
+        bar.setProgress(Math.max(0, Math.min(1, progress)));
     }
 
     // ==================== MÉTHODES PUBLIQUES ====================
