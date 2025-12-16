@@ -28,7 +28,7 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = Arrays.asList(
         "info", "setclass", "setlevel", "maxlevel", "givexp", "reset",
-        "settalent", "resettalents", "unlockalltalents", "listtalents"
+        "settalent", "resettalents", "unlockalltalents", "listtalents", "resetcooldowns"
     );
 
     private static final int MAX_CLASS_LEVEL = 50;
@@ -64,6 +64,7 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
             case "resettalents" -> handleResetTalents(sender, args);
             case "unlockalltalents" -> handleUnlockAllTalents(sender, args);
             case "listtalents" -> handleListTalents(sender, args);
+            case "resetcooldowns" -> handleResetCooldowns(sender, args);
             default -> sendHelp(sender);
         }
 
@@ -89,6 +90,10 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zzclassadmin resettalents <joueur> §7- Reset tous les talents");
         sender.sendMessage("§e/zzclassadmin unlockalltalents <joueur> §7- Debloquer tous les tiers");
         sender.sendMessage("§e/zzclassadmin listtalents <classe> §7- Lister les talents d'une classe");
+        sender.sendMessage("");
+        sender.sendMessage("§c§lCooldowns:");
+        sender.sendMessage("§e/zzclassadmin resetcooldowns <joueur> [type] §7- Reset cooldowns");
+        sender.sendMessage("  §7Types: §fclass§7, §ftalents§7, §fall §7(defaut: all)");
         sender.sendMessage("§8§m                                        ");
     }
 
@@ -480,6 +485,48 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§8§m                                        ");
     }
 
+    /**
+     * Reset les cooldowns d'un joueur (classe et/ou talents)
+     */
+    private void handleResetCooldowns(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /zzclassadmin resetcooldowns <joueur> [type]");
+            sender.sendMessage("§7Types: §fclass§7, §ftalents§7, §fall §7(defaut: all)");
+            return;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage("§cJoueur non trouve!");
+            return;
+        }
+
+        ClassData data = plugin.getClassManager().getClassData(target);
+
+        String type = args.length >= 3 ? args[2].toLowerCase() : "all";
+
+        switch (type) {
+            case "class" -> {
+                data.resetClassChangeCooldown();
+                sender.sendMessage("§a+ Cooldown de changement de classe reset pour " + target.getName());
+                target.sendMessage("§6[Admin] §7Votre cooldown de changement de classe a ete reset.");
+            }
+            case "talents" -> {
+                data.resetTalentCooldowns();
+                sender.sendMessage("§a+ Cooldowns de changement de talents reset pour " + target.getName());
+                target.sendMessage("§6[Admin] §7Vos cooldowns de changement de talents ont ete reset.");
+            }
+            case "all" -> {
+                data.resetAllCooldowns();
+                sender.sendMessage("§a+ Tous les cooldowns reset pour " + target.getName());
+                target.sendMessage("§6[Admin] §7Tous vos cooldowns (classe + talents) ont ete reset.");
+            }
+            default -> {
+                sender.sendMessage("§cType invalide! Utilisez: class, talents, all");
+            }
+        }
+    }
+
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                 @NotNull String alias, @NotNull String[] args) {
@@ -546,6 +593,13 @@ public class ClassAdminCommand implements CommandExecutor, TabCompleter {
                                 completions.add(talent.getId());
                             }
                         }
+                    }
+                }
+            } else if (subCmd.equals("resetcooldowns")) {
+                // Completion des types de cooldown
+                for (String type : Arrays.asList("class", "talents", "all")) {
+                    if (type.startsWith(partial)) {
+                        completions.add(type);
                     }
                 }
             }
