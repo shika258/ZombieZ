@@ -773,6 +773,12 @@ public class ConsumableEffects {
             int ticks = 0;
             final int maxTicks = (int) (duration * 20);
             int fireCooldown = 0;
+            // Système anti-blocage : change de cible si pas de ligne de vue après plusieurs tirs
+            UUID currentTargetId = null;
+            int missedShots = 0;
+            final int maxMissedShots = 3; // Change de cible après 3 tirs ratés
+            final Set<UUID> blacklistedTargets = new HashSet<>(); // Cibles temporairement ignorées
+            int blacklistClearCooldown = 0;
 
             @Override
             public void run() {
@@ -804,18 +810,30 @@ public class ConsumableEffects {
                     return;
                 }
 
+                // Nettoyer la blacklist périodiquement (toutes les 3 secondes)
+                if (blacklistClearCooldown > 0) {
+                    blacklistClearCooldown--;
+                } else if (!blacklistedTargets.isEmpty()) {
+                    blacklistedTargets.clear();
+                    blacklistClearCooldown = 60; // 3 secondes
+                }
+
                 // Cooldown entre les tirs
                 if (fireCooldown > 0) {
                     fireCooldown--;
                     return;
                 }
 
-                // Trouver la cible la plus proche
+                // Trouver la cible la plus proche (en excluant les cibles blacklistées)
                 LivingEntity target = null;
                 double closestDist = range;
 
                 for (Entity entity : turret.getWorld().getNearbyEntities(turret.getLocation(), range, range, range)) {
                     if (isZombieZMob(entity) && entity instanceof LivingEntity living) {
+                        // Ignorer les cibles blacklistées
+                        if (blacklistedTargets.contains(entity.getUniqueId())) {
+                            continue;
+                        }
                         double dist = entity.getLocation().distance(turret.getLocation());
                         if (dist < closestDist) {
                             closestDist = dist;
@@ -826,16 +844,50 @@ public class ConsumableEffects {
 
                 // Tirer sur la cible
                 if (target != null) {
-                    // Faire regarder la tourelle vers la cible et se déplacer lentement vers elle
                     Location turretLoc = turret.getLocation();
-                    Vector direction = target.getLocation().add(0, 1, 0).subtract(turretLoc.add(0, 1, 0)).toVector().normalize();
+                    Location targetLoc = target.getLocation().add(0, 1, 0);
+                    Location shootFrom = turretLoc.clone().add(0, 1.5, 0);
+
+                    // Vérifier la ligne de vue avec un raycast
+                    Vector direction = targetLoc.subtract(shootFrom).toVector().normalize();
+                    double distToTarget = shootFrom.distance(target.getLocation().add(0, 1, 0));
+
+                    RayTraceResult rayTrace = turret.getWorld().rayTraceBlocks(
+                        shootFrom, direction, distToTarget, FluidCollisionMode.NEVER, true
+                    );
+
+                    boolean hasLineOfSight = (rayTrace == null || rayTrace.getHitBlock() == null);
+
+                    // Vérifier si c'est une nouvelle cible
+                    if (currentTargetId == null || !currentTargetId.equals(target.getUniqueId())) {
+                        currentTargetId = target.getUniqueId();
+                        missedShots = 0;
+                    }
+
+                    // Si pas de ligne de vue, compter comme un tir raté
+                    if (!hasLineOfSight) {
+                        missedShots++;
+                        if (missedShots >= maxMissedShots) {
+                            // Blacklister cette cible et en chercher une autre
+                            blacklistedTargets.add(target.getUniqueId());
+                            currentTargetId = null;
+                            missedShots = 0;
+                            fireCooldown = 5; // Court délai avant de réessayer
+                            return;
+                        }
+                    } else {
+                        // Ligne de vue OK, réinitialiser le compteur
+                        missedShots = 0;
+                    }
 
                     // Déplacer lentement le golem vers la cible
                     turret.getPathfinder().moveTo(target);
 
-                    // Projectile
-                    Snowball snowball = turret.getWorld().spawn(turretLoc.add(0, 1.5, 0), Snowball.class, s -> {
-                        s.setVelocity(direction.multiply(2));
+                    // Projectile (même si pas de ligne de vue, pour que le joueur voie que la tourelle essaie)
+                    final LivingEntity finalTarget = target;
+                    Snowball snowball = turret.getWorld().spawn(shootFrom, Snowball.class, s -> {
+                        Vector shootDir = finalTarget.getLocation().add(0, 1, 0).subtract(shootFrom).toVector().normalize();
+                        s.setVelocity(shootDir.multiply(2));
                         s.setMetadata("zombiez_turret_projectile", new FixedMetadataValue(plugin, damage));
                         s.setMetadata("zombiez_owner", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
                     });
@@ -847,6 +899,8 @@ public class ConsumableEffects {
                 } else {
                     // Pas de cible, arrêter de bouger
                     turret.getPathfinder().stopPathfinding();
+                    currentTargetId = null;
+                    missedShots = 0;
                 }
 
                 // Mise à jour du nom avec temps restant et barre de vie
