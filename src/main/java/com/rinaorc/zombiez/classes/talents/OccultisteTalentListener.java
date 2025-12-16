@@ -478,22 +478,40 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Sound
-            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.5f, 1.5f);
+            // Sound (volume reduit pour eviter le spam sonore)
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.3f, 1.8f);
         }
     }
 
+    /**
+     * Genere un eclair visuel entre deux points (particules uniquement, pas de vrai eclair)
+     * Utilise END_ROD pour le coeur lumineux et ELECTRIC_SPARK pour l'effet electrique
+     */
     private void spawnLightningVisual(Location from, Location to) {
         Vector direction = to.toVector().subtract(from.toVector());
         double distance = direction.length();
-        direction.normalize();
+        if (distance < 0.5) return;
 
-        for (double d = 0; d < distance; d += 0.5) {
+        direction.normalize();
+        World world = from.getWorld();
+
+        // Tracer l'eclair avec un leger zigzag
+        Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
+        double zigzagOffset = 0;
+
+        for (double d = 0; d < distance; d += 0.8) {
+            // Zigzag aleatoire pour effet naturel
+            zigzagOffset = (Math.random() - 0.5) * 0.3;
+
             Location point = from.clone().add(direction.clone().multiply(d));
-            // Add some randomness for electric effect
-            point.add((Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2);
-            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 1, 0, 0, 0, 0);
+            point.add(perpendicular.clone().multiply(zigzagOffset));
+
+            // Coeur lumineux (moins de particules, plus visible)
+            world.spawnParticle(Particle.END_ROD, point, 1, 0.02, 0.02, 0.02, 0);
         }
+
+        // Impact au point d'arrivee (petit burst)
+        world.spawnParticle(Particle.ELECTRIC_SPARK, to, 5, 0.15, 0.15, 0.15, 0.02);
     }
 
     private void processVoidBolt(Player player, LivingEntity target, double baseDamage) {
@@ -947,7 +965,10 @@ public class OccultisteTalentListener implements Listener {
             }
 
             if (!nearbyEnemies.isEmpty()) {
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.3f, 1.5f);
+                // Son leger pour indiquer l'activation
+                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.2f, 1.8f);
+                // Petit effet electrique autour du joueur
+                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 1.5, 0), 4, 0.3, 0.3, 0.3, 0.01);
             }
         }
     }
@@ -983,8 +1004,12 @@ public class OccultisteTalentListener implements Listener {
                 count++;
             }
 
-            // Storm visual around player
-            player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 2.5, 0), 5, radius/2, 0.5, radius/2, 0);
+            // Storm visual around player - aura electrique
+            if (count > 0) {
+                // Petit arc electrique autour du joueur
+                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2, 0), 3, 0.5, 0.3, 0.5, 0.01);
+                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.15f, 2.0f);
+            }
         }
     }
 
@@ -1165,7 +1190,10 @@ public class OccultisteTalentListener implements Listener {
 
             if (struck > 0) {
                 sendActionBar(player, "§e§l+ JUGEMENT DIVIN + §7" + struck + " cibles");
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.5f);
+                // Son reduit pour eviter le spam sonore avec plusieurs joueurs
+                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 0.8f);
+                // Effet visuel de charge au joueur
+                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1.5, 0), 8, 0.3, 0.5, 0.3, 0.02);
             }
         }
     }
