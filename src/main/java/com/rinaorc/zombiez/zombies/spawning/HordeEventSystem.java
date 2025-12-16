@@ -23,20 +23,16 @@ public class HordeEventSystem {
     
     @Getter
     private boolean hordeActive = false;
-    
-    @Getter
-    private boolean bloodMoonActive = false;
-    
+
     @Getter
     private Zone currentHordeZone = null;
-    
+
     private int hordeWave = 0;
     private int zombiesRemaining = 0;
-    
+
     // Stats
     private int totalEventsStarted = 0;
     private int totalZombiesSpawned = 0;
-    private int bloodMoonCount = 0;
 
     public HordeEventSystem(ZombieZPlugin plugin, ZombieManager zombieManager, SpawnSystem spawnSystem) {
         this.plugin = plugin;
@@ -224,41 +220,11 @@ public class HordeEventSystem {
     }
     
     /**
-     * Démarre la Blood Moon
-     */
-    public void startBloodMoon() {
-        if (bloodMoonActive) return;
-        
-        bloodMoonActive = true;
-        bloodMoonCount++;
-        
-        MessageUtils.broadcast("§4§l☠ BLOOD MOON! §cLes zombies sont enragés!");
-        
-        // Augmenter les spawns
-        spawnSystem.setSpawnMultiplier(3.0);
-        
-        // Terminer après 10 minutes
-        Bukkit.getScheduler().runTaskLater(plugin, this::endBloodMoon, 20L * 60 * 10);
-    }
-    
-    /**
-     * Termine la Blood Moon
-     */
-    public void endBloodMoon() {
-        if (!bloodMoonActive) return;
-        
-        bloodMoonActive = false;
-        spawnSystem.setSpawnMultiplier(1.0);
-        
-        MessageUtils.broadcast("§a§l☀ La Blood Moon est terminée! §7Le soleil se lève...");
-    }
-    
-    /**
      * Obtient les statistiques
      */
     public String getStats() {
-        return String.format("Events: %d | Spawns: %d | BloodMoons: %d | Active: %s", 
-            totalEventsStarted, totalZombiesSpawned, bloodMoonCount, 
-            hordeActive ? "Oui" : (bloodMoonActive ? "BloodMoon" : "Non"));
+        return String.format("Events: %d | Spawns: %d | Active: %s",
+            totalEventsStarted, totalZombiesSpawned,
+            hordeActive ? "Oui" : "Non");
     }
 }

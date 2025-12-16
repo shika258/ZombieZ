@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.commands.admin;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.weather.WeatherType;
 import com.rinaorc.zombiez.zombies.ZombieManager;
 import com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem;
 import com.rinaorc.zombiez.zombies.spawning.HordeEventSystem;
@@ -297,11 +298,11 @@ public class ZombieAdminCommand implements CommandExecutor, TabCompleter {
 
         switch (args[1].toLowerCase()) {
             case "start" -> {
-                plugin.getHordeEventSystem().startBloodMoon();
+                plugin.getWeatherManager().forceWeather(WeatherType.BLOOD_MOON);
                 sender.sendMessage("§cBlood Moon démarrée!");
             }
             case "stop" -> {
-                plugin.getHordeEventSystem().endBloodMoon();
+                plugin.getWeatherManager().clearWeather();
                 sender.sendMessage("§aBlood Moon terminée!");
             }
             default -> sender.sendMessage("§cOption invalide!");
