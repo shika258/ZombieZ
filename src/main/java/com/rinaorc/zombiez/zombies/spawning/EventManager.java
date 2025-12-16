@@ -42,8 +42,6 @@ public class EventManager {
     
     // Cooldowns
     private long lastHordeTime = 0;
-    private long lastBloodMoonTime = 0;
-    private int bloodMoonCooldownDays = 3;
 
     public EventManager(ZombieZPlugin plugin, ZombieManager zombieManager, SpawnSystem spawnSystem) {
         this.plugin = plugin;
@@ -75,36 +73,11 @@ public class EventManager {
         if (currentEvent != null && currentEvent.isActive()) {
             return; // Un événement est déjà en cours
         }
-        
-        // Vérifier Blood Moon
-        if (shouldTriggerBloodMoon()) {
-            startBloodMoon();
-            return;
-        }
-        
+
         // Vérifier Horde aléatoire
         if (shouldTriggerRandomHorde()) {
             triggerRandomHorde();
         }
-    }
-
-    /**
-     * Vérifie si une Blood Moon doit commencer
-     */
-    private boolean shouldTriggerBloodMoon() {
-        World world = plugin.getServer().getWorlds().get(0);
-        long time = world.getTime();
-        long fullTime = world.getFullTime();
-        
-        // Vérifier si c'est le début de la nuit
-        if (time < 13000 || time > 13200) return false;
-        
-        // Vérifier le cooldown (en jours Minecraft)
-        long daysSinceLastBloodMoon = (fullTime - lastBloodMoonTime) / 24000;
-        if (daysSinceLastBloodMoon < bloodMoonCooldownDays) return false;
-        
-        // 20% de chance chaque nuit éligible
-        return random.nextDouble() < 0.20;
     }
 
     /**
@@ -121,143 +94,6 @@ public class EventManager {
         
         // 5% de chance par vérification
         return random.nextDouble() < 0.05;
-    }
-
-    // ==================== BLOOD MOON ====================
-
-    /**
-     * Démarre un événement Blood Moon
-     */
-    public void startBloodMoon() {
-        if (currentEvent != null && currentEvent.isActive()) {
-            return;
-        }
-        
-        World world = plugin.getServer().getWorlds().get(0);
-        lastBloodMoonTime = world.getFullTime();
-        
-        // Créer l'événement
-        BloodMoonEvent bloodMoon = new BloodMoonEvent();
-        currentEvent = bloodMoon;
-        
-        // Annoncer
-        announceGlobal("&4&l☠ BLOOD MOON ☠", 
-            "&cLa lune se teinte de rouge... Les morts se lèvent en masse!");
-        
-        // Boss bar
-        BossBar bar = Bukkit.createBossBar(
-            "§4§l☠ BLOOD MOON ☠",
-            BarColor.RED,
-            BarStyle.SEGMENTED_20
-        );
-        bar.setProgress(1.0);
-        plugin.getServer().getOnlinePlayers().forEach(bar::addPlayer);
-        eventBossBars.put("blood_moon", bar);
-        
-        // Sons
-        for (Player p : plugin.getServer().getOnlinePlayers()) {
-            p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1f, 0.5f);
-        }
-        
-        // Démarrer les vagues
-        bloodMoon.start();
-    }
-
-    /**
-     * Événement Blood Moon
-     */
-    private class BloodMoonEvent extends ActiveEvent {
-        private BukkitTask waveTask;
-        private int waveNumber = 0;
-        private final int totalWaves = 10;
-        
-        @Override
-        public void start() {
-            active = true;
-            
-            waveTask = new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if (!active) {
-                        cancel();
-                        return;
-                    }
-                    
-                    World world = plugin.getServer().getWorlds().get(0);
-                    long time = world.getTime();
-                    
-                    // Fin de la nuit = fin de l'événement
-                    if (time > 23000 || time < 13000) {
-                        end();
-                        cancel();
-                        return;
-                    }
-                    
-                    waveNumber++;
-                    spawnBloodMoonWave();
-                    
-                    // Mettre à jour la boss bar
-                    BossBar bar = eventBossBars.get("blood_moon");
-                    if (bar != null) {
-                        double progress = 1.0 - ((double) waveNumber / totalWaves);
-                        bar.setProgress(Math.max(0, progress));
-                        bar.setTitle("§4§l☠ BLOOD MOON - Vague " + waveNumber + " ☠");
-                    }
-                }
-            }.runTaskTimer(plugin, 0L, 600L); // Vague toutes les 30 secondes
-        }
-        
-        private void spawnBloodMoonWave() {
-            for (Player player : plugin.getServer().getOnlinePlayers()) {
-                Zone zone = plugin.getZoneManager().getZoneAt(player.getLocation());
-                if (zone == null || zone.getId() == 0) continue;
-                
-                // Spawn renforcé
-                int count = 5 + waveNumber + random.nextInt(5);
-                spawnSystem.spawnWave(player.getLocation(), count, zone.getId());
-                
-                // Chance de mini-boss aux vagues 5 et 10
-                if (waveNumber == 5 || waveNumber == 10) {
-                    if (random.nextDouble() < 0.5) {
-                        spawnMiniBoss(player.getLocation(), zone.getId());
-                    }
-                }
-            }
-            
-            // Annoncer
-            announceGlobal(null, "&4⚠ Vague " + waveNumber + " de la Blood Moon!");
-        }
-        
-        @Override
-        public void end() {
-            active = false;
-            
-            if (waveTask != null) {
-                waveTask.cancel();
-            }
-            
-            BossBar bar = eventBossBars.remove("blood_moon");
-            if (bar != null) {
-                bar.removeAll();
-            }
-            
-            announceGlobal("&a&l✓ FIN DE LA BLOOD MOON", 
-                "&aLe soleil se lève, les ténèbres reculent...");
-            
-            // Récompenses pour les survivants
-            for (Player p : plugin.getServer().getOnlinePlayers()) {
-                plugin.getEconomyManager().addPoints(p, 500);
-                plugin.getEconomyManager().addGems(p, 5);
-                p.sendMessage("§6+500 Points §7| §d+5 Gemmes §7pour avoir survécu!");
-            }
-            
-            currentEvent = null;
-        }
-        
-        @Override
-        public String getName() {
-            return "Blood Moon";
-        }
     }
 
     // ==================== HORDES ====================
