@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassManager;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.classes.talents.TalentTier;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -32,6 +33,7 @@ public class ClassInfoGUI implements Listener {
     private static final int SLOT_CLASS_INFO = 13;
     private static final int SLOT_LEVEL_INFO = 11;
     private static final int SLOT_STATS_INFO = 15;
+    private static final int SLOT_TALENTS = 22;
     private static final int SLOT_CHANGE_CLASS = 31;
     private static final int SLOT_CLOSE = 36;
 
@@ -77,6 +79,9 @@ public class ClassInfoGUI implements Listener {
 
         // === STATS DE CLASSE ===
         gui.setItem(SLOT_STATS_INFO, createStatsItem(classType));
+
+        // === TALENTS ===
+        gui.setItem(SLOT_TALENTS, createTalentsButton(data));
 
         // === CHANGER DE CLASSE ===
         gui.setItem(SLOT_CHANGE_CLASS, createChangeClassButton(data));
@@ -181,6 +186,39 @@ public class ClassInfoGUI implements Listener {
             .build();
     }
 
+    private ItemStack createTalentsButton(ClassData data) {
+        int unlockedTiers = data.getUnlockedTierCount();
+        int selectedTalents = data.getSelectedTalentCount();
+        int totalTiers = TalentTier.values().length;
+
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+        lore.add("§7Paliers debloques: §e" + unlockedTiers + "§7/§e" + totalTiers);
+        lore.add("§7Talents actifs: §a" + selectedTalents);
+        lore.add("");
+
+        // Verifier s'il y a des talents non selectionnes
+        int unselected = 0;
+        for (TalentTier tier : TalentTier.values()) {
+            if (data.isTalentTierUnlocked(tier) && data.getSelectedTalentId(tier) == null) {
+                unselected++;
+            }
+        }
+
+        if (unselected > 0) {
+            lore.add("§c! " + unselected + " talent(s) a selectionner !");
+            lore.add("");
+        }
+
+        lore.add("§e> Clic pour gerer vos talents");
+
+        return new ItemBuilder(unselected > 0 ? Material.ENCHANTED_BOOK : Material.BOOK)
+            .name("§d§lTALENTS")
+            .lore(lore)
+            .glow(unselected > 0)
+            .build();
+    }
+
     private String formatStat(String name, double value, double base) {
         String color;
         String sign;
@@ -238,6 +276,11 @@ public class ClassInfoGUI implements Listener {
         int slot = event.getRawSlot();
 
         switch (slot) {
+            case SLOT_TALENTS -> {
+                player.closeInventory();
+                plugin.getTalentSelectionGUI().open(player);
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            }
             case SLOT_CHANGE_CLASS -> {
                 ClassData data = classManager.getClassData(player);
                 long timeSinceChange = System.currentTimeMillis() - data.getLastClassChange();

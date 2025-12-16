@@ -1,16 +1,19 @@
 package com.rinaorc.zombiez.classes;
 
+import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentTier;
 import lombok.Data;
 import lombok.Getter;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Données de classe d'un joueur
- * Stocke la progression de classe simplifiée
+ * Stocke la progression de classe et les talents sélectionnés
  */
 @Data
 public class ClassData {
@@ -26,6 +29,12 @@ public class ClassData {
     private final AtomicInteger classLevel = new AtomicInteger(1);
     private final AtomicLong classXp = new AtomicLong(0);
 
+    // Talents sélectionnés (TalentTier -> Talent ID)
+    private final Map<TalentTier, String> selectedTalents = new ConcurrentHashMap<>();
+
+    // Cooldown de changement de talent par tier (TalentTier -> timestamp)
+    private final Map<TalentTier, Long> talentChangeCooldowns = new ConcurrentHashMap<>();
+
     // État de modification
     private final transient AtomicBoolean dirty = new AtomicBoolean(false);
 
@@ -38,6 +47,9 @@ public class ClassData {
     private final AtomicLong classDeaths = new AtomicLong(0);
     private final AtomicLong damageDealt = new AtomicLong(0);
     private final AtomicLong damageReceived = new AtomicLong(0);
+
+    // Cooldown de changement de talent (1 heure)
+    public static final long TALENT_CHANGE_COOLDOWN_MS = 60 * 60 * 1000L;
 
     public ClassData(UUID playerUuid) {
         this.playerUuid = playerUuid;
@@ -139,6 +151,101 @@ public class ClassData {
         markDirty();
     }
 
+    // ==================== TALENTS ====================
+
+    /**
+     * Sélectionne un talent pour un palier
+     * @return true si la sélection a réussi
+     */
+    public boolean selectTalent(TalentTier tier, String talentId) {
+        if (!isTalentTierUnlocked(tier)) return false;
+        if (isOnTalentChangeCooldown(tier)) return false;
+
+        String current = selectedTalents.get(tier);
+        if (current != null && !current.equals(talentId)) {
+            // Changement de talent = cooldown
+            talentChangeCooldowns.put(tier, System.currentTimeMillis());
+        }
+
+        selectedTalents.put(tier, talentId);
+        markDirty();
+        return true;
+    }
+
+    /**
+     * Obtient le talent sélectionné pour un palier
+     */
+    public String getSelectedTalentId(TalentTier tier) {
+        return selectedTalents.get(tier);
+    }
+
+    /**
+     * Vérifie si un palier de talent est débloqué
+     */
+    public boolean isTalentTierUnlocked(TalentTier tier) {
+        return classLevel.get() >= tier.getRequiredLevel();
+    }
+
+    /**
+     * Vérifie si le joueur a un talent spécifique actif
+     */
+    public boolean hasTalent(String talentId) {
+        return selectedTalents.containsValue(talentId);
+    }
+
+    /**
+     * Vérifie si le joueur est en cooldown pour changer un talent
+     */
+    public boolean isOnTalentChangeCooldown(TalentTier tier) {
+        Long lastChange = talentChangeCooldowns.get(tier);
+        if (lastChange == null) return false;
+        return System.currentTimeMillis() - lastChange < TALENT_CHANGE_COOLDOWN_MS;
+    }
+
+    /**
+     * Obtient le temps restant avant de pouvoir changer un talent (en ms)
+     */
+    public long getTalentChangeCooldownRemaining(TalentTier tier) {
+        Long lastChange = talentChangeCooldowns.get(tier);
+        if (lastChange == null) return 0;
+        long remaining = TALENT_CHANGE_COOLDOWN_MS - (System.currentTimeMillis() - lastChange);
+        return Math.max(0, remaining);
+    }
+
+    /**
+     * Obtient tous les talents sélectionnés
+     */
+    public Map<TalentTier, String> getAllSelectedTalents() {
+        return Collections.unmodifiableMap(selectedTalents);
+    }
+
+    /**
+     * Reset tous les talents (lors d'un changement de classe)
+     */
+    public void resetTalents() {
+        selectedTalents.clear();
+        talentChangeCooldowns.clear();
+        markDirty();
+    }
+
+    /**
+     * Compte le nombre de talents sélectionnés
+     */
+    public int getSelectedTalentCount() {
+        return selectedTalents.size();
+    }
+
+    /**
+     * Obtient le nombre de paliers débloqués
+     */
+    public int getUnlockedTierCount() {
+        int count = 0;
+        for (TalentTier tier : TalentTier.values()) {
+            if (isTalentTierUnlocked(tier)) count++;
+        }
+        return count;
+    }
+
     // ==================== CACHE & DIRTY ====================
 
     public void markDirty() {
@@ -180,6 +287,11 @@ public class ClassData {
         this.classDeaths.set(other.classDeaths.get());
         this.damageDealt.set(other.damageDealt.get());
         this.damageReceived.set(other.damageReceived.get());
+        // Copier les talents
+        this.selectedTalents.clear();
+        this.selectedTalents.putAll(other.selectedTalents);
+        this.talentChangeCooldowns.clear();
+        this.talentChangeCooldowns.putAll(other.talentChangeCooldowns);
     }
 
     @Override
