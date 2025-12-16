@@ -129,6 +129,9 @@ public enum ConsumableType {
             case GRAPPLING_HOOK -> Math.min(value, 150.0); // Portée max 150 blocs
             case UNSTABLE_PEARL -> Math.min(value, 100.0); // Portée max 100 blocs
             case DECOY -> Math.min(value, 30.0); // Durée max 30s
+            case JETPACK -> Math.min(value, 30.0); // Carburant max 30s
+            case BANDAGE -> Math.min(value, 150.0); // Soin max 150 HP (~15% de 1000 HP)
+            case ADRENALINE_KIT -> Math.min(value, 200.0); // Soin max 200 HP (~20% de 1000 HP)
             default -> value;
         };
     }
@@ -144,6 +147,10 @@ public enum ConsumableType {
             case ACID_JAR -> Math.min(value, 48.0); // Rayon max 48 blocs (cohérence)
             case COBWEB_TRAP -> Math.min(value, 20.0); // Durée max 20s
             case DECOY -> Math.min(value, 128.0); // Rayon d'aggro max 128 blocs
+            case TURRET -> Math.min(value, 30.0); // Durée max 30s
+            case BANDAGE -> Math.min(value, 30.0); // Durée regen max 30s
+            case ANTIDOTE -> Math.min(value, 30.0); // Durée immunité max 30s
+            case ADRENALINE_KIT -> Math.min(value, 30.0); // Durée regen max 30s
             default -> value;
         };
     }
@@ -172,6 +179,8 @@ public enum ConsumableType {
         return switch (this) {
             case INCENDIARY_BOMB -> Math.min(value, 20.0); // Durée max 20s
             case ACID_JAR -> Math.min(value, 20.0); // Durée max 20s
+            case TURRET -> Math.min(value, 64.0); // Portée max 64 blocs
+            case ADRENALINE_KIT -> Math.min(value, 30.0); // Durée speed max 30s
             default -> value;
         };
     }
