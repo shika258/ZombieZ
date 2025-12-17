@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
-import com.rinaorc.zombiez.pets.abilities.PetAbilityRegistry;
+import com.rinaorc.zombiez.pets.abilities.impl.PetAbilityRegistry;
 import com.rinaorc.zombiez.pets.display.PetDisplayManager;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import lombok.Getter;

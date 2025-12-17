@@ -20,7 +20,7 @@ import java.util.*;
 // ==================== PHÉNIX SOLAIRE - Boules de Feu ====================
 
 @Getter
-public class FireballPassive implements PetAbility {
+class FireballPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -115,7 +115,7 @@ public class FireballPassive implements PetAbility {
 }
 
 @Getter
-public class MeteorShowerActive implements PetAbility {
+class MeteorShowerActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -219,7 +219,7 @@ public class MeteorShowerActive implements PetAbility {
 // ==================== HYDRE DE GIVRE - Pluie de Glace ====================
 
 @Getter
-public class IceShardPassive implements PetAbility {
+class IceShardPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -279,7 +279,7 @@ public class IceShardPassive implements PetAbility {
 }
 
 @Getter
-public class BlizzardActive implements PetAbility {
+class BlizzardActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -378,7 +378,7 @@ public class BlizzardActive implements PetAbility {
 // ==================== SERPENT FOUDROYANT - Éclairs en Chaîne ====================
 
 @Getter
-public class ChainLightningPassive implements PetAbility {
+class ChainLightningPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -473,7 +473,7 @@ public class ChainLightningPassive implements PetAbility {
 }
 
 @Getter
-public class ThunderstormActive implements PetAbility {
+class ThunderstormActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -561,7 +561,7 @@ public class ThunderstormActive implements PetAbility {
 // ==================== GOLEM DE LAVE - Éruption Volcanique ====================
 
 @Getter
-public class LavaTrailPassive implements PetAbility {
+class LavaTrailPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -626,7 +626,7 @@ public class LavaTrailPassive implements PetAbility {
 }
 
 @Getter
-public class VolcanicEruptionActive implements PetAbility {
+class VolcanicEruptionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -748,7 +748,7 @@ public class VolcanicEruptionActive implements PetAbility {
 // ==================== OMBRE DÉCHIRANTE - Tentacules d'Ombre ====================
 
 @Getter
-public class ShadowTentaclePassive implements PetAbility {
+class ShadowTentaclePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -816,7 +816,7 @@ public class ShadowTentaclePassive implements PetAbility {
 }
 
 @Getter
-public class VoidVortexActive implements PetAbility {
+class VoidVortexActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -956,7 +956,7 @@ public class VoidVortexActive implements PetAbility {
 // ==================== ESPRIT PRISMATIQUE - Rayons Arc-en-ciel ====================
 
 @Getter
-public class PrismaticBeamPassive implements PetAbility {
+class PrismaticBeamPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1020,7 +1020,7 @@ public class PrismaticBeamPassive implements PetAbility {
 }
 
 @Getter
-public class RainbowNovaActive implements PetAbility {
+class RainbowNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1128,7 +1128,7 @@ public class RainbowNovaActive implements PetAbility {
 // ==================== KRAKEN MINIATURE - Tentacules d'Eau ====================
 
 @Getter
-public class WaterTentaclePassive implements PetAbility {
+class WaterTentaclePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1195,7 +1195,7 @@ public class WaterTentaclePassive implements PetAbility {
 }
 
 @Getter
-public class TsunamiActive implements PetAbility {
+class TsunamiActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1298,7 +1298,7 @@ public class TsunamiActive implements PetAbility {
 // ==================== ÉTOILE FILANTE - Traînée Stellaire ====================
 
 @Getter
-public class StardustTrailPassive implements PetAbility {
+class StardustTrailPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1354,7 +1354,7 @@ public class StardustTrailPassive implements PetAbility {
 }
 
 @Getter
-public class ShootingStarActive implements PetAbility {
+class ShootingStarActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;

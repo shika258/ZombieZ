@@ -1,8 +1,8 @@
-package com.rinaorc.zombiez.pets.abilities;
+package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PetType;
-import com.rinaorc.zombiez.pets.abilities.impl.*;
+import com.rinaorc.zombiez.pets.abilities.PetAbility;
 import lombok.Getter;
 
 import java.util.EnumMap;
