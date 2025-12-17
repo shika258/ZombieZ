@@ -62,8 +62,8 @@ public class OccultisteTalentListener implements Listener {
     private final Map<UUID, Long> frostStacksLastApplied = new ConcurrentHashMap<>();
     // Cooldown Brisure Glaciale par ennemi (entity UUID -> timestamp fin cooldown)
     private final Map<UUID, Long> shatterCooldowns = new ConcurrentHashMap<>();
-    // Max stacks de givre
-    private static final int MAX_FROST_STACKS = 10;
+    // Max stacks de givre (cap à 20 pour éviter les one-shots)
+    private static final int MAX_FROST_STACKS = 20;
 
     // Minions invoques (player UUID -> list of minion UUIDs)
     private final Map<UUID, List<UUID>> playerMinions = new ConcurrentHashMap<>();
