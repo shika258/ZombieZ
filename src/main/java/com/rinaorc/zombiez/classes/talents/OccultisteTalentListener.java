@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.classes.talents;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -257,6 +258,75 @@ public class OccultisteTalentListener implements Listener {
         if (isPlayerMinion(target, attacker)) {
             event.setCancelled(true);
         }
+    }
+
+    /**
+     * Applique les degats du joueur proprietaire aux attaques des minions
+     * Les minions font maintenant des degats bases sur les stats du joueur
+     */
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onMinionDealDamage(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+        Entity target = event.getEntity();
+
+        // Gerer les projectiles des minions (fleches de squelettes)
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+            damager = shooter;
+        }
+
+        // Verifier si c'est un minion du joueur
+        if (!damager.getScoreboardTags().contains("player_minion")) return;
+
+        // Ne pas modifier les degats aux joueurs (ne devrait pas arriver mais securite)
+        if (target instanceof Player) return;
+
+        // Trouver le proprietaire du minion
+        String ownerUUID = damager.getScoreboardTags().stream()
+            .filter(tag -> tag.startsWith("owner_"))
+            .map(tag -> tag.substring(6))
+            .findFirst()
+            .orElse(null);
+
+        if (ownerUUID == null) return;
+
+        Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+        if (owner == null || !owner.isOnline()) return;
+
+        // Calculer les degats bases sur les stats du joueur
+        double playerDamage = calculateMinionDamage(owner);
+
+        // Appliquer les degats
+        event.setDamage(playerDamage);
+    }
+
+    /**
+     * Calcule les degats qu'un minion devrait faire base sur les stats du joueur
+     */
+    private double calculateMinionDamage(Player player) {
+        // Degats de base du joueur (attribut Minecraft)
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+
+        // Bonus de degats % de l'equipement ZombieZ
+        double damagePercent = plugin.getItemManager().getPlayerStat(player, StatType.DAMAGE_PERCENT);
+        baseDamage *= (1 + damagePercent / 100.0);
+
+        // Degats elementaires
+        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.FIRE_DAMAGE);
+        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.ICE_DAMAGE);
+        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.LIGHTNING_DAMAGE);
+        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.POISON_DAMAGE);
+
+        // Critique (les minions peuvent critiquer!)
+        double critChance = plugin.getItemManager().getPlayerStat(player, StatType.CRIT_CHANCE) / 100.0;
+        if (Math.random() < critChance) {
+            double critDamage = 1.5 + plugin.getItemManager().getPlayerStat(player, StatType.CRIT_DAMAGE) / 100.0;
+            baseDamage *= critDamage;
+        }
+
+        // Multiplicateur de degats des minions (pour equilibrage, 80% des degats du joueur)
+        baseDamage *= 0.8;
+
+        return Math.max(1.0, baseDamage);
     }
 
     /**
