@@ -262,9 +262,6 @@ public class StealthZombieAI extends ZombieAI {
         double damage = 4 + level;
         target.damage(damage, zombie);
         heal(damage * 0.5);
-
-        // Effet de faiblesse
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 0));
     }
 
     /**

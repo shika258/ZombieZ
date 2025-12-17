@@ -139,7 +139,6 @@ public class SupportZombieAI extends ZombieAI {
                     int amplifier = distance < 6 ? 1 : 0;
 
                     p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, amplifier));
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 80, 0));
 
                     if (distance < 6) {
                         p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0));

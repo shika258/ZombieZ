@@ -307,10 +307,7 @@ public class ZombieListener implements Listener {
                     zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue()));
             }
             case "mana_drain" -> {
-                // Réduire temporairement les dégâts du joueur
-                victim.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                    org.bukkit.potion.PotionEffectType.WEAKNESS, 60, 1
-                ));
+                // Effet mana drain (effet visuel uniquement)
             }
             case "corruption_spread" -> {
                 // Appliquer wither à tous les joueurs proches

@@ -295,7 +295,6 @@ public class ElementalZombieAI extends ZombieAI {
             .map(e -> (Player) e)
             .forEach(p -> {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
-                p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 80, 0));
                 p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0));
                 p.sendMessage("§b§l❄ Le hurlement vous glace le sang!");
             });
