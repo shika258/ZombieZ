@@ -495,10 +495,10 @@ public class OccultisteTalentListener implements Listener {
                 checkCriticalIgnition(player, target);
             }
 
-            // Visual ameliore - intensite visuelle selon la Surchauffe
-            int particleCount = 10 + (int)(intensity * 2);
+            // Visual ameliore - intensite visuelle selon la Surchauffe (reduit)
+            int particleCount = 5 + (int)(intensity);
             target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), particleCount, 0.3, 0.5, 0.3, 0.03);
-            target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0, 1.2, 0), 5, 0.2, 0.3, 0.2, 0.02);
+            target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0, 1.2, 0), 2, 0.2, 0.3, 0.2, 0.02);
             target.getWorld().playSound(target.getLocation(), Sound.ITEM_FIRECHARGE_USE, 0.5f, 1.2f);
         }
     }
@@ -674,12 +674,12 @@ public class OccultisteTalentListener implements Listener {
         // Creer une zone de chaleur au sol
         createHeatZone(target.getLocation(), 3000, radius);
 
-        // Effets visuels spectaculaires
+        // Effets visuels (reduits)
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.FLAME, loc, 80, 1.5, 1.5, 1.5, 0.2);
-        target.getWorld().spawnParticle(Particle.LAVA, loc, 30, 1, 1, 1, 0.15);
-        target.getWorld().spawnParticle(Particle.SMOKE, loc, 40, 1, 1, 1, 0.1);
-        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.5, 0.5, 0);
+        target.getWorld().spawnParticle(Particle.FLAME, loc, 30, 1, 1, 1, 0.15);
+        target.getWorld().spawnParticle(Particle.LAVA, loc, 10, 0.8, 0.8, 0.8, 0.1);
+        target.getWorld().spawnParticle(Particle.SMOKE, loc, 15, 0.8, 0.8, 0.8, 0.08);
+        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0.3, 0.3, 0.3, 0);
         target.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.5f);
         target.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
 
@@ -708,8 +708,8 @@ public class OccultisteTalentListener implements Listener {
             Math.floor(location.getZ()) + "," + radius;
         heatZones.put(key, System.currentTimeMillis() + durationMs);
 
-        // Visual de creation
-        location.getWorld().spawnParticle(Particle.FLAME, location, 30, radius/2, 0.2, radius/2, 0.05);
+        // Visual de creation (reduit)
+        location.getWorld().spawnParticle(Particle.FLAME, location, 12, radius/2, 0.2, radius/2, 0.05);
         location.getWorld().playSound(location, Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.8f);
     }
 
@@ -765,11 +765,11 @@ public class OccultisteTalentListener implements Listener {
         int ticks = durationMs / 50;
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, amplifier, false, true, true));
 
-        // Visual ameliore selon les stacks
-        int particleCount = 15 + (stacks * 3);
+        // Visual ameliore selon les stacks (reduit)
+        int particleCount = 8 + stacks;
         target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), particleCount, 0.4, 0.6, 0.4, 0.02);
         target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 0.5, 0),
-            5 + stacks, 0.3, 0.3, 0.3, 0.1, Material.BLUE_ICE.createBlockData());
+            3 + (stacks / 2), 0.3, 0.3, 0.3, 0.1, Material.BLUE_ICE.createBlockData());
         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
 
         // Schedule remove from frozen tracking
@@ -822,10 +822,10 @@ public class OccultisteTalentListener implements Listener {
 
         // Effets visuels spectaculaires
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.ITEM, loc, 50, 0.8, 1, 0.8, 0.15,
+        target.getWorld().spawnParticle(Particle.ITEM, loc, 20, 0.6, 0.8, 0.6, 0.1,
             new org.bukkit.inventory.ItemStack(Material.BLUE_ICE));
-        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 0.5, 0.5, 0.5, 0.1);
-        target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, 40, 1, 1.5, 1, 0.1);
+        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0.3, 0.3, 0.3, 0.05);
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, 15, 0.8, 1, 0.8, 0.08);
         target.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.3f);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.5f);
 
@@ -1239,9 +1239,9 @@ public class OccultisteTalentListener implements Listener {
                         }
                     }
 
-                    // Visual
+                    // Visual (reduit)
                     impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 1, 0, 0, 0, 0);
-                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 30, 1, 0.5, 1, 0.1);
+                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 12, 0.8, 0.4, 0.8, 0.08);
                     impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.0f);
                 }, index * 5L);
             }
@@ -1314,9 +1314,9 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Visual
-            victim.getWorld().spawnParticle(Particle.EXPLOSION, victim.getLocation(), 2, 0, 0, 0, 0);
-            victim.getWorld().spawnParticle(Particle.FLAME, victim.getLocation(), 100, radius/2, radius/2, radius/2, 0.2);
+            // Visual (reduit)
+            victim.getWorld().spawnParticle(Particle.EXPLOSION, victim.getLocation(), 1, 0, 0, 0, 0);
+            victim.getWorld().spawnParticle(Particle.FLAME, victim.getLocation(), 35, radius/2, radius/2, radius/2, 0.15);
             victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_BLAZE_DEATH, 1.0f, 0.8f);
         }
     }
@@ -1337,9 +1337,9 @@ public class OccultisteTalentListener implements Listener {
             }
         }
 
-        // Visual
-        victim.getWorld().spawnParticle(Particle.SNOWFLAKE, victim.getLocation(), 50, radius/2, radius/2, radius/2, 0.1);
-        victim.getWorld().spawnParticle(Particle.ITEM, victim.getLocation(), 30, radius/2, radius/2, radius/2, 0.1,
+        // Visual (reduit)
+        victim.getWorld().spawnParticle(Particle.SNOWFLAKE, victim.getLocation(), 20, radius/2, radius/2, radius/2, 0.08);
+        victim.getWorld().spawnParticle(Particle.ITEM, victim.getLocation(), 12, radius/2, radius/2, radius/2, 0.08,
             new org.bukkit.inventory.ItemStack(Material.ICE));
         victim.getWorld().playSound(victim.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
     }
@@ -1445,13 +1445,13 @@ public class OccultisteTalentListener implements Listener {
                 frostStacks.put(le.getUniqueId(), Math.min(currentStacks + stacksToApply, MAX_FROST_STACKS));
                 frostStacksLastApplied.put(le.getUniqueId(), now);
 
-                // Visual on each enemy
-                le.getWorld().spawnParticle(Particle.SNOWFLAKE, le.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.05);
+                // Visual on each enemy (reduit)
+                le.getWorld().spawnParticle(Particle.SNOWFLAKE, le.getLocation().add(0, 1, 0), 8, 0.4, 0.4, 0.4, 0.03);
             }
         }
 
-        // Visual & sound
-        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 15, 10, 15, 0.01);
+        // Visual & sound (reduit)
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 40, 10, 8, 10, 0.01);
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
 
         if (shouldSendTalentMessage(player)) {
@@ -1759,9 +1759,9 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Nova visual optimise (moins de particules)
-            for (double r = 1; r <= radius; r += 2) {
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            // Nova visual optimise (reduit)
+            for (double r = 1; r <= radius; r += 3) {
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(x, 0.3, z), 1, 0, 0, 0, 0.05);
@@ -1819,10 +1819,10 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Sun visual above player
+            // Sun visual above player (reduit)
             Location sunLoc = player.getLocation().add(0, 5, 0);
-            player.getWorld().spawnParticle(Particle.FLAME, sunLoc, 30, 1, 1, 1, 0.05);
-            player.getWorld().spawnParticle(Particle.LAVA, sunLoc, 5, 1, 1, 1, 0);
+            player.getWorld().spawnParticle(Particle.FLAME, sunLoc, 12, 0.8, 0.8, 0.8, 0.04);
+            player.getWorld().spawnParticle(Particle.LAVA, sunLoc, 2, 0.8, 0.8, 0.8, 0);
         }
 
         // Check if players need to activate Black Sun
@@ -1868,11 +1868,11 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Winter visual ameliore - aura de froid
+            // Winter visual ameliore - aura de froid (reduit)
             player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation().add(0, 1, 0),
-                10, radius/2, 1.5, radius/2, 0.02);
+                5, radius/2, 1, radius/2, 0.02);
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0),
-                3, radius/3, 0.5, radius/3, 0.01);
+                1, radius/3, 0.3, radius/3, 0.01);
         }
     }
 
@@ -1967,7 +1967,7 @@ public class OccultisteTalentListener implements Listener {
 
                     // Visual (reduit)
                     impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 1, 0, 0, 0, 0);
-                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 25, 2, 1, 2, 0.2);
+                    impactLoc.getWorld().spawnParticle(Particle.FLAME, impactLoc, 10, 1.5, 0.8, 1.5, 0.15);
                     impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 0.8f);
                 }, index * 3L);
             }
@@ -2022,11 +2022,11 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Blizzard visual ameliore
+                // Blizzard visual ameliore (reduit)
                 frozen.getWorld().spawnParticle(Particle.SNOWFLAKE, frozen.getLocation().add(0, 1, 0),
-                    8, auraRadius/2, 0.8, auraRadius/2, 0.02);
+                    4, auraRadius/2, 0.6, auraRadius/2, 0.02);
                 frozen.getWorld().spawnParticle(Particle.CLOUD, frozen.getLocation().add(0, 0.5, 0),
-                    3, auraRadius/3, 0.3, auraRadius/3, 0.01);
+                    1, auraRadius/3, 0.2, auraRadius/3, 0.01);
             }
         }
     }
@@ -2145,9 +2145,9 @@ public class OccultisteTalentListener implements Listener {
                     }
                 }
 
-                // Visual ameliore - zone de givre au sol
-                world.spawnParticle(Particle.SNOWFLAKE, loc, 8, radius/2, 0.3, radius/2, 0.02);
-                world.spawnParticle(Particle.BLOCK, loc, 5, radius/2, 0.1, radius/2, 0.01,
+                // Visual ameliore - zone de givre au sol (reduit)
+                world.spawnParticle(Particle.SNOWFLAKE, loc, 4, radius/2, 0.2, radius/2, 0.02);
+                world.spawnParticle(Particle.BLOCK, loc, 2, radius/2, 0.1, radius/2, 0.01,
                     Material.BLUE_ICE.createBlockData());
             } catch (NumberFormatException ignored) {}
         }
@@ -2168,9 +2168,9 @@ public class OccultisteTalentListener implements Listener {
         String key = location.getWorld().getName() + "," + location.getX() + "," + location.getY() + "," + location.getZ();
         iceZones.put(key, System.currentTimeMillis() + duration);
 
-        // Visual spawn spectaculaire
-        location.getWorld().spawnParticle(Particle.SNOWFLAKE, location, 50, 1.5, 1, 1.5, 0.08);
-        location.getWorld().spawnParticle(Particle.ITEM, location.add(0, 0.5, 0), 30, 1, 0.5, 1, 0.1,
+        // Visual spawn (reduit)
+        location.getWorld().spawnParticle(Particle.SNOWFLAKE, location, 20, 1.2, 0.8, 1.2, 0.06);
+        location.getWorld().spawnParticle(Particle.ITEM, location.add(0, 0.5, 0), 12, 0.8, 0.4, 0.8, 0.08,
             new org.bukkit.inventory.ItemStack(Material.BLUE_ICE));
         location.getWorld().playSound(location, Sound.BLOCK_GLASS_BREAK, 1.2f, 0.5f);
         location.getWorld().playSound(location, Sound.ENTITY_PLAYER_HURT_FREEZE, 0.8f, 0.8f);
