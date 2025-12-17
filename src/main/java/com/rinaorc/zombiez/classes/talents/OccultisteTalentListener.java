@@ -2870,13 +2870,59 @@ public class OccultisteTalentListener implements Listener {
                     // Degats de sortie
                     if (owner != null) {
                         le.damage(data.exitDamage, owner);
+
+                        // EXPLOSION DU VIDE - Inflige des degats aux mobs autour
+                        Talent talent = getTalentWithEffect(owner, Talent.TalentEffectType.DIMENSIONAL_RIFT);
+                        if (talent != null && talent.getValues().length > 5) {
+                            double aoeDamagePercent = talent.getValue(4); // 1.0 = 100%
+                            double aoeRadius = talent.getValue(5); // 4.0 blocs
+                            double baseDamage = owner.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                            double aoeDamage = baseDamage * aoeDamagePercent;
+
+                            Location explosionLoc = data.originalLocation.clone();
+
+                            // Infliger des degats aux mobs proches (pas au mob banni lui-meme)
+                            for (Entity nearby : explosionLoc.getWorld().getNearbyEntities(explosionLoc, aoeRadius, aoeRadius, aoeRadius)) {
+                                if (nearby instanceof LivingEntity nearbyLe && !(nearby instanceof Player)
+                                    && !nearby.getUniqueId().equals(le.getUniqueId())
+                                    && !isPlayerMinion(nearby, owner)) {
+                                    damageNoKnockback(nearbyLe, aoeDamage, owner);
+
+                                    // Visual sur les mobs touches
+                                    nearbyLe.getWorld().spawnParticle(Particle.PORTAL, nearbyLe.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.5);
+                                }
+                            }
+
+                            // Visual SPECTACULAIRE de l'explosion du vide
+                            // Onde de choc en expansion
+                            for (double radius = 0.5; radius <= aoeRadius; radius += 0.8) {
+                                for (int i = 0; i < 16; i++) {
+                                    double angle = i * Math.PI * 2 / 16;
+                                    double x = Math.cos(angle) * radius;
+                                    double z = Math.sin(angle) * radius;
+                                    Location particleLoc = explosionLoc.clone().add(x, 0.5, z);
+                                    explosionLoc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, particleLoc, 3, 0.1, 0.2, 0.1, 0.1);
+                                }
+                            }
+
+                            // Noyau central de l'explosion
+                            explosionLoc.getWorld().spawnParticle(Particle.SQUID_INK, explosionLoc.clone().add(0, 1, 0), 40, 0.3, 0.5, 0.3, 0.05);
+                            explosionLoc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, explosionLoc.clone().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                            explosionLoc.getWorld().spawnParticle(Particle.END_ROD, explosionLoc.clone().add(0, 1.5, 0), 25, 0.8, 0.8, 0.8, 0.15);
+                            explosionLoc.getWorld().spawnParticle(Particle.DRAGON_BREATH, explosionLoc.clone().add(0, 0.5, 0), 50, 1.5, 0.5, 1.5, 0.08);
+
+                            // Sons d'explosion du vide
+                            explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.8f, 0.5f);
+                            explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.4f);
+                            explosionLoc.getWorld().playSound(explosionLoc, Sound.BLOCK_END_PORTAL_SPAWN, 0.6f, 1.5f);
+                        }
                     }
 
-                    // Visual de reapparition
-                    Location loc = data.originalLocation;
-                    loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 50, 0.5, 1, 0.5, 0.3);
-                    loc.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 25, 0.3, 0.5, 0.3, 0.05);
-                    loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.7f);
+                    // Visual de reapparition sur l'entite
+                    Location loc = data.originalLocation.clone();
+                    loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 60, 0.5, 1, 0.5, 0.4);
+                    loc.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 35, 0.4, 0.6, 0.4, 0.08);
+                    loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 40, 0.5, 1, 0.5, 1.0);
                 }
 
                 iterator.remove();

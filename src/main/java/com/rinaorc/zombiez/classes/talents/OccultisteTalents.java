@@ -931,8 +931,9 @@ public final class OccultisteTalents {
                 "§7§aPassif:§7 Les ennemis en dessous de §c15% HP§7",
                 "§7sont §5bannis dans le vide§7 automatiquement!",
                 "",
-                "§8Duree du bannissement: §a3s",
+                "§8Duree du bannissement: §a1s",
                 "§8Degats a la sortie: §c250%§8 base",
+                "§8Explosion du vide: §5100%§8 base AoE",
                 "§8Les bannis sont §8immobilises",
                 "§8Cooldown par cible: §e10s"
             })
@@ -942,7 +943,7 @@ public final class OccultisteTalents {
             .icon(Material.END_PORTAL_FRAME)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.DIMENSIONAL_RIFT)
-            .values(new double[]{0.15, 3000, 2.50, 10000}) // hp_threshold%, banish_duration_ms, exit_damage%, cooldown_per_target_ms
+            .values(new double[]{0.15, 1000, 2.50, 10000, 1.0, 4.0}) // hp_threshold%, banish_duration_ms, exit_damage%, cooldown_per_target_ms, aoe_damage%, aoe_radius
             .build());
     }
 
