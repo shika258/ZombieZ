@@ -34,6 +34,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.Sound;
+import org.bukkit.Particle;
+import com.rinaorc.zombiez.utils.MessageUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,6 +70,17 @@ public class ZombieManager {
     // Stats
     private long totalSpawned = 0;
     private long totalKilled = 0;
+
+    // === SYSTÈME DE LOOT AMÉLIORÉ ===
+    // Pity system: kills sans drop par joueur (reset quand drop)
+    private final Map<UUID, Integer> killsWithoutDrop = new ConcurrentHashMap<>();
+    private static final int PITY_THRESHOLD = 15; // Garanti un drop après 15 kills sans loot
+    private static final double PITY_BONUS_PER_KILL = 0.02; // +2% par kill sans drop
+
+    // Jackpot system: probabilité de bonus drop pour les hauts combos/streaks
+    private static final int JACKPOT_COMBO_THRESHOLD = 20;
+    private static final int JACKPOT_STREAK_THRESHOLD = 30;
+    private static final double JACKPOT_CHANCE = 0.15; // 15% de chance de jackpot
 
     public ZombieManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -756,11 +770,15 @@ public class ZombieManager {
     }
 
     /**
-     * Traite le loot d'un zombie
+     * Traite le loot d'un zombie avec système amélioré
+     * - Intégration du Momentum (combo, streak, fever)
+     * - Système de Pity (garantit drop après X kills sans loot)
+     * - Jackpot drops (bonus pour hauts combos/streaks)
      */
     private void processLoot(Player killer, ActiveZombie zombie) {
         ZombieType type = zombie.getType();
         int zoneId = zombie.getZoneId();
+        UUID playerId = killer.getUniqueId();
 
         // Obtenir la table de loot appropriée
         String tableId = type.isBoss() ?
@@ -775,21 +793,96 @@ public class ZombieManager {
 
         if (table == null) return;
 
-        // Calculer le bonus de luck
+        // === CALCUL DU BONUS DE LUCK TOTAL ===
         double luckBonus = plugin.getItemManager().getPlayerStat(killer,
             com.rinaorc.zombiez.items.types.StatType.LUCK) / 100.0;
 
-        // Bonus d'affix
+        // Bonus d'affix du zombie
         if (zombie.hasAffix()) {
             luckBonus += zombie.getAffix().getLootBonus();
         }
 
-        // Générer et dropper le loot
+        // === BONUS MOMENTUM ===
+        int combo = 0;
+        int streak = 0;
+        boolean inFever = false;
+        if (plugin.getMomentumManager() != null) {
+            combo = plugin.getMomentumManager().getCombo(killer);
+            streak = plugin.getMomentumManager().getStreak(killer);
+            inFever = plugin.getMomentumManager().isInFever(killer);
+
+            // Combo bonus: +0.5% par combo (max +20%)
+            luckBonus += Math.min(0.20, combo * 0.005);
+
+            // Streak bonus: +0.25% par streak (max +12.5%)
+            luckBonus += Math.min(0.125, streak * 0.0025);
+
+            // FEVER bonus: +35% de luck
+            if (inFever) {
+                luckBonus += 0.35;
+            }
+        }
+
+        // === SYSTÈME PITY ===
+        int killsNoDrop = killsWithoutDrop.getOrDefault(playerId, 0);
+        boolean forceDrop = killsNoDrop >= PITY_THRESHOLD;
+
+        // Bonus progressif de pity (+2% par kill sans drop)
+        luckBonus += killsNoDrop * PITY_BONUS_PER_KILL;
+
+        // === GÉNÉRATION DU LOOT ===
         var items = table.generateLoot(zoneId, luckBonus);
         Location dropLoc = killer.getLocation();
 
-        for (var item : items) {
-            plugin.getItemManager().dropItem(dropLoc, item);
+        // Pity: forcer un drop si threshold atteint
+        if (items.isEmpty() && forceDrop) {
+            // Forcer un drop avec rareté garantie minimum UNCOMMON
+            var forcedItem = com.rinaorc.zombiez.items.generator.ItemGenerator.getInstance()
+                .generate(zoneId, com.rinaorc.zombiez.items.types.Rarity.UNCOMMON, luckBonus);
+            if (forcedItem != null) {
+                items.add(forcedItem);
+                MessageUtils.sendActionBar(killer, "§a✦ §7Drop de pitié! §8(streak: " + killsNoDrop + " kills)");
+            }
+        }
+
+        // === JACKPOT SYSTEM ===
+        boolean jackpotTriggered = false;
+        if ((combo >= JACKPOT_COMBO_THRESHOLD || streak >= JACKPOT_STREAK_THRESHOLD)
+                && Math.random() < JACKPOT_CHANCE) {
+            jackpotTriggered = true;
+
+            // Générer 1-2 items bonus avec rareté augmentée
+            int bonusItems = Math.random() < 0.3 ? 2 : 1;
+            double jackpotLuck = luckBonus + 0.3; // +30% luck pour le jackpot
+
+            for (int i = 0; i < bonusItems; i++) {
+                var bonusItem = table.generateLoot(zoneId, jackpotLuck);
+                items.addAll(bonusItem);
+            }
+        }
+
+        // === DROP DES ITEMS ===
+        if (!items.isEmpty()) {
+            // Reset pity counter
+            killsWithoutDrop.put(playerId, 0);
+
+            for (var item : items) {
+                plugin.getItemManager().dropItem(dropLoc, item);
+            }
+
+            // Effets visuels/sonores selon la quantité et qualité
+            if (jackpotTriggered) {
+                // Jackpot: effets spéciaux
+                killer.playSound(killer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.2f);
+                killer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, dropLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                MessageUtils.sendActionBar(killer, "§6§l★ JACKPOT! §e+" + items.size() + " items §8(x" + combo + " combo)");
+            } else if (items.size() >= 2) {
+                // Multiple drops: petit effet
+                killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+            }
+        } else {
+            // Incrémenter pity counter
+            killsWithoutDrop.merge(playerId, 1, Integer::sum);
         }
 
         // Tenter de drop un consommable
