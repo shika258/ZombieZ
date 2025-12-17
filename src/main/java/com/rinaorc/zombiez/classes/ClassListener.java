@@ -5,6 +5,7 @@ import com.rinaorc.zombiez.classes.gui.ClassSelectionGUI;
 import com.rinaorc.zombiez.classes.mutations.DailyMutation;
 import com.rinaorc.zombiez.data.PlayerData;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
