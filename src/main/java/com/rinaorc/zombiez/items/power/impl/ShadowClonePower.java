@@ -211,7 +211,7 @@ public class ShadowClonePower extends Power {
 
     /**
      * Trouve l'ennemi le plus proche pour le clone
-     * Les clones ciblent les zombies ennemis (avec metadata zombiez_type) mais pas les autres clones
+     * Les clones ciblent les mobs ZombieZ ennemis (avec metadata zombiez_type) mais pas les autres clones
      */
     private LivingEntity findNearestEnemy(Location center, Player owner) {
         LivingEntity nearest = null;
@@ -224,18 +224,15 @@ public class ShadowClonePower extends Power {
                     continue;
                 }
 
-                // Si c'est un zombie, vérifier si c'est un ennemi ou un clone allié
-                if (target instanceof Zombie zombie) {
-                    // Ne pas cibler les clones d'ombres alliés (ont un nom spécifique)
-                    String customName = zombie.getCustomName();
-                    if (customName != null && customName.contains("Clone de")) {
-                        continue;
-                    }
+                // Ne pas cibler les clones d'ombres alliés (ont un nom spécifique)
+                String customName = target.getCustomName();
+                if (customName != null && customName.contains("Clone de")) {
+                    continue;
+                }
 
-                    // Cibler uniquement les zombies ZombieZ (ennemis avec metadata)
-                    if (!zombie.hasMetadata("zombiez_type")) {
-                        continue;
-                    }
+                // Cibler uniquement les mobs ZombieZ (ennemis avec metadata: zombie, squelette, etc.)
+                if (!target.hasMetadata("zombiez_type")) {
+                    continue;
                 }
 
                 double distance = center.distance(target.getLocation());

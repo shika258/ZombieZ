@@ -6,8 +6,8 @@ import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -80,16 +80,22 @@ public class DeathListener implements Listener {
         // Si tué par une entité
         if (lastDamage instanceof EntityDamageByEntityEvent entityEvent) {
             var damager = entityEvent.getDamager();
-            
-            if (damager instanceof Zombie) {
-                // TODO: Lire le type de zombie depuis les métadonnées
-                return "§cZombie";
+
+            // Vérifier si c'est un mob ZombieZ (zombie, squelette, etc.)
+            if (damager instanceof LivingEntity livingDamager && damager.hasMetadata("zombiez_type")) {
+                String mobType = damager.getMetadata("zombiez_type").get(0).asString();
+                String mobName = livingDamager.getCustomName();
+                if (mobName != null) {
+                    // Extraire le nom sans les couleurs et stats
+                    return "§c" + mobName.split(" §7")[0].replaceAll("§.", "");
+                }
+                return "§c" + mobType;
             }
-            
+
             if (damager instanceof Player killer) {
                 return "§c" + killer.getName();
             }
-            
+
             return "§c" + damager.getType().name();
         }
 

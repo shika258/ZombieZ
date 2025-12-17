@@ -130,8 +130,10 @@ public class ClassListener implements Listener {
      */
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie zombie)) return;
-        if (!(zombie.getKiller() instanceof Player player)) return;
+        LivingEntity mob = event.getEntity();
+        // Vérifier si c'est un mob ZombieZ (zombie, squelette, etc.)
+        if (!mob.hasMetadata("zombiez_type")) return;
+        if (!(mob.getKiller() instanceof Player player)) return;
 
         ClassData data = classManager.getClassData(player);
         if (!data.hasClass()) return;
@@ -141,7 +143,7 @@ public class ClassListener implements Listener {
         long classXp = (long) (baseXp * 0.5); // 50% de l'XP normal
 
         // Bonus pour elites/boss (verifier via les metadonnees ou le nom)
-        String zombieName = zombie.getCustomName();
+        String zombieName = mob.getCustomName();
         if (zombieName != null) {
             if (zombieName.contains("Elite") || zombieName.contains("Elite")) {
                 classXp *= 2;

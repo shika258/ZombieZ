@@ -598,16 +598,14 @@ public class CombatListener implements Listener {
             finalDamage *= headshotMultiplier;
         }
 
-        // ============ 6. EXECUTE DAMAGE (<20% HP) - pour zombies uniquement ============
-        if (victim instanceof Zombie zombie) {
-            double zombieHealthPercent = zombie.getHealth() / zombie.getMaxHealth() * 100;
-            double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+        // ============ 6. EXECUTE DAMAGE (<20% HP) - pour tous les mobs ZombieZ ============
+        double mobHealthPercent = victim.getHealth() / victim.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
 
-            if (zombieHealthPercent <= executeThreshold) {
-                double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
-                double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
-                finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
-            }
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
         }
 
         // ============ 7. BERSERKER (<30% HP joueur) ============
@@ -650,16 +648,16 @@ public class CombatListener implements Listener {
             victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
         }
 
-        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ZOMBIE ============
-        if (victim instanceof Zombie zombie && plugin.getZombieManager().isZombieZMob(zombie)) {
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE MOB ZOMBIEZ ============
+        if (plugin.getZombieManager().isZombieZMob(victim)) {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (zombie.isValid()) {
-                    plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+                if (victim.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(victim);
                 }
             });
 
             // Stocker les infos pour le loot (utilisé à la mort)
-            zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            victim.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
         }
     }
 
