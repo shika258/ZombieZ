@@ -952,6 +952,14 @@ public class OccultisteTalentListener implements Listener {
     private void triggerGlacialShatter(Player player, LivingEntity target, Talent talent, int stacks) {
         UUID targetId = target.getUniqueId();
 
+        // IMPORTANT: Mettre en cooldown AVANT d'appliquer les degats pour eviter la reentrance
+        // (target.damage() declenche EntityDamageByEntityEvent qui pourrait re-appeler cette methode)
+        long cooldownMs = (long) talent.getValue(3);
+        shatterCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
+
+        // Retirer tous les stacks AVANT les degats pour eviter les triggers en cascade
+        clearFrostStacks(target);
+
         // Determiner si c'est un boss/elite
         boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
                                 target.getScoreboardTags().contains("elite") ||
@@ -961,7 +969,7 @@ public class OccultisteTalentListener implements Listener {
         double damagePerStack = isBossOrElite ? talent.getValue(2) : talent.getValue(1);
         double totalDamage = target.getMaxHealth() * damagePerStack * stacks;
 
-        // Appliquer les degats
+        // Appliquer les degats (maintenant que le cooldown est set, pas de reentrance possible)
         target.damage(totalDamage, player);
 
         // Effets visuels spectaculaires
@@ -972,13 +980,6 @@ public class OccultisteTalentListener implements Listener {
         target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, 15, 0.8, 1, 0.8, 0.08);
         target.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.3f);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.5f);
-
-        // Mettre en cooldown
-        long cooldownMs = (long) talent.getValue(3);
-        shatterCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
-
-        // Retirer tous les stacks
-        clearFrostStacks(target);
 
         // Message au joueur
         if (shouldSendTalentMessage(player)) {
