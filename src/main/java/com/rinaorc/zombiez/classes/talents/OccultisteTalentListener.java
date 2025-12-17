@@ -1342,22 +1342,67 @@ public class OccultisteTalentListener implements Listener {
         );
         activeBlackHoles.put(locKey, data);
 
-        // Degats initiaux massifs
+        // Degats initiaux massifs + Application des DOTs
+        double baseDamagePlayer = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        long now = System.currentTimeMillis();
         for (Entity entity : target.getWorld().getNearbyEntities(target, radius, radius, radius)) {
             if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isPlayerMinion(entity, player)) {
                 le.damage(initialDamage, player);
+
+                // Appliquer automatiquement les DOTs d'ombre aux ennemis dans le trou noir
+                if (!shadowDots.containsKey(le.getUniqueId())) {
+                    double shadowDps = baseDamagePlayer * 0.15; // 15% base damage/s comme Shadow Word
+                    ShadowDotData dotData = new ShadowDotData(
+                        player.getUniqueId(),
+                        shadowDps,
+                        now + 4000, // 4 secondes de DOT
+                        now
+                    );
+                    shadowDots.put(le.getUniqueId(), dotData);
+
+                    // Appliquer aussi Vampiric Touch si le joueur l'a
+                    if (hasTalentEffect(player, Talent.TalentEffectType.VAMPIRIC_TOUCH)) {
+                        applyVampiricTouch(player, le, baseDamagePlayer);
+                    }
+                }
             }
         }
 
-        // Visual ULTRA spectaculaire
-        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target, 200, 3, 3, 3, 1.0);
-        target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target, 100, 2, 2, 2, 0.3);
-        target.getWorld().spawnParticle(Particle.SMOKE, target, 80, 2, 2, 2, 0.2);
-        target.getWorld().playSound(target, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
-        target.getWorld().playSound(target, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 0.3f);
-        target.getWorld().playSound(target, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.5f);
+        // Visual d'apparition ULTRA SPECTACULAIRE - Effet d'implosion
+        // Phase 1: Expansion rapide
+        target.getWorld().spawnParticle(Particle.END_ROD, target, 100, 0.1, 0.1, 0.1, 0.8);
+        target.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, target, 80, 0.5, 0.5, 0.5, 0.5);
 
-        sendActionBar(player, "§0§l* TROU NOIR! *");
+        // Phase 2: Formation des anneaux
+        for (int ring = 0; ring < 5; ring++) {
+            double ringRadius = radius * (0.2 + ring * 0.2);
+            for (int i = 0; i < 30; i++) {
+                double angle = i * Math.PI * 2 / 30;
+                double x = Math.cos(angle) * ringRadius;
+                double z = Math.sin(angle) * ringRadius;
+                Location ringLoc = target.clone().add(x, ring * 0.3, z);
+                target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, ringLoc, 5, 0.1, 0.1, 0.1, 0.2);
+            }
+        }
+
+        // Noyau sombre intense
+        target.getWorld().spawnParticle(Particle.SQUID_INK, target, 60, 0.5, 0.5, 0.5, 0.02);
+        target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target, 150, 2, 2, 2, 0.4);
+        target.getWorld().spawnParticle(Particle.SMOKE, target, 100, 2.5, 2.5, 2.5, 0.3);
+        target.getWorld().spawnParticle(Particle.ASH, target, 80, radius, 3, radius, 0.1);
+
+        // Eclairs et distorsion
+        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target, 40, 1.5, 1.5, 1.5, 0.3);
+        target.getWorld().spawnParticle(Particle.ENCHANT, target, 100, 2, 2, 2, 2.0);
+
+        // Sons d'apparition dramatiques
+        target.getWorld().playSound(target, Sound.ENTITY_WITHER_SPAWN, 1.2f, 0.3f);
+        target.getWorld().playSound(target, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.2f);
+        target.getWorld().playSound(target, Sound.BLOCK_END_PORTAL_SPAWN, 1.5f, 0.4f);
+        target.getWorld().playSound(target, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
+        target.getWorld().playSound(target, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.8f, 0.3f);
+
+        sendActionBar(player, "§0§l✦ TROU NOIR! ✦");
     }
 
     private void processFirestorm(Player player, LivingEntity target, double baseDamage) {
@@ -2695,10 +2740,14 @@ public class OccultisteTalentListener implements Listener {
             BlackHoleData data = entry.getValue();
 
             if (now > data.expiry) {
-                // Explosion finale
+                // Explosion finale SPECTACULAIRE
                 Location center = data.location;
-                center.getWorld().spawnParticle(Particle.EXPLOSION, center, 5, 2, 2, 2, 0);
-                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
+                center.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 3, 0, 0, 0, 0);
+                center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 200, 3, 3, 3, 2.0);
+                center.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, center, 100, 2, 2, 2, 0.5);
+                center.getWorld().spawnParticle(Particle.END_ROD, center, 80, 4, 4, 4, 0.3);
+                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.3f);
+                center.getWorld().playSound(center, Sound.ENTITY_WITHER_DEATH, 0.8f, 0.5f);
                 bhIterator.remove();
                 continue;
             }
@@ -2710,10 +2759,11 @@ public class OccultisteTalentListener implements Listener {
             }
 
             Location center = data.location;
+            double baseDamage = owner.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
 
-            // Aspiration MASSIVE
+            // Aspiration MASSIVE + Application des DOTs
             for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isPlayerMinion(entity, owner)) {
                     Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
                     double distance = le.getLocation().distance(center);
                     double pullStrength = Math.min(2.5, (data.radius - distance) / data.radius * 3.0);
@@ -2721,19 +2771,76 @@ public class OccultisteTalentListener implements Listener {
                     le.setVelocity(direction.multiply(pullStrength).setY(0.2));
                     le.damage(data.dps * 0.5, owner);
 
-                    // Visual sur l'entite aspiree
-                    le.getWorld().spawnParticle(Particle.PORTAL, le.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.1);
+                    // Appliquer automatiquement les DOTs d'ombre aux ennemis dans le trou noir
+                    if (!shadowDots.containsKey(le.getUniqueId())) {
+                        double shadowDps = baseDamage * 0.15; // 15% base damage/s comme Shadow Word
+                        ShadowDotData dotData = new ShadowDotData(
+                            owner.getUniqueId(),
+                            shadowDps,
+                            now + 4000, // 4 secondes de DOT
+                            now
+                        );
+                        shadowDots.put(le.getUniqueId(), dotData);
+
+                        // Appliquer aussi Vampiric Touch si le joueur l'a
+                        if (hasTalentEffect(owner, Talent.TalentEffectType.VAMPIRIC_TOUCH)) {
+                            applyVampiricTouch(owner, le, baseDamage);
+                        }
+                    }
+
+                    // Visual AMELIORE sur l'entite aspiree - effet de distorsion
+                    le.getWorld().spawnParticle(Particle.PORTAL, le.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.3);
+                    le.getWorld().spawnParticle(Particle.REVERSE_PORTAL, le.getLocation().add(0, 0.5, 0), 8, 0.2, 0.3, 0.2, 0.2);
+                    le.getWorld().spawnParticle(Particle.SOUL, le.getLocation().add(0, 1.5, 0), 3, 0.2, 0.2, 0.2, 0.05);
                 }
             }
 
-            // Visual MASSIF du trou noir
-            center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 80, 2, 2, 2, 0.8);
-            center.getWorld().spawnParticle(Particle.DRAGON_BREATH, center, 40, 1.5, 1.5, 1.5, 0.2);
-            center.getWorld().spawnParticle(Particle.SMOKE, center, 30, 1.5, 1.5, 1.5, 0.1);
+            // Visual ULTRA SPECTACULAIRE du trou noir avec rotation
+            double time = (now % 2000) / 2000.0 * Math.PI * 2; // Rotation toutes les 2 secondes
 
-            // Son ambient
-            if (Math.random() < 0.3) {
-                center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 0.3f);
+            // Noyau central dense et sombre
+            center.getWorld().spawnParticle(Particle.SQUID_INK, center, 30, 0.3, 0.3, 0.3, 0.01);
+            center.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, center, 20, 0.5, 0.5, 0.5, 0.05);
+
+            // Anneaux de particules en rotation (disque d'accrétion)
+            for (int ring = 0; ring < 3; ring++) {
+                double ringRadius = data.radius * (0.3 + ring * 0.25);
+                int particlesPerRing = 20 + ring * 10;
+                for (int i = 0; i < particlesPerRing; i++) {
+                    double angle = time + (i * Math.PI * 2 / particlesPerRing) + (ring * 0.5);
+                    double x = Math.cos(angle) * ringRadius;
+                    double z = Math.sin(angle) * ringRadius;
+                    Location particleLoc = center.clone().add(x, 0.2 * ring, z);
+                    center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, particleLoc, 2, 0.1, 0.1, 0.1, 0.1);
+                }
+            }
+
+            // Spirales aspirantes
+            for (int spiral = 0; spiral < 4; spiral++) {
+                double spiralAngle = time * 2 + (spiral * Math.PI / 2);
+                for (double dist = 0.5; dist < data.radius; dist += 0.8) {
+                    double x = Math.cos(spiralAngle + dist * 0.5) * dist;
+                    double z = Math.sin(spiralAngle + dist * 0.5) * dist;
+                    double y = Math.sin(dist) * 0.5;
+                    Location spiralLoc = center.clone().add(x, y, z);
+                    center.getWorld().spawnParticle(Particle.DRAGON_BREATH, spiralLoc, 1, 0.05, 0.05, 0.05, 0.01);
+                }
+            }
+
+            // Colonnes de particules montantes
+            center.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 2, 0), 15, 0.8, 1.5, 0.8, 0.05);
+            center.getWorld().spawnParticle(Particle.ENCHANT, center.clone().add(0, 1, 0), 30, 1.5, 0.5, 1.5, 1.0);
+
+            // Halo extérieur
+            center.getWorld().spawnParticle(Particle.SMOKE, center, 60, data.radius * 0.8, 0.5, data.radius * 0.8, 0.02);
+            center.getWorld().spawnParticle(Particle.ASH, center, 40, data.radius, 2, data.radius, 0.1);
+
+            // Son ambient plus fréquent et varié
+            if (Math.random() < 0.5) {
+                center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.6f, 0.2f);
+            }
+            if (Math.random() < 0.2) {
+                center.getWorld().playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 0.3f, 0.3f);
             }
         }
     }
