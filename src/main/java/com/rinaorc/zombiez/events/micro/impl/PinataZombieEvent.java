@@ -214,7 +214,7 @@ public class PinataZombieEvent extends MicroEvent {
 
             // Effet de hit satisfaisant (reduit)
             Location loc = entity.getLocation().add(0, 1, 0);
-            loc.getWorld().spawnParticle(Particle.CRIT_MAGIC, loc, 5, 0.2, 0.2, 0.2, 0.15);
+            loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 5, 0.2, 0.2, 0.2, 0.15);
 
             // Son de hit qui augmente en pitch
             float pitch = Math.min(2.0f, 0.5f + (hitCount * 0.05f));
@@ -321,8 +321,8 @@ public class PinataZombieEvent extends MicroEvent {
                 rarity = Rarity.LEGENDARY;
             }
 
-            // Generer l'item via le LootManager
-            return plugin.getLootManager().generateLoot(zone.getId(), rarity);
+            // Generer l'item via l'ItemManager
+            return plugin.getItemManager().generateItem(zone.getId(), rarity);
         } catch (Exception e) {
             // Fallback: item basique
             Material[] fallbacks = {

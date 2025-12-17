@@ -716,6 +716,10 @@ class VengeancePassive implements PetAbility {
     public double getRage(UUID uuid) {
         return vengeanceRage.getOrDefault(uuid, 0.0);
     }
+
+    public void clearRage(UUID uuid) {
+        vengeanceRage.put(uuid, 0.0);
+    }
 }
 
 @Getter
@@ -746,7 +750,7 @@ class VengeanceExplosionActive implements PetAbility {
             return false;
         }
 
-        vengeancePassive.vengeanceRage.put(player.getUniqueId(), 0.0);
+        vengeancePassive.clearRage(player.getUniqueId());
 
         Collection<Entity> nearby = player.getNearbyEntities(8, 8, 8);
         for (Entity entity : nearby) {

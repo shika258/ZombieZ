@@ -93,4 +93,12 @@ public interface PetAbility {
      * Appelé quand le joueur inflige des dégâts
      */
     default void onDamageDealt(Player player, PetData petData, org.bukkit.entity.LivingEntity target, double damage) {}
+
+    /**
+     * Appelé quand le joueur inflige des dégâts - version avec modification possible
+     * @return les dégâts modifiés
+     */
+    default double onDamageDealt(Player player, PetData petData, double damage, org.bukkit.entity.LivingEntity target) {
+        return damage;
+    }
 }

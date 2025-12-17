@@ -535,7 +535,7 @@ public class EggOpeningAnimation implements InventoryHolder {
             // Empêcher de fermer pendant l'animation
             if (!anim.canClose()) {
                 Bukkit.getScheduler().runTask(anim.plugin, () -> {
-                    if (event.getPlayer().isOnline()) {
+                    if (event.getPlayer() instanceof Player p && p.isOnline()) {
                         anim.open();
                     }
                 });

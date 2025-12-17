@@ -234,14 +234,23 @@ public class DailyRewardManager {
     public boolean canClaim(Player player) {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return false;
-        
+
         Instant lastClaim = data.getLastDailyReward();
         if (lastClaim == null) return true;
-        
+
         LocalDate lastClaimDate = lastClaim.atZone(SERVER_TIMEZONE).toLocalDate();
         LocalDate today = LocalDate.now(SERVER_TIMEZONE);
-        
+
         return !lastClaimDate.equals(today);
+    }
+
+    /**
+     * Obtient le streak actuel du joueur
+     */
+    public int getStreak(Player player) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return 0;
+        return calculateStreak(data);
     }
 
     /**

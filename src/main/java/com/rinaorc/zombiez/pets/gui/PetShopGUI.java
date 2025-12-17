@@ -131,8 +131,8 @@ public class PetShopGUI implements InventoryHolder {
         }
 
         // Récompense quotidienne
-        boolean canClaimDaily = plugin.getDailyRewardSystem() != null &&
-            plugin.getDailyRewardSystem().canClaim(player);
+        boolean canClaimDaily = plugin.getDailyRewardManager() != null &&
+            plugin.getDailyRewardManager().canClaim(player);
         inventory.setItem(SLOT_DAILY, new ItemBuilder(canClaimDaily ? Material.CHEST : Material.ENDER_CHEST)
             .name(canClaimDaily ? "§a§l🎁 Récompense Quotidienne!" : "§7🎁 Récompense Quotidienne")
             .lore(canClaimDaily ?
@@ -148,8 +148,8 @@ public class PetShopGUI implements InventoryHolder {
     }
 
     private int getStreak() {
-        if (plugin.getDailyRewardSystem() == null) return 0;
-        return plugin.getDailyRewardSystem().getStreak(player);
+        if (plugin.getDailyRewardManager() == null) return 0;
+        return plugin.getDailyRewardManager().getStreak(player);
     }
 
     private ItemStack createTimedOfferItem(TimedOffer offer) {
@@ -307,15 +307,12 @@ public class PetShopGUI implements InventoryHolder {
 
             // Récompense quotidienne
             if (slot == SLOT_DAILY) {
-                if (gui.plugin.getDailyRewardSystem() != null &&
-                    gui.plugin.getDailyRewardSystem().canClaim(player)) {
+                if (gui.plugin.getDailyRewardManager() != null &&
+                    gui.plugin.getDailyRewardManager().canClaim(player)) {
 
-                    var result = gui.plugin.getDailyRewardSystem().claimDailyReward(player);
-                    if (result.success()) {
+                    boolean success = gui.plugin.getDailyRewardManager().claimDailyReward(player);
+                    if (success) {
                         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
-                        player.sendMessage("");
-                        player.sendMessage(result.message());
-                        player.sendMessage("");
                     }
                     // Refresh le GUI
                     new PetShopGUI(gui.plugin, player).open();

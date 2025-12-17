@@ -119,6 +119,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
     // Système de Pets
     @Getter private com.rinaorc.zombiez.pets.PetManager petManager;
+    @Getter private com.rinaorc.zombiez.pets.gacha.PetShopSystem petShopSystem;
 
     // État du plugin
     @Getter private boolean fullyLoaded = false;
@@ -406,6 +407,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Pet Manager - Système complet de pets avec caching et persistance
         petManager = new com.rinaorc.zombiez.pets.PetManager(this);
+
+        // Pet Shop System - Boutique de pets
+        petShopSystem = new com.rinaorc.zombiez.pets.gacha.PetShopSystem(this);
     }
 
     /**
