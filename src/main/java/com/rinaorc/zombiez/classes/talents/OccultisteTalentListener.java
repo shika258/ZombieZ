@@ -167,6 +167,14 @@ public class OccultisteTalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 30L, 30L);
 
+        // MINION AI TICK (40L = 2s) - Mise a jour des cibles des serviteurs
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                processMinionAI();
+            }
+        }.runTaskTimer(plugin, 40L, 40L);
+
         // CLEANUP (200L = 10s) - Nettoyage des donnees expirees
         new BukkitRunnable() {
             @Override
@@ -190,6 +198,43 @@ public class OccultisteTalentListener implements Listener {
     }
 
     // ==================== DAMAGE EVENTS ====================
+
+    /**
+     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     * Priorite HIGHEST pour annuler l'evenement avant tout traitement
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMinionAttack(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+        Entity target = event.getEntity();
+
+        // Gerer les projectiles des minions (fleches de squelettes)
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+            damager = shooter;
+        }
+
+        // Verifier si c'est une attaque de minion a bloquer
+        if (shouldPreventMinionAttack(damager, target)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Empeche les joueurs d'attaquer leurs propres serviteurs
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerAttackMinion(EntityDamageByEntityEvent event) {
+        Entity target = event.getEntity();
+        if (!target.getScoreboardTags().contains("player_minion")) return;
+
+        Player attacker = getPlayerAttacker(event);
+        if (attacker == null) return;
+
+        // Si le joueur attaque son propre minion, annuler
+        if (isPlayerMinion(target, attacker)) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerDamageEntity(EntityDamageByEntityEvent event) {
@@ -1279,30 +1324,44 @@ public class OccultisteTalentListener implements Listener {
 
             if (minions.size() >= maxMinions) return;
 
-            // Spawn zombie minion
+            // Spawn zombie servant based on killed entity type
             Zombie minion = victim.getWorld().spawn(victim.getLocation(), Zombie.class);
-            minion.setCustomName("§8[Serviteur de " + player.getName() + "]");
+            minion.setCustomName("§5☠ §dServiteur §8[" + player.getName() + "]");
             minion.setCustomNameVisible(true);
             minion.setBaby(false);
             minion.getScoreboardTags().add("player_minion");
             minion.getScoreboardTags().add("owner_" + player.getUniqueId());
+            minion.setPersistent(false); // Eviter la persistence au rechargement
 
-            // Set stats
+            // Set stats based on victim and talent
             double statPercent = talent.getValue(1);
             // Check Immortal Army buff
             if (hasTalentEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY)) {
                 Talent immortal = getTalentWithEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY);
                 statPercent += immortal.getValue(1);
             }
-            minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(20 * statPercent);
+
+            // Use victim's stats as base
+            double victimMaxHealth = victim.getMaxHealth();
+            double baseHealth = Math.max(victimMaxHealth * statPercent, 10); // Minimum 10 HP
+            minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(baseHealth);
             minion.setHealth(minion.getMaxHealth());
 
+            // Give zombie more speed and attack damage
+            minion.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.3);
+            minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(5 * statPercent);
+
             minions.add(minion.getUniqueId());
+
+            // Set initial target
+            setMinionTarget(player, minion);
 
             // Schedule despawn
             long duration = (long) talent.getValue(2);
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (minion.isValid() && !minion.isDead()) {
+                    // Visual de despawn
+                    minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
                     minion.remove();
                     minions.remove(minion.getUniqueId());
                 }
@@ -1310,7 +1369,9 @@ public class OccultisteTalentListener implements Listener {
 
             // Visual
             victim.getWorld().spawnParticle(Particle.SOUL, victim.getLocation(), 20, 0.5, 1, 0.5, 0.05);
+            victim.getWorld().spawnParticle(Particle.SMOKE, victim.getLocation(), 10, 0.3, 0.3, 0.3, 0.02);
             victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.5f);
+            sendActionBar(player, "§5☠ §dServiteur releve! §8(" + minions.size() + "/" + maxMinions + ")");
         }
     }
 
@@ -1354,28 +1415,50 @@ public class OccultisteTalentListener implements Listener {
         List<UUID> minions = playerMinions.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>());
         int maxMinions = (int) talent.getValue(2);
 
-        if (minions.size() >= maxMinions) return;
+        if (minions.size() >= maxMinions) {
+            sendActionBar(player, "§8Maximum de squelettes atteint!");
+            return;
+        }
 
         // Consume one orb, summon one skeleton
         soulOrbs.put(player.getUniqueId(), orbs - 1);
 
         Skeleton minion = player.getWorld().spawn(player.getLocation().add(
             Math.random() * 2 - 1, 0, Math.random() * 2 - 1), Skeleton.class);
-        minion.setCustomName("§8[Squelette de " + player.getName() + "]");
+        minion.setCustomName("§8☠ §7Squelette §8[" + player.getName() + "]");
         minion.setCustomNameVisible(true);
         minion.getScoreboardTags().add("player_minion");
         minion.getScoreboardTags().add("owner_" + player.getUniqueId());
+        minion.setPersistent(false); // Eviter la persistence au rechargement
 
+        // Check Immortal Army buff for stats
         double statPercent = talent.getValue(0);
-        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(20 * statPercent);
+        if (hasTalentEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY)) {
+            Talent immortal = getTalentWithEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY);
+            statPercent += immortal.getValue(1);
+        }
+
+        // Set stats based on player
+        double playerMaxHealth = player.getMaxHealth();
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(playerMaxHealth * statPercent);
+        minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(playerDamage * statPercent);
         minion.setHealth(minion.getMaxHealth());
 
+        // Equip skeleton with bow for ranged attacks
+        minion.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.BOW));
+
         minions.add(minion.getUniqueId());
+
+        // Set initial target
+        setMinionTarget(player, minion);
 
         // Schedule despawn
         long duration = (long) talent.getValue(1);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (minion.isValid() && !minion.isDead()) {
+                // Visual de despawn
+                minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
                 minion.remove();
                 minions.remove(minion.getUniqueId());
             }
@@ -1383,7 +1466,8 @@ public class OccultisteTalentListener implements Listener {
 
         // Visual
         player.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 15, 0.3, 1, 0.3, 0.05);
-        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 1.0f);
+        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 0.8f);
+        sendActionBar(player, "§8☠ §7Squelette invoque! §8(" + minions.size() + "/" + maxMinions + ")");
     }
 
     // ==================== PERIODIC PROCESSORS ====================
@@ -2513,6 +2597,113 @@ public class OccultisteTalentListener implements Listener {
             Entity voidling = Bukkit.getEntity(entry.getValue());
             return voidling == null || voidling.isDead();
         });
+    }
+
+    // ==================== MINION UTILITY METHODS ====================
+
+    /**
+     * Definit une cible pour un serviteur (squelette ou zombie)
+     * Le serviteur attaquera l'ennemi le plus proche du joueur
+     */
+    private void setMinionTarget(Player owner, Mob minion) {
+        if (minion == null || minion.isDead()) return;
+
+        // Chercher l'ennemi le plus proche du joueur (pas du minion)
+        LivingEntity closestEnemy = null;
+        double closestDistance = 20.0; // Rayon de recherche
+
+        for (Entity entity : owner.getNearbyEntities(closestDistance, closestDistance, closestDistance)) {
+            // Ignorer les joueurs et les autres minions
+            if (entity instanceof Player) continue;
+            if (entity.getScoreboardTags().contains("player_minion")) continue;
+            if (!(entity instanceof LivingEntity le)) continue;
+            if (le.isDead()) continue;
+
+            double distance = entity.getLocation().distance(owner.getLocation());
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestEnemy = le;
+            }
+        }
+
+        if (closestEnemy != null) {
+            minion.setTarget(closestEnemy);
+        }
+    }
+
+    /**
+     * Met a jour periodiquement les cibles de tous les serviteurs
+     * Appele toutes les 2 secondes
+     */
+    private void processMinionAI() {
+        for (Map.Entry<UUID, List<UUID>> entry : playerMinions.entrySet()) {
+            Player owner = Bukkit.getPlayer(entry.getKey());
+            if (owner == null || !owner.isOnline()) continue;
+
+            for (UUID minionId : entry.getValue()) {
+                Entity entity = Bukkit.getEntity(minionId);
+                if (entity == null || entity.isDead()) continue;
+                if (!(entity instanceof Mob minion)) continue;
+
+                // Verifier si le minion a deja une cible valide
+                LivingEntity currentTarget = minion.getTarget();
+                if (currentTarget != null && !currentTarget.isDead() &&
+                    currentTarget.getLocation().distance(owner.getLocation()) < 25) {
+                    continue; // Garder la cible actuelle
+                }
+
+                // Chercher une nouvelle cible
+                setMinionTarget(owner, minion);
+
+                // Si aucune cible, faire suivre le joueur
+                if (minion.getTarget() == null) {
+                    // Teleporter le minion s'il est trop loin
+                    if (minion.getLocation().distance(owner.getLocation()) > 30) {
+                        minion.teleport(owner.getLocation().add(
+                            Math.random() * 3 - 1.5, 0, Math.random() * 3 - 1.5));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifie si une entite est un serviteur d'un joueur specifique
+     */
+    private boolean isPlayerMinion(Entity entity, Player player) {
+        return entity.getScoreboardTags().contains("player_minion") &&
+               entity.getScoreboardTags().contains("owner_" + player.getUniqueId());
+    }
+
+    /**
+     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     */
+    private boolean shouldPreventMinionAttack(Entity attacker, Entity target) {
+        // Si l'attaquant n'est pas un minion, ne pas bloquer
+        if (!attacker.getScoreboardTags().contains("player_minion")) return false;
+
+        // Trouver le proprietaire du minion
+        String ownerTag = attacker.getScoreboardTags().stream()
+            .filter(tag -> tag.startsWith("owner_"))
+            .findFirst()
+            .orElse(null);
+
+        if (ownerTag == null) return false;
+
+        String ownerUUID = ownerTag.substring(6);
+
+        // Bloquer si la cible est le proprietaire
+        if (target instanceof Player player && player.getUniqueId().toString().equals(ownerUUID)) {
+            return true;
+        }
+
+        // Bloquer si la cible est un autre minion du meme proprietaire
+        if (target.getScoreboardTags().contains("player_minion") &&
+            target.getScoreboardTags().contains(ownerTag)) {
+            return true;
+        }
+
+        return false;
     }
 
     // ==================== UTILITY METHODS ====================
