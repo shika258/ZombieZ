@@ -23,6 +23,7 @@ import org.bukkit.entity.Ravager;
 import org.bukkit.entity.PiglinBrute;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Stray;
+import org.bukkit.entity.AbstractSkeleton;
 import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Evoker;
@@ -386,6 +387,11 @@ public class ZombieManager {
     private void configureNonZombieEntity(LivingEntity entity, ZombieType type, int level,
                                            double finalHealth, double finalDamage, double finalSpeed, String customName) {
         entity.setRemoveWhenFarAway(true);
+
+        // Empêcher les squelettes de brûler au soleil
+        if (entity instanceof AbstractSkeleton skeleton) {
+            skeleton.setShouldBurnInDay(false);
+        }
 
         // Appliquer les attributs
         var maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
