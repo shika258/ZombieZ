@@ -1,12 +1,12 @@
 package com.rinaorc.zombiez.pets.gui;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.pets.*;
+import com.rinaorc.zombiez.pets.PetRarity;
+import com.rinaorc.zombiez.pets.PlayerPetData;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,7 +15,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -226,91 +225,13 @@ public class PetEggGUI implements InventoryHolder {
 
                     int toOpen = event.isShiftClick() ? Math.min(10, count) : 1;
 
-                    if (toOpen == 1) {
-                        // Animation d'ouverture
-                        player.closeInventory();
-                        playEggOpenAnimation(gui.plugin, player, eggType);
-                    } else {
-                        // Ouverture multiple sans animation
-                        openMultipleEggs(gui.plugin, player, eggType, toOpen);
-                        new PetEggGUI(gui.plugin, player).open();
-                    }
+                    // Utiliser la nouvelle animation satisfaisante
+                    player.closeInventory();
+                    new EggOpeningAnimation(gui.plugin, player, eggType, toOpen).open();
 
                     return;
                 }
             }
-        }
-
-        private void playEggOpenAnimation(ZombieZPlugin plugin, Player player, EggType eggType) {
-            player.playSound(player.getLocation(), Sound.ENTITY_TURTLE_EGG_CRACK, 1.0f, 1.0f);
-
-            new BukkitRunnable() {
-                int tick = 0;
-
-                @Override
-                public void run() {
-                    if (tick < 20) {
-                        // Phase 1: L'oeuf tremble
-                        player.spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1.5, 0),
-                            3, 0.1, 0.1, 0.1, 0.02);
-                        if (tick % 5 == 0) {
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING,
-                                0.5f, 0.5f + (tick * 0.05f));
-                        }
-                    } else if (tick == 20) {
-                        // Phase 2: Explosion!
-                        PetType result = plugin.getPetManager().openEgg(player, eggType);
-                        if (result != null) {
-                            // Particules selon la rareté
-                            Particle particle = switch (result.getRarity()) {
-                                case COMMON -> Particle.CLOUD;
-                                case UNCOMMON -> Particle.HAPPY_VILLAGER;
-                                case RARE -> Particle.ENCHANT;
-                                case EPIC -> Particle.WITCH;
-                                case LEGENDARY -> Particle.END_ROD;
-                                case MYTHIC -> Particle.SOUL_FIRE_FLAME;
-                            };
-
-                            player.spawnParticle(particle, player.getLocation().add(0, 1.5, 0),
-                                50, 0.5, 0.5, 0.5, 0.1);
-
-                            Sound sound = result.getRarity().isAtLeast(PetRarity.LEGENDARY) ?
-                                Sound.UI_TOAST_CHALLENGE_COMPLETE :
-                                Sound.ENTITY_PLAYER_LEVELUP;
-                            player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
-                        }
-                    } else if (tick >= 40) {
-                        cancel();
-                        // Rouvrir le GUI
-                        Bukkit.getScheduler().runTask(plugin, () ->
-                            new PetEggGUI(plugin, player).open());
-                    }
-                    tick++;
-                }
-            }.runTaskTimer(plugin, 0L, 1L);
-        }
-
-        private void openMultipleEggs(ZombieZPlugin plugin, Player player, EggType eggType, int count) {
-            int newPets = 0;
-            int duplicates = 0;
-
-            for (int i = 0; i < count; i++) {
-                PlayerPetData data = plugin.getPetManager().getPlayerData(player.getUniqueId());
-                if (data == null || data.getEggCount(eggType) <= 0) break;
-
-                PetType result = plugin.getPetManager().openEgg(player, eggType);
-                if (result != null) {
-                    if (data.hasPet(result) && data.getPet(result).getCopies() == 1) {
-                        newPets++;
-                    } else {
-                        duplicates++;
-                    }
-                }
-            }
-
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-            player.sendMessage("§a[Pet] §7Ouvert §e" + count + " §7oeufs!");
-            player.sendMessage("§a[Pet] §7Nouveaux: §a" + newPets + " §7| Duplicatas: §e" + duplicates);
         }
     }
 }
