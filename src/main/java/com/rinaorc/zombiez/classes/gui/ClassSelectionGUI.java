@@ -136,7 +136,7 @@ public class ClassSelectionGUI implements Listener {
 
                 // Ouvrir le menu d'info de classe apres
                 Bukkit.getScheduler().runTaskLater(plugin, () ->
-                    new ClassInfoGUI(plugin, classManager).open(player), 20L);
+                    plugin.getClassInfoGUI().open(player), 20L);
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
