@@ -20,7 +20,7 @@ import java.util.*;
 // ==================== COMBO SYSTEM (Scarabée de Combo) ====================
 
 @Getter
-public class ComboPassive implements PetAbility {
+class ComboPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -84,7 +84,7 @@ public class ComboPassive implements PetAbility {
 }
 
 @Getter
-public class ComboExplosionActive implements PetAbility {
+class ComboExplosionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -134,7 +134,7 @@ public class ComboExplosionActive implements PetAbility {
 // ==================== LIFESTEAL (Larve Parasitaire) ====================
 
 @Getter
-public class LifestealPassive implements PetAbility {
+class LifestealPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -165,7 +165,7 @@ public class LifestealPassive implements PetAbility {
 }
 
 @Getter
-public class FeastActive implements PetAbility {
+class FeastActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -217,7 +217,7 @@ public class FeastActive implements PetAbility {
 // ==================== RAGE STACKING (Esprit de Rage - Guerrier) ====================
 
 @Getter
-public class RageStackPassive implements PetAbility {
+class RageStackPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -273,7 +273,7 @@ public class RageStackPassive implements PetAbility {
 }
 
 @Getter
-public class UnleashActive implements PetAbility {
+class UnleashActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -316,7 +316,7 @@ public class UnleashActive implements PetAbility {
 // ==================== MARK SYSTEM (Faucon Chasseur - Chasseur) ====================
 
 @Getter
-public class MarkPassive implements PetAbility {
+class MarkPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -365,7 +365,7 @@ public class MarkPassive implements PetAbility {
 }
 
 @Getter
-public class PredatorStrikeActive implements PetAbility {
+class PredatorStrikeActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -430,7 +430,7 @@ public class PredatorStrikeActive implements PetAbility {
 // ==================== SOUL ORB SYSTEM (Orbe d'Âmes - Occultiste) ====================
 
 @Getter
-public class SoulOrbPassive implements PetAbility {
+class SoulOrbPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -477,7 +477,7 @@ public class SoulOrbPassive implements PetAbility {
 }
 
 @Getter
-public class SoulReleaseActive implements PetAbility {
+class SoulReleaseActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -537,7 +537,7 @@ public class SoulReleaseActive implements PetAbility {
 // ==================== ELEMENTAL ROTATION (Salamandre Élémentaire) ====================
 
 @Getter
-public class ElementalRotationPassive implements PetAbility {
+class ElementalRotationPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -616,7 +616,7 @@ public class ElementalRotationPassive implements PetAbility {
 }
 
 @Getter
-public class ElementalFusionActive implements PetAbility {
+class ElementalFusionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -665,7 +665,7 @@ public class ElementalFusionActive implements PetAbility {
 // ==================== VENGEANCE SYSTEM (Spectre de Vengeance) ====================
 
 @Getter
-public class VengeancePassive implements PetAbility {
+class VengeancePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -719,7 +719,7 @@ public class VengeancePassive implements PetAbility {
 }
 
 @Getter
-public class VengeanceExplosionActive implements PetAbility {
+class VengeanceExplosionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -768,7 +768,7 @@ public class VengeanceExplosionActive implements PetAbility {
 // ==================== JACKPOT SYSTEM (Djinn du Jackpot) ====================
 
 @Getter
-public class JackpotPassive implements PetAbility {
+class JackpotPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -796,7 +796,7 @@ public class JackpotPassive implements PetAbility {
 }
 
 @Getter
-public class SuperJackpotActive implements PetAbility {
+class SuperJackpotActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -836,7 +836,7 @@ public class SuperJackpotActive implements PetAbility {
 // ==================== CLASS ADAPTIVE (Dragon Chromatique) ====================
 
 @Getter
-public class ClassAdaptivePassive implements PetAbility {
+class ClassAdaptivePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -859,7 +859,7 @@ public class ClassAdaptivePassive implements PetAbility {
 }
 
 @Getter
-public class ChromaticBreathActive implements PetAbility {
+class ChromaticBreathActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -915,7 +915,7 @@ public class ChromaticBreathActive implements PetAbility {
 // ==================== ZONE ADAPTATION (Sentinelle des Zones) ====================
 
 @Getter
-public class ZoneAdaptPassive implements PetAbility {
+class ZoneAdaptPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -938,7 +938,7 @@ public class ZoneAdaptPassive implements PetAbility {
 }
 
 @Getter
-public class ZoneMasteryActive implements PetAbility {
+class ZoneMasteryActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -979,7 +979,7 @@ public class ZoneMasteryActive implements PetAbility {
 // ==================== SYMBIOTE (Symbiote Éternel) ====================
 
 @Getter
-public class SymbiotePassive implements PetAbility {
+class SymbiotePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1006,7 +1006,7 @@ public class SymbiotePassive implements PetAbility {
 }
 
 @Getter
-public class SymbioticFusionActive implements PetAbility {
+class SymbioticFusionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1066,7 +1066,7 @@ public class SymbioticFusionActive implements PetAbility {
 // ==================== NEXUS (Nexus Dimensionnel - Support) ====================
 
 @Getter
-public class NexusAuraPassive implements PetAbility {
+class NexusAuraPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1119,7 +1119,7 @@ public class NexusAuraPassive implements PetAbility {
 }
 
 @Getter
-public class DimensionalConvergenceActive implements PetAbility {
+class DimensionalConvergenceActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
