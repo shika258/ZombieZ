@@ -169,6 +169,7 @@ class AttackPassive implements PetAbility {
         this.description = desc;
         this.damage = damage;
         this.intervalTicks = interval;
+        PassiveAbilityCleanup.registerForCleanup(lastAttack);
     }
 
     @Override
@@ -215,6 +216,7 @@ class RegenPassive implements PetAbility {
         this.description = desc;
         this.healAmount = heal;
         this.intervalTicks = interval;
+        PassiveAbilityCleanup.registerForCleanup(lastHeal);
     }
 
     @Override
@@ -331,6 +333,7 @@ class RebornPassive implements PetAbility {
         this.description = desc;
         this.healthPercent = health;
         this.cooldownSeconds = cooldown;
+        PassiveAbilityCleanup.registerForCleanup(lastReborn);
     }
 
     @Override
@@ -419,6 +422,7 @@ class AuraPassive implements PetAbility {
         this.description = desc;
         this.damagePerSecond = dps;
         this.radius = radius;
+        PassiveAbilityCleanup.registerForCleanup(lastDamage);
     }
 
     @Override
@@ -460,6 +464,7 @@ class ParryPassive implements PetAbility {
         this.displayName = name;
         this.description = desc;
         this.cooldownSeconds = cooldown;
+        PassiveAbilityCleanup.registerForCleanup(lastParry);
     }
 
     @Override
@@ -592,6 +597,7 @@ class ChaosPassive implements PetAbility {
         this.displayName = name;
         this.description = desc;
         this.intervalSeconds = interval;
+        PassiveAbilityCleanup.registerForCleanup(lastEffect);
     }
 
     @Override
@@ -676,6 +682,7 @@ class TeleportOnDamagePassive implements PetAbility {
         this.description = desc;
         this.teleportDistance = distance;
         this.cooldownSeconds = cooldown;
+        PassiveAbilityCleanup.registerForCleanup(lastTeleport);
     }
 
     @Override
@@ -767,6 +774,7 @@ class AdvancedRegenPassive implements PetAbility {
         this.healPerTick = heal;
         this.intervalTicks = interval;
         this.healEfficiencyBonus = efficiency;
+        PassiveAbilityCleanup.registerForCleanup(lastHeal);
     }
 
     @Override
@@ -801,6 +809,7 @@ class AdvancedRebornPassive implements PetAbility {
         this.displayName = name;
         this.description = desc;
         this.healthPercent = health;
+        PassiveAbilityCleanup.registerForCleanup(usedThisLife);
     }
 
     @Override
@@ -963,5 +972,45 @@ class PowerSlowPassive implements PetAbility {
     @Override
     public void onUnequip(Player player, PetData petData) {
         player.setWalkSpeed(0.2f);
+    }
+}
+
+// ==================== CLEANUP UTILITY ====================
+
+/**
+ * Utilitaire pour nettoyer les données en mémoire lors de la déconnexion
+ * Évite les fuites mémoire des Maps contenant des UUIDs
+ */
+public class PassiveAbilityCleanup {
+
+    // Références statiques aux abilities avec état interne
+    private static final List<Map<UUID, ?>> uuidMaps = new ArrayList<>();
+
+    /**
+     * Enregistre une map pour le nettoyage automatique
+     */
+    public static void registerForCleanup(Map<UUID, ?> map) {
+        if (!uuidMaps.contains(map)) {
+            uuidMaps.add(map);
+        }
+    }
+
+    /**
+     * Nettoie toutes les données associées à un joueur
+     * Appelé lors de la déconnexion
+     */
+    public static void cleanupPlayer(UUID playerId) {
+        for (Map<UUID, ?> map : uuidMaps) {
+            map.remove(playerId);
+        }
+    }
+
+    /**
+     * Nettoie toutes les données (shutdown du serveur)
+     */
+    public static void cleanupAll() {
+        for (Map<UUID, ?> map : uuidMaps) {
+            map.clear();
+        }
     }
 }

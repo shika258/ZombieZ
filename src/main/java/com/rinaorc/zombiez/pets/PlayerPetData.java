@@ -298,22 +298,40 @@ public class PlayerPetData {
 
     /**
      * Vérifie si le pity garantit une rareté minimum
+     * Chaque type d'oeuf a ses propres seuils de garantie
      */
     public PetRarity checkPityGuarantee(EggType eggType) {
         int pity = getPityCounter(eggType);
 
         return switch (eggType) {
             case STANDARD -> {
+                // 50 → Rare, 100 → Épique, 200 → Légendaire
                 if (pity >= 200) yield PetRarity.LEGENDARY;
                 if (pity >= 100) yield PetRarity.EPIC;
                 if (pity >= 50) yield PetRarity.RARE;
                 yield null;
             }
+            case ZONE -> {
+                // 30 → Épique, 75 → Légendaire
+                if (pity >= 75) yield PetRarity.LEGENDARY;
+                if (pity >= 30) yield PetRarity.EPIC;
+                yield null;
+            }
             case ELITE -> {
+                // 20 → Légendaire, 50 → Mythique
+                if (pity >= 50) yield PetRarity.MYTHIC;
                 if (pity >= 20) yield PetRarity.LEGENDARY;
                 yield null;
             }
-            default -> null;
+            case LEGENDARY -> {
+                // 25 → Mythique (l'oeuf garantit déjà Légendaire)
+                if (pity >= 25) yield PetRarity.MYTHIC;
+                yield null;
+            }
+            case MYTHIC -> {
+                // L'oeuf Mythique garantit déjà Mythique, pas de pity nécessaire
+                yield null;
+            }
         };
     }
 

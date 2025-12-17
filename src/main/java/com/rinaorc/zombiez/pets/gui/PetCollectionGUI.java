@@ -20,34 +20,53 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * GUI de la collection de pets
+ * GUI de la collection de pets avec filtres par rareté
  */
 public class PetCollectionGUI implements InventoryHolder {
 
-    private static final String TITLE = "§8§l📦 Collection de Pets";
     private static final int SIZE = 54;
-    private static final int PETS_PER_PAGE = 36;
+    private static final int PETS_PER_PAGE = 28; // 7x4 grid
 
-    // Slots de navigation
+    // Slots pour les filtres de rareté (ligne du haut)
+    private static final int SLOT_FILTER_ALL = 0;
+    private static final int[] SLOT_FILTERS = {1, 2, 3, 4, 5, 6}; // COMMON to MYTHIC
+
+    // Slots de navigation (ligne du bas)
     private static final int SLOT_PREV = 45;
-    private static final int SLOT_BACK = 49;
+    private static final int SLOT_INFO = 49;
+    private static final int SLOT_BACK = 47;
     private static final int SLOT_NEXT = 53;
+    private static final int SLOT_SORT = 51;
+
+    // Zone d'affichage des pets: slots 9-17, 18-26, 27-35, 36-44 (4 rows x 7 cols)
+    private static final int[] PET_SLOTS = {
+        10, 11, 12, 13, 14, 15, 16,
+        19, 20, 21, 22, 23, 24, 25,
+        28, 29, 30, 31, 32, 33, 34,
+        37, 38, 39, 40, 41, 42, 43
+    };
 
     private final ZombieZPlugin plugin;
     private final Player player;
     private final Inventory inventory;
     private final PlayerPetData petData;
     private final int page;
-    private final PetType[] allPets;
+    private final PetRarity filterRarity; // null = tous
+    private final boolean showOwnedOnly;
+    private final PetType[] filteredPets;
 
-    public PetCollectionGUI(ZombieZPlugin plugin, Player player, int page) {
+    public PetCollectionGUI(ZombieZPlugin plugin, Player player, int page, PetRarity filter, boolean ownedOnly) {
         this.plugin = plugin;
         this.player = player;
         this.page = page;
         this.petData = plugin.getPetManager().getPlayerData(player.getUniqueId());
+        this.filterRarity = filter;
+        this.showOwnedOnly = ownedOnly;
 
-        // Trier les pets par rareté puis par nom
-        this.allPets = Arrays.stream(PetType.values())
+        // Filtrer et trier les pets
+        this.filteredPets = Arrays.stream(PetType.values())
+            .filter(p -> filter == null || p.getRarity() == filter)
+            .filter(p -> !ownedOnly || (petData != null && petData.hasPet(p)))
             .sorted((a, b) -> {
                 int rarityCompare = a.getRarity().ordinal() - b.getRarity().ordinal();
                 if (rarityCompare != 0) return rarityCompare;
@@ -55,8 +74,14 @@ public class PetCollectionGUI implements InventoryHolder {
             })
             .toArray(PetType[]::new);
 
-        this.inventory = Bukkit.createInventory(this, SIZE, TITLE + " §7(Page " + (page + 1) + ")");
+        String title = "§8§l📦 Collection" + (filter != null ? " §7[" + filter.getColoredName() + "§7]" : "");
+        this.inventory = Bukkit.createInventory(this, SIZE, title);
         setupGUI();
+    }
+
+    // Constructeur simplifié
+    public PetCollectionGUI(ZombieZPlugin plugin, Player player, int page) {
+        this(plugin, player, page, null, false);
     }
 
     private void setupGUI() {
@@ -66,53 +91,139 @@ public class PetCollectionGUI implements InventoryHolder {
             inventory.setItem(i, filler);
         }
 
-        // Afficher les pets de cette page
-        int startIndex = page * PETS_PER_PAGE;
-        int endIndex = Math.min(startIndex + PETS_PER_PAGE, allPets.length);
-
-        for (int i = startIndex; i < endIndex; i++) {
-            int slot = i - startIndex;
-            if (slot >= 36) break;
-
-            // Ajuster le slot pour éviter la barre de navigation
-            int row = slot / 9;
-            int col = slot % 9;
-            int actualSlot = row * 9 + col;
-
-            inventory.setItem(actualSlot, createPetItem(allPets[i]));
+        // Bordures latérales
+        ItemStack border = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        for (int row = 1; row < 5; row++) {
+            inventory.setItem(row * 9, border);      // Gauche
+            inventory.setItem(row * 9 + 8, border);  // Droite
         }
+
+        // Filtres de rareté
+        setupFilters();
+
+        // Afficher les pets
+        displayPets();
 
         // Navigation
-        if (page > 0) {
-            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.ARROW)
-                .name("§e◄ Page précédente")
+        setupNavigation();
+    }
+
+    private void setupFilters() {
+        // Bouton "Tous"
+        boolean allSelected = filterRarity == null;
+        inventory.setItem(SLOT_FILTER_ALL, new ItemBuilder(allSelected ? Material.NETHER_STAR : Material.GRAY_DYE)
+            .name((allSelected ? "§a► " : "§7") + "Tous les Pets")
+            .lore(
+                "",
+                "§7Afficher tous les pets",
+                "§7Total: §e" + PetType.values().length,
+                "",
+                allSelected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer"
+            )
+            .glow(allSelected)
+            .build());
+
+        // Filtres par rareté
+        PetRarity[] rarities = PetRarity.values();
+        for (int i = 0; i < rarities.length && i < SLOT_FILTERS.length; i++) {
+            PetRarity rarity = rarities[i];
+            boolean selected = filterRarity == rarity;
+            int ownedCount = petData != null ? petData.getPetCountByRarity(rarity) : 0;
+            int totalCount = PetType.getByRarity(rarity).length;
+
+            Material mat = switch (rarity) {
+                case COMMON -> Material.WHITE_DYE;
+                case UNCOMMON -> Material.LIME_DYE;
+                case RARE -> Material.CYAN_DYE;
+                case EPIC -> Material.PURPLE_DYE;
+                case LEGENDARY -> Material.ORANGE_DYE;
+                case MYTHIC -> Material.RED_DYE;
+            };
+
+            inventory.setItem(SLOT_FILTERS[i], new ItemBuilder(mat)
+                .name((selected ? "§a► " : "") + rarity.getColoredName())
+                .lore(
+                    "",
+                    "§7Possédés: §a" + ownedCount + "§7/§e" + totalCount,
+                    "",
+                    selected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer"
+                )
+                .glow(selected)
                 .build());
         }
 
-        inventory.setItem(SLOT_BACK, new ItemBuilder(Material.BARRIER)
-            .name("§c✖ Retour")
+        // Bouton toggle "Owned only"
+        inventory.setItem(8, new ItemBuilder(showOwnedOnly ? Material.ENDER_EYE : Material.ENDER_PEARL)
+            .name(showOwnedOnly ? "§a✓ Possédés uniquement" : "§7☐ Possédés uniquement")
+            .lore(
+                "",
+                "§7Afficher uniquement les pets",
+                "§7que vous possédez.",
+                "",
+                showOwnedOnly ? "§eCliquez pour voir tous" : "§eCliquez pour activer"
+            )
+            .glow(showOwnedOnly)
             .build());
+    }
 
-        if (endIndex < allPets.length) {
-            inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.ARROW)
-                .name("§ePage suivante ►")
+    private void displayPets() {
+        int startIndex = page * PETS_PER_PAGE;
+        int endIndex = Math.min(startIndex + PETS_PER_PAGE, filteredPets.length);
+
+        for (int i = 0; i < PETS_PER_PAGE; i++) {
+            int petIndex = startIndex + i;
+            int slot = PET_SLOTS[i];
+
+            if (petIndex < endIndex) {
+                inventory.setItem(slot, createPetItem(filteredPets[petIndex]));
+            } else {
+                inventory.setItem(slot, ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE));
+            }
+        }
+    }
+
+    private void setupNavigation() {
+        int totalPages = Math.max(1, (int) Math.ceil(filteredPets.length / (double) PETS_PER_PAGE));
+
+        // Page précédente
+        if (page > 0) {
+            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.ARROW)
+                .name("§e◄ Page " + page)
+                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
                 .build());
+        } else {
+            inventory.setItem(SLOT_PREV, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
         }
 
         // Info collection
-        inventory.setItem(48, createCollectionInfoItem());
+        inventory.setItem(SLOT_INFO, createCollectionInfoItem());
+
+        // Retour
+        inventory.setItem(SLOT_BACK, new ItemBuilder(Material.BARRIER)
+            .name("§c✖ Retour au menu")
+            .build());
+
+        // Page suivante
+        if ((page + 1) * PETS_PER_PAGE < filteredPets.length) {
+            inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.ARROW)
+                .name("§ePage " + (page + 2) + " ►")
+                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
+                .build());
+        } else {
+            inventory.setItem(SLOT_NEXT, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
+        }
     }
 
     private ItemStack createPetItem(PetType type) {
         boolean owned = petData != null && petData.hasPet(type);
 
         if (!owned) {
-            // Pet non possédé - silhouette
             return new ItemBuilder(Material.GRAY_DYE)
                 .name("§8??? " + type.getRarity().getStars())
                 .lore(
                     "",
                     "§7Rareté: " + type.getRarity().getColoredName(),
+                    "§7Thème: §8" + type.getTheme(),
                     "",
                     "§8Pet non découvert",
                     "",
@@ -130,30 +241,27 @@ public class PetCollectionGUI implements InventoryHolder {
         lore.add("§7Rareté: " + type.getRarity().getColoredName());
         lore.add("§7Thème: §f" + type.getTheme());
         lore.add("");
-        lore.add("§7Niveau: §a" + pet.getLevel() + "§7/§e9");
-        lore.add("§7Copies: §b" + pet.getCopies());
-        lore.add(pet.getProgressBar());
+        lore.add("§7Niveau: §a" + pet.getLevel() + "§7/§e9 " + pet.getProgressBar());
+        lore.add("§7Copies: §b" + pet.getCopies() + "§7/§e" + type.getRarity().getCopiesForMax());
         lore.add("");
-        lore.add("§7[Passif] §f" + type.getPassiveDescription());
+        lore.add("§7[Passif] §f" + truncate(type.getPassiveDescription(), 35));
         if (pet.hasLevel5Bonus()) {
-            lore.add("§a[+Niv.5] §f" + type.getLevel5Bonus());
+            lore.add("§a[Niv.5] §f" + truncate(type.getLevel5Bonus(), 35));
         }
-        lore.add("");
-        lore.add("§b[Actif] " + type.getActiveName());
-        lore.add("§7" + type.getActiveDescription());
+        lore.add("§b[Actif] §f" + type.getActiveName());
 
         if (pet.getStarPower() > 0) {
             lore.add("");
-            lore.add("§e★ Star Power: " + pet.getStarPower());
+            lore.add("§e★ Star Power: " + pet.getStarPower() + "/3");
         }
 
         lore.add("");
         if (isEquipped) {
             lore.add("§a✓ Actuellement équipé");
         } else {
-            lore.add("§eCliquez pour équiper");
+            lore.add("§eClic gauche: Équiper");
         }
-        lore.add("§6Clic droit: Voir détails");
+        lore.add("§6Clic droit: Détails");
 
         String stars = pet.getStarPower() > 0 ? " §e" + "★".repeat(pet.getStarPower()) : "";
 
@@ -164,27 +272,45 @@ public class PetCollectionGUI implements InventoryHolder {
             .build();
     }
 
+    private String truncate(String text, int maxLength) {
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + "...";
+    }
+
     private ItemStack createCollectionInfoItem() {
         int owned = petData != null ? petData.getPetCount() : 0;
         int total = PetType.values().length;
+        int filtered = filteredPets.length;
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7Progression: §a" + owned + "§7/§e" + total);
-        lore.add("§7Complétion: §a" + String.format("%.1f", (owned * 100.0 / total)) + "%");
+        lore.add("§7Collection totale: §a" + owned + "§7/§e" + total + " §7(" + String.format("%.1f", (owned * 100.0 / total)) + "%)");
         lore.add("");
-
-        // Compter par rareté
-        for (PetRarity rarity : PetRarity.values()) {
-            int ownedOfRarity = petData != null ? petData.getPetCountByRarity(rarity) : 0;
-            int totalOfRarity = PetType.getByRarity(rarity).length;
-            lore.add(rarity.getColoredName() + "§7: §a" + ownedOfRarity + "§7/§e" + totalOfRarity);
+        if (filterRarity != null) {
+            int ownedFilter = petData != null ? petData.getPetCountByRarity(filterRarity) : 0;
+            lore.add("§7Filtre actif: " + filterRarity.getColoredName());
+            lore.add("§7Possédés: §a" + ownedFilter + "§7/§e" + filtered);
+        } else {
+            lore.add("§7Par rareté:");
+            for (PetRarity rarity : PetRarity.values()) {
+                int ownedR = petData != null ? petData.getPetCountByRarity(rarity) : 0;
+                int totalR = PetType.getByRarity(rarity).length;
+                String bar = createMiniBar(ownedR, totalR);
+                lore.add("  " + rarity.getColoredName() + " " + bar + " §a" + ownedR + "§7/§e" + totalR);
+            }
         }
 
         return new ItemBuilder(Material.BOOK)
-            .name("§6📊 Collection")
+            .name("§6📊 Statistiques Collection")
             .lore(lore)
             .build();
+    }
+
+    private String createMiniBar(int current, int max) {
+        if (max == 0) return "§8▌▌▌▌▌";
+        int filled = Math.min(5, (int) ((current * 5.0) / max));
+        int empty = 5 - filled;
+        return "§a" + "▌".repeat(filled) + "§8" + "▌".repeat(empty);
     }
 
     public void open() {
@@ -195,6 +321,12 @@ public class PetCollectionGUI implements InventoryHolder {
     public @NotNull Inventory getInventory() {
         return inventory;
     }
+
+    // Getters pour le listener
+    public int getPage() { return page; }
+    public PetRarity getFilterRarity() { return filterRarity; }
+    public boolean isShowOwnedOnly() { return showOwnedOnly; }
+    public PetType[] getFilteredPets() { return filteredPets; }
 
     /**
      * Gestionnaire d'événements
@@ -214,15 +346,38 @@ public class PetCollectionGUI implements InventoryHolder {
             }
 
             event.setCancelled(true);
-            if (event.getCurrentItem() == null) return;
+            if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
 
             Player player = (Player) event.getWhoClicked();
             int slot = event.getRawSlot();
 
+            // Filtre "Tous"
+            if (slot == SLOT_FILTER_ALL) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                new PetCollectionGUI(gui.plugin, player, 0, null, gui.showOwnedOnly).open();
+                return;
+            }
+
+            // Filtres de rareté
+            for (int i = 0; i < SLOT_FILTERS.length; i++) {
+                if (slot == SLOT_FILTERS[i]) {
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    new PetCollectionGUI(gui.plugin, player, 0, PetRarity.values()[i], gui.showOwnedOnly).open();
+                    return;
+                }
+            }
+
+            // Toggle owned only
+            if (slot == 8) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                new PetCollectionGUI(gui.plugin, player, 0, gui.filterRarity, !gui.showOwnedOnly).open();
+                return;
+            }
+
             // Navigation
             if (slot == SLOT_PREV && gui.page > 0) {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                new PetCollectionGUI(gui.plugin, player, gui.page - 1).open();
+                new PetCollectionGUI(gui.plugin, player, gui.page - 1, gui.filterRarity, gui.showOwnedOnly).open();
                 return;
             }
 
@@ -233,36 +388,37 @@ public class PetCollectionGUI implements InventoryHolder {
             }
 
             if (slot == SLOT_NEXT) {
-                int maxPage = (gui.allPets.length - 1) / PETS_PER_PAGE;
+                int maxPage = Math.max(0, (gui.filteredPets.length - 1) / PETS_PER_PAGE);
                 if (gui.page < maxPage) {
                     player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    new PetCollectionGUI(gui.plugin, player, gui.page + 1).open();
+                    new PetCollectionGUI(gui.plugin, player, gui.page + 1, gui.filterRarity, gui.showOwnedOnly).open();
                 }
                 return;
             }
 
             // Clic sur un pet
-            if (slot < 36) {
-                int index = gui.page * PETS_PER_PAGE + slot;
-                if (index >= gui.allPets.length) return;
+            for (int i = 0; i < PET_SLOTS.length; i++) {
+                if (slot == PET_SLOTS[i]) {
+                    int index = gui.page * PETS_PER_PAGE + i;
+                    if (index >= gui.filteredPets.length) return;
 
-                PetType type = gui.allPets[index];
-                PlayerPetData petData = gui.petData;
+                    PetType type = gui.filteredPets[index];
+                    PlayerPetData petData = gui.petData;
 
-                if (petData == null || !petData.hasPet(type)) {
-                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    if (petData == null || !petData.hasPet(type)) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                        return;
+                    }
+
+                    if (event.isLeftClick()) {
+                        gui.plugin.getPetManager().equipPet(player, type);
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+                        new PetCollectionGUI(gui.plugin, player, gui.page, gui.filterRarity, gui.showOwnedOnly).open();
+                    } else if (event.isRightClick()) {
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                        new PetDetailsGUI(gui.plugin, player, type).open();
+                    }
                     return;
-                }
-
-                if (event.isLeftClick()) {
-                    // Équiper le pet
-                    gui.plugin.getPetManager().equipPet(player, type);
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-                    new PetCollectionGUI(gui.plugin, player, gui.page).open();
-                } else if (event.isRightClick()) {
-                    // Voir les détails
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    new PetDetailsGUI(gui.plugin, player, type).open();
                 }
             }
         }

@@ -119,32 +119,58 @@ public class PetEggGUI implements InventoryHolder {
     private ItemStack createPityInfoItem() {
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7Système de protection contre");
-        lore.add("§7la malchance. Plus vous ouvrez");
-        lore.add("§7d'oeufs sans obtenir de rareté,");
-        lore.add("§7plus vos chances augmentent!");
+        lore.add("§7Le système Pity vous garantit");
+        lore.add("§7une rareté minimum après un");
+        lore.add("§7certain nombre d'oeufs ouverts.");
         lore.add("");
 
         if (petData != null) {
-            lore.add("§7═══ COMPTEURS ═══");
-            lore.add("");
-
+            // Oeuf Standard
             int standardPity = petData.getPityCounter(EggType.STANDARD);
-            lore.add("§fOeuf Standard:");
-            lore.add("  §7Pity: §e" + standardPity + "§7/50 (Rare)");
-            lore.add("  §7Pity: §e" + standardPity + "§7/100 (Épique)");
-            lore.add("  §7Pity: §e" + standardPity + "§7/200 (Légendaire)");
+            lore.add("§f◆ Oeuf Standard:");
+            lore.add("  " + createPityBar(standardPity, 50) + " §b" + standardPity + "§7/§b50 §7→ Rare");
+            lore.add("  " + createPityBar(standardPity, 100) + " §d" + standardPity + "§7/§d100 §7→ Épique");
+            lore.add("  " + createPityBar(standardPity, 200) + " §6" + standardPity + "§7/§6200 §7→ Légendaire");
 
+            // Oeuf Zone
+            int zonePity = petData.getPityCounter(EggType.ZONE);
+            lore.add("");
+            lore.add("§e◆ Oeuf de Zone:");
+            lore.add("  " + createPityBar(zonePity, 30) + " §d" + zonePity + "§7/§d30 §7→ Épique");
+            lore.add("  " + createPityBar(zonePity, 75) + " §6" + zonePity + "§7/§675 §7→ Légendaire");
+
+            // Oeuf Élite
             int elitePity = petData.getPityCounter(EggType.ELITE);
             lore.add("");
-            lore.add("§dOeuf Élite:");
-            lore.add("  §7Pity: §e" + elitePity + "§7/20 (Légendaire)");
+            lore.add("§d◆ Oeuf Élite:");
+            lore.add("  " + createPityBar(elitePity, 20) + " §6" + elitePity + "§7/§620 §7→ Légendaire");
+            lore.add("  " + createPityBar(elitePity, 50) + " §c" + elitePity + "§7/§c50 §7→ Mythique");
+
+            // Oeuf Légendaire
+            int legendaryPity = petData.getPityCounter(EggType.LEGENDARY);
+            lore.add("");
+            lore.add("§6◆ Oeuf Légendaire:");
+            lore.add("  " + createPityBar(legendaryPity, 25) + " §c" + legendaryPity + "§7/§c25 §7→ Mythique");
+
+            lore.add("");
+            lore.add("§8Le pity se réinitialise quand vous");
+            lore.add("§8obtenez la rareté garantie ou mieux.");
         }
 
         return new ItemBuilder(Material.KNOWLEDGE_BOOK)
             .name("§6📖 Système Pity")
             .lore(lore)
             .build();
+    }
+
+    /**
+     * Crée une barre de progression visuelle pour le pity
+     */
+    private String createPityBar(int current, int max) {
+        int progress = Math.min(10, (int) ((current * 10.0) / max));
+        int remaining = 10 - progress;
+        String color = progress >= 8 ? "§a" : (progress >= 5 ? "§e" : "§7");
+        return color + "▌".repeat(progress) + "§8" + "▌".repeat(remaining);
     }
 
     public void open() {

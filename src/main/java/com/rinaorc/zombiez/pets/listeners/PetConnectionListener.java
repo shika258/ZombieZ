@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.pets.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.pets.abilities.impl.PassiveAbilityCleanup;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -37,6 +38,9 @@ public class PetConnectionListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         plugin.getPetManager().onPlayerQuit(event.getPlayer());
+
+        // Nettoyer les données en mémoire des abilities pour éviter les fuites
+        PassiveAbilityCleanup.cleanupPlayer(event.getPlayer().getUniqueId());
     }
 
     /**

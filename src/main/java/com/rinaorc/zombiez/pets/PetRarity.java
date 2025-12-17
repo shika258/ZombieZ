@@ -106,20 +106,39 @@ public enum PetRarity {
 
     /**
      * Obtient les copies requises pour un niveau donné
+     * La progression s'adapte à la rareté (copiesForMax)
      */
     public int getCopiesForLevel(int level) {
         if (level <= 1) return 1;
-        return switch (level) {
-            case 2 -> 2;
-            case 3 -> 4;
-            case 4 -> 10;
-            case 5 -> 20;
-            case 6 -> 50;
-            case 7 -> 100;
-            case 8 -> 200;
-            case 9 -> copiesForMax - 387; // Reste des copies
-            default -> copiesForMax;
+        if (level > 9) return 0;
+
+        // Progression en pourcentage du total de copies
+        // Ces pourcentages garantissent une progression équilibrée pour toutes les raretés
+        double[] percentages = {
+            0.02,   // Level 1: 2%
+            0.03,   // Level 2: 3%
+            0.05,   // Level 3: 5%
+            0.08,   // Level 4: 8%
+            0.12,   // Level 5: 12%
+            0.15,   // Level 6: 15%
+            0.18,   // Level 7: 18%
+            0.20,   // Level 8: 20%
+            0.17    // Level 9: 17% (reste)
         };
+
+        // Calculer le nombre de copies pour ce niveau
+        int copiesNeeded = Math.max(1, (int) Math.ceil(copiesForMax * percentages[level - 1]));
+
+        // S'assurer que le niveau 9 récupère exactement le reste pour atteindre copiesForMax
+        if (level == 9) {
+            int totalUsed = 0;
+            for (int i = 1; i <= 8; i++) {
+                totalUsed += Math.max(1, (int) Math.ceil(copiesForMax * percentages[i - 1]));
+            }
+            copiesNeeded = Math.max(1, copiesForMax - totalUsed);
+        }
+
+        return copiesNeeded;
     }
 
     /**
