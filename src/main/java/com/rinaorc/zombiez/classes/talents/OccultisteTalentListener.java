@@ -752,7 +752,7 @@ public class OccultisteTalentListener implements Listener {
         // Visual ameliore selon les stacks
         int particleCount = 15 + (stacks * 3);
         target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), particleCount, 0.4, 0.6, 0.4, 0.02);
-        target.getWorld().spawnParticle(Particle.BLOCK_CRACK, target.getLocation().add(0, 0.5, 0),
+        target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 0.5, 0),
             5 + stacks, 0.3, 0.3, 0.3, 0.1, Material.BLUE_ICE.createBlockData());
         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
 
@@ -2069,7 +2069,7 @@ public class OccultisteTalentListener implements Listener {
 
                 // Visual ameliore - zone de givre au sol
                 world.spawnParticle(Particle.SNOWFLAKE, loc, 8, radius/2, 0.3, radius/2, 0.02);
-                world.spawnParticle(Particle.BLOCK_CRACK, loc, 5, radius/2, 0.1, radius/2, 0.01,
+                world.spawnParticle(Particle.BLOCK, loc, 5, radius/2, 0.1, radius/2, 0.01,
                     Material.BLUE_ICE.createBlockData());
             } catch (NumberFormatException ignored) {}
         }
