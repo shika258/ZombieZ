@@ -37,8 +37,28 @@ public class OccultisteTalentListener implements Listener {
     // Ennemis en feu (entity UUID -> expiry timestamp)
     private final Map<UUID, Long> burningEnemies = new ConcurrentHashMap<>();
 
+    // ==================== HEAT INTENSITY SYSTEM ====================
+    // Intensite de brulure par ennemi (entity UUID -> burn start timestamp)
+    private final Map<UUID, Long> burnStartTime = new ConcurrentHashMap<>();
+    // Zones de chaleur au sol (location key -> expiry timestamp)
+    private final Map<String, Long> heatZones = new ConcurrentHashMap<>();
+    // Cooldown Embrasement Critique par ennemi (entity UUID -> timestamp fin cooldown)
+    private final Map<UUID, Long> criticalIgnitionCooldowns = new ConcurrentHashMap<>();
+    // Intensite max avant explosion (en secondes de brulure)
+    private static final double MAX_BURN_INTENSITY = 8.0;
+
     // Ennemis geles (entity UUID -> freeze start timestamp)
     private final Map<UUID, Long> frozenEnemies = new ConcurrentHashMap<>();
+
+    // ==================== FROST STACKS SYSTEM ====================
+    // Stacks de Givre par ennemi (entity UUID -> nombre de stacks)
+    private final Map<UUID, Integer> frostStacks = new ConcurrentHashMap<>();
+    // Dernier temps d'application de stack (pour decay)
+    private final Map<UUID, Long> frostStacksLastApplied = new ConcurrentHashMap<>();
+    // Cooldown Brisure Glaciale par ennemi (entity UUID -> timestamp fin cooldown)
+    private final Map<UUID, Long> shatterCooldowns = new ConcurrentHashMap<>();
+    // Max stacks de givre
+    private static final int MAX_FROST_STACKS = 10;
 
     // Minions invoques (player UUID -> list of minion UUIDs)
     private final Map<UUID, List<UUID>> playerMinions = new ConcurrentHashMap<>();
@@ -147,6 +167,14 @@ public class OccultisteTalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 30L, 30L);
 
+        // MINION AI TICK (40L = 2s) - Mise a jour des cibles des serviteurs
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                processMinionAI();
+            }
+        }.runTaskTimer(plugin, 40L, 40L);
+
         // CLEANUP (200L = 10s) - Nettoyage des donnees expirees
         new BukkitRunnable() {
             @Override
@@ -171,6 +199,43 @@ public class OccultisteTalentListener implements Listener {
 
     // ==================== DAMAGE EVENTS ====================
 
+    /**
+     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     * Priorite HIGHEST pour annuler l'evenement avant tout traitement
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMinionAttack(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+        Entity target = event.getEntity();
+
+        // Gerer les projectiles des minions (fleches de squelettes)
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+            damager = shooter;
+        }
+
+        // Verifier si c'est une attaque de minion a bloquer
+        if (shouldPreventMinionAttack(damager, target)) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Empeche les joueurs d'attaquer leurs propres serviteurs
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerAttackMinion(EntityDamageByEntityEvent event) {
+        Entity target = event.getEntity();
+        if (!target.getScoreboardTags().contains("player_minion")) return;
+
+        Player attacker = getPlayerAttacker(event);
+        if (attacker == null) return;
+
+        // Si le joueur attaque son propre minion, annuler
+        if (isPlayerMinion(target, attacker)) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerDamageEntity(EntityDamageByEntityEvent event) {
         Player player = getPlayerAttacker(event);
@@ -191,19 +256,26 @@ public class OccultisteTalentListener implements Listener {
             bonusDamage += baseDamage * (bonusPerOrb * orbs);
         }
 
-        // Frozen Heart - bonus damage to frozen
+        // Frozen Heart - bonus damage to frozen + bonus per stack
         if (hasTalentEffect(player, Talent.TalentEffectType.FROZEN_HEART)) {
-            if (isFrozen(target)) {
+            if (isFrozen(target) || getFrostStacks(target) > 0) {
                 Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FROZEN_HEART);
-                bonusDamage += baseDamage * talent.getValue(0);
+                double baseBonus = talent.getValue(0); // 20% base
+                double bonusPerStack = talent.getValues().length > 2 ? talent.getValue(2) : 0.05; // 5% per stack
+                int stacks = getFrostStacks(target);
+                bonusDamage += baseDamage * (baseBonus + (bonusPerStack * stacks));
             }
         }
 
-        // Eternal Winter - bonus damage to slowed
+        // Eternal Winter - bonus damage based on stacks
         if (hasTalentEffect(player, Talent.TalentEffectType.ETERNAL_WINTER)) {
-            if (target.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+            int stacks = getFrostStacks(target);
+            if (stacks > 0) {
                 Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ETERNAL_WINTER);
-                bonusDamage += baseDamage * talent.getValue(2);
+                double damagePerStack = talent.getValues().length > 2 ? talent.getValue(2) : 0.05; // 5% per stack
+                double maxBonus = talent.getValues().length > 3 ? talent.getValue(3) : 0.40; // 40% max
+                double bonus = Math.min(damagePerStack * stacks, maxBonus);
+                bonusDamage += baseDamage * bonus;
             }
         }
 
@@ -309,19 +381,22 @@ public class OccultisteTalentListener implements Listener {
             }
         }
 
-        // Frozen Heart - shatter on frozen kill
+        // Frozen Heart - shatter on frozen kill or with stacks
         if (hasTalentEffect(killer, Talent.TalentEffectType.FROZEN_HEART)) {
-            if (isFrozen(victim)) {
-                processShatter(killer, victim);
+            int victimStacks = getFrostStacks(victim);
+            if (isFrozen(victim) || victimStacks >= 3) {
+                processShatter(killer, victim, victimStacks);
             }
         }
 
-        // Ice Age - frost zone on frozen kill
+        // Ice Age - frost zone on kill with enough stacks
         if (hasTalentEffect(killer, Talent.TalentEffectType.ICE_AGE)) {
-            if (isFrozen(victim)) {
-                createIceZone(victim.getLocation());
-            }
+            int victimStacks = getFrostStacks(victim);
+            createIceZone(victim.getLocation(), killer, victimStacks);
         }
+
+        // Nettoyer les stacks du mort
+        clearFrostStacks(victim);
 
         // Lord of the Dead - raise dead
         if (hasTalentEffect(killer, Talent.TalentEffectType.LORD_OF_THE_DEAD)) {
@@ -395,13 +470,24 @@ public class OccultisteTalentListener implements Listener {
         if (!checkCooldown(player, "ignite", talent.getInternalCooldownMs())) return;
 
         if (Math.random() < talent.getValue(0)) {
-            // Set on fire
-            int duration = (int) (talent.getValue(2) * 20);
-            target.setFireTicks(duration);
-            burningEnemies.put(target.getUniqueId(), System.currentTimeMillis() + (long)(talent.getValue(2) * 1000));
+            // values: chance, duration_s
+            double durationSec = talent.getValue(1);
+            int fireTicks = (int) (durationSec * 20);
+            target.setFireTicks(fireTicks);
+            burningEnemies.put(target.getUniqueId(), System.currentTimeMillis() + (long)(durationSec * 1000));
 
-            // Visual
-            target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
+            // Systeme Surchauffe - demarrer/prolonger la brulure
+            double intensity = startOrExtendBurn(target, fireTicks);
+
+            // Verifier Ignition Critique si Phoenix est equipe
+            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                checkCriticalIgnition(player, target);
+            }
+
+            // Visual ameliore - intensite visuelle selon la Surchauffe
+            int particleCount = 10 + (int)(intensity * 2);
+            target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), particleCount, 0.3, 0.5, 0.3, 0.03);
+            target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0, 1.2, 0), 5, 0.2, 0.3, 0.2, 0.02);
             target.getWorld().playSound(target.getLocation(), Sound.ITEM_FIRECHARGE_USE, 0.5f, 1.2f);
         }
     }
@@ -411,24 +497,263 @@ public class OccultisteTalentListener implements Listener {
         if (!checkCooldown(player, "frost_bite", talent.getInternalCooldownMs())) return;
 
         if (Math.random() < talent.getValue(0)) {
+            int stacksToAdd = talent.getValues().length > 3 ? (int) talent.getValue(3) : 1;
+            addFrostStacks(player, target, stacksToAdd);
             applyFreeze(target, (int)(talent.getValue(2) * 1000), talent.getValue(1));
         }
     }
 
     private void processFrostLord(Player player, LivingEntity target) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FROST_LORD);
-        applyFreeze(target, (int)(talent.getValue(1) * 1000), 0.99); // Max slow
+        if (Math.random() < talent.getValue(0)) { // 60% chance
+            int stacksToAdd = talent.getValues().length > 2 ? (int) talent.getValue(2) : 2;
+            addFrostStacks(player, target, stacksToAdd);
+            applyFreeze(target, (int)(talent.getValue(1) * 1000), 0.80);
+
+            // Reduction d'armure si talent le permet
+            if (talent.getValues().length > 3) {
+                // Visual d'armure brisee
+                target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+            }
+        }
+    }
+
+    /**
+     * Ajoute des stacks de Givre a un ennemi
+     */
+    private void addFrostStacks(Player player, LivingEntity target, int amount) {
+        UUID targetId = target.getUniqueId();
+        int currentStacks = frostStacks.getOrDefault(targetId, 0);
+        int newStacks = Math.min(currentStacks + amount, MAX_FROST_STACKS);
+        frostStacks.put(targetId, newStacks);
+        frostStacksLastApplied.put(targetId, System.currentTimeMillis());
+
+        // Visual de stack (petits flocons)
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1.5, 0),
+            3 + newStacks, 0.2, 0.2, 0.2, 0.01);
+
+        // Verifier si on atteint le seuil pour Brisure Glaciale
+        if (hasTalentEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO)) {
+            checkAndTriggerShatter(player, target);
+        }
+    }
+
+    /**
+     * Recupere le nombre de stacks de Givre d'un ennemi
+     */
+    private int getFrostStacks(LivingEntity target) {
+        return frostStacks.getOrDefault(target.getUniqueId(), 0);
+    }
+
+    /**
+     * Retire tous les stacks de Givre d'un ennemi
+     */
+    private void clearFrostStacks(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        frostStacks.remove(targetId);
+        frostStacksLastApplied.remove(targetId);
+    }
+
+    // ==================== HEAT INTENSITY METHODS ====================
+
+    /**
+     * Demarre ou prolonge la brulure d'un ennemi et retourne l'intensite actuelle
+     */
+    private double startOrExtendBurn(LivingEntity target, int fireTicks) {
+        UUID targetId = target.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Si pas encore en train de bruler, demarrer le timer
+        if (!burnStartTime.containsKey(targetId)) {
+            burnStartTime.put(targetId, now);
+        }
+
+        // Appliquer le feu
+        target.setFireTicks(Math.max(target.getFireTicks(), fireTicks));
+        burningEnemies.put(targetId, now + (fireTicks * 50L));
+
+        return getBurnIntensity(target);
+    }
+
+    /**
+     * Recupere l'intensite de brulure d'un ennemi (en secondes de brulure continue)
+     */
+    private double getBurnIntensity(LivingEntity target) {
+        Long startTime = burnStartTime.get(target.getUniqueId());
+        if (startTime == null) return 0;
+
+        double intensity = (System.currentTimeMillis() - startTime) / 1000.0;
+        return Math.min(intensity, MAX_BURN_INTENSITY);
+    }
+
+    /**
+     * Calcule le bonus de degats base sur l'intensite de brulure
+     * Plus l'ennemi brule longtemps, plus il prend de degats
+     */
+    private double getBurnDamageMultiplier(LivingEntity target) {
+        double intensity = getBurnIntensity(target);
+        // +5% de degats par seconde de brulure, max +40%
+        return 1.0 + (intensity * 0.05);
+    }
+
+    /**
+     * Retire la brulure d'un ennemi
+     */
+    private void clearBurn(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        burnStartTime.remove(targetId);
+        burningEnemies.remove(targetId);
+    }
+
+    /**
+     * Verifie si l'ennemi a atteint l'intensite max pour Embrasement Critique
+     */
+    private void checkCriticalIgnition(Player player, LivingEntity target) {
+        if (!hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) return;
+
+        UUID targetId = target.getUniqueId();
+        double intensity = getBurnIntensity(target);
+
+        // Verifier si intensite max atteinte
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PHOENIX_FLAME);
+        double threshold = talent.getValue(0); // seuil en secondes
+
+        if (intensity < threshold) return;
+
+        // Verifier cooldown par ennemi
+        long cooldownMs = (long) talent.getValue(4);
+        Long cooldownEnd = criticalIgnitionCooldowns.get(targetId);
+        if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) return;
+
+        // Declencher Embrasement Critique!
+        triggerCriticalIgnition(player, target, talent, intensity);
+    }
+
+    /**
+     * Declenche l'Embrasement Critique - explosion massive
+     */
+    private void triggerCriticalIgnition(Player player, LivingEntity target, Talent talent, double intensity) {
+        UUID targetId = target.getUniqueId();
+
+        // Determiner si c'est un boss/elite
+        boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
+                                target.getScoreboardTags().contains("elite") ||
+                                target.getMaxHealth() > 50;
+
+        // Calculer les degats: base + bonus par seconde d'intensite
+        double baseDamagePercent = talent.getValue(1);
+        double bossDamagePercent = talent.getValue(3);
+        double damagePercent = isBossOrElite ? bossDamagePercent : baseDamagePercent;
+        double totalDamage = target.getMaxHealth() * damagePercent * intensity;
+
+        // Appliquer les degats SANS knockback
+        damageNoKnockback(target, totalDamage, player);
+
+        // Propager le feu aux ennemis proches
+        double radius = talent.getValue(2);
+        for (Entity entity : target.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                startOrExtendBurn(le, 100); // 5 secondes de feu
+                damageNoKnockback(le, totalDamage * 0.3, player); // 30% des degats aux proches
+            }
+        }
+
+        // Creer une zone de chaleur au sol
+        createHeatZone(target.getLocation(), 3000, radius);
+
+        // Effets visuels spectaculaires
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.FLAME, loc, 80, 1.5, 1.5, 1.5, 0.2);
+        target.getWorld().spawnParticle(Particle.LAVA, loc, 30, 1, 1, 1, 0.15);
+        target.getWorld().spawnParticle(Particle.SMOKE, loc, 40, 1, 1, 1, 0.1);
+        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.5, 0.5, 0);
+        target.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.5f);
+        target.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+
+        // Mettre en cooldown
+        long cooldownMs = (long) talent.getValue(4);
+        criticalIgnitionCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
+
+        // Reset l'intensite de brulure
+        burnStartTime.put(targetId, System.currentTimeMillis());
+
+        // Message au joueur
+        player.sendMessage("§c🔥 §6Embrasement Critique! §7" + String.format("%.1f", intensity) +
+            "s d'intensite = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+    }
+
+    /**
+     * Cree une zone de chaleur au sol qui inflige des degats
+     */
+    private void createHeatZone(Location location, long durationMs, double radius) {
+        String key = location.getWorld().getName() + "," +
+            Math.floor(location.getX()) + "," +
+            Math.floor(location.getY()) + "," +
+            Math.floor(location.getZ()) + "," + radius;
+        heatZones.put(key, System.currentTimeMillis() + durationMs);
+
+        // Visual de creation
+        location.getWorld().spawnParticle(Particle.FLAME, location, 30, radius/2, 0.2, radius/2, 0.05);
+        location.getWorld().playSound(location, Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.8f);
+    }
+
+    // ==================== DAMAGE UTILITY METHODS ====================
+
+    /**
+     * Applique des degats a une entite SANS knockback
+     */
+    private void damageNoKnockback(LivingEntity target, double damage, Player source) {
+        // Sauvegarder la velocite actuelle
+        Vector velocity = target.getVelocity().clone();
+
+        // Appliquer les degats
+        target.damage(damage, source);
+
+        // Restaurer la velocite immediatement pour annuler le knockback
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!target.isDead()) {
+                target.setVelocity(velocity);
+            }
+        });
+    }
+
+    /**
+     * Applique des degats AoE SANS knockback a tous les ennemis dans une zone
+     */
+    private void damageAreaNoKnockback(Location center, double radius, double damage, Player source) {
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                damageNoKnockback(le, damage, source);
+            }
+        }
     }
 
     private void applyFreeze(LivingEntity target, int durationMs, double slowStrength) {
         frozenEnemies.put(target.getUniqueId(), System.currentTimeMillis());
 
-        int amplifier = (int)((slowStrength) * 4); // 0-4 amplifier
+        // Calculer le slow base + bonus par stack si Permafrost actif
+        double totalSlow = slowStrength;
+        int stacks = getFrostStacks(target);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasTalentEffect(player, Talent.TalentEffectType.PERMAFROST)) {
+                Talent permafrost = getTalentWithEffect(player, Talent.TalentEffectType.PERMAFROST);
+                double slowPerStack = permafrost.getValue(1);
+                double maxSlow = permafrost.getValue(2);
+                totalSlow = Math.min(totalSlow + (stacks * slowPerStack), maxSlow);
+                break;
+            }
+        }
+
+        int amplifier = (int)((totalSlow) * 4); // 0-4 amplifier
+        amplifier = Math.min(amplifier, 4);
         int ticks = durationMs / 50;
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, amplifier, false, true, true));
 
-        // Visual
-        target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 30, 0.4, 0.6, 0.4, 0.02);
+        // Visual ameliore selon les stacks
+        int particleCount = 15 + (stacks * 3);
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), particleCount, 0.4, 0.6, 0.4, 0.02);
+        target.getWorld().spawnParticle(Particle.BLOCK_CRACK, target.getLocation().add(0, 0.5, 0),
+            5 + stacks, 0.3, 0.3, 0.3, 0.1, Material.BLUE_ICE.createBlockData());
         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
 
         // Schedule remove from frozen tracking
@@ -439,6 +764,67 @@ public class OccultisteTalentListener implements Listener {
         }, ticks + 5);
     }
 
+    /**
+     * Verifie et declenche la Brisure Glaciale si les conditions sont remplies
+     */
+    private void checkAndTriggerShatter(Player player, LivingEntity target) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO);
+        if (talent == null) return;
+
+        UUID targetId = target.getUniqueId();
+        int minStacks = (int) talent.getValue(0);
+        int currentStacks = getFrostStacks(target);
+
+        if (currentStacks < minStacks) return;
+
+        // Verifier cooldown par ennemi
+        long cooldownMs = (long) talent.getValue(3);
+        Long cooldownEnd = shatterCooldowns.get(targetId);
+        if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) return;
+
+        // Declencher la Brisure Glaciale!
+        triggerGlacialShatter(player, target, talent, currentStacks);
+    }
+
+    /**
+     * Declenche l'effet Brisure Glaciale
+     */
+    private void triggerGlacialShatter(Player player, LivingEntity target, Talent talent, int stacks) {
+        UUID targetId = target.getUniqueId();
+
+        // Determiner si c'est un boss/elite
+        boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
+                                target.getScoreboardTags().contains("elite") ||
+                                target.getMaxHealth() > 50;
+
+        // Calculer les degats
+        double damagePerStack = isBossOrElite ? talent.getValue(2) : talent.getValue(1);
+        double totalDamage = target.getMaxHealth() * damagePerStack * stacks;
+
+        // Appliquer les degats
+        target.damage(totalDamage, player);
+
+        // Effets visuels spectaculaires
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.ITEM, loc, 50, 0.8, 1, 0.8, 0.15,
+            new org.bukkit.inventory.ItemStack(Material.BLUE_ICE));
+        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 0.5, 0.5, 0.5, 0.1);
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, 40, 1, 1.5, 1, 0.1);
+        target.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.3f);
+        target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.5f);
+
+        // Mettre en cooldown
+        long cooldownMs = (long) talent.getValue(3);
+        shatterCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
+
+        // Retirer tous les stacks
+        clearFrostStacks(target);
+
+        // Message au joueur
+        player.sendMessage("§b❄ §3Brisure Glaciale! §7" + stacks + " stacks = §c" +
+            String.format("%.1f", totalDamage) + " §7degats!");
+    }
+
     private void processChainLightning(Player player, LivingEntity target, double baseDamage) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.CHAIN_LIGHTNING);
         if (!checkCooldown(player, "chain_lightning", talent.getInternalCooldownMs())) return;
@@ -446,7 +832,7 @@ public class OccultisteTalentListener implements Listener {
         if (Math.random() < talent.getValue(0)) {
             int targets = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double range = talent.getValue(3);
+            double range = Math.min(talent.getValue(3), 10.0); // Cap a 10 blocs pour chain
 
             // Check for Thunder God (unlimited targets)
             if (hasTalentEffect(player, Talent.TalentEffectType.THUNDER_GOD)) {
@@ -477,9 +863,9 @@ public class OccultisteTalentListener implements Listener {
             Location lastLoc = target.getLocation().add(0, 1, 0);
             double lightningDamage = baseDamage * damagePercent;
 
-            // First strike on primary target
+            // First strike on primary target - sans knockback
             for (int s = 0; s < strikes; s++) {
-                target.damage(lightningDamage, player);
+                damageNoKnockback(target, lightningDamage, player);
             }
             spawnLightningVisual(player.getLocation().add(0, 1, 0), lastLoc);
 
@@ -499,8 +885,9 @@ public class OccultisteTalentListener implements Listener {
                     targets += bonusTargets;
                 }
 
+                // Degats sans knockback
                 for (int s = 0; s < strikes; s++) {
-                    enemy.damage(lightningDamage, player);
+                    damageNoKnockback(enemy, lightningDamage, player);
                 }
                 spawnLightningVisual(lastLoc, enemy.getLocation().add(0, 1, 0));
                 lastLoc = enemy.getLocation().add(0, 1, 0);
@@ -789,9 +1176,12 @@ public class OccultisteTalentListener implements Listener {
         if (!checkCooldown(player, "firestorm", talent.getInternalCooldownMs())) return;
 
         if (Math.random() < talent.getValue(0)) {
+            // values: chance, meteors, damage%, zone, burn_extension_s
             int meteors = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double zone = talent.getValue(3);
+            double zone = Math.min(talent.getValue(3), 8.0); // Cap a 8 blocs
+            double burnExtension = talent.getValues().length > 4 ? talent.getValue(4) : 2.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             Location center = target.getLocation();
 
@@ -803,12 +1193,20 @@ public class OccultisteTalentListener implements Listener {
                     double offsetZ = (Math.random() - 0.5) * zone;
                     Location impactLoc = center.clone().add(offsetX, 0, offsetZ);
 
-                    // Damage nearby
+                    // Damage nearby - sans knockback
                     double damage = baseDamage * damagePercent;
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 2, 2, 2)) {
                         if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                            le.damage(damage, player);
-                            le.setFireTicks(40);
+                            damageNoKnockback(le, damage, player);
+                            // Enflammer et prolonger Surchauffe
+                            le.setFireTicks(burnTicks);
+                            startOrExtendBurn(le, burnTicks);
+                            burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                            // Verifier Ignition Critique si Phoenix est equipe
+                            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                                checkCriticalIgnition(player, le);
+                            }
                         }
                     }
 
@@ -894,15 +1292,19 @@ public class OccultisteTalentListener implements Listener {
         }
     }
 
-    private void processShatter(Player player, LivingEntity victim) {
+    private void processShatter(Player player, LivingEntity victim, int victimStacks) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FROZEN_HEART);
         double radius = talent.getValue(1);
-        double damage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue() * 0.5;
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        // Degats scales avec les stacks de la victime
+        double damage = baseDamage * (0.3 + (victimStacks * 0.1)); // 30% + 10% par stack
 
         for (Entity entity : victim.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
                 le.damage(damage, player);
-                applyFreeze(le, 1500, 0.5);
+                // Ajouter des stacks aux ennemis proches (propagation)
+                addFrostStacks(player, le, Math.max(1, victimStacks / 2));
+                applyFreeze(le, 1500, 0.4);
             }
         }
 
@@ -922,30 +1324,44 @@ public class OccultisteTalentListener implements Listener {
 
             if (minions.size() >= maxMinions) return;
 
-            // Spawn zombie minion
+            // Spawn zombie servant based on killed entity type
             Zombie minion = victim.getWorld().spawn(victim.getLocation(), Zombie.class);
-            minion.setCustomName("§8[Serviteur de " + player.getName() + "]");
+            minion.setCustomName("§5☠ §dServiteur §8[" + player.getName() + "]");
             minion.setCustomNameVisible(true);
             minion.setBaby(false);
             minion.getScoreboardTags().add("player_minion");
             minion.getScoreboardTags().add("owner_" + player.getUniqueId());
+            minion.setPersistent(false); // Eviter la persistence au rechargement
 
-            // Set stats
+            // Set stats based on victim and talent
             double statPercent = talent.getValue(1);
             // Check Immortal Army buff
             if (hasTalentEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY)) {
                 Talent immortal = getTalentWithEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY);
                 statPercent += immortal.getValue(1);
             }
-            minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(20 * statPercent);
+
+            // Use victim's stats as base
+            double victimMaxHealth = victim.getMaxHealth();
+            double baseHealth = Math.max(victimMaxHealth * statPercent, 10); // Minimum 10 HP
+            minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(baseHealth);
             minion.setHealth(minion.getMaxHealth());
 
+            // Give zombie more speed and attack damage
+            minion.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.3);
+            minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(5 * statPercent);
+
             minions.add(minion.getUniqueId());
+
+            // Set initial target
+            setMinionTarget(player, minion);
 
             // Schedule despawn
             long duration = (long) talent.getValue(2);
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (minion.isValid() && !minion.isDead()) {
+                    // Visual de despawn
+                    minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
                     minion.remove();
                     minions.remove(minion.getUniqueId());
                 }
@@ -953,7 +1369,9 @@ public class OccultisteTalentListener implements Listener {
 
             // Visual
             victim.getWorld().spawnParticle(Particle.SOUL, victim.getLocation(), 20, 0.5, 1, 0.5, 0.05);
+            victim.getWorld().spawnParticle(Particle.SMOKE, victim.getLocation(), 10, 0.3, 0.3, 0.3, 0.02);
             victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.5f);
+            sendActionBar(player, "§5☠ §dServiteur releve! §8(" + minions.size() + "/" + maxMinions + ")");
         }
     }
 
@@ -997,28 +1415,50 @@ public class OccultisteTalentListener implements Listener {
         List<UUID> minions = playerMinions.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>());
         int maxMinions = (int) talent.getValue(2);
 
-        if (minions.size() >= maxMinions) return;
+        if (minions.size() >= maxMinions) {
+            sendActionBar(player, "§8Maximum de squelettes atteint!");
+            return;
+        }
 
         // Consume one orb, summon one skeleton
         soulOrbs.put(player.getUniqueId(), orbs - 1);
 
         Skeleton minion = player.getWorld().spawn(player.getLocation().add(
             Math.random() * 2 - 1, 0, Math.random() * 2 - 1), Skeleton.class);
-        minion.setCustomName("§8[Squelette de " + player.getName() + "]");
+        minion.setCustomName("§8☠ §7Squelette §8[" + player.getName() + "]");
         minion.setCustomNameVisible(true);
         minion.getScoreboardTags().add("player_minion");
         minion.getScoreboardTags().add("owner_" + player.getUniqueId());
+        minion.setPersistent(false); // Eviter la persistence au rechargement
 
+        // Check Immortal Army buff for stats
         double statPercent = talent.getValue(0);
-        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(20 * statPercent);
+        if (hasTalentEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY)) {
+            Talent immortal = getTalentWithEffect(player, Talent.TalentEffectType.IMMORTAL_ARMY);
+            statPercent += immortal.getValue(1);
+        }
+
+        // Set stats based on player
+        double playerMaxHealth = player.getMaxHealth();
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(playerMaxHealth * statPercent);
+        minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(playerDamage * statPercent);
         minion.setHealth(minion.getMaxHealth());
 
+        // Equip skeleton with bow for ranged attacks
+        minion.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.BOW));
+
         minions.add(minion.getUniqueId());
+
+        // Set initial target
+        setMinionTarget(player, minion);
 
         // Schedule despawn
         long duration = (long) talent.getValue(1);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (minion.isValid() && !minion.isDead()) {
+                // Visual de despawn
+                minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
                 minion.remove();
                 minions.remove(minion.getUniqueId());
             }
@@ -1026,13 +1466,31 @@ public class OccultisteTalentListener implements Listener {
 
         // Visual
         player.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 15, 0.3, 1, 0.3, 0.05);
-        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 1.0f);
+        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 0.8f);
+        sendActionBar(player, "§8☠ §7Squelette invoque! §8(" + minions.size() + "/" + maxMinions + ")");
     }
 
     // ==================== PERIODIC PROCESSORS ====================
 
     private void processFireSpread() {
         if (!hasTalentEffectForAnyPlayer(Talent.TalentEffectType.FIRE_SPREAD)) return;
+
+        // Trouver le talent pour les valeurs
+        Talent talent = null;
+        Player talentOwner = null;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasTalentEffect(player, Talent.TalentEffectType.FIRE_SPREAD)) {
+                talent = getTalentWithEffect(player, Talent.TalentEffectType.FIRE_SPREAD);
+                talentOwner = player;
+                break;
+            }
+        }
+        if (talent == null) return;
+
+        // values: range, propagation_duration_s
+        double range = talent.getValue(0);
+        double propagationDuration = talent.getValues().length > 1 ? talent.getValue(1) : 2.0;
+        int propagationTicks = (int) (propagationDuration * 20);
 
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, Long>> iterator = burningEnemies.entrySet().iterator();
@@ -1050,14 +1508,25 @@ public class OccultisteTalentListener implements Listener {
                 continue;
             }
 
-            // Spread fire to nearby enemies
-            for (Entity nearby : entity.getNearbyEntities(2, 2, 2)) {
+            // Propager le feu aux ennemis proches (systeme Surchauffe)
+            for (Entity nearby : entity.getNearbyEntities(range, range, range)) {
                 if (nearby instanceof LivingEntity le && !(nearby instanceof Player)) {
-                    if (!burningEnemies.containsKey(nearby.getUniqueId())) {
-                        le.setFireTicks(60);
-                        burningEnemies.put(nearby.getUniqueId(), now + 3000);
+                    // Enflammer et demarrer/prolonger Surchauffe
+                    le.setFireTicks(propagationTicks);
+                    startOrExtendBurn(le, propagationTicks);
+                    burningEnemies.put(nearby.getUniqueId(), now + (long)(propagationDuration * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (talentOwner != null && hasTalentEffect(talentOwner, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(talentOwner, le);
                     }
                 }
+            }
+
+            // Visual de propagation
+            if (entity instanceof LivingEntity le) {
+                le.getWorld().spawnParticle(Particle.FLAME, le.getLocation().add(0, 0.5, 0),
+                    3, range/3, 0.2, range/3, 0.02);
             }
         }
     }
@@ -1071,7 +1540,7 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.LIGHTNING_STORM);
             int targets = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double range = Math.min(talent.getValue(3), 20.0); // Cap a 20 blocs
+            double range = Math.min(talent.getValue(3), 15.0); // Cap a 15 blocs
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1085,7 +1554,8 @@ public class OccultisteTalentListener implements Listener {
             }
 
             for (LivingEntity enemy : nearbyEnemies) {
-                enemy.damage(damage, player);
+                // Degats sans knockback
+                damageNoKnockback(enemy, damage, player);
                 spawnLightningVisual(player.getLocation().add(0, 1.5, 0), enemy.getLocation().add(0, 1, 0));
             }
 
@@ -1105,7 +1575,7 @@ public class OccultisteTalentListener implements Listener {
             if (!hasTalentEffect(player, Talent.TalentEffectType.PERPETUAL_STORM)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PERPETUAL_STORM);
-            double radius = Math.min(talent.getValue(1), 15.0); // Cap a 15 blocs
+            double radius = Math.min(talent.getValue(1), 12.0); // Cap a 12 blocs
             int targets = (int) talent.getValue(2);
             double damagePercent = talent.getValue(3);
 
@@ -1124,7 +1594,8 @@ public class OccultisteTalentListener implements Listener {
             int count = 0;
             for (LivingEntity enemy : nearbyEnemies) {
                 if (count >= targets) break;
-                enemy.damage(damage, player);
+                // Degats sans knockback
+                damageNoKnockback(enemy, damage, player);
                 spawnLightningVisual(player.getLocation().add(0, 2, 0), enemy.getLocation().add(0, 1, 0));
                 count++;
             }
@@ -1145,16 +1616,28 @@ public class OccultisteTalentListener implements Listener {
             if (!hasTalentEffect(player, Talent.TalentEffectType.FIRE_AVATAR)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FIRE_AVATAR);
+            // values: radius, damage_per_second%, burn_extension_per_s
             double radius = Math.min(talent.getValue(0), 8.0); // Cap a 8 blocs
             double damagePercent = talent.getValue(1);
+            double burnExtension = talent.getValues().length > 2 ? talent.getValue(2) : 1.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(20);
+                    // Degats sans knockback (AoE)
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1176,17 +1659,28 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.INFERNO);
             if (!checkCooldown(player, "inferno", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, damage%, radius, burn_extension_s
             double damagePercent = talent.getValue(1);
             double radius = Math.min(talent.getValue(2), 12.0); // Cap a 12 blocs
+            double burnExtension = talent.getValues().length > 3 ? talent.getValue(3) : 4.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(100);
-                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + 5000);
+                    // Degats sans knockback (AoE nova)
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger massivement Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1222,19 +1716,31 @@ public class OccultisteTalentListener implements Listener {
             }
 
             // Find talent for damage values
+            // values: cooldown, duration, damage%/s, radius, burn_extension_per_s
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.BLACK_SUN);
             if (talent == null) continue;
 
             double damagePercent = talent.getValue(2);
-            double radius = talent.getValue(3);
+            double radius = Math.min(talent.getValue(3), 10.0); // Cap a 10 blocs
+            double burnExtension = talent.getValues().length > 4 ? talent.getValue(4) : 2.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(20);
+                    // Degats sans knockback
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), now + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1270,19 +1776,26 @@ public class OccultisteTalentListener implements Listener {
             if (!hasTalentEffect(player, Talent.TalentEffectType.ETERNAL_WINTER)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ETERNAL_WINTER);
-            double radius = Math.min(talent.getValue(0), 10.0); // Cap a 10 blocs
-            double slowPercent = talent.getValue(1);
-
-            int amplifier = Math.min((int)(slowPercent * 5), 3); // Cap amplifier a 3
+            double radius = Math.min(talent.getValue(0), 8.0); // Cap a 8 blocs
+            int stacksPerTick = talent.getValues().length > 1 ? (int) talent.getValue(1) : 1;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, amplifier, false, true, true));
+                    // Ajouter des stacks de Givre
+                    addFrostStacks(player, le, stacksPerTick);
+
+                    // Slow progressif base sur les stacks
+                    int stacks = getFrostStacks(le);
+                    int amplifier = Math.min(stacks / 2, 3); // 2 stacks = 1 amplifier, cap a 3
+                    le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 15, amplifier, false, false, true));
                 }
             }
 
-            // Winter visual (reduit)
-            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation(), 5, radius/2, 1, radius/2, 0.01);
+            // Winter visual ameliore - aura de froid
+            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation().add(0, 1, 0),
+                10, radius/2, 1.5, radius/2, 0.02);
+            player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0),
+                3, radius/3, 0.5, radius/3, 0.01);
         }
     }
 
@@ -1295,18 +1808,19 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DIVINE_JUDGMENT);
             if (!checkCooldown(player, "divine_judgment", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, damage%, range
             double damagePercent = talent.getValue(1);
+            double range = talent.getValues().length > 2 ? Math.min(talent.getValue(2), 25.0) : 25.0; // Cap a 25 blocs
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
-            // Strike enemies - RANGE REDUIT de 50 a 25 blocs pour eviter l'abus
-            double range = 25.0;
             int struck = 0;
             int maxTargets = 30; // Limite le nombre de cibles
             for (Entity entity : player.getNearbyEntities(range, range, range)) {
                 if (struck >= maxTargets) break;
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
+                    // Degats sans knockback
+                    damageNoKnockback(le, damage, player);
                     // Lightning visual (sans strikeLightningEffect qui est lourd)
                     spawnLightningVisual(player.getLocation().add(0, 10, 0), le.getLocation().add(0, 1, 0));
                     struck++;
@@ -1332,9 +1846,12 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.METEOR_RAIN);
             if (!checkCooldown(player, "meteor_rain", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, meteors, damage%, zone, burn_per_impact_s
             int meteors = Math.min((int) talent.getValue(1), 15); // Cap a 15 meteores
             double damagePercent = talent.getValue(2);
-            double zone = Math.min(talent.getValue(3), 20.0); // Cap zone a 20 blocs
+            double zone = Math.min(talent.getValue(3), 15.0); // Cap zone a 15 blocs (max spec)
+            double burnPerImpact = talent.getValues().length > 4 ? talent.getValue(4) : 3.0;
+            int burnTicks = (int) (burnPerImpact * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1350,11 +1867,23 @@ public class OccultisteTalentListener implements Listener {
                     double offsetZ = (Math.random() - 0.5) * zone;
                     Location impactLoc = center.clone().add(offsetX, 0, offsetZ);
 
-                    // Damage
+                    // Damage - sans knockback
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 3, 3, 3)) {
                         if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                            le.damage(damage, player);
-                            le.setFireTicks(100);
+                            damageNoKnockback(le, damage, player);
+                            // Enflammer massivement (T9 = +3s par meteore)
+                            le.setFireTicks(burnTicks);
+                            startOrExtendBurn(le, burnTicks);
+                            burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnPerImpact * 1000));
+
+                            // Ignition Critique automatique (T9 special)
+                            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                                // Force Ignition Critique apres 2 impacts (atteint rapidement Surchauffe max)
+                                double intensity = getBurnIntensity(le);
+                                if (intensity >= MAX_BURN_INTENSITY * 0.75) {
+                                    checkCriticalIgnition(player, le);
+                                }
+                            }
                         }
                     }
 
@@ -1401,64 +1930,85 @@ public class OccultisteTalentListener implements Listener {
 
                 Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.BLIZZARD);
                 double auraRadius = talent.getValue(0);
+                double slowPercent = talent.getValues().length > 1 ? talent.getValue(1) : 0.30;
+                int stacksPerSec = talent.getValues().length > 2 ? (int) talent.getValue(2) : 1;
 
-                // Create freeze aura around frozen enemies
+                // Aura qui ralentit et ajoute des stacks (ne gele plus directement)
                 for (Entity nearby : frozen.getNearbyEntities(auraRadius, auraRadius, auraRadius)) {
                     if (nearby instanceof LivingEntity le && !(nearby instanceof Player)) {
-                        if (!frozenEnemies.containsKey(nearby.getUniqueId())) {
-                            applyFreeze(le, 1000, 0.5);
-                        }
+                        // Ajouter des stacks de Givre
+                        addFrostStacks(player, le, stacksPerSec);
+                        // Appliquer un slow leger (pas de freeze)
+                        le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30,
+                            (int)(slowPercent * 3), false, false, true));
                     }
                 }
 
-                // Blizzard visual
-                frozen.getWorld().spawnParticle(Particle.SNOWFLAKE, frozen.getLocation().add(0, 1, 0), 5, auraRadius/2, 0.5, auraRadius/2, 0.01);
+                // Blizzard visual ameliore
+                frozen.getWorld().spawnParticle(Particle.SNOWFLAKE, frozen.getLocation().add(0, 1, 0),
+                    8, auraRadius/2, 0.8, auraRadius/2, 0.02);
+                frozen.getWorld().spawnParticle(Particle.CLOUD, frozen.getLocation().add(0, 0.5, 0),
+                    3, auraRadius/3, 0.3, auraRadius/3, 0.01);
             }
         }
     }
 
+    /**
+     * Processe le systeme de Brisure Glaciale (Absolute Zero redesign)
+     * Verifie periodiquement les stacks de Givre et declenche la Brisure si necessaire
+     */
     private void processAbsoluteZero() {
         if (!hasTalentEffectForAnyPlayer(Talent.TalentEffectType.ABSOLUTE_ZERO)) return;
 
+        // Nettoyage des cooldowns expires
         long now = System.currentTimeMillis();
+        shatterCooldowns.entrySet().removeIf(e -> now > e.getValue());
 
+        // Decay des stacks de Givre (si pas Permafrost)
+        boolean hasPermafrost = hasTalentEffectForAnyPlayer(Talent.TalentEffectType.PERMAFROST);
+        if (!hasPermafrost) {
+            // Les stacks decayent apres 5 secondes sans application
+            Iterator<Map.Entry<UUID, Long>> it = frostStacksLastApplied.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<UUID, Long> entry = it.next();
+                if (now - entry.getValue() > 5000) {
+                    UUID targetId = entry.getKey();
+                    int currentStacks = frostStacks.getOrDefault(targetId, 0);
+                    if (currentStacks > 0) {
+                        frostStacks.put(targetId, currentStacks - 1);
+                        if (currentStacks - 1 <= 0) {
+                            frostStacks.remove(targetId);
+                            it.remove();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Verification periodique des stacks pour Brisure Glaciale
         for (UUID uuid : activeOccultistes) {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null || !player.isOnline()) continue;
             if (!hasTalentEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO);
-            long freezeTime = (long) talent.getValue(0);
-            double bossDamageMultiplier = Math.min(talent.getValue(1), 3.0); // Cap a 300% pour les boss
+            int minStacks = (int) talent.getValue(0);
 
-            for (Map.Entry<UUID, Long> entry : frozenEnemies.entrySet()) {
-                if (now - entry.getValue() >= freezeTime) {
-                    Entity entity = Bukkit.getEntity(entry.getKey());
-                    if (entity == null || entity.isDead()) continue;
-                    if (!(entity instanceof LivingEntity le)) continue;
+            // Verifier chaque ennemi avec des stacks
+            for (Map.Entry<UUID, Integer> stackEntry : new HashMap<>(frostStacks).entrySet()) {
+                if (stackEntry.getValue() < minStacks) continue;
 
-                    // Check if boss ou elite (> 50 HP)
-                    boolean isBossOrElite = le.getScoreboardTags().contains("boss") ||
-                                            le.getScoreboardTags().contains("elite") ||
-                                            le.getMaxHealth() > 50;
-
-                    if (isBossOrElite) {
-                        // Boss/Elite: degats % capped
-                        double damage = le.getMaxHealth() * (bossDamageMultiplier / 10.0);
-                        le.damage(damage, player);
-                    } else {
-                        // Mobs normaux: instakill
-                        le.setHealth(0);
-                    }
-
-                    // Visual (reduit)
-                    le.getWorld().spawnParticle(Particle.ITEM, le.getLocation().add(0, 1, 0), 25, 0.5, 1, 0.5, 0.1,
-                        new org.bukkit.inventory.ItemStack(Material.ICE));
-                    le.getWorld().playSound(le.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.8f, 0.3f);
-
-                    // Reset freeze time so it doesn't trigger again immediately
-                    entry.setValue(now);
+                Entity entity = Bukkit.getEntity(stackEntry.getKey());
+                if (entity == null || entity.isDead()) {
+                    frostStacks.remove(stackEntry.getKey());
+                    continue;
                 }
+                if (!(entity instanceof LivingEntity le)) continue;
+
+                // Verifier la distance (10 blocs max)
+                if (le.getLocation().distance(player.getLocation()) > 10) continue;
+
+                checkAndTriggerShatter(player, le);
             }
         }
     }
@@ -1466,6 +2016,17 @@ public class OccultisteTalentListener implements Listener {
     private void processIceZones() {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<String, Long>> iterator = iceZones.entrySet().iterator();
+
+        // Trouver le talent Ice Age pour les valeurs
+        Talent iceAgeTalent = null;
+        Player iceAgeOwner = null;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasTalentEffect(player, Talent.TalentEffectType.ICE_AGE)) {
+                iceAgeTalent = getTalentWithEffect(player, Talent.TalentEffectType.ICE_AGE);
+                iceAgeOwner = player;
+                break;
+            }
+        }
 
         while (iterator.hasNext()) {
             Map.Entry<String, Long> entry = iterator.next();
@@ -1487,36 +2048,66 @@ public class OccultisteTalentListener implements Listener {
                 double z = Double.parseDouble(parts[3]);
                 Location loc = new Location(world, x, y, z);
 
-                // Freeze enemies in zone
-                for (Entity entity : world.getNearbyEntities(loc, 2, 2, 2)) {
+                // Rayon et stacks/s selon le talent
+                double radius = iceAgeTalent != null ? iceAgeTalent.getValue(1) : 2.5;
+                int stacksPerSec = iceAgeTalent != null && iceAgeTalent.getValues().length > 2 ?
+                    (int) iceAgeTalent.getValue(2) : 2;
+                double slowPercent = iceAgeTalent != null && iceAgeTalent.getValues().length > 3 ?
+                    iceAgeTalent.getValue(3) : 0.35;
+
+                // Ajouter des stacks aux ennemis dans la zone
+                for (Entity entity : world.getNearbyEntities(loc, radius, radius, radius)) {
                     if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                        applyFreeze(le, 1000, 0.5);
+                        if (iceAgeOwner != null) {
+                            addFrostStacks(iceAgeOwner, le, stacksPerSec);
+                        }
+                        // Slow de zone
+                        le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30,
+                            (int)(slowPercent * 4), false, false, true));
                     }
                 }
 
-                // Visual
-                world.spawnParticle(Particle.SNOWFLAKE, loc, 3, 1, 0.2, 1, 0.01);
+                // Visual ameliore - zone de givre au sol
+                world.spawnParticle(Particle.SNOWFLAKE, loc, 8, radius/2, 0.3, radius/2, 0.02);
+                world.spawnParticle(Particle.BLOCK_CRACK, loc, 5, radius/2, 0.1, radius/2, 0.01,
+                    Material.BLUE_ICE.createBlockData());
             } catch (NumberFormatException ignored) {}
         }
     }
 
-    private void createIceZone(Location location) {
-        Talent talent = null;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (hasTalentEffect(player, Talent.TalentEffectType.ICE_AGE)) {
-                talent = getTalentWithEffect(player, Talent.TalentEffectType.ICE_AGE);
-                break;
-            }
-        }
+    /**
+     * Cree une zone de givre a une location (appele sur la mort d'un ennemi gele avec Ice Age)
+     */
+    private void createIceZone(Location location, Player owner, int victimStacks) {
+        Talent talent = getTalentWithEffect(owner, Talent.TalentEffectType.ICE_AGE);
         if (talent == null) return;
+
+        // Verifier si la victime avait assez de stacks
+        int minStacks = talent.getValues().length > 4 ? (int) talent.getValue(4) : 5;
+        if (victimStacks < minStacks) return;
 
         long duration = (long) talent.getValue(0);
         String key = location.getWorld().getName() + "," + location.getX() + "," + location.getY() + "," + location.getZ();
         iceZones.put(key, System.currentTimeMillis() + duration);
 
-        // Visual spawn
-        location.getWorld().spawnParticle(Particle.SNOWFLAKE, location, 30, 1, 0.5, 1, 0.05);
-        location.getWorld().playSound(location, Sound.BLOCK_SNOW_PLACE, 1.0f, 0.5f);
+        // Visual spawn spectaculaire
+        location.getWorld().spawnParticle(Particle.SNOWFLAKE, location, 50, 1.5, 1, 1.5, 0.08);
+        location.getWorld().spawnParticle(Particle.ITEM, location.add(0, 0.5, 0), 30, 1, 0.5, 1, 0.1,
+            new org.bukkit.inventory.ItemStack(Material.BLUE_ICE));
+        location.getWorld().playSound(location, Sound.BLOCK_GLASS_BREAK, 1.2f, 0.5f);
+        location.getWorld().playSound(location, Sound.ENTITY_PLAYER_HURT_FREEZE, 0.8f, 0.8f);
+    }
+
+    /**
+     * Version legacy pour compatibilite
+     */
+    private void createIceZone(Location location) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasTalentEffect(player, Talent.TalentEffectType.ICE_AGE)) {
+                createIceZone(location, player, 10); // Assume max stacks
+                return;
+            }
+        }
     }
 
     // ==================== SHADOW PRIEST PERIODIC PROCESSORS ====================
@@ -2006,6 +2597,113 @@ public class OccultisteTalentListener implements Listener {
             Entity voidling = Bukkit.getEntity(entry.getValue());
             return voidling == null || voidling.isDead();
         });
+    }
+
+    // ==================== MINION UTILITY METHODS ====================
+
+    /**
+     * Definit une cible pour un serviteur (squelette ou zombie)
+     * Le serviteur attaquera l'ennemi le plus proche du joueur
+     */
+    private void setMinionTarget(Player owner, Mob minion) {
+        if (minion == null || minion.isDead()) return;
+
+        // Chercher l'ennemi le plus proche du joueur (pas du minion)
+        LivingEntity closestEnemy = null;
+        double closestDistance = 20.0; // Rayon de recherche
+
+        for (Entity entity : owner.getNearbyEntities(closestDistance, closestDistance, closestDistance)) {
+            // Ignorer les joueurs et les autres minions
+            if (entity instanceof Player) continue;
+            if (entity.getScoreboardTags().contains("player_minion")) continue;
+            if (!(entity instanceof LivingEntity le)) continue;
+            if (le.isDead()) continue;
+
+            double distance = entity.getLocation().distance(owner.getLocation());
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestEnemy = le;
+            }
+        }
+
+        if (closestEnemy != null) {
+            minion.setTarget(closestEnemy);
+        }
+    }
+
+    /**
+     * Met a jour periodiquement les cibles de tous les serviteurs
+     * Appele toutes les 2 secondes
+     */
+    private void processMinionAI() {
+        for (Map.Entry<UUID, List<UUID>> entry : playerMinions.entrySet()) {
+            Player owner = Bukkit.getPlayer(entry.getKey());
+            if (owner == null || !owner.isOnline()) continue;
+
+            for (UUID minionId : entry.getValue()) {
+                Entity entity = Bukkit.getEntity(minionId);
+                if (entity == null || entity.isDead()) continue;
+                if (!(entity instanceof Mob minion)) continue;
+
+                // Verifier si le minion a deja une cible valide
+                LivingEntity currentTarget = minion.getTarget();
+                if (currentTarget != null && !currentTarget.isDead() &&
+                    currentTarget.getLocation().distance(owner.getLocation()) < 25) {
+                    continue; // Garder la cible actuelle
+                }
+
+                // Chercher une nouvelle cible
+                setMinionTarget(owner, minion);
+
+                // Si aucune cible, faire suivre le joueur
+                if (minion.getTarget() == null) {
+                    // Teleporter le minion s'il est trop loin
+                    if (minion.getLocation().distance(owner.getLocation()) > 30) {
+                        minion.teleport(owner.getLocation().add(
+                            Math.random() * 3 - 1.5, 0, Math.random() * 3 - 1.5));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifie si une entite est un serviteur d'un joueur specifique
+     */
+    private boolean isPlayerMinion(Entity entity, Player player) {
+        return entity.getScoreboardTags().contains("player_minion") &&
+               entity.getScoreboardTags().contains("owner_" + player.getUniqueId());
+    }
+
+    /**
+     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     */
+    private boolean shouldPreventMinionAttack(Entity attacker, Entity target) {
+        // Si l'attaquant n'est pas un minion, ne pas bloquer
+        if (!attacker.getScoreboardTags().contains("player_minion")) return false;
+
+        // Trouver le proprietaire du minion
+        String ownerTag = attacker.getScoreboardTags().stream()
+            .filter(tag -> tag.startsWith("owner_"))
+            .findFirst()
+            .orElse(null);
+
+        if (ownerTag == null) return false;
+
+        String ownerUUID = ownerTag.substring(6);
+
+        // Bloquer si la cible est le proprietaire
+        if (target instanceof Player player && player.getUniqueId().toString().equals(ownerUUID)) {
+            return true;
+        }
+
+        // Bloquer si la cible est un autre minion du meme proprietaire
+        if (target.getScoreboardTags().contains("player_minion") &&
+            target.getScoreboardTags().contains(ownerTag)) {
+            return true;
+        }
+
+        return false;
     }
 
     // ==================== UTILITY METHODS ====================
