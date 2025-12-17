@@ -353,7 +353,7 @@ public class ChasseurTalentListener implements Listener {
         // Void Walker - DR while moving (capped a 45%)
         Talent voidWalker = getActiveTalentIfHas(player, Talent.TalentEffectType.VOID_WALKER);
         if (voidWalker != null && isMoving.getOrDefault(uuid, false)) {
-            double dr = Math.min(voidWalker.getValue(0), 0.45); // Cap a 45% au lieu de 60%
+            double dr = Math.min(voidWalker.getValue(0), 0.50); // Cap standardise a 50% pour toutes les classes
             damage *= (1 - dr);
         }
 
@@ -667,22 +667,42 @@ public class ChasseurTalentListener implements Listener {
     // ==================== PROCS ====================
 
     private void procMultiShot(Player player, LivingEntity target, double damage) {
-        Location loc = target.getLocation();
-        Vector dir = target.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+        Location playerLoc = player.getLocation();
+        Location targetLoc = target.getLocation();
+        Vector dir = targetLoc.toVector().subtract(playerLoc.toVector()).normalize();
 
-        // Spawn extra arrows visually
+        // Track entities already hit to avoid double damage
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // Spawn extra arrows in spread pattern
         for (int i = 0; i < 2; i++) {
-            Vector spread = dir.clone().rotateAroundY(Math.PI / 8 * (i == 0 ? 1 : -1));
-            for (Entity entity : target.getNearbyEntities(3, 3, 3)) {
+            Vector spreadDir = dir.clone().rotateAroundY(Math.PI / 8 * (i == 0 ? 1 : -1));
+            Location spreadTarget = playerLoc.clone().add(spreadDir.multiply(10));
+
+            // Find entities in the spread direction
+            for (Entity entity : player.getWorld().getNearbyEntities(playerLoc, 8, 4, 8)) {
                 if (entity instanceof LivingEntity nearby && entity != player && entity != target) {
-                    nearby.damage(damage, player);
-                    break;
+                    if (hitEntities.contains(entity.getUniqueId())) continue;
+
+                    // Check if entity is roughly in the spread direction
+                    Vector toEntity = entity.getLocation().toVector().subtract(playerLoc.toVector()).normalize();
+                    double angle = toEntity.angle(spreadDir);
+
+                    // Within ~30 degrees of spread direction
+                    if (angle < Math.PI / 6) {
+                        nearby.damage(damage, player);
+                        hitEntities.add(entity.getUniqueId());
+
+                        // Visual effect on hit
+                        nearby.getWorld().spawnParticle(Particle.CRIT, nearby.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0);
+                        break;
+                    }
                 }
             }
         }
 
-        player.getWorld().playSound(loc, Sound.ENTITY_ARROW_SHOOT, 0.5f, 1.5f);
-        player.getWorld().spawnParticle(Particle.CRIT, loc, 10, 0.5, 0.5, 0.5, 0.1);
+        player.getWorld().playSound(targetLoc, Sound.ENTITY_ARROW_SHOOT, 0.5f, 1.5f);
+        player.getWorld().spawnParticle(Particle.CRIT, targetLoc, 10, 0.5, 0.5, 0.5, 0.1);
     }
 
     private void procPiercing(Player player, LivingEntity target, double damage) {

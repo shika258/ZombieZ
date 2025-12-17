@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
@@ -191,14 +192,5 @@ public class DeathListener implements Listener {
 
         // Fallback au spawn du monde
         return player.getWorld().getSpawnLocation();
-    }
-
-    /**
-     * Import nécessaire pour EconomyManager
-     */
-    private static class EconomyManager {
-        public static String formatPoints(long amount) {
-            return com.rinaorc.zombiez.managers.EconomyManager.formatPoints(amount);
-        }
     }
 }

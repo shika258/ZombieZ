@@ -379,6 +379,28 @@ public class DatabaseManager {
                 stmt.executeUpdate();
             }
 
+            // Table Classes/Talents
+            try (PreparedStatement stmt = conn.prepareStatement("""
+                CREATE TABLE IF NOT EXISTS %sclass_data (
+                    uuid VARCHAR(36) PRIMARY KEY,
+                    class_type VARCHAR(32) NULL,
+                    class_level INT DEFAULT 1,
+                    class_xp BIGINT DEFAULT 0,
+                    selected_branch VARCHAR(64) NULL,
+                    selected_talents TEXT DEFAULT '',
+                    class_kills BIGINT DEFAULT 0,
+                    class_deaths BIGINT DEFAULT 0,
+                    damage_dealt BIGINT DEFAULT 0,
+                    damage_received BIGINT DEFAULT 0,
+                    total_playtime_as_class BIGINT DEFAULT 0,
+                    last_class_change BIGINT DEFAULT 0,
+                    last_branch_change BIGINT DEFAULT 0,
+                    talent_messages_enabled BOOLEAN DEFAULT TRUE
+                )
+                """.formatted(tablePrefix))) {
+                stmt.executeUpdate();
+            }
+
             // Migration: ajouter les colonnes manquantes pour les bases existantes
             migratePlayersTable(conn, isMySQL);
 
