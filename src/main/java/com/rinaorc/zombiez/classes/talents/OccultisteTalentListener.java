@@ -924,8 +924,8 @@ public class OccultisteTalentListener implements Listener {
     }
 
     /**
-     * Genere un eclair visuel entre deux points (particules uniquement, pas de vrai eclair)
-     * Utilise END_ROD pour le coeur lumineux et ELECTRIC_SPARK pour l'effet electrique
+     * Genere un eclair visuel entre deux points (particules jaunes uniquement)
+     * Utilise DUST jaune pour le coeur lumineux et WAX_OFF pour l'effet electrique
      */
     private void spawnLightningVisual(Location from, Location to) {
         Vector direction = to.toVector().subtract(from.toVector());
@@ -935,23 +935,30 @@ public class OccultisteTalentListener implements Listener {
         direction.normalize();
         World world = from.getWorld();
 
+        // Couleurs jaune/or pour l'eclair
+        Particle.DustOptions yellowDust = new Particle.DustOptions(Color.fromRGB(255, 255, 100), 1.0f);
+        Particle.DustOptions brightYellowDust = new Particle.DustOptions(Color.fromRGB(255, 255, 0), 1.5f);
+
         // Tracer l'eclair avec un leger zigzag
         Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
         double zigzagOffset = 0;
 
-        for (double d = 0; d < distance; d += 0.8) {
-            // Zigzag aleatoire pour effet naturel
-            zigzagOffset = (Math.random() - 0.5) * 0.3;
+        for (double d = 0; d < distance; d += 0.5) {
+            // Zigzag aleatoire pour effet naturel d'eclair
+            zigzagOffset = (Math.random() - 0.5) * 0.4;
 
             Location point = from.clone().add(direction.clone().multiply(d));
             point.add(perpendicular.clone().multiply(zigzagOffset));
 
-            // Coeur lumineux (moins de particules, plus visible)
-            world.spawnParticle(Particle.END_ROD, point, 1, 0.02, 0.02, 0.02, 0);
+            // Coeur lumineux jaune vif
+            world.spawnParticle(Particle.DUST, point, 2, 0.05, 0.05, 0.05, 0, brightYellowDust);
+            // Halo jaune plus large
+            world.spawnParticle(Particle.DUST, point, 1, 0.1, 0.1, 0.1, 0, yellowDust);
         }
 
-        // Impact au point d'arrivee (petit burst)
-        world.spawnParticle(Particle.ELECTRIC_SPARK, to, 5, 0.15, 0.15, 0.15, 0.02);
+        // Impact au point d'arrivee (burst jaune)
+        world.spawnParticle(Particle.DUST, to, 8, 0.2, 0.2, 0.2, 0, brightYellowDust);
+        world.spawnParticle(Particle.WAX_OFF, to, 5, 0.15, 0.15, 0.15, 0.02);
     }
 
     // ==================== SHADOW PRIEST VOID PROCESSORS ====================
@@ -1628,8 +1635,9 @@ public class OccultisteTalentListener implements Listener {
             if (!nearbyEnemies.isEmpty()) {
                 // Son leger pour indiquer l'activation
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.2f, 1.8f);
-                // Petit effet electrique autour du joueur
-                player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, player.getLocation().add(0, 1.5, 0), 4, 0.3, 0.3, 0.3, 0.01);
+                // Petit effet electrique jaune autour du joueur
+                Particle.DustOptions yellowSpark = new Particle.DustOptions(Color.fromRGB(255, 255, 0), 0.8f);
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0), 6, 0.3, 0.3, 0.3, 0, yellowSpark);
             }
         }
     }
@@ -1666,10 +1674,11 @@ public class OccultisteTalentListener implements Listener {
                 count++;
             }
 
-            // Storm visual around player - aura electrique
+            // Storm visual around player - aura electrique jaune
             if (count > 0) {
-                // Petit arc electrique autour du joueur
-                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2, 0), 3, 0.5, 0.3, 0.5, 0.01);
+                // Petit arc electrique jaune autour du joueur
+                Particle.DustOptions yellowAura = new Particle.DustOptions(Color.fromRGB(255, 255, 50), 1.2f);
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 2, 0), 5, 0.5, 0.3, 0.5, 0, yellowAura);
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.15f, 2.0f);
             }
         }
@@ -1899,8 +1908,9 @@ public class OccultisteTalentListener implements Listener {
                 sendActionBar(player, "§e§l+ JUGEMENT DIVIN + §7" + struck + " cibles");
                 // Son reduit pour eviter le spam sonore avec plusieurs joueurs
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 0.8f);
-                // Effet visuel de charge au joueur
-                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1.5, 0), 8, 0.3, 0.5, 0.3, 0.02);
+                // Effet visuel de charge jaune au joueur
+                Particle.DustOptions divineYellow = new Particle.DustOptions(Color.fromRGB(255, 230, 0), 1.5f);
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0), 10, 0.3, 0.5, 0.3, 0, divineYellow);
             }
         }
     }
