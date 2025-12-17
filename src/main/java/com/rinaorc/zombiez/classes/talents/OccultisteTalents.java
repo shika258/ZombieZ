@@ -409,8 +409,8 @@ public final class OccultisteTalents {
                 "§7Les ennemis avec §35+ stacks de Givre§7",
                 "§7declenchent une §bBrisure Glaciale§7:",
                 "",
-                "§8Degats: §c8%§8 PV max par stack",
-                "§8Boss/Elite: §c4%§8 PV max par stack",
+                "§8Degats: §c4%§8 PV max par stack",
+                "§8Boss/Elite: §c2%§8 PV max par stack",
                 "§8Cooldown: §e10s§8 par ennemi",
                 "§8Retire tous les stacks apres"
             })
@@ -420,7 +420,7 @@ public final class OccultisteTalents {
             .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_ZERO)
-            .values(new double[]{5, 0.08, 0.04, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
+            .values(new double[]{5, 0.04, 0.02, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
             .build());
 
         // 4.3 - CONDUCTEUR
