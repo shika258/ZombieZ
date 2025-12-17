@@ -384,6 +384,72 @@ public class PetAbilityRegistry {
             new DimensionalConvergenceActive("nexus_converge", "Convergence Dimensionnelle",
                 "TP alliés vers vous + bouclier groupe", 100)
         );
+
+        // ==================== NOUVEAUX PETS VISUELS ====================
+
+        // Étoile Filante (Stellaire / Traînée)
+        registerAbilities(PetType.ETOILE_FILANTE,
+            new StardustTrailPassive("stardust_trail", "Traînée Stellaire",
+                "Laisse une traînée infligeant 3 dégâts", 3),
+            new ShootingStarActive("shooting_stars", "Pluie d'Étoiles",
+                "8 étoiles filantes sur la zone", 12, 8)
+        );
+
+        // Serpent Foudroyant (Foudre / Chaîne)
+        registerAbilities(PetType.SERPENT_FOUDROYANT,
+            new ChainLightningPassive("chain_lightning", "Foudre en Chaîne",
+                "20% de déclencher un éclair en chaîne", 0.20, 5, 10),
+            new ThunderstormActive("thunderstorm", "Tempête de Foudre",
+                "6 éclairs sur les ennemis", 25, 6)
+        );
+
+        // Golem de Lave (Lave / Traînée)
+        registerAbilities(PetType.GOLEM_LAVE,
+            new LavaTrailPassive("lava_trail", "Traînée de Lave",
+                "Laisse une traînée brûlant 5 dégâts/s", 5),
+            new VolcanicEruptionActive("volcanic_eruption", "Éruption Volcanique",
+                "Colonne de feu + 10 boules de lave", 15, 10)
+        );
+
+        // Phénix Solaire (Feu / Météores)
+        registerAbilities(PetType.PHOENIX_SOLAIRE,
+            new FireballPassive("solar_fireball", "Boule de Feu Solaire",
+                "25% de lancer une boule de feu", 0.25, 15),
+            new MeteorShowerActive("meteor_shower", "Pluie de Météores",
+                "12 météores de feu sur la zone", 20, 12)
+        );
+
+        // Ombre Déchirante (Ombre / Tentacules)
+        registerAbilities(PetType.OMBRE_DECHIRANTE,
+            new ShadowTentaclePassive("shadow_tentacle", "Tentacule d'Ombre",
+                "20% de faire surgir un tentacule", 0.20, 8),
+            new VoidVortexActive("void_vortex", "Vortex du Néant",
+                "Aspire les ennemis puis explose", 20, 4)
+        );
+
+        // Hydre de Givre (Glace / Blizzard)
+        registerAbilities(PetType.HYDRE_GIVRE,
+            new IceShardPassive("ice_shard", "Éclat de Glace",
+                "30% de lancer un éclat de glace", 0.30, 2),
+            new BlizzardActive("blizzard", "Blizzard",
+                "8s de tempête, 10 dégâts/s", 10, 8, 8)
+        );
+
+        // Esprit Prismatique (Lumière / Arc-en-ciel)
+        registerAbilities(PetType.ESPRIT_PRISMATIQUE,
+            new PrismaticBeamPassive("prismatic_beam", "Rayon Prismatique",
+                "Tire un rayon arc-en-ciel (+10 dégâts)", 10),
+            new RainbowNovaActive("rainbow_nova", "Nova Prismatique",
+                "Onde arc-en-ciel expansive (30 dégâts)", 30, 10)
+        );
+
+        // Kraken Miniature (Eau / Tentacules)
+        registerAbilities(PetType.KRAKEN_MINIATURE,
+            new WaterTentaclePassive("water_tentacle", "Tentacule d'Eau",
+                "15% d'immobiliser avec un tentacule", 0.15, 2),
+            new TsunamiActive("tsunami", "Tsunami",
+                "Vague géante (50 dégâts, knockback)", 50, 25)
+        );
     }
 
     /**

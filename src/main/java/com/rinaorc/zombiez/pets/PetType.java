@@ -243,6 +243,24 @@ public enum PetType {
         "Synergie: Les marques explosent avec les talents Chasseur"
     ),
 
+    // --- NOUVEAUX PETS PEU COMMUNS (Visuels) ---
+
+    ETOILE_FILANTE(
+        "Étoile Filante",
+        PetRarity.UNCOMMON,
+        Material.NETHER_STAR,
+        EntityType.ALLAY,
+        "shooting_star",
+        "Stellaire / Traînée",
+        "Petite étoile scintillante laissant une traînée dorée",
+        "Laisse une traînée stellaire qui inflige 3 dégâts aux ennemis",
+        "Pluie d'Étoiles",
+        "Fait pleuvoir 8 étoiles filantes sur la zone",
+        25,
+        "Traînée inflige +2 dégâts",
+        "Les étoiles ciblent automatiquement les ennemis proches"
+    ),
+
     // ==================== RARES (§b) ====================
 
     PHENIX_MINEUR(
@@ -357,6 +375,40 @@ public enum PetType {
         30,
         "Bonus élément +5%",
         "Synergie: +100% efficacité avec talents élémentaires (Ignite, Frost, Lightning)"
+    ),
+
+    // --- NOUVEAUX PETS RARES (Visuels) ---
+
+    SERPENT_FOUDROYANT(
+        "Serpent Foudroyant",
+        PetRarity.RARE,
+        Material.LIGHTNING_ROD,
+        EntityType.SILVERFISH,
+        "lightning_serpent",
+        "Foudre / Chaîne",
+        "Serpent électrique crépitant d'énergie bleue",
+        "20% chance de déclencher un éclair en chaîne (5 cibles, -20% dégâts par rebond)",
+        "Tempête de Foudre",
+        "Invoque 6 éclairs sur les ennemis proches",
+        30,
+        "Chaîne jusqu'à 7 cibles",
+        "Les éclairs paralysent les cibles 1s"
+    ),
+
+    GOLEM_LAVE(
+        "Golem de Lave",
+        PetRarity.RARE,
+        Material.MAGMA_BLOCK,
+        EntityType.ARMOR_STAND,
+        "lava_golem",
+        "Lave / Traînée",
+        "Golem de roche incandescente dégoulinant de lave",
+        "Laisse une traînée de lave brûlant les ennemis (5 dégâts/s)",
+        "Éruption Volcanique",
+        "Crée une colonne de feu et projette 10 boules de lave",
+        40,
+        "Traînée inflige +3 dégâts/s",
+        "L'éruption laisse des flaques de lave persistantes"
     ),
 
     // ==================== ÉPIQUES (§d) ====================
@@ -475,6 +527,40 @@ public enum PetType {
         "Les Jackpots peuvent drop des oeufs de pet (rare)"
     ),
 
+    // --- NOUVEAUX PETS ÉPIQUES (Visuels) ---
+
+    PHOENIX_SOLAIRE(
+        "Phénix Solaire",
+        PetRarity.EPIC,
+        Material.FIRE_CHARGE,
+        EntityType.CHICKEN,
+        "solar_phoenix",
+        "Feu / Météores",
+        "Phénix doré irradiant de chaleur solaire",
+        "25% chance de lancer une boule de feu (15 dégâts, explosion AoE)",
+        "Pluie de Météores",
+        "Fait pleuvoir 12 météores de feu sur la zone",
+        35,
+        "Boules de feu +5 dégâts",
+        "Les météores laissent des zones de feu persistantes"
+    ),
+
+    OMBRE_DECHIRANTE(
+        "Ombre Déchirante",
+        PetRarity.EPIC,
+        Material.BLACK_DYE,
+        EntityType.VEX,
+        "tearing_shadow",
+        "Ombre / Tentacules",
+        "Masse d'ombre pure avec des tentacules ondulants",
+        "20% chance de faire surgir un tentacule d'ombre (+8 dégâts, aveugle)",
+        "Vortex du Néant",
+        "Crée un vortex aspirant les ennemis pendant 4s puis explose",
+        50,
+        "Tentacules infligent +5 dégâts",
+        "Le vortex génère des tentacules supplémentaires"
+    ),
+
     // ==================== LÉGENDAIRES (§6) ====================
 
     GARDIEN_ANGELIQUE(
@@ -591,6 +677,40 @@ public enum PetType {
         "Dans les zones difficiles (40+): +30% XP et loot supplémentaire"
     ),
 
+    // --- NOUVEAUX PETS LÉGENDAIRES (Visuels) ---
+
+    HYDRE_GIVRE(
+        "Hydre de Givre",
+        PetRarity.LEGENDARY,
+        Material.BLUE_ICE,
+        EntityType.ENDER_DRAGON,
+        "frost_hydra",
+        "Glace / Blizzard",
+        "Hydre à trois têtes faite de glace cristalline",
+        "30% chance de lancer un éclat de glace (ralentit 2s, +10% dégâts)",
+        "Blizzard",
+        "Déchaîne un blizzard (8s, 10 dégâts/s, gèle les ennemis)",
+        45,
+        "Ralentissement +1s",
+        "Le blizzard peut congeler complètement les ennemis (immobilise 3s)"
+    ),
+
+    ESPRIT_PRISMATIQUE(
+        "Esprit Prismatique",
+        PetRarity.LEGENDARY,
+        Material.PRISMARINE_CRYSTALS,
+        EntityType.ALLAY,
+        "prismatic_spirit",
+        "Lumière / Arc-en-ciel",
+        "Esprit de lumière pure aux couleurs changeantes",
+        "Tire un rayon prismatique toutes les 3s (+10 dégâts)",
+        "Nova Prismatique",
+        "Onde arc-en-ciel expansive (30 dégâts, rayon 10)",
+        35,
+        "Rayons +5 dégâts",
+        "La nova applique un effet aléatoire (brûle/gèle/stun/poison)"
+    ),
+
     // ==================== MYTHIQUES (§c) ====================
 
     AVATAR_MORT(
@@ -705,6 +825,24 @@ public enum PetType {
         75,
         "Aura +10 blocs, bonus alliés +5%",
         "L'aura génère aussi des particules de soin (1 coeur/5s pour tous les alliés)"
+    ),
+
+    // --- NOUVEAU PET MYTHIQUE (Visuel) ---
+
+    KRAKEN_MINIATURE(
+        "Kraken Miniature",
+        PetRarity.MYTHIC,
+        Material.INK_SAC,
+        EntityType.SQUID,
+        "mini_kraken",
+        "Eau / Tentacules",
+        "Petit kraken aux tentacules chatoyantes et yeux lumineux",
+        "15% chance d'immobiliser un ennemi avec un tentacule d'eau (2s, +20% dégâts)",
+        "Tsunami",
+        "Déclenche une vague géante balayant les ennemis (50 dégâts, knockback massif)",
+        50,
+        "Immobilisation +1s",
+        "Le tsunami noie les ennemis (suffocation 3s) et génère des tentacules"
     );
 
     private final String displayName;
