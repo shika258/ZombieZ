@@ -475,6 +475,7 @@ public class BattlePassManager {
      */
     @Getter
     @Builder
+    @lombok.AllArgsConstructor
     public static class Season {
         private final int id;
         private final String name;
@@ -491,6 +492,7 @@ public class BattlePassManager {
      */
     @Getter
     @Builder
+    @lombok.AllArgsConstructor
     public static class BattlePassLevel {
         private final int level;
         private final int xpRequired;
@@ -503,6 +505,7 @@ public class BattlePassManager {
      */
     @Getter
     @Builder
+    @lombok.AllArgsConstructor
     public static class BattlePassReward {
         private final RewardType type;
         private final String name;

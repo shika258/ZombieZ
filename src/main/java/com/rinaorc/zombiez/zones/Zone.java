@@ -1,7 +1,10 @@
 package com.rinaorc.zombiez.zones;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -9,8 +12,11 @@ import org.bukkit.World;
  * Représente une zone de jeu
  * Chaque zone a ses propres caractéristiques de difficulté et de loot
  */
-@Data
+@Getter
 @Builder
+@AllArgsConstructor
+@ToString
+@EqualsAndHashCode
 public class Zone {
 
     // Identification
