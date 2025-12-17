@@ -139,7 +139,6 @@ public class EliteZombieAI extends ZombieAI {
         // Attaque qui ignore l'armure
         double trueDamage = 8 + level * 1.5;
         target.damage(trueDamage, zombie);
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 100, 1));
 
         playParticles(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
     }
@@ -403,7 +402,6 @@ public class EliteZombieAI extends ZombieAI {
                 .forEach(p -> {
                     p.damage(18 + level * 2, zombie);
                     p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0));
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 100, 1));
                 });
 
             isExecutingSpecial = false;

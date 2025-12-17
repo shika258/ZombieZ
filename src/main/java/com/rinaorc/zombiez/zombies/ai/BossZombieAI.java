@@ -388,7 +388,6 @@ public class BossZombieAI extends ZombieAI {
 
     private void webShot(Player target) {
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 3));
-        target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 80, 1));
         playParticles(Particle.ITEM_SNOWBALL, target.getLocation(), 30, 0.5, 1, 0.5);
         playSound(Sound.ENTITY_SPIDER_AMBIENT, 1.5f, 0.5f);
     }
