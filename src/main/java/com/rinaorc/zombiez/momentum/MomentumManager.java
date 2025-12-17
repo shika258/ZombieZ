@@ -23,7 +23,7 @@ public class MomentumManager {
     private static final int COMBO_TIMEOUT = 5000; // 5 secondes
     private static final int STREAK_TIMEOUT = 30000; // 30 secondes sans kill
     private static final int FEVER_THRESHOLD = 50; // Kills pour activer Fever
-    private static final int FEVER_DURATION = 30000; // 30 secondes de Fever
+    public static final int FEVER_DURATION = 30000; // 30 secondes de Fever (public pour accès externe)
 
     public MomentumManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -104,9 +104,7 @@ public class MomentumManager {
         
         // Streak milestones
         if (data.streak == 25) {
-            player.sendMessage("§6🔥 Streak de 25 kills!");
-        } else if (data.streak == 50) {
-            player.sendMessage("§c🔥 Streak de 50 kills! §dFEVER disponible!");
+            player.sendMessage("§6🔥 Streak de 25 kills! §7Encore 25 pour le FEVER!");
         } else if (data.streak == 100) {
             plugin.getServer().broadcastMessage("§c§l🔥 " + player.getName() + " §ea atteint un streak de §c§l100 KILLS!");
         }
@@ -197,6 +195,30 @@ public class MomentumManager {
     }
 
     /**
+     * Obtient le temps restant de Fever en millisecondes
+     */
+    public long getFeverTimeRemaining(Player player) {
+        MomentumData data = playerMomentum.get(player.getUniqueId());
+        if (data == null || !data.inFever) return 0;
+
+        long elapsed = System.currentTimeMillis() - data.feverStartTime;
+        long remaining = FEVER_DURATION - elapsed;
+        return Math.max(0, remaining);
+    }
+
+    /**
+     * Obtient la progression du Fever (1.0 = début, 0.0 = fin)
+     */
+    public double getFeverProgress(Player player) {
+        MomentumData data = playerMomentum.get(player.getUniqueId());
+        if (data == null || !data.inFever) return 0;
+
+        long elapsed = System.currentTimeMillis() - data.feverStartTime;
+        double progress = 1.0 - ((double) elapsed / FEVER_DURATION);
+        return Math.max(0, Math.min(1.0, progress));
+    }
+
+    /**
      * Tâche de décroissance
      */
     private void startDecayTask() {
@@ -221,7 +243,8 @@ public class MomentumManager {
                     data.inFever = false;
                     Player player = plugin.getServer().getPlayer(entry.getKey());
                     if (player != null) {
-                        player.sendMessage("§7🔥 Fever terminé!");
+                        MessageUtils.sendTitle(player, "§7§l🔥 FEVER TERMINÉ!", "§8Streak: " + data.streak + " kills", 5, 30, 10);
+                        player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.0f);
                     }
                 }
             }
@@ -273,7 +296,4 @@ public class MomentumManager {
     public MomentumData getMomentum(UUID uuid) {
         return playerMomentum.get(uuid);
     }
-    
-    // Constante statique pour accès externe
-    private static final int COMBO_TIMEOUT_STATIC = 5000;
 }
