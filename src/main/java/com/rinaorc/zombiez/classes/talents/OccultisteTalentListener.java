@@ -191,13 +191,13 @@ public class OccultisteTalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 30L, 30L);
 
-        // MINION AI TICK (40L = 2s) - Mise a jour des cibles des serviteurs
+        // MINION AI TICK (20L = 1s) - Mise a jour des cibles et attaques des serviteurs
         new BukkitRunnable() {
             @Override
             public void run() {
                 processMinionAI();
             }
-        }.runTaskTimer(plugin, 40L, 40L);
+        }.runTaskTimer(plugin, 20L, 20L);
 
         // CLEANUP (200L = 10s) - Nettoyage des donnees expirees
         new BukkitRunnable() {
@@ -3127,8 +3127,11 @@ public class OccultisteTalentListener implements Listener {
     }
 
     /**
-     * Met a jour periodiquement les cibles de tous les serviteurs
-     * Appele toutes les 2 secondes
+     * Met a jour periodiquement les cibles et force les attaques des serviteurs
+     * Appele toutes les secondes
+     *
+     * IMPORTANT: Les mobs ne s'attaquent pas naturellement entre eux dans Minecraft.
+     * Cette methode force les attaques en infligeant des degats directement.
      */
     private void processMinionAI() {
         for (Map.Entry<UUID, List<UUID>> entry : playerMinions.entrySet()) {
@@ -3142,23 +3145,94 @@ public class OccultisteTalentListener implements Listener {
 
                 // Verifier si le minion a deja une cible valide
                 LivingEntity currentTarget = minion.getTarget();
-                if (currentTarget != null && !currentTarget.isDead() &&
-                    currentTarget.getLocation().distance(owner.getLocation()) < 25) {
-                    continue; // Garder la cible actuelle
+                boolean hasValidTarget = currentTarget != null && !currentTarget.isDead() &&
+                    currentTarget.getLocation().distance(owner.getLocation()) < 25;
+
+                if (!hasValidTarget) {
+                    // Chercher une nouvelle cible
+                    setMinionTarget(owner, minion);
+                    currentTarget = minion.getTarget();
                 }
 
-                // Chercher une nouvelle cible
-                setMinionTarget(owner, minion);
-
                 // Si aucune cible, faire suivre le joueur
-                if (minion.getTarget() == null) {
+                if (currentTarget == null) {
                     // Teleporter le minion s'il est trop loin
                     if (minion.getLocation().distance(owner.getLocation()) > 30) {
                         minion.teleport(owner.getLocation().add(
                             Math.random() * 3 - 1.5, 0, Math.random() * 3 - 1.5));
                     }
+                    continue;
+                }
+
+                // FORCE ATTACK: Les mobs ne s'attaquent pas naturellement entre eux
+                // On force l'attaque si le minion est a portee de sa cible
+                double distanceToTarget = minion.getLocation().distance(currentTarget.getLocation());
+                if (!currentTarget.isValid() || currentTarget.isDead()) continue;
+
+                // Determiner la portee selon le type de minion
+                boolean isRanged = minion instanceof AbstractSkeleton;
+                double attackRange = isRanged ? 15.0 : 2.5;
+
+                if (distanceToTarget <= attackRange) {
+                    // Faire regarder la cible
+                    minion.lookAt(currentTarget);
+
+                    if (isRanged && minion instanceof AbstractSkeleton skeleton) {
+                        // Squelette archer - tirer une fleche
+                        forceMinionRangedAttack(skeleton, currentTarget, owner);
+                    } else {
+                        // Attaque de melee
+                        forceMinionMeleeAttack(minion, currentTarget);
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Force une attaque de melee d'un minion
+     */
+    private void forceMinionMeleeAttack(Mob minion, LivingEntity target) {
+        // Animation d'attaque (bras qui balance)
+        if (minion instanceof Zombie zombie) {
+            zombie.swingMainHand();
+        }
+
+        // Infliger les degats directement (ceci declenche onMinionDealDamage)
+        double baseDamage = 8.0;
+        var damageAttr = minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+        if (damageAttr != null) {
+            baseDamage = damageAttr.getValue();
+        }
+
+        // Les degats seront modifies par onMinionDealDamage pour utiliser les stats du joueur
+        target.damage(baseDamage, minion);
+    }
+
+    /**
+     * Force une attaque a distance d'un squelette archer
+     */
+    private void forceMinionRangedAttack(AbstractSkeleton skeleton, LivingEntity target, Player owner) {
+        // Creer et lancer une fleche
+        Location eyeLocation = skeleton.getEyeLocation();
+        org.bukkit.util.Vector direction = target.getEyeLocation().subtract(eyeLocation).toVector().normalize();
+
+        Arrow arrow = skeleton.getWorld().spawn(eyeLocation.add(direction), Arrow.class);
+        arrow.setVelocity(direction.multiply(2.5));
+        arrow.setShooter(skeleton);
+        arrow.setDamage(8.0); // Degats de base - sera modifie par onMinionDealDamage
+
+        // Marquer la fleche comme venant d'un minion pour le calcul des degats
+        arrow.addScoreboardTag("minion_arrow");
+        arrow.addScoreboardTag("owner_" + owner.getUniqueId());
+
+        // Son de tir
+        skeleton.getWorld().playSound(skeleton.getLocation(), Sound.ENTITY_SKELETON_SHOOT, 1.0f, 1.0f);
+
+        // Effet visuel de flamme si le squelette a Flame
+        var mainHand = skeleton.getEquipment().getItemInMainHand();
+        if (mainHand.containsEnchantment(org.bukkit.enchantments.Enchantment.FLAME)) {
+            arrow.setFireTicks(100);
         }
     }
 
