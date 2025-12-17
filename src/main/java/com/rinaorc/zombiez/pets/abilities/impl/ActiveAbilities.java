@@ -1,0 +1,1688 @@
+package com.rinaorc.zombiez.pets.abilities.impl;
+
+import com.rinaorc.zombiez.pets.PetData;
+import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import lombok.Getter;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.entity.*;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
+
+import java.util.*;
+
+/**
+ * Implémentations des capacités actives des pets
+ */
+
+// ==================== ECHO SCAN ====================
+
+@Getter
+class EchoScanActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int radius;
+    private final int durationSeconds;
+
+    EchoScanActive(String id, String name, String desc, int radius, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.radius = radius;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+        Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
+
+        // Effet d'onde
+        player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 0.5f);
+
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                // Marquer avec effet glowing
+                monster.setGlowing(true);
+                Bukkit.getScheduler().runTaskLater(
+                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    () -> monster.setGlowing(false),
+                    durationSeconds * 20L
+                );
+            }
+        }
+
+        // Particules d'onde
+        for (int i = 0; i < adjustedRadius; i++) {
+            final int ring = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnRing(player.getLocation(), ring),
+                i * 2L
+            );
+        }
+
+        return true;
+    }
+
+    private void spawnRing(Location center, int radius) {
+        for (int angle = 0; angle < 360; angle += 10) {
+            double rad = Math.toRadians(angle);
+            Location loc = center.clone().add(
+                Math.cos(rad) * radius,
+                0.5,
+                Math.sin(rad) * radius
+            );
+            center.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1);
+        }
+    }
+}
+
+// ==================== SEARCH ====================
+
+@Getter
+class SearchActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final Random random = new Random();
+
+    SearchActive(String id, String name, String desc, int cooldown) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 60; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int itemCount = 1 + random.nextInt(3); // 1-3 items
+        itemCount = (int) (itemCount * petData.getStatMultiplier());
+
+        player.playSound(player.getLocation(), Sound.BLOCK_GRAVEL_BREAK, 1.0f, 1.0f);
+        player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation(),
+            20, 0.5, 0.1, 0.5, Material.DIRT.createBlockData());
+
+        // Donner des ressources aléatoires
+        for (int i = 0; i < itemCount; i++) {
+            Material[] resources = {
+                Material.IRON_NUGGET, Material.GOLD_NUGGET, Material.COAL,
+                Material.EMERALD, Material.DIAMOND, Material.BONE
+            };
+            Material mat = resources[random.nextInt(resources.length)];
+            player.getInventory().addItem(new org.bukkit.inventory.ItemStack(mat, 1 + random.nextInt(3)));
+        }
+
+        player.sendMessage("§a[Pet] §7Votre rat a trouvé §e" + itemCount + " §7ressources!");
+        return true;
+    }
+}
+
+// ==================== FLASH ====================
+
+@Getter
+class FlashActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int blindDurationSeconds;
+
+    FlashActive(String id, String name, String desc, int cooldown, int blindDuration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.blindDurationSeconds = blindDuration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDuration = (int) (blindDurationSeconds * 20 * petData.getStatMultiplier());
+
+        Collection<Entity> nearby = player.getNearbyEntities(5, 5, 5);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                // Annuler la cible
+                if (monster instanceof Mob mob) {
+                    mob.setTarget(null);
+                }
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, adjustedDuration, 4, false, false));
+            }
+        }
+
+        // Effet visuel
+        player.getWorld().spawnParticle(Particle.FLASH, player.getLocation().add(0, 1, 0), 1);
+        player.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 2.0f);
+
+        return true;
+    }
+}
+
+// ==================== SHIELD ====================
+
+@Getter
+class ShieldActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double shieldAmount;
+    private final Map<UUID, Double> activeShields = new HashMap<>();
+
+    ShieldActive(String id, String name, String desc, int cooldown, double shield) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.shieldAmount = shield;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        double adjustedShield = shieldAmount * petData.getStatMultiplier();
+        activeShields.put(player.getUniqueId(), adjustedShield);
+
+        // Effet visuel
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, 100, 1, false, true));
+        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1.0f, 1.0f);
+        player.sendMessage("§a[Pet] §7Bouclier activé: §e" + (int) adjustedShield + " §7dégâts absorbés!");
+
+        return true;
+    }
+
+    public double getShieldRemaining(UUID uuid) {
+        return activeShields.getOrDefault(uuid, 0.0);
+    }
+
+    public void absorbDamage(UUID uuid, double damage) {
+        double current = activeShields.getOrDefault(uuid, 0.0);
+        activeShields.put(uuid, Math.max(0, current - damage));
+    }
+}
+
+// ==================== SCOUT ====================
+
+@Getter
+class ScoutActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+
+    ScoutActive(String id, String name, String desc, int cooldown) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 40; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        // Révèle une zone dans la direction regardée
+        Location target = player.getTargetBlock(null, 50).getLocation();
+        int radius = (int) (15 * petData.getStatMultiplier());
+
+        Collection<Entity> nearby = target.getWorld().getNearbyEntities(target, radius, radius, radius);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                monster.setGlowing(true);
+                Bukkit.getScheduler().runTaskLater(
+                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    () -> monster.setGlowing(false),
+                    100L
+                );
+            }
+        }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_PARROT_FLY, 1.0f, 1.0f);
+        player.sendMessage("§a[Pet] §7Zone explorée! Ennemis marqués.");
+
+        return true;
+    }
+}
+
+// ==================== HOWL ====================
+
+@Getter
+class HowlActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damageBoost;
+    private final int durationSeconds;
+
+    HowlActive(String id, String name, String desc, int cooldown, double boost, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damageBoost = boost;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDuration = (int) (durationSeconds * 20 * petData.getStatMultiplier());
+        int level = (int) (damageBoost * 10);
+
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.STRENGTH, adjustedDuration, level, false, true));
+        player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 1.0f, 1.0f);
+        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 1, 0), 10);
+
+        player.sendMessage("§a[Pet] §7Hurlement! §c+" + (int)(damageBoost * 100) + "% §7dégâts!");
+        return true;
+    }
+}
+
+// ==================== HEAL ====================
+
+@Getter
+class HealActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double healAmount;
+
+    HealActive(String id, String name, String desc, int cooldown, double heal) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.healAmount = heal;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 40; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        double adjustedHeal = healAmount * petData.getStatMultiplier();
+        double newHealth = Math.min(player.getMaxHealth(), player.getHealth() + adjustedHeal * 2);
+        player.setHealth(newHealth);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 2.0f);
+        player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 2, 0), 10, 0.5, 0.5, 0.5, 0);
+        player.sendMessage("§a[Pet] §7Soigné de §c" + (int)(adjustedHeal * 2) + "❤");
+
+        return true;
+    }
+}
+
+// ==================== WALL ====================
+
+@Getter
+class WallActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;
+
+    WallActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location loc = player.getLocation().add(player.getLocation().getDirection().multiply(2));
+        Vector dir = player.getLocation().getDirection();
+        dir.setY(0).normalize();
+
+        // Créer un mur perpendiculaire à la direction du joueur
+        Vector perpendicular = new Vector(-dir.getZ(), 0, dir.getX());
+        List<Location> wallBlocks = new ArrayList<>();
+
+        for (int x = -1; x <= 1; x++) {
+            for (int y = 0; y < 2; y++) {
+                Location blockLoc = loc.clone().add(perpendicular.clone().multiply(x)).add(0, y, 0);
+                Block block = blockLoc.getBlock();
+                if (block.getType() == Material.AIR) {
+                    wallBlocks.add(blockLoc);
+                    block.setType(Material.COBBLESTONE);
+                }
+            }
+        }
+
+        player.playSound(player.getLocation(), Sound.BLOCK_STONE_PLACE, 1.0f, 1.0f);
+
+        // Supprimer le mur après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                for (Location blockLoc : wallBlocks) {
+                    if (blockLoc.getBlock().getType() == Material.COBBLESTONE) {
+                        blockLoc.getBlock().setType(Material.AIR);
+                        blockLoc.getWorld().spawnParticle(Particle.BLOCK,
+                            blockLoc.add(0.5, 0.5, 0.5), 10, Material.COBBLESTONE.createBlockData());
+                    }
+                }
+            },
+            durationSeconds * 20L
+        );
+
+        return true;
+    }
+}
+
+// ==================== IGNITE AREA ====================
+
+@Getter
+class IgniteAreaActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int radius;
+
+    IgniteAreaActive(String id, String name, String desc, int cooldown, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+        Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
+
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                monster.setFireTicks(100);
+            }
+        }
+
+        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 100, radius, 1, radius, 0.1);
+        player.playSound(player.getLocation(), Sound.ITEM_FIRECHARGE_USE, 1.0f, 1.0f);
+
+        return true;
+    }
+}
+
+// ==================== WEB ====================
+
+@Getter
+class WebActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;
+
+    WebActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location target = player.getTargetBlock(null, 10).getLocation();
+        List<Location> webBlocks = new ArrayList<>();
+
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                Location blockLoc = target.clone().add(x, 0, z);
+                if (blockLoc.getBlock().getType() == Material.AIR) {
+                    blockLoc.getBlock().setType(Material.COBWEB);
+                    webBlocks.add(blockLoc);
+                }
+            }
+        }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_SPIDER_AMBIENT, 1.0f, 1.0f);
+
+        // Supprimer les toiles après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                for (Location blockLoc : webBlocks) {
+                    if (blockLoc.getBlock().getType() == Material.COBWEB) {
+                        blockLoc.getBlock().setType(Material.AIR);
+                    }
+                }
+            },
+            durationSeconds * 20L
+        );
+
+        return true;
+    }
+}
+
+// ==================== FIRE NOVA ====================
+
+@Getter
+class FireNovaActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damage;
+    private final int radius;
+
+    FireNovaActive(String id, String name, String desc, int cooldown, double damage, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damage = damage;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        double adjustedDamage = damage * petData.getStatMultiplier();
+        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+
+        Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                monster.damage(adjustedDamage, player);
+                monster.setFireTicks(60);
+                petData.addDamage((long) adjustedDamage);
+            }
+        }
+
+        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 5, 2, 1, 2, 0);
+        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 100, radius, 1, radius, 0.1);
+        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+
+        return true;
+    }
+}
+
+// ==================== FREEZE ====================
+
+@Getter
+class FreezeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int freezeDurationSeconds;
+
+    FreezeActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.freezeDurationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDuration = (int) (freezeDurationSeconds * 20 * petData.getStatMultiplier());
+        Vector direction = player.getLocation().getDirection().normalize();
+
+        // Cône devant le joueur
+        Collection<Entity> nearby = player.getNearbyEntities(8, 4, 8);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                Vector toEntity = entity.getLocation().toVector()
+                    .subtract(player.getLocation().toVector()).normalize();
+                if (direction.dot(toEntity) > 0.5) { // Dans le cône
+                    monster.setFreezeTicks(adjustedDuration);
+                    monster.addPotionEffect(new PotionEffect(
+                        PotionEffectType.SLOWNESS, adjustedDuration, 127, false, false));
+                }
+            }
+        }
+
+        player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation().add(direction.multiply(3)), 50, 2, 1, 2, 0);
+        player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 2.0f);
+
+        return true;
+    }
+}
+
+// ==================== RESET COOLDOWN ====================
+
+@Getter
+class ResetCooldownActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+
+    ResetCooldownActive(String id, String name, String desc, int cooldown) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 90; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        // Cette capacité reset les cooldowns de classe via le ClassManager
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 2.0f);
+        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.5);
+        player.sendMessage("§a[Pet] §7Cooldowns de classe réinitialisés!");
+        return true;
+    }
+}
+
+// ==================== SWARM ====================
+
+@Getter
+class SwarmActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double totalDamage;
+    private final int durationSeconds;
+
+    SwarmActive(String id, String name, String desc, int cooldown, double damage, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.totalDamage = damage;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        LivingEntity target = getTarget(player);
+        if (target == null) {
+            player.sendMessage("§c[Pet] §7Aucune cible en vue!");
+            return false;
+        }
+
+        double adjustedDamage = totalDamage * petData.getStatMultiplier();
+        double damagePerTick = adjustedDamage / (durationSeconds * 4);
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (ticks >= durationSeconds * 4 || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+                target.damage(damagePerTick, player);
+                target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 5);
+                petData.addDamage((long) damagePerTick);
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 5L);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 1.0f, 1.0f);
+        return true;
+    }
+
+    private LivingEntity getTarget(Player player) {
+        for (Entity entity : player.getNearbyEntities(10, 10, 10)) {
+            if (entity instanceof Monster monster) {
+                Vector toEntity = entity.getLocation().toVector()
+                    .subtract(player.getLocation().toVector()).normalize();
+                if (player.getLocation().getDirection().dot(toEntity) > 0.8) {
+                    return monster;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+// ==================== RIPOSTE ====================
+
+@Getter
+class RiposteActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damageMultiplier;
+    private final Map<UUID, Boolean> riposteReady = new HashMap<>();
+
+    RiposteActive(String id, String name, String desc, int cooldown, double multiplier) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damageMultiplier = multiplier;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        riposteReady.put(player.getUniqueId(), true);
+        player.playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0f, 1.0f);
+        player.sendMessage("§a[Pet] §7Riposte prête! Prochaine attaque subie = contre-attaque!");
+
+        // Auto-désactivation après 10 secondes
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> riposteReady.remove(player.getUniqueId()),
+            200L
+        );
+
+        return true;
+    }
+
+    public boolean isReady(UUID uuid) {
+        return riposteReady.getOrDefault(uuid, false);
+    }
+
+    public void consume(UUID uuid) {
+        riposteReady.remove(uuid);
+    }
+
+    public double getMultiplier() {
+        return damageMultiplier;
+    }
+}
+
+// ==================== BREATH (Dragon) ====================
+
+@Getter
+class BreathActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damage;
+
+    BreathActive(String id, String name, String desc, int cooldown, double damage) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damage = damage;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        double adjustedDamage = damage * petData.getStatMultiplier();
+        Vector direction = player.getLocation().getDirection().normalize();
+
+        // Souffle en cône
+        for (int i = 1; i <= 8; i++) {
+            final int distance = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    Location loc = player.getLocation().add(direction.clone().multiply(distance)).add(0, 1, 0);
+                    loc.getWorld().spawnParticle(Particle.FLAME, loc, 20, 0.5, 0.5, 0.5, 0.05);
+
+                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, 2, 2, 2)) {
+                        if (entity instanceof Monster monster) {
+                            monster.damage(adjustedDamage / 4, player);
+                            monster.setFireTicks(60);
+                            petData.addDamage((long) (adjustedDamage / 4));
+                        }
+                    }
+                },
+                i * 2L
+            );
+        }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 2.0f);
+        return true;
+    }
+}
+
+// ==================== RESURRECT ====================
+
+@Getter
+class ResurrectActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int allyDuration;
+
+    ResurrectActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.allyDuration = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        // Spawn un zombie allié
+        Zombie ally = (Zombie) player.getWorld().spawnEntity(
+            player.getLocation().add(2, 0, 0), EntityType.ZOMBIE);
+        ally.setCustomName("§a" + player.getName() + "'s Minion");
+        ally.setCustomNameVisible(true);
+        ally.addScoreboardTag("zombiez_pet_ally");
+        ally.addScoreboardTag("owner_" + player.getUniqueId());
+
+        // Configurer l'allié
+        ally.setTarget(null);
+        ally.setBaby(false);
+
+        player.getWorld().spawnParticle(Particle.WITCH, ally.getLocation(), 30, 0.5, 1, 0.5, 0);
+        player.playSound(player.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.5f);
+
+        // Supprimer après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                if (ally.isValid()) {
+                    ally.getWorld().spawnParticle(Particle.SMOKE, ally.getLocation(), 20);
+                    ally.remove();
+                }
+            },
+            allyDuration * 20L
+        );
+
+        return true;
+    }
+}
+
+// ==================== SACRIFICE ====================
+
+@Getter
+class SacrificeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;
+    private final Map<UUID, Boolean> sacrificeActive = new HashMap<>();
+
+    SacrificeActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 60; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        sacrificeActive.put(player.getUniqueId(), true);
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, durationSeconds * 20, 254, false, true));
+
+        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1.0f, 0.5f);
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 50, 1, 1, 1, 0);
+
+        player.sendMessage("§a[Pet] §7Sacrifice cristallin activé! Invincible pendant §e" + durationSeconds + "s§7!");
+
+        // Explosion à la fin
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                sacrificeActive.remove(player.getUniqueId());
+                Collection<Entity> nearby = player.getNearbyEntities(5, 5, 5);
+                for (Entity entity : nearby) {
+                    if (entity instanceof Monster monster) {
+                        monster.damage(30 * petData.getStatMultiplier(), player);
+                    }
+                }
+                player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 10, 2, 2, 2, 0);
+                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+            },
+            durationSeconds * 20L
+        );
+
+        return true;
+    }
+
+    public boolean isActive(UUID uuid) {
+        return sacrificeActive.getOrDefault(uuid, false);
+    }
+}
+
+// ==================== AMBUSH ====================
+
+@Getter
+class AmbushActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double critMultiplier;
+    private final Map<UUID, Boolean> ambushReady = new HashMap<>();
+
+    AmbushActive(String id, String name, String desc, int cooldown, double multiplier) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.critMultiplier = multiplier;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        ambushReady.put(player.getUniqueId(), true);
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.INVISIBILITY, 60, 0, false, false));
+
+        player.playSound(player.getLocation(), Sound.ENTITY_CAT_HISS, 1.0f, 1.0f);
+        player.sendMessage("§a[Pet] §7Embuscade prête! Prochaine attaque = §cx" + (int) critMultiplier + " §7critique!");
+
+        // Auto-désactivation après 5 secondes
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                ambushReady.remove(player.getUniqueId());
+                player.removePotionEffect(PotionEffectType.INVISIBILITY);
+            },
+            100L
+        );
+
+        return true;
+    }
+
+    public boolean isReady(UUID uuid) {
+        return ambushReady.getOrDefault(uuid, false);
+    }
+
+    public void consume(UUID uuid) {
+        ambushReady.remove(uuid);
+    }
+
+    public double getMultiplier() {
+        return critMultiplier;
+    }
+}
+
+// ==================== CHAOS ACTIVE ====================
+
+@Getter
+class ChaosActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final Random random = new Random();
+
+    ChaosActive(String id, String name, String desc, int cooldown) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int effect = random.nextInt(5);
+        double power = petData.getStatMultiplier();
+
+        switch (effect) {
+            case 0 -> {
+                // Explosion massive
+                Collection<Entity> nearby = player.getNearbyEntities(10, 10, 10);
+                for (Entity e : nearby) {
+                    if (e instanceof Monster m) {
+                        m.damage(50 * power, player);
+                    }
+                }
+                player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 20, 5, 2, 5, 0);
+                player.sendMessage("§a[Pet] §7Chaos: §cExplosion massive!");
+            }
+            case 1 -> {
+                // Full heal + buffs
+                player.setHealth(player.getMaxHealth());
+                player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 400, 2, false, false));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 400, 2, false, false));
+                player.sendMessage("§a[Pet] §7Chaos: §aSoins complets + buffs!");
+            }
+            case 2 -> {
+                // Gel de zone
+                Collection<Entity> nearby = player.getNearbyEntities(8, 8, 8);
+                for (Entity e : nearby) {
+                    if (e instanceof Monster m) {
+                        m.setFreezeTicks(200);
+                    }
+                }
+                player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation(), 100, 8, 2, 8, 0);
+                player.sendMessage("§a[Pet] §7Chaos: §bGel de zone!");
+            }
+            case 3 -> {
+                // Téléportation avec dégâts
+                Location newLoc = player.getLocation().add(
+                    (random.nextDouble() - 0.5) * 20,
+                    0,
+                    (random.nextDouble() - 0.5) * 20
+                );
+                player.teleport(newLoc);
+                Collection<Entity> nearby = player.getNearbyEntities(3, 3, 3);
+                for (Entity e : nearby) {
+                    if (e instanceof Monster m) {
+                        m.damage(30 * power, player);
+                    }
+                }
+                player.getWorld().spawnParticle(Particle.PORTAL, newLoc, 50, 1, 1, 1, 0.5);
+                player.sendMessage("§a[Pet] §7Chaos: §5Téléportation offensive!");
+            }
+            case 4 -> {
+                // Invincibilité temporaire
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 254, false, true));
+                player.sendMessage("§a[Pet] §7Chaos: §eInvincibilité temporaire!");
+            }
+        }
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_SCREAM, 1.0f, 0.5f);
+        return true;
+    }
+}
+
+// ==================== DIVINE ====================
+
+@Getter
+class DivineActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int invincibilitySeconds;
+
+    DivineActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.invincibilitySeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 120; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        // Full heal
+        player.setHealth(player.getMaxHealth());
+
+        // Invincibilité
+        int adjustedDuration = (int) (invincibilitySeconds * 20 * petData.getStatMultiplier());
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, adjustedDuration, 254, false, true));
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.REGENERATION, adjustedDuration, 4, false, true));
+
+        // Effet visuel
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 2, 2, 2, 0.1);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+
+        player.sendMessage("§a[Pet] §6Bénédiction Divine! §7Invincible pendant §e" + invincibilitySeconds + "s§7!");
+        return true;
+    }
+}
+
+// ==================== PORTAL ====================
+
+@Getter
+class PortalActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int maxDistance;
+
+    PortalActive(String id, String name, String desc, int cooldown, int distance) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.maxDistance = distance;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDistance = (int) (maxDistance * petData.getStatMultiplier());
+        Block target = player.getTargetBlock(null, adjustedDistance);
+
+        if (target.getType() == Material.AIR || target.getLocation().distance(player.getLocation()) < 3) {
+            player.sendMessage("§c[Pet] §7Cible invalide!");
+            return false;
+        }
+
+        Location origin = player.getLocation();
+        Location destination = target.getLocation().add(0, 1, 0);
+
+        // Téléportation
+        player.teleport(destination);
+
+        // Effets
+        origin.getWorld().spawnParticle(Particle.PORTAL, origin, 50, 0.5, 1, 0.5, 0.5);
+        destination.getWorld().spawnParticle(Particle.PORTAL, destination, 50, 0.5, 1, 0.5, 0.5);
+        player.playSound(destination, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+
+        return true;
+    }
+}
+
+// ==================== SMASH ====================
+
+@Getter
+class SmashActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damage;
+    private final int radius;
+
+    SmashActive(String id, String name, String desc, int cooldown, double damage, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damage = damage;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        double adjustedDamage = damage * petData.getStatMultiplier();
+        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+
+        Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                monster.damage(adjustedDamage, player);
+                // Knockback
+                Vector knockback = entity.getLocation().toVector()
+                    .subtract(player.getLocation().toVector())
+                    .normalize()
+                    .multiply(2)
+                    .setY(0.5);
+                entity.setVelocity(knockback);
+                petData.addDamage((long) adjustedDamage);
+            }
+        }
+
+        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 10, radius, 0.5, radius, 0);
+        player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation(),
+            50, radius, 0.1, radius, Material.STONE.createBlockData());
+        player.playSound(player.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.5f);
+
+        return true;
+    }
+}
+
+// ==================== SANCTUARY ====================
+
+@Getter
+class SanctuaryActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double healPerSecond;
+    private final int durationSeconds;
+
+    SanctuaryActive(String id, String name, String desc, int cooldown, double heal, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.healPerSecond = heal;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 60; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        double adjustedHeal = healPerSecond * petData.getStatMultiplier();
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (ticks >= durationSeconds * 20) {
+                    cancel();
+                    return;
+                }
+
+                // Particules de zone
+                for (int angle = 0; angle < 360; angle += 30) {
+                    double rad = Math.toRadians(angle);
+                    Location loc = center.clone().add(Math.cos(rad) * 5, 0.5, Math.sin(rad) * 5);
+                    center.getWorld().spawnParticle(Particle.COMPOSTER, loc, 3);
+                }
+
+                // Soin toutes les 20 ticks
+                if (ticks % 20 == 0) {
+                    for (Entity entity : center.getWorld().getNearbyEntities(center, 5, 3, 5)) {
+                        if (entity instanceof Player p && p.getLocation().distance(center) <= 5) {
+                            double newHealth = Math.min(p.getMaxHealth(), p.getHealth() + adjustedHeal * 2);
+                            p.setHealth(newHealth);
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.0f);
+        player.sendMessage("§a[Pet] §7Sanctuaire Naturel créé!");
+
+        return true;
+    }
+}
+
+// ==================== APOCALYPSE ====================
+
+@Getter
+class ApocalypseActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double totalDamage;
+    private final int radius;
+
+    ApocalypseActive(String id, String name, String desc, int cooldown, double damage, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.totalDamage = damage;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        double adjustedDamage = totalDamage * petData.getStatMultiplier();
+        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+
+        // Pluie de feu
+        new BukkitRunnable() {
+            int count = 0;
+            @Override
+            public void run() {
+                if (count >= 20) {
+                    cancel();
+                    return;
+                }
+
+                for (int i = 0; i < 3; i++) {
+                    Location dropLoc = center.clone().add(
+                        (Math.random() - 0.5) * adjustedRadius * 2,
+                        10,
+                        (Math.random() - 0.5) * adjustedRadius * 2
+                    );
+
+                    center.getWorld().spawnParticle(Particle.FLAME, dropLoc, 20, 0.5, 5, 0.5, 0.1);
+
+                    // Impact
+                    Bukkit.getScheduler().runTaskLater(
+                        Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                        () -> {
+                            Location impact = dropLoc.clone();
+                            impact.setY(center.getY());
+                            center.getWorld().spawnParticle(Particle.LAVA, impact, 10, 1, 0.5, 1, 0);
+
+                            for (Entity e : center.getWorld().getNearbyEntities(impact, 3, 3, 3)) {
+                                if (e instanceof Monster m) {
+                                    m.damage(adjustedDamage / 10, player);
+                                    m.setFireTicks(100);
+                                }
+                            }
+                        },
+                        10L
+                    );
+                }
+
+                count++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 5L);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
+        player.sendMessage("§a[Pet] §c§lAPOCALYPSE DE FEU!");
+
+        return true;
+    }
+}
+
+// ==================== DEATH SENTENCE ====================
+
+@Getter
+class DeathSentenceActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int delaySeconds;
+
+    DeathSentenceActive(String id, String name, String desc, int cooldown, int delay) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.delaySeconds = delay;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 90; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        LivingEntity target = getTarget(player);
+        if (target == null) {
+            player.sendMessage("§c[Pet] §7Aucune cible en vue!");
+            return false;
+        }
+
+        target.setGlowing(true);
+        target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, delaySeconds * 20, 2, false, true));
+
+        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 2.0f);
+        player.sendMessage("§a[Pet] §c§lSentence Mortelle! §7La cible mourra dans §e" + delaySeconds + "s§7!");
+
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                if (target.isValid()) {
+                    // Boss: -50% HP, sinon mort
+                    if (target.getMaxHealth() > 500) {
+                        target.damage(target.getMaxHealth() * 0.5, player);
+                    } else {
+                        target.setHealth(0);
+                    }
+                    target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation(), 50, 1, 1, 1, 0.1);
+                    petData.addKill();
+                }
+            },
+            delaySeconds * 20L
+        );
+
+        return true;
+    }
+
+    private LivingEntity getTarget(Player player) {
+        for (Entity entity : player.getNearbyEntities(15, 15, 15)) {
+            if (entity instanceof Monster monster) {
+                Vector toEntity = entity.getLocation().toVector()
+                    .subtract(player.getLocation().toVector()).normalize();
+                if (player.getLocation().getDirection().dot(toEntity) > 0.9) {
+                    return monster;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+// ==================== BLACK HOLE ====================
+
+@Getter
+class BlackHoleActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;
+
+    BlackHoleActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 60; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getTargetBlock(null, 20).getLocation().add(0, 1, 0);
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (ticks >= durationSeconds * 20) {
+                    // Explosion finale
+                    center.getWorld().spawnParticle(Particle.EXPLOSION, center, 20, 2, 2, 2, 0);
+                    for (Entity e : center.getWorld().getNearbyEntities(center, 5, 5, 5)) {
+                        if (e instanceof Monster m) {
+                            m.damage(30 * petData.getStatMultiplier(), player);
+                        }
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Particules du trou noir
+                for (int angle = 0; angle < 360; angle += 20) {
+                    double rad = Math.toRadians(angle + ticks * 10);
+                    double r = 2 * (1 - (double) ticks / (durationSeconds * 20));
+                    Location loc = center.clone().add(Math.cos(rad) * r, Math.sin(ticks * 0.1), Math.sin(rad) * r);
+                    center.getWorld().spawnParticle(Particle.PORTAL, loc, 3);
+                }
+
+                // Aspirer les ennemis
+                for (Entity e : center.getWorld().getNearbyEntities(center, 8, 8, 8)) {
+                    if (e instanceof Monster) {
+                        Vector pull = center.toVector().subtract(e.getLocation().toVector()).normalize().multiply(0.3);
+                        e.setVelocity(pull);
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.3f);
+        player.sendMessage("§a[Pet] §8§lTrou Noir créé!");
+
+        return true;
+    }
+}
+
+// ==================== TIME STOP ====================
+
+@Getter
+class TimeStopActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int freezeSeconds;
+
+    TimeStopActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.freezeSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 75; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDuration = (int) (freezeSeconds * 20 * petData.getStatMultiplier());
+
+        Collection<Entity> nearby = player.getNearbyEntities(15, 15, 15);
+        for (Entity entity : nearby) {
+            if (entity instanceof Monster monster) {
+                monster.setAI(false);
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.GLOWING, adjustedDuration, 0, false, false));
+            }
+        }
+
+        // Réactiver l'IA après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                for (Entity entity : nearby) {
+                    if (entity instanceof Monster monster && monster.isValid()) {
+                        monster.setAI(true);
+                    }
+                }
+            },
+            adjustedDuration
+        );
+
+        // Buff au joueur
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.STRENGTH, adjustedDuration, 1, false, true));
+
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 10, 5, 10, 0);
+        player.playSound(player.getLocation(), Sound.BLOCK_BELL_RESONATE, 1.0f, 0.1f);
+
+        player.sendMessage("§a[Pet] §e§lARRÊT DU TEMPS! §7(" + freezeSeconds + "s)");
+        return true;
+    }
+}
+
+// ==================== TRIPLE BREATH ====================
+
+@Getter
+class TripleBreathActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+
+    TripleBreathActive(String id, String name, String desc, int cooldown) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Vector direction = player.getLocation().getDirection().normalize();
+        double damage = 30 * petData.getStatMultiplier();
+
+        // 3 souffles: feu (centre), glace (gauche), poison (droite)
+        Vector left = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
+        Vector right = new Vector(direction.getZ(), 0, -direction.getX()).normalize();
+
+        spawnBreath(player, direction, Particle.FLAME, damage, 60, petData); // Feu
+        spawnBreath(player, direction.clone().add(left.multiply(0.5)), Particle.SNOWFLAKE, damage, 0, petData); // Glace
+        spawnBreath(player, direction.clone().add(right.multiply(0.5)), Particle.FALLING_SPORE_BLOSSOM, damage, 0, petData); // Poison
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 1.0f);
+        return true;
+    }
+
+    private void spawnBreath(Player player, Vector direction, Particle particle, double damage, int fireTicks, PetData petData) {
+        for (int i = 1; i <= 8; i++) {
+            final int distance = i;
+            final Vector dir = direction.clone();
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    Location loc = player.getLocation().add(dir.clone().multiply(distance)).add(0, 1, 0);
+                    loc.getWorld().spawnParticle(particle, loc, 15, 0.5, 0.5, 0.5, 0.02);
+
+                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, 2, 2, 2)) {
+                        if (entity instanceof Monster monster) {
+                            monster.damage(damage / 4, player);
+                            if (fireTicks > 0) monster.setFireTicks(fireTicks);
+                            if (particle == Particle.SNOWFLAKE) {
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.SLOWNESS, 60, 2, false, false));
+                            }
+                            if (particle == Particle.FALLING_SPORE_BLOSSOM) {
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.POISON, 100, 1, false, false));
+                            }
+                            petData.addDamage((long) (damage / 4));
+                        }
+                    }
+                },
+                i * 2L
+            );
+        }
+    }
+}
+
+// ==================== COLOSSUS ====================
+
+@Getter
+class ColossusActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;
+
+    ColossusActive(String id, String name, String desc, int cooldown, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 120; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        int adjustedDuration = (int) (durationSeconds * 20 * petData.getStatMultiplier());
+
+        // Buffs massifs
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.STRENGTH, adjustedDuration, 4, false, true));
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, adjustedDuration, 254, false, true));
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, adjustedDuration, 1, false, false));
+
+        // Effet visuel continu
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (ticks >= adjustedDuration) {
+                    cancel();
+                    return;
+                }
+
+                // Ondes de choc
+                if (ticks % 40 == 0) {
+                    Collection<Entity> nearby = player.getNearbyEntities(5, 3, 5);
+                    for (Entity e : nearby) {
+                        if (e instanceof Monster m) {
+                            m.damage(20 * petData.getStatMultiplier(), player);
+                            Vector kb = e.getLocation().toVector()
+                                .subtract(player.getLocation().toVector())
+                                .normalize().multiply(0.5);
+                            e.setVelocity(kb);
+                        }
+                    }
+                    player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation(),
+                        30, 3, 0.5, 3, Material.ANCIENT_DEBRIS.createBlockData());
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        player.getWorld().strikeLightningEffect(player.getLocation());
+        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 0.5f);
+
+        player.sendMessage("§a[Pet] §6§lÉVEIL DU COLOSSE! §7(" + durationSeconds + "s)");
+        return true;
+    }
+}
