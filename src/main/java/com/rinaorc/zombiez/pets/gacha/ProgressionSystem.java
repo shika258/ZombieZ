@@ -201,8 +201,8 @@ public class ProgressionSystem {
                 case MYTHIC_COUNT -> petData.getMythicsObtained() >= milestone.target();
                 case EGGS_OPENED -> petData.getTotalEggsOpened() >= milestone.target();
                 case DAILY_STREAK -> {
-                    if (plugin.getDailyRewardSystem() != null) {
-                        yield plugin.getDailyRewardSystem().getStreak(player) >= milestone.target();
+                    if (plugin.getDailyRewardManager() != null) {
+                        yield plugin.getDailyRewardManager().getStreak(player) >= milestone.target();
                     }
                     yield false;
                 }
@@ -250,8 +250,8 @@ public class ProgressionSystem {
             case LEGENDARY_COUNT -> petData.getLegendariesObtained();
             case MYTHIC_COUNT -> petData.getMythicsObtained();
             case EGGS_OPENED -> petData.getTotalEggsOpened();
-            case DAILY_STREAK -> plugin.getDailyRewardSystem() != null ?
-                plugin.getDailyRewardSystem().getStreak(player) : 0;
+            case DAILY_STREAK -> plugin.getDailyRewardManager() != null ?
+                plugin.getDailyRewardManager().getStreak(player) : 0;
         };
 
         return new MilestoneProgress(current, milestone.target(), claimed);

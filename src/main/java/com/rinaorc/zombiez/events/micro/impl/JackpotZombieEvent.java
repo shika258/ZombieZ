@@ -48,6 +48,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
     // Symboles des rouleaux
     private static final String[] SYMBOLS = {"🍒", "💎", "⭐", "🔥", "💰", "👑"};
+    private static final String[] SYMBOL_COLORS = {"§c", "§b", "§e", "§6", "§a", "§d"};
 
     private final String[] reels = new String[3];
     private final boolean[] reelsStopped = {false, false, false};
@@ -300,7 +301,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
                 // Drop un item legendaire
                 try {
-                    ItemStack legendary = plugin.getLootManager().generateLoot(zone.getId(), Rarity.LEGENDARY);
+                    ItemStack legendary = plugin.getItemManager().generateItem(zone.getId(), Rarity.LEGENDARY);
                     player.getWorld().dropItemNaturally(player.getLocation(), legendary);
                     player.sendMessage("§6§l+ ITEM LEGENDAIRE!");
                 } catch (Exception ignored) {}
@@ -313,7 +314,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
                 // Drop un item epic
                 try {
-                    ItemStack epic = plugin.getLootManager().generateLoot(zone.getId(), Rarity.EPIC);
+                    ItemStack epic = plugin.getItemManager().generateItem(zone.getId(), Rarity.EPIC);
                     player.getWorld().dropItemNaturally(player.getLocation(), epic);
                     player.sendMessage("§d+ ITEM EPIQUE!");
                 } catch (Exception ignored) {}
