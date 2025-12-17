@@ -5,13 +5,19 @@ import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.*;
 
@@ -48,7 +54,7 @@ public class ZombieNestEvent extends DynamicEvent {
 
     // Entités visuelles
     private Block nestBlock;
-    private ArmorStand healthMarker;
+    private TextDisplay healthMarker;
     private final List<Block> originalBlocks = new ArrayList<>();
     private final Map<Location, BlockData> savedBlocks = new HashMap<>();
 
@@ -135,13 +141,27 @@ public class ZombieNestEvent extends DynamicEvent {
             }
         }
 
-        // Marqueur de santé
-        healthMarker = (ArmorStand) world.spawnEntity(nestLoc.clone().add(0.5, 2, 0.5), EntityType.ARMOR_STAND);
-        healthMarker.setVisible(false);
-        healthMarker.setGravity(false);
-        healthMarker.setMarker(true);
-        healthMarker.setCustomName(getHealthDisplay());
-        healthMarker.setCustomNameVisible(true);
+        // Marqueur de santé avec TextDisplay (plus gros et visible)
+        Location displayLoc = nestLoc.clone().add(0.5, 2.5, 0.5);
+        healthMarker = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(100, 0, 0, 0)); // Fond semi-transparent
+
+            // Texte initial
+            display.text(getHealthDisplay());
+
+            // Échelle plus grande pour meilleure visibilité
+            float scale = 2.0f;
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(scale, scale, scale),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        });
 
         // Effet de spawn
         world.playSound(nestLoc, Sound.ENTITY_WARDEN_EMERGE, 1.5f, 0.8f);
@@ -195,7 +215,7 @@ public class ZombieNestEvent extends DynamicEvent {
 
             // Mettre à jour l'affichage
             if (healthMarker != null && healthMarker.isValid()) {
-                healthMarker.setCustomName(getHealthDisplay() + " §d[REGEN]");
+                healthMarker.text(getHealthDisplayWithSuffix("[REGEN]"));
             }
         }
 
@@ -383,7 +403,7 @@ public class ZombieNestEvent extends DynamicEvent {
 
         // Mettre à jour l'affichage
         if (healthMarker != null && healthMarker.isValid()) {
-            healthMarker.setCustomName(getHealthDisplay());
+            healthMarker.text(getHealthDisplay());
         }
 
         World world = location.getWorld();
@@ -434,21 +454,37 @@ public class ZombieNestEvent extends DynamicEvent {
     }
 
     /**
-     * Obtient l'affichage de la santé
+     * Obtient l'affichage de la santé sous forme de Component
      */
-    private String getHealthDisplay() {
+    private Component getHealthDisplay() {
+        return getHealthDisplayWithSuffix(null);
+    }
+
+    /**
+     * Obtient l'affichage de la santé avec un suffixe optionnel
+     */
+    private Component getHealthDisplayWithSuffix(String suffix) {
         double percent = (nestHealth / maxNestHealth) * 100;
-        String color = percent > 66 ? "§a" : (percent > 33 ? "§e" : "§c");
+        NamedTextColor percentColor = percent > 66 ? NamedTextColor.GREEN : (percent > 33 ? NamedTextColor.YELLOW : NamedTextColor.RED);
 
         // Barre de vie visuelle
         int bars = 20;
         int filled = (int) (percent / 100 * bars);
-        StringBuilder healthBar = new StringBuilder();
+        Component healthBar = Component.empty();
         for (int i = 0; i < bars; i++) {
-            healthBar.append(i < filled ? "§a|" : "§7|");
+            healthBar = healthBar.append(Component.text("|", i < filled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
         }
 
-        return "§c§l🪺 NID " + color + (int) percent + "% " + healthBar;
+        Component result = Component.text("\uD83E\uDEBA ", NamedTextColor.RED, TextDecoration.BOLD)
+            .append(Component.text("NID ", NamedTextColor.RED, TextDecoration.BOLD))
+            .append(Component.text((int) percent + "% ", percentColor, TextDecoration.BOLD))
+            .append(healthBar);
+
+        if (suffix != null) {
+            result = result.append(Component.text(" " + suffix, NamedTextColor.LIGHT_PURPLE));
+        }
+
+        return result;
     }
 
     /**
