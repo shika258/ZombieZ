@@ -20,7 +20,7 @@ import java.util.*;
 // ==================== PHÉNIX SOLAIRE - Boules de Feu ====================
 
 @Getter
-public class FireballPassive implements PetAbility {
+class FireballPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
