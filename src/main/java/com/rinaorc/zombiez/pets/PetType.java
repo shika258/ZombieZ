@@ -93,6 +93,40 @@ public enum PetType {
         "Peut transporter un petit objet vers un autre joueur"
     ),
 
+    // --- NOUVEAUX PETS COMMUNS (Synergies) ---
+
+    SCARABEE_COMBO(
+        "Scarabée de Combo",
+        PetRarity.COMMON,
+        Material.GOLD_NUGGET,
+        EntityType.ENDERMITE,
+        "combo_beetle",
+        "Combo / Momentum",
+        "Scarabée doré qui brille plus fort avec chaque kill",
+        "+0.5% dégâts par kill consécutif (max +15%)",
+        "Explosion de Combo",
+        "Consomme le combo pour infliger dégâts = combo × 5",
+        20,
+        "Max combo bonus +5%",
+        "Le combo ne reset pas pendant 3s après un kill"
+    ),
+
+    LARVE_PARASITAIRE(
+        "Larve Parasitaire",
+        PetRarity.COMMON,
+        Material.SLIME_BALL,
+        EntityType.SLIME,
+        "parasitic_larva",
+        "Vampirisme / Survie",
+        "Petite larve verte pulsante",
+        "+3% de vol de vie sur les attaques",
+        "Festin",
+        "Le prochain kill restaure 25% HP max",
+        35,
+        "Vol de vie +2%",
+        "Le festin crée aussi une explosion de soins pour les alliés"
+    ),
+
     // ==================== PEU COMMUNS (§a) ====================
 
     LOUP_SPECTRAL(
@@ -173,6 +207,40 @@ public enum PetType {
         30,
         "Ralentissement +0.5s",
         "La toile inflige des dégâts de poison"
+    ),
+
+    // --- NOUVEAUX PETS PEU COMMUNS (Synergies Classes) ---
+
+    ESPRIT_RAGE(
+        "Esprit de Rage",
+        PetRarity.UNCOMMON,
+        Material.BLAZE_ROD,
+        EntityType.VEX,
+        "rage_spirit",
+        "Guerrier / Stacking",
+        "Flamme rouge pulsante avec visage colérique",
+        "Chaque hit augmente les dégâts +2% (reset après 5s sans hit, max +30%)",
+        "Déchaînement",
+        "Double les stacks actuels pendant 5s",
+        25,
+        "Stack max +10%",
+        "Synergie: +50% efficacité avec talents Guerrier (Fureur, Berserker)"
+    ),
+
+    FAUCON_CHASSEUR(
+        "Faucon Chasseur",
+        PetRarity.UNCOMMON,
+        Material.FEATHER,
+        EntityType.PARROT,
+        "hunter_falcon",
+        "Chasseur / Marks",
+        "Faucon argenté aux yeux perçants",
+        "Les attaques marquent les cibles (15% dégâts bonus sur cibles marquées)",
+        "Frappe Prédatrice",
+        "Attaque une cible marquée pour 3x dégâts",
+        20,
+        "Marques durent +3s",
+        "Synergie: Les marques explosent avec les talents Chasseur"
     ),
 
     // ==================== RARES (§b) ====================
@@ -257,6 +325,40 @@ public enum PetType {
         "La parade stun l'attaquant"
     ),
 
+    // --- NOUVEAUX PETS RARES (Synergies Avancées) ---
+
+    ORB_AMES(
+        "Orbe d'Âmes",
+        PetRarity.RARE,
+        Material.SOUL_LANTERN,
+        EntityType.VEX,
+        "soul_orb",
+        "Occultiste / Âmes",
+        "Sphère d'énergie violette avec des âmes tourbillonnantes",
+        "Les kills génèrent des Orbes d'Âme (+5% dégâts de skill par orbe, max 5)",
+        "Libération d'Âmes",
+        "Consomme toutes les orbes pour une explosion (15 dégâts par orbe)",
+        15,
+        "Max 7 orbes, dégâts skill +7% par orbe",
+        "Synergie: Triple efficacité avec Soul Siphon et talents Occultiste"
+    ),
+
+    SALAMANDRE_ELEMENTAIRE(
+        "Salamandre Élémentaire",
+        PetRarity.RARE,
+        Material.MAGMA_CREAM,
+        EntityType.AXOLOTL,
+        "elemental_salamander",
+        "Multi-Éléments / Adaptation",
+        "Salamandre qui change de couleur (rouge/bleu/jaune)",
+        "Alterne entre Feu/Glace/Foudre toutes les 10s (+10% dégâts de l'élément actif)",
+        "Fusion Élémentaire",
+        "Attaque combinant les 3 éléments (brûle, gèle et électrocute)",
+        30,
+        "Bonus élément +5%",
+        "Synergie: +100% efficacité avec talents élémentaires (Ignite, Frost, Lightning)"
+    ),
+
     // ==================== ÉPIQUES (§d) ====================
 
     DRAGON_PYGMEE(
@@ -337,6 +439,40 @@ public enum PetType {
         30,
         "Les effets positifs durent +50%",
         "Peut déclencher plusieurs effets à la fois"
+    ),
+
+    // --- NOUVEAUX PETS ÉPIQUES (Synergies Uniques) ---
+
+    SPECTRE_VENGEANCE(
+        "Spectre de Vengeance",
+        PetRarity.EPIC,
+        Material.PHANTOM_MEMBRANE,
+        EntityType.PHANTOM,
+        "vengeance_specter",
+        "Contre-attaque / Accumulation",
+        "Spectre rouge sang avec chaînes brisées",
+        "Accumule 50% des dégâts subis en Rage (max 200). Prochain hit = +Rage en dégâts",
+        "Explosion de Vengeance",
+        "Libère toute la Rage en dégâts de zone (rayon 8)",
+        15,
+        "Accumulation +25%",
+        "La Rage ne decay plus, et les dégâts de Vengeance ignorent les résistances"
+    ),
+
+    DJINN_JACKPOT(
+        "Djinn du Jackpot",
+        PetRarity.EPIC,
+        Material.EMERALD,
+        EntityType.VEX,
+        "jackpot_djinn",
+        "Chance / Jackpot",
+        "Génie doré avec pièces flottantes autour de lui",
+        "+30% chance de déclencher le Jackpot, +50% récompenses Jackpot",
+        "Super Jackpot",
+        "Déclenche un Jackpot garanti avec récompenses x3",
+        90,
+        "Récompenses Jackpot +25%",
+        "Les Jackpots peuvent drop des oeufs de pet (rare)"
     ),
 
     // ==================== LÉGENDAIRES (§6) ====================
@@ -421,6 +557,40 @@ public enum PetType {
         "La renaissance déclenche automatiquement l'apocalypse"
     ),
 
+    // --- NOUVEAUX PETS LÉGENDAIRES (Synergies de Classe) ---
+
+    DRAGON_CHROMATIQUE(
+        "Dragon Chromatique",
+        PetRarity.LEGENDARY,
+        Material.DRAGON_EGG,
+        EntityType.ENDER_DRAGON,
+        "chromatic_dragon",
+        "Adaptation / Classe",
+        "Dragon aux écailles changeantes selon la classe équipée",
+        "S'adapte à la classe: Guerrier=+25% mêlée, Chasseur=+25% crit, Occultiste=+25% skill",
+        "Souffle Chromatique",
+        "Attaque adaptée: Guerrier=onde de choc, Chasseur=multi-projectiles, Occultiste=nova magique",
+        30,
+        "Bonus de classe +10%",
+        "Synergie totale: Amplifie de 50% le talent ultime de la classe"
+    ),
+
+    SENTINELLE_ZONES(
+        "Sentinelle des Zones",
+        PetRarity.LEGENDARY,
+        Material.LODESTONE,
+        EntityType.SHULKER,
+        "zone_sentinel",
+        "Zones / Environnement",
+        "Golem cristallin qui absorbe l'énergie de la zone",
+        "Adapte les bonus selon la zone: +15% résist (toxique), +15% dégâts (feu), +15% speed (froid)",
+        "Maîtrise de Zone",
+        "Immunité totale aux effets de zone pendant 10s + bonus zone x2",
+        60,
+        "Bonus de zone +10%",
+        "Dans les zones difficiles (40+): +30% XP et loot supplémentaire"
+    ),
+
     // ==================== MYTHIQUES (§c) ====================
 
     AVATAR_MORT(
@@ -501,6 +671,40 @@ public enum PetType {
         120,
         "Malus de vitesse réduit à -10%",
         "L'éveil génère des ondes de choc continues"
+    ),
+
+    // --- NOUVEAUX PETS MYTHIQUES (Synergies Ultimes) ---
+
+    SYMBIOTE_ETERNEL(
+        "Symbiote Éternel",
+        PetRarity.MYTHIC,
+        Material.HEART_OF_THE_SEA,
+        EntityType.VEX,
+        "eternal_symbiote",
+        "Symbiose / Amplification Totale",
+        "Créature liquide qui s'enroule autour du joueur",
+        "Amplifie TOUS les bonus du joueur de 20% (classe, talents, items, autres pets équipés)",
+        "Fusion Symbiotique",
+        "Pendant 15s: tous les bonus x2, régénération +50%, immunité aux CC",
+        90,
+        "Amplification +10%",
+        "Synergie ultime: La fusion active aussi tous les talents passifs simultanément"
+    ),
+
+    NEXUS_DIMENSIONNEL(
+        "Nexus Dimensionnel",
+        PetRarity.MYTHIC,
+        Material.END_PORTAL_FRAME,
+        EntityType.ENDERMAN,
+        "dimensional_nexus",
+        "Support / Équipe",
+        "Portail miniature avec tentacules d'énergie",
+        "Aura de 20 blocs: alliés gagnent +15% à tous les stats, ennemis -10% stats",
+        "Convergence Dimensionnelle",
+        "Téléporte tous les alliés vers vous + bouclier de groupe (absorbe 100 dégâts chacun)",
+        75,
+        "Aura +10 blocs, bonus alliés +5%",
+        "L'aura génère aussi des particules de soin (1 coeur/5s pour tous les alliés)"
     );
 
     private final String displayName;

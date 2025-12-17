@@ -282,6 +282,108 @@ public class PetAbilityRegistry {
             new ColossusActive("colossus_awaken", "Éveil du Colosse",
                 "Transformation géante (10s) - dégâts x3, immunité", 120, 10)
         );
+
+        // ==================== NOUVEAUX PETS SYNERGIES ====================
+
+        // Scarabée de Combo (Combo/Momentum)
+        ComboPassive comboPassive = new ComboPassive("combo_stack", "Momentum",
+            "+0.5% dégâts par kill consécutif (max +15%)", 0.005, 0.15);
+        registerAbilities(PetType.SCARABEE_COMBO,
+            comboPassive,
+            new ComboExplosionActive("combo_explode", "Explosion de Combo",
+                "Consomme le combo pour infliger dégâts = combo × 5", comboPassive)
+        );
+
+        // Larve Parasitaire (Lifesteal)
+        LifestealPassive lifestealPassive = new LifestealPassive("leech_passive", "Parasitisme",
+            "+3% de vol de vie sur les attaques", 3);
+        FeastActive feastActive = new FeastActive("feast_active", "Festin",
+            "Le prochain kill restaure 25% HP max", 25);
+        registerAbilities(PetType.LARVE_PARASITAIRE, lifestealPassive, feastActive);
+
+        // Esprit de Rage (Guerrier Synergy)
+        RageStackPassive ragePassive = new RageStackPassive("rage_stack", "Furie Croissante",
+            "+2% dégâts par hit (reset après 5s, max +30%)", 0.02, 0.30);
+        registerAbilities(PetType.ESPRIT_RAGE,
+            ragePassive,
+            new UnleashActive("rage_unleash", "Déchaînement",
+                "Double les stacks pendant 5s", ragePassive)
+        );
+
+        // Faucon Chasseur (Chasseur Synergy)
+        MarkPassive markPassive = new MarkPassive("mark_passive", "Œil du Prédateur",
+            "Marque les cibles (+15% dégâts sur marqués)", 0.15);
+        registerAbilities(PetType.FAUCON_CHASSEUR,
+            markPassive,
+            new PredatorStrikeActive("predator_strike", "Frappe Prédatrice",
+                "Attaque une cible marquée pour 3x dégâts", markPassive)
+        );
+
+        // Orbe d'Âmes (Occultiste Synergy)
+        SoulOrbPassive soulPassive = new SoulOrbPassive("soul_orb", "Collecteur d'Âmes",
+            "+5% dégâts de skill par orbe (max 5)", 0.05, 5);
+        registerAbilities(PetType.ORB_AMES,
+            soulPassive,
+            new SoulReleaseActive("soul_release", "Libération d'Âmes",
+                "Consomme les orbes pour explosion (15 dégâts par orbe)", 15, soulPassive)
+        );
+
+        // Salamandre Élémentaire (Multi-Element)
+        registerAbilities(PetType.SALAMANDRE_ELEMENTAIRE,
+            new ElementalRotationPassive("elemental_rotate", "Rotation Élémentaire",
+                "Alterne Feu/Glace/Foudre (+10% dégâts élément actif)", 0.10),
+            new ElementalFusionActive("elemental_fusion", "Fusion Élémentaire",
+                "Attaque combinant les 3 éléments")
+        );
+
+        // Spectre de Vengeance (Damage Taken)
+        VengeancePassive vengeancePassive = new VengeancePassive("vengeance_stack", "Accumulation de Rage",
+            "50% des dégâts subis = Rage (max 200)", 50, 200);
+        registerAbilities(PetType.SPECTRE_VENGEANCE,
+            vengeancePassive,
+            new VengeanceExplosionActive("vengeance_explode", "Explosion de Vengeance",
+                "Libère la Rage en dégâts de zone", vengeancePassive)
+        );
+
+        // Djinn du Jackpot (Jackpot System)
+        registerAbilities(PetType.DJINN_JACKPOT,
+            new JackpotPassive("jackpot_passive", "Fortune du Djinn",
+                "+30% chance Jackpot, +50% récompenses", 0.30, 0.50),
+            new SuperJackpotActive("super_jackpot", "Super Jackpot",
+                "Déclenche un Jackpot garanti x3")
+        );
+
+        // Dragon Chromatique (Class Adaptive)
+        registerAbilities(PetType.DRAGON_CHROMATIQUE,
+            new ClassAdaptivePassive("chromatic_adapt", "Adaptation Chromatique",
+                "Bonus +25% selon classe (mêlée/crit/skill)", 0.25),
+            new ChromaticBreathActive("chromatic_breath", "Souffle Chromatique",
+                "Attaque adaptée à la classe")
+        );
+
+        // Sentinelle des Zones (Zone Environment)
+        registerAbilities(PetType.SENTINELLE_ZONES,
+            new ZoneAdaptPassive("zone_adapt", "Adaptation Environnementale",
+                "+15% bonus selon effet de zone actif", 0.15),
+            new ZoneMasteryActive("zone_mastery", "Maîtrise de Zone",
+                "Immunité zone 10s + bonus zone x2")
+        );
+
+        // Symbiote Éternel (Total Amplification)
+        registerAbilities(PetType.SYMBIOTE_ETERNEL,
+            new SymbiotePassive("symbiote_amp", "Symbiose Éternelle",
+                "Amplifie tous les bonus du joueur de 20%", 0.20),
+            new SymbioticFusionActive("symbiote_fusion", "Fusion Symbiotique",
+                "15s: tous bonus x2, régén +50%, immunité CC")
+        );
+
+        // Nexus Dimensionnel (Team Support)
+        registerAbilities(PetType.NEXUS_DIMENSIONNEL,
+            new NexusAuraPassive("nexus_aura", "Aura Dimensionnelle",
+                "Alliés +15% stats, ennemis -10% stats", 0.15, 0.10, 20),
+            new DimensionalConvergenceActive("nexus_converge", "Convergence Dimensionnelle",
+                "TP alliés vers vous + bouclier groupe", 100)
+        );
     }
 
     /**
