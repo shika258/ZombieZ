@@ -590,8 +590,25 @@ public class OccultisteTalentListener implements Listener {
                 Long lastSneak = lastSneakTime.get(uuid);
 
                 if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW_MS) {
-                    // Double sneak detected - activate Time Stasis
+                    // Double sneak detected - check cooldown BEFORE activating
                     lastSneakTime.remove(uuid);
+
+                    // Early cooldown check to prevent spam bypass
+                    Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.TIME_STASIS);
+                    long cooldownMs = (long) talent.getValue(0);
+                    Map<String, Long> playerCooldowns = internalCooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+                    Long lastUse = playerCooldowns.get("time_stasis");
+
+                    if (lastUse != null && now - lastUse < cooldownMs) {
+                        // On cooldown - show remaining time and skip
+                        long remainingMs = cooldownMs - (now - lastUse);
+                        int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+                        sendActionBar(player, "§b❄ Stase Temporelle §8- §cCooldown: §e" + remainingSec + "s");
+                        return;
+                    }
+
+                    // Set cooldown IMMEDIATELY before processing to prevent race conditions
+                    playerCooldowns.put("time_stasis", now);
                     processTimeStasis(player);
                 } else {
                     // Record this sneak for potential double sneak
@@ -1720,25 +1737,10 @@ public class OccultisteTalentListener implements Listener {
     }
 
     private void processTimeStasis(Player player) {
+        // Note: Cooldown is checked and set in onPlayerSneak() before calling this method
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.TIME_STASIS);
-        long cooldownMs = (long) talent.getValue(0);
-
-        // Check cooldown with feedback
         UUID uuid = player.getUniqueId();
-        Map<String, Long> playerCooldowns = internalCooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
-        Long lastUse = playerCooldowns.get("time_stasis");
         long now = System.currentTimeMillis();
-
-        if (lastUse != null && now - lastUse < cooldownMs) {
-            // On cooldown - show remaining time
-            long remainingMs = cooldownMs - (now - lastUse);
-            int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
-            sendActionBar(player, "§b❄ Stase Temporelle §8- §cCooldown: §e" + remainingSec + "s");
-            return;
-        }
-
-        // Set cooldown
-        playerCooldowns.put("time_stasis", now);
 
         long duration = (long) talent.getValue(1);
         int stacksToApply = (int) talent.getValue(2);
