@@ -103,6 +103,9 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système d'Événements Dynamiques
     @Getter private com.rinaorc.zombiez.events.dynamic.DynamicEventManager dynamicEventManager;
 
+    // Système de Micro-Événements
+    @Getter private com.rinaorc.zombiez.events.micro.MicroEventManager microEventManager;
+
     // Système de Météo Dynamique
     @Getter private com.rinaorc.zombiez.weather.WeatherManager weatherManager;
 
@@ -201,6 +204,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (dynamicEventManager != null) {
             log(Level.INFO, "§7Arrêt des événements dynamiques...");
             dynamicEventManager.shutdown();
+        }
+
+        // Cleanup du système de micro-événements
+        if (microEventManager != null) {
+            log(Level.INFO, "§7Arrêt des micro-événements...");
+            microEventManager.shutdown();
         }
 
         // Cleanup du système de météo dynamique
@@ -351,6 +360,12 @@ public class ZombieZPlugin extends JavaPlugin {
         dynamicEventManager.loadConfig(configManager.getEventsConfig());
         dynamicEventManager.start();
 
+        // ===== Système Micro-Événements =====
+
+        // Micro Event Manager - Petits événements personnels pour maintenir l'engagement
+        microEventManager = new com.rinaorc.zombiez.events.micro.MicroEventManager(this);
+        microEventManager.start();
+
         // ===== Système Météo Dynamique =====
 
         // Weather Manager - Météo dynamique avec effets gameplay
@@ -407,6 +422,12 @@ public class ZombieZPlugin extends JavaPlugin {
             new com.rinaorc.zombiez.commands.admin.EventAdminCommand(this);
         getCommand("zzevent").setExecutor(eventCmd);
         getCommand("zzevent").setTabCompleter(eventCmd);
+
+        // Commandes Admin Micro-Événements
+        com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand microEventCmd =
+            new com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand(this);
+        getCommand("zzmicro").setExecutor(microEventCmd);
+        getCommand("zzmicro").setTabCompleter(microEventCmd);
 
         // Commandes Admin Météo Dynamique
         com.rinaorc.zombiez.commands.admin.WeatherAdminCommand weatherCmd =
@@ -507,6 +528,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système événements dynamiques
         if (dynamicEventManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.events.dynamic.DynamicEventListener(this, dynamicEventManager), this);
+        }
+
+        // Listener système micro-événements
+        if (microEventManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.events.micro.MicroEventListener(this, microEventManager), this);
         }
 
         // Listener système météo dynamique
