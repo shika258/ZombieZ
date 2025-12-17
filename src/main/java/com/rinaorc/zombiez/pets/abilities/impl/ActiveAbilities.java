@@ -20,7 +20,7 @@ import java.util.*;
 // ==================== ECHO SCAN ====================
 
 @Getter
-public class EchoScanActive implements PetAbility {
+class EchoScanActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -90,7 +90,7 @@ public class EchoScanActive implements PetAbility {
 // ==================== SEARCH ====================
 
 @Getter
-public class SearchActive implements PetAbility {
+class SearchActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -135,7 +135,7 @@ public class SearchActive implements PetAbility {
 // ==================== FLASH ====================
 
 @Getter
-public class FlashActive implements PetAbility {
+class FlashActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -181,7 +181,7 @@ public class FlashActive implements PetAbility {
 // ==================== SHIELD ====================
 
 @Getter
-public class ShieldActive implements PetAbility {
+class ShieldActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -228,7 +228,7 @@ public class ShieldActive implements PetAbility {
 // ==================== SCOUT ====================
 
 @Getter
-public class ScoutActive implements PetAbility {
+class ScoutActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -273,7 +273,7 @@ public class ScoutActive implements PetAbility {
 // ==================== HOWL ====================
 
 @Getter
-public class HowlActive implements PetAbility {
+class HowlActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -312,7 +312,7 @@ public class HowlActive implements PetAbility {
 // ==================== HEAL ====================
 
 @Getter
-public class HealActive implements PetAbility {
+class HealActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -348,7 +348,7 @@ public class HealActive implements PetAbility {
 // ==================== WALL ====================
 
 @Getter
-public class WallActive implements PetAbility {
+class WallActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -412,7 +412,7 @@ public class WallActive implements PetAbility {
 // ==================== IGNITE AREA ====================
 
 @Getter
-public class IgniteAreaActive implements PetAbility {
+class IgniteAreaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -452,7 +452,7 @@ public class IgniteAreaActive implements PetAbility {
 // ==================== WEB ====================
 
 @Getter
-public class WebActive implements PetAbility {
+class WebActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -508,7 +508,7 @@ public class WebActive implements PetAbility {
 // ==================== FIRE NOVA ====================
 
 @Getter
-public class FireNovaActive implements PetAbility {
+class FireNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -554,7 +554,7 @@ public class FireNovaActive implements PetAbility {
 // ==================== FREEZE ====================
 
 @Getter
-public class FreezeActive implements PetAbility {
+class FreezeActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -602,7 +602,7 @@ public class FreezeActive implements PetAbility {
 // ==================== RESET COOLDOWN ====================
 
 @Getter
-public class ResetCooldownActive implements PetAbility {
+class ResetCooldownActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -632,7 +632,7 @@ public class ResetCooldownActive implements PetAbility {
 // ==================== SWARM ====================
 
 @Getter
-public class SwarmActive implements PetAbility {
+class SwarmActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -700,7 +700,7 @@ public class SwarmActive implements PetAbility {
 // ==================== RIPOSTE ====================
 
 @Getter
-public class RiposteActive implements PetAbility {
+class RiposteActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -752,7 +752,7 @@ public class RiposteActive implements PetAbility {
 // ==================== BREATH (Dragon) ====================
 
 @Getter
-public class BreathActive implements PetAbility {
+class BreathActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -805,7 +805,7 @@ public class BreathActive implements PetAbility {
 // ==================== RESURRECT ====================
 
 @Getter
-public class ResurrectActive implements PetAbility {
+class ResurrectActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -860,7 +860,7 @@ public class ResurrectActive implements PetAbility {
 // ==================== SACRIFICE ====================
 
 @Getter
-public class SacrificeActive implements PetAbility {
+class SacrificeActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -919,7 +919,7 @@ public class SacrificeActive implements PetAbility {
 // ==================== AMBUSH ====================
 
 @Getter
-public class AmbushActive implements PetAbility {
+class AmbushActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -977,7 +977,7 @@ public class AmbushActive implements PetAbility {
 // ==================== CHAOS ACTIVE ====================
 
 @Getter
-public class ChaosActive implements PetAbility {
+class ChaosActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1062,7 +1062,7 @@ public class ChaosActive implements PetAbility {
 // ==================== DIVINE ====================
 
 @Getter
-public class DivineActive implements PetAbility {
+class DivineActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1105,7 +1105,7 @@ public class DivineActive implements PetAbility {
 // ==================== PORTAL ====================
 
 @Getter
-public class PortalActive implements PetAbility {
+class PortalActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1152,7 +1152,7 @@ public class PortalActive implements PetAbility {
 // ==================== SMASH ====================
 
 @Getter
-public class SmashActive implements PetAbility {
+class SmashActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1205,7 +1205,7 @@ public class SmashActive implements PetAbility {
 // ==================== SANCTUARY ====================
 
 @Getter
-public class SanctuaryActive implements PetAbility {
+class SanctuaryActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1271,7 +1271,7 @@ public class SanctuaryActive implements PetAbility {
 // ==================== APOCALYPSE ====================
 
 @Getter
-public class ApocalypseActive implements PetAbility {
+class ApocalypseActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1350,7 +1350,7 @@ public class ApocalypseActive implements PetAbility {
 // ==================== DEATH SENTENCE ====================
 
 @Getter
-public class DeathSentenceActive implements PetAbility {
+class DeathSentenceActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1420,7 +1420,7 @@ public class DeathSentenceActive implements PetAbility {
 // ==================== BLACK HOLE ====================
 
 @Getter
-public class BlackHoleActive implements PetAbility {
+class BlackHoleActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1489,7 +1489,7 @@ public class BlackHoleActive implements PetAbility {
 // ==================== TIME STOP ====================
 
 @Getter
-public class TimeStopActive implements PetAbility {
+class TimeStopActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1549,7 +1549,7 @@ public class TimeStopActive implements PetAbility {
 // ==================== TRIPLE BREATH ====================
 
 @Getter
-public class TripleBreathActive implements PetAbility {
+class TripleBreathActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1618,7 +1618,7 @@ public class TripleBreathActive implements PetAbility {
 // ==================== COLOSSUS ====================
 
 @Getter
-public class ColossusActive implements PetAbility {
+class ColossusActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
