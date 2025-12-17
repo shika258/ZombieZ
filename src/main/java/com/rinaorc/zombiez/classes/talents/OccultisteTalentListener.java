@@ -787,7 +787,7 @@ public class OccultisteTalentListener implements Listener {
         if (Math.random() < talent.getValue(0)) {
             int targets = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double range = talent.getValue(3);
+            double range = Math.min(talent.getValue(3), 10.0); // Cap a 10 blocs pour chain
 
             // Check for Thunder God (unlimited targets)
             if (hasTalentEffect(player, Talent.TalentEffectType.THUNDER_GOD)) {
@@ -818,9 +818,9 @@ public class OccultisteTalentListener implements Listener {
             Location lastLoc = target.getLocation().add(0, 1, 0);
             double lightningDamage = baseDamage * damagePercent;
 
-            // First strike on primary target
+            // First strike on primary target - sans knockback
             for (int s = 0; s < strikes; s++) {
-                target.damage(lightningDamage, player);
+                damageNoKnockback(target, lightningDamage, player);
             }
             spawnLightningVisual(player.getLocation().add(0, 1, 0), lastLoc);
 
@@ -840,8 +840,9 @@ public class OccultisteTalentListener implements Listener {
                     targets += bonusTargets;
                 }
 
+                // Degats sans knockback
                 for (int s = 0; s < strikes; s++) {
-                    enemy.damage(lightningDamage, player);
+                    damageNoKnockback(enemy, lightningDamage, player);
                 }
                 spawnLightningVisual(lastLoc, enemy.getLocation().add(0, 1, 0));
                 lastLoc = enemy.getLocation().add(0, 1, 0);
@@ -1455,7 +1456,7 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.LIGHTNING_STORM);
             int targets = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double range = Math.min(talent.getValue(3), 20.0); // Cap a 20 blocs
+            double range = Math.min(talent.getValue(3), 15.0); // Cap a 15 blocs
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1469,7 +1470,8 @@ public class OccultisteTalentListener implements Listener {
             }
 
             for (LivingEntity enemy : nearbyEnemies) {
-                enemy.damage(damage, player);
+                // Degats sans knockback
+                damageNoKnockback(enemy, damage, player);
                 spawnLightningVisual(player.getLocation().add(0, 1.5, 0), enemy.getLocation().add(0, 1, 0));
             }
 
@@ -1489,7 +1491,7 @@ public class OccultisteTalentListener implements Listener {
             if (!hasTalentEffect(player, Talent.TalentEffectType.PERPETUAL_STORM)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PERPETUAL_STORM);
-            double radius = Math.min(talent.getValue(1), 15.0); // Cap a 15 blocs
+            double radius = Math.min(talent.getValue(1), 12.0); // Cap a 12 blocs
             int targets = (int) talent.getValue(2);
             double damagePercent = talent.getValue(3);
 
@@ -1508,7 +1510,8 @@ public class OccultisteTalentListener implements Listener {
             int count = 0;
             for (LivingEntity enemy : nearbyEnemies) {
                 if (count >= targets) break;
-                enemy.damage(damage, player);
+                // Degats sans knockback
+                damageNoKnockback(enemy, damage, player);
                 spawnLightningVisual(player.getLocation().add(0, 2, 0), enemy.getLocation().add(0, 1, 0));
                 count++;
             }
@@ -1721,18 +1724,19 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DIVINE_JUDGMENT);
             if (!checkCooldown(player, "divine_judgment", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, damage%, range
             double damagePercent = talent.getValue(1);
+            double range = talent.getValues().length > 2 ? Math.min(talent.getValue(2), 25.0) : 25.0; // Cap a 25 blocs
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
-            // Strike enemies - RANGE REDUIT de 50 a 25 blocs pour eviter l'abus
-            double range = 25.0;
             int struck = 0;
             int maxTargets = 30; // Limite le nombre de cibles
             for (Entity entity : player.getNearbyEntities(range, range, range)) {
                 if (struck >= maxTargets) break;
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
+                    // Degats sans knockback
+                    damageNoKnockback(le, damage, player);
                     // Lightning visual (sans strikeLightningEffect qui est lourd)
                     spawnLightningVisual(player.getLocation().add(0, 10, 0), le.getLocation().add(0, 1, 0));
                     struck++;

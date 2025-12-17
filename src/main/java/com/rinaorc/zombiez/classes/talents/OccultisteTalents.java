@@ -992,17 +992,18 @@ public final class OccultisteTalents {
             .values(new double[]{120000, 3000, 10}) // cooldown_ms, duration_ms, stacks_applied
             .build());
 
-        // 8.3 - JUGEMENT DIVIN
+        // 9.3 - JUGEMENT DIVIN
         TALENTS.add(Talent.builder()
             .id("occultiste_divine_judgment")
             .name("Jugement Divin")
-            .description("Eclair sur TOUS les ennemis")
+            .description("Eclair sur TOUS les ennemis proches")
             .loreLines(new String[]{
                 "§7Toutes les §e30s§7, un eclair",
                 "§7divin frappe §cTOUS§7 les ennemis.",
                 "",
+                "§8Rayon: §e25§8 blocs, sans knockback",
                 "§8Degats: §c300%§8 a chacun",
-                "§8Synergie: Ultimate lightning"
+                "§8Max cibles: §e30"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -1010,7 +1011,7 @@ public final class OccultisteTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.DIVINE_JUDGMENT)
-            .values(new double[]{30000, 3.0}) // cooldown_ms, damage%
+            .values(new double[]{30000, 3.0, 25.0}) // cooldown_ms, damage%, range
             .build());
 
         // 8.4 - ARMEE IMMORTELLE
