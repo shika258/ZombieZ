@@ -5,19 +5,26 @@ import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
 import com.rinaorc.zombiez.items.ItemRarity;
 import com.rinaorc.zombiez.zones.Zone;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,11 +44,10 @@ public class JackpotZombieEvent extends MicroEvent {
 
     private Zombie jackpotZombie;
     private UUID jackpotUUID;
-    private final List<ArmorStand> slotDisplays = new ArrayList<>();
+    private final List<TextDisplay> slotDisplays = new ArrayList<>();
 
     // Symboles des rouleaux
     private static final String[] SYMBOLS = {"🍒", "💎", "⭐", "🔥", "💰", "👑"};
-    private static final String[] SYMBOL_COLORS = {"§c", "§b", "§e", "§6", "§a", "§d"};
 
     private final String[] reels = new String[3];
     private final boolean[] reelsStopped = {false, false, false};
@@ -125,41 +131,71 @@ public class JackpotZombieEvent extends MicroEvent {
     }
 
     /**
-     * Cree les armor stands pour afficher les rouleaux
+     * Cree les TextDisplays pour afficher les rouleaux
      */
     private void createSlotDisplays() {
         Location baseLoc = location.clone().add(0, 2.5, 0);
 
         for (int i = 0; i < 3; i++) {
             double offset = (i - 1) * 0.8; // -0.8, 0, 0.8
+            Location displayLoc = baseLoc.clone().add(offset, 0, 0);
 
-            ArmorStand stand = (ArmorStand) location.getWorld().spawnEntity(
-                baseLoc.clone().add(offset, 0, 0),
-                EntityType.ARMOR_STAND
-            );
+            final int reelIndex = i;
+            TextDisplay display = location.getWorld().spawn(displayLoc, TextDisplay.class, d -> {
+                d.setBillboard(Display.Billboard.CENTER);
+                d.setSeeThrough(false);
+                d.setShadowed(true);
+                d.setDefaultBackground(false);
+                d.setBackgroundColor(Color.fromARGB(180, 50, 0, 80)); // Fond violet casino
 
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setMarker(true);
-            stand.setCustomNameVisible(true);
-            stand.setCustomName(getSlotDisplay(i));
+                d.text(getSlotDisplayComponent(reelIndex));
 
-            slotDisplays.add(stand);
-            registerEntity(stand);
+                // Taille des symboles (plus gros que les holograms classiques)
+                float scale = 1.8f;
+                d.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(scale, scale, scale),
+                    new AxisAngle4f(0, 0, 0, 1)
+                ));
+            });
+
+            slotDisplays.add(display);
+            registerEntity(display);
         }
     }
 
     /**
-     * Obtient l'affichage d'un rouleau
+     * Obtient l'affichage d'un rouleau (Component pour TextDisplay)
      */
-    private String getSlotDisplay(int index) {
+    private Component getSlotDisplayComponent(int index) {
         if (reelsStopped[index]) {
             int symbolIndex = getSymbolIndex(reels[index]);
-            return "§7[" + SYMBOL_COLORS[symbolIndex] + "§l" + reels[index] + "§7]";
+            NamedTextColor color = getSymbolNamedColor(symbolIndex);
+            return Component.text("[", NamedTextColor.GRAY)
+                .append(Component.text(reels[index], color, TextDecoration.BOLD))
+                .append(Component.text("]", NamedTextColor.GRAY));
         } else {
             // Rouleau qui tourne
-            return "§7[§f§l" + reels[index] + "§7]";
+            return Component.text("[", NamedTextColor.GRAY)
+                .append(Component.text(reels[index], NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text("]", NamedTextColor.GRAY));
         }
+    }
+
+    /**
+     * Obtient la couleur NamedTextColor pour un symbole
+     */
+    private NamedTextColor getSymbolNamedColor(int symbolIndex) {
+        return switch (symbolIndex) {
+            case 0 -> NamedTextColor.RED;           // 🍒
+            case 1 -> NamedTextColor.AQUA;          // 💎
+            case 2 -> NamedTextColor.YELLOW;        // ⭐
+            case 3 -> NamedTextColor.GOLD;          // 🔥
+            case 4 -> NamedTextColor.GREEN;         // 💰
+            case 5 -> NamedTextColor.LIGHT_PURPLE;  // 👑
+            default -> NamedTextColor.WHITE;
+        };
     }
 
     /**
@@ -225,16 +261,16 @@ public class JackpotZombieEvent extends MicroEvent {
      */
     private void updateSlotDisplays() {
         for (int i = 0; i < slotDisplays.size() && i < 3; i++) {
-            ArmorStand stand = slotDisplays.get(i);
-            if (stand.isValid()) {
-                stand.setCustomName(getSlotDisplay(i));
+            TextDisplay display = slotDisplays.get(i);
+            if (display.isValid()) {
+                display.text(getSlotDisplayComponent(i));
             }
         }
     }
 
     @Override
     protected void onCleanup() {
-        // Les armor stands sont supprimes via registerEntity
+        // Les TextDisplays sont supprimes via registerEntity
     }
 
     @Override
