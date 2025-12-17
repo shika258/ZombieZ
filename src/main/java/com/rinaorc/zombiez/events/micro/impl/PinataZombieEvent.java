@@ -3,7 +3,7 @@ package com.rinaorc.zombiez.events.micro.impl;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
-import com.rinaorc.zombiez.items.ItemRarity;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -307,18 +307,18 @@ public class PinataZombieEvent extends MicroEvent {
         try {
             // Determiner la rarete
             double roll = random.nextDouble() * 100;
-            ItemRarity rarity;
+            Rarity rarity;
 
             if (roll < 60) {
-                rarity = ItemRarity.COMMON;
+                rarity = Rarity.COMMON;
             } else if (roll < 85) {
-                rarity = ItemRarity.UNCOMMON;
+                rarity = Rarity.UNCOMMON;
             } else if (roll < 95) {
-                rarity = ItemRarity.RARE;
+                rarity = Rarity.RARE;
             } else if (roll < 99) {
-                rarity = ItemRarity.EPIC;
+                rarity = Rarity.EPIC;
             } else {
-                rarity = ItemRarity.LEGENDARY;
+                rarity = Rarity.LEGENDARY;
             }
 
             // Generer l'item via le LootManager

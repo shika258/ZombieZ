@@ -3,7 +3,7 @@ package com.rinaorc.zombiez.events.micro.impl;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
-import com.rinaorc.zombiez.items.ItemRarity;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.zones.Zone;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -300,7 +300,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
                 // Drop un item legendaire
                 try {
-                    ItemStack legendary = plugin.getLootManager().generateLoot(zone.getId(), ItemRarity.LEGENDARY);
+                    ItemStack legendary = plugin.getLootManager().generateLoot(zone.getId(), Rarity.LEGENDARY);
                     player.getWorld().dropItemNaturally(player.getLocation(), legendary);
                     player.sendMessage("§6§l+ ITEM LEGENDAIRE!");
                 } catch (Exception ignored) {}
@@ -313,7 +313,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
                 // Drop un item epic
                 try {
-                    ItemStack epic = plugin.getLootManager().generateLoot(zone.getId(), ItemRarity.EPIC);
+                    ItemStack epic = plugin.getLootManager().generateLoot(zone.getId(), Rarity.EPIC);
                     player.getWorld().dropItemNaturally(player.getLocation(), epic);
                     player.sendMessage("§d+ ITEM EPIQUE!");
                 } catch (Exception ignored) {}
