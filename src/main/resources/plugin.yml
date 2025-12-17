@@ -136,6 +136,19 @@ commands:
     permission: zombiez.class
     aliases: [talents, t]
 
+  # Commandes Pets
+  pet:
+    description: Système de pets
+    usage: /<command> [equip|unequip|list|info|egg|fragments|ability|help]
+    permission: zombiez.pet.use
+    aliases: [pets, compagnon]
+
+  petadmin:
+    description: Administration des pets
+    usage: /<command> <give|giveegg|givefragments|setlevel|reset|spawnpet|list|eggs>
+    permission: zombiez.pet.admin
+    aliases: [zzpet, pa]
+
 # Permissions
 permissions:
   # Permission wildcard admin
@@ -155,6 +168,7 @@ permissions:
       zombiez.admin.microevents: true
       zombiez.admin.weather: true
       zombiez.admin.class: true
+      zombiez.pet.admin: true
 
   zombiez.admin.items:
     description: Gestion des items procéduraux
@@ -182,6 +196,10 @@ permissions:
 
   zombiez.admin.class:
     description: Gestion admin des classes
+    default: op
+
+  zombiez.pet.admin:
+    description: Administration des pets
     default: op
 
   zombiez.reload:
@@ -219,6 +237,7 @@ permissions:
       zombiez.bank: true
       zombiez.progression: true
       zombiez.class: true
+      zombiez.pet.use: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -258,6 +277,10 @@ permissions:
 
   zombiez.class:
     description: Accès au système de classes
+    default: true
+
+  zombiez.pet.use:
+    description: Accès au système de pets
     default: true
 
   # Permissions VIP

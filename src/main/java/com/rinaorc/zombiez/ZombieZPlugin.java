@@ -117,6 +117,9 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
     @Getter private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
 
+    // Système de Pets
+    @Getter private com.rinaorc.zombiez.pets.PetManager petManager;
+
     // État du plugin
     @Getter private boolean fullyLoaded = false;
 
@@ -222,6 +225,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (classManager != null) {
             log(Level.INFO, "§7Sauvegarde des données de classe...");
             classManager.shutdown();
+        }
+
+        // Cleanup du système de pets
+        if (petManager != null) {
+            log(Level.INFO, "§7Sauvegarde des données de pets...");
+            petManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -392,6 +401,11 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Branch Selection GUI - Menu de sélection de branche/spécialisation
         branchSelectionGUI = new com.rinaorc.zombiez.classes.gui.BranchSelectionGUI(this, classManager);
+
+        // ===== Système de Pets =====
+
+        // Pet Manager - Système complet de pets avec caching et persistance
+        petManager = new com.rinaorc.zombiez.pets.PetManager(this);
     }
 
     /**
@@ -473,6 +487,16 @@ public class ZombieZPlugin extends JavaPlugin {
         TalentCommand talentCmd = new TalentCommand(this);
         getCommand("talent").setExecutor(talentCmd);
         getCommand("talent").setTabCompleter(talentCmd);
+
+        // Commandes Joueur - Pets
+        com.rinaorc.zombiez.pets.commands.PetCommand petCmd = new com.rinaorc.zombiez.pets.commands.PetCommand(this);
+        getCommand("pet").setExecutor(petCmd);
+        getCommand("pet").setTabCompleter(petCmd);
+
+        // Commandes Admin - Pets
+        com.rinaorc.zombiez.pets.commands.PetAdminCommand petAdminCmd = new com.rinaorc.zombiez.pets.commands.PetAdminCommand(this);
+        getCommand("petadmin").setExecutor(petAdminCmd);
+        getCommand("petadmin").setTabCompleter(petAdminCmd);
     }
 
     /**
@@ -554,6 +578,16 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager), this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager), this);
+        }
+
+        // Listeners système de pets
+        if (petManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.pets.listeners.PetCombatListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.listeners.PetConnectionListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetMainGUI.GUIListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetCollectionGUI.GUIListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetDetailsGUI.GUIListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetEggGUI.GUIListener(this), this);
         }
     }
 
