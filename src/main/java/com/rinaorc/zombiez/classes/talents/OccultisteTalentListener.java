@@ -116,6 +116,18 @@ public class OccultisteTalentListener implements Listener {
     // Dimensional Rift per-target cooldowns (entity UUID -> expiry timestamp)
     private final Map<UUID, Long> dimensionalRiftCooldowns = new ConcurrentHashMap<>();
 
+    // Psychic Horror debuff (entity UUID -> expiry timestamp)
+    private final Map<UUID, Long> psychicHorrorDebuff = new ConcurrentHashMap<>();
+
+    // Dark Ascension buff (player UUID -> expiry timestamp)
+    private final Map<UUID, Long> darkAscensionBuff = new ConcurrentHashMap<>();
+
+    // Dark Ascension charging (player UUID -> start timestamp)
+    private final Map<UUID, Long> darkAscensionCharging = new ConcurrentHashMap<>();
+
+    // Active Voidlings (player UUID -> voidling entity UUID)
+    private final Map<UUID, UUID> activeVoidlings = new ConcurrentHashMap<>();
+
     public OccultisteTalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -3014,6 +3026,13 @@ public class OccultisteTalentListener implements Listener {
     private boolean isFrozen(LivingEntity entity) {
         return frozenEnemies.containsKey(entity.getUniqueId()) ||
                entity.hasPotionEffect(PotionEffectType.SLOWNESS);
+    }
+
+    /**
+     * Genere une cle unique basee sur les coordonnees de bloc d'une location
+     */
+    private String getLocationKey(Location loc) {
+        return loc.getWorld().getName() + ":" + loc.getBlockX() + ":" + loc.getBlockY() + ":" + loc.getBlockZ();
     }
 
     /**
