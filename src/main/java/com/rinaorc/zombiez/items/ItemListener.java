@@ -8,8 +8,11 @@ import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.mobs.food.FoodItem;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -380,8 +383,9 @@ public class ItemListener implements Listener {
                         .findFirst()
                         .ifPresent(nearby -> {
                             ((org.bukkit.entity.LivingEntity) nearby).damage(damage * 0.5, attacker);
-                            // Effet visuel
-                            target.getWorld().strikeLightningEffect(nearby.getLocation());
+                            // Effet visuel - arc électrique entre les deux cibles
+                            spawnChainLightningArc(target.getLocation(), nearby.getLocation());
+                            nearby.getWorld().playSound(nearby.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.6f);
                         });
                 }
             }
@@ -514,5 +518,40 @@ public class ItemListener implements Listener {
                 .findFirst()
                 .ifPresent(maxHealthAttr::removeModifier);
         }
+    }
+
+    /**
+     * Génère un arc électrique en particules entre deux points
+     */
+    private void spawnChainLightningArc(Location from, Location to) {
+        if (from.getWorld() == null) return;
+
+        Location start = from.clone().add(0, 1, 0);
+        Location end = to.clone().add(0, 1, 0);
+
+        // Calculer la direction et la distance
+        double distance = start.distance(end);
+        org.bukkit.util.Vector direction = end.toVector().subtract(start.toVector()).normalize();
+
+        // Dessiner l'arc avec des zigzags
+        int segments = (int) (distance * 4);
+        for (int i = 0; i <= segments; i++) {
+            double progress = (double) i / segments;
+            Location point = start.clone().add(direction.clone().multiply(distance * progress));
+
+            // Ajouter du zigzag aléatoire (plus au milieu, moins aux extrémités)
+            double zigzagIntensity = Math.sin(progress * Math.PI) * 0.3;
+            point.add(
+                (Math.random() - 0.5) * zigzagIntensity,
+                (Math.random() - 0.5) * zigzagIntensity,
+                (Math.random() - 0.5) * zigzagIntensity
+            );
+
+            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 2, 0.05, 0.05, 0.05, 0);
+        }
+
+        // Impacts aux deux extrémités
+        from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, start, 8, 0.2, 0.2, 0.2, 0.02);
+        from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, end, 10, 0.3, 0.3, 0.3, 0.03);
     }
 }
