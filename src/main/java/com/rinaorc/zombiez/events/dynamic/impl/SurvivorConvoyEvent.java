@@ -818,6 +818,11 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             zombieTargetTask.cancel();
         }
 
+        // Annuler la tâche de despawn du coffre
+        if (rewardChestTask != null && !rewardChestTask.isCancelled()) {
+            rewardChestTask.cancel();
+        }
+
         // Supprimer les affichages de titre
         if (titleDisplay != null && titleDisplay.isValid()) {
             titleDisplay.remove();

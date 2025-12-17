@@ -63,6 +63,46 @@ public class CombatListener implements Listener {
     }
 
     /**
+     * MONITOR: Affiche l'indicateur de dégâts APRÈS toutes les modifications de talents
+     * Ce handler s'exécute en DERNIER, donc event.getDamage() contient les dégâts finaux
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamageDisplayMonitor(EntityDamageByEntityEvent event) {
+        Entity victim = event.getEntity();
+
+        // Vérifier si on doit afficher un indicateur (metadata définie par les handlers HIGH)
+        if (!victim.hasMetadata("zombiez_show_indicator")) return;
+
+        // Récupérer les infos stockées
+        boolean isCritical = victim.hasMetadata("zombiez_damage_critical") &&
+                             victim.getMetadata("zombiez_damage_critical").get(0).asBoolean();
+        boolean isHeadshot = victim.hasMetadata("zombiez_damage_headshot") &&
+                             victim.getMetadata("zombiez_damage_headshot").get(0).asBoolean();
+        Player viewer = null;
+
+        if (victim.hasMetadata("zombiez_damage_viewer")) {
+            String viewerUuid = victim.getMetadata("zombiez_damage_viewer").get(0).asString();
+            viewer = plugin.getServer().getPlayer(java.util.UUID.fromString(viewerUuid));
+        }
+
+        // DÉGÂTS FINAUX après toutes les modifications (talents inclus)
+        double finalDamage = event.getFinalDamage();
+
+        // Afficher l'indicateur avec les dégâts RÉELS
+        if (isHeadshot) {
+            DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, viewer);
+        } else {
+            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, viewer);
+        }
+
+        // Nettoyer les metadata
+        victim.removeMetadata("zombiez_show_indicator", plugin);
+        victim.removeMetadata("zombiez_damage_critical", plugin);
+        victim.removeMetadata("zombiez_damage_headshot", plugin);
+        victim.removeMetadata("zombiez_damage_viewer", plugin);
+    }
+
+    /**
      * Gère les dégâts entre entités
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -119,10 +159,10 @@ public class CombatListener implements Listener {
         // ============ CONSUMABLE DAMAGE CHECK ============
         // Si les dégâts viennent d'un consommable, ne pas appliquer les stats d'arme
         if (zombie.hasMetadata("zombiez_consumable_damage")) {
-            double consumableDamage = event.getDamage();
-
-            // Afficher l'indicateur de dégâts pour le consommable
-            DamageIndicator.display(plugin, zombie.getLocation(), consumableDamage, false, player);
+            // Préparer l'indicateur pour le MONITOR (affichera les dégâts finaux après talents)
+            zombie.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            zombie.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+            zombie.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
             // Mise à jour de l'affichage de vie
             plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -237,8 +277,10 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
-        // ============ INDICATEUR DE DÉGÂTS FLOTTANT (Client-side) ============
-        DamageIndicator.display(plugin, zombie.getLocation(), finalDamage, isCritical, player);
+        // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
+        zombie.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        zombie.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        zombie.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
         // Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts
@@ -253,10 +295,6 @@ public class CombatListener implements Listener {
             // Effet critique
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
             zombie.getWorld().spawnParticle(Particle.CRIT, zombie.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
-
-            // Message critique avec dégâts
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
-                "§6§l✦ CRITIQUE! §c" + String.format("%.1f", finalDamage) + " dégâts");
         }
 
         // Stocker les infos pour le loot (utilisé à la mort)
@@ -315,15 +353,15 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
-        // ============ INDICATEUR DE DÉGÂTS FLOTTANT ============
-        DamageIndicator.display(plugin, animal.getLocation(), finalDamage, isCritical, player);
+        // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
+        animal.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        animal.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        animal.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
             animal.getWorld().spawnParticle(Particle.CRIT, animal.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
-                "§6§l✦ CRITIQUE! §c" + String.format("%.1f", finalDamage) + " dégâts");
         }
     }
 
@@ -596,23 +634,16 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
-        // ============ INDICATEUR DE DÉGÂTS FLOTTANT ============
-        if (isHeadshot) {
-            // Afficher l'indicateur de headshot avec les dégâts finaux
-            DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, player);
-        } else {
-            // Afficher l'indicateur de dégâts normal pour les projectiles
-            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, player);
-        }
+        // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
+        victim.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        victim.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        victim.setMetadata("zombiez_damage_headshot", new FixedMetadataValue(plugin, isHeadshot));
+        victim.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // ============ FEEDBACK VISUEL CRITIQUE ============
         if (isCritical) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
             victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
-
-            String critText = isHeadshot ? "§6§l✦ HEADSHOT CRITIQUE! §c" : "§6§l✦ CRITIQUE! §c";
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player,
-                critText + String.format("%.1f", finalDamage) + " dégâts");
         }
 
         // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ZOMBIE ============

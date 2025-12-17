@@ -1678,6 +1678,7 @@ public class OccultisteTalentListener implements Listener {
 
         Skeleton minion = player.getWorld().spawn(player.getLocation().add(
             Math.random() * 2 - 1, 0, Math.random() * 2 - 1), Skeleton.class);
+        minion.setShouldBurnInDay(false);
         minion.setCustomName("§5☠ §dSquelette Archer §8[" + player.getName() + "]");
         minion.setCustomNameVisible(true);
         minion.getScoreboardTags().add("player_minion");
