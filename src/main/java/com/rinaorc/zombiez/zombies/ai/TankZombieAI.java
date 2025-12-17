@@ -23,6 +23,7 @@ public class TankZombieAI extends ZombieAI {
     private int consecutiveHits = 0;
     private boolean isCharging = false;
     private long lastChargeTime = 0;
+    private boolean shieldActive = false;
 
     public TankZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
         super(plugin, zombie, zombieType, level);
@@ -59,13 +60,13 @@ public class TankZombieAI extends ZombieAI {
      * Armored: Très résistant, peut activer un bouclier temporaire
      */
     private void tickArmored() {
-        // Effet visuel d'armure
+        // Effet visuel d'armure (silencieux)
         if (tickCounter % 40 == 0) {
             playParticles(Particle.SCRAPE, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3);
         }
 
-        // Activer le bouclier quand blessé
-        if (canUseAbility() && isHealthBelow(0.5)) {
+        // Activer le bouclier quand blessé (une seule fois tant qu'actif)
+        if (canUseAbility() && isHealthBelow(0.5) && !shieldActive) {
             activateShield();
             useAbility();
         }
@@ -122,20 +123,27 @@ public class TankZombieAI extends ZombieAI {
      * Active un bouclier de dégâts réduits
      */
     private void activateShield() {
-        playSound(Sound.ITEM_ARMOR_EQUIP_IRON, 1.5f, 0.8f);
-        playParticles(Particle.ENCHANTED_HIT, zombie.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5);
+        shieldActive = true;
+
+        // Son d'activation unique (volume réduit)
+        playSound(Sound.ITEM_SHIELD_BLOCK, 0.6f, 1.2f);
+        playParticles(Particle.ENCHANTED_HIT, zombie.getLocation().add(0, 1, 0), 20, 0.5, 1, 0.5);
 
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 100, 2, false, false));
 
-        // Effet visuel pendant la durée
+        // Effet visuel pendant la durée (sans son)
         for (int i = 0; i < 5; i++) {
-            final int tick = i;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (zombie.isValid()) {
-                    playParticles(Particle.END_ROD, zombie.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5);
+                    playParticles(Particle.END_ROD, zombie.getLocation().add(0, 1, 0), 5, 0.5, 0.5, 0.5);
                 }
             }, i * 20L);
         }
+
+        // Désactiver le flag après la durée du bouclier
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            shieldActive = false;
+        }, 100L);
     }
 
     /**
