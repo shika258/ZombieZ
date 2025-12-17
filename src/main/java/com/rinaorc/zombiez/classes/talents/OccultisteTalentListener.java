@@ -1344,7 +1344,6 @@ public class OccultisteTalentListener implements Listener {
 
         // Degats initiaux massifs + Application des DOTs
         double baseDamagePlayer = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
-        long now = System.currentTimeMillis();
         for (Entity entity : target.getWorld().getNearbyEntities(target, radius, radius, radius)) {
             if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isPlayerMinion(entity, player)) {
                 le.damage(initialDamage, player);
