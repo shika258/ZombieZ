@@ -678,8 +678,10 @@ public class OccultisteTalentListener implements Listener {
         burnStartTime.put(targetId, System.currentTimeMillis());
 
         // Message au joueur
-        player.sendMessage("§c🔥 §6Embrasement Critique! §7" + String.format("%.1f", intensity) +
-            "s d'intensite = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c🔥 §6Embrasement Critique! §7" + String.format("%.1f", intensity) +
+                "s d'intensite = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+        }
     }
 
     /**
@@ -821,8 +823,10 @@ public class OccultisteTalentListener implements Listener {
         clearFrostStacks(target);
 
         // Message au joueur
-        player.sendMessage("§b❄ §3Brisure Glaciale! §7" + stacks + " stacks = §c" +
-            String.format("%.1f", totalDamage) + " §7degats!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§b❄ §3Brisure Glaciale! §7" + stacks + " stacks = §c" +
+                String.format("%.1f", totalDamage) + " §7degats!");
+        }
     }
 
     private void processChainLightning(Player player, LivingEntity target, double baseDamage) {
@@ -1069,8 +1073,10 @@ public class OccultisteTalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.3);
         player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, (int)(duration / 50), 0, false, false, true));
 
-        player.sendMessage("§5§l+ VOIDFORM ACTIVE +");
-        player.sendMessage("§7Degats d'ombre §c+30%§7, DOTs acceleres!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§5§l+ VOIDFORM ACTIVE +");
+            player.sendMessage("§7Degats d'ombre §c+30%§7, DOTs acceleres!");
+        }
     }
 
     /**
@@ -1119,8 +1125,10 @@ public class OccultisteTalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.DRAGON_BREATH, player.getLocation(), 100, 2, 2, 2, 0.2);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 1.5f);
 
-        player.sendMessage("§5§l+ ASCENSION SOMBRE +");
-        player.sendMessage("§7Insanity maximale! DOTs etendus de §c50%§7!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§5§l+ ASCENSION SOMBRE +");
+            player.sendMessage("§7Insanity maximale! DOTs etendus de §c50%§7!");
+        }
     }
 
     /**
@@ -1401,8 +1409,10 @@ public class OccultisteTalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 15, 10, 15, 0.01);
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
 
-        player.sendMessage("§b§l+ STASE TEMPORELLE +");
-        player.sendMessage("§7Le temps est fige pendant §b5s§7!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§b§l+ STASE TEMPORELLE +");
+            player.sendMessage("§7Le temps est fige pendant §b5s§7!");
+        }
     }
 
     private void processNecromancerSummon(Player player) {
@@ -1763,8 +1773,10 @@ public class OccultisteTalentListener implements Listener {
             long duration = (long) talent.getValue(1);
             blackSunActive.put(player.getUniqueId(), System.currentTimeMillis() + duration);
 
-            player.sendMessage("§c§l+ SOLEIL NOIR +");
-            player.sendMessage("§7Un soleil ardent brule vos ennemis!");
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§c§l+ SOLEIL NOIR +");
+                player.sendMessage("§7Un soleil ardent brule vos ennemis!");
+            }
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
         }
     }
@@ -2406,7 +2418,9 @@ public class OccultisteTalentListener implements Listener {
      */
     private void exitVoidform(Player player) {
         voidformActive.remove(player.getUniqueId());
-        player.sendMessage("§8§l- VOIDFORM TERMINEE -");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§8§l- VOIDFORM TERMINEE -");
+        }
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.5f, 1.5f);
     }
 
@@ -2762,6 +2776,11 @@ public class OccultisteTalentListener implements Listener {
 
         playerCooldowns.put(ability, now);
         return true;
+    }
+
+    private boolean shouldSendTalentMessage(Player player) {
+        ClassData data = plugin.getClassManager().getClassData(player);
+        return data != null && data.isTalentMessagesEnabled();
     }
 
     private int getSoulOrbs(Player player) {

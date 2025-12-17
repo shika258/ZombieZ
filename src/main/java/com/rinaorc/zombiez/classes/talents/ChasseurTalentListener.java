@@ -147,7 +147,9 @@ public class ChasseurTalentListener implements Listener {
                 Talent predatorEye = getActiveTalentIfHas(player, Talent.TalentEffectType.PREDATOR_EYE);
                 if (predatorEye != null && Math.random() < predatorEye.getValue(0)) {
                     lastDodgeTime.remove(uuid);
-                    player.sendMessage("§b! Esquive prete!");
+                    if (shouldSendTalentMessage(player)) {
+                        player.sendMessage("§b! Esquive prete!");
+                    }
                 }
             }
         }
@@ -315,7 +317,9 @@ public class ChasseurTalentListener implements Listener {
             if (shots >= gatling.getValue(0)) {
                 gatlingModeEnd.put(uuid, System.currentTimeMillis() + (long) gatling.getValue(1));
                 consecutiveShots.put(uuid, 0);
-                player.sendMessage("§c§l+ MODE GATLING ACTIVE!");
+                if (shouldSendTalentMessage(player)) {
+                    player.sendMessage("§c§l+ MODE GATLING ACTIVE!");
+                }
                 player.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 1.0f, 2.0f);
             }
         }
@@ -420,7 +424,9 @@ public class ChasseurTalentListener implements Listener {
                 player.getHealth() + heal));
             // Damage buff
             bountyBuffEnd.put(uuid, System.currentTimeMillis() + (long) bountyHunter.getValue(2));
-            player.sendMessage("§6+ Prime collectee! +20% degats!");
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§6+ Prime collectee! +20% degats!");
+            }
             removeMark(player, target);
         }
 
@@ -462,7 +468,9 @@ public class ChasseurTalentListener implements Listener {
                     long stillTime = System.currentTimeMillis() - stillSince.get(uuid);
                     if (stillTime >= sharpshooter.getValue(0) && !guaranteedCrit.getOrDefault(uuid, false)) {
                         guaranteedCrit.put(uuid, true);
-                        player.sendMessage("§e! Critique garanti!");
+                        if (shouldSendTalentMessage(player)) {
+                            player.sendMessage("§e! Critique garanti!");
+                        }
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 2.0f);
                     }
                 }
@@ -835,7 +843,9 @@ public class ChasseurTalentListener implements Listener {
         double explosionRadius = talent.getValue(3);
 
         player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
-        player.sendMessage("§c§l+ METEOR SHOWER!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c§l+ METEOR SHOWER!");
+        }
 
         for (int i = 0; i < meteors; i++) {
             int delay = i * 5;
@@ -865,7 +875,9 @@ public class ChasseurTalentListener implements Listener {
         int arrows = (int) talent.getValue(2);
         double radius = talent.getValue(3);
 
-        player.sendMessage("§e§l+ TEMPETE D'ACIER!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§e§l+ TEMPETE D'ACIER!");
+        }
         player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
 
         for (int i = 0; i < arrows; i++) {
@@ -888,7 +900,9 @@ public class ChasseurTalentListener implements Listener {
         double damage = 10 * talent.getValue(1);
         double radius = talent.getValue(2);
 
-        player.sendMessage("§6§l+ ORBITAL STRIKE!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§6§l+ ORBITAL STRIKE!");
+        }
         player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 0.5f);
 
         // Warning
@@ -976,7 +990,9 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private void procBulletTime(Player player, Talent talent) {
-        player.sendMessage("§b§l+ BULLET TIME!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§b§l+ BULLET TIME!");
+        }
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
 
         long duration = (long) talent.getValue(0);
@@ -1031,7 +1047,9 @@ public class ChasseurTalentListener implements Listener {
         if (deathNote != null && !isOnCooldown(uuid, "death_note")) {
             deathNoteTargets.put(targetUuid, System.currentTimeMillis() + (long) deathNote.getValue(0));
             setCooldown(uuid, "death_note", (long) deathNote.getValue(2));
-            player.sendMessage("§0§l+ DEATH NOTE: §7Cible marquee pour la mort!");
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§0§l+ DEATH NOTE: §7Cible marquee pour la mort!");
+            }
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.5f, 0.5f);
         }
 
@@ -1103,6 +1121,11 @@ public class ChasseurTalentListener implements Listener {
 
     private Talent getActiveTalentIfHas(Player player, Talent.TalentEffectType effectType) {
         return talentManager.getActiveTalentWithEffect(player, effectType);
+    }
+
+    private boolean shouldSendTalentMessage(Player player) {
+        ClassData data = plugin.getClassManager().getClassData(player);
+        return data != null && data.isTalentMessagesEnabled();
     }
 
     private boolean isOnCooldown(UUID uuid, String ability) {

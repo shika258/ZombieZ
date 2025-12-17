@@ -492,7 +492,9 @@ public class TalentListener implements Listener {
 
                     player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
                     player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation(), 50, 1, 1, 1, 0.1);
-                    player.sendMessage("§6§l+ IMMORTEL! §7Vous avez triomphe de la mort!");
+                    if (shouldSendTalentMessage(player)) {
+                        player.sendMessage("§6§l+ IMMORTEL! §7Vous avez triomphe de la mort!");
+                    }
                     return;
                 }
             }
@@ -682,7 +684,9 @@ public class TalentListener implements Listener {
                 long sprintStart = sprintStartTime.getOrDefault(uuid, System.currentTimeMillis());
                 if (System.currentTimeMillis() - sprintStart >= charge.getValue(0)) {
                     chargeReady.put(uuid, true);
-                    player.sendMessage("§6§l+ CHARGE PRETE! §7Votre prochaine attaque sera devastatrice!");
+                    if (shouldSendTalentMessage(player)) {
+                        player.sendMessage("§6§l+ CHARGE PRETE! §7Votre prochaine attaque sera devastatrice!");
+                    }
                 }
             }
 
@@ -922,7 +926,9 @@ public class TalentListener implements Listener {
             }
         }
 
-        player.sendMessage("§c§l+ DECHAINEMENT! §7Explosion devastatrice!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c§l+ DECHAINEMENT! §7Explosion devastatrice!");
+        }
     }
 
     private void procCataclysm(Player player, double damage, double radius) {
@@ -938,7 +944,9 @@ public class TalentListener implements Listener {
             }
         }
 
-        player.sendMessage("§c§l+ CATACLYSME! §7Une explosion massive ravage tout!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c§l+ CATACLYSME! §7Une explosion massive ravage tout!");
+        }
     }
 
     private void procBloodAvatar(Player player, double damage, double radius, double selfHeal) {
@@ -957,7 +965,9 @@ public class TalentListener implements Listener {
         double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * selfHeal;
         applyLifesteal(player, heal);
 
-        player.sendMessage("§4§l+ AVATAR DE SANG! §7Le sang explose autour de vous!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§4§l+ AVATAR DE SANG! §7Le sang explose autour de vous!");
+        }
     }
 
     private void procEarthApocalypse(Player player, double damage, double radius, double stunMs) {
@@ -984,7 +994,9 @@ public class TalentListener implements Listener {
             }
         }
 
-        player.sendMessage("§5§l+ APOCALYPSE! §7La terre tremble sous votre puissance!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§5§l+ APOCALYPSE! §7La terre tremble sous votre puissance!");
+        }
     }
 
     private void procTremor(Player player, double damageMultiplier, double radius) {
@@ -1028,7 +1040,9 @@ public class TalentListener implements Listener {
             }
         }
 
-        player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis!");
+        }
     }
 
     private void procVengeanceRelease(Player player, double damage, double radius) {
@@ -1044,7 +1058,9 @@ public class TalentListener implements Listener {
             }
         }
 
-        player.sendMessage("§5§l+ VENGEANCE! §7Vous liberez toute votre rage accumulee!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§5§l+ VENGEANCE! §7Vous liberez toute votre rage accumulee!");
+        }
     }
 
     private void procLivingCitadel(Player player, Talent talent) {
@@ -1052,7 +1068,9 @@ public class TalentListener implements Listener {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(talent.getValue(0) / 50), 10, false, false));
 
         player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation(), 50, 1, 1, 1, 0.5);
-        player.sendMessage("§b§l+ CITADELLE! §7Vous etes invulnerable pendant 3 secondes!");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§b§l+ CITADELLE! §7Vous etes invulnerable pendant 3 secondes!");
+        }
 
         new BukkitRunnable() {
             @Override
@@ -1073,7 +1091,9 @@ public class TalentListener implements Listener {
                     }
                 }
 
-                player.sendMessage("§b§l+ EXPLOSION! §7La citadelle libere sa puissance!");
+                if (shouldSendTalentMessage(player)) {
+                    player.sendMessage("§b§l+ EXPLOSION! §7La citadelle libere sa puissance!");
+                }
             }
         }.runTaskLater(plugin, (long)(talent.getValue(0) / 50));
     }
@@ -1127,6 +1147,11 @@ public class TalentListener implements Listener {
     }
 
     // ==================== UTILITAIRES ====================
+
+    private boolean shouldSendTalentMessage(Player player) {
+        ClassData data = plugin.getClassManager().getClassData(player);
+        return data != null && data.isTalentMessagesEnabled();
+    }
 
     private Talent getActiveTalentIfHas(Player player, Talent.TalentEffectType effectType) {
         return talentManager.getActiveTalentWithEffect(player, effectType);
