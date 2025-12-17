@@ -580,15 +580,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_implosion")
             .name("Implosion")
-            .description("Attirez les ennemis vers vous")
+            .description("Chaque kill attire les ennemis")
             .loreLines(new String[]{
-                "§7Activation: §eSneak + Attaque§7",
-                "§7Creez une §5implosion gravitationnelle§7!",
+                "§7§aPassif:§7 Quand vous tuez un ennemi,",
+                "§7les mobs proches sont §5attires§7 vers le cadavre.",
                 "",
                 "§8Rayon: §e8§8 blocs",
-                "§8Degats: §c150%§8 base",
-                "§8Attire tous les ennemis vers vous",
-                "§8Cooldown: §e6s"
+                "§8Degats: §c50%§8 base aux attires",
+                "§8Force d'attraction: §5Moyenne"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -596,7 +595,7 @@ public final class OccultisteTalents {
             .icon(Material.END_CRYSTAL)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.IMPLOSION)
-            .values(new double[]{8.0, 1.50, 6000}) // radius, damage%, cooldown_ms
+            .values(new double[]{8.0, 0.50}) // radius, damage%
             .build());
     }
 
@@ -695,16 +694,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_gravity_well")
             .name("Puits de Gravite")
-            .description("Creez une zone de gravite persistante")
+            .description("Zone de gravite automatique")
             .loreLines(new String[]{
-                "§7Activation: §eClic Droit§7 (en l'air)",
-                "§7Placez un §5puits de gravite§7!",
+                "§7§aPassif:§7 Toutes les §e15s§7 en combat,",
+                "§7un §5puits de gravite§7 apparait a votre position.",
                 "",
                 "§8Duree: §a6s§8, Rayon: §e5§8 blocs",
                 "§8Ralentit de §e50%§8 les ennemis",
                 "§8Attire lentement vers le centre",
-                "§8Degats: §c30%§8 base/s",
-                "§8Cooldown: §e10s"
+                "§8Degats: §c30%§8 base/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -712,7 +710,7 @@ public final class OccultisteTalents {
             .icon(Material.CRYING_OBSIDIAN)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.GRAVITY_WELL)
-            .values(new double[]{6000, 5.0, 0.50, 0.30, 10000}) // duration_ms, radius, slow%, damage_per_s%, cooldown_ms
+            .values(new double[]{6000, 5.0, 0.50, 0.30, 15000}) // duration_ms, radius, slow%, damage_per_s%, interval_ms
             .build());
     }
 
@@ -812,15 +810,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_singularity")
             .name("Singularite")
-            .description("Creez une singularite devastatrice")
+            .description("Multi-kill cree une singularite")
             .loreLines(new String[]{
-                "§7Activation: §eSneak + Clic Droit§7",
-                "§7Invoquez une §5singularite§7 au curseur!",
+                "§7§aPassif:§7 Tuer §e3+ ennemis§7 en §a5s§7",
+                "§7declenche une §5singularite§7 devastatrice!",
                 "",
                 "§8Rayon: §e10§8 blocs, Duree: §a3s",
                 "§8Aspire §cviolemment§8 les ennemis",
-                "§8Degats: §c200%§8 base + §c50%/s§8",
-                "§8Cooldown: §e12s"
+                "§8Degats: §c200%§8 base + §c50%/s",
+                "§8Cooldown interne: §e8s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -828,7 +826,7 @@ public final class OccultisteTalents {
             .icon(Material.SCULK_CATALYST)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SINGULARITY)
-            .values(new double[]{10.0, 3000, 2.0, 0.50, 12000}) // radius, duration_ms, initial_damage%, dps%, cooldown_ms
+            .values(new double[]{10.0, 3000, 2.0, 0.50, 8000, 3, 5000}) // radius, duration_ms, initial_damage%, dps%, cooldown_ms, required_kills, kill_window_ms
             .build());
     }
 
@@ -928,16 +926,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_dimensional_rift")
             .name("Dechirure Dimensionnelle")
-            .description("Bannissez les ennemis dans le vide")
+            .description("Ennemis faibles bannis automatiquement")
             .loreLines(new String[]{
-                "§7Activation: §eDouble Sneak§7",
-                "§7Ouvrez une §5faille dimensionnelle§7!",
+                "§7§aPassif:§7 Les ennemis en dessous de §c15% HP§7",
+                "§7sont §5bannis dans le vide§7 automatiquement!",
                 "",
-                "§8Rayon: §e12§8 blocs",
-                "§8Bannit les ennemis §a4s§8 dans le vide",
-                "§8Degats: §c250%§8 a la sortie",
-                "§8Les bannis sont §8immobilises§8",
-                "§8Cooldown: §e20s"
+                "§8Duree du bannissement: §a3s",
+                "§8Degats a la sortie: §c250%§8 base",
+                "§8Les bannis sont §8immobilises",
+                "§8Cooldown par cible: §e10s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -945,7 +942,7 @@ public final class OccultisteTalents {
             .icon(Material.END_PORTAL_FRAME)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.DIMENSIONAL_RIFT)
-            .values(new double[]{12.0, 4000, 2.50, 20000}) // radius, banish_duration_ms, exit_damage%, cooldown_ms
+            .values(new double[]{0.15, 3000, 2.50, 10000}) // hp_threshold%, banish_duration_ms, exit_damage%, cooldown_per_target_ms
             .build());
     }
 
@@ -1044,16 +1041,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_black_hole")
             .name("Trou Noir")
-            .description("Ultimate: Creez un trou noir devastateur")
+            .description("Ultimate: Trou noir automatique")
             .loreLines(new String[]{
-                "§7Activation: §eSneak + Jump§7",
-                "§7Invoquez un §5TROU NOIR MASSIF§7!",
+                "§7§aPassif:§7 Toutes les §e45s§7 en combat,",
+                "§7un §5TROU NOIR MASSIF§7 apparait!",
                 "",
                 "§8Rayon: §e15§8 blocs, Duree: §a5s",
                 "§8Aspire §cTOUS§8 les mobs environnants",
                 "§8Degats: §c300%§8 + §c75%/s§8 aux aspires",
-                "§8Effet visuel §5spectaculaire§8!",
-                "§8Cooldown: §e45s"
+                "§8Effet visuel §5spectaculaire§8!"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -1061,7 +1057,7 @@ public final class OccultisteTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§0")
             .effectType(Talent.TalentEffectType.BLACK_HOLE)
-            .values(new double[]{15.0, 5000, 3.0, 0.75, 45000}) // radius, duration_ms, initial_damage%, dps%, cooldown_ms
+            .values(new double[]{15.0, 5000, 3.0, 0.75, 45000}) // radius, duration_ms, initial_damage%, dps%, interval_ms
             .build());
     }
 
