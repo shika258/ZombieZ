@@ -172,7 +172,9 @@ public abstract class DynamicEvent {
 
         // Supprimer la boss bar
         if (bossBar != null) {
+            bossBar.setVisible(false);
             bossBar.removeAll();
+            bossBar = null;
         }
 
         // Cleanup spécifique
