@@ -316,18 +316,18 @@ public class PlayerData {
 
     /**
      * Met à jour la zone actuelle
-     * @return true si la zone a changé
+     * @return true si c'est la première fois que le joueur atteint cette zone (nouvelle zone max)
      */
     public boolean updateZone(int zoneId) {
         int old = currentZone.getAndSet(zoneId);
-        if (zoneId > maxZone.get()) {
+        boolean isNewZone = zoneId > maxZone.get();
+        if (isNewZone) {
             maxZone.set(zoneId);
         }
         if (old != zoneId) {
             markDirty();
-            return true;
         }
-        return false;
+        return isNewZone;
     }
 
     /**
