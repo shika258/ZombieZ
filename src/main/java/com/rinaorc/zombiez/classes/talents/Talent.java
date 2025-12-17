@@ -225,41 +225,41 @@ public class Talent {
         ABSOLUTE_ZERO,           // Deep freeze execute
         CONDUCTOR,               // Lightning heals you
         ETERNAL_HARVEST,         // Soul orbs regen HP
-        INSANITY,                // Insanity boosts void damage
+        DARK_GRAVITY,            // Attacks slow enemies + bonus damage
 
         // === OCCULTISTE - Tier 5 ===
         FIRE_AVATAR,             // Fire aura around you
         FROST_LORD,              // 100% freeze chance, double duration
         THUNDER_GOD,             // Unlimited chain targets
         SOUL_LEGION,             // 10 orbs + DR per orb
-        VOID_ERUPTION,           // Massive burst + enter Voidform
+        IMPLOSION,               // Pull all enemies to a point
 
         // === OCCULTISTE - Tier 6 (Niveau 25 - Ascension) ===
         PYROCLASM,               // Fire kills explode in chain reaction
         PERMAFROST,              // Frozen enemies slow nearby enemies
         STATIC_FIELD,            // Lightning creates damaging field
         SOUL_BOND,               // Soul orbs share damage taken
-        VOIDFORM,                // Transformation state with damage boost
+        GRAVITY_WELL,            // Place persistent gravity zone
 
         // === OCCULTISTE - Tier 7 ===
         INFERNO,                 // Periodic fire nova
         ICE_AGE,                 // Frost zones on kill
         PERPETUAL_STORM,         // Lightning storm aura
         NECROMANCER,             // Summon skeletons from souls
-        PSYCHIC_HORROR,          // Periodic fear/stun nearby enemies
+        SINGULARITY,             // Create violent pulling singularity
 
         // === OCCULTISTE - Tier 8 ===
         BLACK_SUN,               // Summon damaging fire sun
         ETERNAL_WINTER,          // Permanent slow aura + damage bonus
         MJOLNIR,                 // Triple strike lightning
         LORD_OF_THE_DEAD,        // Raise killed enemies as minions
-        VOIDLING,                // Summon void entity
+        DIMENSIONAL_RIFT,        // Banish enemies to void dimension
 
         // === OCCULTISTE - Tier 9 ===
         METEOR_RAIN,             // Periodic massive meteor shower
         TIME_STASIS,             // Freeze all enemies in time
         DIVINE_JUDGMENT,         // Screen-wide lightning strike
         IMMORTAL_ARMY,           // Minions respawn + buffed
-        DARK_ASCENSION           // Ultimate: instant Voidform + reset DoTs
+        BLACK_HOLE               // Ultimate: massive black hole
     }
 }

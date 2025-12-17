@@ -83,13 +83,7 @@ public class OccultisteTalentListener implements Listener {
     // Ice zones (location hash -> expiry timestamp)
     private final Map<String, Long> iceZones = new ConcurrentHashMap<>();
 
-    // ==================== SHADOW PRIEST VOID TRACKING ====================
-
-    // Insanity par joueur (0-100)
-    private final Map<UUID, Double> playerInsanity = new ConcurrentHashMap<>();
-
-    // Voidform actif (player UUID -> end timestamp, 0 = indefinite until insanity depletes)
-    private final Map<UUID, Long> voidformActive = new ConcurrentHashMap<>();
+    // ==================== GRAVITY/VOID TRACKING ====================
 
     // Shadow DOTs actifs (entity UUID -> ShadowDotData)
     private final Map<UUID, ShadowDotData> shadowDots = new ConcurrentHashMap<>();
@@ -97,20 +91,24 @@ public class OccultisteTalentListener implements Listener {
     // Vampiric Touch DOTs (entity UUID -> VampiricTouchData)
     private final Map<UUID, VampiricTouchData> vampiricTouchDots = new ConcurrentHashMap<>();
 
-    // Psychic Horror debuff (entity UUID -> expiry timestamp)
-    private final Map<UUID, Long> psychicHorrorDebuff = new ConcurrentHashMap<>();
+    // Dark Gravity - ennemis ralentis (entity UUID -> expiry timestamp)
+    private final Map<UUID, Long> gravitySlowed = new ConcurrentHashMap<>();
 
-    // Voidling actif (player UUID -> voidling entity UUID)
-    private final Map<UUID, UUID> activeVoidlings = new ConcurrentHashMap<>();
+    // Gravity Wells actifs (location key -> GravityWellData)
+    private final Map<String, GravityWellData> activeGravityWells = new ConcurrentHashMap<>();
 
-    // Dark Ascension buff actif (player UUID -> expiry timestamp)
-    private final Map<UUID, Long> darkAscensionBuff = new ConcurrentHashMap<>();
+    // Singularities actives (location key -> SingularityData)
+    private final Map<String, SingularityData> activeSingularities = new ConcurrentHashMap<>();
 
-    // Dark Ascension charging (player UUID -> charge start timestamp)
-    private final Map<UUID, Long> darkAscensionCharging = new ConcurrentHashMap<>();
+    // Black Holes actifs (location key -> BlackHoleData)
+    private final Map<String, BlackHoleData> activeBlackHoles = new ConcurrentHashMap<>();
 
-    // Derniere attaque du joueur (pour decay d'insanity hors combat)
-    private final Map<UUID, Long> lastCombatTime = new ConcurrentHashMap<>();
+    // Dimensional Rift - ennemis bannis (entity UUID -> BanishedData)
+    private final Map<UUID, BanishedData> banishedEntities = new ConcurrentHashMap<>();
+
+    // Double sneak for Dimensional Rift
+    private final Map<UUID, Long> lastSneakTimeRift = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW_RIFT_MS = 500;
 
     public OccultisteTalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -139,7 +137,7 @@ public class OccultisteTalentListener implements Listener {
                 processEternalWinter();
                 processBlizzardAura();
                 processIceZones();
-                processVoidformTick();
+                processGravityEffects(); // Gravity Wells, Singularities, Black Holes
             }
         }.runTaskTimer(plugin, 10L, 10L);
 
@@ -160,9 +158,7 @@ public class OccultisteTalentListener implements Listener {
                 processShadowDots();
                 processVampiricTouchDots();
                 processShadowyApparitions();
-                processInsanityDecay();
-                processPsychicHorror();
-                processVoidlingAttacks();
+                processBanishedEntities(); // Dimensional Rift
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
@@ -291,21 +287,31 @@ public class OccultisteTalentListener implements Listener {
     }
 
     /**
-     * Activation du talent Necromancien par sneak + clic droit
+     * Activation des talents par clic droit
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         if (!isOccultiste(player)) return;
 
-        // Verifier sneak + clic droit (main ou air)
-        if (!player.isSneaking()) return;
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
 
-        // Necromancer summon sur sneak + clic droit
-        if (hasTalentEffect(player, Talent.TalentEffectType.NECROMANCER)) {
+        // Singularity (sneak + right click) - priorite sur les autres
+        if (player.isSneaking() && hasTalentEffect(player, Talent.TalentEffectType.SINGULARITY)) {
+            processSingularity(player);
+            return;
+        }
+
+        // Necromancer summon (sneak + right click)
+        if (player.isSneaking() && hasTalentEffect(player, Talent.TalentEffectType.NECROMANCER)) {
             processNecromancerSummon(player);
+            return;
+        }
+
+        // Gravity Well (right click, not sneaking)
+        if (!player.isSneaking() && hasTalentEffect(player, Talent.TalentEffectType.GRAVITY_WELL)) {
+            processGravityWell(player);
         }
     }
 
@@ -395,15 +401,17 @@ public class OccultisteTalentListener implements Listener {
             }
         }
 
-        // Void Eruption activation (crouch + attack with 50+ insanity)
-        if (hasTalentEffect(player, Talent.TalentEffectType.VOID_ERUPTION)) {
-            if (player.isSneaking() && getInsanity(player) >= 50) {
-                processVoidEruption(player, target, baseDamage);
-            }
+        // Dark Gravity - slow enemies + bonus damage to slowed
+        if (hasTalentEffect(player, Talent.TalentEffectType.DARK_GRAVITY)) {
+            processDarkGravity(player, target, event);
         }
 
-        // Marquer le temps de combat pour le decay d'insanity
-        lastCombatTime.put(player.getUniqueId(), System.currentTimeMillis());
+        // Implosion activation (crouch + attack)
+        if (hasTalentEffect(player, Talent.TalentEffectType.IMPLOSION)) {
+            if (player.isSneaking()) {
+                processImplosion(player, target, baseDamage);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -506,37 +514,29 @@ public class OccultisteTalentListener implements Listener {
                 }
             }
 
-            // Voidling summon (crouch + jump)
-            if (hasTalentEffect(player, Talent.TalentEffectType.VOIDLING)) {
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (player.isSneaking() && player.getVelocity().getY() > 0.3) {
-                        processVoidlingSummon(player);
-                    }
-                }, 5L);
+            // Dimensional Rift activation (double sneak)
+            if (hasTalentEffect(player, Talent.TalentEffectType.DIMENSIONAL_RIFT)) {
+                long now = System.currentTimeMillis();
+                Long lastSneak = lastSneakTimeRift.get(uuid);
+
+                if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW_RIFT_MS) {
+                    lastSneakTimeRift.remove(uuid);
+                    processDimensionalRift(player);
+                } else {
+                    lastSneakTimeRift.put(uuid, now);
+                }
             }
 
-            // Dark Ascension charging start (crouch + jump maintained)
-            if (hasTalentEffect(player, Talent.TalentEffectType.DARK_ASCENSION)) {
+            // Black Hole activation (sneak + jump)
+            if (hasTalentEffect(player, Talent.TalentEffectType.BLACK_HOLE)) {
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     if (player.isSneaking() && player.getVelocity().getY() > 0.3) {
-                        darkAscensionCharging.put(player.getUniqueId(), System.currentTimeMillis());
+                        processBlackHole(player);
                     }
                 }, 5L);
             }
 
             // Necromancer summon moved to sneak + right-click (see onPlayerInteract)
-        } else {
-            // Check if Dark Ascension was fully charged
-            if (hasTalentEffect(player, Talent.TalentEffectType.DARK_ASCENSION)) {
-                Long chargeStart = darkAscensionCharging.remove(player.getUniqueId());
-                if (chargeStart != null) {
-                    Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DARK_ASCENSION);
-                    long chargeTime = (long) talent.getValue(1);
-                    if (System.currentTimeMillis() - chargeStart >= chargeTime) {
-                        processDarkAscension(player);
-                    }
-                }
-            }
         }
     }
 
@@ -1039,22 +1039,12 @@ public class OccultisteTalentListener implements Listener {
         if (Math.random() < talent.getValue(0)) {
             double damagePerSecond = baseDamage * talent.getValue(1);
             double duration = talent.getValue(2) * 1000; // Convert to ms
-            double insanityPerTick = talent.getValue(3);
-
-            // Check Dark Ascension buff for extended duration
-            if (darkAscensionBuff.containsKey(player.getUniqueId())) {
-                Talent darkAsc = getTalentWithEffect(player, Talent.TalentEffectType.DARK_ASCENSION);
-                if (darkAsc != null) {
-                    duration *= (1 + darkAsc.getValue(4)); // +50% duration
-                }
-            }
 
             // Appliquer ou rafraîchir le DOT
             ShadowDotData dotData = new ShadowDotData(
                 player.getUniqueId(),
                 damagePerSecond,
                 System.currentTimeMillis() + (long) duration,
-                insanityPerTick,
                 System.currentTimeMillis()
             );
             shadowDots.put(target.getUniqueId(), dotData);
@@ -1079,14 +1069,6 @@ public class OccultisteTalentListener implements Listener {
         double duration = talent.getValue(1) * 1000;
         double healPercent = talent.getValue(2);
 
-        // Check Dark Ascension buff for extended duration
-        if (darkAscensionBuff.containsKey(player.getUniqueId())) {
-            Talent darkAsc = getTalentWithEffect(player, Talent.TalentEffectType.DARK_ASCENSION);
-            if (darkAsc != null) {
-                duration *= (1 + darkAsc.getValue(4));
-            }
-        }
-
         VampiricTouchData vtData = new VampiricTouchData(
             player.getUniqueId(),
             damagePerSecond,
@@ -1100,170 +1082,250 @@ public class OccultisteTalentListener implements Listener {
         target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1.5, 0), 5, 0.2, 0.3, 0.2, 0.01);
     }
 
+    // ==================== GRAVITY/VOID TALENT PROCESSORS ====================
+
     /**
-     * Void Eruption - Explosion massive et entrée en Voidform
+     * Dark Gravity - Ralentit les ennemis et augmente les degats contre les ralentis
      */
-    private void processVoidEruption(Player player, LivingEntity target, double baseDamage) {
-        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.VOID_ERUPTION);
-        if (!checkCooldown(player, "void_eruption", 2000)) return;
+    private void processDarkGravity(Player player, LivingEntity target, EntityDamageByEntityEvent event) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DARK_GRAVITY);
 
-        double minInsanity = talent.getValue(0);
-        double currentInsanity = getInsanity(player);
+        double slowPercent = talent.getValue(0);
+        long durationMs = (long) talent.getValue(1);
+        double damageBonus = talent.getValue(2);
 
-        if (currentInsanity < minInsanity) return;
+        // Appliquer le ralentissement
+        int slowLevel = (int) Math.ceil(slowPercent * 4) - 1; // Slowness I-IV
+        int durationTicks = (int) (durationMs / 50);
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, durationTicks, slowLevel, false, true));
 
-        double baseDamagePercent = talent.getValue(1);
-        double damagePerInsanity = talent.getValue(2);
-        double radius = talent.getValue(3);
-        long voidformDuration = (long) talent.getValue(4);
+        // Tracker l'ennemi ralenti
+        gravitySlowed.put(target.getUniqueId(), System.currentTimeMillis() + durationMs);
 
-        // Calculer les dégâts totaux
-        double totalDamage = baseDamage * (baseDamagePercent + (damagePerInsanity * currentInsanity));
-
-        // Appliquer le bonus d'Insanity si le joueur a le talent
-        if (hasTalentEffect(player, Talent.TalentEffectType.INSANITY)) {
-            Talent insanityTalent = getTalentWithEffect(player, Talent.TalentEffectType.INSANITY);
-            double damageBonus = insanityTalent.getValue(0) * currentInsanity;
-            totalDamage *= (1 + damageBonus);
+        // Bonus de degats si l'ennemi etait deja ralenti
+        if (target.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+            event.setDamage(event.getDamage() * (1 + damageBonus));
         }
 
-        // Explosion AoE
-        for (Entity entity : target.getNearbyEntities(radius, radius, radius)) {
+        // Visual subtle
+        target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 8, 0.3, 0.5, 0.3, 0.02);
+    }
+
+    /**
+     * Implosion - Attire tous les ennemis vers le joueur
+     */
+    private void processImplosion(Player player, LivingEntity target, double baseDamage) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.IMPLOSION);
+        long cooldownMs = (long) talent.getValue(2);
+        if (!checkCooldown(player, "implosion", cooldownMs)) return;
+
+        double radius = talent.getValue(0);
+        double damagePercent = talent.getValue(1);
+        Location center = player.getLocation();
+
+        double damage = baseDamage * damagePercent;
+
+        // Attirer et infliger des degats a tous les ennemis
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isPlayerMinion(entity, player)) {
+                // Calculer la direction vers le joueur
+                Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
+                double distance = le.getLocation().distance(center);
+
+                // Force d'attraction basee sur la distance
+                double pullStrength = Math.min(2.0, (radius - distance) / radius * 2.5);
+                le.setVelocity(direction.multiply(pullStrength).setY(0.3));
+
+                // Infliger des degats
+                le.damage(damage, player);
+
+                // Visual sur l'entite
+                le.getWorld().spawnParticle(Particle.PORTAL, le.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.1);
+            }
+        }
+
+        // Visual spectaculaire au centre
+        center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center.add(0, 1, 0), 80, 1, 1, 1, 0.3);
+        center.getWorld().spawnParticle(Particle.DRAGON_BREATH, center, 40, 0.5, 0.5, 0.5, 0.05);
+        center.getWorld().playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
+        center.getWorld().playSound(center, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 0.7f);
+
+        sendActionBar(player, "§5§l* IMPLOSION *");
+    }
+
+    /**
+     * Gravity Well - Cree une zone de gravite persistante
+     */
+    private void processGravityWell(Player player) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.GRAVITY_WELL);
+        long cooldownMs = (long) talent.getValue(4);
+        if (!checkCooldown(player, "gravity_well", cooldownMs)) return;
+
+        long durationMs = (long) talent.getValue(0);
+        double radius = talent.getValue(1);
+        double slowPercent = talent.getValue(2);
+        double damagePerSecondPercent = talent.getValue(3);
+
+        // Position: la ou le joueur regarde (max 15 blocs)
+        Location target = player.getTargetBlock(null, 15).getLocation().add(0.5, 1, 0.5);
+        String locKey = getLocationKey(target);
+
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double dps = baseDamage * damagePerSecondPercent;
+        int slowLevel = (int) Math.ceil(slowPercent * 4) - 1;
+
+        GravityWellData data = new GravityWellData(
+            player.getUniqueId(), target, System.currentTimeMillis() + durationMs,
+            radius, dps, slowLevel
+        );
+        activeGravityWells.put(locKey, data);
+
+        // Visual initial
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target, 60, 1, 0.5, 1, 0.2);
+        target.getWorld().playSound(target, Sound.BLOCK_PORTAL_AMBIENT, 1.0f, 0.5f);
+
+        sendActionBar(player, "§5+ Puits de Gravite cree! +");
+    }
+
+    /**
+     * Singularity - Cree une singularite au curseur qui aspire violemment
+     */
+    private void processSingularity(Player player) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.SINGULARITY);
+        long cooldownMs = (long) talent.getValue(4);
+        if (!checkCooldown(player, "singularity", cooldownMs)) return;
+
+        double radius = talent.getValue(0);
+        long durationMs = (long) talent.getValue(1);
+        double initialDamagePercent = talent.getValue(2);
+        double dpsPercent = talent.getValue(3);
+
+        // Position: la ou le joueur regarde (max 20 blocs)
+        Location target = player.getTargetBlock(null, 20).getLocation().add(0.5, 1, 0.5);
+        String locKey = getLocationKey(target);
+
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double initialDamage = baseDamage * initialDamagePercent;
+        double dps = baseDamage * dpsPercent;
+
+        SingularityData data = new SingularityData(
+            player.getUniqueId(), target, System.currentTimeMillis() + durationMs,
+            radius, initialDamage, dps
+        );
+        activeSingularities.put(locKey, data);
+
+        // Degats initiaux
+        for (Entity entity : target.getWorld().getNearbyEntities(target, radius, radius, radius)) {
             if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                le.damage(totalDamage, player);
-            }
-        }
-        target.damage(totalDamage, player);
-
-        // Consommer l'Insanity et entrer en Voidform
-        playerInsanity.put(player.getUniqueId(), currentInsanity); // Garder l'Insanity pour Voidform
-        enterVoidform(player, voidformDuration);
-
-        // Visual spectaculaire
-        Location loc = target.getLocation();
-        loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 1, 1, 1, 0);
-        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 100, radius/2, 2, radius/2, 0.2);
-        loc.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 50, radius/2, 1, radius/2, 0.1);
-        loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.5f);
-
-        sendActionBar(player, "§5§l+ VOID ERUPTION + §7Entree en Voidform!");
-    }
-
-    /**
-     * Entre le joueur en Voidform
-     */
-    private void enterVoidform(Player player, long duration) {
-        long endTime = duration > 0 ? System.currentTimeMillis() + duration : Long.MAX_VALUE;
-        voidformActive.put(player.getUniqueId(), endTime);
-
-        // Visual effect sur le joueur
-        player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.3);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, (int)(duration / 50), 0, false, false, true));
-
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ VOIDFORM ACTIVE +");
-            player.sendMessage("§7Degats d'ombre §c+30%§7, DOTs acceleres!");
-        }
-    }
-
-    /**
-     * Dark Ascension - Ultimate void ability
-     */
-    private void processDarkAscension(Player player) {
-        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DARK_ASCENSION);
-        if (!checkCooldown(player, "dark_ascension", (long) talent.getValue(0))) return;
-
-        double insanitySet = talent.getValue(2);
-        long buffDuration = (long) talent.getValue(3);
-
-        // Reset Insanity to max
-        playerInsanity.put(player.getUniqueId(), insanitySet);
-
-        // Activer le buff Dark Ascension (DOTs +50% duration)
-        darkAscensionBuff.put(player.getUniqueId(), System.currentTimeMillis() + buffDuration);
-
-        // Entrer en Voidform immédiatement (indéfini - dépend de l'Insanity)
-        enterVoidform(player, 0);
-
-        // Reset tous les DOTs actifs (rafraîchir leur durée)
-        long now = System.currentTimeMillis();
-        for (Map.Entry<UUID, ShadowDotData> entry : shadowDots.entrySet()) {
-            if (entry.getValue().ownerUuid.equals(player.getUniqueId())) {
-                ShadowDotData dot = entry.getValue();
-                long remainingDuration = dot.expiry - now;
-                if (remainingDuration > 0) {
-                    // Extend by 50%
-                    dot.expiry = now + (long)(remainingDuration * 1.5);
-                }
-            }
-        }
-        for (Map.Entry<UUID, VampiricTouchData> entry : vampiricTouchDots.entrySet()) {
-            if (entry.getValue().ownerUuid.equals(player.getUniqueId())) {
-                VampiricTouchData dot = entry.getValue();
-                long remainingDuration = dot.expiry - now;
-                if (remainingDuration > 0) {
-                    dot.expiry = now + (long)(remainingDuration * 1.5);
-                }
+                le.damage(initialDamage, player);
             }
         }
 
         // Visual spectaculaire
-        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, player.getLocation(), 200, 3, 3, 3, 0.5);
-        player.getWorld().spawnParticle(Particle.DRAGON_BREATH, player.getLocation(), 100, 2, 2, 2, 0.2);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 1.5f);
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target, 100, 2, 2, 2, 0.5);
+        target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target, 50, 1, 1, 1, 0.1);
+        target.getWorld().playSound(target, Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.8f);
+        target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.3f);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ ASCENSION SOMBRE +");
-            player.sendMessage("§7Insanity maximale! DOTs etendus de §c50%§7!");
-        }
+        sendActionBar(player, "§5§l* SINGULARITE CREEE *");
     }
 
     /**
-     * Invoque un Voidling (Shadowfiend)
+     * Dimensional Rift - Bannit les ennemis dans le vide
      */
-    private void processVoidlingSummon(Player player) {
-        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.VOIDLING);
-        if (!checkCooldown(player, "voidling", (long) talent.getValue(0))) return;
+    private void processDimensionalRift(Player player) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.DIMENSIONAL_RIFT);
+        long cooldownMs = (long) talent.getValue(3);
+        if (!checkCooldown(player, "dimensional_rift", cooldownMs)) return;
 
-        // Vérifier si un voidling est déjà actif
-        UUID existingVoidling = activeVoidlings.get(player.getUniqueId());
-        if (existingVoidling != null) {
-            Entity existing = Bukkit.getEntity(existingVoidling);
-            if (existing != null && existing.isValid()) {
-                return; // Déjà un voidling actif
+        double radius = talent.getValue(0);
+        long banishDurationMs = (long) talent.getValue(1);
+        double exitDamagePercent = talent.getValue(2);
+
+        Location center = player.getLocation();
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double exitDamage = baseDamage * exitDamagePercent;
+
+        int banishedCount = 0;
+
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isPlayerMinion(entity, player)) {
+                // Bannir l'entite
+                Location originalLoc = le.getLocation().clone();
+                BanishedData data = new BanishedData(
+                    player.getUniqueId(), originalLoc, System.currentTimeMillis() + banishDurationMs, exitDamage
+                );
+                banishedEntities.put(le.getUniqueId(), data);
+
+                // Effets de bannissement
+                le.setAI(false);
+                le.setInvisible(true);
+                le.setInvulnerable(true);
+                le.teleport(originalLoc.clone().add(0, -100, 0)); // Teleporter sous la map
+
+                // Visual au point de depart
+                originalLoc.getWorld().spawnParticle(Particle.PORTAL, originalLoc.add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.5);
+
+                banishedCount++;
             }
         }
 
-        long duration = (long) talent.getValue(1);
+        // Visual principal
+        center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center.add(0, 1, 0), 150, radius/2, 2, radius/2, 0.5);
+        center.getWorld().spawnParticle(Particle.END_ROD, center, 50, radius/2, 1, radius/2, 0.1);
+        center.getWorld().playSound(center, Sound.BLOCK_END_PORTAL_SPAWN, 0.8f, 1.2f);
+        center.getWorld().playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
 
-        // Spawn le Voidling (utiliser un Endermite pour le look void)
-        Location spawnLoc = player.getLocation().add(Math.random() * 2 - 1, 0, Math.random() * 2 - 1);
-        Endermite voidling = player.getWorld().spawn(spawnLoc, Endermite.class);
-        voidling.setCustomName("§5[Devoreur du Vide de " + player.getName() + "]");
-        voidling.setCustomNameVisible(true);
-        voidling.getScoreboardTags().add("voidling");
-        voidling.getScoreboardTags().add("owner_" + player.getUniqueId());
+        sendActionBar(player, "§5§l* DECHIRURE DIMENSIONNELLE * §8(" + banishedCount + " bannis)");
+    }
 
-        // Booster ses stats
-        voidling.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(50);
-        voidling.setHealth(50);
+    /**
+     * Black Hole - Ultime: Trou noir massif qui aspire tout
+     */
+    private void processBlackHole(Player player) {
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.BLACK_HOLE);
+        long cooldownMs = (long) talent.getValue(4);
+        if (!checkCooldown(player, "black_hole", cooldownMs)) return;
 
-        activeVoidlings.put(player.getUniqueId(), voidling.getUniqueId());
+        double radius = talent.getValue(0);
+        long durationMs = (long) talent.getValue(1);
+        double initialDamagePercent = talent.getValue(2);
+        double dpsPercent = talent.getValue(3);
 
-        // Schedule despawn
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (voidling.isValid() && !voidling.isDead()) {
-                voidling.getWorld().spawnParticle(Particle.PORTAL, voidling.getLocation(), 30, 0.3, 0.5, 0.3, 0.1);
-                voidling.remove();
+        Location target = player.getLocation().add(player.getLocation().getDirection().multiply(5)).add(0, 1, 0);
+        String locKey = getLocationKey(target);
+
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double initialDamage = baseDamage * initialDamagePercent;
+        double dps = baseDamage * dpsPercent;
+
+        BlackHoleData data = new BlackHoleData(
+            player.getUniqueId(), target, System.currentTimeMillis() + durationMs,
+            radius, initialDamage, dps
+        );
+        activeBlackHoles.put(locKey, data);
+
+        // Degats initiaux massifs
+        for (Entity entity : target.getWorld().getNearbyEntities(target, radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                le.damage(initialDamage, player);
             }
-            activeVoidlings.remove(player.getUniqueId());
-        }, duration / 50);
+        }
 
-        // Visual
-        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, spawnLoc, 30, 0.5, 1, 0.5, 0.1);
-        player.getWorld().playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f);
+        // Visual ULTRA spectaculaire
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target, 200, 3, 3, 3, 1.0);
+        target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target, 100, 2, 2, 2, 0.3);
+        target.getWorld().spawnParticle(Particle.SMOKE, target, 80, 2, 2, 2, 0.2);
+        target.getWorld().playSound(target, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
+        target.getWorld().playSound(target, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 0.3f);
+        target.getWorld().playSound(target, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.5f);
 
-        sendActionBar(player, "§5+ Devoreur du Vide invoque! +");
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§0§l████████████████████");
+            player.sendMessage("§5§l   * TROU NOIR INVOQUE *");
+            player.sendMessage("§0§l████████████████████");
+        }
+        sendActionBar(player, "§0§l* TROU NOIR *");
     }
 
     private void processFirestorm(Player player, LivingEntity target, double baseDamage) {
@@ -2353,37 +2415,15 @@ public class OccultisteTalentListener implements Listener {
                 continue;
             }
 
-            // Calculer l'intervalle de tick (1s normal, 0.5s en Voidform avec le talent)
+            // Tick every second
             long tickInterval = 1000;
-            if (isInVoidform(owner) && hasTalentEffect(owner, Talent.TalentEffectType.VOIDFORM)) {
-                Talent voidformTalent = getTalentWithEffect(owner, Talent.TalentEffectType.VOIDFORM);
-                double speedBonus = voidformTalent.getValue(1); // 50% faster
-                tickInterval = (long)(tickInterval / (1 + speedBonus));
-            }
 
             if (now - dot.lastTick < tickInterval) continue;
             dot.lastTick = now;
 
             // Appliquer les dégâts
             double damage = dot.damagePerSecond;
-
-            // Bonus de Voidform (+30% dégâts)
-            if (isInVoidform(owner) && hasTalentEffect(owner, Talent.TalentEffectType.VOIDFORM)) {
-                Talent voidformTalent = getTalentWithEffect(owner, Talent.TalentEffectType.VOIDFORM);
-                damage *= (1 + voidformTalent.getValue(0));
-            }
-
-            // Bonus d'Insanity
-            if (hasTalentEffect(owner, Talent.TalentEffectType.INSANITY)) {
-                Talent insanityTalent = getTalentWithEffect(owner, Talent.TalentEffectType.INSANITY);
-                double insanityBonus = insanityTalent.getValue(0) * getInsanity(owner);
-                damage *= (1 + insanityBonus);
-            }
-
             target.damage(damage, owner);
-
-            // Générer de l'Insanity
-            addInsanity(owner, dot.insanityPerTick);
 
             // Visual léger
             target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 3, 0.2, 0.3, 0.2, 0.05);
@@ -2420,33 +2460,14 @@ public class OccultisteTalentListener implements Listener {
                 continue;
             }
 
-            // Calculer l'intervalle de tick
+            // Tick every second
             long tickInterval = 1000;
-            if (isInVoidform(owner) && hasTalentEffect(owner, Talent.TalentEffectType.VOIDFORM)) {
-                Talent voidformTalent = getTalentWithEffect(owner, Talent.TalentEffectType.VOIDFORM);
-                double speedBonus = voidformTalent.getValue(1);
-                tickInterval = (long)(tickInterval / (1 + speedBonus));
-            }
 
             if (now - dot.lastTick < tickInterval) continue;
             dot.lastTick = now;
 
             // Appliquer les dégâts
             double damage = dot.damagePerSecond;
-
-            // Bonus de Voidform
-            if (isInVoidform(owner) && hasTalentEffect(owner, Talent.TalentEffectType.VOIDFORM)) {
-                Talent voidformTalent = getTalentWithEffect(owner, Talent.TalentEffectType.VOIDFORM);
-                damage *= (1 + voidformTalent.getValue(0));
-            }
-
-            // Bonus d'Insanity
-            if (hasTalentEffect(owner, Talent.TalentEffectType.INSANITY)) {
-                Talent insanityTalent = getTalentWithEffect(owner, Talent.TalentEffectType.INSANITY);
-                double insanityBonus = insanityTalent.getValue(0) * getInsanity(owner);
-                damage *= (1 + insanityBonus);
-            }
-
             target.damage(damage, owner);
 
             // Soigner le joueur
@@ -2498,15 +2519,7 @@ public class OccultisteTalentListener implements Listener {
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     if (target.isValid() && !target.isDead()) {
                         double damage = baseDamage * damagePercent;
-
-                        // Bonus Insanity
-                        if (hasTalentEffect(player, Talent.TalentEffectType.INSANITY)) {
-                            Talent insanityTalent = getTalentWithEffect(player, Talent.TalentEffectType.INSANITY);
-                            damage *= (1 + insanityTalent.getValue(0) * getInsanity(player));
-                        }
-
                         target.damage(damage, player);
-                        addInsanity(player, insanityGain);
 
                         // Impact visual
                         target.getWorld().spawnParticle(Particle.SOUL, target.getLocation().add(0, 1, 0), 10, 0.2, 0.3, 0.2, 0.05);
@@ -2535,217 +2548,176 @@ public class OccultisteTalentListener implements Listener {
         world.playSound(from, Sound.PARTICLE_SOUL_ESCAPE, 0.3f, 1.5f);
     }
 
-    /**
-     * Decay de l'Insanity hors combat
-     */
-    private void processInsanityDecay() {
-        long now = System.currentTimeMillis();
-
-        for (UUID uuid : activeOccultistes) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null || !player.isOnline()) continue;
-            if (!hasTalentEffect(player, Talent.TalentEffectType.INSANITY)) continue;
-
-            // Vérifier si hors combat (5 secondes sans attaque)
-            Long lastCombat = lastCombatTime.get(uuid);
-            if (lastCombat != null && now - lastCombat < 5000) continue;
-
-            Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.INSANITY);
-            double decayPerSecond = talent.getValue(2);
-
-            double currentInsanity = getInsanity(player);
-            if (currentInsanity > 0) {
-                double newInsanity = Math.max(0, currentInsanity - decayPerSecond);
-                playerInsanity.put(uuid, newInsanity);
-            }
-        }
-    }
+    // ==================== GRAVITY EFFECTS PERIODIC PROCESSORS ====================
 
     /**
-     * Tick du Voidform - drain d'Insanity et bonus
+     * Traite tous les effets de gravite actifs (Gravity Wells, Singularities, Black Holes)
      */
-    private void processVoidformTick() {
+    private void processGravityEffects() {
         long now = System.currentTimeMillis();
-        Iterator<Map.Entry<UUID, Long>> iterator = voidformActive.entrySet().iterator();
 
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, Long> entry = iterator.next();
-            UUID uuid = entry.getKey();
+        // Process Gravity Wells
+        Iterator<Map.Entry<String, GravityWellData>> wellIterator = activeGravityWells.entrySet().iterator();
+        while (wellIterator.hasNext()) {
+            Map.Entry<String, GravityWellData> entry = wellIterator.next();
+            GravityWellData data = entry.getValue();
 
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null || !player.isOnline()) {
-                iterator.remove();
+            if (now > data.expiry) {
+                wellIterator.remove();
                 continue;
             }
 
-            // Vérifier expiration (si durée fixe)
-            if (entry.getValue() != Long.MAX_VALUE && now > entry.getValue()) {
-                exitVoidform(player);
-                iterator.remove();
+            Player owner = Bukkit.getPlayer(data.ownerUuid);
+            if (owner == null) {
+                wellIterator.remove();
                 continue;
             }
 
-            // Traiter le drain/gain d'Insanity si le joueur a le talent Voidform
-            if (hasTalentEffect(player, Talent.TalentEffectType.VOIDFORM)) {
-                Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.VOIDFORM);
-                double insanityGainPerSecond = talent.getValue(2);
-                double insanityDrainPerSecond = talent.getValue(3);
+            Location center = data.location;
 
-                double currentInsanity = getInsanity(player);
-
-                // Net change (gain - drain) / 2 car tick = 0.5s
-                double netChange = (insanityGainPerSecond - insanityDrainPerSecond) / 2.0;
-                double newInsanity = currentInsanity + netChange;
-
-                if (newInsanity <= 0) {
-                    // Sortir du Voidform
-                    exitVoidform(player);
-                    iterator.remove();
-                    playerInsanity.put(uuid, 0.0);
-                } else {
-                    playerInsanity.put(uuid, Math.min(100, newInsanity));
-                }
-            }
-
-            // Visual Voidform
-            player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0.1);
-        }
-    }
-
-    /**
-     * Sortir du Voidform
-     */
-    private void exitVoidform(Player player) {
-        voidformActive.remove(player.getUniqueId());
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§8§l- VOIDFORM TERMINEE -");
-        }
-        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.5f, 1.5f);
-    }
-
-    /**
-     * Psychic Horror - Fear périodique
-     */
-    private void processPsychicHorror() {
-        for (UUID uuid : activeOccultistes) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null || !player.isOnline()) continue;
-            if (!hasTalentEffect(player, Talent.TalentEffectType.PSYCHIC_HORROR)) continue;
-
-            Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PSYCHIC_HORROR);
-            long cooldown = (long) talent.getValue(0);
-
-            if (!checkCooldown(player, "psychic_horror", cooldown)) continue;
-
-            double radius = talent.getValue(1);
-            long stunDuration = (long) talent.getValue(2);
-            double damageReduction = talent.getValue(3);
-            long debuffDuration = (long) talent.getValue(4);
-
-            boolean hitAny = false;
-            for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            // Effet sur les ennemis proches
+            for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    // Stun
-                    le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunDuration / 50), 255, false, false, false));
-                    le.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, (int)(debuffDuration / 50), (int)(damageReduction * 5), false, true, true));
+                    // Ralentissement
+                    le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 15, data.slowLevel, false, false));
 
-                    // Tracker le debuff
-                    psychicHorrorDebuff.put(le.getUniqueId(), System.currentTimeMillis() + debuffDuration);
+                    // Attraction lente vers le centre
+                    Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
+                    le.setVelocity(le.getVelocity().add(direction.multiply(0.15)));
 
-                    hitAny = true;
+                    // Degats legers (par demi-seconde)
+                    le.damage(data.dps * 0.5, owner);
                 }
             }
 
-            if (hitAny) {
-                // Visual
-                player.getWorld().spawnParticle(Particle.SONIC_BOOM, player.getLocation().add(0, 1, 0), 1, 0, 0, 0, 0);
-                player.getWorld().spawnParticle(Particle.SCULK_SOUL, player.getLocation(), 30, radius/2, 1, radius/2, 0.05);
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
+            // Visual
+            center.getWorld().spawnParticle(Particle.PORTAL, center, 15, data.radius/3, 0.5, data.radius/3, 0.05);
+            center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 8, 0.5, 0.3, 0.5, 0.1);
+        }
 
-                sendActionBar(player, "§5+ TOURMENT PSYCHIQUE +");
+        // Process Singularities
+        Iterator<Map.Entry<String, SingularityData>> singIterator = activeSingularities.entrySet().iterator();
+        while (singIterator.hasNext()) {
+            Map.Entry<String, SingularityData> entry = singIterator.next();
+            SingularityData data = entry.getValue();
+
+            if (now > data.expiry) {
+                singIterator.remove();
+                continue;
+            }
+
+            Player owner = Bukkit.getPlayer(data.ownerUuid);
+            if (owner == null) {
+                singIterator.remove();
+                continue;
+            }
+
+            Location center = data.location;
+
+            // Aspiration violente
+            for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                    Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
+                    double distance = le.getLocation().distance(center);
+                    double pullStrength = Math.min(1.5, (data.radius - distance) / data.radius * 2.0);
+
+                    le.setVelocity(direction.multiply(pullStrength).setY(0.1));
+                    le.damage(data.dps * 0.5, owner);
+                }
+            }
+
+            // Visual intense
+            center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 40, 1, 1, 1, 0.3);
+            center.getWorld().spawnParticle(Particle.DRAGON_BREATH, center, 20, 0.5, 0.5, 0.5, 0.05);
+        }
+
+        // Process Black Holes
+        Iterator<Map.Entry<String, BlackHoleData>> bhIterator = activeBlackHoles.entrySet().iterator();
+        while (bhIterator.hasNext()) {
+            Map.Entry<String, BlackHoleData> entry = bhIterator.next();
+            BlackHoleData data = entry.getValue();
+
+            if (now > data.expiry) {
+                // Explosion finale
+                Location center = data.location;
+                center.getWorld().spawnParticle(Particle.EXPLOSION, center, 5, 2, 2, 2, 0);
+                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
+                bhIterator.remove();
+                continue;
+            }
+
+            Player owner = Bukkit.getPlayer(data.ownerUuid);
+            if (owner == null) {
+                bhIterator.remove();
+                continue;
+            }
+
+            Location center = data.location;
+
+            // Aspiration MASSIVE
+            for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                    Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
+                    double distance = le.getLocation().distance(center);
+                    double pullStrength = Math.min(2.5, (data.radius - distance) / data.radius * 3.0);
+
+                    le.setVelocity(direction.multiply(pullStrength).setY(0.2));
+                    le.damage(data.dps * 0.5, owner);
+
+                    // Visual sur l'entite aspiree
+                    le.getWorld().spawnParticle(Particle.PORTAL, le.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.1);
+                }
+            }
+
+            // Visual MASSIF du trou noir
+            center.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 80, 2, 2, 2, 0.8);
+            center.getWorld().spawnParticle(Particle.DRAGON_BREATH, center, 40, 1.5, 1.5, 1.5, 0.2);
+            center.getWorld().spawnParticle(Particle.SMOKE, center, 30, 1.5, 1.5, 1.5, 0.1);
+
+            // Son ambient
+            if (Math.random() < 0.3) {
+                center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 0.3f);
             }
         }
     }
 
     /**
-     * Voidling attacks
+     * Traite le retour des entites bannies par Dimensional Rift
      */
-    private void processVoidlingAttacks() {
-        for (Map.Entry<UUID, UUID> entry : activeVoidlings.entrySet()) {
-            Player owner = Bukkit.getPlayer(entry.getKey());
-            if (owner == null || !owner.isOnline()) continue;
+    private void processBanishedEntities() {
+        long now = System.currentTimeMillis();
 
-            Entity voidlingEntity = Bukkit.getEntity(entry.getValue());
-            if (voidlingEntity == null || voidlingEntity.isDead()) continue;
-            if (!(voidlingEntity instanceof LivingEntity voidling)) continue;
+        Iterator<Map.Entry<UUID, BanishedData>> iterator = banishedEntities.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, BanishedData> entry = iterator.next();
+            BanishedData data = entry.getValue();
 
-            Talent talent = getTalentWithEffect(owner, Talent.TalentEffectType.VOIDLING);
-            if (talent == null) continue;
+            if (now > data.expiry) {
+                Entity entity = Bukkit.getEntity(entry.getKey());
+                if (entity instanceof LivingEntity le) {
+                    Player owner = Bukkit.getPlayer(data.ownerUuid);
 
-            double damagePercent = talent.getValue(2);
-            double insanityPerHit = talent.getValue(3);
+                    // Restaurer l'entite
+                    le.teleport(data.originalLocation);
+                    le.setAI(true);
+                    le.setInvisible(false);
+                    le.setInvulnerable(false);
 
-            double baseDamage = owner.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
-            double damage = baseDamage * damagePercent;
-
-            // Trouver l'ennemi le plus proche
-            LivingEntity closest = null;
-            double closestDist = Double.MAX_VALUE;
-            for (Entity entity : voidling.getNearbyEntities(8, 8, 8)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player) && !entity.getScoreboardTags().contains("voidling")) {
-                    double dist = le.getLocation().distance(voidling.getLocation());
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closest = le;
+                    // Degats de sortie
+                    if (owner != null) {
+                        le.damage(data.exitDamage, owner);
                     }
+
+                    // Visual de reapparition
+                    Location loc = data.originalLocation;
+                    loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 50, 0.5, 1, 0.5, 0.3);
+                    loc.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 25, 0.3, 0.5, 0.3, 0.05);
+                    loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.7f);
                 }
-            }
 
-            if (closest != null && closestDist < 3) {
-                closest.damage(damage, owner);
-                addInsanity(owner, insanityPerHit);
-
-                // Visual
-                closest.getWorld().spawnParticle(Particle.PORTAL, closest.getLocation().add(0, 1, 0), 10, 0.2, 0.3, 0.2, 0.1);
+                iterator.remove();
             }
         }
-    }
-
-    // ==================== INSANITY HELPERS ====================
-
-    /**
-     * Obtenir l'Insanity d'un joueur
-     */
-    private double getInsanity(Player player) {
-        return playerInsanity.getOrDefault(player.getUniqueId(), 0.0);
-    }
-
-    /**
-     * Ajouter de l'Insanity à un joueur
-     */
-    private void addInsanity(Player player, double amount) {
-        if (!hasTalentEffect(player, Talent.TalentEffectType.INSANITY) &&
-            !hasTalentEffect(player, Talent.TalentEffectType.SHADOW_WORD)) return;
-
-        double maxInsanity = 100;
-        if (hasTalentEffect(player, Talent.TalentEffectType.INSANITY)) {
-            Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.INSANITY);
-            maxInsanity = talent.getValue(1);
-        }
-
-        double current = getInsanity(player);
-        double newValue = Math.min(maxInsanity, current + amount);
-        playerInsanity.put(player.getUniqueId(), newValue);
-
-        // Mettre à jour le temps de combat
-        lastCombatTime.put(player.getUniqueId(), System.currentTimeMillis());
-    }
-
-    /**
-     * Vérifier si un joueur est en Voidform
-     */
-    private boolean isInVoidform(Player player) {
-        return voidformActive.containsKey(player.getUniqueId());
     }
 
     private void cleanupExpiredData() {
@@ -3012,14 +2984,12 @@ public class OccultisteTalentListener implements Listener {
         final UUID ownerUuid;
         final double damagePerSecond;
         long expiry;
-        final double insanityPerTick;
         long lastTick;
 
-        ShadowDotData(UUID ownerUuid, double damagePerSecond, long expiry, double insanityPerTick, long lastTick) {
+        ShadowDotData(UUID ownerUuid, double damagePerSecond, long expiry, long lastTick) {
             this.ownerUuid = ownerUuid;
             this.damagePerSecond = damagePerSecond;
             this.expiry = expiry;
-            this.insanityPerTick = insanityPerTick;
             this.lastTick = lastTick;
         }
     }
@@ -3040,6 +3010,88 @@ public class OccultisteTalentListener implements Listener {
             this.expiry = expiry;
             this.healPercent = healPercent;
             this.lastTick = lastTick;
+        }
+    }
+
+    // ==================== GRAVITY EFFECT DATA CLASSES ====================
+
+    /**
+     * Données pour un Gravity Well
+     */
+    private static class GravityWellData {
+        final UUID ownerUuid;
+        final Location location;
+        final long expiry;
+        final double radius;
+        final double dps;
+        final int slowLevel;
+
+        GravityWellData(UUID ownerUuid, Location location, long expiry, double radius, double dps, int slowLevel) {
+            this.ownerUuid = ownerUuid;
+            this.location = location;
+            this.expiry = expiry;
+            this.radius = radius;
+            this.dps = dps;
+            this.slowLevel = slowLevel;
+        }
+    }
+
+    /**
+     * Données pour une Singularité
+     */
+    private static class SingularityData {
+        final UUID ownerUuid;
+        final Location location;
+        final long expiry;
+        final double radius;
+        final double initialDamage;
+        final double dps;
+
+        SingularityData(UUID ownerUuid, Location location, long expiry, double radius, double initialDamage, double dps) {
+            this.ownerUuid = ownerUuid;
+            this.location = location;
+            this.expiry = expiry;
+            this.radius = radius;
+            this.initialDamage = initialDamage;
+            this.dps = dps;
+        }
+    }
+
+    /**
+     * Données pour un Trou Noir
+     */
+    private static class BlackHoleData {
+        final UUID ownerUuid;
+        final Location location;
+        final long expiry;
+        final double radius;
+        final double initialDamage;
+        final double dps;
+
+        BlackHoleData(UUID ownerUuid, Location location, long expiry, double radius, double initialDamage, double dps) {
+            this.ownerUuid = ownerUuid;
+            this.location = location;
+            this.expiry = expiry;
+            this.radius = radius;
+            this.initialDamage = initialDamage;
+            this.dps = dps;
+        }
+    }
+
+    /**
+     * Données pour une entité bannie par Dimensional Rift
+     */
+    private static class BanishedData {
+        final UUID ownerUuid;
+        final Location originalLocation;
+        final long expiry;
+        final double exitDamage;
+
+        BanishedData(UUID ownerUuid, Location originalLocation, long expiry, double exitDamage) {
+            this.ownerUuid = ownerUuid;
+            this.originalLocation = originalLocation;
+            this.expiry = expiry;
+            this.exitDamage = exitDamage;
         }
     }
 }
