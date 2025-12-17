@@ -94,10 +94,10 @@ public class TankZombieAI extends ZombieAI {
      * Colossus: Immense, très lent, dégâts massifs
      */
     private void tickColossus() {
-        // Le colosse fait trembler le sol en permanence
-        if (tickCounter % 20 == 0) {
-            playSound(Sound.ENTITY_IRON_GOLEM_STEP, 0.5f, 0.4f);
-            playParticles(Particle.BLOCK, zombie.getLocation(), 15, 1, 0.1, 1);
+        // Le colosse fait trembler le sol en permanence (réduit pour performance)
+        if (tickCounter % 40 == 0) {
+            playSound(Sound.ENTITY_WARDEN_STEP, 0.4f, 0.6f);
+            playParticles(Particle.BLOCK, zombie.getLocation(), 5, 0.8, 0.1, 0.8);
         }
 
         // Attaque de zone massive
@@ -114,7 +114,7 @@ public class TankZombieAI extends ZombieAI {
             enrage();
             // Le colosse gagne de la vitesse quand enragé
             zombie.removePotionEffect(PotionEffectType.SLOWNESS);
-            playSound(Sound.ENTITY_IRON_GOLEM_HURT, 1.5f, 0.5f);
+            playSound(Sound.ENTITY_WARDEN_ANGRY, 0.8f, 0.7f);
         }
     }
 
@@ -145,8 +145,8 @@ public class TankZombieAI extends ZombieAI {
         double radius = strong ? 6 : 3;
         double damage = strong ? 6 : 2;
 
-        playSound(Sound.ENTITY_IRON_GOLEM_ATTACK, 1f, 0.6f);
-        playParticles(Particle.BLOCK, zombie.getLocation(), 30, radius / 2, 0.1, radius / 2);
+        playSound(Sound.ENTITY_WARDEN_ATTACK_IMPACT, 0.7f, strong ? 0.5f : 0.7f);
+        playParticles(Particle.BLOCK, zombie.getLocation(), strong ? 12 : 6, radius / 2, 0.1, radius / 2);
 
         // Dégâts et knockback aux joueurs proches
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius, 2, radius).stream()
@@ -204,22 +204,22 @@ public class TankZombieAI extends ZombieAI {
      * Stomp massif du Colossus
      */
     private void massiveStomp() {
-        playSound(Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
-        playSound(Sound.ENTITY_RAVAGER_STUNNED, 1f, 0.5f);
+        playSound(Sound.ENTITY_WARDEN_SONIC_BOOM, 0.6f, 0.5f);
+        playSound(Sound.ENTITY_WARDEN_ATTACK_IMPACT, 0.8f, 0.6f);
 
-        // Onde de choc visuelle
-        for (int ring = 0; ring < 5; ring++) {
+        // Onde de choc visuelle (réduite pour performance)
+        for (int ring = 0; ring < 3; ring++) {
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (!zombie.isValid()) return;
-                double radius = 2 + r * 2;
-                for (int angle = 0; angle < 360; angle += 15) {
+                double radius = 2 + r * 2.5;
+                for (int angle = 0; angle < 360; angle += 45) {
                     double rad = Math.toRadians(angle);
                     double x = Math.cos(rad) * radius;
                     double z = Math.sin(rad) * radius;
-                    playParticles(Particle.EXPLOSION, zombie.getLocation().add(x, 0.1, z), 1, 0, 0, 0);
+                    playParticles(Particle.CAMPFIRE_COSY_SMOKE, zombie.getLocation().add(x, 0.1, z), 2, 0.2, 0.1, 0.2);
                 }
-            }, r * 2L);
+            }, r * 3L);
         }
 
         // Dégâts en zone
@@ -273,7 +273,7 @@ public class TankZombieAI extends ZombieAI {
         // Le Giant et le Colossus font une dernière onde de choc
         if (zombieType == ZombieType.GIANT || zombieType == ZombieType.COLOSSUS) {
             groundPound(true);
-            playSound(Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.3f);
+            playSound(Sound.ENTITY_WARDEN_DEATH, 0.8f, 0.6f);
         }
     }
 }
