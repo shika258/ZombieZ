@@ -359,14 +359,33 @@ public class WeatherEffect {
     protected void applyMinecraftWeather() {
         if (targetWorld == null) return;
 
+        // Si c'est le temps clair, s'assurer que la pluie/orage est désactivé
+        if (type == WeatherType.CLEAR) {
+            targetWorld.setStorm(false);
+            targetWorld.setThundering(false);
+            targetWorld.setWeatherDuration(0);
+            targetWorld.setThunderDuration(0);
+            targetWorld.setClearWeatherDuration(20 * 60 * 10); // 10 minutes de temps clair
+            return;
+        }
+
+        // Sinon, appliquer les effets météo si nécessaires
         if (type.isMinecraftRain()) {
             targetWorld.setStorm(true);
             targetWorld.setWeatherDuration(duration + 20 * 60);
+        } else {
+            // Si le type n'utilise pas la pluie Minecraft, s'assurer qu'elle est désactivée
+            targetWorld.setStorm(false);
+            targetWorld.setWeatherDuration(0);
         }
 
         if (type.isMinecraftThunder()) {
             targetWorld.setThundering(true);
             targetWorld.setThunderDuration(duration + 20 * 60);
+        } else {
+            // Si le type n'utilise pas l'orage Minecraft, s'assurer qu'il est désactivé
+            targetWorld.setThundering(false);
+            targetWorld.setThunderDuration(0);
         }
     }
 
