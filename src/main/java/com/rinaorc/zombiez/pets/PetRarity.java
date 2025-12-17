@@ -14,10 +14,10 @@ public enum PetRarity {
         "Commun",
         "§7",
         45.0,           // dropRate
-        50,             // copiesForMax
-        9,              // maxLevel
-        5,              // fragmentsPerDuplicate
-        50,             // fragmentCost
+        200,            // copiesForMax (x4 plus dur!)
+        11,             // maxLevel (2 niveaux de plus)
+        3,              // fragmentsPerDuplicate (réduit - moins généreux)
+        150,            // fragmentCost
         Color.GRAY
     ),
 
@@ -25,10 +25,10 @@ public enum PetRarity {
         "Peu Commun",
         "§a",
         30.0,
-        100,
-        9,
-        10,
-        100,
+        450,            // x4.5 plus dur
+        11,
+        5,              // réduit
+        400,
         Color.LIME
     ),
 
@@ -36,10 +36,10 @@ public enum PetRarity {
         "Rare",
         "§b",
         15.0,
-        200,
-        9,
-        25,
-        300,
+        900,            // x4.5 plus dur
+        11,
+        12,             // réduit
+        1200,
         Color.AQUA
     ),
 
@@ -47,10 +47,10 @@ public enum PetRarity {
         "Épique",
         "§d",
         7.0,
-        400,
-        9,
-        100,
-        1000,
+        1800,           // x4.5 plus dur
+        11,
+        35,             // réduit
+        4000,
         Color.PURPLE
     ),
 
@@ -58,10 +58,10 @@ public enum PetRarity {
         "Légendaire",
         "§6",
         2.5,
-        800,
-        9,
-        500,
-        5000,
+        4000,           // x5 plus dur
+        11,
+        150,            // réduit
+        15000,
         Color.ORANGE
     ),
 
@@ -69,9 +69,9 @@ public enum PetRarity {
         "Mythique",
         "§c",
         0.5,
-        1500,
-        9,
-        2000,
+        8000,           // x5.3 plus dur
+        11,
+        600,            // réduit
         -1,             // Non achetable
         Color.RED
     );
@@ -107,32 +107,35 @@ public enum PetRarity {
     /**
      * Obtient les copies requises pour un niveau donné
      * La progression s'adapte à la rareté (copiesForMax)
+     * Progression exponentielle style Clash Royale/Brawl Stars
      */
     public int getCopiesForLevel(int level) {
         if (level <= 1) return 1;
-        if (level > 9) return 0;
+        if (level > maxLevel) return 0;
 
-        // Progression en pourcentage du total de copies
-        // Ces pourcentages garantissent une progression équilibrée pour toutes les raretés
+        // Progression exponentielle: chaque niveau coûte significativement plus
+        // Les premiers niveaux sont rapides, les derniers très longs
         double[] percentages = {
-            0.02,   // Level 1: 2%
-            0.03,   // Level 2: 3%
-            0.05,   // Level 3: 5%
-            0.08,   // Level 4: 8%
-            0.12,   // Level 5: 12%
-            0.15,   // Level 6: 15%
-            0.18,   // Level 7: 18%
-            0.20,   // Level 8: 20%
-            0.17    // Level 9: 17% (reste)
+            0.005,  // Level 1: 0.5% (facile au début)
+            0.01,   // Level 2: 1%
+            0.02,   // Level 3: 2%
+            0.03,   // Level 4: 3%
+            0.05,   // Level 5: 5%
+            0.07,   // Level 6: 7%
+            0.10,   // Level 7: 10%
+            0.13,   // Level 8: 13%
+            0.17,   // Level 9: 17%
+            0.20,   // Level 10: 20% (mur de progression)
+            0.225   // Level 11: 22.5% (prestige/max)
         };
 
         // Calculer le nombre de copies pour ce niveau
         int copiesNeeded = Math.max(1, (int) Math.ceil(copiesForMax * percentages[level - 1]));
 
-        // S'assurer que le niveau 9 récupère exactement le reste pour atteindre copiesForMax
-        if (level == 9) {
+        // S'assurer que le dernier niveau récupère exactement le reste
+        if (level == maxLevel) {
             int totalUsed = 0;
-            for (int i = 1; i <= 8; i++) {
+            for (int i = 1; i < maxLevel; i++) {
                 totalUsed += Math.max(1, (int) Math.ceil(copiesForMax * percentages[i - 1]));
             }
             copiesNeeded = Math.max(1, copiesForMax - totalUsed);
