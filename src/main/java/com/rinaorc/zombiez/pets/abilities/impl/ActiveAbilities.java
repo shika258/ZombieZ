@@ -20,7 +20,7 @@ import java.util.*;
 // ==================== ECHO SCAN ====================
 
 @Getter
-class EchoScanActive implements PetAbility {
+public class EchoScanActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -90,7 +90,7 @@ class EchoScanActive implements PetAbility {
 // ==================== SEARCH ====================
 
 @Getter
-class SearchActive implements PetAbility {
+public class SearchActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -135,7 +135,7 @@ class SearchActive implements PetAbility {
 // ==================== FLASH ====================
 
 @Getter
-class FlashActive implements PetAbility {
+public class FlashActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -181,7 +181,7 @@ class FlashActive implements PetAbility {
 // ==================== SHIELD ====================
 
 @Getter
-class ShieldActive implements PetAbility {
+public class ShieldActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -228,7 +228,7 @@ class ShieldActive implements PetAbility {
 // ==================== SCOUT ====================
 
 @Getter
-class ScoutActive implements PetAbility {
+public class ScoutActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -273,7 +273,7 @@ class ScoutActive implements PetAbility {
 // ==================== HOWL ====================
 
 @Getter
-class HowlActive implements PetAbility {
+public class HowlActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -312,7 +312,7 @@ class HowlActive implements PetAbility {
 // ==================== HEAL ====================
 
 @Getter
-class HealActive implements PetAbility {
+public class HealActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -348,7 +348,7 @@ class HealActive implements PetAbility {
 // ==================== WALL ====================
 
 @Getter
-class WallActive implements PetAbility {
+public class WallActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -412,7 +412,7 @@ class WallActive implements PetAbility {
 // ==================== IGNITE AREA ====================
 
 @Getter
-class IgniteAreaActive implements PetAbility {
+public class IgniteAreaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -452,7 +452,7 @@ class IgniteAreaActive implements PetAbility {
 // ==================== WEB ====================
 
 @Getter
-class WebActive implements PetAbility {
+public class WebActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -508,7 +508,7 @@ class WebActive implements PetAbility {
 // ==================== FIRE NOVA ====================
 
 @Getter
-class FireNovaActive implements PetAbility {
+public class FireNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -554,7 +554,7 @@ class FireNovaActive implements PetAbility {
 // ==================== FREEZE ====================
 
 @Getter
-class FreezeActive implements PetAbility {
+public class FreezeActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -602,7 +602,7 @@ class FreezeActive implements PetAbility {
 // ==================== RESET COOLDOWN ====================
 
 @Getter
-class ResetCooldownActive implements PetAbility {
+public class ResetCooldownActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -632,7 +632,7 @@ class ResetCooldownActive implements PetAbility {
 // ==================== SWARM ====================
 
 @Getter
-class SwarmActive implements PetAbility {
+public class SwarmActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -700,7 +700,7 @@ class SwarmActive implements PetAbility {
 // ==================== RIPOSTE ====================
 
 @Getter
-class RiposteActive implements PetAbility {
+public class RiposteActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -752,7 +752,7 @@ class RiposteActive implements PetAbility {
 // ==================== BREATH (Dragon) ====================
 
 @Getter
-class BreathActive implements PetAbility {
+public class BreathActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -805,7 +805,7 @@ class BreathActive implements PetAbility {
 // ==================== RESURRECT ====================
 
 @Getter
-class ResurrectActive implements PetAbility {
+public class ResurrectActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -860,7 +860,7 @@ class ResurrectActive implements PetAbility {
 // ==================== SACRIFICE ====================
 
 @Getter
-class SacrificeActive implements PetAbility {
+public class SacrificeActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -919,7 +919,7 @@ class SacrificeActive implements PetAbility {
 // ==================== AMBUSH ====================
 
 @Getter
-class AmbushActive implements PetAbility {
+public class AmbushActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -977,7 +977,7 @@ class AmbushActive implements PetAbility {
 // ==================== CHAOS ACTIVE ====================
 
 @Getter
-class ChaosActive implements PetAbility {
+public class ChaosActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1062,7 +1062,7 @@ class ChaosActive implements PetAbility {
 // ==================== DIVINE ====================
 
 @Getter
-class DivineActive implements PetAbility {
+public class DivineActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1105,7 +1105,7 @@ class DivineActive implements PetAbility {
 // ==================== PORTAL ====================
 
 @Getter
-class PortalActive implements PetAbility {
+public class PortalActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1152,7 +1152,7 @@ class PortalActive implements PetAbility {
 // ==================== SMASH ====================
 
 @Getter
-class SmashActive implements PetAbility {
+public class SmashActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1205,7 +1205,7 @@ class SmashActive implements PetAbility {
 // ==================== SANCTUARY ====================
 
 @Getter
-class SanctuaryActive implements PetAbility {
+public class SanctuaryActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1271,7 +1271,7 @@ class SanctuaryActive implements PetAbility {
 // ==================== APOCALYPSE ====================
 
 @Getter
-class ApocalypseActive implements PetAbility {
+public class ApocalypseActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1350,7 +1350,7 @@ class ApocalypseActive implements PetAbility {
 // ==================== DEATH SENTENCE ====================
 
 @Getter
-class DeathSentenceActive implements PetAbility {
+public class DeathSentenceActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1420,7 +1420,7 @@ class DeathSentenceActive implements PetAbility {
 // ==================== BLACK HOLE ====================
 
 @Getter
-class BlackHoleActive implements PetAbility {
+public class BlackHoleActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1489,7 +1489,7 @@ class BlackHoleActive implements PetAbility {
 // ==================== TIME STOP ====================
 
 @Getter
-class TimeStopActive implements PetAbility {
+public class TimeStopActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1549,7 +1549,7 @@ class TimeStopActive implements PetAbility {
 // ==================== TRIPLE BREATH ====================
 
 @Getter
-class TripleBreathActive implements PetAbility {
+public class TripleBreathActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -1618,7 +1618,7 @@ class TripleBreathActive implements PetAbility {
 // ==================== COLOSSUS ====================
 
 @Getter
-class ColossusActive implements PetAbility {
+public class ColossusActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
