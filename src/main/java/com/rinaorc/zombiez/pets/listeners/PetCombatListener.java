@@ -3,7 +3,14 @@ package com.rinaorc.zombiez.pets.listeners;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.*;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
-import com.rinaorc.zombiez.pets.abilities.impl.*;
+import com.rinaorc.zombiez.pets.abilities.impl.CritDamagePassive;
+import com.rinaorc.zombiez.pets.abilities.impl.DamageMultiplierPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.DamageReductionPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.InterceptPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.MeleeDamagePassive;
+import com.rinaorc.zombiez.pets.abilities.impl.MultiAttackPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.ParryPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.PowerSlowPassive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -36,17 +43,22 @@ public class PetCombatListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onDamageDealt(EntityDamageByEntityEvent event) {
         Player player = getPlayerDamager(event.getDamager());
-        if (player == null) return;
+        if (player == null)
+            return;
 
-        if (!(event.getEntity() instanceof LivingEntity target)) return;
-        if (target instanceof Player) return; // Pas de PvP
+        if (!(event.getEntity() instanceof LivingEntity target))
+            return;
+        if (target instanceof Player)
+            return; // Pas de PvP
 
         PlayerPetData playerData = plugin.getPetManager().getPlayerData(player.getUniqueId());
-        if (playerData == null || playerData.getEquippedPet() == null) return;
+        if (playerData == null || playerData.getEquippedPet() == null)
+            return;
 
         PetType petType = playerData.getEquippedPet();
         PetData petData = playerData.getPet(petType);
-        if (petData == null) return;
+        if (petData == null)
+            return;
 
         double originalDamage = event.getDamage();
         double modifiedDamage = originalDamage;
@@ -105,14 +117,17 @@ public class PetCombatListener implements Listener {
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onDamageReceived(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player player)) return;
+        if (!(event.getEntity() instanceof Player player))
+            return;
 
         PlayerPetData playerData = plugin.getPetManager().getPlayerData(player.getUniqueId());
-        if (playerData == null || playerData.getEquippedPet() == null) return;
+        if (playerData == null || playerData.getEquippedPet() == null)
+            return;
 
         PetType petType = playerData.getEquippedPet();
         PetData petData = playerData.getPet(petType);
-        if (petData == null) return;
+        if (petData == null)
+            return;
 
         double originalDamage = event.getDamage();
         double modifiedDamage = originalDamage;
@@ -153,13 +168,15 @@ public class PetCombatListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
-        if (event.getEntity().getKiller() == null) return;
+        if (event.getEntity().getKiller() == null)
+            return;
 
         Player player = event.getEntity().getKiller();
         LivingEntity killed = event.getEntity();
 
         // Vérifier si c'est un zombie ZombieZ
-        if (!killed.getScoreboardTags().contains("zombiez_mob")) return;
+        if (!killed.getScoreboardTags().contains("zombiez_mob"))
+            return;
 
         PlayerPetData playerData = plugin.getPetManager().getPlayerData(player.getUniqueId());
 
@@ -187,8 +204,10 @@ public class PetCombatListener implements Listener {
      */
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!event.getAction().name().contains("RIGHT")) return;
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
+        if (!event.getAction().name().contains("RIGHT"))
+            return;
 
         Player player = event.getPlayer();
 
@@ -253,8 +272,7 @@ public class PetCombatListener implements Listener {
 
         // Roll!
         if (random.nextDouble() < baseChance) {
-            EggType eggType = killed.getScoreboardTags().contains("boss") ?
-                EggType.ZONE : EggType.STANDARD;
+            EggType eggType = killed.getScoreboardTags().contains("boss") ? EggType.ZONE : EggType.STANDARD;
 
             plugin.getPetManager().giveEgg(player, eggType, 1);
         }

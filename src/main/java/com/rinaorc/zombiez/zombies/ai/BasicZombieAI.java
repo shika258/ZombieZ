@@ -54,7 +54,7 @@ public class BasicZombieAI extends ZombieAI {
     private void tickCrawler() {
         // Effet visuel de rampement
         if (tickCounter % 20 == 0) {
-            playParticles(Particle.BLOCK, zombie.getLocation(), 3, 0.3, 0, 0.3);
+            playBlockParticles(zombie.getLocation(), 3, 0.3, 0, 0.3);
         }
 
         // Bondir vers la cible si proche
@@ -76,8 +76,7 @@ public class BasicZombieAI extends ZombieAI {
         if (target != null && tickCounter % 40 == 0) {
             // Sprint boost temporaire
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.SPEED, 60, 1, false, false
-            ));
+                    org.bukkit.potion.PotionEffectType.SPEED, 60, 1, false, false));
             playParticles(Particle.CLOUD, zombie.getLocation(), 5, 0.2, 0.1, 0.2);
         }
     }
@@ -89,15 +88,13 @@ public class BasicZombieAI extends ZombieAI {
         // S'arrête parfois de bouger
         if (tickCounter % 60 == 0 && random.nextFloat() < 0.2f) {
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.SLOWNESS, 40, 10, false, false
-            ));
+                    org.bukkit.potion.PotionEffectType.SLOWNESS, 40, 10, false, false));
         }
 
         // Résistance naturelle
         if (tickCounter % 100 == 0) {
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.RESISTANCE, 100, 0, false, false
-            ));
+                    org.bukkit.potion.PotionEffectType.RESISTANCE, 100, 0, false, false));
         }
     }
 
@@ -125,11 +122,9 @@ public class BasicZombieAI extends ZombieAI {
         // Bonus de vitesse dans l'eau
         if (zombie.isInWater()) {
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.DOLPHINS_GRACE, 40, 0, false, false
-            ));
+                    org.bukkit.potion.PotionEffectType.DOLPHINS_GRACE, 40, 0, false, false));
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.SPEED, 40, 2, false, false
-            ));
+                    org.bukkit.potion.PotionEffectType.SPEED, 40, 2, false, false));
         }
 
         // Effet d'eau dégoulinante
@@ -142,7 +137,8 @@ public class BasicZombieAI extends ZombieAI {
      * Grognement qui alerte les zombies proches
      */
     private void groan() {
-        if (isGroaning) return;
+        if (isGroaning)
+            return;
         isGroaning = true;
 
         playSound(Sound.ENTITY_ZOMBIE_AMBIENT, 2f, 0.8f);
@@ -151,10 +147,10 @@ public class BasicZombieAI extends ZombieAI {
         // Attirer les zombies proches vers la même cible
         if (currentTarget != null) {
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 10, 15).stream()
-                .filter(e -> e instanceof Zombie && e != zombie)
-                .map(e -> (Zombie) e)
-                .limit(3)
-                .forEach(z -> z.setTarget(currentTarget));
+                    .filter(e -> e instanceof Zombie && e != zombie)
+                    .map(e -> (Zombie) e)
+                    .limit(3)
+                    .forEach(z -> z.setTarget(currentTarget));
         }
 
         // Reset après un délai
@@ -170,8 +166,7 @@ public class BasicZombieAI extends ZombieAI {
 
         // Appliquer slowness
         target.addPotionEffect(new org.bukkit.potion.PotionEffect(
-            org.bukkit.potion.PotionEffectType.SLOWNESS, 60, 1
-        ));
+                org.bukkit.potion.PotionEffectType.SLOWNESS, 60, 1));
     }
 
     @Override
@@ -193,8 +188,7 @@ public class BasicZombieAI extends ZombieAI {
                 // Chance d'appliquer slowness (comme si le joueur était mouillé)
                 if (random.nextFloat() < 0.3f) {
                     target.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                        org.bukkit.potion.PotionEffectType.SLOWNESS, 40, 0
-                    ));
+                            org.bukkit.potion.PotionEffectType.SLOWNESS, 40, 0));
                 }
             }
         }
@@ -207,7 +201,7 @@ public class BasicZombieAI extends ZombieAI {
             if (attacker instanceof Player player) {
                 // Fuir dans la direction opposée
                 org.bukkit.util.Vector fleeDirection = zombie.getLocation().toVector()
-                    .subtract(player.getLocation().toVector()).normalize();
+                        .subtract(player.getLocation().toVector()).normalize();
                 zombie.setVelocity(fleeDirection.multiply(0.8).setY(0.3));
             }
         }
@@ -215,8 +209,7 @@ public class BasicZombieAI extends ZombieAI {
         // Shambler devient résistant quand blessé
         if (zombieType == ZombieType.SHAMBLER && isHealthBelow(0.5)) {
             zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.RESISTANCE, 60, 1
-            ));
+                    org.bukkit.potion.PotionEffectType.RESISTANCE, 60, 1));
         }
     }
 }

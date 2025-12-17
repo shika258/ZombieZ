@@ -46,83 +46,128 @@ public class ZombieZPlugin extends JavaPlugin {
     private static ZombieZPlugin instance;
 
     // Managers
-    @Getter private ConfigManager configManager;
-    @Getter private DatabaseManager databaseManager;
-    @Getter private ZoneManager zoneManager;
-    @Getter private PlayerDataManager playerDataManager;
-    @Getter private EconomyManager economyManager;
-    @Getter private ItemManager itemManager;
-    @Getter private SetBonusManager setBonusManager;
-    
+    @Getter
+    private ConfigManager configManager;
+    @Getter
+    private DatabaseManager databaseManager;
+    @Getter
+    private ZoneManager zoneManager;
+    @Getter
+    private PlayerDataManager playerDataManager;
+    @Getter
+    private EconomyManager economyManager;
+    @Getter
+    private ItemManager itemManager;
+    @Getter
+    private SetBonusManager setBonusManager;
+
     // Système Zombies
-    @Getter private ZombieManager zombieManager;
-    @Getter private SpawnSystem spawnSystem;
-    @Getter private EventManager eventManager;
-    
+    @Getter
+    private ZombieManager zombieManager;
+    @Getter
+    private SpawnSystem spawnSystem;
+    @Getter
+    private EventManager eventManager;
+
     // Système Économie Phase 4
-    @Getter private BankManager bankManager;
-    
+    @Getter
+    private BankManager bankManager;
+
     // Système Progression Phase 5
-    @Getter private AchievementManager achievementManager;
-    @Getter private SkillTreeManager skillTreeManager;
-    @Getter private LeaderboardManager leaderboardManager;
-    @Getter private MissionManager missionManager;
-    @Getter private BattlePassManager battlePassManager;
-    @Getter private CosmeticManager cosmeticManager;
-    @Getter private ProgressionManager progressionManager;
-    @Getter private com.rinaorc.zombiez.economy.PrestigeSystem prestigeSystem;
-    @Getter private DailyRewardManager dailyRewardManager;
-    
+    @Getter
+    private AchievementManager achievementManager;
+    @Getter
+    private SkillTreeManager skillTreeManager;
+    @Getter
+    private LeaderboardManager leaderboardManager;
+    @Getter
+    private MissionManager missionManager;
+    @Getter
+    private BattlePassManager battlePassManager;
+    @Getter
+    private CosmeticManager cosmeticManager;
+    @Getter
+    private ProgressionManager progressionManager;
+    @Getter
+    private com.rinaorc.zombiez.economy.PrestigeSystem prestigeSystem;
+    @Getter
+    private DailyRewardManager dailyRewardManager;
+
     // Nouveaux systèmes Phase 6
-    @Getter private com.rinaorc.zombiez.party.PartyManager partyManager;
-    @Getter private com.rinaorc.zombiez.momentum.MomentumManager momentumManager;
-    @Getter private com.rinaorc.zombiez.zones.SecretZoneManager secretZoneManager;
+    @Getter
+    private com.rinaorc.zombiez.party.PartyManager partyManager;
+    @Getter
+    private com.rinaorc.zombiez.momentum.MomentumManager momentumManager;
+    @Getter
+    private com.rinaorc.zombiez.zones.SecretZoneManager secretZoneManager;
 
     // Système de Pouvoirs et Item Level
-    @Getter private com.rinaorc.zombiez.items.power.PowerManager powerManager;
-    @Getter private com.rinaorc.zombiez.items.power.PowerTriggerListener powerTriggerListener;
+    @Getter
+    private com.rinaorc.zombiez.items.power.PowerManager powerManager;
+    @Getter
+    private com.rinaorc.zombiez.items.power.PowerTriggerListener powerTriggerListener;
 
     // Listeners stockés pour accès externe
-    @Getter private PlayerMoveListener playerMoveListener;
-    @Getter private ItemListener itemListener;
-    @Getter private BowListener bowListener;
+    @Getter
+    private PlayerMoveListener playerMoveListener;
+    @Getter
+    private ItemListener itemListener;
+    @Getter
+    private BowListener bowListener;
 
     // Systèmes de spawn spécialisés
-    @Getter private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
-    @Getter private com.rinaorc.zombiez.zombies.spawning.HordeEventSystem hordeEventSystem;
+    @Getter
+    private com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem bossSpawnSystem;
+    @Getter
+    private com.rinaorc.zombiez.zombies.spawning.HordeEventSystem hordeEventSystem;
 
     // Système de mobs passifs et nourriture
-    @Getter private com.rinaorc.zombiez.mobs.PassiveMobManager passiveMobManager;
+    @Getter
+    private com.rinaorc.zombiez.mobs.PassiveMobManager passiveMobManager;
 
     // Système de Boss Bar Dynamique
-    @Getter private com.rinaorc.zombiez.ui.DynamicBossBarManager dynamicBossBarManager;
+    @Getter
+    private com.rinaorc.zombiez.ui.DynamicBossBarManager dynamicBossBarManager;
 
     // Système de Consommables
-    @Getter private com.rinaorc.zombiez.consumables.ConsumableManager consumableManager;
+    @Getter
+    private com.rinaorc.zombiez.consumables.ConsumableManager consumableManager;
 
     // Système d'Événements Dynamiques
-    @Getter private com.rinaorc.zombiez.events.dynamic.DynamicEventManager dynamicEventManager;
+    @Getter
+    private com.rinaorc.zombiez.events.dynamic.DynamicEventManager dynamicEventManager;
 
     // Système de Micro-Événements
-    @Getter private com.rinaorc.zombiez.events.micro.MicroEventManager microEventManager;
+    @Getter
+    private com.rinaorc.zombiez.events.micro.MicroEventManager microEventManager;
 
     // Système de Météo Dynamique
-    @Getter private com.rinaorc.zombiez.weather.WeatherManager weatherManager;
+    @Getter
+    private com.rinaorc.zombiez.weather.WeatherManager weatherManager;
 
     // Système de Classes
-    @Getter private com.rinaorc.zombiez.classes.ClassManager classManager;
-    @Getter private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
-    @Getter private com.rinaorc.zombiez.classes.gui.ClassSelectionGUI classSelectionGUI;
-    @Getter private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
-    @Getter private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
-    @Getter private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
+    @Getter
+    private com.rinaorc.zombiez.classes.ClassManager classManager;
+    @Getter
+    private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
+    @Getter
+    private com.rinaorc.zombiez.classes.gui.ClassSelectionGUI classSelectionGUI;
+    @Getter
+    private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
+    @Getter
+    private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
+    @Getter
+    private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
 
     // Système de Pets
-    @Getter private com.rinaorc.zombiez.pets.PetManager petManager;
-    @Getter private com.rinaorc.zombiez.pets.gacha.PetShopSystem petShopSystem;
+    @Getter
+    private com.rinaorc.zombiez.pets.PetManager petManager;
+    @Getter
+    private com.rinaorc.zombiez.pets.gacha.PetShopSystem petShopSystem;
 
     // État du plugin
-    @Getter private boolean fullyLoaded = false;
+    @Getter
+    private boolean fullyLoaded = false;
 
     @Override
     public void onEnable() {
@@ -290,61 +335,61 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
-        
+
         // Spawn System - Spawn dynamique des zombies
         spawnSystem = new SpawnSystem(this, zombieManager);
-        
+
         // Event Manager - Hordes, Blood Moon, Boss
         eventManager = new EventManager(this, zombieManager, spawnSystem);
-        
+
         // ===== Système Économie Phase 4 =====
 
         // Bank Manager - Banque personnelle
         bankManager = new BankManager(this);
-        
+
         // ===== Système Progression Phase 5 =====
-        
+
         // Achievement Manager - Succès
         achievementManager = new AchievementManager(this);
-        
+
         // Skill Tree Manager - Compétences
         skillTreeManager = new SkillTreeManager(this);
-        
+
         // Leaderboard Manager - Classements
         leaderboardManager = new LeaderboardManager(this);
-        
+
         // Mission Manager - Missions journalières/hebdomadaires
         missionManager = new MissionManager(this);
-        
+
         // Battle Pass Manager - Pass de saison
         battlePassManager = new BattlePassManager(this);
-        
+
         // Cosmetic Manager - Titres et cosmétiques
         cosmeticManager = new CosmeticManager(this);
-        
+
         // Progression Manager - Gestion globale de la progression
         progressionManager = new ProgressionManager(this);
-        
+
         // Prestige System - Système de prestige
         prestigeSystem = new com.rinaorc.zombiez.economy.PrestigeSystem(this);
-        
+
         // Daily Reward Manager - Récompenses quotidiennes
         dailyRewardManager = new DailyRewardManager(this);
-        
+
         // ===== Nouveaux Systèmes Phase 6 =====
-        
+
         // Boss Spawn System - Spawn des boss
         bossSpawnSystem = new com.rinaorc.zombiez.zombies.spawning.BossSpawnSystem(this, zombieManager);
-        
+
         // Horde Event System - Événements de horde
         hordeEventSystem = new com.rinaorc.zombiez.zombies.spawning.HordeEventSystem(this, zombieManager, spawnSystem);
-        
+
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);
-        
+
         // Momentum Manager - Streaks, Combos, Fever
         momentumManager = new com.rinaorc.zombiez.momentum.MomentumManager(this);
-        
+
         // Secret Zone Manager - Zones secrètes et événements
         secretZoneManager = new com.rinaorc.zombiez.zones.SecretZoneManager(this);
 
@@ -372,7 +417,8 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // ===== Système Micro-Événements =====
 
-        // Micro Event Manager - Petits événements personnels pour maintenir l'engagement
+        // Micro Event Manager - Petits événements personnels pour maintenir
+        // l'engagement
         microEventManager = new com.rinaorc.zombiez.events.micro.MicroEventManager(this);
         microEventManager.start();
 
@@ -418,38 +464,38 @@ public class ZombieZPlugin extends JavaPlugin {
     private void registerCommands() {
         // Commandes Admin
         getCommand("zombiez").setExecutor(new ZombieZAdminCommand(this));
-        
+
         // Commandes Admin Items
         ItemAdminCommand itemCmd = new ItemAdminCommand(this);
         getCommand("zzitem").setExecutor(itemCmd);
         getCommand("zzitem").setTabCompleter(itemCmd);
-        
+
         // Commandes Admin Zombies
         ZombieAdminCommand zombieCmd = new ZombieAdminCommand(this);
         getCommand("zzzombie").setExecutor(zombieCmd);
         getCommand("zzzombie").setTabCompleter(zombieCmd);
 
         // Commandes Admin Consommables
-        com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand consumableCmd =
-            new com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand(this);
+        com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand consumableCmd = new com.rinaorc.zombiez.commands.admin.ConsumableAdminCommand(
+                this);
         getCommand("zzconsumable").setExecutor(consumableCmd);
         getCommand("zzconsumable").setTabCompleter(consumableCmd);
 
         // Commandes Admin Événements Dynamiques
-        com.rinaorc.zombiez.commands.admin.EventAdminCommand eventCmd =
-            new com.rinaorc.zombiez.commands.admin.EventAdminCommand(this);
+        com.rinaorc.zombiez.commands.admin.EventAdminCommand eventCmd = new com.rinaorc.zombiez.commands.admin.EventAdminCommand(
+                this);
         getCommand("zzevent").setExecutor(eventCmd);
         getCommand("zzevent").setTabCompleter(eventCmd);
 
         // Commandes Admin Micro-Événements
-        com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand microEventCmd =
-            new com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand(this);
+        com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand microEventCmd = new com.rinaorc.zombiez.commands.admin.MicroEventAdminCommand(
+                this);
         getCommand("zzmicro").setExecutor(microEventCmd);
         getCommand("zzmicro").setTabCompleter(microEventCmd);
 
         // Commandes Admin Météo Dynamique
-        com.rinaorc.zombiez.commands.admin.WeatherAdminCommand weatherCmd =
-            new com.rinaorc.zombiez.commands.admin.WeatherAdminCommand(this);
+        com.rinaorc.zombiez.commands.admin.WeatherAdminCommand weatherCmd = new com.rinaorc.zombiez.commands.admin.WeatherAdminCommand(
+                this);
         getCommand("zzweather").setExecutor(weatherCmd);
         getCommand("zzweather").setTabCompleter(weatherCmd);
 
@@ -464,12 +510,12 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("zone").setExecutor(new ZoneCommand(this));
         getCommand("checkpoint").setExecutor(new CheckpointCommand(this));
         getCommand("refuge").setExecutor(new RefugeCommand(this));
-        
+
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
         getCommand("bank").setExecutor(bankCmd);
         getCommand("bank").setTabCompleter(bankCmd);
-        
+
         // Commandes Joueur - Progression
         ProgressionCommand progressionCmd = new ProgressionCommand(this);
         getCommand("progression").setExecutor(progressionCmd);
@@ -482,7 +528,7 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("mutations").setExecutor((sender, cmd, label, args) -> {
             if (sender instanceof org.bukkit.entity.Player player) {
                 classManager.getMutationManager().getMutationSummary()
-                    .forEach(player::sendMessage);
+                        .forEach(player::sendMessage);
             }
             return true;
         });
@@ -498,7 +544,8 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("pet").setTabCompleter(petCmd);
 
         // Commandes Admin - Pets
-        com.rinaorc.zombiez.pets.commands.PetAdminCommand petAdminCmd = new com.rinaorc.zombiez.pets.commands.PetAdminCommand(this);
+        com.rinaorc.zombiez.pets.commands.PetAdminCommand petAdminCmd = new com.rinaorc.zombiez.pets.commands.PetAdminCommand(
+                this);
         getCommand("petadmin").setExecutor(petAdminCmd);
         getCommand("petadmin").setTabCompleter(petAdminCmd);
     }
@@ -508,7 +555,7 @@ public class ZombieZPlugin extends JavaPlugin {
      */
     private void registerListeners() {
         var pm = getServer().getPluginManager();
-        
+
         // Listeners principaux
         pm.registerEvents(new PlayerConnectionListener(this), this);
         pm.registerEvents(new PlayerMoveListener(this), this);
@@ -517,7 +564,7 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new InteractListener(this), this);
         pm.registerEvents(new ZoneChangeListener(this), this);
         pm.registerEvents(new BlockProtectionListener(this), this);
-        
+
         // Listeners système d'items
         itemListener = new ItemListener(this);
         pm.registerEvents(itemListener, this);
@@ -532,7 +579,7 @@ public class ZombieZPlugin extends JavaPlugin {
         if (powerTriggerListener != null) {
             pm.registerEvents(powerTriggerListener, this);
         }
-        
+
         // Listener système de zombies
         pm.registerEvents(new ZombieListener(this), this);
 
@@ -555,7 +602,8 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Listener système événements dynamiques
         if (dynamicEventManager != null) {
-            pm.registerEvents(new com.rinaorc.zombiez.events.dynamic.DynamicEventListener(this, dynamicEventManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.events.dynamic.DynamicEventListener(this, dynamicEventManager),
+                    this);
         }
 
         // Listener système micro-événements
@@ -580,8 +628,10 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de talents (effets passifs)
         if (talentManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
-            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager), this);
-            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager), this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager),
+                    this);
+            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager),
+                    this);
         }
 
         // Listeners système de pets
@@ -628,7 +678,8 @@ public class ZombieZPlugin extends JavaPlugin {
         // ActionBar permanent pour tous les joueurs (Zone, Combo, Streak, Points)
         new com.rinaorc.zombiez.listeners.ActionBarTask(this).start();
 
-        // Nettoyage périodique du cache des indicateurs de dégâts (toutes les 30 secondes)
+        // Nettoyage périodique du cache des indicateurs de dégâts (toutes les 30
+        // secondes)
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             com.rinaorc.zombiez.combat.DamageIndicator.cleanup();
         }, 20L * 30, 20L * 30);
@@ -639,16 +690,16 @@ public class ZombieZPlugin extends JavaPlugin {
      */
     public void reload() {
         log(Level.INFO, "§6Rechargement de ZombieZ...");
-        
+
         // Recharger les configs
         configManager.loadAllConfigs();
-        
+
         // Recharger les zones
         zoneManager.loadZones();
-        
+
         // Recharger les messages
         MessageUtils.reload();
-        
+
         log(Level.INFO, "§a✓ ZombieZ rechargé!");
     }
 
@@ -676,7 +727,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
                 // Nettoyer les mobs passifs gérés par le plugin (avec tag)
                 if (entity.getScoreboardTags().contains("zombiez_passive") ||
-                    entity.getScoreboardTags().contains("zombiez_mob")) {
+                        entity.getScoreboardTags().contains("zombiez_mob")) {
                     entity.remove();
                     clearedPassive++;
                 }
@@ -684,7 +735,8 @@ public class ZombieZPlugin extends JavaPlugin {
         }
 
         if (clearedHostile > 0 || clearedPassive > 0) {
-            log(Level.INFO, "§7Nettoyage: §c" + clearedHostile + " mobs hostiles §7et §a" + clearedPassive + " mobs passifs §7supprimés.");
+            log(Level.INFO, "§7Nettoyage: §c" + clearedHostile + " mobs hostiles §7et §a" + clearedPassive
+                    + " mobs passifs §7supprimés.");
         }
     }
 
@@ -693,34 +745,35 @@ public class ZombieZPlugin extends JavaPlugin {
      */
     private boolean isHostileMobType(EntityType type) {
         return type == EntityType.ZOMBIE ||
-               type == EntityType.HUSK ||
-               type == EntityType.DROWNED ||
-               type == EntityType.ZOMBIE_VILLAGER ||
-               type == EntityType.ZOMBIFIED_PIGLIN ||
-               type == EntityType.ZOGLIN ||
-               type == EntityType.RAVAGER ||
-               type == EntityType.SKELETON ||
-               type == EntityType.WITHER_SKELETON ||
-               type == EntityType.STRAY ||
-               type == EntityType.CREEPER ||
-               type == EntityType.SPIDER ||
-               type == EntityType.CAVE_SPIDER ||
-               type == EntityType.EVOKER ||
-               type == EntityType.VINDICATOR ||
-               type == EntityType.PILLAGER ||
-               type == EntityType.WITCH ||
-               type == EntityType.BLAZE ||
-               type == EntityType.GHAST ||
-               type == EntityType.PIGLIN_BRUTE ||
-               type == EntityType.GIANT ||
-               type == EntityType.WOLF; // Loups enragés
+                type == EntityType.HUSK ||
+                type == EntityType.DROWNED ||
+                type == EntityType.ZOMBIE_VILLAGER ||
+                type == EntityType.ZOMBIFIED_PIGLIN ||
+                type == EntityType.ZOGLIN ||
+                type == EntityType.RAVAGER ||
+                type == EntityType.SKELETON ||
+                type == EntityType.WITHER_SKELETON ||
+                type == EntityType.STRAY ||
+                type == EntityType.CREEPER ||
+                type == EntityType.SPIDER ||
+                type == EntityType.CAVE_SPIDER ||
+                type == EntityType.EVOKER ||
+                type == EntityType.VINDICATOR ||
+                type == EntityType.PILLAGER ||
+                type == EntityType.WITCH ||
+                type == EntityType.BLAZE ||
+                type == EntityType.GHAST ||
+                type == EntityType.PIGLIN_BRUTE ||
+                type == EntityType.GIANT ||
+                type == EntityType.WOLF; // Loups enragés
     }
 
     /**
      * Vérifie si une entité est un mob ZombieZ (pour usage runtime)
      */
     private boolean isZombieZMob(Entity entity) {
-        if (!(entity instanceof LivingEntity)) return false;
+        if (!(entity instanceof LivingEntity))
+            return false;
 
         // Vérifier les tags de l'entité
         if (entity.getScoreboardTags().contains("zombiez_mob")) {

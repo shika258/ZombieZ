@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import lombok.Getter;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
@@ -83,11 +84,12 @@ public abstract class ZombieAI {
      */
     protected Player findNearestPlayer(double range) {
         return zombie.getWorld().getNearbyEntities(zombie.getLocation(), range, range, range).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .filter(p -> !p.isDead() && p.getGameMode() == org.bukkit.GameMode.SURVIVAL)
-            .min((a, b) -> (int) (a.getLocation().distance(zombie.getLocation()) - b.getLocation().distance(zombie.getLocation())))
-            .orElse(null);
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .filter(p -> !p.isDead() && p.getGameMode() == org.bukkit.GameMode.SURVIVAL)
+                .min((a, b) -> (int) (a.getLocation().distance(zombie.getLocation())
+                        - b.getLocation().distance(zombie.getLocation())))
+                .orElse(null);
     }
 
     /**
@@ -104,16 +106,38 @@ public abstract class ZombieAI {
      */
     protected void applyAreaEffect(double radius, PotionEffectType effect, int duration, int amplifier) {
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius, radius, radius).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> p.addPotionEffect(new PotionEffect(effect, duration, amplifier)));
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> p.addPotionEffect(new PotionEffect(effect, duration, amplifier)));
     }
 
     /**
      * Joue des particules
      */
-    protected void playParticles(Particle particle, Location loc, int count, double offsetX, double offsetY, double offsetZ) {
+    protected void playParticles(Particle particle, Location loc, int count, double offsetX, double offsetY,
+            double offsetZ) {
         zombie.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ);
+    }
+
+    /**
+     * Joue des particules de type BLOCK avec BlockData
+     */
+    protected void playParticles(Particle particle, Location loc, int count, double offsetX, double offsetY,
+            double offsetZ, Material blockMaterial) {
+        if (particle == Particle.BLOCK) {
+            zombie.getWorld().spawnParticle(particle, loc, count, offsetX, offsetY, offsetZ,
+                    blockMaterial.createBlockData());
+        } else {
+            // Fallback pour autres particules
+            playParticles(particle, loc, count, offsetX, offsetY, offsetZ);
+        }
+    }
+
+    /**
+     * Joue des particules de bloc avec un matériau par défaut (DIRT)
+     */
+    protected void playBlockParticles(Location loc, int count, double offsetX, double offsetY, double offsetZ) {
+        playParticles(Particle.BLOCK, loc, count, offsetX, offsetY, offsetZ, Material.DIRT);
     }
 
     /**
@@ -138,7 +162,8 @@ public abstract class ZombieAI {
      */
     protected boolean isHealthBelow(double percent) {
         var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
-        if (maxHealth == null) return false;
+        if (maxHealth == null)
+            return false;
         return zombie.getHealth() / maxHealth.getValue() < percent;
     }
 
@@ -146,7 +171,8 @@ public abstract class ZombieAI {
      * Active le mode enragé
      */
     protected void enrage() {
-        if (isEnraged) return;
+        if (isEnraged)
+            return;
         isEnraged = true;
 
         // Boost de stats

@@ -1,0 +1,135 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------------< com.rinaorc:ZombieZ >-------------------------
+[INFO] Building ZombieZ 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ ZombieZ ---
+[INFO] Deleting C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ ZombieZ ---
+[INFO] Copying 12 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ ZombieZ ---
+[WARNING]  Parameter 'forceJavacCompilerUse' (user property 'maven.compiler.forceJavacCompilerUse') is deprecated: Use forceLegacyJavacApi instead
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 204 source files with javac [debug release 21] to target\classes
+[INFO] -------------------------------------------------------------
+[WARNING] COMPILATION WARNING : 
+[INFO] -------------------------------------------------------------
+[WARNING] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\items\power\Power.java:[155,25] [dep-ann] deprecated item is not annotated with @Deprecated
+[WARNING] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\items\power\Power.java:[209,24] [dep-ann] deprecated item is not annotated with @Deprecated
+[WARNING] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\items\power\Power.java:[242,27] [dep-ann] deprecated item is not annotated with @Deprecated
+[WARNING] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\utils\ItemBuilder.java:[228,45] [removal] name() in OldEnum has been deprecated and marked for removal
+[INFO] 4 warnings 
+[INFO] -------------------------------------------------------------
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[62,16] error: cannot find symbol
+  symbol:   class DamageReductionPassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[96,16] error: cannot find symbol
+  symbol:   class InterceptPassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[154,16] error: cannot find symbol
+  symbol:   class ParryPassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[164,16] error: cannot find symbol
+  symbol:   class DamageMultiplierPassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[188,16] error: cannot find symbol
+  symbol:   class CritDamagePassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[222,16] error: cannot find symbol
+  symbol:   class MeleeDamagePassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[272,16] error: cannot find symbol
+  symbol:   class MultiAttackPassive
+  location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[58,31] error: cannot find symbol
+  symbol:   class DamageMultiplierPassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[63,31] error: cannot find symbol
+  symbol:   class MeleeDamagePassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[70,31] error: cannot find symbol
+  symbol:   class CritDamagePassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[77,31] error: cannot find symbol
+  symbol:   class PowerSlowPassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[82,31] error: cannot find symbol
+  symbol:   class MultiAttackPassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[123,31] error: cannot find symbol
+  symbol:   class DamageReductionPassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[128,31] error: cannot find symbol
+  symbol:   class InterceptPassive
+  location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[133,31] error: cannot find symbol
+  symbol:   class ParryPassive
+  location: class PetCombatListener
+[INFO] 15 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  7.320 s
+[INFO] Finished at: 2025-12-17T23:23:48+01:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project ZombieZ: Compilation failure: Compilation failure: 
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[62,16] error: cannot find symbol
+[ERROR]   symbol:   class DamageReductionPassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[96,16] error: cannot find symbol
+[ERROR]   symbol:   class InterceptPassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[154,16] error: cannot find symbol
+[ERROR]   symbol:   class ParryPassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[164,16] error: cannot find symbol
+[ERROR]   symbol:   class DamageMultiplierPassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[188,16] error: cannot find symbol
+[ERROR]   symbol:   class CritDamagePassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[222,16] error: cannot find symbol
+[ERROR]   symbol:   class MeleeDamagePassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\abilities\impl\PetAbilityRegistry.java:[272,16] error: cannot find symbol
+[ERROR]   symbol:   class MultiAttackPassive
+[ERROR]   location: class PetAbilityRegistry
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[58,31] error: cannot find symbol
+[ERROR]   symbol:   class DamageMultiplierPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[63,31] error: cannot find symbol
+[ERROR]   symbol:   class MeleeDamagePassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[70,31] error: cannot find symbol
+[ERROR]   symbol:   class CritDamagePassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[77,31] error: cannot find symbol
+[ERROR]   symbol:   class PowerSlowPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[82,31] error: cannot find symbol
+[ERROR]   symbol:   class MultiAttackPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[123,31] error: cannot find symbol
+[ERROR]   symbol:   class DamageReductionPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[128,31] error: cannot find symbol
+[ERROR]   symbol:   class InterceptPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] C:\Users\xdred\Documents\Git-ZombieZ\ZombieZ\src\main\java\com\rinaorc\zombiez\pets\listeners\PetCombatListener.java:[133,31] error: cannot find symbol
+[ERROR]   symbol:   class ParryPassive
+[ERROR]   location: class PetCombatListener
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

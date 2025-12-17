@@ -63,9 +63,12 @@ public class WeatherEffect {
     protected BossBar bossBar;
 
     // Configuration (peut être modifiée par le manager)
-    @Setter protected double spawnMultiplierOverride = -1;
-    @Setter protected double damageMultiplierOverride = -1;
-    @Setter protected double intensityMultiplier = 1.0;
+    @Setter
+    protected double spawnMultiplierOverride = -1;
+    @Setter
+    protected double damageMultiplierOverride = -1;
+    @Setter
+    protected double intensityMultiplier = 1.0;
 
     // Statistiques
     protected int totalDamageDealt = 0;
@@ -111,7 +114,8 @@ public class WeatherEffect {
      * Démarre l'effet météo
      */
     public void start() {
-        if (active) return;
+        if (active)
+            return;
 
         active = true;
 
@@ -143,7 +147,8 @@ public class WeatherEffect {
      * Accélère le temps jusqu'à atteindre la nuit (13000 ticks)
      */
     protected void transitionToNight() {
-        if (targetWorld == null) return;
+        if (targetWorld == null)
+            return;
 
         long currentTime = targetWorld.getTime();
         long targetTime = 14000; // Début de la nuit
@@ -202,8 +207,8 @@ public class WeatherEffect {
                     for (Player player : getAffectedPlayers()) {
                         // Particules sombres
                         player.spawnParticle(Particle.SMOKE,
-                            player.getLocation().add(0, 2, 0),
-                            10, 2, 1, 2, 0.02);
+                                player.getLocation().add(0, 2, 0),
+                                10, 2, 1, 2, 0.02);
                     }
                 }
 
@@ -216,7 +221,8 @@ public class WeatherEffect {
      * Termine l'effet météo naturellement
      */
     public void complete() {
-        if (!active || completed || cancelled) return;
+        if (!active || completed || cancelled)
+            return;
 
         completed = true;
         active = false;
@@ -229,7 +235,8 @@ public class WeatherEffect {
      * Annule l'effet météo prématurément
      */
     public void cancel() {
-        if (!active || completed || cancelled) return;
+        if (!active || completed || cancelled)
+            return;
 
         cancelled = true;
         active = false;
@@ -306,7 +313,8 @@ public class WeatherEffect {
     }
 
     protected void updateBossBar() {
-        if (bossBar == null) return;
+        if (bossBar == null)
+            return;
 
         double progress = 1.0 - ((double) elapsedTicks / duration);
         bossBar.setProgress(Math.max(0, Math.min(1, progress)));
@@ -339,10 +347,10 @@ public class WeatherEffect {
 
         // Ajouter indicateurs de bonus
         if (type.getXpMultiplier() > 1.0) {
-            title.append(" §a+").append((int)((type.getXpMultiplier() - 1) * 100)).append("%XP");
+            title.append(" §a+").append((int) ((type.getXpMultiplier() - 1) * 100)).append("%XP");
         }
         if (type.getLootMultiplier() > 1.0) {
-            title.append(" §b+").append((int)((type.getLootMultiplier() - 1) * 100)).append("%Loot");
+            title.append(" §b+").append((int) ((type.getLootMultiplier() - 1) * 100)).append("%Loot");
         }
 
         return title.toString();
@@ -357,7 +365,8 @@ public class WeatherEffect {
     // ==================== MÉTÉO MINECRAFT ====================
 
     protected void applyMinecraftWeather() {
-        if (targetWorld == null) return;
+        if (targetWorld == null)
+            return;
 
         // Si c'est le temps clair, s'assurer que la pluie/orage est désactivé
         if (type == WeatherType.CLEAR) {
@@ -390,7 +399,8 @@ public class WeatherEffect {
     }
 
     protected void restoreMinecraftWeather() {
-        if (targetWorld == null) return;
+        if (targetWorld == null)
+            return;
 
         // Forcer l'arrêt de la pluie/orage
         targetWorld.setStorm(false);
@@ -412,7 +422,8 @@ public class WeatherEffect {
      */
     protected void applyFogEffect() {
         int fogDistance = type.getFogRenderDistance();
-        if (fogDistance < 0) return;
+        if (fogDistance < 0)
+            return;
 
         // Sauvegarder et appliquer la nouvelle render distance
         for (Player player : getAffectedPlayers()) {
@@ -441,19 +452,19 @@ public class WeatherEffect {
         // Tâche de particules (optimisée: 2 fois par seconde au lieu de 4)
         if (type.getParticle() != null) {
             particleTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
-                this::spawnParticlesOptimized, 10L, 10L);
+                    this::spawnParticlesOptimized, 10L, 10L);
         }
 
         // Tâche de dégâts environnementaux (si dangereux)
         if (type.isDangerous() && type.getDamageInterval() > 0) {
             damageTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
-                this::applyEnvironmentalDamage, type.getDamageInterval(), type.getDamageInterval());
+                    this::applyEnvironmentalDamage, type.getDamageInterval(), type.getDamageInterval());
         }
 
         // Tâche de buffs joueurs (toutes les 5 secondes)
         if (type.hasPlayerBuff() || type.getRegenAmount() > 0) {
             buffTask = plugin.getServer().getScheduler().runTaskTimer(plugin,
-                this::applyPlayerBuffs, 100L, 100L); // 5 secondes
+                    this::applyPlayerBuffs, 100L, 100L); // 5 secondes
         }
     }
 
@@ -461,7 +472,8 @@ public class WeatherEffect {
      * Tick principal (appelé chaque seconde)
      */
     public void tick() {
-        if (!active) return;
+        if (!active)
+            return;
 
         elapsedTicks += 20;
         tickCounter++;
@@ -498,7 +510,8 @@ public class WeatherEffect {
      */
     protected void updatePlayerCache() {
         long now = System.currentTimeMillis();
-        if (now - lastPlayerCacheUpdate < PLAYER_CACHE_DURATION) return;
+        if (now - lastPlayerCacheUpdate < PLAYER_CACHE_DURATION)
+            return;
 
         lastPlayerCacheUpdate = now;
         cachedPlayers.clear();
@@ -520,7 +533,8 @@ public class WeatherEffect {
      * Génère les particules de manière optimisée
      */
     protected void spawnParticlesOptimized() {
-        if (type.getParticle() == null) return;
+        if (type.getParticle() == null)
+            return;
 
         // Nombre de particules réduit et optimisé
         int baseParticleCount = (int) (8 * intensityMultiplier);
@@ -528,7 +542,8 @@ public class WeatherEffect {
         for (Player player : cachedPlayers) {
             Location loc = player.getLocation();
             World world = loc.getWorld();
-            if (world == null) continue;
+            if (world == null)
+                continue;
 
             // Particules principales
             spawnWeatherParticles(player, loc, baseParticleCount);
@@ -552,13 +567,20 @@ public class WeatherEffect {
             Location particleLoc = new Location(loc.getWorld(), x, y, z);
 
             // Spawner pour le joueur uniquement (optimisation)
-            player.spawnParticle(particle, particleLoc, 1, 0, -0.1, 0, 0);
+            // Gérer les particules qui nécessitent BlockData
+            if (particle == Particle.FALLING_DUST) {
+                player.spawnParticle(particle, particleLoc, 1, 0, -0.1, 0, 0,
+                        org.bukkit.Material.SAND.createBlockData());
+            } else {
+                player.spawnParticle(particle, particleLoc, 1, 0, -0.1, 0, 0);
+            }
         }
     }
 
     protected void spawnSpecialParticles(Player player, Location loc) {
         World world = loc.getWorld();
-        if (world == null) return;
+        if (world == null)
+            return;
 
         switch (type) {
             case STORM -> {
@@ -573,15 +595,14 @@ public class WeatherEffect {
             }
             case AURORA, STARFALL -> {
                 // Particules colorées dans le ciel
-                Color[] colors = {Color.PURPLE, Color.BLUE, Color.AQUA, Color.LIME, Color.FUCHSIA};
+                Color[] colors = { Color.PURPLE, Color.BLUE, Color.AQUA, Color.LIME, Color.FUCHSIA };
                 Color color = colors[(int) (Math.random() * colors.length)];
                 Location skyLoc = loc.clone().add(
-                    (Math.random() - 0.5) * 15,
-                    12 + Math.random() * 8,
-                    (Math.random() - 0.5) * 15
-                );
+                        (Math.random() - 0.5) * 15,
+                        12 + Math.random() * 8,
+                        (Math.random() - 0.5) * 15);
                 player.spawnParticle(Particle.DUST, skyLoc, 1, 0.5, 0.2, 0.5, 0,
-                    new Particle.DustOptions(color, 1.5f));
+                        new Particle.DustOptions(color, 1.5f));
             }
             case ACID_RAIN -> {
                 // Brouillard vert toxique pour la pluie acide
@@ -603,22 +624,24 @@ public class WeatherEffect {
             case SOLAR_BLESSING -> {
                 // Rayons de lumière dorés
                 player.spawnParticle(Particle.END_ROD, loc.clone().add(
-                    (Math.random() - 0.5) * 3, 3 + Math.random() * 2, (Math.random() - 0.5) * 3),
-                    1, 0, -0.05, 0, 0);
+                        (Math.random() - 0.5) * 3, 3 + Math.random() * 2, (Math.random() - 0.5) * 3),
+                        1, 0, -0.05, 0, 0);
             }
             case HARVEST_MOON -> {
                 // Particules de récolte dorées
                 if (Math.random() < 0.3) {
                     player.spawnParticle(Particle.HAPPY_VILLAGER, loc.clone().add(
-                        (Math.random() - 0.5) * 4, 1 + Math.random(), (Math.random() - 0.5) * 4), 1);
+                            (Math.random() - 0.5) * 4, 1 + Math.random(), (Math.random() - 0.5) * 4), 1);
                 }
             }
-            default -> {}
+            default -> {
+            }
         }
     }
 
     protected void spawnRandomLightning() {
-        if (targetWorld == null) return;
+        if (targetWorld == null)
+            return;
 
         for (Player player : cachedPlayers) {
             if (Math.random() < 0.3) {
@@ -626,7 +649,7 @@ public class WeatherEffect {
                 double x = loc.getX() + (Math.random() - 0.5) * 80;
                 double z = loc.getZ() + (Math.random() - 0.5) * 80;
                 Location lightningLoc = new Location(targetWorld, x,
-                    targetWorld.getHighestBlockYAt((int)x, (int)z), z);
+                        targetWorld.getHighestBlockYAt((int) x, (int) z), z);
 
                 // Éclair visuel sans dégâts
                 targetWorld.strikeLightningEffect(lightningLoc);
@@ -640,9 +663,9 @@ public class WeatherEffect {
      */
     protected void spawnBloodMoonFog(Player player, Location loc) {
         // Couleurs de brouillard rouge sang
-        Color bloodRed = Color.fromRGB(139, 0, 0);        // Rouge sang foncé
-        Color crimson = Color.fromRGB(220, 20, 60);       // Cramoisie
-        Color darkRed = Color.fromRGB(100, 0, 0);         // Rouge très sombre
+        Color bloodRed = Color.fromRGB(139, 0, 0); // Rouge sang foncé
+        Color crimson = Color.fromRGB(220, 20, 60); // Cramoisie
+        Color darkRed = Color.fromRGB(100, 0, 0); // Rouge très sombre
 
         // Particules de brouillard au sol (dense)
         for (int i = 0; i < 15; i++) {
@@ -664,9 +687,9 @@ public class WeatherEffect {
             }
 
             // Particules de taille variable pour un effet plus naturel
-            float size = 2.0f + (float)(Math.random() * 1.5);
+            float size = 2.0f + (float) (Math.random() * 1.5);
             player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.1, 0.3, 0,
-                new Particle.DustOptions(fogColor, size));
+                    new Particle.DustOptions(fogColor, size));
         }
 
         // Brouillard en hauteur (moins dense, effet atmosphérique)
@@ -679,29 +702,27 @@ public class WeatherEffect {
 
             // Rouge plus clair/rosé pour le brouillard en hauteur
             Color highFogColor = Color.fromRGB(
-                180 + (int)(Math.random() * 40),
-                20 + (int)(Math.random() * 30),
-                20 + (int)(Math.random() * 30)
-            );
+                    180 + (int) (Math.random() * 40),
+                    20 + (int) (Math.random() * 30),
+                    20 + (int) (Math.random() * 30));
 
             player.spawnParticle(Particle.DUST, highFogLoc, 1, 0.5, 0.3, 0.5, 0,
-                new Particle.DustOptions(highFogColor, 1.5f));
+                    new Particle.DustOptions(highFogColor, 1.5f));
         }
 
         // Particules de fumée noire occasionnelles (pour contraste)
         if (Math.random() < 0.3) {
             Location smokeLoc = loc.clone().add(
-                (Math.random() - 0.5) * 8,
-                Math.random() * 3,
-                (Math.random() - 0.5) * 8
-            );
+                    (Math.random() - 0.5) * 8,
+                    Math.random() * 3,
+                    (Math.random() - 0.5) * 8);
             player.spawnParticle(Particle.SMOKE, smokeLoc, 2, 0.2, 0.1, 0.2, 0.01);
         }
 
         // Effet de lueur rouge sur le joueur (aura sinistre)
         if (Math.random() < 0.2) {
             player.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 3, 0.4, 0.5, 0.4, 0,
-                new Particle.DustOptions(crimson, 0.8f));
+                    new Particle.DustOptions(crimson, 0.8f));
         }
     }
 
@@ -710,9 +731,9 @@ public class WeatherEffect {
      */
     protected void spawnAcidRainFog(Player player, Location loc) {
         // Couleurs vertes toxiques
-        Color toxicGreen = Color.fromRGB(50, 205, 50);       // Vert lime
-        Color darkGreen = Color.fromRGB(0, 100, 0);          // Vert foncé
-        Color acidYellow = Color.fromRGB(173, 255, 47);      // Vert-jaune acide
+        Color toxicGreen = Color.fromRGB(50, 205, 50); // Vert lime
+        Color darkGreen = Color.fromRGB(0, 100, 0); // Vert foncé
+        Color acidYellow = Color.fromRGB(173, 255, 47); // Vert-jaune acide
 
         // Brouillard toxique au sol
         for (int i = 0; i < 10; i++) {
@@ -732,18 +753,17 @@ public class WeatherEffect {
                 fogColor = darkGreen;
             }
 
-            float size = 1.5f + (float)(Math.random() * 1.0);
+            float size = 1.5f + (float) (Math.random() * 1.0);
             player.spawnParticle(Particle.DUST, fogLoc, 1, 0.2, 0.1, 0.2, 0,
-                new Particle.DustOptions(fogColor, size));
+                    new Particle.DustOptions(fogColor, size));
         }
 
         // Particules de slime occasionnelles (effet acide)
         if (Math.random() < 0.3) {
             Location slimeLoc = loc.clone().add(
-                (Math.random() - 0.5) * 6,
-                0.5 + Math.random(),
-                (Math.random() - 0.5) * 6
-            );
+                    (Math.random() - 0.5) * 6,
+                    0.5 + Math.random(),
+                    (Math.random() - 0.5) * 6);
             player.spawnParticle(Particle.ITEM_SLIME, slimeLoc, 2, 0.1, 0.1, 0.1, 0);
         }
     }
@@ -775,18 +795,17 @@ public class WeatherEffect {
                 fogColor = lightBlue;
             }
 
-            float size = 2.0f + (float)(Math.random() * 1.5);
+            float size = 2.0f + (float) (Math.random() * 1.5);
             player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.15, 0.3, 0,
-                new Particle.DustOptions(fogColor, size));
+                    new Particle.DustOptions(fogColor, size));
         }
 
         // Flocons de neige en hauteur
         for (int i = 0; i < 5; i++) {
             Location snowLoc = loc.clone().add(
-                (Math.random() - 0.5) * 14,
-                3 + Math.random() * 5,
-                (Math.random() - 0.5) * 14
-            );
+                    (Math.random() - 0.5) * 14,
+                    3 + Math.random() * 5,
+                    (Math.random() - 0.5) * 14);
             player.spawnParticle(Particle.SNOWFLAKE, snowLoc, 1, 0.3, 0.2, 0.3, 0.02);
         }
 
@@ -801,9 +820,9 @@ public class WeatherEffect {
      */
     protected void spawnSandstormFog(Player player, Location loc) {
         // Couleurs sable/désert
-        Color sand = Color.fromRGB(210, 180, 140);           // Tan
-        Color darkSand = Color.fromRGB(189, 154, 122);       // Sable foncé
-        Color dustyBrown = Color.fromRGB(160, 130, 100);     // Brun poussiéreux
+        Color sand = Color.fromRGB(210, 180, 140); // Tan
+        Color darkSand = Color.fromRGB(189, 154, 122); // Sable foncé
+        Color dustyBrown = Color.fromRGB(160, 130, 100); // Brun poussiéreux
 
         // Brouillard de sable dense
         for (int i = 0; i < 15; i++) {
@@ -823,20 +842,19 @@ public class WeatherEffect {
                 fogColor = dustyBrown;
             }
 
-            float size = 2.5f + (float)(Math.random() * 1.5);
+            float size = 2.5f + (float) (Math.random() * 1.5);
             player.spawnParticle(Particle.DUST, fogLoc, 1, 0.4, 0.2, 0.4, 0,
-                new Particle.DustOptions(fogColor, size));
+                    new Particle.DustOptions(fogColor, size));
         }
 
         // Effet de tourbillon de sable
         if (Math.random() < 0.2) {
             Location whirlLoc = loc.clone().add(
-                (Math.random() - 0.5) * 8,
-                0.5,
-                (Math.random() - 0.5) * 8
-            );
+                    (Math.random() - 0.5) * 8,
+                    0.5,
+                    (Math.random() - 0.5) * 8);
             player.spawnParticle(Particle.DUST, whirlLoc, 5, 0.1, 0.8, 0.1, 0,
-                new Particle.DustOptions(sand, 1.0f));
+                    new Particle.DustOptions(sand, 1.0f));
         }
     }
 
@@ -845,9 +863,9 @@ public class WeatherEffect {
      */
     protected void spawnAshfallFog(Player player, Location loc) {
         // Couleurs cendres/volcaniques
-        Color darkGray = Color.fromRGB(80, 80, 80);          // Gris foncé
-        Color ash = Color.fromRGB(120, 120, 120);            // Cendres
-        Color emberOrange = Color.fromRGB(200, 80, 20);      // Braise orange
+        Color darkGray = Color.fromRGB(80, 80, 80); // Gris foncé
+        Color ash = Color.fromRGB(120, 120, 120); // Cendres
+        Color emberOrange = Color.fromRGB(200, 80, 20); // Braise orange
 
         // Brouillard de cendres
         for (int i = 0; i < 12; i++) {
@@ -867,32 +885,29 @@ public class WeatherEffect {
                 fogColor = emberOrange; // Braises chaudes
             }
 
-            float size = 1.8f + (float)(Math.random() * 1.2);
+            float size = 1.8f + (float) (Math.random() * 1.2);
             player.spawnParticle(Particle.DUST, fogLoc, 1, 0.3, 0.15, 0.3, 0,
-                new Particle.DustOptions(fogColor, size));
+                    new Particle.DustOptions(fogColor, size));
         }
 
         // Particules de fumée
         if (Math.random() < 0.25) {
             Location smokeLoc = loc.clone().add(
-                (Math.random() - 0.5) * 8,
-                Math.random() * 2,
-                (Math.random() - 0.5) * 8
-            );
+                    (Math.random() - 0.5) * 8,
+                    Math.random() * 2,
+                    (Math.random() - 0.5) * 8);
             player.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, smokeLoc, 1, 0.1, 0.1, 0.1, 0.01);
         }
 
         // Braises occasionnelles
         if (Math.random() < 0.1) {
             Location emberLoc = loc.clone().add(
-                (Math.random() - 0.5) * 6,
-                1 + Math.random() * 2,
-                (Math.random() - 0.5) * 6
-            );
+                    (Math.random() - 0.5) * 6,
+                    1 + Math.random() * 2,
+                    (Math.random() - 0.5) * 6);
             player.spawnParticle(Particle.LAVA, emberLoc, 1, 0, 0, 0, 0);
         }
     }
-
 
     // ==================== BUFFS JOUEURS ====================
 
@@ -900,7 +915,8 @@ public class WeatherEffect {
      * Applique les buffs de potion aux joueurs
      */
     protected void applyPlayerBuffs() {
-        if (!type.hasPlayerBuff()) return;
+        if (!type.hasPlayerBuff())
+            return;
 
         PotionEffectType buffType = type.getBuffEffect();
         int amplifier = type.getBuffAmplifier();
@@ -908,7 +924,8 @@ public class WeatherEffect {
 
         for (Player player : cachedPlayers) {
             // Ne pas appliquer si le joueur est sous abri pendant météo dangereuse
-            if (type.isDangerous() && isPlayerSheltered(player)) continue;
+            if (type.isDangerous() && isPlayerSheltered(player))
+                continue;
 
             player.addPotionEffect(new PotionEffect(buffType, buffDuration, amplifier, true, false, true));
             buffApplications++;
@@ -920,7 +937,8 @@ public class WeatherEffect {
      */
     protected void applyRegeneration() {
         double regenAmount = type.getRegenAmount();
-        if (regenAmount <= 0) return;
+        if (regenAmount <= 0)
+            return;
 
         for (Player player : cachedPlayers) {
             double currentHealth = player.getHealth();
@@ -933,7 +951,7 @@ public class WeatherEffect {
 
                 // Effet visuel de régénération
                 player.spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0),
-                    1, 0.2, 0.2, 0.2, 0);
+                        1, 0.2, 0.2, 0.2, 0);
             }
         }
     }
@@ -943,7 +961,8 @@ public class WeatherEffect {
      */
     protected void removePlayerBuffs() {
         PotionEffectType buffType = type.getBuffEffect();
-        if (buffType == null) return;
+        if (buffType == null)
+            return;
 
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             player.removePotionEffect(buffType);
@@ -953,7 +972,8 @@ public class WeatherEffect {
     // ==================== DÉGÂTS ENVIRONNEMENTAUX ====================
 
     protected void applyEnvironmentalDamage() {
-        if (!type.isDangerous()) return;
+        if (!type.isDangerous())
+            return;
 
         for (Player player : cachedPlayers) {
             // Vérifier abri
@@ -985,10 +1005,10 @@ public class WeatherEffect {
 
                 // Avertissement périodique
                 if (tickCounter % 10 == 0) {
-                    String damageMsg = type == WeatherType.ASHFALL ?
-                        "§7(-5% HP max)" : "§7(-" + String.format("%.1f", finalDamage) + " HP)";
+                    String damageMsg = type == WeatherType.ASHFALL ? "§7(-5% HP max)"
+                            : "§7(-" + String.format("%.1f", finalDamage) + " HP)";
                     player.sendMessage(type.getColor() + type.getIcon() +
-                        " §cTrouvez un abri! " + damageMsg);
+                            " §cTrouvez un abri! " + damageMsg);
                 }
             }
         }
@@ -1024,10 +1044,11 @@ public class WeatherEffect {
     // ==================== SONS ====================
 
     protected void playAmbientSound() {
-        if (type.getAmbientSound() == null) return;
+        if (type.getAmbientSound() == null)
+            return;
 
         float volume = 0.4f;
-        float pitch = 0.9f + (float)(Math.random() * 0.2);
+        float pitch = 0.9f + (float) (Math.random() * 0.2);
 
         for (Player player : cachedPlayers) {
             player.playSound(player.getLocation(), type.getAmbientSound(), volume, pitch);
@@ -1057,15 +1078,15 @@ public class WeatherEffect {
             boolean hasBonus = false;
 
             if (type.getXpMultiplier() > 1.0) {
-                bonusMsg.append("§e+").append((int)((type.getXpMultiplier()-1)*100)).append("%XP ");
+                bonusMsg.append("§e+").append((int) ((type.getXpMultiplier() - 1) * 100)).append("%XP ");
                 hasBonus = true;
             }
             if (type.getLootMultiplier() > 1.0) {
-                bonusMsg.append("§b+").append((int)((type.getLootMultiplier()-1)*100)).append("%Loot ");
+                bonusMsg.append("§b+").append((int) ((type.getLootMultiplier() - 1) * 100)).append("%Loot ");
                 hasBonus = true;
             }
             if (type.getPlayerSpeedBonus() > 1.0) {
-                bonusMsg.append("§f+").append((int)((type.getPlayerSpeedBonus()-1)*100)).append("%Vitesse ");
+                bonusMsg.append("§f+").append((int) ((type.getPlayerSpeedBonus() - 1) * 100)).append("%Vitesse ");
                 hasBonus = true;
             }
             if (type.getRegenAmount() > 0) {
@@ -1099,10 +1120,9 @@ public class WeatherEffect {
     protected void announceEnd() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             player.sendTitle(
-                "§a§l☀ Météo Terminée",
-                "§7" + type.getDisplayName() + " se dissipe...",
-                10, 40, 20
-            );
+                    "§a§l☀ Météo Terminée",
+                    "§7" + type.getDisplayName() + " se dissipe...",
+                    10, 40, 20);
 
             player.sendMessage("§a§l☀ §7La météo §e" + type.getDisplayName() + " §7s'est dissipée.");
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
@@ -1170,11 +1190,10 @@ public class WeatherEffect {
 
     public String getDebugInfo() {
         return String.format(
-            "[%s] %s | %ds | XP:%.0f%% Loot:%.0f%% | Regen:%d Buffs:%d Dmg:%d",
-            id, type.getDisplayName(), getRemainingTimeSeconds(),
-            type.getXpMultiplier() * 100, type.getLootMultiplier() * 100,
-            totalRegenGiven, buffApplications, totalDamageDealt
-        );
+                "[%s] %s | %ds | XP:%.0f%% Loot:%.0f%% | Regen:%d Buffs:%d Dmg:%d",
+                id, type.getDisplayName(), getRemainingTimeSeconds(),
+                type.getXpMultiplier() * 100, type.getLootMultiplier() * 100,
+                totalRegenGiven, buffApplications, totalDamageDealt);
     }
 
     public String getSummary() {

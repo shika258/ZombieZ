@@ -95,7 +95,8 @@ public class SkeletonZombieAI extends ZombieAI {
             case SKELETON -> {
                 // Particules d'os occasionnelles
                 if (random.nextFloat() < 0.3f) {
-                    playParticles(Particle.BLOCK, zombie.getLocation().add(0, 0.5, 0), 2, 0.2, 0.2, 0.2);
+                    playParticles(Particle.BLOCK, zombie.getLocation().add(0, 0.5, 0), 2, 0.2, 0.2, 0.2,
+                            org.bukkit.Material.BONE_BLOCK);
                 }
             }
             case STRAY -> {
@@ -105,9 +106,10 @@ public class SkeletonZombieAI extends ZombieAI {
 
                 // Ralentir légèrement les joueurs très proches
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 3, 2, 3).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 0, false, false)));
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> p
+                                .addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 0, false, false)));
             }
         }
     }
@@ -126,7 +128,7 @@ public class SkeletonZombieAI extends ZombieAI {
         isRetreating = true;
 
         Vector retreatDir = zombie.getLocation().toVector()
-            .subtract(target.getLocation().toVector()).normalize();
+                .subtract(target.getLocation().toVector()).normalize();
 
         // Saut arrière avec variation latérale
         double lateralOffset = (random.nextDouble() - 0.5) * 0.5;
@@ -146,7 +148,8 @@ public class SkeletonZombieAI extends ZombieAI {
      * Se déplace latéralement pour éviter les attaques
      */
     private void strafe(Player target) {
-        if (System.currentTimeMillis() - lastStrafeTime < 1500) return;
+        if (System.currentTimeMillis() - lastStrafeTime < 1500)
+            return;
 
         lastStrafeTime = System.currentTimeMillis();
 
@@ -156,11 +159,12 @@ public class SkeletonZombieAI extends ZombieAI {
         }
 
         Vector toTarget = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         // Vecteur perpendiculaire pour le strafe
         Vector strafeDir = new Vector(-toTarget.getZ(), 0, toTarget.getX());
-        if (!strafeRight) strafeDir.multiply(-1);
+        if (!strafeRight)
+            strafeDir.multiply(-1);
 
         zombie.setVelocity(strafeDir.multiply(0.4).setY(0));
     }
@@ -177,21 +181,19 @@ public class SkeletonZombieAI extends ZombieAI {
         double travelTime = distance / 2.5; // Vitesse approximative de la flèche
 
         Location predictedLoc = target.getEyeLocation().add(
-            targetVelocity.getX() * travelTime * 0.5,
-            targetVelocity.getY() * travelTime * 0.3,
-            targetVelocity.getZ() * travelTime * 0.5
-        );
+                targetVelocity.getX() * travelTime * 0.5,
+                targetVelocity.getY() * travelTime * 0.3,
+                targetVelocity.getZ() * travelTime * 0.5);
 
         Vector direction = predictedLoc.toVector()
-            .subtract(eyeLoc.toVector()).normalize();
+                .subtract(eyeLoc.toVector()).normalize();
 
         // Ajouter de l'imprécision basée sur la distance et le niveau
         double accuracy = Math.max(0.02, 0.12 - (level * 0.002));
         direction.add(new Vector(
-            (random.nextDouble() - 0.5) * accuracy,
-            (random.nextDouble() - 0.5) * accuracy * 0.5,
-            (random.nextDouble() - 0.5) * accuracy
-        ));
+                (random.nextDouble() - 0.5) * accuracy,
+                (random.nextDouble() - 0.5) * accuracy * 0.5,
+                (random.nextDouble() - 0.5) * accuracy));
 
         // Son de tir
         switch (zombieType) {
@@ -201,11 +203,10 @@ public class SkeletonZombieAI extends ZombieAI {
 
         // Créer la flèche
         Arrow arrow = zombie.getWorld().spawnArrow(
-            eyeLoc.add(direction.clone().multiply(0.5)),
-            direction,
-            (float) (1.8 + level * 0.05), // Vitesse basée sur le niveau
-            0
-        );
+                eyeLoc.add(direction.clone().multiply(0.5)),
+                direction,
+                (float) (1.8 + level * 0.05), // Vitesse basée sur le niveau
+                0);
 
         arrow.setShooter(zombie);
         arrow.setDamage(zombieType.getBaseDamage() * (1 + level * 0.1));
@@ -269,8 +270,8 @@ public class SkeletonZombieAI extends ZombieAI {
                 playSound(Sound.ENTITY_SKELETON_HURT, 1f, 1.5f);
                 // Tente de repousser et fuir
                 target.setVelocity(target.getLocation().toVector()
-                    .subtract(zombie.getLocation().toVector()).normalize()
-                    .multiply(0.5).setY(0.2));
+                        .subtract(zombie.getLocation().toVector()).normalize()
+                        .multiply(0.5).setY(0.2));
             }
             case STRAY -> {
                 playSound(Sound.ENTITY_STRAY_HURT, 1f, 1.5f);
@@ -321,7 +322,8 @@ public class SkeletonZombieAI extends ZombieAI {
         switch (zombieType) {
             case SKELETON -> {
                 playSound(Sound.ENTITY_SKELETON_DEATH, 1f, 1f);
-                playParticles(Particle.BLOCK, zombie.getLocation().add(0, 0.5, 0), 20, 0.5, 0.5, 0.5);
+                playParticles(Particle.BLOCK, zombie.getLocation().add(0, 0.5, 0), 20, 0.5, 0.5, 0.5,
+                        org.bukkit.Material.BONE_BLOCK);
 
                 // Chance de dropper des os (géré par le loot system)
             }
@@ -332,12 +334,12 @@ public class SkeletonZombieAI extends ZombieAI {
 
                 // Explosion de froid à la mort
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 4, 2, 4).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-                        p.setFreezeTicks(Math.min(p.getFreezeTicks() + 60, p.getMaxFreezeTicks()));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
+                            p.setFreezeTicks(Math.min(p.getFreezeTicks() + 60, p.getMaxFreezeTicks()));
+                        });
             }
         }
     }

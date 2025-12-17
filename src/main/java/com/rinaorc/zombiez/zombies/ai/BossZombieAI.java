@@ -85,7 +85,8 @@ public class BossZombieAI extends ZombieAI {
     }
 
     private void updateBossBar() {
-        if (bossBar == null) return;
+        if (bossBar == null)
+            return;
 
         var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealth != null) {
@@ -98,21 +99,21 @@ public class BossZombieAI extends ZombieAI {
     private void updatePlayersInFight() {
         // Ajouter les joueurs proches à la bossbar
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 50, 30, 50).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                if (!playersInFight.contains(p.getUniqueId())) {
-                    playersInFight.add(p.getUniqueId());
-                    bossBar.addPlayer(p);
-                    // Notifier le système de Boss Bar Dynamique
-                    if (plugin.getDynamicBossBarManager() != null) {
-                        var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
-                        double maxHp = maxHealth != null ? maxHealth.getValue() : 100;
-                        plugin.getDynamicBossBarManager().registerBoss(p, zombie.getUniqueId(),
-                                zombieType.getDisplayName(), maxHp);
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    if (!playersInFight.contains(p.getUniqueId())) {
+                        playersInFight.add(p.getUniqueId());
+                        bossBar.addPlayer(p);
+                        // Notifier le système de Boss Bar Dynamique
+                        if (plugin.getDynamicBossBarManager() != null) {
+                            var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
+                            double maxHp = maxHealth != null ? maxHealth.getValue() : 100;
+                            plugin.getDynamicBossBarManager().registerBoss(p, zombie.getUniqueId(),
+                                    zombieType.getDisplayName(), maxHp);
+                        }
                     }
-                }
-            });
+                });
 
         // Mettre à jour la santé du boss pour le système dynamique
         if (plugin.getDynamicBossBarManager() != null) {
@@ -143,10 +144,10 @@ public class BossZombieAI extends ZombieAI {
 
     private void checkPhaseTransition() {
         double[] thresholds = switch (zombieType.getCategory()) {
-            case MINIBOSS -> new double[]{0.5, 0.2};
-            case ZONE_BOSS -> new double[]{0.66, 0.33};
-            case FINAL_BOSS -> new double[]{0.75, 0.50, 0.25};
-            default -> new double[]{0.5};
+            case MINIBOSS -> new double[] { 0.5, 0.2 };
+            case ZONE_BOSS -> new double[] { 0.66, 0.33 };
+            case FINAL_BOSS -> new double[] { 0.75, 0.50, 0.25 };
+            default -> new double[] { 0.5 };
         };
 
         maxPhases = thresholds.length + 1;
@@ -211,16 +212,21 @@ public class BossZombieAI extends ZombieAI {
     private void tickButcher() {
         // Effet de sang
         if (tickCounter % 20 == 0) {
-            playParticles(Particle.BLOCK, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3);
+            playParticles(Particle.BLOCK, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3,
+                    org.bukkit.Material.OBSIDIAN);
         }
 
         Player target = findNearestPlayer(20);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         if (canUseSpecialAttack()) {
-            if (phase == 1) cleaveAttack(target);
-            else if (phase == 2) bloodFrenzy();
-            else executionStrike(target);
+            if (phase == 1)
+                cleaveAttack(target);
+            else if (phase == 2)
+                bloodFrenzy();
+            else
+                executionStrike(target);
             useSpecialAttack();
         }
     }
@@ -232,12 +238,16 @@ public class BossZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(20);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         if (canUseSpecialAttack()) {
-            if (phase == 1) webShot(target);
-            else if (phase == 2) venomBurst(target);
-            else spiderSwarm();
+            if (phase == 1)
+                webShot(target);
+            else if (phase == 2)
+                venomBurst(target);
+            else
+                spiderSwarm();
             useSpecialAttack();
         }
     }
@@ -246,16 +256,20 @@ public class BossZombieAI extends ZombieAI {
         // Tremblement
         if (tickCounter % 40 == 0) {
             playSound(Sound.ENTITY_RAVAGER_STEP, 1f, 0.3f);
-            playParticles(Particle.BLOCK, zombie.getLocation(), 20, 1, 0.1, 1);
+            playParticles(Particle.BLOCK, zombie.getLocation(), 20, 1, 0.1, 1, org.bukkit.Material.OBSIDIAN);
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         if (canUseSpecialAttack()) {
-            if (phase == 1) groundSlam();
-            else if (phase == 2) boulderThrow(target);
-            else earthquakeWave();
+            if (phase == 1)
+                groundSlam();
+            else if (phase == 2)
+                boulderThrow(target);
+            else
+                earthquakeWave();
             useSpecialAttack();
         }
     }
@@ -268,12 +282,16 @@ public class BossZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         if (canUseSpecialAttack()) {
-            if (phase == 1) phantomDash(target);
-            else if (phase == 2) terrorScream();
-            else soulHarvest();
+            if (phase == 1)
+                phantomDash(target);
+            else if (phase == 2)
+                terrorScream();
+            else
+                soulHarvest();
             useSpecialAttack();
         }
     }
@@ -289,7 +307,8 @@ public class BossZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(30);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         // Rotation d'abilities plus complexe
         if (canUseAbility()) {
@@ -329,7 +348,8 @@ public class BossZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(40);
-        if (target == null || isExecutingPattern) return;
+        if (target == null || isExecutingPattern)
+            return;
 
         // Phase 1: Attaques de base amplifiées
         // Phase 2: Invocation de minions
@@ -362,19 +382,19 @@ public class BossZombieAI extends ZombieAI {
         playParticles(Particle.SWEEP_ATTACK, zombie.getLocation().add(0, 1, 0), 10, 2, 0.5, 2);
 
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 4, 2, 4).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.damage(15 + level * 2, zombie);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.damage(15 + level * 2, zombie);
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
+                });
     }
 
     private void bloodFrenzy() {
         playSound(Sound.ENTITY_RAVAGER_ROAR, 2f, 0.5f);
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 2, false, true));
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 1, false, true));
-        playParticles(Particle.BLOCK, zombie.getLocation(), 50, 1, 1, 1);
+        playParticles(Particle.BLOCK, zombie.getLocation(), 50, 1, 1, 1, org.bukkit.Material.OBSIDIAN);
     }
 
     private void executionStrike(Player target) {
@@ -414,16 +434,16 @@ public class BossZombieAI extends ZombieAI {
 
     private void groundSlam() {
         playSound(Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.5f);
-        playParticles(Particle.BLOCK, zombie.getLocation(), 100, 3, 0.5, 3);
+        playParticles(Particle.BLOCK, zombie.getLocation(), 100, 3, 0.5, 3, org.bukkit.Material.BLACKSTONE);
 
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 8, 3, 8).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.damage(20 + level, zombie);
-                p.setVelocity(new Vector(0, 1.5, 0));
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2));
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.damage(20 + level, zombie);
+                    p.setVelocity(new Vector(0, 1.5, 0));
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2));
+                });
     }
 
     private void boulderThrow(Player target) {
@@ -433,10 +453,10 @@ public class BossZombieAI extends ZombieAI {
         Location impactLoc = target.getLocation();
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             playSound(Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
-            playParticles(Particle.BLOCK, impactLoc, 50, 2, 1, 2);
+            playParticles(Particle.BLOCK, impactLoc, 50, 2, 1, 2, org.bukkit.Material.OBSIDIAN);
             impactLoc.getWorld().getNearbyEntities(impactLoc, 3, 3, 3).stream()
-                .filter(e -> e instanceof Player)
-                .forEach(e -> ((Player) e).damage(15, zombie));
+                    .filter(e -> e instanceof Player)
+                    .forEach(e -> ((Player) e).damage(15, zombie));
         }, 20L);
     }
 
@@ -449,16 +469,16 @@ public class BossZombieAI extends ZombieAI {
                 for (int angle = 0; angle < 360; angle += 20) {
                     double rad = Math.toRadians(angle);
                     Location loc = zombie.getLocation().add(Math.cos(rad) * radius, 0.5, Math.sin(rad) * radius);
-                    playParticles(Particle.BLOCK, loc, 5, 0.2, 0.1, 0.2);
+                    playParticles(Particle.BLOCK, loc, 5, 0.2, 0.1, 0.2, org.bukkit.Material.OBSIDIAN);
                 }
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius + 1, 2, radius + 1).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .filter(p -> Math.abs(p.getLocation().distance(zombie.getLocation()) - radius) < 2)
-                    .forEach(p -> {
-                        p.damage(10, zombie);
-                        p.setVelocity(new Vector(0, 0.8, 0));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .filter(p -> Math.abs(p.getLocation().distance(zombie.getLocation()) - radius) < 2)
+                        .forEach(p -> {
+                            p.damage(10, zombie);
+                            p.setVelocity(new Vector(0, 0.8, 0));
+                        });
             }, w * 10L);
         }
     }
@@ -482,14 +502,14 @@ public class BossZombieAI extends ZombieAI {
 
     private void soulHarvest() {
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 12, 6, 12).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                double damage = 8;
-                p.damage(damage, zombie);
-                heal(damage);
-                playParticles(Particle.SOUL, p.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    double damage = 8;
+                    p.damage(damage, zombie);
+                    heal(damage);
+                    playParticles(Particle.SOUL, p.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
+                });
         playSound(Sound.ENTITY_WITHER_SHOOT, 1.5f, 0.5f);
     }
 
@@ -515,8 +535,8 @@ public class BossZombieAI extends ZombieAI {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 playParticles(Particle.DRAGON_BREATH, center, 10, 3, 0.1, 3);
                 center.getWorld().getNearbyEntities(center, 3, 2, 3).stream()
-                    .filter(e -> e instanceof Player)
-                    .forEach(e -> ((Player) e).damage(3, zombie));
+                        .filter(e -> e instanceof Player)
+                        .forEach(e -> ((Player) e).damage(3, zombie));
             }, i);
         }
     }
@@ -547,7 +567,8 @@ public class BossZombieAI extends ZombieAI {
         for (int step = 0; step < 10; step++) {
             final int s = step;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
                 applyAreaEffect(20, PotionEffectType.WITHER, 40, 1);
                 playParticles(Particle.SOUL_FIRE_FLAME, zombie.getLocation(), 50, 5, 2, 5);
             }, step * 10L);
@@ -565,7 +586,7 @@ public class BossZombieAI extends ZombieAI {
         playSound(Sound.ENTITY_WARDEN_SONIC_BOOM, 1f, 0.8f);
 
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         Location rayLoc = zombie.getEyeLocation().clone();
         for (int i = 0; i < 25; i++) {
@@ -575,11 +596,11 @@ public class BossZombieAI extends ZombieAI {
                 playParticles(Particle.DRAGON_BREATH, currentLoc, 10, 0.3, 0.3, 0.3);
 
                 currentLoc.getWorld().getNearbyEntities(currentLoc, 1.5, 1.5, 1.5).stream()
-                    .filter(e -> e instanceof Player)
-                    .forEach(e -> {
-                        ((Player) e).damage(15 + level, zombie);
-                        ((Player) e).addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 1));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .forEach(e -> {
+                            ((Player) e).damage(15 + level, zombie);
+                            ((Player) e).addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 1));
+                        });
             }, i);
         }
     }
@@ -614,8 +635,8 @@ public class BossZombieAI extends ZombieAI {
                     Location loc = zombie.getLocation().add(Math.cos(rad) * dist, 0.5, Math.sin(rad) * dist);
                     playParticles(Particle.DRAGON_BREATH, loc, 5, 0.2, 0.2, 0.2);
                     loc.getWorld().getNearbyEntities(loc, 1, 1, 1).stream()
-                        .filter(e -> e instanceof Player)
-                        .forEach(e -> ((Player) e).damage(10, zombie));
+                            .filter(e -> e instanceof Player)
+                            .forEach(e -> ((Player) e).damage(10, zombie));
                 }
             }, (a / 30) * 5L);
         }
@@ -647,7 +668,8 @@ public class BossZombieAI extends ZombieAI {
         for (int wave = 0; wave < 8; wave++) {
             final int w = wave;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
 
                 double radius = 5 + w * 4;
                 for (int angle = 0; angle < 360; angle += 10) {
@@ -659,18 +681,18 @@ public class BossZombieAI extends ZombieAI {
 
                 // Dégâts massifs
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius + 2, 5, radius + 2).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .filter(p -> Math.abs(p.getLocation().distance(zombie.getLocation()) - radius) < 3)
-                    .forEach(p -> {
-                        p.damage(30 + level * 2, zombie);
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 2));
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 100, 0));
-                        Vector knockback = p.getLocation().toVector()
-                            .subtract(zombie.getLocation().toVector()).normalize()
-                            .multiply(2).setY(0.8);
-                        p.setVelocity(knockback);
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .filter(p -> Math.abs(p.getLocation().distance(zombie.getLocation()) - radius) < 3)
+                        .forEach(p -> {
+                            p.damage(30 + level * 2, zombie);
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 100, 2));
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 100, 0));
+                            Vector knockback = p.getLocation().toVector()
+                                    .subtract(zombie.getLocation().toVector()).normalize()
+                                    .multiply(2).setY(0.8);
+                            p.setVelocity(knockback);
+                        });
             }, w * 15L);
         }
 

@@ -83,7 +83,7 @@ public class MeleeZombieAI extends ZombieAI {
     private void tickClimber() {
         // Effet d'araignée
         if (tickCounter % 20 == 0) {
-            playParticles(Particle.BLOCK, zombie.getLocation(), 2, 0.3, 0.1, 0.3);
+            playBlockParticles(zombie.getLocation(), 2, 0.3, 0.1, 0.3);
         }
 
         // Capacité de grimper (simulé par des sauts)
@@ -113,7 +113,8 @@ public class MeleeZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(18);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
 
@@ -160,8 +161,8 @@ public class MeleeZombieAI extends ZombieAI {
 
         // Message aux joueurs proches
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 10, 15).stream()
-            .filter(e -> e instanceof Player)
-            .forEach(e -> ((Player) e).sendMessage("§c§l⚠ Le Berserker entre en FRÉNÉSIE!"));
+                .filter(e -> e instanceof Player)
+                .forEach(e -> ((Player) e).sendMessage("§c§l⚠ Le Berserker entre en FRÉNÉSIE!"));
     }
 
     /**
@@ -174,7 +175,7 @@ public class MeleeZombieAI extends ZombieAI {
 
         // Direction et vitesse
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 3, false, false));
 
@@ -191,15 +192,15 @@ public class MeleeZombieAI extends ZombieAI {
 
             // Dégâts aux joueurs sur le chemin
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 1.5, 1.5, 1.5).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    double damage = 8 + level + comboCount * 2;
-                    p.damage(damage, zombie);
-                    p.setVelocity(direction.clone().multiply(1.5).setY(0.5));
-                    isCharging = false;
-                    task.cancel();
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        double damage = 8 + level + comboCount * 2;
+                        p.damage(damage, zombie);
+                        p.setVelocity(direction.clone().multiply(1.5).setY(0.5));
+                        isCharging = false;
+                        task.cancel();
+                    });
         }, 0L, 2L);
     }
 
@@ -211,11 +212,11 @@ public class MeleeZombieAI extends ZombieAI {
 
         // Saut puissant vers le haut et vers la cible
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
         direction.setY(1.2);
         zombie.setVelocity(direction.multiply(0.8));
 
-        playParticles(Particle.BLOCK, zombie.getLocation(), 15, 0.3, 0.1, 0.3);
+        playBlockParticles(zombie.getLocation(), 15, 0.3, 0.1, 0.3);
     }
 
     /**
@@ -223,7 +224,7 @@ public class MeleeZombieAI extends ZombieAI {
      */
     private void diveBomb(Player target) {
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         zombie.setVelocity(direction.multiply(1.5));
         playSound(Sound.ENTITY_PHANTOM_SWOOP, 1.5f, 0.8f);
@@ -252,7 +253,7 @@ public class MeleeZombieAI extends ZombieAI {
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 2, false, false));
 
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
             if (!zombie.isValid() || !isCharging) {
@@ -261,24 +262,24 @@ public class MeleeZombieAI extends ZombieAI {
             }
 
             zombie.setVelocity(direction.clone().multiply(1.0).setY(0));
-            playParticles(Particle.BLOCK, zombie.getLocation(), 10, 0.5, 0.1, 0.5);
+            playBlockParticles(zombie.getLocation(), 10, 0.5, 0.1, 0.5);
             playSound(Sound.ENTITY_RAVAGER_STEP, 0.5f, 0.8f);
 
             // Dégâts et knockback massifs
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 2, 2, 2).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    double damage = 12 + level * 1.5;
-                    p.damage(damage, zombie);
-                    Vector knockback = direction.clone().multiply(2).setY(0.8);
-                    p.setVelocity(knockback);
-                    isCharging = false;
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        double damage = 12 + level * 1.5;
+                        p.damage(damage, zombie);
+                        Vector knockback = direction.clone().multiply(2).setY(0.8);
+                        p.setVelocity(knockback);
+                        isCharging = false;
 
-                    // Impact
-                    impactDamage(p.getLocation(), 3, 5);
-                    task.cancel();
-                });
+                        // Impact
+                        impactDamage(p.getLocation(), 3, 5);
+                        task.cancel();
+                    });
 
             // Timeout
             if (zombie.getLocation().distance(target.getLocation()) < 2) {
@@ -296,15 +297,15 @@ public class MeleeZombieAI extends ZombieAI {
         playParticles(Particle.SWEEP_ATTACK, zombie.getLocation().add(0, 1, 0), 5, 1, 0.5, 1);
 
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 3, 2, 3).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.damage(6 + level, zombie);
-                Vector knockback = p.getLocation().toVector()
-                    .subtract(zombie.getLocation().toVector()).normalize()
-                    .multiply(1.2).setY(0.4);
-                p.setVelocity(knockback);
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.damage(6 + level, zombie);
+                    Vector knockback = p.getLocation().toVector()
+                            .subtract(zombie.getLocation().toVector()).normalize()
+                            .multiply(1.2).setY(0.4);
+                    p.setVelocity(knockback);
+                });
     }
 
     /**
@@ -315,9 +316,9 @@ public class MeleeZombieAI extends ZombieAI {
         playParticles(Particle.EXPLOSION, loc, 3, 0.5, 0.5, 0.5);
 
         loc.getWorld().getNearbyEntities(loc, radius, radius, radius).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> p.damage(damage, zombie));
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> p.damage(damage, zombie));
     }
 
     @Override
@@ -377,7 +378,7 @@ public class MeleeZombieAI extends ZombieAI {
         // Le Ravager fait trembler le sol
         if (zombieType == ZombieType.RAVAGER) {
             playSound(Sound.ENTITY_RAVAGER_HURT, 2f, 0.5f);
-            playParticles(Particle.BLOCK, zombie.getLocation(), 50, 2, 0.5, 2);
+            playBlockParticles(zombie.getLocation(), 50, 2, 0.5, 2);
         }
     }
 }

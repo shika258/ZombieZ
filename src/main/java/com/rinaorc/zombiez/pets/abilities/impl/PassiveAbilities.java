@@ -31,7 +31,9 @@ class DetectionPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
@@ -43,7 +45,7 @@ class DetectionPassive implements PetAbility {
                 // Particules de détection
                 Location loc = entity.getLocation().add(0, 1, 0);
                 player.spawnParticle(Particle.DUST, loc, 3,
-                    new Particle.DustOptions(Color.RED, 0.5f));
+                        new Particle.DustOptions(Color.RED, 0.5f));
             }
         }
     }
@@ -66,7 +68,9 @@ class LootBonusPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     // Le bonus est appliqué via PetCombatListener
 }
@@ -88,7 +92,9 @@ class LightPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
@@ -99,26 +105,6 @@ class LightPassive implements PetAbility {
 }
 
 // ==================== RÉDUCTION DE DÉGÂTS ====================
-
-@Getter
-public class DamageReductionPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double reductionPercent;
-
-    DamageReductionPassive(String id, String name, String desc, double reduction) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.reductionPercent = reduction;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
-}
 
 // ==================== VITESSE ====================
 
@@ -137,7 +123,9 @@ class SpeedPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onEquip(Player player, PetData petData) {
@@ -173,14 +161,17 @@ class AttackPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
         long now = System.currentTimeMillis();
         long last = lastAttack.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (intervalTicks * 50)) return;
+        if (now - last < (intervalTicks * 50))
+            return;
         lastAttack.put(player.getUniqueId(), now);
 
         double adjustedDamage = damage * petData.getStatMultiplier();
@@ -220,14 +211,17 @@ class RegenPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
         long now = System.currentTimeMillis();
         long last = lastHeal.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (intervalTicks * 50)) return;
+        if (now - last < (intervalTicks * 50))
+            return;
         lastHeal.put(player.getUniqueId(), now);
 
         double adjustedHeal = healAmount * petData.getStatMultiplier();
@@ -240,26 +234,6 @@ class RegenPassive implements PetAbility {
 }
 
 // ==================== INTERCEPTION ====================
-
-@Getter
-public class InterceptPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double interceptPercent;
-
-    InterceptPassive(String id, String name, String desc, double intercept) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.interceptPercent = intercept;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
-}
 
 // ==================== ENFLAMMER ====================
 
@@ -278,7 +252,9 @@ class IgnitePassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
@@ -307,7 +283,9 @@ class SlowPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
@@ -337,16 +315,20 @@ class RebornPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onDamageReceived(Player player, PetData petData, double damage) {
-        if (player.getHealth() - damage > 0) return; // Pas mort
+        if (player.getHealth() - damage > 0)
+            return; // Pas mort
 
         long now = System.currentTimeMillis();
         long last = lastReborn.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (cooldownSeconds * 1000L)) return;
+        if (now - last < (cooldownSeconds * 1000L))
+            return;
         lastReborn.put(player.getUniqueId(), now);
 
         // Sauver de la mort
@@ -378,7 +360,9 @@ class ElementalDamagePassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     // Le bonus est appliqué via PetCombatListener
 }
@@ -400,7 +384,9 @@ class CooldownReductionPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     // Le bonus est appliqué via ClassManager/TalentManager
 }
@@ -426,14 +412,17 @@ class AuraPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
         long now = System.currentTimeMillis();
         long last = lastDamage.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < 1000) return; // 1 seconde
+        if (now - last < 1000)
+            return; // 1 seconde
         lastDamage.put(player.getUniqueId(), now);
 
         double adjustedDamage = damagePerSecond * petData.getStatMultiplier();
@@ -451,57 +440,7 @@ class AuraPassive implements PetAbility {
 
 // ==================== PARADE ====================
 
-@Getter
-public class ParryPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final int cooldownSeconds;
-    private final Map<UUID, Long> lastParry = new HashMap<>();
-
-    ParryPassive(String id, String name, String desc, int cooldown) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.cooldownSeconds = cooldown;
-        PassiveAbilityCleanup.registerForCleanup(lastParry);
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    public boolean canParry(UUID uuid) {
-        long now = System.currentTimeMillis();
-        long last = lastParry.getOrDefault(uuid, 0L);
-        return now - last >= (cooldownSeconds * 1000L);
-    }
-
-    public void triggerParry(UUID uuid) {
-        lastParry.put(uuid, System.currentTimeMillis());
-    }
-}
-
 // ==================== MULTIPLICATEUR DE DÉGÂTS ====================
-
-@Getter
-public class DamageMultiplierPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double multiplier;
-
-    DamageMultiplierPassive(String id, String name, String desc, double mult) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.multiplier = mult;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
-}
 
 // ==================== NÉCROMANCIE ====================
 
@@ -522,11 +461,14 @@ class NecromancyPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onKill(Player player, PetData petData, LivingEntity killed) {
-        if (!(killed instanceof Monster)) return;
+        if (!(killed instanceof Monster))
+            return;
 
         double adjustedChance = convertChance * petData.getStatMultiplier();
         if (Math.random() < adjustedChance) {
@@ -554,31 +496,11 @@ class HealthBonusPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via onEquip/onUnequip
-}
-
-// ==================== DÉGÂTS CRITIQUES ====================
-
-@Getter
-public class CritDamagePassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double critBonus;
-
-    CritDamagePassive(String id, String name, String desc, double bonus) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.critBonus = bonus;
+    public boolean isPassive() {
+        return true;
     }
 
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
+    // Le bonus est appliqué via onEquip/onUnequip
 }
 
 // ==================== CHAOS ====================
@@ -601,14 +523,17 @@ class ChaosPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
         long now = System.currentTimeMillis();
         long last = lastEffect.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (intervalSeconds * 1000L)) return;
+        if (now - last < (intervalSeconds * 1000L))
+            return;
         lastEffect.put(player.getUniqueId(), now);
 
         // Effet aléatoire
@@ -618,7 +543,8 @@ class ChaosPassive implements PetAbility {
         switch (effect) {
             case 0 -> player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, 1, false, false));
             case 1 -> player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, duration, 0, false, false));
-            case 2 -> player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, duration, 1, false, false));
+            case 2 ->
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, duration, 1, false, false));
             case 3 -> player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, duration, 0, false, false));
             case 4 -> {
                 // Dégâts de zone
@@ -650,7 +576,9 @@ class DebuffImmunityPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
@@ -686,14 +614,17 @@ class TeleportOnDamagePassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onDamageReceived(Player player, PetData petData, double damage) {
         long now = System.currentTimeMillis();
         long last = lastTeleport.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (cooldownSeconds * 1000L)) return;
+        if (now - last < (cooldownSeconds * 1000L))
+            return;
         lastTeleport.put(player.getUniqueId(), now);
 
         // Téléportation aléatoire
@@ -701,10 +632,9 @@ class TeleportOnDamagePassive implements PetAbility {
         double angle = Math.random() * 2 * Math.PI;
         int dist = (int) (teleportDistance * petData.getStatMultiplier());
         Location newLoc = loc.clone().add(
-            Math.cos(angle) * dist,
-            0,
-            Math.sin(angle) * dist
-        );
+                Math.cos(angle) * dist,
+                0,
+                Math.sin(angle) * dist);
 
         // Trouver une position sûre
         newLoc = findSafeLocation(newLoc);
@@ -718,14 +648,15 @@ class TeleportOnDamagePassive implements PetAbility {
 
     private Location findSafeLocation(Location loc) {
         World world = loc.getWorld();
-        if (world == null) return null;
+        if (world == null)
+            return null;
 
         int y = loc.getBlockY();
         for (int i = 0; i <= 5; i++) {
             Location check = loc.clone();
             check.setY(y + i);
             if (world.getBlockAt(check).isPassable() &&
-                world.getBlockAt(check.clone().add(0, 1, 0)).isPassable()) {
+                    world.getBlockAt(check.clone().add(0, 1, 0)).isPassable()) {
                 return check;
             }
         }
@@ -734,26 +665,6 @@ class TeleportOnDamagePassive implements PetAbility {
 }
 
 // ==================== DÉGÂTS MÊLÉE ====================
-
-@Getter
-public class MeleeDamagePassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double meleeBonus;
-
-    MeleeDamagePassive(String id, String name, String desc, double bonus) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.meleeBonus = bonus;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
-}
 
 // ==================== RÉGÉNÉRATION AVANCÉE ====================
 
@@ -778,14 +689,17 @@ class AdvancedRegenPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
         long now = System.currentTimeMillis();
         long last = lastHeal.getOrDefault(player.getUniqueId(), 0L);
 
-        if (now - last < (intervalTicks * 50)) return;
+        if (now - last < (intervalTicks * 50))
+            return;
         lastHeal.put(player.getUniqueId(), now);
 
         double adjustedHeal = healPerTick * petData.getStatMultiplier();
@@ -813,7 +727,9 @@ class AdvancedRebornPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     public boolean canReborn(UUID uuid) {
         return !usedThisLife.getOrDefault(uuid, false);
@@ -845,7 +761,9 @@ class ExecutionPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
@@ -878,7 +796,9 @@ class TrueDamagePassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     // Le bonus est appliqué via PetCombatListener
 }
@@ -900,7 +820,9 @@ class SpeedBoostPassive implements PetAbility {
     }
 
     @Override
-    public boolean isPassive() { return true; }
+    public boolean isPassive() {
+        return true;
+    }
 
     @Override
     public void onEquip(Player player, PetData petData) {
@@ -910,7 +832,8 @@ class SpeedBoostPassive implements PetAbility {
 
         // Vitesse d'attaque via potion
         int level = (int) (speedBoost * 10 * petData.getStatMultiplier());
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, Integer.MAX_VALUE, Math.min(level, 2), false, false));
+        player.addPotionEffect(
+                new PotionEffect(PotionEffectType.HASTE, Integer.MAX_VALUE, Math.min(level, 2), false, false));
     }
 
     @Override
@@ -922,57 +845,7 @@ class SpeedBoostPassive implements PetAbility {
 
 // ==================== MULTI-ATTAQUE ====================
 
-@Getter
-public class MultiAttackPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final int attackCount;
-
-    MultiAttackPassive(String id, String name, String desc, int count) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.attackCount = count;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    // Le bonus est appliqué via PetCombatListener
-}
-
 // ==================== PUISSANCE ET LENTEUR ====================
 
-@Getter
-public class PowerSlowPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double damageBonus;
-    private final double speedMalus;
-
-    PowerSlowPassive(String id, String name, String desc, double damage, double speed) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.damageBonus = damage;
-        this.speedMalus = speed;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    @Override
-    public void onEquip(Player player, PetData petData) {
-        float newSpeed = (float) Math.max(0.05, 0.2 + (0.2 * speedMalus));
-        player.setWalkSpeed(newSpeed);
-    }
-
-    @Override
-    public void onUnequip(Player player, PetData petData) {
-        player.setWalkSpeed(0.2f);
-    }
-}
-
-// PassiveAbilityCleanup class moved to its own file (PassiveAbilityCleanup.java)
+// PassiveAbilityCleanup class moved to its own file
+// (PassiveAbilityCleanup.java)

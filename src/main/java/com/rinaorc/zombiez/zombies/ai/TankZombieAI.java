@@ -98,7 +98,7 @@ public class TankZombieAI extends ZombieAI {
         // Le colosse fait trembler le sol en permanence (réduit pour performance)
         if (tickCounter % 40 == 0) {
             playSound(Sound.ENTITY_WARDEN_STEP, 0.4f, 0.6f);
-            playParticles(Particle.BLOCK, zombie.getLocation(), 5, 0.8, 0.1, 0.8);
+            playParticles(Particle.BLOCK, zombie.getLocation(), 5, 0.8, 0.1, 0.8, org.bukkit.Material.STONE);
         }
 
         // Attaque de zone massive
@@ -154,19 +154,20 @@ public class TankZombieAI extends ZombieAI {
         double damage = strong ? 6 : 2;
 
         playSound(Sound.ENTITY_WARDEN_ATTACK_IMPACT, 0.7f, strong ? 0.5f : 0.7f);
-        playParticles(Particle.BLOCK, zombie.getLocation(), strong ? 12 : 6, radius / 2, 0.1, radius / 2);
+        playParticles(Particle.BLOCK, zombie.getLocation(), strong ? 12 : 6, radius / 2, 0.1, radius / 2,
+                org.bukkit.Material.STONE);
 
         // Dégâts et knockback aux joueurs proches
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius, 2, radius).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.damage(damage, zombie);
-                Vector knockback = p.getLocation().toVector()
-                    .subtract(zombie.getLocation().toVector()).normalize()
-                    .multiply(strong ? 1.5 : 0.8).setY(0.4);
-                p.setVelocity(knockback);
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.damage(damage, zombie);
+                    Vector knockback = p.getLocation().toVector()
+                            .subtract(zombie.getLocation().toVector()).normalize()
+                            .multiply(strong ? 1.5 : 0.8).setY(0.4);
+                    p.setVelocity(knockback);
+                });
     }
 
     /**
@@ -181,7 +182,7 @@ public class TankZombieAI extends ZombieAI {
 
         // Direction de charge
         Vector chargeDir = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         // Scheduler pour la charge
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
@@ -196,15 +197,15 @@ public class TankZombieAI extends ZombieAI {
 
             // Dégâts aux joueurs sur le chemin
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 2, 2, 2).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    p.damage(8 + level, zombie);
-                    p.setVelocity(chargeDir.clone().multiply(1.2).setY(0.5));
-                    playSound(Sound.ENTITY_PLAYER_HURT, 1f, 1f);
-                    isCharging = false;
-                    task.cancel();
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        p.damage(8 + level, zombie);
+                        p.setVelocity(chargeDir.clone().multiply(1.2).setY(0.5));
+                        playSound(Sound.ENTITY_PLAYER_HURT, 1f, 1f);
+                        isCharging = false;
+                        task.cancel();
+                    });
         }, 0L, 2L);
     }
 
@@ -219,7 +220,8 @@ public class TankZombieAI extends ZombieAI {
         for (int ring = 0; ring < 3; ring++) {
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
                 double radius = 2 + r * 2.5;
                 for (int angle = 0; angle < 360; angle += 45) {
                     double rad = Math.toRadians(angle);
@@ -252,8 +254,8 @@ public class TankZombieAI extends ZombieAI {
         // Le Giant projette les joueurs
         if (zombieType == ZombieType.GIANT) {
             Vector knockback = target.getLocation().toVector()
-                .subtract(zombie.getLocation().toVector()).normalize()
-                .multiply(1.5).setY(0.6);
+                    .subtract(zombie.getLocation().toVector()).normalize()
+                    .multiply(1.5).setY(0.6);
             target.setVelocity(knockback);
         }
     }
