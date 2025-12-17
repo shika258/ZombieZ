@@ -119,7 +119,7 @@ public class TalentListener implements Listener {
         if (!(event.getEntity() instanceof LivingEntity target)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
-        if (!data.hasClass()) return;
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
         double damage = event.getDamage();
         UUID uuid = player.getUniqueId();
@@ -365,16 +365,25 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Extinction - first hit instakill (balance: seulement mobs < 50 HP)
+        // Extinction - first hit instakill (balance: seulement mobs normaux, pas les boss/elite)
         Talent extinction = getActiveTalentIfHas(player, Talent.TalentEffectType.EXTINCTION);
         if (extinction != null) {
             long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
             if (System.currentTimeMillis() - lastCombat > extinction.getValue(0)) {
                 // First hit!
                 double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+
+                // Detecter si c'est un boss/elite via metadata ZombieZ ou tags
                 boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
                                         target.getScoreboardTags().contains("elite") ||
-                                        maxHp > 50;
+                                        target.hasMetadata("zombiez_boss") ||
+                                        target.hasMetadata("zombiez_elite");
+
+                // Si pas de metadata, utiliser le seuil de HP (200+ HP = considéré comme elite)
+                if (!isBossOrElite && maxHp >= 200) {
+                    isBossOrElite = true;
+                }
+
                 if (isBossOrElite) {
                     // Boss/Elite = 25% HP (reduit de 30%)
                     damage = maxHp * Math.min(extinction.getValue(1), 0.25);
@@ -397,7 +406,7 @@ public class TalentListener implements Listener {
         if (!(event.getEntity() instanceof Player player)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
-        if (!data.hasClass()) return;
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
         double damage = event.getDamage();
         UUID uuid = player.getUniqueId();
@@ -534,7 +543,7 @@ public class TalentListener implements Listener {
         if (bloodGod != null) {
             long lastDamage = lastDamageDealt.getOrDefault(uuid, 0L);
             if (System.currentTimeMillis() - lastDamage < bloodGod.getValue(0)) {
-                double dr = Math.min(bloodGod.getValue(1), 0.50); // Cap a 50% au lieu de 70%
+                double dr = Math.min(bloodGod.getValue(1), 0.50); // Cap standardise a 50% pour toutes les classes
                 damage *= (1 - dr);
             }
         }
@@ -585,7 +594,7 @@ public class TalentListener implements Listener {
         if (!(target.getKiller() instanceof Player player)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
-        if (!data.hasClass()) return;
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
         UUID uuid = player.getUniqueId();
 
@@ -653,7 +662,7 @@ public class TalentListener implements Listener {
     public void onSprint(PlayerToggleSprintEvent event) {
         Player player = event.getPlayer();
         ClassData data = plugin.getClassManager().getClassData(player);
-        if (!data.hasClass()) return;
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
         UUID uuid = player.getUniqueId();
 

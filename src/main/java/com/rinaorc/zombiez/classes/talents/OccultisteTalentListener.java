@@ -271,7 +271,7 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.SOUL_LEGION);
             int orbs = getSoulOrbs(player);
             double drPerOrb = talent.getValue(1);
-            double totalDR = Math.min(0.40, drPerOrb * orbs); // Cap reduit de 50% a 40%
+            double totalDR = Math.min(0.50, drPerOrb * orbs); // Cap standardise a 50% pour toutes les classes
             if (totalDR > 0) {
                 event.setDamage(event.getDamage() * (1 - totalDR));
             }

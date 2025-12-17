@@ -110,6 +110,7 @@ public class ClassData {
 
     /**
      * Change la classe du joueur
+     * Reset le niveau, l'XP et les talents lors d'un changement de classe
      */
     public void changeClass(ClassType newClass) {
         if (selectedClass == newClass) return;
@@ -121,6 +122,20 @@ public class ClassData {
 
         this.selectedClass = newClass;
         this.lastClassChange = System.currentTimeMillis();
+
+        // Reset le niveau et l'XP de classe lors d'un changement
+        this.classLevel.set(1);
+        this.classXp.set(0);
+
+        // Reset les talents et la branche
+        resetTalents();
+
+        // Reset les statistiques de classe (optionnel - garde l'historique global)
+        this.classKills.set(0);
+        this.classDeaths.set(0);
+        this.damageDealt.set(0);
+        this.damageReceived.set(0);
+
         markDirty();
     }
 
@@ -223,10 +238,17 @@ public class ClassData {
     }
 
     /**
-     * Obtient tous les talents sélectionnés
+     * Obtient tous les talents sélectionnés (vue non modifiable)
      */
     public Map<TalentTier, String> getAllSelectedTalents() {
         return Collections.unmodifiableMap(selectedTalents);
+    }
+
+    /**
+     * Obtient la map interne des talents (pour chargement BDD uniquement)
+     */
+    public Map<TalentTier, String> getSelectedTalentsInternal() {
+        return selectedTalents;
     }
 
     /**
