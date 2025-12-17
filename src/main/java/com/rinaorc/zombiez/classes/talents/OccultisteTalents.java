@@ -400,7 +400,7 @@ public final class OccultisteTalents {
             .values(new double[]{0.25, 0.12, 3.0, 10000, 3.0}) // dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s
             .build());
 
-        // 4.2 - ZERO ABSOLU
+        // 4.2 - ZERO ABSOLU (nerfé: dégâts divisés par 2, max stacks augmenté à 20)
         TALENTS.add(Talent.builder()
             .id("occultiste_absolute_zero")
             .name("Zero Absolu")
@@ -409,10 +409,10 @@ public final class OccultisteTalents {
                 "§7Les ennemis avec §35+ stacks de Givre§7",
                 "§7declenchent une §bBrisure Glaciale§7:",
                 "",
-                "§8Degats: §c4%§8 PV max par stack",
-                "§8Boss/Elite: §c2%§8 PV max par stack",
-                "§8Cooldown: §e10s§8 par ennemi",
-                "§8Retire tous les stacks apres"
+                "§8Degats: §c2%§8 PV max par stack",
+                "§8Boss/Elite: §c1%§8 PV max par stack",
+                "§8Max stacks: §b20",
+                "§8Cooldown: §e10s§8 par ennemi"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -420,7 +420,7 @@ public final class OccultisteTalents {
             .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_ZERO)
-            .values(new double[]{5, 0.04, 0.02, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
+            .values(new double[]{5, 0.02, 0.01, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
             .build());
 
         // 4.3 - CONDUCTEUR

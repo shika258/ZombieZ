@@ -257,8 +257,9 @@ public class CombatListener implements Listener {
             finalDamage += iceDamage * 0.5;
         }
         if (lightningDamage > 0 && random.nextDouble() < 0.15) {
-            // 15% chance de proc lightning
-            mob.getWorld().strikeLightningEffect(mob.getLocation());
+            // 15% chance de proc lightning - animation particules au lieu de vrai éclair
+            spawnLightningParticles(mob.getLocation());
+            mob.getWorld().playSound(mob.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.6f, 1.5f);
             finalDamage += lightningDamage * 2;
         }
 
@@ -712,5 +713,34 @@ public class CombatListener implements Listener {
      */
     private boolean isZombieZMob(Entity entity) {
         return entity.hasMetadata("zombiez_type") || entity.getScoreboardTags().contains("zombiez_mob");
+    }
+
+    /**
+     * Génère une animation d'éclair en particules (remplace strikeLightningEffect)
+     * Crée un effet visuel de foudre sans le flash et le bruit intrusifs
+     */
+    private void spawnLightningParticles(Location loc) {
+        if (loc.getWorld() == null) return;
+
+        // Point de départ en hauteur
+        Location top = loc.clone().add(0, 5, 0);
+        Location bottom = loc.clone().add(0, 0.5, 0);
+
+        // Ligne principale d'éclair (END_ROD pour l'effet lumineux)
+        for (double y = 0; y <= 4.5; y += 0.3) {
+            // Légère déviation aléatoire pour effet zigzag
+            double offsetX = (Math.random() - 0.5) * 0.3;
+            double offsetZ = (Math.random() - 0.5) * 0.3;
+            Location point = top.clone().subtract(0, y, 0).add(offsetX, 0, offsetZ);
+            loc.getWorld().spawnParticle(Particle.END_ROD, point, 1, 0, 0, 0, 0);
+        }
+
+        // Impact au sol (flash électrique)
+        loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, bottom, 15, 0.4, 0.2, 0.4, 0.05);
+        loc.getWorld().spawnParticle(Particle.FIREWORK, bottom, 8, 0.3, 0.1, 0.3, 0.02);
+
+        // Lueur ambiante
+        loc.getWorld().spawnParticle(Particle.DUST, bottom.add(0, 0.5, 0), 10, 0.5, 0.5, 0.5, 0,
+            new Particle.DustOptions(Color.fromRGB(200, 220, 255), 1.2f));
     }
 }

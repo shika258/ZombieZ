@@ -182,7 +182,7 @@ public enum WeatherType {
         "§7",
         "Un brouillard dense envahit la zone... Mais chaque kill rapporte plus d'XP!",
         BarColor.WHITE,
-        Particle.CAMPFIRE_COSY_SMOKE,
+        null,  // Pas de particules, le fog natif BossBar suffit
         Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD,
         20 * 60 * 4,        // 4 minutes min
         20 * 60 * 10,       // 10 minutes max

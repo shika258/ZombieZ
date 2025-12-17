@@ -188,77 +188,84 @@ public class LootTable {
                 .build());
 
             // Zombie Tier 3 (Berserker, Shadow, Necromancer, Explosive)
+            // Nerfé: 35% → 18% pour rendre le loot plus rare et satisfaisant
             registerTable(LootTable.builder()
                 .id("zombie_tier3")
-                .baseDropChance(0.35)
+                .baseDropChance(0.18)
                 .guaranteedDrops(0)
                 .entries(List.of(
                     LootEntry.builder()
-                        .weight(50)
+                        .weight(55)
                         .minRarity(Rarity.UNCOMMON)
-                        .maxRarity(Rarity.EPIC)
-                        .rarityBoost(0.1)
+                        .maxRarity(Rarity.RARE)
+                        .rarityBoost(0.05)
                         .build(),
                     LootEntry.builder()
                         .weight(35)
                         .minRarity(Rarity.RARE)
-                        .maxRarity(Rarity.LEGENDARY)
-                        .rarityBoost(0.15)
+                        .maxRarity(Rarity.EPIC)
+                        .rarityBoost(0.1)
                         .build(),
                     LootEntry.builder()
-                        .weight(15)
+                        .weight(10)
                         .minRarity(Rarity.EPIC)
-                        .rarityBoost(0.25)
+                        .maxRarity(Rarity.LEGENDARY)
+                        .rarityBoost(0.15)
                         .build()
                 ))
                 .build());
 
             // Zombie Tier 4 (Colossus, Spectre, Ravager, Creaking)
+            // Nerfé: 50% → 22% pour rendre le loot plus rare et satisfaisant
             registerTable(LootTable.builder()
                 .id("zombie_tier4")
-                .baseDropChance(0.50)
+                .baseDropChance(0.22)
                 .guaranteedDrops(0)
                 .entries(List.of(
                     LootEntry.builder()
-                        .weight(40)
+                        .weight(50)
                         .minRarity(Rarity.RARE)
+                        .maxRarity(Rarity.EPIC)
+                        .rarityBoost(0.1)
+                        .build(),
+                    LootEntry.builder()
+                        .weight(35)
+                        .minRarity(Rarity.EPIC)
                         .maxRarity(Rarity.LEGENDARY)
                         .rarityBoost(0.15)
                         .build(),
                     LootEntry.builder()
-                        .weight(40)
-                        .minRarity(Rarity.EPIC)
-                        .rarityBoost(0.2)
-                        .build(),
-                    LootEntry.builder()
-                        .weight(20)
+                        .weight(15)
                         .minRarity(Rarity.LEGENDARY)
-                        .rarityBoost(0.3)
+                        .rarityBoost(0.2)
                         .build()
                 ))
                 .build());
 
             // Zombie Tier 5 (Corrupted Warden, Archon)
+            // Nerfé: 75% + 1 garanti → 30% sans garanti, rareté réduite
             registerTable(LootTable.builder()
                 .id("zombie_tier5")
-                .baseDropChance(0.75)
-                .guaranteedDrops(1)
+                .baseDropChance(0.30)
+                .guaranteedDrops(0)
                 .entries(List.of(
                     LootEntry.builder()
-                        .weight(30)
+                        .weight(45)
+                        .minRarity(Rarity.RARE)
+                        .maxRarity(Rarity.EPIC)
+                        .rarityBoost(0.1)
+                        .build(),
+                    LootEntry.builder()
+                        .weight(40)
                         .minRarity(Rarity.EPIC)
+                        .maxRarity(Rarity.LEGENDARY)
+                        .rarityBoost(0.15)
+                        .build(),
+                    LootEntry.builder()
+                        .weight(15)
+                        .minRarity(Rarity.LEGENDARY)
                         .maxRarity(Rarity.MYTHIC)
                         .rarityBoost(0.25)
-                        .build(),
-                    LootEntry.builder()
-                        .weight(50)
-                        .minRarity(Rarity.LEGENDARY)
-                        .rarityBoost(0.35)
-                        .build(),
-                    LootEntry.builder()
-                        .weight(20)
-                        .minRarity(Rarity.MYTHIC)
-                        .rarityBoost(0.5)
                         .build()
                 ))
                 .build());

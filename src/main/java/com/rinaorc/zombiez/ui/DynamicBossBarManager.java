@@ -161,7 +161,7 @@ public class DynamicBossBarManager {
             case FEVER -> {
                 bar.setColor(BarColor.RED);
                 bar.setStyle(BarStyle.SOLID);
-                bar.addFlag(BarFlag.CREATE_FOG);
+                bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.addFlag(BarFlag.DARKEN_SKY);
             }
             case LEVEL_UP -> {
@@ -259,11 +259,15 @@ public class DynamicBossBarManager {
         boolean pulse = (time / 250) % 2 == 0;
         String fireColor = pulse ? "§c" : "§6";
 
-        bar.setTitle(fireColor + "§l🔥 FEVER MODE 🔥 §e" + String.format("%.1fx", multiplier) +
-                " DÉGÂTS §7| §c" + streak + " KILLS");
+        // Obtenir le vrai temps restant
+        long timeRemaining = momentum.getFeverTimeRemaining(player);
+        int secondsRemaining = (int) (timeRemaining / 1000);
 
-        // Calculer le temps restant de Fever (environ 30s)
-        double feverProgress = 1.0 - ((time % 30000) / 30000.0);
+        bar.setTitle(fireColor + "§l🔥 FEVER MODE 🔥 §e" + String.format("%.1fx", multiplier) +
+                " DÉGÂTS §7| §c" + streak + " KILLS §7| §e" + secondsRemaining + "s");
+
+        // Utiliser la vraie progression
+        double feverProgress = momentum.getFeverProgress(player);
         bar.setProgress(Math.max(0.05, feverProgress));
 
         // Changer la couleur selon le temps restant
