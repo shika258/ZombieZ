@@ -72,6 +72,10 @@ public class OccultisteTalentListener implements Listener {
     // Time Stasis actif (player UUID -> end timestamp)
     private final Map<UUID, Long> timeStasisActive = new ConcurrentHashMap<>();
 
+    // Double sneak detection for Time Stasis (player UUID -> last sneak timestamp)
+    private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW_MS = 500; // 500ms pour double sneak
+
     // Ice zones (location hash -> expiry timestamp)
     private final Map<String, Long> iceZones = new ConcurrentHashMap<>();
 
@@ -416,14 +420,21 @@ public class OccultisteTalentListener implements Listener {
         if (!isOccultiste(player)) return;
 
         if (event.isSneaking()) {
-            // Time Stasis activation (crouch + jump)
+            UUID uuid = player.getUniqueId();
+
+            // Time Stasis activation (double sneak)
             if (hasTalentEffect(player, Talent.TalentEffectType.TIME_STASIS)) {
-                // Check if jumping (velocity Y > 0)
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (player.isSneaking() && player.getVelocity().getY() > 0.3) {
-                        processTimeStasis(player);
-                    }
-                }, 5L);
+                long now = System.currentTimeMillis();
+                Long lastSneak = lastSneakTime.get(uuid);
+
+                if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW_MS) {
+                    // Double sneak detected - activate Time Stasis
+                    lastSneakTime.remove(uuid);
+                    processTimeStasis(player);
+                } else {
+                    // Record this sneak for potential double sneak
+                    lastSneakTime.put(uuid, now);
+                }
             }
 
             // Voidling summon (crouch + jump)
@@ -1388,23 +1399,47 @@ public class OccultisteTalentListener implements Listener {
 
     private void processTimeStasis(Player player) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.TIME_STASIS);
-        if (!checkCooldown(player, "time_stasis", (long) talent.getValue(0))) return;
+        long cooldownMs = (long) talent.getValue(0);
+
+        // Check cooldown with feedback
+        UUID uuid = player.getUniqueId();
+        Map<String, Long> playerCooldowns = internalCooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+        Long lastUse = playerCooldowns.get("time_stasis");
+        long now = System.currentTimeMillis();
+
+        if (lastUse != null && now - lastUse < cooldownMs) {
+            // On cooldown - show remaining time
+            long remainingMs = cooldownMs - (now - lastUse);
+            int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+            sendActionBar(player, "§b❄ Stase Temporelle §8- §cCooldown: §e" + remainingSec + "s");
+            return;
+        }
+
+        // Set cooldown
+        playerCooldowns.put("time_stasis", now);
 
         long duration = (long) talent.getValue(1);
-        timeStasisActive.put(player.getUniqueId(), System.currentTimeMillis() + duration);
+        int stacksToApply = (int) talent.getValue(2);
+        timeStasisActive.put(uuid, System.currentTimeMillis() + duration);
 
-        // Freeze all nearby enemies
+        // Collect all affected enemies for ice shatter at the end
+        List<LivingEntity> frozenTargets = new ArrayList<>();
+
+        // Freeze all nearby enemies and apply frost stacks
         for (Entity entity : player.getNearbyEntities(30, 30, 30)) {
             if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                // Freeze
                 le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(duration / 50), 255, false, false, false));
                 le.setAI(false);
+                frozenTargets.add(le);
 
-                // Schedule AI restore
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (le.isValid() && !le.isDead()) {
-                        le.setAI(true);
-                    }
-                }, duration / 50);
+                // Apply frost stacks (10 stacks as per talent description)
+                int currentStacks = frostStacks.getOrDefault(le.getUniqueId(), 0);
+                frostStacks.put(le.getUniqueId(), Math.min(currentStacks + stacksToApply, MAX_FROST_STACKS));
+                frostStacksLastApplied.put(le.getUniqueId(), now);
+
+                // Visual on each enemy
+                le.getWorld().spawnParticle(Particle.SNOWFLAKE, le.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.05);
             }
         }
 
@@ -1414,8 +1449,26 @@ public class OccultisteTalentListener implements Listener {
 
         if (shouldSendTalentMessage(player)) {
             player.sendMessage("§b§l+ STASE TEMPORELLE +");
-            player.sendMessage("§7Le temps est fige pendant §b5s§7!");
+            player.sendMessage("§7Le temps est fige pendant §b" + (duration / 1000) + "s§7! §3" + stacksToApply + " stacks§7 appliques.");
         }
+
+        // Schedule AI restore and ice shatter at the end
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            for (LivingEntity le : frozenTargets) {
+                if (le.isValid() && !le.isDead()) {
+                    le.setAI(true);
+
+                    // Trigger Brisure Glaciale automatically if player has Absolute Zero talent
+                    if (hasTalentEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO)) {
+                        Talent shatterTalent = getTalentWithEffect(player, Talent.TalentEffectType.ABSOLUTE_ZERO);
+                        int stacks = frostStacks.getOrDefault(le.getUniqueId(), 0);
+                        if (stacks >= shatterTalent.getValue(0)) {
+                            triggerGlacialShatter(player, le, shatterTalent, stacks);
+                        }
+                    }
+                }
+            }
+        }, duration / 50);
     }
 
     private void processNecromancerSummon(Player player) {

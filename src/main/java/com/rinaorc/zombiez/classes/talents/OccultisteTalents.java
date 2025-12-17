@@ -978,7 +978,7 @@ public final class OccultisteTalents {
             .name("Stase Temporelle")
             .description("Gelez le temps + explosion de stacks")
             .loreLines(new String[]{
-                "§7Activation: §eCrouch + Jump§7",
+                "§7Activation: §eDouble Sneak§7",
                 "§7Gelez TOUS les ennemis §b3s§7",
                 "§7et appliquez §310 stacks§7 a chacun.",
                 "",
