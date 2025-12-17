@@ -794,7 +794,7 @@ public final class OccultisteTalents {
                 "§7un §8squelette archer§7 puissant.",
                 "",
                 "§8Stats: §c100%§8 des votres",
-                "§8Duree: §e60s§8, Max: §a8§8 squelettes",
+                "§8Duree: §e30s§8, Max: §a8§8 squelettes",
                 "§8Activation: §eSneak + Clic Droit"
             })
             .classType(ClassType.OCCULTISTE)
@@ -803,7 +803,7 @@ public final class OccultisteTalents {
             .icon(Material.SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.NECROMANCER)
-            .values(new double[]{1.0, 60000, 8}) // stats%, duration_ms, max_summons
+            .values(new double[]{1.0, 30000, 8}) // stats%, duration_ms, max_summons
             .build());
 
         // 7.5 - SINGULARITE
@@ -910,7 +910,7 @@ public final class OccultisteTalents {
                 "§7vos §5serviteurs morts-vivants§7.",
                 "",
                 "§8Stats: §c80%§8 des leurs",
-                "§8Duree: §e90s§8, Max: §a15§8 serviteurs",
+                "§8Duree: §e30s§8, Max: §a15§8 serviteurs",
                 "§8Aura de terreur et vie volee"
             })
             .classType(ClassType.OCCULTISTE)
@@ -919,7 +919,7 @@ public final class OccultisteTalents {
             .icon(Material.WITHER_SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.LORD_OF_THE_DEAD)
-            .values(new double[]{0.75, 0.80, 90000, 15}) // chance, stats%, duration_ms, max
+            .values(new double[]{0.75, 0.80, 30000, 15}) // chance, stats%, duration_ms, max
             .build());
 
         // 8.5 - DECHIRURE DIMENSIONNELLE (Dimensional Rift)

@@ -1571,8 +1571,20 @@ public class OccultisteTalentListener implements Listener {
             // Set initial target
             setMinionTarget(player, minion);
 
-            // Schedule despawn
-            long duration = (long) talent.getValue(2);
+            // Force immediate first attack after spawn to fix first attack bug
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (minion.isValid() && !minion.isDead() && minion.getTarget() != null) {
+                    LivingEntity target = minion.getTarget();
+                    if (target.isValid() && !target.isDead()) {
+                        // Force attack by dealing direct damage
+                        double damage = minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                        target.damage(damage, minion);
+                    }
+                }
+            }, 5L); // 5 ticks = 0.25s delay for first attack
+
+            // Schedule despawn - cap at 30 seconds max
+            long duration = Math.min((long) talent.getValue(2), 30000L);
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (minion.isValid() && !minion.isDead()) {
                     // Visual de despawn
@@ -1751,8 +1763,20 @@ public class OccultisteTalentListener implements Listener {
         // Set initial target
         setMinionTarget(player, minion);
 
-        // Schedule despawn
-        long duration = (long) talent.getValue(1);
+        // Force immediate first attack after spawn to fix first attack bug
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (minion.isValid() && !minion.isDead() && minion.getTarget() != null) {
+                LivingEntity target = minion.getTarget();
+                if (target.isValid() && !target.isDead()) {
+                    // Force attack by dealing direct damage
+                    double damage = minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                    target.damage(damage, minion);
+                }
+            }
+        }, 5L); // 5 ticks = 0.25s delay for first attack
+
+        // Schedule despawn - cap at 30 seconds max
+        long duration = Math.min((long) talent.getValue(1), 30000L);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (minion.isValid() && !minion.isDead()) {
                 // Visual de despawn
