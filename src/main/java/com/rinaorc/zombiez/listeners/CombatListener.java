@@ -40,24 +40,24 @@ public class CombatListener implements Listener {
     }
 
     /**
-     * Gère tous les types de dégâts sur les zombies (feu, chute, etc.)
+     * Gère tous les types de dégâts sur les mobs ZombieZ (feu, chute, etc.)
      * pour mettre à jour leur affichage de vie
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAnyEntityDamage(EntityDamageEvent event) {
         Entity victim = event.getEntity();
 
-        // Ne traiter que les zombies ZombieZ
-        if (!(victim instanceof Zombie zombie)) return;
-        if (!plugin.getZombieManager().isZombieZMob(zombie)) return;
+        // Ne traiter que les mobs ZombieZ (zombies, squelettes, etc.)
+        if (!(victim instanceof LivingEntity livingVictim)) return;
+        if (!plugin.getZombieManager().isZombieZMob(livingVictim)) return;
 
         // Ne pas traiter les dégâts d'entité (déjà gérés par onEntityDamage)
         if (event instanceof EntityDamageByEntityEvent) return;
 
         // Mettre à jour l'affichage de vie au tick suivant
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (zombie.isValid()) {
-                plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+            if (livingVictim.isValid()) {
+                plugin.getZombieManager().updateZombieHealthDisplay(livingVictim);
             }
         });
     }
@@ -116,10 +116,12 @@ public class CombatListener implements Listener {
             return;
         }
 
-        // Joueur attaque zombie
-        if (damager instanceof Player player && victim instanceof Zombie zombie) {
-            handlePlayerAttackZombie(event, player, zombie);
-            return;
+        // Joueur attaque mob ZombieZ (zombie, squelette, etc.)
+        if (damager instanceof Player player && victim instanceof LivingEntity livingVictim) {
+            if (plugin.getZombieManager().isZombieZMob(livingVictim)) {
+                handlePlayerAttackZombieZMob(event, player, livingVictim);
+                return;
+            }
         }
 
         // Joueur attaque mob passif ZombieZ
@@ -128,9 +130,11 @@ public class CombatListener implements Listener {
             return;
         }
 
-        // Zombie attaque joueur
-        if (damager instanceof Zombie zombie && victim instanceof Player player) {
-            handleZombieAttackPlayer(event, zombie, player);
+        // Mob ZombieZ attaque joueur (zombie, squelette, etc.)
+        if (damager instanceof LivingEntity livingDamager && victim instanceof Player player) {
+            if (plugin.getZombieManager().isZombieZMob(livingDamager)) {
+                handleZombieZMobAttackPlayer(event, livingDamager, player);
+            }
         }
     }
 
@@ -152,27 +156,27 @@ public class CombatListener implements Listener {
     }
 
     /**
-     * Gère les attaques de joueur sur zombie
+     * Gère les attaques de joueur sur mob ZombieZ (zombie, squelette, etc.)
      * Applique: Stats d'items, Momentum, Skills, Critiques, Effets
      */
-    private void handlePlayerAttackZombie(EntityDamageByEntityEvent event, Player player, Zombie zombie) {
+    private void handlePlayerAttackZombieZMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
         // ============ CONSUMABLE DAMAGE CHECK ============
         // Si les dégâts viennent d'un consommable, ne pas appliquer les stats d'arme
-        if (zombie.hasMetadata("zombiez_consumable_damage")) {
+        if (mob.hasMetadata("zombiez_consumable_damage")) {
             // Préparer l'indicateur pour le MONITOR (affichera les dégâts finaux après talents)
-            zombie.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-            zombie.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
-            zombie.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            mob.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+            mob.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
             // Mise à jour de l'affichage de vie
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (zombie.isValid()) {
-                    plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+                if (mob.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(mob);
                 }
             });
 
             // Enregistrer le joueur pour le loot
-            zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            mob.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
             return; // Ne pas appliquer les stats d'arme
         }
 
@@ -219,10 +223,10 @@ public class CombatListener implements Listener {
         finalDamage *= momentumMultiplier;
 
         // ============ 5. EXECUTE DAMAGE (<20% HP) ============
-        double zombieHealthPercent = zombie.getHealth() / zombie.getMaxHealth() * 100;
+        double mobHealthPercent = mob.getHealth() / mob.getMaxHealth() * 100;
         double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
 
-        if (zombieHealthPercent <= executeThreshold) {
+        if (mobHealthPercent <= executeThreshold) {
             double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
             double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
             finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
@@ -245,16 +249,16 @@ public class CombatListener implements Listener {
         double lightningDamage = playerStats.getOrDefault(StatType.LIGHTNING_DAMAGE, 0.0);
 
         if (fireDamage > 0) {
-            zombie.setFireTicks((int) (fireDamage * 20)); // Brûle
+            mob.setFireTicks((int) (fireDamage * 20)); // Brûle
             finalDamage += fireDamage * 0.5;
         }
         if (iceDamage > 0) {
-            zombie.setFreezeTicks((int) (iceDamage * 20)); // Gèle
+            mob.setFreezeTicks((int) (iceDamage * 20)); // Gèle
             finalDamage += iceDamage * 0.5;
         }
         if (lightningDamage > 0 && random.nextDouble() < 0.15) {
             // 15% chance de proc lightning
-            zombie.getWorld().strikeLightningEffect(zombie.getLocation());
+            mob.getWorld().strikeLightningEffect(mob.getLocation());
             finalDamage += lightningDamage * 2;
         }
 
@@ -278,15 +282,15 @@ public class CombatListener implements Listener {
         event.setDamage(finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
-        zombie.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-        zombie.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
-        zombie.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        mob.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        mob.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
         // Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (zombie.isValid()) {
-                plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+            if (mob.isValid()) {
+                plugin.getZombieManager().updateZombieHealthDisplay(mob);
             }
         });
 
@@ -294,11 +298,11 @@ public class CombatListener implements Listener {
         if (isCritical) {
             // Effet critique
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
-            zombie.getWorld().spawnParticle(Particle.CRIT, zombie.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+            mob.getWorld().spawnParticle(Particle.CRIT, mob.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
         }
 
         // Stocker les infos pour le loot (utilisé à la mort)
-        zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        mob.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
     }
 
     /**
@@ -366,13 +370,13 @@ public class CombatListener implements Listener {
     }
 
     /**
-     * Gère les attaques de zombie sur joueur
+     * Gère les attaques de mob ZombieZ sur joueur (zombie, squelette, etc.)
      * Applique: Réduction de dégâts, Esquive, Skills défensifs
      */
-    private void handleZombieAttackPlayer(EntityDamageByEntityEvent event, Zombie zombie, Player player) {
+    private void handleZombieZMobAttackPlayer(EntityDamageByEntityEvent event, LivingEntity mob, Player player) {
         // Vérifier si c'est un clone d'ombre allié - ne pas infliger de dégâts au joueur
-        if (zombie.hasMetadata("zombiez_friendly_clone")) {
-            String ownerUuid = zombie.getMetadata("zombiez_friendly_clone").get(0).asString();
+        if (mob.hasMetadata("zombiez_friendly_clone")) {
+            String ownerUuid = mob.getMetadata("zombiez_friendly_clone").get(0).asString();
             // Les clones ne peuvent pas attaquer leur propriétaire ni les autres joueurs
             event.setCancelled(true);
             return;
@@ -413,8 +417,8 @@ public class CombatListener implements Listener {
         // ============ THORNS (Épines) ============
         double thorns = playerStats.getOrDefault(StatType.THORNS, 0.0);
         if (thorns > 0) {
-            zombie.damage(thorns, player);
-            zombie.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, zombie.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2);
+            mob.damage(thorns, player);
+            mob.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, mob.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2);
         }
 
         event.setDamage(finalDamage);
@@ -430,23 +434,23 @@ public class CombatListener implements Listener {
 
         if (killer == null) return;
 
-        // Zombie tué par un joueur
-        if (entity instanceof Zombie zombie) {
-            handleZombieDeath(killer, zombie);
+        // Mob ZombieZ tué par un joueur (zombie, squelette, etc.)
+        if (plugin.getZombieManager().isZombieZMob(entity)) {
+            handleZombieZMobDeath(killer, entity);
         }
     }
 
     /**
-     * Gère la mort d'un zombie
+     * Gère la mort d'un mob ZombieZ (zombie, squelette, etc.)
      */
-    private void handleZombieDeath(Player killer, Zombie zombie) {
+    private void handleZombieZMobDeath(Player killer, LivingEntity mob) {
         Zone zone = plugin.getZoneManager().getPlayerZone(killer);
         int zombieLevel = zone != null ? zone.getZombieLevelAt(killer.getLocation().getBlockZ()) : 1;
 
-        // Déterminer le type de zombie depuis les métadonnées
+        // Déterminer le type de mob depuis les métadonnées
         String zombieType = "WALKER";
-        if (zombie.hasMetadata("zombiez_type")) {
-            zombieType = zombie.getMetadata("zombiez_type").get(0).asString();
+        if (mob.hasMetadata("zombiez_type")) {
+            zombieType = mob.getMetadata("zombiez_type").get(0).asString();
         }
 
         // ============ ENREGISTRER LE KILL DANS MOMENTUM ============
@@ -594,16 +598,14 @@ public class CombatListener implements Listener {
             finalDamage *= headshotMultiplier;
         }
 
-        // ============ 6. EXECUTE DAMAGE (<20% HP) - pour zombies uniquement ============
-        if (victim instanceof Zombie zombie) {
-            double zombieHealthPercent = zombie.getHealth() / zombie.getMaxHealth() * 100;
-            double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+        // ============ 6. EXECUTE DAMAGE (<20% HP) - pour tous les mobs ZombieZ ============
+        double mobHealthPercent = victim.getHealth() / victim.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
 
-            if (zombieHealthPercent <= executeThreshold) {
-                double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
-                double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
-                finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
-            }
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
         }
 
         // ============ 7. BERSERKER (<30% HP joueur) ============
@@ -646,16 +648,16 @@ public class CombatListener implements Listener {
             victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
         }
 
-        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ZOMBIE ============
-        if (victim instanceof Zombie zombie && plugin.getZombieManager().isZombieZMob(zombie)) {
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE MOB ZOMBIEZ ============
+        if (plugin.getZombieManager().isZombieZMob(victim)) {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (zombie.isValid()) {
-                    plugin.getZombieManager().updateZombieHealthDisplay(zombie);
+                if (victim.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(victim);
                 }
             });
 
             // Stocker les infos pour le loot (utilisé à la mort)
-            zombie.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            victim.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
         }
     }
 

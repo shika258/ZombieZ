@@ -2,8 +2,8 @@ package com.rinaorc.zombiez.weather;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -35,15 +35,16 @@ public class WeatherListener implements Listener {
     }
 
     /**
-     * Modifie les dégâts des zombies selon la météo actuelle
+     * Modifie les dégâts des mobs ZombieZ selon la météo actuelle
      */
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // Vérifier si c'est un zombie qui attaque un joueur
+        // Vérifier si c'est un mob ZombieZ qui attaque un joueur
         Entity damager = event.getDamager();
         Entity victim = event.getEntity();
 
-        if (!(damager instanceof Zombie) || !(victim instanceof Player)) {
+        // Vérifier si c'est un mob ZombieZ (zombie, squelette, etc.) qui attaque un joueur
+        if (!(damager instanceof LivingEntity) || !damager.hasMetadata("zombiez_type") || !(victim instanceof Player)) {
             return;
         }
 
