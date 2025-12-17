@@ -101,7 +101,7 @@ class LightPassive implements PetAbility {
 // ==================== RÉDUCTION DE DÉGÂTS ====================
 
 @Getter
-class DamageReductionPassive implements PetAbility {
+public class DamageReductionPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -242,7 +242,7 @@ class RegenPassive implements PetAbility {
 // ==================== INTERCEPTION ====================
 
 @Getter
-class InterceptPassive implements PetAbility {
+public class InterceptPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -452,7 +452,7 @@ class AuraPassive implements PetAbility {
 // ==================== PARADE ====================
 
 @Getter
-class ParryPassive implements PetAbility {
+public class ParryPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -484,7 +484,7 @@ class ParryPassive implements PetAbility {
 // ==================== MULTIPLICATEUR DE DÉGÂTS ====================
 
 @Getter
-class DamageMultiplierPassive implements PetAbility {
+public class DamageMultiplierPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -562,7 +562,7 @@ class HealthBonusPassive implements PetAbility {
 // ==================== DÉGÂTS CRITIQUES ====================
 
 @Getter
-class CritDamagePassive implements PetAbility {
+public class CritDamagePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -736,7 +736,7 @@ class TeleportOnDamagePassive implements PetAbility {
 // ==================== DÉGÂTS MÊLÉE ====================
 
 @Getter
-class MeleeDamagePassive implements PetAbility {
+public class MeleeDamagePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -923,7 +923,7 @@ class SpeedBoostPassive implements PetAbility {
 // ==================== MULTI-ATTAQUE ====================
 
 @Getter
-class MultiAttackPassive implements PetAbility {
+public class MultiAttackPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -945,7 +945,7 @@ class MultiAttackPassive implements PetAbility {
 // ==================== PUISSANCE ET LENTEUR ====================
 
 @Getter
-class PowerSlowPassive implements PetAbility {
+public class PowerSlowPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
