@@ -161,7 +161,7 @@ public class DynamicBossBarManager {
             case FEVER -> {
                 bar.setColor(BarColor.RED);
                 bar.setStyle(BarStyle.SOLID);
-                bar.addFlag(BarFlag.CREATE_FOG);
+                bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.addFlag(BarFlag.DARKEN_SKY);
             }
             case LEVEL_UP -> {
