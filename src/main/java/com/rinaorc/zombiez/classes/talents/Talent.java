@@ -204,62 +204,62 @@ public class Talent {
         FROST_BITE,              // Slow on attack
         CHAIN_LIGHTNING,         // Chain lightning proc
         SOUL_SIPHON,             // Heal on kill + soul orbs
-        VOID_BOLT,               // Special void projectile
+        SHADOW_WORD,             // Shadow DoT + Insanity generation
 
         // === OCCULTISTE - Tier 2 ===
         FIRE_SPREAD,             // Fire spreads to nearby enemies
         FROZEN_HEART,            // Frozen enemies take more damage + shatter
         OVERCHARGE,              // Lightning can crit + bonus target
         SOUL_RESERVOIR,          // Consume souls for burst damage
-        VOID_INSTABILITY,        // Void bolts explode
+        VAMPIRIC_TOUCH,          // Second DoT + heal on damage
 
         // === OCCULTISTE - Tier 3 ===
         FIRESTORM,               // Meteor proc on attack
         BLIZZARD,                // Frozen enemies create freeze aura
         LIGHTNING_STORM,         // Passive lightning around you
         SOUL_PACT,               // Damage per soul orb
-        DIMENSIONAL_RIFT,        // Void bolts leave rifts
+        SHADOWY_APPARITIONS,     // Phantasms attack DoT targets
 
         // === OCCULTISTE - Tier 4 ===
         PHOENIX_FLAME,           // Fire kills can explode
         ABSOLUTE_ZERO,           // Deep freeze execute
         CONDUCTOR,               // Lightning heals you
         ETERNAL_HARVEST,         // Soul orbs regen HP
-        VOID_ANCHOR,             // Rifts pull enemies
+        INSANITY,                // Insanity boosts void damage
 
         // === OCCULTISTE - Tier 5 ===
         FIRE_AVATAR,             // Fire aura around you
         FROST_LORD,              // 100% freeze chance, double duration
         THUNDER_GOD,             // Unlimited chain targets
         SOUL_LEGION,             // 10 orbs + DR per orb
-        VOID_MASTER,             // Detonate rifts for damage
+        VOID_ERUPTION,           // Massive burst + enter Voidform
 
         // === OCCULTISTE - Tier 6 (Niveau 25 - Ascension) ===
         PYROCLASM,               // Fire kills explode in chain reaction
         PERMAFROST,              // Frozen enemies slow nearby enemies
         STATIC_FIELD,            // Lightning creates damaging field
         SOUL_BOND,               // Soul orbs share damage taken
-        VOID_CORRUPTION,         // Void bolts corrupt enemies
+        VOIDFORM,                // Transformation state with damage boost
 
         // === OCCULTISTE - Tier 7 ===
         INFERNO,                 // Periodic fire nova
         ICE_AGE,                 // Frost zones on kill
         PERPETUAL_STORM,         // Lightning storm aura
         NECROMANCER,             // Summon skeletons from souls
-        CORRUPTED_DIMENSION,     // 25% damage dodge chance
+        PSYCHIC_HORROR,          // Periodic fear/stun nearby enemies
 
-        // === OCCULTISTE - Tier 7 ===
+        // === OCCULTISTE - Tier 8 ===
         BLACK_SUN,               // Summon damaging fire sun
         ETERNAL_WINTER,          // Permanent slow aura + damage bonus
         MJOLNIR,                 // Triple strike lightning
         LORD_OF_THE_DEAD,        // Raise killed enemies as minions
-        BLACK_HOLE,              // Merge rifts into black hole
+        VOIDLING,                // Summon void entity
 
-        // === OCCULTISTE - Tier 8 ===
+        // === OCCULTISTE - Tier 9 ===
         METEOR_RAIN,             // Periodic massive meteor shower
         TIME_STASIS,             // Freeze all enemies in time
         DIVINE_JUDGMENT,         // Screen-wide lightning strike
         IMMORTAL_ARMY,           // Minions respawn + buffed
-        ERASURE                  // Instakill zone (bosses = 70% HP)
+        DARK_ASCENSION           // Ultimate: instant Voidform + reset DoTs
     }
 }

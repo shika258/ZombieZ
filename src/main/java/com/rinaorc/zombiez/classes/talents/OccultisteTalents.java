@@ -119,26 +119,26 @@ public final class OccultisteTalents {
             .values(new double[]{0.03, 5}) // heal%, max_orbs
             .build());
 
-        // 1.5 - PROJECTILE DU VIDE
+        // 1.5 - MOT DE L'OMBRE (Shadow Word: Pain)
         TALENTS.add(Talent.builder()
-            .id("occultiste_void_bolt")
-            .name("Projectile du Vide")
-            .description("20% chance de projectile du vide")
+            .id("occultiste_shadow_word")
+            .name("Mot de l'Ombre")
+            .description("30% chance d'appliquer un DOT d'ombre")
             .loreLines(new String[]{
-                "§7§e20%§7 de chance que votre",
-                "§7attaque soit remplacee par un",
-                "§5projectile du vide§7.",
+                "§7Vos attaques ont §e30%§7 de chance",
+                "§7d'appliquer un §5DOT d'ombre§7.",
                 "",
-                "§8Degats: §c150%§8 de base",
-                "§8Traverse tous les ennemis"
+                "§8Degats: §c15%§8 base/s pendant §a4s",
+                "§8Genere §d+5 Insanity§8 par tick",
+                "§8Synergie: Shadow Priest core"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
             .slotIndex(4)
-            .icon(Material.ENDER_PEARL)
+            .icon(Material.WITHER_ROSE)
             .iconColor("§5")
-            .effectType(Talent.TalentEffectType.VOID_BOLT)
-            .values(new double[]{0.20, 1.50}) // chance, damage%
+            .effectType(Talent.TalentEffectType.SHADOW_WORD)
+            .values(new double[]{0.30, 0.15, 4.0, 5}) // chance, damage%/s, duration_s, insanity_per_tick
             .internalCooldownMs(500)
             .build());
     }
@@ -230,25 +230,26 @@ public final class OccultisteTalents {
             .values(new double[]{1.0}) // damage_per_orb%
             .build());
 
-        // 2.5 - INSTABILITE DU VOID
+        // 2.5 - TOUCHER VAMPIRIQUE (Vampiric Touch)
         TALENTS.add(Talent.builder()
-            .id("occultiste_void_instability")
-            .name("Instabilite du Void")
-            .description("Les Void Bolts explosent")
+            .id("occultiste_vampiric_touch")
+            .name("Toucher Vampirique")
+            .description("2eme DOT + soin sur degats d'ombre")
             .loreLines(new String[]{
-                "§7Les §5Void Bolts§7 explosent",
-                "§7a l'impact.",
+                "§7Les ennemis avec §5Mot de l'Ombre§7",
+                "§7recoivent un §d2eme DOT§7.",
                 "",
-                "§8Rayon: 3 blocs",
-                "§8Degats AoE: §c80%§8 base"
+                "§8Degats: §c10%§8 base/s pendant §a6s",
+                "§8Vous §asoigne§8 pour §a25%§8 des degats",
+                "§8infliges par vos DOTs d'ombre"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
             .slotIndex(4)
-            .icon(Material.END_CRYSTAL)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.VOID_INSTABILITY)
-            .values(new double[]{3.0, 0.80}) // radius, aoe_damage%
+            .icon(Material.GHAST_TEAR)
+            .iconColor("§d")
+            .effectType(Talent.TalentEffectType.VAMPIRIC_TOUCH)
+            .values(new double[]{0.10, 6.0, 0.25}) // damage%/s, duration_s, heal%
             .build());
     }
 
@@ -341,26 +342,27 @@ public final class OccultisteTalents {
             .values(new double[]{0.05}) // damage_per_orb%
             .build());
 
-        // 3.5 - RIFT DIMENSIONNEL
+        // 3.5 - APPARITIONS D'OMBRE (Shadowy Apparitions)
         TALENTS.add(Talent.builder()
-            .id("occultiste_dimensional_rift")
-            .name("Rift Dimensionnel")
-            .description("Projectiles du Vide laissent une faille")
+            .id("occultiste_shadowy_apparitions")
+            .name("Apparitions d'Ombre")
+            .description("Les DOT generent des apparitions fantomes")
             .loreLines(new String[]{
-                "§7Les §5Projectiles du Vide§7 laissent",
-                "§7une faille qui tire sur les ennemis.",
+                "§7Les ennemis affectes par vos",
+                "§5DOTs d'ombre§7 generent des",
+                "§8apparitions fantomes§7 qui les attaquent.",
                 "",
-                "§8Duree: 3s",
-                "§8Intervalle: 1 tir/s",
-                "§8Degats: §c50%§8 de base"
+                "§8Intervalle: Toutes les §a2s",
+                "§8Degats: §c50%§8 de base",
+                "§8Genere §d+3 Insanity§8 par hit"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
             .slotIndex(4)
-            .icon(Material.CRYING_OBSIDIAN)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.DIMENSIONAL_RIFT)
-            .values(new double[]{3000, 1000, 0.50}) // duration_ms, tick_ms, damage%
+            .icon(Material.PHANTOM_MEMBRANE)
+            .iconColor("§8")
+            .effectType(Talent.TalentEffectType.SHADOWY_APPARITIONS)
+            .values(new double[]{2000, 0.50, 3}) // spawn_interval_ms, damage%, insanity
             .build());
     }
 
@@ -450,25 +452,26 @@ public final class OccultisteTalents {
             .values(new double[]{0.01}) // regen_per_orb%
             .build());
 
-        // 4.5 - ANCRE DU VIDE
+        // 4.5 - FOLIE (Insanity)
         TALENTS.add(Talent.builder()
-            .id("occultiste_void_anchor")
-            .name("Ancre du Vide")
-            .description("Les failles attirent les ennemis")
+            .id("occultiste_insanity")
+            .name("Folie")
+            .description("L'Insanity augmente vos degats d'ombre")
             .loreLines(new String[]{
-                "§7Les §5failles dimensionnelles§7",
-                "§7attirent les ennemis vers elles.",
+                "§7Votre §dInsanity§7 accumulee",
+                "§7augmente tous vos §5degats d'ombre§7.",
                 "",
-                "§8Attraction: 30% de leur vitesse",
-                "§8vers le centre"
+                "§8Bonus: §c+1%§8 degats par point",
+                "§8Max: §d100 Insanity§8 = §c+100%§8 degats",
+                "§8L'Insanity decay §c-2/s§8 hors combat"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
             .slotIndex(4)
-            .icon(Material.LODESTONE)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.VOID_ANCHOR)
-            .values(new double[]{0.30}) // pull_strength
+            .icon(Material.DRAGON_BREATH)
+            .iconColor("§d")
+            .effectType(Talent.TalentEffectType.INSANITY)
+            .values(new double[]{0.01, 100, 2}) // damage_per_insanity%, max_insanity, decay_per_second
             .build());
     }
 
@@ -560,25 +563,26 @@ public final class OccultisteTalents {
             .values(new double[]{10, 0.05}) // max_orbs, dr_per_orb
             .build());
 
-        // 5.5 - MAITRE DU VIDE
+        // 5.5 - EXPLOSION DU VIDE (Void Eruption)
         TALENTS.add(Talent.builder()
-            .id("occultiste_void_master")
-            .name("Maitre du Vide")
-            .description("Detonez les failles")
+            .id("occultiste_void_eruption")
+            .name("Explosion du Vide")
+            .description("Explosion massive + entree en Voidform")
             .loreLines(new String[]{
-                "§7Tirez dans une §5faille§7 pour",
-                "§7la faire exploser.",
+                "§7Activation: §eCrouch + Attaque§7",
+                "§7Necessite §d50+ Insanity§7.",
                 "",
-                "§8Degats: §c300%§8 de base",
-                "§8Rayon: 5 blocs"
+                "§8Explosion: §c200%§8 + §c5%§8 par Insanity",
+                "§8Rayon: §e6§8 blocs",
+                "§8Entre en §5Voidform§8 pendant §a8s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
             .slotIndex(4)
-            .icon(Material.RESPAWN_ANCHOR)
+            .icon(Material.END_CRYSTAL)
             .iconColor("§5")
-            .effectType(Talent.TalentEffectType.VOID_MASTER)
-            .values(new double[]{3.0, 5.0}) // damage_multiplier, radius
+            .effectType(Talent.TalentEffectType.VOID_ERUPTION)
+            .values(new double[]{50, 2.0, 0.05, 6.0, 8000}) // min_insanity, base_damage%, damage_per_insanity%, radius, voidform_duration_ms
             .build());
     }
 
@@ -674,26 +678,28 @@ public final class OccultisteTalents {
             .values(new double[]{0.05, 50}) // absorption_per_orb, max_absorb_per_orb
             .build());
 
-        // 6.5 - CORRUPTION DU VIDE
+        // 6.5 - FORME DU VIDE (Voidform)
         TALENTS.add(Talent.builder()
-            .id("occultiste_void_corruption")
-            .name("Corruption du Vide")
-            .description("Void Bolts corrompent: -20% degats infliges")
+            .id("occultiste_voidform")
+            .name("Forme du Vide")
+            .description("Etat de transformation puissant")
             .loreLines(new String[]{
-                "§7Les §5Void Bolts§7 corrompent",
-                "§7les ennemis touches.",
+                "§7En §5Voidform§7, vous gagnez:",
                 "",
-                "§8Effet: §c-20%§8 degats infliges",
-                "§8Duree: §a4s",
-                "§8Synergie: Debuff du vide"
+                "§8• §c+30%§8 degats d'ombre",
+                "§8• DOTs tick §a50%§8 plus vite",
+                "§8• §d+2 Insanity§8 par seconde",
+                "",
+                "§8Drain: §c-5 Insanity/s§8",
+                "§8Sort a §d0 Insanity"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
             .slotIndex(4)
-            .icon(Material.CHORUS_FRUIT)
+            .icon(Material.CRYING_OBSIDIAN)
             .iconColor("§5")
-            .effectType(Talent.TalentEffectType.VOID_CORRUPTION)
-            .values(new double[]{0.20, 4000}) // damage_reduction%, duration_ms
+            .effectType(Talent.TalentEffectType.VOIDFORM)
+            .values(new double[]{0.30, 0.50, 2, 5}) // damage_bonus%, dot_speed_bonus%, insanity_gain/s, insanity_drain/s
             .build());
     }
 
@@ -788,25 +794,26 @@ public final class OccultisteTalents {
             .values(new double[]{0.50, 10000, 5}) // stats%, duration_ms, max_summons
             .build());
 
-        // 6.5 - DIMENSION CORROMPUE
+        // 7.5 - TOURMENT PSYCHIQUE (Psychic Horror)
         TALENTS.add(Talent.builder()
-            .id("occultiste_corrupted_dimension")
-            .name("Dimension Corrompue")
-            .description("25% chance d'eviter les degats")
+            .id("occultiste_psychic_horror")
+            .name("Tourment Psychique")
+            .description("Terrorisez periodiquement les ennemis")
             .loreLines(new String[]{
-                "§7Vous existez partiellement",
-                "§7dans le §5vide§7.",
+                "§7Toutes les §e8s§7, vous emettez",
+                "§7une vague de §5terreur psychique§7.",
                 "",
-                "§8§e25%§8 de chance d'ignorer",
-                "§8completement les degats"
+                "§8Rayon: §e5§8 blocs",
+                "§8Effet: §cStun 2s§8 + §c-30%§8 degats",
+                "§8Duree debuff: §a4s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
             .slotIndex(4)
-            .icon(Material.OBSIDIAN)
+            .icon(Material.SCULK_SHRIEKER)
             .iconColor("§5")
-            .effectType(Talent.TalentEffectType.CORRUPTED_DIMENSION)
-            .values(new double[]{0.25}) // dodge_chance
+            .effectType(Talent.TalentEffectType.PSYCHIC_HORROR)
+            .values(new double[]{8000, 5.0, 2000, 0.30, 4000}) // cooldown_ms, radius, stun_ms, damage_reduction%, debuff_duration_ms
             .build());
     }
 
@@ -899,25 +906,27 @@ public final class OccultisteTalents {
             .values(new double[]{0.50, 0.30, 15000, 10}) // chance, stats%, duration_ms, max
             .build());
 
-        // 7.5 - TROU NOIR
+        // 8.5 - DEVOREUR DU VIDE (Voidling/Shadowfiend)
         TALENTS.add(Talent.builder()
-            .id("occultiste_black_hole")
-            .name("Trou Noir")
-            .description("Les failles fusionnent")
+            .id("occultiste_voidling")
+            .name("Devoreur du Vide")
+            .description("Invoquez une entite du vide")
             .loreLines(new String[]{
-                "§7§e3+ failles§7 proches fusionnent",
-                "§7en un §5trou noir§7 devastateur.",
+                "§7Activation: §eCrouch + Jump§7",
+                "§7Invoquez un §5Devoreur du Vide§7",
+                "§7qui attaque vos ennemis.",
                 "",
-                "§8Degats: §c500%§8 sur 5s",
-                "§8Aspire tous les ennemis"
+                "§8Degats: §c80%§8 base/attaque",
+                "§8Genere §d+5 Insanity§8 par attaque",
+                "§8Duree: §a15s§8, Cooldown: §e45s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.BLACK_CONCRETE)
-            .iconColor("§0")
-            .effectType(Talent.TalentEffectType.BLACK_HOLE)
-            .values(new double[]{3, 5.0, 5000, 5.0}) // rifts_needed, damage_multiplier, duration_ms, radius
+            .icon(Material.ENDERMAN_SPAWN_EGG)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.VOIDLING)
+            .values(new double[]{45000, 15000, 0.80, 5}) // cooldown_ms, duration_ms, damage%, insanity_per_hit
             .build());
     }
 
@@ -1008,26 +1017,28 @@ public final class OccultisteTalents {
             .values(new double[]{5000, 0.50}) // respawn_ms, stat_buff%
             .build());
 
-        // 8.5 - EFFACEMENT
+        // 9.5 - ASCENSION SOMBRE (Dark Ascension)
         TALENTS.add(Talent.builder()
-            .id("occultiste_erasure")
-            .name("Effacement")
-            .description("Zone d'instakill")
+            .id("occultiste_dark_ascension")
+            .name("Ascension Sombre")
+            .description("Ultimate: Voidform instantanee + reset DOTs")
             .loreLines(new String[]{
-                "§7Activation: §eCrouch + Attack§7 (5s charge)",
-                "§7Creez une zone de §5neant§7.",
+                "§7Activation: §eCrouch + Jump§7 (maintenu 2s)",
+                "§7Ascendez dans le §5vide§7!",
                 "",
-                "§8Zone: 10 blocs, Duree: 3s",
-                "§8Effet: Instakill (Boss: 70% HP)",
-                "§8Cooldown: 120s"
+                "§8• Insanity §dreset a 100§8",
+                "§8• Entre en §5Voidform§8 immediatement",
+                "§8• Reset tous les DOTs actifs",
+                "§8• §c+50%§8 duree DOT pendant §a10s",
+                "§8Cooldown: §e90s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
             .slotIndex(4)
-            .icon(Material.BARRIER)
+            .icon(Material.NETHER_STAR)
             .iconColor("§5")
-            .effectType(Talent.TalentEffectType.ERASURE)
-            .values(new double[]{120000, 5000, 3000, 10, 0.70}) // cooldown_ms, charge_ms, duration_ms, radius, boss_damage%
+            .effectType(Talent.TalentEffectType.DARK_ASCENSION)
+            .values(new double[]{90000, 2000, 100, 10000, 0.50}) // cooldown_ms, charge_ms, insanity_set, buff_duration_ms, dot_duration_bonus%
             .build());
     }
 
