@@ -57,12 +57,13 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frost_bite")
             .name("Givre Mordant")
-            .description("25% chance de geler l'ennemi")
+            .description("20% chance de geler l'ennemi")
             .loreLines(new String[]{
-                "§7Vos attaques ont §e25%§7 de chance",
+                "§7Vos attaques ont §e20%§7 de chance",
                 "§7de §bgeler§7 l'ennemi.",
                 "",
-                "§8Ralentissement: §b50%§8 pendant 2s",
+                "§8Ralentissement: §b40%§8 pendant 2s",
+                "§8Accumule des §3stacks de Givre§8",
                 "§8Synergie: Mage de givre"
             })
             .classType(ClassType.OCCULTISTE)
@@ -71,8 +72,8 @@ public final class OccultisteTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.FROST_BITE)
-            .values(new double[]{0.25, 0.50, 2.0}) // chance, slow%, duration_s
-            .internalCooldownMs(500)
+            .values(new double[]{0.20, 0.40, 2.0, 1}) // chance, slow%, duration_s, frost_stacks
+            .internalCooldownMs(600)
             .build());
 
         // 1.3 - ARC ELECTRIQUE
@@ -171,13 +172,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frozen_heart")
             .name("Coeur de Glace")
-            .description("Geles prennent +30% degats + brisure")
+            .description("Geles prennent +20% degats + brisure")
             .loreLines(new String[]{
                 "§7Les ennemis §bgeles§7 prennent",
-                "§c+30%§7 de degats.",
+                "§c+20%§7 de degats.",
                 "",
+                "§8Chaque §3stack de Givre§8: §c+5%§8 bonus",
                 "§8Si tues pendant le gel:",
-                "§8Explosion de glace (3 blocs)"
+                "§8Explosion de glace (2.5 blocs)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -185,7 +187,7 @@ public final class OccultisteTalents {
             .icon(Material.PRISMARINE_CRYSTALS)
             .iconColor("§3")
             .effectType(Talent.TalentEffectType.FROZEN_HEART)
-            .values(new double[]{0.30, 3.0}) // bonus_damage%, shatter_radius
+            .values(new double[]{0.20, 2.5, 0.05}) // bonus_damage%, shatter_radius, bonus_per_stack
             .build());
 
         // 2.3 - SURCHARGE
@@ -285,10 +287,11 @@ public final class OccultisteTalents {
             .description("Les geles creent une aura de froid")
             .loreLines(new String[]{
                 "§7Les ennemis §bgeles§7 generent",
-                "§7une aura qui gele les autres.",
+                "§7une aura qui §bralentit§7 les autres.",
                 "",
-                "§8Rayon aura: 3 blocs",
-                "§8Duree: Tant qu'ils sont geles"
+                "§8Rayon aura: 2.5 blocs",
+                "§8Slow: §b30%§8 (ne gele pas)",
+                "§8Ajoute §3+1 stack de Givre§8/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -296,7 +299,7 @@ public final class OccultisteTalents {
             .icon(Material.POWDER_SNOW_BUCKET)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.BLIZZARD)
-            .values(new double[]{3.0}) // aura_radius
+            .values(new double[]{2.5, 0.30, 1}) // aura_radius, slow%, stacks_per_second
             .build());
 
         // 3.3 - TEMPETE ELECTRIQUE
@@ -394,13 +397,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_absolute_zero")
             .name("Zero Absolu")
-            .description("Gel 3s+ = instakill ou 500% degats")
+            .description("Brisure de glace sur ennemis a 5+ stacks")
             .loreLines(new String[]{
-                "§7Ennemis geles §b3s+§7:",
-                "§7- Petits: §cInstakill",
-                "§7- Gros/Boss: §c500%§7 degats burst",
+                "§7Les ennemis avec §35+ stacks de Givre§7",
+                "§7declenchent une §bBrisure Glaciale§7:",
                 "",
-                "§8Synergie: Frost execute"
+                "§8Degats: §c8%§8 PV max par stack",
+                "§8Boss/Elite: §c4%§8 PV max par stack",
+                "§8Cooldown: §e10s§8 par ennemi",
+                "§8Retire tous les stacks apres"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -408,7 +413,7 @@ public final class OccultisteTalents {
             .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_ZERO)
-            .values(new double[]{3000, 5.0}) // freeze_time_ms, boss_damage_multiplier
+            .values(new double[]{5, 0.08, 0.04, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
             .build());
 
         // 4.3 - CONDUCTEUR
@@ -504,13 +509,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frost_lord")
             .name("Seigneur du Givre")
-            .description("100% freeze, duree doublee")
+            .description("60% freeze, +2 stacks, duree +50%")
             .loreLines(new String[]{
-                "§7Vos attaques ont §b100%§7 de",
+                "§7Vos attaques ont §b60%§7 de",
                 "§7chance de §bgeler§7.",
                 "",
-                "§8Duree gel: §bx2§8 (4s)",
-                "§8Synergie: Frost perma-CC"
+                "§8Duree gel: §b3s§8 (+50%)",
+                "§8Ajoute §3+2 stacks§8 au lieu de 1",
+                "§8Les geles subissent §c-20%§8 armure"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -518,7 +524,7 @@ public final class OccultisteTalents {
             .icon(Material.PACKED_ICE)
             .iconColor("§3")
             .effectType(Talent.TalentEffectType.FROST_LORD)
-            .values(new double[]{1.0, 4.0}) // freeze_chance, duration_s
+            .values(new double[]{0.60, 3.0, 2, 0.20}) // freeze_chance, duration_s, stacks_per_hit, armor_reduction
             .build());
 
         // 5.3 - DIEU DE LA FOUDRE
@@ -616,14 +622,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_permafrost")
             .name("Permafrost")
-            .description("Geles ralentissent les ennemis autour d'eux")
+            .description("Les stacks de Givre persistent et se propagent")
             .loreLines(new String[]{
-                "§7Les ennemis §bgeles§7 emettent",
-                "§7une aura de froid qui §bralentit§7",
-                "§7les autres de §b-40%§7.",
+                "§7Les §3stacks de Givre§7 ne",
+                "§7disparaissent plus avec le temps.",
                 "",
-                "§8Rayon: §e2.5§8 blocs",
-                "§8Synergie: Controle de zone"
+                "§8Les geles propagent §3+1 stack§8/s",
+                "§8aux ennemis dans §e3§8 blocs",
+                "§8Slow par stack: §b5%§8 (max 50%)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -631,7 +637,7 @@ public final class OccultisteTalents {
             .icon(Material.PACKED_ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.PERMAFROST)
-            .values(new double[]{0.40, 2.5}) // slow%, radius
+            .values(new double[]{3.0, 0.05, 0.50, 1}) // radius, slow_per_stack, max_slow, propagation_rate
             .build());
 
         // 6.3 - CHAMP STATIQUE
@@ -732,14 +738,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_ice_age")
             .name("Ere Glaciaire")
-            .description("Zones de gel persistantes")
+            .description("Zones de givre persistantes au sol")
             .loreLines(new String[]{
-                "§7Les zones de gel persistent",
-                "§7au sol §b5s§7 apres la mort",
-                "§7d'un ennemi gele.",
+                "§7La mort d'un ennemi avec §35+",
+                "§3stacks§7 cree une zone de givre.",
                 "",
-                "§8Gele les ennemis qui passent",
-                "§8Rayon: 2 blocs"
+                "§8Duree: §b4s§8, Rayon: §e2.5§8 blocs",
+                "§8Ennemis dedans: §3+2 stacks§8/s",
+                "§8Slow zone: §b35%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -747,7 +753,7 @@ public final class OccultisteTalents {
             .icon(Material.BLUE_STAINED_GLASS)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ICE_AGE)
-            .values(new double[]{5000, 2.0}) // duration_ms, radius
+            .values(new double[]{4000, 2.5, 2, 0.35, 5}) // duration_ms, radius, stacks_per_sec, slow%, min_stacks_to_trigger
             .build());
 
         // 6.3 - TEMPETE PERPETUELLE
@@ -846,13 +852,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_eternal_winter")
             .name("Hiver Eternel")
-            .description("Slow 70% permanent + bonus degats")
+            .description("Aura de froid devastatrice")
             .loreLines(new String[]{
-                "§7Les ennemis dans votre zone",
-                "§7sont §bralentis de 70%§7.",
+                "§7Aura permanente de froid glacial.",
                 "",
-                "§8Rayon: 8 blocs",
-                "§8Bonus: §c+50%§8 degats aux slowed"
+                "§8Rayon: §e6§8 blocs",
+                "§8Effet: §3+1 stack§8/s a tous",
+                "§8Bonus: §c+5%§8 degats par stack",
+                "§8Max bonus: §c+40%§8 degats"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -860,7 +867,7 @@ public final class OccultisteTalents {
             .icon(Material.FLOWER_BANNER_PATTERN)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.ETERNAL_WINTER)
-            .values(new double[]{8.0, 0.70, 0.50}) // radius, slow%, damage_bonus%
+            .values(new double[]{6.0, 1, 0.05, 0.40}) // radius, stacks_per_sec, damage_per_stack%, max_damage_bonus%
             .build());
 
         // 7.3 - MJOLNIR
@@ -958,13 +965,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_time_stasis")
             .name("Stase Temporelle")
-            .description("Gelez le temps 5s")
+            .description("Gelez le temps + explosion de stacks")
             .loreLines(new String[]{
                 "§7Activation: §eCrouch + Jump§7",
-                "§7Gelez le temps pour tous",
-                "§7les ennemis pendant §b5s§7.",
+                "§7Gelez TOUS les ennemis §b3s§7",
+                "§7et appliquez §310 stacks§7 a chacun.",
                 "",
-                "§8Cooldown: 90s"
+                "§8A la fin: §bBrisure Glaciale§8 auto",
+                "§8Cooldown: §e120s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -972,7 +980,7 @@ public final class OccultisteTalents {
             .icon(Material.CLOCK)
             .iconColor("§3")
             .effectType(Talent.TalentEffectType.TIME_STASIS)
-            .values(new double[]{90000, 5000}) // cooldown_ms, duration_ms
+            .values(new double[]{120000, 3000, 10}) // cooldown_ms, duration_ms, stacks_applied
             .build());
 
         // 8.3 - JUGEMENT DIVIN
