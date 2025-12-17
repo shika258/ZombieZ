@@ -313,7 +313,7 @@ public class ClassInfoGUI implements Listener {
 
                 if (timeSinceChange >= cooldown) {
                     player.closeInventory();
-                    new ClassSelectionGUI(plugin, classManager).open(player);
+                    plugin.getClassSelectionGUI().open(player);
                     player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 } else {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);

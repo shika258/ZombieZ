@@ -4,8 +4,6 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassManager;
 import com.rinaorc.zombiez.classes.ClassType;
-import com.rinaorc.zombiez.classes.gui.ClassInfoGUI;
-import com.rinaorc.zombiez.classes.gui.ClassSelectionGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -51,13 +49,13 @@ public class ClassCommand implements CommandExecutor, TabCompleter {
 
         switch (subCommand) {
             case "select", "choose", "choisir" -> {
-                new ClassSelectionGUI(plugin, classManager).open(player);
+                plugin.getClassSelectionGUI().open(player);
             }
 
             case "info", "stats" -> {
                 ClassData data = classManager.getClassData(player);
                 if (data.hasClass()) {
-                    new ClassInfoGUI(plugin, classManager).open(player);
+                    plugin.getClassInfoGUI().open(player);
                 } else {
                     player.sendMessage("§cVous n'avez pas encore de classe!");
                     player.sendMessage("§7Utilisez /class select pour en choisir une.");
@@ -90,9 +88,9 @@ public class ClassCommand implements CommandExecutor, TabCompleter {
         ClassData data = classManager.getClassData(player);
 
         if (!data.hasClass()) {
-            new ClassSelectionGUI(plugin, classManager).open(player);
+            plugin.getClassSelectionGUI().open(player);
         } else {
-            new ClassInfoGUI(plugin, classManager).open(player);
+            plugin.getClassInfoGUI().open(player);
         }
     }
 

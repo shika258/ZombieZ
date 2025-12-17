@@ -109,6 +109,7 @@ public class ZombieZPlugin extends JavaPlugin {
     // Système de Classes
     @Getter private com.rinaorc.zombiez.classes.ClassManager classManager;
     @Getter private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
+    @Getter private com.rinaorc.zombiez.classes.gui.ClassSelectionGUI classSelectionGUI;
     @Getter private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
     @Getter private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
     @Getter private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
@@ -364,6 +365,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Talent Manager - Registre et gestion des talents
         talentManager = new com.rinaorc.zombiez.classes.talents.TalentManager(this);
+
+        // Class Selection GUI - Menu de sélection de classe
+        classSelectionGUI = new com.rinaorc.zombiez.classes.gui.ClassSelectionGUI(this, classManager);
 
         // Class Info GUI - Menu info de classe
         classInfoGUI = new com.rinaorc.zombiez.classes.gui.ClassInfoGUI(this, classManager);
