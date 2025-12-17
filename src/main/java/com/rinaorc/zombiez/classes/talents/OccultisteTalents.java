@@ -409,8 +409,8 @@ public final class OccultisteTalents {
                 "§7Les ennemis avec §35+ stacks de Givre§7",
                 "§7declenchent une §bBrisure Glaciale§7:",
                 "",
-                "§8Degats: §c8%§8 PV max par stack",
-                "§8Boss/Elite: §c4%§8 PV max par stack",
+                "§8Degats: §c4%§8 PV max par stack",
+                "§8Boss/Elite: §c2%§8 PV max par stack",
                 "§8Cooldown: §e10s§8 par ennemi",
                 "§8Retire tous les stacks apres"
             })
@@ -420,7 +420,7 @@ public final class OccultisteTalents {
             .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_ZERO)
-            .values(new double[]{5, 0.08, 0.04, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
+            .values(new double[]{5, 0.04, 0.02, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
             .build());
 
         // 4.3 - CONDUCTEUR
@@ -794,7 +794,7 @@ public final class OccultisteTalents {
                 "§7un §8squelette archer§7 puissant.",
                 "",
                 "§8Stats: §c100%§8 des votres",
-                "§8Duree: §e60s§8, Max: §a8§8 squelettes",
+                "§8Duree: §e30s§8, Max: §a8§8 squelettes",
                 "§8Activation: §eSneak + Clic Droit"
             })
             .classType(ClassType.OCCULTISTE)
@@ -803,7 +803,7 @@ public final class OccultisteTalents {
             .icon(Material.SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.NECROMANCER)
-            .values(new double[]{1.0, 60000, 8}) // stats%, duration_ms, max_summons
+            .values(new double[]{1.0, 30000, 8}) // stats%, duration_ms, max_summons
             .build());
 
         // 7.5 - SINGULARITE
@@ -910,7 +910,7 @@ public final class OccultisteTalents {
                 "§7vos §5serviteurs morts-vivants§7.",
                 "",
                 "§8Stats: §c80%§8 des leurs",
-                "§8Duree: §e90s§8, Max: §a15§8 serviteurs",
+                "§8Duree: §e30s§8, Max: §a15§8 serviteurs",
                 "§8Aura de terreur et vie volee"
             })
             .classType(ClassType.OCCULTISTE)
@@ -919,7 +919,7 @@ public final class OccultisteTalents {
             .icon(Material.WITHER_SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.LORD_OF_THE_DEAD)
-            .values(new double[]{0.75, 0.80, 90000, 15}) // chance, stats%, duration_ms, max
+            .values(new double[]{0.75, 0.80, 30000, 15}) // chance, stats%, duration_ms, max
             .build());
 
         // 8.5 - DECHIRURE DIMENSIONNELLE (Dimensional Rift)
@@ -931,8 +931,9 @@ public final class OccultisteTalents {
                 "§7§aPassif:§7 Les ennemis en dessous de §c15% HP§7",
                 "§7sont §5bannis dans le vide§7 automatiquement!",
                 "",
-                "§8Duree du bannissement: §a3s",
+                "§8Duree du bannissement: §a1s",
                 "§8Degats a la sortie: §c250%§8 base",
+                "§8Explosion du vide: §5100%§8 base AoE",
                 "§8Les bannis sont §8immobilises",
                 "§8Cooldown par cible: §e10s"
             })
@@ -942,7 +943,7 @@ public final class OccultisteTalents {
             .icon(Material.END_PORTAL_FRAME)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.DIMENSIONAL_RIFT)
-            .values(new double[]{0.15, 3000, 2.50, 10000}) // hp_threshold%, banish_duration_ms, exit_damage%, cooldown_per_target_ms
+            .values(new double[]{0.15, 1000, 2.50, 10000, 1.0, 4.0}) // hp_threshold%, banish_duration_ms, exit_damage%, cooldown_per_target_ms, aoe_damage%, aoe_radius
             .build());
     }
 
