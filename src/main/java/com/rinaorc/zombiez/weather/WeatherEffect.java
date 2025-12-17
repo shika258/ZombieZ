@@ -580,10 +580,7 @@ public class WeatherEffect {
                 // Brouillard de cendres volcaniques
                 spawnAshfallFog(player, loc);
             }
-            case FOG -> {
-                // Brouillard dense gris
-                spawnDenseFog(player, loc);
-            }
+            // FOG: Pas de particules supplémentaires, le fog de la BossBar suffit
             case SOLAR_BLESSING -> {
                 // Rayons de lumière dorés
                 player.spawnParticle(Particle.END_ROD, loc.clone().add(
@@ -877,49 +874,6 @@ public class WeatherEffect {
         }
     }
 
-    /**
-     * Génère un brouillard dense gris
-     */
-    protected void spawnDenseFog(Player player, Location loc) {
-        // Couleurs grises variées
-        Color lightGray = Color.fromRGB(180, 180, 180);
-        Color mediumGray = Color.fromRGB(140, 140, 140);
-        Color darkGray = Color.fromRGB(100, 100, 100);
-
-        // Brouillard très dense
-        for (int i = 0; i < 18; i++) {
-            double offsetX = (Math.random() - 0.5) * 14;
-            double offsetZ = (Math.random() - 0.5) * 14;
-            double offsetY = Math.random() * 3;
-
-            Location fogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
-
-            Color fogColor;
-            double colorRoll = Math.random();
-            if (colorRoll < 0.4) {
-                fogColor = lightGray;
-            } else if (colorRoll < 0.75) {
-                fogColor = mediumGray;
-            } else {
-                fogColor = darkGray;
-            }
-
-            float size = 2.5f + (float)(Math.random() * 2.0);
-            player.spawnParticle(Particle.DUST, fogLoc, 1, 0.4, 0.2, 0.4, 0,
-                new Particle.DustOptions(fogColor, size));
-        }
-
-        // Brouillard en hauteur (moins dense)
-        for (int i = 0; i < 6; i++) {
-            double offsetX = (Math.random() - 0.5) * 16;
-            double offsetZ = (Math.random() - 0.5) * 16;
-            double offsetY = 4 + Math.random() * 4;
-
-            Location highFogLoc = loc.clone().add(offsetX, offsetY, offsetZ);
-            player.spawnParticle(Particle.DUST, highFogLoc, 1, 0.5, 0.3, 0.5, 0,
-                new Particle.DustOptions(lightGray, 1.5f));
-        }
-    }
 
     // ==================== BUFFS JOUEURS ====================
 
