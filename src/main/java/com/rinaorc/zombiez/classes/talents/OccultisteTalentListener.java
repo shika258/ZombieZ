@@ -37,6 +37,16 @@ public class OccultisteTalentListener implements Listener {
     // Ennemis en feu (entity UUID -> expiry timestamp)
     private final Map<UUID, Long> burningEnemies = new ConcurrentHashMap<>();
 
+    // ==================== HEAT INTENSITY SYSTEM ====================
+    // Intensite de brulure par ennemi (entity UUID -> burn start timestamp)
+    private final Map<UUID, Long> burnStartTime = new ConcurrentHashMap<>();
+    // Zones de chaleur au sol (location key -> expiry timestamp)
+    private final Map<String, Long> heatZones = new ConcurrentHashMap<>();
+    // Cooldown Embrasement Critique par ennemi (entity UUID -> timestamp fin cooldown)
+    private final Map<UUID, Long> criticalIgnitionCooldowns = new ConcurrentHashMap<>();
+    // Intensite max avant explosion (en secondes de brulure)
+    private static final double MAX_BURN_INTENSITY = 8.0;
+
     // Ennemis geles (entity UUID -> freeze start timestamp)
     private final Map<UUID, Long> frozenEnemies = new ConcurrentHashMap<>();
 
@@ -415,13 +425,24 @@ public class OccultisteTalentListener implements Listener {
         if (!checkCooldown(player, "ignite", talent.getInternalCooldownMs())) return;
 
         if (Math.random() < talent.getValue(0)) {
-            // Set on fire
-            int duration = (int) (talent.getValue(2) * 20);
-            target.setFireTicks(duration);
-            burningEnemies.put(target.getUniqueId(), System.currentTimeMillis() + (long)(talent.getValue(2) * 1000));
+            // values: chance, duration_s
+            double durationSec = talent.getValue(1);
+            int fireTicks = (int) (durationSec * 20);
+            target.setFireTicks(fireTicks);
+            burningEnemies.put(target.getUniqueId(), System.currentTimeMillis() + (long)(durationSec * 1000));
 
-            // Visual
-            target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
+            // Systeme Surchauffe - demarrer/prolonger la brulure
+            double intensity = startOrExtendBurn(target, fireTicks);
+
+            // Verifier Ignition Critique si Phoenix est equipe
+            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                checkCriticalIgnition(player, target);
+            }
+
+            // Visual ameliore - intensite visuelle selon la Surchauffe
+            int particleCount = 10 + (int)(intensity * 2);
+            target.getWorld().spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), particleCount, 0.3, 0.5, 0.3, 0.03);
+            target.getWorld().spawnParticle(Particle.SMOKE, target.getLocation().add(0, 1.2, 0), 5, 0.2, 0.3, 0.2, 0.02);
             target.getWorld().playSound(target.getLocation(), Sound.ITEM_FIRECHARGE_USE, 0.5f, 1.2f);
         }
     }
@@ -486,6 +507,180 @@ public class OccultisteTalentListener implements Listener {
         UUID targetId = target.getUniqueId();
         frostStacks.remove(targetId);
         frostStacksLastApplied.remove(targetId);
+    }
+
+    // ==================== HEAT INTENSITY METHODS ====================
+
+    /**
+     * Demarre ou prolonge la brulure d'un ennemi et retourne l'intensite actuelle
+     */
+    private double startOrExtendBurn(LivingEntity target, int fireTicks) {
+        UUID targetId = target.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Si pas encore en train de bruler, demarrer le timer
+        if (!burnStartTime.containsKey(targetId)) {
+            burnStartTime.put(targetId, now);
+        }
+
+        // Appliquer le feu
+        target.setFireTicks(Math.max(target.getFireTicks(), fireTicks));
+        burningEnemies.put(targetId, now + (fireTicks * 50L));
+
+        return getBurnIntensity(target);
+    }
+
+    /**
+     * Recupere l'intensite de brulure d'un ennemi (en secondes de brulure continue)
+     */
+    private double getBurnIntensity(LivingEntity target) {
+        Long startTime = burnStartTime.get(target.getUniqueId());
+        if (startTime == null) return 0;
+
+        double intensity = (System.currentTimeMillis() - startTime) / 1000.0;
+        return Math.min(intensity, MAX_BURN_INTENSITY);
+    }
+
+    /**
+     * Calcule le bonus de degats base sur l'intensite de brulure
+     * Plus l'ennemi brule longtemps, plus il prend de degats
+     */
+    private double getBurnDamageMultiplier(LivingEntity target) {
+        double intensity = getBurnIntensity(target);
+        // +5% de degats par seconde de brulure, max +40%
+        return 1.0 + (intensity * 0.05);
+    }
+
+    /**
+     * Retire la brulure d'un ennemi
+     */
+    private void clearBurn(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        burnStartTime.remove(targetId);
+        burningEnemies.remove(targetId);
+    }
+
+    /**
+     * Verifie si l'ennemi a atteint l'intensite max pour Embrasement Critique
+     */
+    private void checkCriticalIgnition(Player player, LivingEntity target) {
+        if (!hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) return;
+
+        UUID targetId = target.getUniqueId();
+        double intensity = getBurnIntensity(target);
+
+        // Verifier si intensite max atteinte
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PHOENIX_FLAME);
+        double threshold = talent.getValue(0); // seuil en secondes
+
+        if (intensity < threshold) return;
+
+        // Verifier cooldown par ennemi
+        long cooldownMs = (long) talent.getValue(4);
+        Long cooldownEnd = criticalIgnitionCooldowns.get(targetId);
+        if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) return;
+
+        // Declencher Embrasement Critique!
+        triggerCriticalIgnition(player, target, talent, intensity);
+    }
+
+    /**
+     * Declenche l'Embrasement Critique - explosion massive
+     */
+    private void triggerCriticalIgnition(Player player, LivingEntity target, Talent talent, double intensity) {
+        UUID targetId = target.getUniqueId();
+
+        // Determiner si c'est un boss/elite
+        boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
+                                target.getScoreboardTags().contains("elite") ||
+                                target.getMaxHealth() > 50;
+
+        // Calculer les degats: base + bonus par seconde d'intensite
+        double baseDamagePercent = talent.getValue(1);
+        double bossDamagePercent = talent.getValue(3);
+        double damagePercent = isBossOrElite ? bossDamagePercent : baseDamagePercent;
+        double totalDamage = target.getMaxHealth() * damagePercent * intensity;
+
+        // Appliquer les degats SANS knockback
+        damageNoKnockback(target, totalDamage, player);
+
+        // Propager le feu aux ennemis proches
+        double radius = talent.getValue(2);
+        for (Entity entity : target.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                startOrExtendBurn(le, 100); // 5 secondes de feu
+                damageNoKnockback(le, totalDamage * 0.3, player); // 30% des degats aux proches
+            }
+        }
+
+        // Creer une zone de chaleur au sol
+        createHeatZone(target.getLocation(), 3000, radius);
+
+        // Effets visuels spectaculaires
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.FLAME, loc, 80, 1.5, 1.5, 1.5, 0.2);
+        target.getWorld().spawnParticle(Particle.LAVA, loc, 30, 1, 1, 1, 0.15);
+        target.getWorld().spawnParticle(Particle.SMOKE, loc, 40, 1, 1, 1, 0.1);
+        target.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.5, 0.5, 0);
+        target.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.5f);
+        target.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+
+        // Mettre en cooldown
+        long cooldownMs = (long) talent.getValue(4);
+        criticalIgnitionCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
+
+        // Reset l'intensite de brulure
+        burnStartTime.put(targetId, System.currentTimeMillis());
+
+        // Message au joueur
+        player.sendMessage("§c🔥 §6Embrasement Critique! §7" + String.format("%.1f", intensity) +
+            "s d'intensite = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+    }
+
+    /**
+     * Cree une zone de chaleur au sol qui inflige des degats
+     */
+    private void createHeatZone(Location location, long durationMs, double radius) {
+        String key = location.getWorld().getName() + "," +
+            Math.floor(location.getX()) + "," +
+            Math.floor(location.getY()) + "," +
+            Math.floor(location.getZ()) + "," + radius;
+        heatZones.put(key, System.currentTimeMillis() + durationMs);
+
+        // Visual de creation
+        location.getWorld().spawnParticle(Particle.FLAME, location, 30, radius/2, 0.2, radius/2, 0.05);
+        location.getWorld().playSound(location, Sound.BLOCK_FIRE_AMBIENT, 1.0f, 0.8f);
+    }
+
+    // ==================== DAMAGE UTILITY METHODS ====================
+
+    /**
+     * Applique des degats a une entite SANS knockback
+     */
+    private void damageNoKnockback(LivingEntity target, double damage, Player source) {
+        // Sauvegarder la velocite actuelle
+        Vector velocity = target.getVelocity().clone();
+
+        // Appliquer les degats
+        target.damage(damage, source);
+
+        // Restaurer la velocite immediatement pour annuler le knockback
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!target.isDead()) {
+                target.setVelocity(velocity);
+            }
+        });
+    }
+
+    /**
+     * Applique des degats AoE SANS knockback a tous les ennemis dans une zone
+     */
+    private void damageAreaNoKnockback(Location center, double radius, double damage, Player source) {
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                damageNoKnockback(le, damage, source);
+            }
+        }
     }
 
     private void applyFreeze(LivingEntity target, int durationMs, double slowStrength) {
@@ -935,9 +1130,12 @@ public class OccultisteTalentListener implements Listener {
         if (!checkCooldown(player, "firestorm", talent.getInternalCooldownMs())) return;
 
         if (Math.random() < talent.getValue(0)) {
+            // values: chance, meteors, damage%, zone, burn_extension_s
             int meteors = (int) talent.getValue(1);
             double damagePercent = talent.getValue(2);
-            double zone = talent.getValue(3);
+            double zone = Math.min(talent.getValue(3), 8.0); // Cap a 8 blocs
+            double burnExtension = talent.getValues().length > 4 ? talent.getValue(4) : 2.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             Location center = target.getLocation();
 
@@ -949,12 +1147,20 @@ public class OccultisteTalentListener implements Listener {
                     double offsetZ = (Math.random() - 0.5) * zone;
                     Location impactLoc = center.clone().add(offsetX, 0, offsetZ);
 
-                    // Damage nearby
+                    // Damage nearby - sans knockback
                     double damage = baseDamage * damagePercent;
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 2, 2, 2)) {
                         if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                            le.damage(damage, player);
-                            le.setFireTicks(40);
+                            damageNoKnockback(le, damage, player);
+                            // Enflammer et prolonger Surchauffe
+                            le.setFireTicks(burnTicks);
+                            startOrExtendBurn(le, burnTicks);
+                            burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                            // Verifier Ignition Critique si Phoenix est equipe
+                            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                                checkCriticalIgnition(player, le);
+                            }
                         }
                     }
 
@@ -1184,6 +1390,23 @@ public class OccultisteTalentListener implements Listener {
     private void processFireSpread() {
         if (!hasTalentEffectForAnyPlayer(Talent.TalentEffectType.FIRE_SPREAD)) return;
 
+        // Trouver le talent pour les valeurs
+        Talent talent = null;
+        Player talentOwner = null;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (hasTalentEffect(player, Talent.TalentEffectType.FIRE_SPREAD)) {
+                talent = getTalentWithEffect(player, Talent.TalentEffectType.FIRE_SPREAD);
+                talentOwner = player;
+                break;
+            }
+        }
+        if (talent == null) return;
+
+        // values: range, propagation_duration_s
+        double range = talent.getValue(0);
+        double propagationDuration = talent.getValues().length > 1 ? talent.getValue(1) : 2.0;
+        int propagationTicks = (int) (propagationDuration * 20);
+
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<UUID, Long>> iterator = burningEnemies.entrySet().iterator();
 
@@ -1200,14 +1423,25 @@ public class OccultisteTalentListener implements Listener {
                 continue;
             }
 
-            // Spread fire to nearby enemies
-            for (Entity nearby : entity.getNearbyEntities(2, 2, 2)) {
+            // Propager le feu aux ennemis proches (systeme Surchauffe)
+            for (Entity nearby : entity.getNearbyEntities(range, range, range)) {
                 if (nearby instanceof LivingEntity le && !(nearby instanceof Player)) {
-                    if (!burningEnemies.containsKey(nearby.getUniqueId())) {
-                        le.setFireTicks(60);
-                        burningEnemies.put(nearby.getUniqueId(), now + 3000);
+                    // Enflammer et demarrer/prolonger Surchauffe
+                    le.setFireTicks(propagationTicks);
+                    startOrExtendBurn(le, propagationTicks);
+                    burningEnemies.put(nearby.getUniqueId(), now + (long)(propagationDuration * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (talentOwner != null && hasTalentEffect(talentOwner, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(talentOwner, le);
                     }
                 }
+            }
+
+            // Visual de propagation
+            if (entity instanceof LivingEntity le) {
+                le.getWorld().spawnParticle(Particle.FLAME, le.getLocation().add(0, 0.5, 0),
+                    3, range/3, 0.2, range/3, 0.02);
             }
         }
     }
@@ -1295,16 +1529,28 @@ public class OccultisteTalentListener implements Listener {
             if (!hasTalentEffect(player, Talent.TalentEffectType.FIRE_AVATAR)) continue;
 
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FIRE_AVATAR);
+            // values: radius, damage_per_second%, burn_extension_per_s
             double radius = Math.min(talent.getValue(0), 8.0); // Cap a 8 blocs
             double damagePercent = talent.getValue(1);
+            double burnExtension = talent.getValues().length > 2 ? talent.getValue(2) : 1.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(20);
+                    // Degats sans knockback (AoE)
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1326,17 +1572,28 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.INFERNO);
             if (!checkCooldown(player, "inferno", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, damage%, radius, burn_extension_s
             double damagePercent = talent.getValue(1);
             double radius = Math.min(talent.getValue(2), 12.0); // Cap a 12 blocs
+            double burnExtension = talent.getValues().length > 3 ? talent.getValue(3) : 4.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(100);
-                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + 5000);
+                    // Degats sans knockback (AoE nova)
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger massivement Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1372,19 +1629,31 @@ public class OccultisteTalentListener implements Listener {
             }
 
             // Find talent for damage values
+            // values: cooldown, duration, damage%/s, radius, burn_extension_per_s
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.BLACK_SUN);
             if (talent == null) continue;
 
             double damagePercent = talent.getValue(2);
-            double radius = talent.getValue(3);
+            double radius = Math.min(talent.getValue(3), 10.0); // Cap a 10 blocs
+            double burnExtension = talent.getValues().length > 4 ? talent.getValue(4) : 2.0;
+            int burnTicks = (int) (burnExtension * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                    le.damage(damage, player);
-                    le.setFireTicks(20);
+                    // Degats sans knockback
+                    damageNoKnockback(le, damage, player);
+                    // Enflammer et prolonger Surchauffe
+                    le.setFireTicks(burnTicks);
+                    startOrExtendBurn(le, burnTicks);
+                    burningEnemies.put(le.getUniqueId(), now + (long)(burnExtension * 1000));
+
+                    // Verifier Ignition Critique si Phoenix est equipe
+                    if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                        checkCriticalIgnition(player, le);
+                    }
                 }
             }
 
@@ -1489,9 +1758,12 @@ public class OccultisteTalentListener implements Listener {
             Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.METEOR_RAIN);
             if (!checkCooldown(player, "meteor_rain", (long) talent.getValue(0))) continue;
 
+            // values: cooldown_ms, meteors, damage%, zone, burn_per_impact_s
             int meteors = Math.min((int) talent.getValue(1), 15); // Cap a 15 meteores
             double damagePercent = talent.getValue(2);
-            double zone = Math.min(talent.getValue(3), 20.0); // Cap zone a 20 blocs
+            double zone = Math.min(talent.getValue(3), 15.0); // Cap zone a 15 blocs (max spec)
+            double burnPerImpact = talent.getValues().length > 4 ? talent.getValue(4) : 3.0;
+            int burnTicks = (int) (burnPerImpact * 20);
 
             double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
             double damage = baseDamage * damagePercent;
@@ -1507,11 +1779,23 @@ public class OccultisteTalentListener implements Listener {
                     double offsetZ = (Math.random() - 0.5) * zone;
                     Location impactLoc = center.clone().add(offsetX, 0, offsetZ);
 
-                    // Damage
+                    // Damage - sans knockback
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 3, 3, 3)) {
                         if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
-                            le.damage(damage, player);
-                            le.setFireTicks(100);
+                            damageNoKnockback(le, damage, player);
+                            // Enflammer massivement (T9 = +3s par meteore)
+                            le.setFireTicks(burnTicks);
+                            startOrExtendBurn(le, burnTicks);
+                            burningEnemies.put(le.getUniqueId(), System.currentTimeMillis() + (long)(burnPerImpact * 1000));
+
+                            // Ignition Critique automatique (T9 special)
+                            if (hasTalentEffect(player, Talent.TalentEffectType.PHOENIX_FLAME)) {
+                                // Force Ignition Critique apres 2 impacts (atteint rapidement Surchauffe max)
+                                double intensity = getBurnIntensity(le);
+                                if (intensity >= MAX_BURN_INTENSITY * 0.75) {
+                                    checkCriticalIgnition(player, le);
+                                }
+                            }
                         }
                     }
 

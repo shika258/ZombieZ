@@ -35,13 +35,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_ignite")
             .name("Embrasement")
-            .description("25% chance d'enflammer l'ennemi")
+            .description("25% chance d'enflammer (Surchauffe)")
             .loreLines(new String[]{
                 "§7Vos attaques ont §e25%§7 de chance",
-                "§7d'§cenflammer§7 l'ennemi.",
+                "§7d'§cenflammer§7 l'ennemi §e3s§7.",
                 "",
-                "§8Degats: §c50%§8 sur 3s",
-                "§8Synergie: Fire mage core"
+                "§8Systeme §6Surchauffe§8:",
+                "§8Plus un ennemi brule longtemps,",
+                "§8plus il prend de degats (§c+5%/s§8)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -49,7 +50,7 @@ public final class OccultisteTalents {
             .icon(Material.BLAZE_POWDER)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.IGNITE)
-            .values(new double[]{0.25, 0.50, 3.0}) // chance, damage%, duration_s
+            .values(new double[]{0.25, 3.0}) // chance, duration_s
             .internalCooldownMs(500)
             .build());
 
@@ -153,11 +154,12 @@ public final class OccultisteTalents {
             .name("Propagation")
             .description("Le feu se propage aux ennemis proches")
             .loreLines(new String[]{
-                "§7Les ennemis en feu §cenflamment§7",
-                "§7les ennemis proches.",
+                "§7Les ennemis en feu propagent",
+                "§7les §cflammes§7 aux ennemis proches.",
                 "",
-                "§8Portee: 2 blocs",
-                "§8Verification: Chaque seconde"
+                "§8Portee: 2.5 blocs",
+                "§8Enflamme: §c2s§8 par propagation",
+                "§8Synergie: §6Surchauffe§8 partagee"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -165,7 +167,7 @@ public final class OccultisteTalents {
             .icon(Material.FIRE_CHARGE)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.FIRE_SPREAD)
-            .values(new double[]{2.0}) // range
+            .values(new double[]{2.5, 2.0}) // range, propagation_duration_s
             .build());
 
         // 2.2 - COEUR DE GLACE
@@ -262,13 +264,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_firestorm")
             .name("Tempete de Feu")
-            .description("30% chance de pluie de meteores")
+            .description("25% chance de pluie de meteores")
             .loreLines(new String[]{
-                "§7§e30%§7 de chance sur attaque de",
+                "§7§e25%§7 de chance sur attaque de",
                 "§7faire pleuvoir §c3 meteores§7.",
                 "",
-                "§8Degats: §c80%§8 par meteore",
-                "§8Zone: 5 blocs"
+                "§8Degats: §c60%§8 par meteore",
+                "§8Zone: 4 blocs, sans knockback",
+                "§8Enflamme: §c+2s§8 par meteore",
+                "§8Synergie: §6Surchauffe§8 acceleree"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -276,8 +280,8 @@ public final class OccultisteTalents {
             .icon(Material.MAGMA_BLOCK)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.FIRESTORM)
-            .values(new double[]{0.30, 3, 0.80, 5}) // chance, meteors, damage%, zone
-            .internalCooldownMs(2000)
+            .values(new double[]{0.25, 3, 0.60, 4, 2.0}) // chance, meteors, damage%, zone, burn_extension_s
+            .internalCooldownMs(2500)
             .build());
 
         // 3.2 - BLIZZARD
@@ -372,17 +376,20 @@ public final class OccultisteTalents {
     // ==================== PALIER 4 - NIVEAU 15 (Evolution) ====================
 
     private static void registerTier4Talents() {
-        // 4.1 - PHOENIX
+        // 4.1 - PHOENIX (Ignition Critique)
         TALENTS.add(Talent.builder()
             .id("occultiste_phoenix_flame")
             .name("Phoenix")
-            .description("30% chance d'explosion sur kill feu")
+            .description("Ignition Critique a Surchauffe max")
             .loreLines(new String[]{
-                "§7Les ennemis tues par le §cfeu§7",
-                "§7ont §e30%§7 de chance d'exploser.",
+                "§7Les ennemis en §6Surchauffe max§7",
+                "§7(8s de feu) declenchent une",
+                "§c§lIgnition Critique§7:",
                 "",
-                "§8Degats: §c150%§8 base",
-                "§8Rayon: 4 blocs"
+                "§8Degats: §c25%§8 PV max",
+                "§8Boss: §c12%§8 PV max",
+                "§8Rayon: 3 blocs, enflamme proches",
+                "§8Cooldown: §e10s§8 par ennemi"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -390,7 +397,7 @@ public final class OccultisteTalents {
             .icon(Material.BLAZE_ROD)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.PHOENIX_FLAME)
-            .values(new double[]{0.30, 1.50, 4.0}) // chance, damage%, radius
+            .values(new double[]{0.25, 0.12, 3.0, 10000, 3.0}) // dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s
             .build());
 
         // 4.2 - ZERO ABSOLU
@@ -492,8 +499,9 @@ public final class OccultisteTalents {
                 "§7Vous etes entoure de §cflammes§7",
                 "§7qui brulent les ennemis proches.",
                 "",
-                "§8Rayon: 3 blocs",
-                "§8Degats: §c30%§8 base/s",
+                "§8Rayon: 4 blocs, sans knockback",
+                "§8Degats: §c20%§8 base/s",
+                "§8Enflamme: §c+1s§8/s (§6Surchauffe§8)",
                 "§8Bonus: Immunite au feu"
             })
             .classType(ClassType.OCCULTISTE)
@@ -502,7 +510,7 @@ public final class OccultisteTalents {
             .icon(Material.FIRE_CORAL)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.FIRE_AVATAR)
-            .values(new double[]{3.0, 0.30}) // radius, damage_per_second%
+            .values(new double[]{4.0, 0.20, 1.0}) // radius, damage_per_second%, burn_extension_per_s
             .build());
 
         // 5.2 - SEIGNEUR DU GIVRE
@@ -599,15 +607,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_pyroclasm")
             .name("Pyroclasme")
-            .description("Kill feu: 50% chance explosion en chaine")
+            .description("Surchauffe persiste + explosion a la mort")
             .loreLines(new String[]{
-                "§7Les ennemis tues par le feu ont",
-                "§7§e50%§7 de chance d'exploser et",
-                "§7d'§cenflammer§7 les ennemis proches.",
+                "§7La §6Surchauffe§7 ne diminue plus",
+                "§7quand l'ennemi ne brule pas.",
                 "",
-                "§8Degats: §c100%§8 de base",
-                "§8Rayon: §e3§8 blocs",
-                "§8Peut se propager!"
+                "§8Kill en feu: §c60%§8 degats AoE",
+                "§8Rayon: §e3§8 blocs, sans knockback",
+                "§8Enflamme: §c3s§8 les proches"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -615,7 +622,7 @@ public final class OccultisteTalents {
             .icon(Material.MAGMA_BLOCK)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.PYROCLASM)
-            .values(new double[]{0.50, 1.0, 3.0}) // chance, damage%, radius
+            .values(new double[]{0.60, 3.0, 3.0}) // damage%, radius, spread_burn_s
             .build());
 
         // 6.2 - PERMAFROST
@@ -712,18 +719,18 @@ public final class OccultisteTalents {
     // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
 
     private static void registerTier7Talents() {
-        // 6.1 - INFERNO
+        // 7.1 - INFERNO
         TALENTS.add(Talent.builder()
             .id("occultiste_inferno")
             .name("Inferno")
-            .description("Nova de feu toutes les 10s")
+            .description("Nova de feu toutes les 12s")
             .loreLines(new String[]{
-                "§7Toutes les §e10s§7, une vague",
+                "§7Toutes les §e12s§7, une vague",
                 "§7de §cfeu§7 emane de vous.",
                 "",
-                "§8Degats: §c200%§8 base",
-                "§8Rayon: 6 blocs",
-                "§8Enflamme tous les touches"
+                "§8Degats: §c150%§8 base, sans knockback",
+                "§8Rayon: 5 blocs",
+                "§8Enflamme: §c+4s§8 (§6Surchauffe§8 rapide)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -731,7 +738,7 @@ public final class OccultisteTalents {
             .icon(Material.MAGMA_CREAM)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.INFERNO)
-            .values(new double[]{10000, 2.0, 6.0}) // cooldown_ms, damage%, radius
+            .values(new double[]{12000, 1.50, 5.0, 4.0}) // cooldown_ms, damage%, radius, burn_extension_s
             .build());
 
         // 6.2 - ERE GLACIAIRE
@@ -826,18 +833,19 @@ public final class OccultisteTalents {
     // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
     private static void registerTier8Talents() {
-        // 7.1 - SOLEIL NOIR
+        // 8.1 - SOLEIL NOIR
         TALENTS.add(Talent.builder()
             .id("occultiste_black_sun")
             .name("Soleil Noir")
             .description("Invoquez un soleil de feu")
             .loreLines(new String[]{
                 "§7Invoquez un §csoleil de feu§7",
-                "§7qui brule tout pendant §e10s§7.",
+                "§7qui brule tout pendant §e8s§7.",
                 "",
-                "§8Cooldown: 30s",
-                "§8Degats: §c100%§8/s",
-                "§8Rayon: 8 blocs"
+                "§8Cooldown: §e35s§8",
+                "§8Degats: §c80%§8/s, sans knockback",
+                "§8Rayon: 6 blocs",
+                "§8Enflamme: §c+2s§8/s (§6Surchauffe§8 max)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -845,7 +853,7 @@ public final class OccultisteTalents {
             .icon(Material.SUNFLOWER)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BLACK_SUN)
-            .values(new double[]{30000, 10000, 1.0, 8.0}) // cooldown, duration, damage%/s, radius
+            .values(new double[]{35000, 8000, 0.80, 6.0, 2.0}) // cooldown, duration, damage%/s, radius, burn_extension_per_s
             .build());
 
         // 7.2 - HIVER ETERNEL
@@ -940,17 +948,18 @@ public final class OccultisteTalents {
     // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
     private static void registerTier9Talents() {
-        // 8.1 - PLUIE DE METEORES
+        // 9.1 - PLUIE DE METEORES
         TALENTS.add(Talent.builder()
             .id("occultiste_meteor_rain")
             .name("Pluie de Meteores")
-            .description("20 meteores toutes les 60s")
+            .description("12 meteores toutes les 45s")
             .loreLines(new String[]{
-                "§7Toutes les §e60s§7, une pluie",
-                "§7de §c20 meteores§7 devastateurs.",
+                "§7Toutes les §e45s§7, une pluie",
+                "§7de §c12 meteores§7 devastateurs.",
                 "",
-                "§8Degats: §c200%§8 chacun",
-                "§8Zone: 20 blocs"
+                "§8Degats: §c150%§8 chacun, sans knockback",
+                "§8Zone: 15 blocs (max)",
+                "§8Impact: §c+3s§8 feu + §cIgnition§8 auto"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -958,7 +967,7 @@ public final class OccultisteTalents {
             .icon(Material.DRAGON_EGG)
             .iconColor("§4")
             .effectType(Talent.TalentEffectType.METEOR_RAIN)
-            .values(new double[]{60000, 20, 2.0, 20}) // cooldown_ms, meteors, damage%, zone
+            .values(new double[]{45000, 12, 1.50, 15, 3.0}) // cooldown_ms, meteors, damage%, zone, burn_per_impact_s
             .build());
 
         // 8.2 - STASE TEMPORELLE
