@@ -793,11 +793,11 @@ public final class OccultisteTalents {
             .loreLines(new String[]{
                 "§7Activation: §eS'accroupir + Attaque§7",
                 "§7Depensez §d1 orbe§7 pour invoquer",
-                "§7un §8squelette archer§7 allie.",
+                "§7un §8squelette archer§7 puissant.",
                 "",
-                "§8Stats: §c50%§8 des votres",
-                "§8Duree: §e30s§8, Max: §a5§8 squelettes",
-                "§8Les squelettes ciblent vos ennemis"
+                "§8Stats: §c100%§8 des votres",
+                "§8Duree: §e60s§8, Max: §a8§8 squelettes",
+                "§8Activation: §eSneak + Clic Droit"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -805,7 +805,7 @@ public final class OccultisteTalents {
             .icon(Material.SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.NECROMANCER)
-            .values(new double[]{0.50, 30000, 5}) // stats%, duration_ms, max_summons
+            .values(new double[]{1.0, 60000, 8}) // stats%, duration_ms, max_summons
             .build());
 
         // 7.5 - TOURMENT PSYCHIQUE (Psychic Horror)
@@ -904,15 +904,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_lord_of_dead")
             .name("Seigneur des Morts")
-            .description("50% chance de relever les morts")
+            .description("75% chance de relever les morts")
             .loreLines(new String[]{
-                "§7Les ennemis tues ont §e50%§7",
+                "§7Les ennemis tues ont §e75%§7",
                 "§7de chance de revenir comme",
-                "§7vos §8serviteurs§7 allies.",
+                "§7vos §5serviteurs morts-vivants§7.",
                 "",
-                "§8Stats: §c40%§8 des leurs",
-                "§8Duree: §e45s§8, Max: §a10§8 serviteurs",
-                "§8Vos serviteurs ciblent vos ennemis"
+                "§8Stats: §c80%§8 des leurs",
+                "§8Duree: §e90s§8, Max: §a15§8 serviteurs",
+                "§8Aura de terreur et vie volee"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -920,7 +920,7 @@ public final class OccultisteTalents {
             .icon(Material.WITHER_SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.LORD_OF_THE_DEAD)
-            .values(new double[]{0.50, 0.40, 45000, 10}) // chance, stats%, duration_ms, max
+            .values(new double[]{0.75, 0.80, 90000, 15}) // chance, stats%, duration_ms, max
             .build());
 
         // 8.5 - DEVOREUR DU VIDE (Voidling/Shadowfiend)
@@ -1023,9 +1023,9 @@ public final class OccultisteTalents {
             .description("Serviteurs immortels + buff")
             .loreLines(new String[]{
                 "§7Vos serviteurs sont §dimmortels§7!",
-                "§7Ils respawn §e5s§7 apres leur mort.",
+                "§7Ils respawn §e3s§7 apres leur mort.",
                 "",
-                "§8Buff serviteurs: §c+50%§8 stats totales",
+                "§8Buff serviteurs: §c+75%§8 stats totales",
                 "§8Serviteurs plus resistants et agressifs",
                 "§8Ultime: Armee de morts-vivants"
             })
@@ -1035,7 +1035,7 @@ public final class OccultisteTalents {
             .icon(Material.TOTEM_OF_UNDYING)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.IMMORTAL_ARMY)
-            .values(new double[]{5000, 0.50}) // respawn_ms, stat_buff%
+            .values(new double[]{3000, 0.75}) // respawn_ms, stat_buff%
             .build());
 
         // 9.5 - ASCENSION SOMBRE (Dark Ascension)

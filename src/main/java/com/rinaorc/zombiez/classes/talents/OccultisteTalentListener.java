@@ -11,7 +11,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -240,6 +244,71 @@ public class OccultisteTalentListener implements Listener {
         }
     }
 
+    /**
+     * Empeche les serviteurs de cibler leur proprietaire ou d'autres serviteurs allies
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMinionTarget(EntityTargetLivingEntityEvent event) {
+        Entity entity = event.getEntity();
+        if (!entity.getScoreboardTags().contains("player_minion")) return;
+
+        LivingEntity target = event.getTarget();
+        if (target == null) return;
+
+        // Trouver le proprietaire du minion
+        String ownerUUID = entity.getScoreboardTags().stream()
+            .filter(tag -> tag.startsWith("owner_"))
+            .map(tag -> tag.substring(6))
+            .findFirst()
+            .orElse(null);
+
+        if (ownerUUID == null) return;
+
+        // Empecher le ciblage du proprietaire
+        if (target instanceof Player player && player.getUniqueId().toString().equals(ownerUUID)) {
+            event.setCancelled(true);
+            // Forcer a chercher une autre cible
+            if (entity instanceof Mob mob) {
+                Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+                if (owner != null) {
+                    setMinionTarget(owner, mob);
+                }
+            }
+            return;
+        }
+
+        // Empecher le ciblage d'autres serviteurs du meme proprietaire
+        if (target.getScoreboardTags().contains("player_minion") &&
+            target.getScoreboardTags().contains("owner_" + ownerUUID)) {
+            event.setCancelled(true);
+            if (entity instanceof Mob mob) {
+                Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+                if (owner != null) {
+                    setMinionTarget(owner, mob);
+                }
+            }
+        }
+    }
+
+    /**
+     * Activation du talent Necromancien par sneak + clic droit
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (!isOccultiste(player)) return;
+
+        // Verifier sneak + clic droit (main ou air)
+        if (!player.isSneaking()) return;
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
+
+        // Necromancer summon sur sneak + clic droit
+        if (hasTalentEffect(player, Talent.TalentEffectType.NECROMANCER)) {
+            processNecromancerSummon(player);
+        }
+    }
+
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerDamageEntity(EntityDamageByEntityEvent event) {
         Player player = getPlayerAttacker(event);
@@ -455,10 +524,7 @@ public class OccultisteTalentListener implements Listener {
                 }, 5L);
             }
 
-            // Necromancer summon (crouch to summon)
-            if (hasTalentEffect(player, Talent.TalentEffectType.NECROMANCER)) {
-                processNecromancerSummon(player);
-            }
+            // Necromancer summon moved to sneak + right-click (see onPlayerInteract)
         } else {
             // Check if Dark Ascension was fully charged
             if (hasTalentEffect(player, Talent.TalentEffectType.DARK_ASCENSION)) {
@@ -1355,12 +1421,12 @@ public class OccultisteTalentListener implements Listener {
 
             // Spawn zombie servant based on killed entity type
             Zombie minion = victim.getWorld().spawn(victim.getLocation(), Zombie.class);
-            minion.setCustomName("§5☠ §dServiteur §8[" + player.getName() + "]");
+            minion.setCustomName("§5☠ §cMort-Vivant §8[" + player.getName() + "]");
             minion.setCustomNameVisible(true);
             minion.setBaby(false);
             minion.getScoreboardTags().add("player_minion");
             minion.getScoreboardTags().add("owner_" + player.getUniqueId());
-            minion.setPersistent(false); // Eviter la persistence au rechargement
+            minion.setPersistent(false);
 
             // Set stats based on victim and talent
             double statPercent = talent.getValue(1);
@@ -1370,15 +1436,41 @@ public class OccultisteTalentListener implements Listener {
                 statPercent += immortal.getValue(1);
             }
 
-            // Use victim's stats as base
+            // Use victim's stats as base - buffed significantly
             double victimMaxHealth = victim.getMaxHealth();
-            double baseHealth = Math.max(victimMaxHealth * statPercent, 10); // Minimum 10 HP
+            double baseHealth = Math.max(victimMaxHealth * statPercent, 50); // Minimum 50 HP
             minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(baseHealth);
             minion.setHealth(minion.getMaxHealth());
 
-            // Give zombie more speed and attack damage
-            minion.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.3);
-            minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(5 * statPercent);
+            // Give zombie more speed and attack damage - buffed
+            minion.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.32);
+            minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(Math.max(10 * statPercent, 8));
+            minion.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(8);
+
+            // Give iron armor and sword
+            minion.getEquipment().setHelmet(new org.bukkit.inventory.ItemStack(Material.IRON_HELMET));
+            minion.getEquipment().setChestplate(new org.bukkit.inventory.ItemStack(Material.IRON_CHESTPLATE));
+            minion.getEquipment().setLeggings(new org.bukkit.inventory.ItemStack(Material.IRON_LEGGINGS));
+            minion.getEquipment().setBoots(new org.bukkit.inventory.ItemStack(Material.IRON_BOOTS));
+
+            org.bukkit.inventory.ItemStack sword = new org.bukkit.inventory.ItemStack(Material.IRON_SWORD);
+            sword.addEnchantment(org.bukkit.enchantments.Enchantment.SHARPNESS, 3);
+            minion.getEquipment().setItemInMainHand(sword);
+
+            // Prevent equipment drops
+            minion.getEquipment().setHelmetDropChance(0f);
+            minion.getEquipment().setChestplateDropChance(0f);
+            minion.getEquipment().setLeggingsDropChance(0f);
+            minion.getEquipment().setBootsDropChance(0f);
+            minion.getEquipment().setItemInMainHandDropChance(0f);
+
+            // Add glowing effect
+            minion.setGlowing(true);
+
+            // Add potion effects for power
+            minion.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
+            minion.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false));
+            minion.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
 
             minions.add(minion.getUniqueId());
 
@@ -1390,17 +1482,20 @@ public class OccultisteTalentListener implements Listener {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (minion.isValid() && !minion.isDead()) {
                     // Visual de despawn
-                    minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
+                    minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 15, 0.3, 0.5, 0.3, 0.05);
+                    minion.getWorld().spawnParticle(Particle.SMOKE, minion.getLocation(), 10, 0.3, 0.3, 0.3, 0.02);
                     minion.remove();
                     minions.remove(minion.getUniqueId());
                 }
             }, duration / 50);
 
-            // Visual
-            victim.getWorld().spawnParticle(Particle.SOUL, victim.getLocation(), 20, 0.5, 1, 0.5, 0.05);
-            victim.getWorld().spawnParticle(Particle.SMOKE, victim.getLocation(), 10, 0.3, 0.3, 0.3, 0.02);
-            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.5f);
-            sendActionBar(player, "§5☠ §dServiteur releve! §8(" + minions.size() + "/" + maxMinions + ")");
+            // Enhanced visual
+            victim.getWorld().spawnParticle(Particle.SOUL, victim.getLocation(), 30, 0.5, 1.5, 0.5, 0.08);
+            victim.getWorld().spawnParticle(Particle.SMOKE, victim.getLocation(), 15, 0.4, 0.5, 0.4, 0.03);
+            victim.getWorld().spawnParticle(Particle.ENCHANT, victim.getLocation(), 20, 0.5, 1, 0.5, 0.5);
+            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.4f);
+            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.5f);
+            sendActionBar(player, "§5☠ §cMort-Vivant releve! §8(" + minions.size() + "/" + maxMinions + ")");
         }
     }
 
@@ -1480,10 +1575,13 @@ public class OccultisteTalentListener implements Listener {
 
     private void processNecromancerSummon(Player player) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.NECROMANCER);
-        if (!checkCooldown(player, "necromancer", 2000)) return;
+        if (!checkCooldown(player, "necromancer", 1500)) return;
 
         int orbs = getSoulOrbs(player);
-        if (orbs <= 0) return;
+        if (orbs <= 0) {
+            sendActionBar(player, "§8Pas d'orbes d'ame disponibles!");
+            return;
+        }
 
         List<UUID> minions = playerMinions.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>());
         int maxMinions = (int) talent.getValue(2);
@@ -1498,11 +1596,11 @@ public class OccultisteTalentListener implements Listener {
 
         Skeleton minion = player.getWorld().spawn(player.getLocation().add(
             Math.random() * 2 - 1, 0, Math.random() * 2 - 1), Skeleton.class);
-        minion.setCustomName("§8☠ §7Squelette §8[" + player.getName() + "]");
+        minion.setCustomName("§5☠ §dSquelette Archer §8[" + player.getName() + "]");
         minion.setCustomNameVisible(true);
         minion.getScoreboardTags().add("player_minion");
         minion.getScoreboardTags().add("owner_" + player.getUniqueId());
-        minion.setPersistent(false); // Eviter la persistence au rechargement
+        minion.setPersistent(false);
 
         // Check Immortal Army buff for stats
         double statPercent = talent.getValue(0);
@@ -1511,15 +1609,47 @@ public class OccultisteTalentListener implements Listener {
             statPercent += immortal.getValue(1);
         }
 
-        // Set stats based on player
+        // Set stats based on player - buffed significantly
         double playerMaxHealth = player.getMaxHealth();
         double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
-        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(playerMaxHealth * statPercent);
-        minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(playerDamage * statPercent);
+        minion.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(Math.max(playerMaxHealth * statPercent, 40));
+        minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(Math.max(playerDamage * statPercent, 8));
+        minion.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).setBaseValue(0.28);
         minion.setHealth(minion.getMaxHealth());
 
-        // Equip skeleton with bow for ranged attacks
-        minion.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.BOW));
+        // Equip skeleton with enchanted bow and armor
+        org.bukkit.inventory.ItemStack bow = new org.bukkit.inventory.ItemStack(Material.BOW);
+        bow.addEnchantment(org.bukkit.enchantments.Enchantment.POWER, 3);
+        bow.addEnchantment(org.bukkit.enchantments.Enchantment.FLAME, 1);
+        minion.getEquipment().setItemInMainHand(bow);
+
+        // Purple-tinted leather armor
+        org.bukkit.inventory.meta.LeatherArmorMeta armorMeta;
+        org.bukkit.Color purpleColor = org.bukkit.Color.fromRGB(128, 0, 128);
+
+        org.bukkit.inventory.ItemStack helmet = new org.bukkit.inventory.ItemStack(Material.LEATHER_HELMET);
+        armorMeta = (org.bukkit.inventory.meta.LeatherArmorMeta) helmet.getItemMeta();
+        armorMeta.setColor(purpleColor);
+        helmet.setItemMeta(armorMeta);
+        minion.getEquipment().setHelmet(helmet);
+
+        org.bukkit.inventory.ItemStack chestplate = new org.bukkit.inventory.ItemStack(Material.LEATHER_CHESTPLATE);
+        armorMeta = (org.bukkit.inventory.meta.LeatherArmorMeta) chestplate.getItemMeta();
+        armorMeta.setColor(purpleColor);
+        chestplate.setItemMeta(armorMeta);
+        minion.getEquipment().setChestplate(chestplate);
+
+        // Prevent equipment drops
+        minion.getEquipment().setHelmetDropChance(0f);
+        minion.getEquipment().setChestplateDropChance(0f);
+        minion.getEquipment().setItemInMainHandDropChance(0f);
+
+        // Add glowing effect
+        minion.setGlowing(true);
+
+        // Add potion effects for power
+        minion.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 0, false, false));
+        minion.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
 
         minions.add(minion.getUniqueId());
 
@@ -1531,16 +1661,19 @@ public class OccultisteTalentListener implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (minion.isValid() && !minion.isDead()) {
                 // Visual de despawn
-                minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
+                minion.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 15, 0.3, 0.5, 0.3, 0.05);
+                minion.getWorld().spawnParticle(Particle.SMOKE, minion.getLocation(), 10, 0.3, 0.3, 0.3, 0.02);
                 minion.remove();
                 minions.remove(minion.getUniqueId());
             }
         }, duration / 50);
 
-        // Visual
-        player.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 15, 0.3, 1, 0.3, 0.05);
-        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 0.8f);
-        sendActionBar(player, "§8☠ §7Squelette invoque! §8(" + minions.size() + "/" + maxMinions + ")");
+        // Enhanced visual
+        player.getWorld().spawnParticle(Particle.SOUL, minion.getLocation(), 25, 0.5, 1.5, 0.5, 0.08);
+        player.getWorld().spawnParticle(Particle.ENCHANT, minion.getLocation(), 30, 0.5, 1, 0.5, 0.5);
+        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 0.7f);
+        player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.3f, 1.5f);
+        sendActionBar(player, "§5☠ §dSquelette Archer invoque! §8(" + minions.size() + "/" + maxMinions + ")");
     }
 
     // ==================== PERIODIC PROCESSORS ====================
