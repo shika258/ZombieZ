@@ -80,7 +80,7 @@ public class Consumable {
      */
     private int calculateInitialUses() {
         return switch (type) {
-            case JETPACK -> (int) stat1; // Carburant en secondes converti en "ticks d'usage"
+            case JETPACK -> (int) (stat1 * 20); // Carburant en secondes * 20 ticks/sec = ticks d'usage
             case GRAPPLING_HOOK -> {
                 // Utilisations scalées par rareté et zone, max 20
                 int baseUses = 3 + (int) (rarity.getStatMultiplier() * ConsumableType.getZoneMultiplier(zoneId));
