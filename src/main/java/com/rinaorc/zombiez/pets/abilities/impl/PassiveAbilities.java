@@ -981,7 +981,7 @@ class PowerSlowPassive implements PetAbility {
  * Utilitaire pour nettoyer les données en mémoire lors de la déconnexion
  * Évite les fuites mémoire des Maps contenant des UUIDs
  */
-class PassiveAbilityCleanup {
+public class PassiveAbilityCleanup {
 
     // Références statiques aux abilities avec état interne
     private static final List<Map<UUID, ?>> uuidMaps = new ArrayList<>();
