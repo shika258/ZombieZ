@@ -21,12 +21,20 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Système d'affichage des dégâts flottants optimisé
- * - Utilise TextDisplay (plus léger que ArmorStand)
+ * Système d'affichage des dégâts flottants optimisé v2
+ *
+ * Améliorations de fluidité:
+ * - Utilise l'interpolation NATIVE de Minecraft (client-side, 60Hz+)
+ * - Mouvement via Translation au lieu de teleport() pour des animations lisses
+ * - Mise à jour serveur tous les 3 ticks seulement (optimisé)
+ * - Le client interpole automatiquement entre les états
+ *
+ * Caractéristiques:
+ * - TextDisplay (plus léger que ArmorStand)
  * - Affichage client-side uniquement pour le joueur concerné
  * - Système anti-stack intelligent pour éviter les superpositions
- * - Animations fluides avec interpolation
- * - Coups critiques en gras avec effets spéciaux
+ * - Fonctions d'easing variées (cubic, back) pour des animations satisfaisantes
+ * - Coups critiques avec effets spéciaux et pop-in
  */
 public class DamageIndicator {
 
@@ -34,14 +42,16 @@ public class DamageIndicator {
     private static final Random RANDOM = new Random();
 
     // Configuration - Tailles réduites pour une meilleure lisibilité
-    private static final int DISPLAY_DURATION_TICKS = 20; // 1 seconde
-    private static final int CRITICAL_DURATION_TICKS = 25; // 1.25 secondes pour critiques
+    private static final int DISPLAY_DURATION_TICKS = 22; // 1.1 seconde
+    private static final int CRITICAL_DURATION_TICKS = 28; // 1.4 secondes pour critiques
     private static final float BASE_SCALE = 1.0f;      // Taille réduite (÷1.5)
     private static final float CRITICAL_SCALE = 1.4f;  // Taille réduite (÷1.5)
     private static final float HEAL_SCALE = 0.9f;      // Taille réduite (÷1.5)
 
-    // Animation optimisée - mise à jour tous les 2 ticks pour moins de lag
-    private static final int ANIMATION_INTERVAL_TICKS = 2;
+    // Animation optimisée - mise à jour tous les 3 ticks, interpolation native pour fluidité
+    private static final int ANIMATION_INTERVAL_TICKS = 3;
+    // Durée d'interpolation native (client-side, très fluide)
+    private static final int INTERPOLATION_TICKS = 4;
 
     // Système anti-stack: garde trace des positions récentes par entité
     private static final Map<UUID, Deque<IndicatorSlot>> recentIndicators = new ConcurrentHashMap<>();
@@ -93,14 +103,14 @@ public class DamageIndicator {
             float initialScale = critical ? scale * 1.4f : scale * 0.8f;
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
+                new Vector3f(0, 0, 0), // Commence à Y=0, le mouvement se fait via translation
                 new AxisAngle4f(0, 0, 0, 1),
                 new Vector3f(initialScale, initialScale, initialScale),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Configurer l'interpolation pour animation fluide (durée augmentée pour plus de fluidité)
-            display.setInterpolationDuration(10);
+            // Configurer l'interpolation native pour fluidité client-side
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             // Cacher aux autres joueurs si un viewer spécifique est défini
@@ -146,11 +156,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(HEAL_SCALE * 0.8f, HEAL_SCALE * 0.8f, HEAL_SCALE * 0.8f),
+                new Vector3f(HEAL_SCALE * 0.75f, HEAL_SCALE * 0.75f, HEAL_SCALE * 0.75f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(6);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -190,18 +200,18 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.2f, 1.2f, 1.2f),
+                new Vector3f(0.5f, 0.5f, 0.5f), // Petit pour pop-in effect
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(5);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
                 hideFromOtherPlayers(display, viewer);
             }
 
-            animateStatusIndicator(plugin, display, 18);
+            animateStatusIndicator(plugin, display, 21);
         });
     }
 
@@ -242,11 +252,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(scale * 1.2f, scale * 1.2f, scale * 1.2f),
+                new Vector3f(scale * 0.7f, scale * 0.7f, scale * 0.7f), // Petit pour pop-in
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(8);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -286,18 +296,18 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.2f, 1.2f, 1.2f),
+                new Vector3f(0.5f, 0.5f, 0.5f), // Petit pour pop-in effect
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(5);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
                 hideFromOtherPlayers(display, viewer);
             }
 
-            animateStatusIndicator(plugin, display, 18);
+            animateStatusIndicator(plugin, display, 21);
         });
     }
 
@@ -330,18 +340,18 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.05f, 1.05f, 1.05f),
+                new Vector3f(0.5f, 0.5f, 0.5f), // Petit pour pop-in
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(5);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
                 hideFromOtherPlayers(display, viewer);
             }
 
-            animateStatusIndicator(plugin, display, 15);
+            animateStatusIndicator(plugin, display, 18);
         });
     }
 
@@ -380,11 +390,11 @@ public class DamageIndicator {
             display.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(scale * 0.8f, scale * 0.8f, scale * 0.8f),
+                new Vector3f(scale * 0.6f, scale * 0.6f, scale * 0.6f), // Petit pour pop-in
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            display.setInterpolationDuration(5);
+            display.setInterpolationDuration(INTERPOLATION_TICKS);
             display.setInterpolationDelay(0);
 
             if (viewer != null) {
@@ -505,14 +515,15 @@ public class DamageIndicator {
 
     /**
      * Anime l'indicateur de dégâts avec mouvement fluide et optimisé
-     * Mise à jour tous les 2 ticks pour réduire le lag
+     * Utilise l'interpolation native de Minecraft pour une fluidité maximale
+     * Mise à jour tous les 3 ticks, le client interpole entre les états
      */
     private static void animateIndicatorOptimized(ZombieZPlugin plugin, TextDisplay display, float targetScale, int duration, boolean critical) {
         new BukkitRunnable() {
             private int ticks = 0;
-            private final Location startLoc = display.getLocation().clone();
             private final float startScale = critical ? targetScale * 1.3f : targetScale * 0.85f;
             private final int effectiveDuration = duration / ANIMATION_INTERVAL_TICKS;
+            private final float totalRise = 0.55f; // Distance totale de montée
 
             @Override
             public void run() {
@@ -523,48 +534,43 @@ public class DamageIndicator {
                 }
 
                 float progress = (float) ticks / effectiveDuration;
+                float nextProgress = (float) (ticks + 1) / effectiveDuration;
 
-                // Mouvement: ease-out cubic plus fluide
-                double easeOut = 1 - Math.pow(1 - progress, 2.5);
-                double yOffset = easeOut * 0.5; // Réduit de 0.6 à 0.5 pour moins de mouvement
+                // Calculer la position Y cible avec easing (pour le prochain frame)
+                float easeOutNext = 1 - (float) Math.pow(1 - nextProgress, 2.5);
+                float yOffset = easeOutNext * totalRise;
 
-                // Téléporter vers le haut
-                Location newLoc = startLoc.clone().add(0, yOffset, 0);
-                display.teleport(newLoc);
-
-                // Animation de scale avec transitions plus douces
+                // Animation de scale avec transitions fluides
                 float currentScale;
                 if (critical) {
-                    // Critique: shrink fluide
-                    if (progress < 0.15) {
-                        // Pop-in rapide
-                        float popProgress = progress / 0.15f;
-                        currentScale = startScale - (startScale - targetScale) * easeOutQuad(popProgress);
-                    } else if (progress > 0.75) {
-                        // Fade-out progressif
-                        float fadeProgress = (progress - 0.75f) / 0.25f;
-                        currentScale = targetScale * (1 - easeInQuad(fadeProgress) * 0.4f);
+                    // Critique: shrink fluide depuis grand vers normal
+                    if (progress < 0.12f) {
+                        float popProgress = progress / 0.12f;
+                        currentScale = startScale - (startScale - targetScale) * easeOutCubic(popProgress);
+                    } else if (progress > 0.72f) {
+                        float fadeProgress = (progress - 0.72f) / 0.28f;
+                        currentScale = targetScale * (1 - easeInCubic(fadeProgress) * 0.45f);
                     } else {
                         currentScale = targetScale;
                     }
                 } else {
                     // Normal: grow puis shrink fluide
-                    if (progress < 0.12) {
-                        // Grow-in
-                        float growProgress = progress / 0.12f;
-                        currentScale = startScale + (targetScale - startScale) * easeOutQuad(growProgress);
-                    } else if (progress > 0.75) {
-                        // Fade-out progressif
-                        float fadeProgress = (progress - 0.75f) / 0.25f;
-                        currentScale = targetScale * (1 - easeInQuad(fadeProgress) * 0.5f);
+                    if (progress < 0.1f) {
+                        float growProgress = progress / 0.1f;
+                        currentScale = startScale + (targetScale - startScale) * easeOutCubic(growProgress);
+                    } else if (progress > 0.72f) {
+                        float fadeProgress = (progress - 0.72f) / 0.28f;
+                        currentScale = targetScale * (1 - easeInCubic(fadeProgress) * 0.55f);
                     } else {
                         currentScale = targetScale;
                     }
                 }
 
-                // Appliquer la transformation avec interpolation native
+                // Appliquer la transformation avec translation (pas de teleport!)
+                // L'interpolation native rend le mouvement fluide côté client
+                display.setInterpolationDuration(INTERPOLATION_TICKS);
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
+                    new Vector3f(0, yOffset, 0), // Translation Y pour le mouvement
                     new AxisAngle4f(0, 0, 0, 1),
                     new Vector3f(currentScale, currentScale, currentScale),
                     new AxisAngle4f(0, 0, 0, 1)
@@ -584,14 +590,28 @@ public class DamageIndicator {
         return t * t;
     }
 
+    private static float easeOutCubic(float t) {
+        return 1 - (float) Math.pow(1 - t, 3);
+    }
+
+    private static float easeInCubic(float t) {
+        return t * t * t;
+    }
+
+    private static float easeOutBack(float t) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1;
+        return 1 + c3 * (float) Math.pow(t - 1, 3) + c1 * (float) Math.pow(t - 1, 2);
+    }
+
     /**
-     * Anime l'indicateur de soin (optimisé)
+     * Anime l'indicateur de soin avec interpolation native
      */
     private static void animateHealIndicator(ZombieZPlugin plugin, TextDisplay display) {
         new BukkitRunnable() {
             private int ticks = 0;
-            private final int effectiveDuration = 16 / ANIMATION_INTERVAL_TICKS;
-            private final Location startLoc = display.getLocation().clone();
+            private final int effectiveDuration = 18 / ANIMATION_INTERVAL_TICKS;
+            private final float totalRise = 0.4f;
 
             @Override
             public void run() {
@@ -602,25 +622,25 @@ public class DamageIndicator {
                 }
 
                 float progress = (float) ticks / effectiveDuration;
+                float nextProgress = Math.min(1f, (float) (ticks + 1) / effectiveDuration);
 
-                // Mouvement doux vers le haut avec easing
-                double yOffset = easeOutQuad(progress) * 0.35;
-                Location newLoc = startLoc.clone().add(0, yOffset, 0);
-                display.teleport(newLoc);
+                // Mouvement vers le haut avec easing
+                float yOffset = easeOutCubic(nextProgress) * totalRise;
 
-                // Scale animation fluide
+                // Scale animation fluide avec léger "bounce"
                 float scale;
-                if (progress < 0.15) {
-                    scale = HEAL_SCALE * (0.85f + 0.3f * easeOutQuad(progress / 0.15f));
-                } else if (progress > 0.75) {
-                    float fadeProgress = (progress - 0.75f) / 0.25f;
-                    scale = HEAL_SCALE * (1 - easeInQuad(fadeProgress) * 0.6f);
+                if (progress < 0.12f) {
+                    scale = HEAL_SCALE * (0.8f + 0.35f * easeOutBack(progress / 0.12f));
+                } else if (progress > 0.7f) {
+                    float fadeProgress = (progress - 0.7f) / 0.3f;
+                    scale = HEAL_SCALE * (1 - easeInCubic(fadeProgress) * 0.65f);
                 } else {
                     scale = HEAL_SCALE;
                 }
 
+                display.setInterpolationDuration(INTERPOLATION_TICKS);
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
+                    new Vector3f(0, yOffset, 0),
                     new AxisAngle4f(0, 0, 0, 1),
                     new Vector3f(scale, scale, scale),
                     new AxisAngle4f(0, 0, 0, 1)
@@ -632,14 +652,14 @@ public class DamageIndicator {
     }
 
     /**
-     * Anime les indicateurs de statut (esquive, bloc, immunité) - optimisé
+     * Anime les indicateurs de statut (esquive, bloc, immunité) avec interpolation native
      */
     private static void animateStatusIndicator(ZombieZPlugin plugin, TextDisplay display, int duration) {
         new BukkitRunnable() {
             private int ticks = 0;
             private final int effectiveDuration = duration / ANIMATION_INTERVAL_TICKS;
-            private final Location startLoc = display.getLocation().clone();
-            private final float baseScale = 0.8f; // Taille réduite
+            private final float baseScale = 0.85f;
+            private final float totalRise = 0.28f;
 
             @Override
             public void run() {
@@ -650,25 +670,25 @@ public class DamageIndicator {
                 }
 
                 float progress = (float) ticks / effectiveDuration;
+                float nextProgress = Math.min(1f, (float) (ticks + 1) / effectiveDuration);
 
-                // Mouvement vers le haut fluide
-                double yOffset = easeOutQuad(progress) * 0.22;
-                Location newLoc = startLoc.clone().add(0, yOffset, 0);
-                display.teleport(newLoc);
+                // Mouvement vers le haut fluide avec interpolation
+                float yOffset = easeOutCubic(nextProgress) * totalRise;
 
-                // Scale avec pop-in fluide
+                // Scale avec pop-in satisfaisant
                 float scale;
-                if (progress < 0.12) {
-                    scale = baseScale * (0.6f + 0.6f * easeOutQuad(progress / 0.12f));
-                } else if (progress > 0.8) {
-                    float fadeProgress = (progress - 0.8f) / 0.2f;
-                    scale = baseScale * (1 - easeInQuad(fadeProgress) * 0.7f);
+                if (progress < 0.1f) {
+                    scale = baseScale * (0.5f + 0.7f * easeOutBack(progress / 0.1f));
+                } else if (progress > 0.75f) {
+                    float fadeProgress = (progress - 0.75f) / 0.25f;
+                    scale = baseScale * (1 - easeInCubic(fadeProgress) * 0.75f);
                 } else {
                     scale = baseScale;
                 }
 
+                display.setInterpolationDuration(INTERPOLATION_TICKS);
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
+                    new Vector3f(0, yOffset, 0),
                     new AxisAngle4f(0, 0, 0, 1),
                     new Vector3f(scale, scale, scale),
                     new AxisAngle4f(0, 0, 0, 1)
@@ -680,16 +700,15 @@ public class DamageIndicator {
     }
 
     /**
-     * Anime l'indicateur de combo - optimisé
+     * Anime l'indicateur de combo avec interpolation native
      */
     private static void animateComboIndicator(ZombieZPlugin plugin, TextDisplay display, float targetScale) {
-        // Réduire la taille du combo aussi
-        float reducedScale = targetScale / 1.5f;
+        float reducedScale = targetScale / 1.4f;
 
         new BukkitRunnable() {
             private int ticks = 0;
-            private final int effectiveDuration = 18 / ANIMATION_INTERVAL_TICKS;
-            private final Location startLoc = display.getLocation().clone();
+            private final int effectiveDuration = 20 / ANIMATION_INTERVAL_TICKS;
+            private final float totalRise = 0.3f;
 
             @Override
             public void run() {
@@ -700,25 +719,25 @@ public class DamageIndicator {
                 }
 
                 float progress = (float) ticks / effectiveDuration;
+                float nextProgress = Math.min(1f, (float) (ticks + 1) / effectiveDuration);
 
-                // Mouvement vers le haut fluide
-                double yOffset = easeOutQuad(progress) * 0.25;
-                Location newLoc = startLoc.clone().add(0, yOffset, 0);
-                display.teleport(newLoc);
+                // Mouvement vers le haut avec interpolation
+                float yOffset = easeOutCubic(nextProgress) * totalRise;
 
-                // Scale fluide sans wobble (moins de lag)
+                // Scale fluide avec pop-in
                 float scale;
-                if (progress < 0.15) {
-                    scale = reducedScale * (0.85f + 0.3f * easeOutQuad(progress / 0.15f));
-                } else if (progress > 0.75) {
-                    float fadeProgress = (progress - 0.75f) / 0.25f;
-                    scale = reducedScale * (1 - easeInQuad(fadeProgress) * 0.6f);
+                if (progress < 0.12f) {
+                    scale = reducedScale * (0.8f + 0.35f * easeOutBack(progress / 0.12f));
+                } else if (progress > 0.7f) {
+                    float fadeProgress = (progress - 0.7f) / 0.3f;
+                    scale = reducedScale * (1 - easeInCubic(fadeProgress) * 0.65f);
                 } else {
                     scale = reducedScale;
                 }
 
+                display.setInterpolationDuration(INTERPOLATION_TICKS);
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
+                    new Vector3f(0, yOffset, 0),
                     new AxisAngle4f(0, 0, 0, 1),
                     new Vector3f(scale, scale, scale),
                     new AxisAngle4f(0, 0, 0, 1)
@@ -730,13 +749,13 @@ public class DamageIndicator {
     }
 
     /**
-     * Anime l'indicateur de headshot - effet pop satisfaisant
+     * Anime l'indicateur de headshot avec interpolation native - effet pop satisfaisant
      */
     private static void animateHeadshotIndicator(ZombieZPlugin plugin, TextDisplay display, float targetScale) {
         new BukkitRunnable() {
             private int ticks = 0;
-            private final int effectiveDuration = 22 / ANIMATION_INTERVAL_TICKS;
-            private final Location startLoc = display.getLocation().clone();
+            private final int effectiveDuration = 24 / ANIMATION_INTERVAL_TICKS;
+            private final float totalRise = 0.45f;
 
             @Override
             public void run() {
@@ -747,31 +766,32 @@ public class DamageIndicator {
                 }
 
                 float progress = (float) ticks / effectiveDuration;
+                float nextProgress = Math.min(1f, (float) (ticks + 1) / effectiveDuration);
 
-                // Mouvement vers le haut fluide avec légère accélération
-                double yOffset = easeOutQuad(progress) * 0.4;
-                Location newLoc = startLoc.clone().add(0, yOffset, 0);
-                display.teleport(newLoc);
+                // Mouvement vers le haut avec interpolation fluide
+                float yOffset = easeOutCubic(nextProgress) * totalRise;
 
-                // Animation pop-in puis shrink pour effet satisfaisant
+                // Animation pop-in exagérée puis shrink pour effet satisfaisant
                 float scale;
-                if (progress < 0.1) {
-                    // Pop-in rapide et exagéré
-                    float popProgress = progress / 0.1f;
-                    scale = targetScale * (1.3f - 0.3f * easeOutQuad(popProgress));
-                } else if (progress < 0.2) {
-                    // Stabilisation
-                    scale = targetScale;
-                } else if (progress > 0.7) {
+                if (progress < 0.08f) {
+                    // Pop-in rapide et exagéré avec overshoot
+                    float popProgress = progress / 0.08f;
+                    scale = targetScale * (0.7f + 0.5f * easeOutBack(popProgress));
+                } else if (progress < 0.18f) {
+                    // Retour à la normale
+                    float settleProgress = (progress - 0.08f) / 0.1f;
+                    scale = targetScale * (1.2f - 0.2f * easeOutCubic(settleProgress));
+                } else if (progress > 0.68f) {
                     // Fade-out progressif
-                    float fadeProgress = (progress - 0.7f) / 0.3f;
-                    scale = targetScale * (1 - easeInQuad(fadeProgress) * 0.5f);
+                    float fadeProgress = (progress - 0.68f) / 0.32f;
+                    scale = targetScale * (1 - easeInCubic(fadeProgress) * 0.55f);
                 } else {
                     scale = targetScale;
                 }
 
+                display.setInterpolationDuration(INTERPOLATION_TICKS);
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
+                    new Vector3f(0, yOffset, 0),
                     new AxisAngle4f(0, 0, 0, 1),
                     new Vector3f(scale, scale, scale),
                     new AxisAngle4f(0, 0, 0, 1)
