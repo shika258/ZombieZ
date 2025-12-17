@@ -99,8 +99,8 @@ public class PinataZombieEvent extends MicroEvent {
         pinataZombie.addScoreboardTag("pinata_zombie");
         pinataZombie.addScoreboardTag("event_" + id);
 
-        // Effet de spawn
-        location.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.2);
+        // Effet de spawn (reduit)
+        location.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, location.clone().add(0, 1, 0), 20, 0.4, 0.8, 0.4, 0.15);
         location.getWorld().playSound(location, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.5f);
         location.getWorld().playSound(location, Sound.BLOCK_NOTE_BLOCK_BELL, 1f, 2f);
     }
@@ -127,20 +127,20 @@ public class PinataZombieEvent extends MicroEvent {
             return;
         }
 
-        // Particules scintillantes constantes
-        if (elapsedTicks % 3 == 0) {
+        // Particules scintillantes (toutes les 8 ticks = reduit)
+        if (elapsedTicks % 8 == 0) {
             spawnSparkleParticles();
         }
 
         // Son de clochette periodique
-        if (elapsedTicks % 30 == 0) {
-            location.getWorld().playSound(location, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.5f + random.nextFloat() * 0.5f);
+        if (elapsedTicks % 40 == 0) {
+            location.getWorld().playSound(location, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.4f, 1.5f + random.nextFloat() * 0.5f);
         }
 
-        // Rotation de la pinata (visuel)
-        Location loc = pinataZombie.getLocation();
-        loc.setYaw(loc.getYaw() + 5);
-        pinataZombie.teleport(loc);
+        // Rotation de la pinata via bodyYaw (plus performant que teleport)
+        if (elapsedTicks % 2 == 0) {
+            pinataZombie.setBodyYaw(pinataZombie.getBodyYaw() + 10);
+        }
 
         // ActionBar
         double healthPercent = pinataZombie.getHealth() / PINATA_HEALTH;
@@ -148,29 +148,28 @@ public class PinataZombieEvent extends MicroEvent {
         sendActionBar("§e🎁 Piñata §7| " + healthBar + " §7| Hits: §e" + hitCount + " §7| §e" + getRemainingTimeSeconds() + "s");
     }
 
+    // Cache pour eviter de creer des objets a chaque tick
+    private static final Particle.DustOptions GOLD_DUST = new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f);
+
     /**
-     * Particules scintillantes
+     * Particules scintillantes (optimise)
      */
     private void spawnSparkleParticles() {
         if (pinataZombie == null) return;
 
         Location loc = pinataZombie.getLocation().add(0, 1, 0);
 
-        // Etoiles autour
-        for (int i = 0; i < 3; i++) {
-            double angle = random.nextDouble() * Math.PI * 2;
-            double radius = 0.5 + random.nextDouble() * 0.5;
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
-            double y = random.nextDouble() * 1.5;
+        // Une seule etoile
+        double angle = random.nextDouble() * Math.PI * 2;
+        double radius = 0.5 + random.nextDouble() * 0.5;
+        loc.getWorld().spawnParticle(Particle.END_ROD,
+            loc.getX() + Math.cos(angle) * radius,
+            loc.getY() + random.nextDouble() * 1.5,
+            loc.getZ() + Math.sin(angle) * radius,
+            1, 0, 0, 0, 0);
 
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(x, y, z), 1, 0, 0, 0, 0);
-        }
-
-        // Particules dorees
-        loc.getWorld().spawnParticle(Particle.DUST, loc, 2,
-            0.3, 0.5, 0.3, 0,
-            new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
+        // Particule doree
+        loc.getWorld().spawnParticle(Particle.DUST, loc, 1, 0.3, 0.5, 0.3, 0, GOLD_DUST);
     }
 
     /**
@@ -203,30 +202,29 @@ public class PinataZombieEvent extends MicroEvent {
         return Math.min(hitCount * 5, 200);
     }
 
+    // Couleurs pre-calculees pour les confettis
+    private static final Color[] CONFETTI_COLORS = {
+        Color.RED, Color.ORANGE, Color.YELLOW, Color.LIME, Color.AQUA, Color.FUCHSIA
+    };
+
     @Override
     public boolean handleDamage(LivingEntity entity, Player attacker, double damage) {
         if (entity.getUniqueId().equals(pinataUUID)) {
             hitCount++;
 
-            // Effet de hit satisfaisant
+            // Effet de hit satisfaisant (reduit)
             Location loc = entity.getLocation().add(0, 1, 0);
-            loc.getWorld().spawnParticle(Particle.CRIT_MAGIC, loc, 10, 0.3, 0.3, 0.3, 0.2);
+            loc.getWorld().spawnParticle(Particle.CRIT_MAGIC, loc, 5, 0.2, 0.2, 0.2, 0.15);
 
             // Son de hit qui augmente en pitch
             float pitch = Math.min(2.0f, 0.5f + (hitCount * 0.05f));
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.8f, pitch);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
 
-            // Mini explosion de confettis a chaque hit
-            for (int i = 0; i < 3; i++) {
-                Color randomColor = Color.fromRGB(
-                    random.nextInt(256),
-                    random.nextInt(256),
-                    random.nextInt(256)
-                );
-                loc.getWorld().spawnParticle(Particle.DUST, loc, 3,
-                    0.5, 0.5, 0.5, 0,
-                    new Particle.DustOptions(randomColor, 1.2f));
-            }
+            // Un seul confetti colore par hit (utilise couleurs pre-calculees)
+            Color confettiColor = CONFETTI_COLORS[hitCount % CONFETTI_COLORS.length];
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 2,
+                0.4, 0.4, 0.4, 0,
+                new Particle.DustOptions(confettiColor, 1.0f));
 
             return true;
         }
@@ -243,15 +241,14 @@ public class PinataZombieEvent extends MicroEvent {
             // EXPLOSION DE LOOT SPECTACULAIRE!
             explodeLoot(loc);
 
-            // Effets visuels massifs
-            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 200, 1, 2, 1, 0.5);
-            loc.getWorld().spawnParticle(Particle.FIREWORK, loc, 100, 1, 1.5, 1, 0.3);
-            loc.getWorld().spawnParticle(Particle.FLASH, loc, 3);
+            // Effets visuels (equilibres - encore festifs mais pas excessifs)
+            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 50, 0.8, 1.5, 0.8, 0.3);
+            loc.getWorld().spawnParticle(Particle.FIREWORK, loc, 25, 0.8, 1.2, 0.8, 0.2);
+            loc.getWorld().spawnParticle(Particle.FLASH, loc, 1);
 
             // Sons de celebration
             loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1f, 1f);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.5f);
-            loc.getWorld().playSound(loc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1.2f);
 
             // Message
             player.sendMessage("§e§l🎁 PIÑATA EXPLOSÉE! §7Ramassez le loot!");
@@ -286,9 +283,6 @@ public class PinataZombieEvent extends MicroEvent {
                 Math.sin(angle) * outward
             );
             droppedItem.setVelocity(velocity);
-
-            // Particule sur l'item
-            droppedItem.getWorld().spawnParticle(Particle.END_ROD, droppedItem.getLocation(), 2, 0, 0, 0, 0.05);
         }
 
         // Ajouter quelques pieces (points visuels)

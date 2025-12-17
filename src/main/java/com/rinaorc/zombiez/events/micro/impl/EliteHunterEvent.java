@@ -100,12 +100,14 @@ public class EliteHunterEvent extends MicroEvent {
             return;
         }
 
-        // Faire fuir le zombie LOIN du joueur
-        makeZombieFlee();
+        // Faire fuir le zombie LOIN du joueur (toutes les 5 ticks pour optimisation)
+        if (elapsedTicks % 5 == 0) {
+            makeZombieFlee();
+        }
 
-        // Spawn des particules de trainee
+        // Spawn des particules de trainee (toutes les 10 ticks = 0.5s)
         ticksSinceLastParticle++;
-        if (ticksSinceLastParticle >= PARTICLE_INTERVAL) {
+        if (ticksSinceLastParticle >= 10) {
             ticksSinceLastParticle = 0;
             spawnTrailParticles();
         }

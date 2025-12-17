@@ -253,7 +253,7 @@ public class JackpotZombieEvent extends MicroEvent {
                 points = 1500;
                 message = "§6§l🎰 MEGA JACKPOT!!! 👑👑👑 §6+1500⚡";
                 sound = Sound.UI_TOAST_CHALLENGE_COMPLETE;
-                particleCount = 200;
+                particleCount = 60;
 
                 // Annonce serveur
                 plugin.getServer().broadcast(
@@ -273,7 +273,7 @@ public class JackpotZombieEvent extends MicroEvent {
                 points = 800;
                 message = "§e§l🎰 JACKPOT! " + reels[0] + reels[1] + reels[2] + " §e+800⚡";
                 sound = Sound.ENTITY_PLAYER_LEVELUP;
-                particleCount = 100;
+                particleCount = 40;
 
                 // Drop un item epic
                 try {
@@ -372,7 +372,7 @@ public class JackpotZombieEvent extends MicroEvent {
 
             // Fixer le symbole final (avec une petite chance de manipulation pour le fun)
             // Petite chance d'avoir un symbole identique au precedent si on en a deja un
-            if (reelToStop > 0 && random.nextDouble() < 0.35) {
+            if (reelToStop > 0 && random.nextDouble() < 0.25) {
                 reels[reelToStop] = reels[reelToStop - 1];
             } else {
                 reels[reelToStop] = SYMBOLS[random.nextInt(SYMBOLS.length)];

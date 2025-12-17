@@ -36,7 +36,6 @@ public class DeathRaceEvent extends MicroEvent {
 
     private final MicroEventManager manager;
     private final List<UUID> raceZombies = new ArrayList<>();
-    private final List<Location> zombiePositions = new ArrayList<>();
 
     private int totalZombies;
     private int zombiesKilled = 0;
@@ -73,8 +72,6 @@ public class DeathRaceEvent extends MicroEvent {
 
             // Ajuster au sol
             zombieLoc.setY(zombieLoc.getWorld().getHighestBlockYAt(zombieLoc) + 1);
-
-            zombiePositions.add(zombieLoc.clone());
 
             // Spawn le zombie
             Zombie zombie = (Zombie) zombieLoc.getWorld().spawnEntity(zombieLoc, EntityType.ZOMBIE);

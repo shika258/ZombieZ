@@ -149,28 +149,29 @@ public class TemporalRiftEvent extends MicroEvent {
      * Effet d'ouverture du portail
      */
     private void spawnRiftOpenEffect() {
-        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, location.clone().add(0, 1, 0), 100, 1, 1.5, 1, 0.2);
-        location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+        Location center = location.clone().add(0, 1, 0);
+        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 40, 0.8, 1.2, 0.8, 0.15);
+        location.getWorld().spawnParticle(Particle.END_ROD, center, 15, 0.4, 0.8, 0.4, 0.08);
         location.getWorld().playSound(location, Sound.BLOCK_PORTAL_TRIGGER, 1f, 0.5f);
         location.getWorld().playSound(location, Sound.ENTITY_WITHER_SPAWN, 0.5f, 2f);
     }
 
     /**
-     * Particules continues du portail
+     * Particules continues du portail (optimise)
      */
     private void spawnRiftParticles() {
         Location center = location.clone().add(0, 1.5, 0);
 
-        // Cercle de particules
-        for (int i = 0; i < 8; i++) {
-            double angle = (Math.PI * 2 / 8) * i + (elapsedTicks * 0.1);
+        // Cercle de particules (4 points au lieu de 8)
+        for (int i = 0; i < 4; i++) {
+            double angle = (Math.PI * 2 / 4) * i + (elapsedTicks * 0.1);
             double x = Math.cos(angle) * 1.5;
             double z = Math.sin(angle) * 1.5;
-            location.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0, z), 2, 0, 0, 0, 0.5);
+            location.getWorld().spawnParticle(Particle.PORTAL, center.clone().add(x, 0, z), 1, 0, 0, 0, 0.5);
         }
 
         // Centre du portail
-        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 5, 0.3, 0.5, 0.3, 0.05);
+        location.getWorld().spawnParticle(Particle.REVERSE_PORTAL, center, 3, 0.2, 0.4, 0.2, 0.03);
     }
 
     /**
@@ -196,8 +197,9 @@ public class TemporalRiftEvent extends MicroEvent {
     protected void onCleanup() {
         // Effet de fermeture du portail
         if (riftClosed) {
-            location.getWorld().spawnParticle(Particle.FLASH, location.clone().add(0, 1, 0), 2);
-            location.getWorld().spawnParticle(Particle.END_ROD, location.clone().add(0, 1, 0), 50, 1, 1.5, 1, 0.2);
+            Location center = location.clone().add(0, 1, 0);
+            location.getWorld().spawnParticle(Particle.FLASH, center, 1);
+            location.getWorld().spawnParticle(Particle.END_ROD, center, 20, 0.8, 1.2, 0.8, 0.15);
             location.getWorld().playSound(location, Sound.BLOCK_BEACON_DEACTIVATE, 1f, 0.5f);
         } else {
             // Echec - les zombies restants deviennent enrages
