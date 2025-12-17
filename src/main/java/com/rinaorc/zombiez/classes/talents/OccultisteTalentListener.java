@@ -614,14 +614,14 @@ public class OccultisteTalentListener implements Listener {
         UUID targetId = target.getUniqueId();
         double intensity = getBurnIntensity(target);
 
-        // Verifier si intensite max atteinte
-        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PHOENIX_FLAME);
-        double threshold = talent.getValue(0); // seuil en secondes
+        // Verifier si intensite max atteinte (8 secondes de feu continu)
+        if (intensity < MAX_BURN_INTENSITY) return;
 
-        if (intensity < threshold) return;
+        Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.PHOENIX_FLAME);
 
         // Verifier cooldown par ennemi
-        long cooldownMs = (long) talent.getValue(4);
+        // values: [dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s]
+        long cooldownMs = (long) talent.getValue(3);
         Long cooldownEnd = criticalIgnitionCooldowns.get(targetId);
         if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) return;
 
@@ -631,6 +631,7 @@ public class OccultisteTalentListener implements Listener {
 
     /**
      * Declenche l'Embrasement Critique - explosion massive
+     * values: [dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s]
      */
     private void triggerCriticalIgnition(Player player, LivingEntity target, Talent talent, double intensity) {
         UUID targetId = target.getUniqueId();
@@ -640,11 +641,12 @@ public class OccultisteTalentListener implements Listener {
                                 target.getScoreboardTags().contains("elite") ||
                                 target.getMaxHealth() > 50;
 
-        // Calculer les degats: base + bonus par seconde d'intensite
-        double baseDamagePercent = talent.getValue(1);
-        double bossDamagePercent = talent.getValue(3);
+        // Calculer les degats en % des PV max
+        // values: [dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s]
+        double baseDamagePercent = talent.getValue(0);  // 0.25 = 25%
+        double bossDamagePercent = talent.getValue(1);  // 0.12 = 12%
         double damagePercent = isBossOrElite ? bossDamagePercent : baseDamagePercent;
-        double totalDamage = target.getMaxHealth() * damagePercent * intensity;
+        double totalDamage = target.getMaxHealth() * damagePercent;
 
         // Appliquer les degats SANS knockback
         damageNoKnockback(target, totalDamage, player);
@@ -671,7 +673,7 @@ public class OccultisteTalentListener implements Listener {
         target.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
 
         // Mettre en cooldown
-        long cooldownMs = (long) talent.getValue(4);
+        long cooldownMs = (long) talent.getValue(3);
         criticalIgnitionCooldowns.put(targetId, System.currentTimeMillis() + cooldownMs);
 
         // Reset l'intensite de brulure
@@ -679,8 +681,9 @@ public class OccultisteTalentListener implements Listener {
 
         // Message au joueur
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c🔥 §6Embrasement Critique! §7" + String.format("%.1f", intensity) +
-                "s d'intensite = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+            int damagePercentDisplay = (int) (damagePercent * 100);
+            player.sendMessage("§c🔥 §6Embrasement Critique! §7" + damagePercentDisplay +
+                "% PV max = §c" + String.format("%.1f", totalDamage) + " §7degats!");
         }
     }
 
