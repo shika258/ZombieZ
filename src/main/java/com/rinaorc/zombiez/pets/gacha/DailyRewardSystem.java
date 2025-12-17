@@ -23,14 +23,16 @@ public class DailyRewardSystem {
     private final Map<UUID, DailyRewardData> playerData = new ConcurrentHashMap<>();
 
     // Récompenses du calendrier (7 jours qui se répètent)
+    // ÉQUILIBRÉ: Généreux pour encourager la connexion quotidienne
+    // En 1 semaine: ~8 oeufs standards, 2 zone, 1 elite + fragments
     private static final DailyReward[] WEEKLY_REWARDS = {
-        new DailyReward("Jour 1", EggType.STANDARD, 1, 0, 0, 0),
-        new DailyReward("Jour 2", null, 0, 50, 0, 0),
-        new DailyReward("Jour 3", EggType.STANDARD, 2, 0, 0, 0),
-        new DailyReward("Jour 4", null, 0, 100, 0, 0.05), // 5% luck bonus aujourd'hui
-        new DailyReward("Jour 5", EggType.ZONE, 1, 0, 0, 0),
-        new DailyReward("Jour 6", null, 0, 200, 0, 0),
-        new DailyReward("Jour 7 §6(BONUS!)", EggType.ELITE, 1, 100, 0, 0.10) // 10% luck bonus
+        new DailyReward("Jour 1", EggType.STANDARD, 2, 25, 0, 0),           // 2 standards + fragments
+        new DailyReward("Jour 2", EggType.STANDARD, 1, 75, 0, 0),           // 1 standard + fragments
+        new DailyReward("Jour 3", EggType.STANDARD, 3, 50, 0, 0.05),        // 3 standards + 5% luck
+        new DailyReward("Jour 4", EggType.ZONE, 1, 100, 0, 0),              // 1 zone + fragments
+        new DailyReward("Jour 5", EggType.STANDARD, 2, 75, 0, 0.05),        // 2 standards + 5% luck
+        new DailyReward("Jour 6", EggType.ZONE, 1, 150, 0, 0),              // 1 zone + fragments
+        new DailyReward("Jour 7 §6(BONUS!)", EggType.ELITE, 1, 200, 0, 0.15) // 1 elite + 15% luck!
     };
 
     public DailyRewardSystem(ZombieZPlugin plugin) {

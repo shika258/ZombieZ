@@ -10,14 +10,17 @@ import org.bukkit.Color;
 @Getter
 public enum PetRarity {
 
+    // ÉQUILIBRAGE: Plus de copies nécessaires MAIS plus de fragments en récompense
+    // Ratio copies/fragments maintenu pour que le grind soit long mais satisfaisant
+
     COMMON(
         "Commun",
         "§7",
         45.0,           // dropRate
-        200,            // copiesForMax (x4 plus dur!)
-        11,             // maxLevel (2 niveaux de plus)
-        3,              // fragmentsPerDuplicate (réduit - moins généreux)
-        150,            // fragmentCost
+        150,            // copiesForMax (x3 original - grind raisonnable)
+        11,             // maxLevel
+        8,              // fragmentsPerDuplicate (x1.6 original - compense le grind)
+        40,             // fragmentCost (prix pour acheter 1 copie via wild card)
         Color.GRAY
     ),
 
@@ -25,10 +28,10 @@ public enum PetRarity {
         "Peu Commun",
         "§a",
         30.0,
-        450,            // x4.5 plus dur
+        300,            // x3 original
         11,
-        5,              // réduit
-        400,
+        20,             // x2 original
+        100,            // wild card cost
         Color.LIME
     ),
 
@@ -36,10 +39,10 @@ public enum PetRarity {
         "Rare",
         "§b",
         15.0,
-        900,            // x4.5 plus dur
+        600,            // x3 original
         11,
-        12,             // réduit
-        1200,
+        50,             // x2 original
+        300,            // wild card cost
         Color.AQUA
     ),
 
@@ -47,10 +50,10 @@ public enum PetRarity {
         "Épique",
         "§d",
         7.0,
-        1800,           // x4.5 plus dur
+        1200,           // x3 original
         11,
-        35,             // réduit
-        4000,
+        150,            // x1.5 original
+        800,            // wild card cost
         Color.PURPLE
     ),
 
@@ -58,10 +61,10 @@ public enum PetRarity {
         "Légendaire",
         "§6",
         2.5,
-        4000,           // x5 plus dur
+        2500,           // x3.1 original
         11,
-        150,            // réduit
-        15000,
+        600,            // x1.2 original
+        3000,           // wild card cost
         Color.ORANGE
     ),
 
@@ -69,10 +72,10 @@ public enum PetRarity {
         "Mythique",
         "§c",
         0.5,
-        8000,           // x5.3 plus dur
+        5000,           // x3.3 original
         11,
-        600,            // réduit
-        -1,             // Non achetable
+        2000,           // identique - mythique reste rare
+        -1,             // Non achetable via wild card
         Color.RED
     );
 
