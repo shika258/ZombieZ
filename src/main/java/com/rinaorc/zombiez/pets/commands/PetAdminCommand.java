@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
  * /petadmin setlevel <joueur> <pet> <niveau>
  * /petadmin reset <joueur>
  * /petadmin spawnpet <pet> - Spawn visuel pour tests
+ * /petadmin unlockall <joueur> - Débloque tous les pets pour un joueur
  */
 public class PetAdminCommand implements CommandExecutor, TabCompleter {
 
@@ -57,6 +58,7 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
             case "setlevel" -> handleSetLevel(sender, args);
             case "reset" -> handleReset(sender, args);
             case "spawnpet" -> handleSpawnPet(sender, args);
+            case "unlockall" -> handleUnlockAll(sender, args);
             case "list" -> handleListPets(sender);
             case "eggs" -> handleListEggs(sender);
             default -> sendHelp(sender);
@@ -232,6 +234,39 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§a[Pet Admin] §7Pet " + type.getColoredName() + " §7spawné!");
     }
 
+    private void handleUnlockAll(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§c[Pet Admin] §7Usage: §e/petadmin unlockall <joueur>");
+            return;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage("§c[Pet Admin] §7Joueur introuvable: §e" + args[1]);
+            return;
+        }
+
+        PlayerPetData playerData = plugin.getPetManager().getOrLoadPlayerData(target.getUniqueId());
+        int unlockedCount = 0;
+
+        // Débloquer tous les pets au niveau 1 avec 1 copie
+        for (PetType type : PetType.values()) {
+            if (!playerData.hasPet(type)) {
+                playerData.addPet(type, 1, 1);
+                unlockedCount++;
+            }
+        }
+
+        playerData.markDirty();
+
+        if (unlockedCount > 0) {
+            sender.sendMessage("§a[Pet Admin] §7Débloqué §e" + unlockedCount + " pets §7pour §e" + target.getName() + "§7!");
+            target.sendMessage("§a[Pet] §7Un admin vous a débloqué §e" + unlockedCount + " pets§7!");
+        } else {
+            sender.sendMessage("§e[Pet Admin] §7" + target.getName() + " possède déjà tous les pets!");
+        }
+    }
+
     private void handleListPets(CommandSender sender) {
         sender.sendMessage("§7═══════ §e🐾 Liste des Pets §7═══════");
         sender.sendMessage("");
@@ -280,6 +315,9 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/petadmin spawnpet <pet>");
         sender.sendMessage("§7  Spawn un pet visuel pour tests");
         sender.sendMessage("");
+        sender.sendMessage("§e/petadmin unlockall <joueur>");
+        sender.sendMessage("§7  Débloque tous les pets pour un joueur");
+        sender.sendMessage("");
         sender.sendMessage("§e/petadmin list §7- Liste tous les pets");
         sender.sendMessage("§e/petadmin eggs §7- Liste les types d'oeufs");
     }
@@ -298,12 +336,12 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("give", "giveegg", "givefragments", "setlevel", "reset", "spawnpet", "list", "eggs"));
+            completions.addAll(Arrays.asList("give", "giveegg", "givefragments", "setlevel", "reset", "spawnpet", "unlockall", "list", "eggs"));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
 
             if (sub.equals("give") || sub.equals("giveegg") || sub.equals("givefragments") ||
-                sub.equals("setlevel") || sub.equals("reset")) {
+                sub.equals("setlevel") || sub.equals("reset") || sub.equals("unlockall")) {
                 // Liste des joueurs en ligne
                 Bukkit.getOnlinePlayers().forEach(p -> completions.add(p.getName()));
             } else if (sub.equals("spawnpet")) {
