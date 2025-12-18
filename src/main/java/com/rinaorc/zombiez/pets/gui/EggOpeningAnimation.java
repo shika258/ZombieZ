@@ -255,8 +255,9 @@ public class EggOpeningAnimation implements InventoryHolder {
         lore.add("");
         lore.add("§e§lPassif: §f" + pet.getPassiveDescription());
         lore.add("");
-        lore.add("§b§lActif: §f" + pet.getActiveName());
-        lore.add("§7" + pet.getActiveDescription());
+        lore.add("§6§lUltime: §f" + pet.getUltimateName());
+        lore.add("§7" + pet.getUltimateDescription());
+        lore.add("§7(Auto: toutes les " + pet.getUltimateCooldown() + "s)");
 
         return new ItemBuilder(pet.getIcon())
             .name("§l" + pet.getColoredName())

@@ -158,20 +158,19 @@ public class PetMainGUI implements InventoryHolder {
             lore.add("§a[Passif Niv.5] §f" + type.getLevel5Bonus());
         }
         lore.add("");
-        lore.add("§b[Actif] " + type.getActiveName());
-        lore.add("§7" + type.getActiveDescription());
-        lore.add("§7Cooldown: §e" + type.getActiveCooldown() + "s");
+        lore.add("§6§l[ULTIME] §e" + type.getUltimateName());
+        lore.add("§7" + type.getUltimateDescription());
+        lore.add("§7S'active automatiquement toutes les §e" + type.getUltimateCooldown() + "s");
         lore.add("");
 
         int cooldownRemaining = plugin.getPetManager().getCooldownRemainingSeconds(player.getUniqueId(), type);
         if (cooldownRemaining > 0) {
-            lore.add("§c⏳ Cooldown: " + cooldownRemaining + "s");
+            lore.add("§7Prochaine activation: §e" + cooldownRemaining + "s");
         } else {
-            lore.add("§a✓ Capacité prête!");
+            lore.add("§a✓ Ultime prête!");
         }
 
         lore.add("");
-        lore.add("§eClic gauche: Activer capacité");
         lore.add("§eClic droit: Déséquiper");
 
         return new ItemBuilder(type.getIcon())
@@ -264,15 +263,15 @@ public class PetMainGUI implements InventoryHolder {
 
             switch (slot) {
                 case SLOT_EQUIPPED_PET -> {
-                    if (event.isLeftClick()) {
-                        // Activer la capacité
-                        plugin.getPetManager().activateAbility(player);
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    } else if (event.isRightClick()) {
+                    if (event.isRightClick()) {
                         // Déséquiper
                         plugin.getPetManager().unequipPet(player);
                         player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 0.5f);
                         new PetMainGUI(plugin, player).open();
+                    } else {
+                        // Informer que les ultimes s'activent automatiquement
+                        player.sendMessage("§6[Pet] §7L'ultime s'active §eautomatiquement§7! Pas besoin de cliquer.");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     }
                 }
                 case SLOT_COLLECTION -> {

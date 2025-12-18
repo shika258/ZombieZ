@@ -249,7 +249,7 @@ public class PetCollectionGUI implements InventoryHolder {
         if (pet.hasLevel5Bonus()) {
             lore.add("§a[Niv.5] §f" + truncate(type.getLevel5Bonus(), 35));
         }
-        lore.add("§b[Actif] §f" + type.getActiveName());
+        lore.add("§6[Ultime] §f" + type.getUltimateName() + " §7(auto: " + type.getUltimateCooldown() + "s)");
 
         if (pet.getStarPower() > 0) {
             lore.add("");

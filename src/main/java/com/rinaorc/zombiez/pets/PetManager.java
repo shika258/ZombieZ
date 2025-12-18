@@ -30,8 +30,11 @@ public class PetManager {
     // Cache des données de pets par joueur
     private final Cache<UUID, PlayerPetData> petDataCache;
 
-    // Cache des cooldowns des capacités actives: Map<UUID, Map<PetType, timestamp>>
+    // Cache des cooldowns des capacités ultimes: Map<UUID, Map<PetType, prochaine activation timestamp>>
     private final Map<UUID, Map<PetType, Long>> abilityCooldowns = new ConcurrentHashMap<>();
+
+    // Tâche d'activation automatique des ultimes
+    private BukkitTask ultimateTickTask;
 
     // Registre des capacités
     @Getter
@@ -219,8 +222,9 @@ public class PetManager {
     }
 
     /**
-     * Active la capacité du pet équipé
+     * @deprecated Les capacités ultimes s'activent automatiquement maintenant
      */
+    @Deprecated
     public boolean activateAbility(Player player) {
         PlayerPetData data = getPlayerData(player.getUniqueId());
         if (data == null || data.getEquippedPet() == null) {
@@ -229,30 +233,54 @@ public class PetManager {
         }
 
         PetType type = data.getEquippedPet();
-        PetData petData = data.getPet(type);
-        PetAbility active = abilityRegistry.getActive(type);
+        int cooldown = type.getUltimateCooldown();
+        long remaining = getCooldownRemaining(player.getUniqueId(), type);
 
-        if (active == null) {
-            player.sendMessage("§c[Pet] §7Ce pet n'a pas de capacité active!");
-            return false;
+        if (remaining > 0) {
+            player.sendMessage("§c[Pet] §7L'ultime s'activera automatiquement dans §e" + (remaining / 1000) + "s§7!");
+        } else {
+            player.sendMessage("§a[Pet] §7L'ultime §b" + type.getUltimateName() + " §7est prête et s'activera bientôt!");
         }
-
-        // Vérifier le cooldown
-        if (isOnCooldown(player.getUniqueId(), type)) {
-            long remaining = getCooldownRemaining(player.getUniqueId(), type);
-            player.sendMessage("§c[Pet] §7Capacité en cooldown: §e" + (remaining / 1000) + "s");
-            return false;
-        }
-
-        // Activer la capacité
-        if (active.activate(player, petData)) {
-            // Appliquer le cooldown
-            int cooldown = active.getAdjustedCooldown(petData);
-            setCooldown(player.getUniqueId(), type, cooldown * 1000L);
-            return true;
-        }
+        player.sendMessage("§7[§eInfo§7] Les ultimes s'activent automatiquement toutes les §e" + cooldown + "s§7.");
 
         return false;
+    }
+
+    /**
+     * Active automatiquement l'ultime d'un joueur (appelé par le système)
+     */
+    private void autoActivateUltimate(Player player) {
+        PlayerPetData data = getPlayerData(player.getUniqueId());
+        if (data == null || data.getEquippedPet() == null) return;
+
+        PetType type = data.getEquippedPet();
+        PetData petData = data.getPet(type);
+        PetAbility ultimate = abilityRegistry.getUltimate(type);
+
+        if (ultimate == null) return;
+
+        // Vérifier le cooldown
+        if (isOnCooldown(player.getUniqueId(), type)) return;
+
+        // Vérifier si l'ultime peut s'activer
+        if (!ultimate.canAutoActivate(player, petData)) return;
+
+        // Activer l'ultime
+        if (ultimate.activate(player, petData)) {
+            // Message au joueur si l'option est activée
+            if (data.isShowAbilityMessages()) {
+                player.sendMessage("§6§l[ULTIME] §e" + type.getUltimateName() + " §7activée!");
+            }
+
+            // Effet sonore si l'option est activée
+            if (data.isPlayPetSounds()) {
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_GROWL, 0.3f, 1.5f);
+            }
+
+            // Appliquer le cooldown pour la prochaine activation
+            int cooldown = ultimate.getAdjustedCooldown(petData);
+            setCooldown(player.getUniqueId(), type, cooldown * 1000L);
+        }
     }
 
     // ==================== OEUFS ====================
@@ -607,6 +635,13 @@ public class PetManager {
             }
         }, 20L, 20L);
 
+        // Tick des capacités ultimes toutes les 0.5 seconde (vérification rapide)
+        ultimateTickTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                autoActivateUltimate(player);
+            }
+        }, 10L, 10L);
+
         // Auto-save toutes les 5 minutes
         autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin,
             this::saveAllAsync, 20L * 60 * 5, 20L * 60 * 5);
@@ -635,6 +670,9 @@ public class PetManager {
         // Arrêter les tâches
         if (passiveTickTask != null) {
             passiveTickTask.cancel();
+        }
+        if (ultimateTickTask != null) {
+            ultimateTickTask.cancel();
         }
         if (autoSaveTask != null) {
             autoSaveTask.cancel();
