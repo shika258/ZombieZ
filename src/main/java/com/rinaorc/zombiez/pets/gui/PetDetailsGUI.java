@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -30,7 +31,7 @@ public class PetDetailsGUI implements InventoryHolder {
     // Slots
     private static final int SLOT_PET_ICON = 13;
     private static final int SLOT_PASSIVE = 20;
-    private static final int SLOT_ACTIVE = 22;
+    private static final int SLOT_ULTIMATE = 22;
     private static final int SLOT_STAR_POWER = 24;
     private static final int SLOT_STATS = 31;
     private static final int SLOT_BACK = 40;
@@ -85,8 +86,8 @@ public class PetDetailsGUI implements InventoryHolder {
         // Capacité passive
         inventory.setItem(SLOT_PASSIVE, createPassiveItem());
 
-        // Capacité active
-        inventory.setItem(SLOT_ACTIVE, createActiveItem());
+        // Capacité ultime
+        inventory.setItem(SLOT_ULTIMATE, createUltimateItem());
 
         // Star Power
         inventory.setItem(SLOT_STAR_POWER, createStarPowerItem());
@@ -195,36 +196,38 @@ public class PetDetailsGUI implements InventoryHolder {
             .build();
     }
 
-    private ItemStack createActiveItem() {
+    private ItemStack createUltimateItem() {
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§b" + type.getActiveName());
-        lore.add("§f" + type.getActiveDescription());
+        lore.add("§6" + type.getUltimateName());
+        lore.add("§f" + type.getUltimateDescription());
         lore.add("");
-        lore.add("§7Cooldown de base: §e" + type.getActiveCooldown() + "s");
+        lore.add("§7Intervalle de base: §e" + type.getUltimateCooldown() + "s");
 
         if (petData != null) {
-            int adjustedCd = (int) (type.getActiveCooldown() * (1 - (petData.getLevel() - 1) * 0.02));
-            lore.add("§7Cooldown actuel: §a" + adjustedCd + "s");
+            int adjustedCd = (int) (type.getUltimateCooldown() * (1 - (petData.getLevel() - 1) * 0.02));
+            lore.add("§7Intervalle actuel: §a" + adjustedCd + "s");
             lore.add("§8(-2% par niveau)");
+            lore.add("");
+            lore.add("§e⚡ S'active automatiquement!");
 
-            int remaining = plugin.getPetManager().getCooldownRemainingSeconds(player.getUniqueId(), type);
-            if (remaining > 0) {
-                lore.add("");
-                lore.add("§c⏳ En cooldown: " + remaining + "s");
-            } else if (type == playerData.getEquippedPet()) {
-                lore.add("");
-                lore.add("§a✓ Prêt à utiliser!");
-                lore.add("§7Appuyez sur §eR §7ou cliquez!");
+            if (type == playerData.getEquippedPet()) {
+                int remaining = plugin.getPetManager().getCooldownRemainingSeconds(player.getUniqueId(), type);
+                if (remaining > 0) {
+                    lore.add("§7Prochaine activation: §e" + remaining + "s");
+                } else {
+                    lore.add("§a✓ Prêt à s'activer!");
+                }
             }
         } else {
             lore.add("");
-            lore.add("§8Obtenez ce pet pour utiliser");
+            lore.add("§8Obtenez ce pet pour activer");
         }
 
         return new ItemBuilder(Material.BLAZE_POWDER)
-            .name("§b[Actif] §f" + type.getActiveName())
+            .name("§6§l[ULTIME] §e" + type.getUltimateName())
             .lore(lore)
+            .glow(petData != null && type == playerData.getEquippedPet())
             .build();
     }
 
@@ -380,12 +383,20 @@ public class PetDetailsGUI implements InventoryHolder {
                     player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
                     new PetDetailsGUI(gui.plugin, player, gui.type).open();
                 }
-                case SLOT_ACTIVE -> {
-                    // Activer la capacité si c'est le pet équipé
+                case SLOT_ULTIMATE -> {
+                    // Informer que les ultimes s'activent automatiquement
                     if (gui.petData != null && gui.type == gui.playerData.getEquippedPet()) {
-                        gui.plugin.getPetManager().activateAbility(player);
+                        player.sendMessage("§6[Pet] §7L'ultime §e" + gui.type.getUltimateName() + " §7s'active §eautomatiquement§7!");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     }
                 }
+            }
+        }
+
+        @EventHandler
+        public void onDrag(InventoryDragEvent event) {
+            if (event.getInventory().getHolder() instanceof PetDetailsGUI) {
+                event.setCancelled(true);
             }
         }
     }

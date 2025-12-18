@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -225,10 +226,15 @@ public class PetCollectionGUI implements InventoryHolder {
                     "§7Rareté: " + type.getRarity().getColoredName(),
                     "§7Thème: §8" + type.getTheme(),
                     "",
-                    "§8Pet non découvert",
+                    "§8╔══════════════════════╗",
+                    "§8║  §7Pet non découvert  §8║",
+                    "§8╚══════════════════════╝",
                     "",
-                    "§7Obtenez ce pet via",
-                    "§7les oeufs de pet!"
+                    "§8Les capacités de ce pet",
+                    "§8restent un mystère...",
+                    "",
+                    "§7Obtenez ce pet via les",
+                    "§7oeufs pour le découvrir!"
                 )
                 .build();
         }
@@ -244,11 +250,26 @@ public class PetCollectionGUI implements InventoryHolder {
         lore.add("§7Niveau: §a" + pet.getLevel() + "§7/§e9 " + pet.getProgressBar());
         lore.add("§7Copies: §b" + pet.getCopies() + "§7/§e" + type.getRarity().getCopiesForMax());
         lore.add("");
-        lore.add("§7[Passif] §f" + truncate(type.getPassiveDescription(), 35));
-        if (pet.hasLevel5Bonus()) {
-            lore.add("§a[Niv.5] §f" + truncate(type.getLevel5Bonus(), 35));
+        // Capacité passive avec description complète
+        lore.add("§7═══ CAPACITÉS ═══");
+        lore.add("");
+        lore.add("§7[Passif] §f" + type.getDisplayName());
+        for (String line : wrapText(type.getPassiveDescription(), 40)) {
+            lore.add("§7  " + line);
         }
-        lore.add("§b[Actif] §f" + type.getActiveName());
+        if (pet.hasLevel5Bonus()) {
+            lore.add("§a[Bonus Niv.5]");
+            for (String line : wrapText(type.getLevel5Bonus(), 40)) {
+                lore.add("§a  " + line);
+            }
+        }
+        lore.add("");
+        // Capacité ultime avec description complète
+        lore.add("§6[Ultime] §e" + type.getUltimateName());
+        for (String line : wrapText(type.getUltimateDescription(), 40)) {
+            lore.add("§7  " + line);
+        }
+        lore.add("§7  Auto-activation: §e" + type.getUltimateCooldown() + "s");
 
         if (pet.getStarPower() > 0) {
             lore.add("");
@@ -275,6 +296,39 @@ public class PetCollectionGUI implements InventoryHolder {
     private String truncate(String text, int maxLength) {
         if (text.length() <= maxLength) return text;
         return text.substring(0, maxLength - 3) + "...";
+    }
+
+    /**
+     * Découpe un texte en plusieurs lignes pour l'affichage
+     */
+    private List<String> wrapText(String text, int maxLength) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            lines.add("§8Aucune description");
+            return lines;
+        }
+
+        String[] words = text.split(" ");
+        StringBuilder currentLine = new StringBuilder();
+
+        for (String word : words) {
+            if (currentLine.length() + word.length() + 1 > maxLength) {
+                if (currentLine.length() > 0) {
+                    lines.add(currentLine.toString().trim());
+                    currentLine = new StringBuilder();
+                }
+            }
+            if (currentLine.length() > 0) {
+                currentLine.append(" ");
+            }
+            currentLine.append(word);
+        }
+
+        if (currentLine.length() > 0) {
+            lines.add(currentLine.toString().trim());
+        }
+
+        return lines;
     }
 
     private ItemStack createCollectionInfoItem() {
@@ -420,6 +474,13 @@ public class PetCollectionGUI implements InventoryHolder {
                     }
                     return;
                 }
+            }
+        }
+
+        @EventHandler
+        public void onDrag(InventoryDragEvent event) {
+            if (event.getInventory().getHolder() instanceof PetCollectionGUI) {
+                event.setCancelled(true);
             }
         }
     }

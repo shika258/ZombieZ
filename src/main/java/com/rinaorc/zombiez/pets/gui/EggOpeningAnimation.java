@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -254,8 +255,9 @@ public class EggOpeningAnimation implements InventoryHolder {
         lore.add("");
         lore.add("§e§lPassif: §f" + pet.getPassiveDescription());
         lore.add("");
-        lore.add("§b§lActif: §f" + pet.getActiveName());
-        lore.add("§7" + pet.getActiveDescription());
+        lore.add("§6§lUltime: §f" + pet.getUltimateName());
+        lore.add("§7" + pet.getUltimateDescription());
+        lore.add("§7(Auto: toutes les " + pet.getUltimateCooldown() + "s)");
 
         return new ItemBuilder(pet.getIcon())
             .name("§l" + pet.getColoredName())
@@ -525,6 +527,13 @@ public class EggOpeningAnimation implements InventoryHolder {
 
             if (event.getRawSlot() == 26 && anim.canClose()) {
                 event.getWhoClicked().closeInventory();
+            }
+        }
+
+        @EventHandler
+        public void onDrag(InventoryDragEvent event) {
+            if (event.getInventory().getHolder() instanceof EggOpeningAnimation) {
+                event.setCancelled(true);
             }
         }
 

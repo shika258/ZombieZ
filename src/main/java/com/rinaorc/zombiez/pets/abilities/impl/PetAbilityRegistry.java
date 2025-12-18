@@ -11,6 +11,7 @@ import java.util.Map;
 /**
  * Registre des capacités de tous les Pets
  * Gère l'association entre PetType et leurs capacités
+ * Les capacités ultimes s'activent automatiquement selon un intervalle
  */
 public class PetAbilityRegistry {
 
@@ -20,11 +21,19 @@ public class PetAbilityRegistry {
     private final Map<PetType, PetAbility> passiveAbilities = new EnumMap<>(PetType.class);
 
     @Getter
-    private final Map<PetType, PetAbility> activeAbilities = new EnumMap<>(PetType.class);
+    private final Map<PetType, PetAbility> ultimateAbilities = new EnumMap<>(PetType.class);
 
     public PetAbilityRegistry(ZombieZPlugin plugin) {
         this.plugin = plugin;
         registerAllAbilities();
+    }
+
+    /**
+     * @deprecated Utiliser getUltimateAbilities() à la place
+     */
+    @Deprecated
+    public Map<PetType, PetAbility> getActiveAbilities() {
+        return ultimateAbilities;
     }
 
     /**
@@ -453,14 +462,14 @@ public class PetAbilityRegistry {
     }
 
     /**
-     * Enregistre les capacités passive et active pour un pet
+     * Enregistre les capacités passive et ultime pour un pet
      */
-    private void registerAbilities(PetType type, PetAbility passive, PetAbility active) {
+    private void registerAbilities(PetType type, PetAbility passive, PetAbility ultimate) {
         if (passive != null) {
             passiveAbilities.put(type, passive);
         }
-        if (active != null) {
-            activeAbilities.put(type, active);
+        if (ultimate != null) {
+            ultimateAbilities.put(type, ultimate);
         }
     }
 
@@ -472,9 +481,17 @@ public class PetAbilityRegistry {
     }
 
     /**
-     * Obtient la capacité active d'un pet
+     * Obtient la capacité ultime d'un pet
      */
+    public PetAbility getUltimate(PetType type) {
+        return ultimateAbilities.get(type);
+    }
+
+    /**
+     * @deprecated Utiliser getUltimate() à la place
+     */
+    @Deprecated
     public PetAbility getActive(PetType type) {
-        return activeAbilities.get(type);
+        return ultimateAbilities.get(type);
     }
 }

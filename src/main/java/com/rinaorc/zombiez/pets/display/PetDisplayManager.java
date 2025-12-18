@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Gère l'affichage visuel des pets en jeu
- * Utilise des entités avec AI personnalisée pour suivre le joueur
+ * Système de suivi intelligent avec gestion complète des cas limites
  */
 public class PetDisplayManager {
 
@@ -26,21 +26,41 @@ public class PetDisplayManager {
     // Map des entités de pet actives: Player UUID -> Entity UUID
     private final Map<UUID, UUID> activePetEntities = new ConcurrentHashMap<>();
 
+    // Map des positions cibles pour le suivi fluide
+    private final Map<UUID, Location> targetLocations = new ConcurrentHashMap<>();
+
+    // Map des mondes des joueurs pour détecter les changements
+    private final Map<UUID, UUID> playerWorlds = new ConcurrentHashMap<>();
+
     // Task de mise à jour des positions
     private BukkitTask updateTask;
+
+    // Constantes de comportement
+    private static final double TELEPORT_DISTANCE = 15.0;
+    private static final double FOLLOW_START_DISTANCE = 3.5;
+    private static final double IDEAL_DISTANCE = 2.5;
+    private static final double MAX_SPEED = 0.4;
+    private static final double ACCELERATION = 0.15;
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
         this.petManager = petManager;
 
-        // Tâche de suivi toutes les 5 ticks
-        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 5L, 5L);
+        // Tâche de suivi toutes les 2 ticks pour plus de fluidité
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 2L, 2L);
     }
 
     /**
      * Spawn l'entité visuelle du pet pour un joueur
      */
     public void spawnPetDisplay(Player player, PetType type) {
+        // Vérifier que le joueur est en ligne et dans un monde valide
+        if (!player.isOnline() || player.getWorld() == null) return;
+
+        // Vérifier l'option d'affichage du pet
+        PlayerPetData data = petManager.getPlayerData(player.getUniqueId());
+        if (data != null && !data.isShowPetEntity()) return;
+
         // Retirer l'ancien pet s'il existe
         removePetDisplay(player);
 
@@ -53,52 +73,185 @@ public class PetDisplayManager {
         // Configurer l'entité
         configurePetEntity(petEntity, type, player);
 
-        // Enregistrer
+        // Enregistrer l'entité et le monde actuel
         activePetEntities.put(player.getUniqueId(), petEntity.getUniqueId());
+        playerWorlds.put(player.getUniqueId(), player.getWorld().getUID());
+        targetLocations.put(player.getUniqueId(), spawnLoc.clone());
     }
 
     /**
      * Retire l'entité visuelle du pet d'un joueur
      */
     public void removePetDisplay(Player player) {
-        UUID entityUuid = activePetEntities.remove(player.getUniqueId());
+        removePetDisplayByUUID(player.getUniqueId());
+    }
+
+    /**
+     * Retire l'entité visuelle par UUID du joueur (pour déconnexion)
+     */
+    public void removePetDisplayByUUID(UUID playerUuid) {
+        UUID entityUuid = activePetEntities.remove(playerUuid);
+        playerWorlds.remove(playerUuid);
+        targetLocations.remove(playerUuid);
+
         if (entityUuid != null) {
             Entity entity = Bukkit.getEntity(entityUuid);
             if (entity != null && entity.isValid()) {
+                // Effet de disparition
+                Location loc = entity.getLocation();
+                if (loc.getWorld() != null) {
+                    loc.getWorld().spawnParticle(Particle.CLOUD, loc.add(0, 0.5, 0), 10, 0.3, 0.3, 0.3, 0.02);
+                }
                 entity.remove();
             }
         }
     }
 
     /**
+     * Vérifie si un joueur a un pet actif
+     */
+    public boolean hasPetDisplay(UUID playerUuid) {
+        return activePetEntities.containsKey(playerUuid);
+    }
+
+    /**
      * Met à jour l'affichage du pet (position, nom, etc.)
      */
     public void updatePetDisplay(Player player) {
-        UUID entityUuid = activePetEntities.get(player.getUniqueId());
+        UUID playerUuid = player.getUniqueId();
+        UUID entityUuid = activePetEntities.get(playerUuid);
         if (entityUuid == null) return;
 
+        // Vérifier si le joueur a changé de monde
+        UUID currentWorldUuid = player.getWorld().getUID();
+        UUID storedWorldUuid = playerWorlds.get(playerUuid);
+        if (storedWorldUuid != null && !storedWorldUuid.equals(currentWorldUuid)) {
+            // Changement de monde détecté - recréer le pet
+            PlayerPetData data = petManager.getPlayerData(playerUuid);
+            if (data != null && data.getEquippedPet() != null && data.isShowPetEntity()) {
+                removePetDisplayByUUID(playerUuid);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (player.isOnline()) {
+                        spawnPetDisplay(player, data.getEquippedPet());
+                    }
+                }, 10L); // Délai pour laisser le temps au joueur d'arriver
+            }
+            return;
+        }
+
         Entity entity = Bukkit.getEntity(entityUuid);
-        if (entity == null || !entity.isValid()) {
+        if (entity == null || !entity.isValid() || entity.isDead()) {
             // L'entité n'existe plus, en recréer une
-            PlayerPetData data = petManager.getPlayerData(player.getUniqueId());
-            if (data != null && data.getEquippedPet() != null) {
-                activePetEntities.remove(player.getUniqueId());
+            PlayerPetData data = petManager.getPlayerData(playerUuid);
+            if (data != null && data.getEquippedPet() != null && data.isShowPetEntity()) {
+                activePetEntities.remove(playerUuid);
+                targetLocations.remove(playerUuid);
                 spawnPetDisplay(player, data.getEquippedPet());
             }
             return;
         }
 
-        // Mettre à jour la position si trop loin
-        double distance = entity.getLocation().distance(player.getLocation());
-
-        if (distance > 10) {
-            // Téléporter si trop loin
+        // Vérifier que le pet est dans le même monde que le joueur
+        if (!entity.getWorld().getUID().equals(player.getWorld().getUID())) {
+            // Téléporter le pet vers le joueur
             entity.teleport(getFollowLocation(player));
-        } else if (distance > 3) {
-            // Se déplacer vers le joueur
-            Location targetLoc = getFollowLocation(player);
-            Vector direction = targetLoc.toVector().subtract(entity.getLocation().toVector()).normalize();
-            entity.setVelocity(direction.multiply(0.3));
+            return;
+        }
+
+        // Calculer la position cible idéale
+        Location targetLoc = getFollowLocation(player);
+        Location entityLoc = entity.getLocation();
+
+        // Vérifier si le joueur est dans un véhicule
+        if (player.isInsideVehicle()) {
+            // Suivre à plus grande distance et ne pas bloquer
+            targetLoc = player.getLocation().clone().add(
+                player.getLocation().getDirection().multiply(-3).setY(0)
+            ).add(0, 1, 0);
+        }
+
+        double distance = entityLoc.distance(player.getLocation());
+
+        // Téléportation si trop loin ou dans un mauvais état
+        if (distance > TELEPORT_DISTANCE || entity.getLocation().getY() < player.getLocation().getY() - 10) {
+            teleportPetWithEffect(entity, targetLoc);
+            return;
+        }
+
+        // Suivi intelligent
+        if (distance > FOLLOW_START_DISTANCE) {
+            moveTowardsTarget(entity, targetLoc, entityLoc, distance);
+        } else {
+            // Arrêter le mouvement si proche
+            if (entity.getVelocity().lengthSquared() > 0.01) {
+                entity.setVelocity(entity.getVelocity().multiply(0.5));
+            }
+
+            // Faire regarder le pet vers le joueur si c'est un LivingEntity
+            if (entity instanceof LivingEntity living && !(entity instanceof Tameable)) {
+                Location lookAt = player.getLocation();
+                Vector direction = lookAt.toVector().subtract(entityLoc.toVector()).normalize();
+                float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
+                living.setRotation(yaw, 0);
+            }
+        }
+
+        // Mettre à jour la position cible
+        targetLocations.put(playerUuid, targetLoc);
+    }
+
+    /**
+     * Déplace le pet vers la cible de manière fluide
+     */
+    private void moveTowardsTarget(Entity entity, Location target, Location current, double distance) {
+        Vector direction = target.toVector().subtract(current.toVector());
+
+        // Calculer la vitesse en fonction de la distance
+        double speed = Math.min(MAX_SPEED, (distance - IDEAL_DISTANCE) * ACCELERATION);
+        speed = Math.max(0.1, speed);
+
+        // Appliquer le mouvement
+        Vector velocity = direction.normalize().multiply(speed);
+
+        // Ajuster pour les entités volantes
+        if (isFlyingEntity(entity.getType())) {
+            // Les entités volantes ont besoin d'un Y pour voler
+            velocity.setY(velocity.getY() + 0.05); // Légère poussée vers le haut
+        } else {
+            // Entités au sol - ne pas modifier Y trop agressivement
+            velocity.setY(Math.max(-0.5, Math.min(0.3, velocity.getY())));
+        }
+
+        entity.setVelocity(velocity);
+    }
+
+    /**
+     * Vérifie si un type d'entité peut voler
+     */
+    private boolean isFlyingEntity(EntityType type) {
+        return type == EntityType.BAT || type == EntityType.VEX ||
+               type == EntityType.ALLAY || type == EntityType.BEE ||
+               type == EntityType.PARROT || type == EntityType.PHANTOM ||
+               type == EntityType.BLAZE || type == EntityType.GHAST;
+    }
+
+    /**
+     * Téléporte le pet avec un effet visuel
+     */
+    private void teleportPetWithEffect(Entity entity, Location target) {
+        // Effet de départ
+        Location oldLoc = entity.getLocation();
+        if (oldLoc.getWorld() != null) {
+            oldLoc.getWorld().spawnParticle(Particle.PORTAL, oldLoc.add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
+        }
+
+        // Téléportation
+        entity.teleport(target);
+
+        // Effet d'arrivée
+        if (target.getWorld() != null) {
+            target.getWorld().spawnParticle(Particle.PORTAL, target.add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
+            target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 0.3f, 1.5f);
         }
     }
 
@@ -107,17 +260,46 @@ public class PetDisplayManager {
      */
     private void updateAllPets() {
         for (Map.Entry<UUID, UUID> entry : activePetEntities.entrySet()) {
-            Player player = Bukkit.getPlayer(entry.getKey());
+            UUID playerUuid = entry.getKey();
+            Player player = Bukkit.getPlayer(playerUuid);
+
             if (player == null || !player.isOnline()) {
-                // Nettoyer les pets de joueurs déconnectés
-                Entity entity = Bukkit.getEntity(entry.getValue());
-                if (entity != null) entity.remove();
-                activePetEntities.remove(entry.getKey());
+                // Joueur déconnecté - nettoyer immédiatement
+                cleanupDisconnectedPlayer(playerUuid, entry.getValue());
                 continue;
             }
 
-            updatePetDisplay(player);
+            // Vérifier si le joueur est mort
+            if (player.isDead()) {
+                // Cacher temporairement le pet
+                Entity entity = Bukkit.getEntity(entry.getValue());
+                if (entity != null && entity.isValid()) {
+                    entity.setCustomNameVisible(false);
+                    entity.teleport(player.getLocation().add(0, -5, 0)); // Cacher sous le sol
+                }
+                continue;
+            }
+
+            try {
+                updatePetDisplay(player);
+            } catch (Exception e) {
+                // En cas d'erreur, nettoyer et recréer au prochain tick
+                plugin.getLogger().warning("Erreur mise à jour pet pour " + player.getName() + ": " + e.getMessage());
+            }
         }
+    }
+
+    /**
+     * Nettoie les données d'un joueur déconnecté
+     */
+    private void cleanupDisconnectedPlayer(UUID playerUuid, UUID entityUuid) {
+        Entity entity = Bukkit.getEntity(entityUuid);
+        if (entity != null && entity.isValid()) {
+            entity.remove();
+        }
+        activePetEntities.remove(playerUuid);
+        playerWorlds.remove(playerUuid);
+        targetLocations.remove(playerUuid);
     }
 
     /**
@@ -143,8 +325,7 @@ public class PetDisplayManager {
 
         Entity entity;
 
-        // Utiliser un ArmorStand invisible avec un custom model comme base
-        // Pour simplifier, on utilise des entités existantes configurées
+        // Spawn l'entité selon le type configuré dans PetType
         switch (type.getEntityType()) {
             case BAT -> {
                 Bat bat = (Bat) world.spawnEntity(loc, EntityType.BAT);
@@ -169,7 +350,7 @@ public class PetDisplayManager {
                 cat.setTamed(true);
                 cat.setOwner(player);
                 cat.setSitting(false);
-                cat.setCatType(Cat.Type.ALL_BLACK);
+                cat.setCatType(getCatType(type));
                 entity = cat;
             }
             case BEE -> {
@@ -187,22 +368,138 @@ public class PetDisplayManager {
                 entity = vex;
             }
             case CHICKEN -> {
-                // Pour les phénix
                 Chicken chicken = (Chicken) world.spawnEntity(loc, EntityType.CHICKEN);
                 chicken.setBaby();
                 entity = chicken;
             }
-            default -> {
-                // Fallback: ArmorStand invisible
+            case RABBIT -> {
+                Rabbit rabbit = (Rabbit) world.spawnEntity(loc, EntityType.RABBIT);
+                rabbit.setRabbitType(Rabbit.Type.BLACK);
+                rabbit.setBaby();
+                entity = rabbit;
+            }
+            case SLIME -> {
+                Slime slime = (Slime) world.spawnEntity(loc, EntityType.SLIME);
+                slime.setSize(1); // Taille minimale
+                entity = slime;
+            }
+            case BLAZE -> {
+                Blaze blaze = (Blaze) world.spawnEntity(loc, EntityType.BLAZE);
+                entity = blaze;
+            }
+            case SPIDER -> {
+                Spider spider = (Spider) world.spawnEntity(loc, EntityType.SPIDER);
+                entity = spider;
+            }
+            case PHANTOM -> {
+                Phantom phantom = (Phantom) world.spawnEntity(loc, EntityType.PHANTOM);
+                phantom.setSize(0); // Taille minimale
+                entity = phantom;
+            }
+            case SILVERFISH -> {
+                Silverfish silverfish = (Silverfish) world.spawnEntity(loc, EntityType.SILVERFISH);
+                entity = silverfish;
+            }
+            case ENDERMITE -> {
+                Endermite endermite = (Endermite) world.spawnEntity(loc, EntityType.ENDERMITE);
+                entity = endermite;
+            }
+            case AXOLOTL -> {
+                Axolotl axolotl = (Axolotl) world.spawnEntity(loc, EntityType.AXOLOTL);
+                axolotl.setVariant(getAxolotlVariant(type));
+                entity = axolotl;
+            }
+            case SQUID -> {
+                Squid squid = (Squid) world.spawnEntity(loc, EntityType.SQUID);
+                entity = squid;
+            }
+            case ENDERMAN -> {
+                Enderman enderman = (Enderman) world.spawnEntity(loc, EntityType.ENDERMAN);
+                entity = enderman;
+            }
+            case SHULKER -> {
+                Shulker shulker = (Shulker) world.spawnEntity(loc, EntityType.SHULKER);
+                shulker.setColor(getShulkerColor(type));
+                entity = shulker;
+            }
+            case ENDER_DRAGON -> {
+                // Les EnderDragons sont trop grands et problématiques - utiliser un Phantom stylisé
+                Phantom dragonPet = (Phantom) world.spawnEntity(loc, EntityType.PHANTOM);
+                dragonPet.setSize(2); // Un peu plus grand pour ressembler à un dragon
+                entity = dragonPet;
+            }
+            case ARMOR_STAND -> {
+                // Pour les golems et autres - ArmorStand visible avec équipement
                 ArmorStand stand = (ArmorStand) world.spawnEntity(loc, EntityType.ARMOR_STAND);
-                stand.setVisible(false);
+                stand.setVisible(true);
                 stand.setSmall(true);
-                stand.setMarker(true);
+                stand.setArms(true);
+                stand.setBasePlate(false);
+                configureArmorStandAppearance(stand, type);
                 entity = stand;
+            }
+            default -> {
+                // Fallback: Allay (visible et petit)
+                Allay fallback = (Allay) world.spawnEntity(loc, EntityType.ALLAY);
+                entity = fallback;
             }
         }
 
         return entity;
+    }
+
+    /**
+     * Configure l'apparence d'un ArmorStand selon le type de pet
+     */
+    private void configureArmorStandAppearance(ArmorStand stand, PetType type) {
+        org.bukkit.inventory.ItemStack helmet = null;
+
+        switch (type) {
+            case GOLEM_POCHE -> helmet = new org.bukkit.inventory.ItemStack(Material.IRON_BLOCK);
+            case GOLEM_CRISTAL -> helmet = new org.bukkit.inventory.ItemStack(Material.AMETHYST_CLUSTER);
+            case GOLEM_LAVE -> helmet = new org.bukkit.inventory.ItemStack(Material.MAGMA_BLOCK);
+            case TITAN_MINIATURE -> helmet = new org.bukkit.inventory.ItemStack(Material.NETHERITE_BLOCK);
+            case COLOSSUS_OUBLIE -> helmet = new org.bukkit.inventory.ItemStack(Material.ANCIENT_DEBRIS);
+            default -> helmet = new org.bukkit.inventory.ItemStack(Material.STONE);
+        }
+
+        if (helmet != null) {
+            stand.getEquipment().setHelmet(helmet);
+        }
+    }
+
+    /**
+     * Obtient le type de chat selon le pet
+     */
+    private Cat.Type getCatType(PetType type) {
+        return switch (type) {
+            case FELIN_OMBRE -> Cat.Type.ALL_BLACK;
+            default -> Cat.Type.BLACK;
+        };
+    }
+
+    /**
+     * Obtient la variante d'axolotl selon le type de pet
+     */
+    private Axolotl.Variant getAxolotlVariant(PetType type) {
+        return switch (type) {
+            case SALAMANDRE_ELEMENTAIRE -> Axolotl.Variant.GOLD;
+            default -> Axolotl.Variant.WILD;
+        };
+    }
+
+    /**
+     * Obtient la couleur du shulker selon le type de pet
+     */
+    private DyeColor getShulkerColor(PetType type) {
+        return switch (type.getRarity()) {
+            case COMMON -> DyeColor.GRAY;
+            case UNCOMMON -> DyeColor.LIME;
+            case RARE -> DyeColor.CYAN;
+            case EPIC -> DyeColor.PURPLE;
+            case LEGENDARY -> DyeColor.YELLOW;
+            case MYTHIC -> DyeColor.RED;
+        };
     }
 
     /**
@@ -232,7 +529,7 @@ public class PetDisplayManager {
         entity.setInvulnerable(true);
         entity.setSilent(true);
         entity.setPersistent(false);
-        entity.setGravity(entity.getType() != EntityType.VEX && entity.getType() != EntityType.BAT && entity.getType() != EntityType.ALLAY);
+        entity.setGravity(!isFlyingEntity(entity.getType()));
 
         // Désactiver l'AI pour les mobs
         if (entity instanceof Mob mob) {
@@ -245,20 +542,30 @@ public class PetDisplayManager {
         }
 
         // Effets de particules selon la rareté
-        spawnRarityParticles(entity, type);
+        spawnRarityParticles(entity, type, player);
     }
 
     /**
      * Spawn des particules selon la rareté du pet
      */
-    private void spawnRarityParticles(Entity entity, PetType type) {
+    private void spawnRarityParticles(Entity entity, PetType type, Player owner) {
+        UUID ownerUuid = owner.getUniqueId();
+
         Bukkit.getScheduler().runTaskTimer(plugin, task -> {
+            // Arrêter si l'entité n'est plus valide
             if (!entity.isValid()) {
                 task.cancel();
                 return;
             }
 
+            // Vérifier l'option de particules du joueur
+            PlayerPetData data = petManager.getPlayerData(ownerUuid);
+            if (data == null || !data.isShowPetParticles()) {
+                return; // Ne pas afficher les particules mais garder la tâche
+            }
+
             Location loc = entity.getLocation().add(0, 0.5, 0);
+            if (loc.getWorld() == null) return;
 
             switch (type.getRarity()) {
                 case EPIC -> loc.getWorld().spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0);

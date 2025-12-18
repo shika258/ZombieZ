@@ -853,16 +853,16 @@ public enum PetType {
     private final String theme;
     private final String appearance;
     private final String passiveDescription;
-    private final String activeName;
-    private final String activeDescription;
-    private final int activeCooldown;
+    private final String ultimateName;
+    private final String ultimateDescription;
+    private final int ultimateCooldown; // Intervalle d'activation automatique en secondes
     private final String level5Bonus;
     private final String starPowerDescription;
 
     PetType(String displayName, PetRarity rarity, Material icon, EntityType entityType,
             String modelId, String theme, String appearance,
-            String passiveDescription, String activeName, String activeDescription,
-            int activeCooldown, String level5Bonus, String starPowerDescription) {
+            String passiveDescription, String ultimateName, String ultimateDescription,
+            int ultimateCooldown, String level5Bonus, String starPowerDescription) {
         this.displayName = displayName;
         this.rarity = rarity;
         this.icon = icon;
@@ -871,11 +871,35 @@ public enum PetType {
         this.theme = theme;
         this.appearance = appearance;
         this.passiveDescription = passiveDescription;
-        this.activeName = activeName;
-        this.activeDescription = activeDescription;
-        this.activeCooldown = activeCooldown;
+        this.ultimateName = ultimateName;
+        this.ultimateDescription = ultimateDescription;
+        this.ultimateCooldown = ultimateCooldown;
         this.level5Bonus = level5Bonus;
         this.starPowerDescription = starPowerDescription;
+    }
+
+    /**
+     * @deprecated Utiliser getUltimateName() à la place
+     */
+    @Deprecated
+    public String getActiveName() {
+        return ultimateName;
+    }
+
+    /**
+     * @deprecated Utiliser getUltimateDescription() à la place
+     */
+    @Deprecated
+    public String getActiveDescription() {
+        return ultimateDescription;
+    }
+
+    /**
+     * @deprecated Utiliser getUltimateCooldown() à la place
+     */
+    @Deprecated
+    public int getActiveCooldown() {
+        return ultimateCooldown;
     }
 
     /**
