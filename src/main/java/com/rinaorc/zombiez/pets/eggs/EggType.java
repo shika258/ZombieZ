@@ -91,6 +91,29 @@ public enum EggType {
     }
 
     /**
+     * Obtient une description des raretés possibles
+     */
+    public String getRarityInfo() {
+        StringBuilder sb = new StringBuilder();
+        PetRarity[] rarities = PetRarity.values();
+        boolean first = true;
+
+        for (int i = 0; i < rarities.length && i < rarityRates.length; i++) {
+            if (rarityRates[i] > 0) {
+                if (!first) sb.append("§7, ");
+                sb.append(rarities[i].getColor()).append(rarities[i].getDisplayName());
+                first = false;
+            }
+        }
+
+        if (minimumRarity != null) {
+            sb.append(" §7(").append(minimumRarity.getColor()).append(minimumRarity.getDisplayName()).append("§7+ garanti)");
+        }
+
+        return sb.toString();
+    }
+
+    /**
      * Vérifie si cet oeuf est achetable
      */
     public boolean isPurchasable() {
