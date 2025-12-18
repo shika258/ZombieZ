@@ -371,6 +371,7 @@ public class PacketDamageIndicator {
 
     /**
      * Crée le packet de metadata pour le TextDisplay
+     * Compatible avec Minecraft 1.21.4 et ProtocolLib récent
      */
     private static PacketContainer createMetadataPacket(int entityId, Component text, float scale) {
         PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
@@ -378,56 +379,80 @@ public class PacketDamageIndicator {
 
         List<WrappedDataValue> dataValues = new ArrayList<>();
 
-        // Index 0: Flags d'entité (invisible = false, glowing = false, etc.)
-        dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
+        try {
+            // Index 0: Flags d'entité (invisible = false, glowing = false, etc.)
+            dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
 
-        // Index 8: Billboard mode (2 = CENTER - face toujours le joueur)
-        dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
+            // ============ Display Entity Base (index 8-22) ============
+            // Index 8: Interpolation start delta ticks
+            dataValues.add(new WrappedDataValue(8, WrappedDataWatcher.Registry.get(Integer.class), 0));
 
-        // Index 11: View range multiplier
-        dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 1.0f));
+            // Index 9: Interpolation duration (ticks)
+            dataValues.add(new WrappedDataValue(9, WrappedDataWatcher.Registry.get(Integer.class), 0));
 
-        // Index 12: Shadow radius
-        dataValues.add(new WrappedDataValue(18, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
+            // Index 10: Pose/rotation interpolation duration (1.20.2+)
+            dataValues.add(new WrappedDataValue(10, WrappedDataWatcher.Registry.get(Integer.class), 0));
 
-        // Index 13: Shadow strength
-        dataValues.add(new WrappedDataValue(19, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
+            // Index 11: Translation (Vector3f)
+            dataValues.add(new WrappedDataValue(11, WrappedDataWatcher.Registry.get(Vector3f.class), new Vector3f(0, 0, 0)));
 
-        // Index 14: Width (pour TextDisplay)
-        dataValues.add(new WrappedDataValue(20, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
+            // Index 12: Scale (Vector3f)
+            dataValues.add(new WrappedDataValue(12, WrappedDataWatcher.Registry.get(Vector3f.class), new Vector3f(scale, scale, scale)));
 
-        // Index 15: Height
-        dataValues.add(new WrappedDataValue(21, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
+            // Index 13: Left rotation (Quaternionf)
+            dataValues.add(new WrappedDataValue(13, WrappedDataWatcher.Registry.get(Quaternionf.class), new Quaternionf(0, 0, 0, 1)));
 
-        // Index 22: Text content - Utiliser WrappedChatComponent pour le texte JSON
-        String jsonText = GsonComponentSerializer.gson().serialize(text);
-        dataValues.add(new WrappedDataValue(23, WrappedDataWatcher.Registry.getChatComponentSerializer(false),
-            Optional.of(WrappedChatComponent.fromJson(jsonText).getHandle())));
+            // Index 14: Right rotation (Quaternionf)
+            dataValues.add(new WrappedDataValue(14, WrappedDataWatcher.Registry.get(Quaternionf.class), new Quaternionf(0, 0, 0, 1)));
 
-        // Index 23: Line width
-        dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 200));
+            // Index 15: Billboard constraint (byte): 0=FIXED, 1=VERTICAL, 2=HORIZONTAL, 3=CENTER
+            dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
 
-        // Index 24: Background color (ARGB) - transparent
-        dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0));
+            // Index 16: Brightness override (-1 = use block/sky light)
+            dataValues.add(new WrappedDataValue(16, WrappedDataWatcher.Registry.get(Integer.class), -1));
 
-        // Index 25: Text opacity (255 = opaque)
-        dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
+            // Index 17: View range multiplier (float)
+            dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 1.0f));
 
-        // Index 26: Flags (has shadow = true, see through = false, default background = false, alignment = center)
-        dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0x01));
+            // Index 18: Shadow radius (float)
+            dataValues.add(new WrappedDataValue(18, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
 
-        // Scale transformation via Quaternion et Vector3f
-        // Index 11: Translation
-        dataValues.add(new WrappedDataValue(11, WrappedDataWatcher.Registry.get(Vector3f.class), new Vector3f(0, 0, 0)));
+            // Index 19: Shadow strength (float)
+            dataValues.add(new WrappedDataValue(19, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
 
-        // Index 12: Scale
-        dataValues.add(new WrappedDataValue(12, WrappedDataWatcher.Registry.get(Vector3f.class), new Vector3f(scale, scale, scale)));
+            // Index 20: Width (float) - 0 = auto
+            dataValues.add(new WrappedDataValue(20, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
 
-        // Index 13: Left rotation (quaternion)
-        dataValues.add(new WrappedDataValue(13, WrappedDataWatcher.Registry.get(Quaternionf.class), new Quaternionf(0, 0, 0, 1)));
+            // Index 21: Height (float) - 0 = auto
+            dataValues.add(new WrappedDataValue(21, WrappedDataWatcher.Registry.get(Float.class), 0.0f));
 
-        // Index 14: Right rotation (quaternion)
-        dataValues.add(new WrappedDataValue(14, WrappedDataWatcher.Registry.get(Quaternionf.class), new Quaternionf(0, 0, 0, 1)));
+            // Index 22: Glow color override (-1 = default)
+            dataValues.add(new WrappedDataValue(22, WrappedDataWatcher.Registry.get(Integer.class), -1));
+
+            // ============ TextDisplay Specific (index 23-27) ============
+            // Index 23: Text content - Chat Component
+            // En 1.21.4, le texte doit être sérialisé correctement
+            String jsonText = GsonComponentSerializer.gson().serialize(text);
+            WrappedChatComponent wrappedComponent = WrappedChatComponent.fromJson(jsonText);
+            dataValues.add(new WrappedDataValue(23, WrappedDataWatcher.Registry.getChatComponentSerializer(true),
+                wrappedComponent.getHandle()));
+
+            // Index 24: Line width (int) - max caractères par ligne
+            dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 200));
+
+            // Index 25: Background color (ARGB int) - 0 = transparent
+            dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0));
+
+            // Index 26: Text opacity (byte) - -1 (0xFF) = fully opaque
+            dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
+
+            // Index 27: Style flags (byte) - 0x01 = has shadow, 0x02 = see through, 0x04 = default background, 0x08/0x10 = alignment
+            dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0x01));
+
+        } catch (Exception e) {
+            ZombieZPlugin.getInstance().getLogger().warning("Erreur lors de la création des metadata TextDisplay: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         packet.getDataValueCollectionModifier().write(0, dataValues);
 
@@ -494,7 +519,7 @@ public class PacketDamageIndicator {
     // ========================================================================
 
     /**
-     * Animation principale des dégâts - ASYNC
+     * Animation principale des dégâts - Main Thread (plus fiable avec ProtocolLib)
      * Utilise Cubic Out pour une décélération naturelle
      */
     private static void animateAsync(ZombieZPlugin plugin, int entityId, Location startLoc,
@@ -548,16 +573,16 @@ public class PacketDamageIndicator {
                     }
                 }
 
-                // Mise à jour via packets
+                // Mise à jour via packets (sur le main thread pour compatibilité ProtocolLib)
                 updatePosition(entityId, currentLoc, currentScale, viewers);
 
                 tick++;
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 1L); // Chaque tick en async
+        }.runTaskTimer(plugin, 0L, 1L); // Main thread pour compatibilité ProtocolLib 1.21.4
     }
 
     /**
-     * Animation de soin - ASYNC
+     * Animation de soin - Main Thread
      */
     private static void animateHealAsync(ZombieZPlugin plugin, int entityId, Location startLoc, List<Player> viewers) {
         new BukkitRunnable() {
@@ -592,11 +617,11 @@ public class PacketDamageIndicator {
                 updatePosition(entityId, currentLoc, scale, viewers);
                 tick++;
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
-     * Animation de statut (esquive, bloc, immunité) - ASYNC
+     * Animation de statut (esquive, bloc, immunité) - Main Thread
      */
     private static void animateStatusAsync(ZombieZPlugin plugin, int entityId, Location startLoc,
                                             int duration, List<Player> viewers) {
@@ -632,11 +657,11 @@ public class PacketDamageIndicator {
                 updatePosition(entityId, currentLoc, scale, viewers);
                 tick++;
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
-     * Animation de headshot - ASYNC
+     * Animation de headshot - Main Thread
      */
     private static void animateHeadshotAsync(ZombieZPlugin plugin, int entityId, Location startLoc,
                                               float targetScale, List<Player> viewers) {
@@ -676,11 +701,11 @@ public class PacketDamageIndicator {
                 updatePosition(entityId, currentLoc, scale, viewers);
                 tick++;
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
-     * Animation de combo - ASYNC
+     * Animation de combo - Main Thread
      */
     private static void animateComboAsync(ZombieZPlugin plugin, int entityId, Location startLoc,
                                            float targetScale, List<Player> viewers) {
@@ -718,7 +743,7 @@ public class PacketDamageIndicator {
                 updatePosition(entityId, currentLoc, scale, viewers);
                 tick++;
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     // ========================================================================
