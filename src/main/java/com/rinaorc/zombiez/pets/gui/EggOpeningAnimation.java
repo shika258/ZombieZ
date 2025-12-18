@@ -100,9 +100,15 @@ public class EggOpeningAnimation implements InventoryHolder {
         new BukkitRunnable() {
             int tick = 0;
             int speed = 1; // Vitesse de défilement (plus bas = plus rapide)
-            int slowdownStart = 60; // Quand commencer à ralentir
-            int totalTicks = 120; // Durée totale
+            int slowdownStart = 30; // Ralentir plus tôt pour effet dramatique
+            int totalTicks = 65; // Animation plus courte et punchy
             Random random = new Random();
+            Material[] frameColors = {
+                Material.RED_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE,
+                Material.YELLOW_STAINED_GLASS_PANE, Material.LIME_STAINED_GLASS_PANE,
+                Material.CYAN_STAINED_GLASS_PANE, Material.PURPLE_STAINED_GLASS_PANE,
+                Material.MAGENTA_STAINED_GLASS_PANE
+            };
 
             @Override
             public void run() {
@@ -113,33 +119,61 @@ public class EggOpeningAnimation implements InventoryHolder {
                     return;
                 }
 
-                // Calculer la vitesse (ralentir progressivement)
-                if (tick > slowdownStart) {
+                // Phase de spin ultra rapide au début
+                if (tick <= slowdownStart) {
+                    speed = 1;
+                    // Effet visuel: cadre qui flashe rapidement
+                    if (tick % 2 == 0) {
+                        Material frameColor = frameColors[(tick / 2) % frameColors.length];
+                        ItemStack frame = ItemBuilder.placeholder(frameColor);
+                        for (int slot : new int[]{3, 5, 21, 23}) {
+                            inventory.setItem(slot, frame);
+                        }
+                    }
+                } else {
+                    // Ralentissement dramatique et rapide
                     int progress = tick - slowdownStart;
-                    if (progress > 40) speed = 8;
-                    else if (progress > 30) speed = 6;
-                    else if (progress > 20) speed = 4;
+                    if (progress > 25) speed = 6;
+                    else if (progress > 18) speed = 4;
                     else if (progress > 10) speed = 3;
-                    else speed = 2;
+                    else if (progress > 5) speed = 2;
+                    else speed = 1;
                 }
 
                 // Mettre à jour la roulette
                 if (tick % speed == 0) {
-                    updateRoulette(random, tick >= totalTicks - 10 ? finalResult : null);
+                    updateRoulette(random, tick >= totalTicks - 8 ? finalResult : null);
 
-                    // Sons de défilement
-                    float pitch = 0.5f + (tick / (float) totalTicks) * 1.5f;
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, pitch);
+                    // Sons de défilement - plus variés et satisfaisants
+                    float pitch = 0.8f + (tick / (float) totalTicks) * 1.2f;
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.4f, pitch);
+
+                    // Son additionnel pour le rythme
+                    if (tick > slowdownStart) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.3f, pitch + 0.5f);
+                    }
                 }
 
-                // Particules de suspense
-                if (tick % 5 == 0) {
+                // Particules plus fréquentes et dynamiques
+                if (tick % 3 == 0) {
                     spawnSuspenseParticles();
+                    // Particules de côté qui s'intensifient
+                    if (tick > slowdownStart) {
+                        Location loc = player.getLocation().add(0, 1.5, 0);
+                        player.spawnParticle(Particle.CRIT_MAGIC, loc, 8, 1, 0.5, 1, 0.1);
+                    }
                 }
 
-                // Intensifier le suspense vers la fin
-                if (tick > slowdownStart && tick % 10 == 0) {
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.5f);
+                // Intensifier le suspense vers la fin avec des sons crescendo
+                if (tick > slowdownStart) {
+                    if (tick % 4 == 0) {
+                        float bassPitch = 0.5f + ((tick - slowdownStart) / 35f) * 0.5f;
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, bassPitch);
+                    }
+                    // Dernier moment - son de tension
+                    if (tick >= totalTicks - 10 && tick % 2 == 0) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 1.8f);
+                    }
                 }
 
                 tick++;
@@ -193,56 +227,71 @@ public class EggOpeningAnimation implements InventoryHolder {
     private void revealResult(PetType pet) {
         animationComplete = true;
 
-        // Effacer la roulette
-        for (int slot : ROULETTE_SLOTS) {
-            inventory.setItem(slot, ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE));
+        // Effet flash blanc avant la révélation
+        ItemStack whiteFlash = ItemBuilder.placeholder(Material.WHITE_STAINED_GLASS_PANE);
+        for (int i = 0; i < SIZE; i++) {
+            inventory.setItem(i, whiteFlash);
         }
+        player.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 1.5f);
 
-        // Afficher le résultat au centre avec style
-        ItemStack resultItem = createRevealItem(pet);
-        inventory.setItem(CENTER_SLOT, resultItem);
-
-        // Cadre selon la rareté
-        Material frameMaterial = switch (pet.getRarity()) {
-            case COMMON -> Material.LIGHT_GRAY_STAINED_GLASS_PANE;
-            case UNCOMMON -> Material.LIME_STAINED_GLASS_PANE;
-            case RARE -> Material.LIGHT_BLUE_STAINED_GLASS_PANE;
-            case EPIC -> Material.MAGENTA_STAINED_GLASS_PANE;
-            case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
-            case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
-        };
-        ItemStack frame = ItemBuilder.placeholder(frameMaterial);
-        for (int slot : new int[]{3, 4, 5, 12, 14, 21, 22, 23}) {
-            inventory.setItem(slot, frame);
-        }
-
-        // Appliquer le résultat
-        boolean isNew = plugin.getPetManager().openEgg(player, eggType) != null;
-        PlayerPetData petData = plugin.getPetManager().getPlayerData(player.getUniqueId());
-
-        // Effets selon la rareté
-        playCelebration(pet, isNew);
-
-        // Message
-        String newTag = isNew ? " §a§l[NOUVEAU!]" : " §e[+1 copie]";
-        player.sendMessage("");
-        player.sendMessage("§6§l★ §e§lOEUF OUVERT! §6§l★");
-        player.sendMessage("§7Vous avez obtenu: " + pet.getColoredName() + newTag);
-        if (!isNew && petData != null && petData.hasPet(pet)) {
-            int copies = petData.getPet(pet).getCopies();
-            int fragments = pet.getRarity().getFragmentsPerDuplicate();
-            player.sendMessage("§7Copies: §f" + copies + " §7| §7+§e" + fragments + " §7fragments");
-        }
-        player.sendMessage("");
-
-        // Permettre de fermer après 2 secondes
+        // Révéler après un court flash
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            canClose = true;
-            inventory.setItem(26, new ItemBuilder(Material.BARRIER)
-                .name("§c§lFermer")
-                .lore(List.of("§7Cliquez ou appuyez sur Échap"))
-                .build());
-        }, 40L);
+            // Fond sombre
+            ItemStack darkGlass = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
+            for (int i = 0; i < SIZE; i++) {
+                inventory.setItem(i, darkGlass);
+            }
+
+            // Afficher le résultat au centre avec style
+            ItemStack resultItem = createRevealItem(pet);
+            inventory.setItem(CENTER_SLOT, resultItem);
+
+            // Cadre selon la rareté - plus large et visible
+            Material frameMaterial = switch (pet.getRarity()) {
+                case COMMON -> Material.LIGHT_GRAY_STAINED_GLASS_PANE;
+                case UNCOMMON -> Material.LIME_STAINED_GLASS_PANE;
+                case RARE -> Material.LIGHT_BLUE_STAINED_GLASS_PANE;
+                case EPIC -> Material.MAGENTA_STAINED_GLASS_PANE;
+                case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
+                case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
+            };
+            ItemStack frame = ItemBuilder.placeholder(frameMaterial);
+            for (int slot : new int[]{3, 4, 5, 12, 14, 21, 22, 23}) {
+                inventory.setItem(slot, frame);
+            }
+
+            // Son de révélation punch
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.3f);
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
+
+            // Appliquer le résultat
+            boolean isNew = plugin.getPetManager().openEgg(player, eggType) != null;
+            PlayerPetData petData = plugin.getPetManager().getPlayerData(player.getUniqueId());
+
+            // Effets selon la rareté
+            playCelebration(pet, isNew);
+
+            // Message
+            String newTag = isNew ? " §a§l[NOUVEAU!]" : " §e[+1 copie]";
+            player.sendMessage("");
+            player.sendMessage("§6§l★ §e§lOEUF OUVERT! §6§l★");
+            player.sendMessage("§7Vous avez obtenu: " + pet.getColoredName() + newTag);
+            if (!isNew && petData != null && petData.hasPet(pet)) {
+                int copies = petData.getPet(pet).getCopies();
+                int fragments = pet.getRarity().getFragmentsPerDuplicate();
+                player.sendMessage("§7Copies: §f" + copies + " §7| §7+§e" + fragments + " §7fragments");
+            }
+            player.sendMessage("");
+
+            // Permettre de fermer rapidement
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                canClose = true;
+                inventory.setItem(26, new ItemBuilder(Material.BARRIER)
+                    .name("§c§lFermer")
+                    .lore(List.of("§7Cliquez ou appuyez sur Échap"))
+                    .build());
+            }, 20L);
+        }, 3L);
     }
 
     private ItemStack createRevealItem(PetType pet) {
@@ -416,11 +465,53 @@ public class EggOpeningAnimation implements InventoryHolder {
     }
 
     private void startMultiAnimation() {
-        // Pour l'ouverture multiple, montrer les résultats un par un rapidement
+        // Animation rapide de spin avant les révélations
+        new BukkitRunnable() {
+            int spinTick = 0;
+            int spinDuration = 25; // Spin court au début
+            Random random = new Random();
+            Material[] flashColors = {
+                Material.RED_STAINED_GLASS_PANE, Material.ORANGE_STAINED_GLASS_PANE,
+                Material.YELLOW_STAINED_GLASS_PANE, Material.LIME_STAINED_GLASS_PANE
+            };
+
+            @Override
+            public void run() {
+                if (spinTick >= spinDuration) {
+                    // Lancer les révélations rapides
+                    startMultiReveal();
+                    cancel();
+                    return;
+                }
+
+                // Spin rapide dans la roulette
+                if (spinTick % 2 == 0) {
+                    PetType[] allPets = PetType.values();
+                    for (int slot : ROULETTE_SLOTS) {
+                        PetType pet = allPets[random.nextInt(allPets.length)];
+                        inventory.setItem(slot, createPetIcon(pet, false));
+                    }
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.3f, 1.0f + spinTick * 0.03f);
+                }
+
+                // Flash du cadre
+                Material frameColor = flashColors[spinTick % flashColors.length];
+                ItemStack frame = ItemBuilder.placeholder(frameColor);
+                for (int slot : new int[]{3, 5, 21, 23}) {
+                    inventory.setItem(slot, frame);
+                }
+
+                spinTick++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    private void startMultiReveal() {
+        // Révéler les résultats un par un très rapidement
         new BukkitRunnable() {
             int index = 0;
             int tick = 0;
-            int revealDelay = 20; // Ticks entre chaque révélation
+            int revealDelay = 8; // Beaucoup plus rapide!
 
             @Override
             public void run() {
@@ -435,17 +526,32 @@ public class EggOpeningAnimation implements InventoryHolder {
                     PetType pet = results.get(index);
                     boolean isNew = plugin.getPetManager().openEgg(player, eggType) != null;
 
-                    // Son et particules rapides
-                    float pitch = 0.8f + (float) pet.getRarity().ordinal() * 0.2f;
-                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, pitch);
+                    // Son punch pour chaque révélation
+                    float pitch = 1.0f + (float) pet.getRarity().ordinal() * 0.15f;
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, pitch);
 
+                    // Son spécial pour les raretés hautes
                     if (pet.getRarity().isAtLeast(PetRarity.EPIC)) {
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.8f);
+                        // Flash court pour les épiques+
+                        ItemStack flash = ItemBuilder.placeholder(switch (pet.getRarity()) {
+                            case EPIC -> Material.MAGENTA_STAINED_GLASS_PANE;
+                            case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
+                            case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
+                            default -> Material.WHITE_STAINED_GLASS_PANE;
+                        });
+                        for (int s : new int[]{3, 4, 5, 21, 22, 23}) {
+                            inventory.setItem(s, flash);
+                        }
                     }
 
-                    // Afficher dans la roulette
+                    // Afficher dans la roulette avec animation de remplissage
                     int displaySlot = ROULETTE_SLOTS[Math.min(index, ROULETTE_SLOTS.length - 1)];
-                    inventory.setItem(displaySlot, createPetIcon(pet, false));
+                    inventory.setItem(displaySlot, createPetIcon(pet, index == results.size() - 1));
+
+                    // Particules rapides
+                    player.spawnParticle(Particle.CRIT_MAGIC, player.getLocation().add(0, 1.5, 0), 10, 0.5, 0.3, 0.5, 0.1);
 
                     index++;
                 }
@@ -489,13 +595,17 @@ public class EggOpeningAnimation implements InventoryHolder {
         // Célébration pour le meilleur
         playCelebration(best, false);
 
-        // Permettre de fermer
+        // Son de fin satisfaisant
+        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
+
+        // Permettre de fermer rapidement
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             canClose = true;
             inventory.setItem(26, new ItemBuilder(Material.BARRIER)
                 .name("§c§lFermer")
+                .lore(List.of("§7Cliquez ou appuyez sur Échap"))
                 .build());
-        }, 40L);
+        }, 20L);
     }
 
     public void open() {
