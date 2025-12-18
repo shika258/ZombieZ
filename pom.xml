@@ -24,17 +24,23 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        
+
         <!-- PlaceholderAPI -->
         <repository>
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
         </repository>
-        
+
         <!-- Citizens -->
         <repository>
             <id>citizens-repo</id>
             <url>https://maven.citizensnpcs.co/repo</url>
+        </repository>
+
+        <!-- ProtocolLib Repository -->
+        <repository>
+            <id>dmulloy2-repo</id>
+            <url>https://repo.dmulloy2.net/repository/public/</url>
         </repository>
     </repositories>
 
@@ -89,6 +95,14 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <version>24.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ProtocolLib - Manipulation de packets pour indicateurs de dégâts ultra-fluides -->
+        <dependency>
+            <groupId>com.comphenix.protocol</groupId>
+            <artifactId>ProtocolLib</artifactId>
+            <version>5.3.0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -1,7 +1,7 @@
 package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.combat.DamageIndicator;
+import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
@@ -88,11 +88,11 @@ public class CombatListener implements Listener {
         // DÉGÂTS FINAUX après toutes les modifications (talents inclus)
         double finalDamage = event.getFinalDamage();
 
-        // Afficher l'indicateur avec les dégâts RÉELS
+        // Afficher l'indicateur avec les dégâts RÉELS (via packets virtuels ProtocolLib)
         if (isHeadshot) {
-            DamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, viewer);
+            PacketDamageIndicator.displayHeadshot(plugin, victim.getLocation().add(0, victim.getHeight(), 0), finalDamage, viewer);
         } else {
-            DamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, viewer);
+            PacketDamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, viewer);
         }
 
         // Nettoyer les metadata
@@ -494,8 +494,8 @@ public class CombatListener implements Listener {
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
             com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player, "§a§l↷ ESQUIVE!");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
-            // Afficher l'indicateur d'esquive flottant (client-side)
-            DamageIndicator.displayDodge(plugin, player.getLocation(), player);
+            // Afficher l'indicateur d'esquive flottant (via packets virtuels ProtocolLib)
+            PacketDamageIndicator.displayDodge(plugin, player.getLocation(), player);
             return;
         }
 

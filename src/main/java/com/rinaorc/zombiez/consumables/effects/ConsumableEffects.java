@@ -1,7 +1,7 @@
 package com.rinaorc.zombiez.consumables.effects;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.combat.DamageIndicator;
+import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.consumables.ConsumableType;
 import org.bukkit.*;
@@ -950,9 +950,9 @@ public class ConsumableEffects {
         player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.0f, 1.2f);
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
 
-        // Hologramme de soin (positionné sur le côté pour ne pas gêner la vue)
+        // Hologramme de soin (positionné sur le côté pour ne pas gêner la vue, via packets virtuels)
         Location holoLoc = player.getLocation().add(player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.5));
-        DamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
+        PacketDamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
 
         // Hologramme de régénération (petite icône à côté)
         displayRegenHologram(player, regenDuration, 1);
@@ -1047,9 +1047,9 @@ public class ConsumableEffects {
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 20, 0.5, 1, 0.5, 0.1);
 
-        // Hologramme de soin (positionné sur le côté)
+        // Hologramme de soin (positionné sur le côté, via packets virtuels)
         Location holoLoc = player.getLocation().add(player.getLocation().getDirection().rotateAroundY(Math.PI / 2).multiply(0.5));
-        DamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
+        PacketDamageIndicator.displayHeal(plugin, holoLoc.add(0, 0.3, 0), heal, player);
 
         // Hologramme de régénération et vitesse
         displayRegenHologram(player, regenDuration, 2);
