@@ -46,18 +46,18 @@ public class TimeLimitedBonusManager implements Listener {
     private final Map<UUID, Integer> consecutiveHeadshots = new ConcurrentHashMap<>();
 
     // Configuration
-    private static final int MIN_INTERVAL_SECONDS = 90;     // Minimum entre deux défis
-    private static final int MAX_INTERVAL_SECONDS = 240;    // Maximum entre deux défis
-    private static final double TRIGGER_CHANCE = 0.12;      // 12% de chance par kill
+    private static final int MIN_INTERVAL_SECONDS = 90; // Minimum entre deux défis
+    private static final int MAX_INTERVAL_SECONDS = 240; // Maximum entre deux défis
+    private static final double TRIGGER_CHANCE = 0.12; // 12% de chance par kill
 
     // Types de défis disponibles (rééquilibrés)
     private static final ChallengeType[] CHALLENGE_TYPES = {
-        new ChallengeType("RAPID_KILLS", "Élimination Rapide", "Tue %d zombies", 6, 18, 1.4, 1.3),
-        new ChallengeType("ELITE_HUNTER", "Chasseur d'Élite", "Tue %d élites", 2, 30, 2.0, 1.6),
-        new ChallengeType("NO_DAMAGE", "Intouchable", "Tue %d zombies sans dégâts", 5, 20, 1.8, 1.5),
-        new ChallengeType("COMBO_MASTER", "Maître du Combo", "Atteins un combo de %d", 12, 25, 1.6, 1.4),
-        new ChallengeType("HEADSHOT_STREAK", "Tireur d'Élite", "Fais %d headshots", 4, 30, 1.8, 1.5),
-        new ChallengeType("SPEED_DEMON", "Démon de Vitesse", "Tue %d zombies", 8, 10, 2.2, 1.8)
+            new ChallengeType("RAPID_KILLS", "Élimination Rapide", "Tue %d zombies", 6, 18, 1.4, 1.3),
+            new ChallengeType("ELITE_HUNTER", "Chasseur d'Élite", "Tue %d élites", 2, 30, 2.0, 1.6),
+            new ChallengeType("NO_DAMAGE", "Intouchable", "Tue %d zombies sans dégâts", 5, 20, 1.8, 1.5),
+            new ChallengeType("COMBO_MASTER", "Maître du Combo", "Atteins un combo de %d", 12, 25, 1.6, 1.4),
+            new ChallengeType("HEADSHOT_STREAK", "Tireur d'Élite", "Fais %d headshots", 4, 30, 1.8, 1.5),
+            new ChallengeType("SPEED_DEMON", "Démon de Vitesse", "Tue %d zombies", 8, 10, 2.2, 1.8)
     };
 
     public TimeLimitedBonusManager(ZombieZPlugin plugin) {
@@ -121,11 +121,10 @@ public class TimeLimitedBonusManager implements Listener {
     private void startChallengeTimer(Player player, ActiveChallenge challenge) {
         // Créer la boss bar
         BossBar bossBar = BossBar.bossBar(
-            buildBossBarText(challenge),
-            1.0f,
-            BossBar.Color.YELLOW,
-            BossBar.Overlay.PROGRESS
-        );
+                buildBossBarText(challenge),
+                1.0f,
+                BossBar.Color.YELLOW,
+                BossBar.Overlay.PROGRESS);
 
         challenge.bossBar = bossBar;
         player.showBossBar(bossBar);
@@ -150,12 +149,12 @@ public class TimeLimitedBonusManager implements Listener {
                 }
 
                 // Mettre à jour la boss bar
-                float progress = remaining / (float)(challenge.type.durationSeconds * 1000L);
+                float progress = remaining / (float) (challenge.type.durationSeconds * 1000L);
                 bossBar.progress(Math.max(0, Math.min(1, progress)));
 
                 // Couleur selon le temps restant
-                BossBar.Color color = remaining < 5000 ? BossBar.Color.RED :
-                                      remaining < 10000 ? BossBar.Color.YELLOW : BossBar.Color.GREEN;
+                BossBar.Color color = remaining < 5000 ? BossBar.Color.RED
+                        : remaining < 10000 ? BossBar.Color.YELLOW : BossBar.Color.GREEN;
                 bossBar.color(color);
 
                 // Mettre à jour le texte
@@ -178,10 +177,10 @@ public class TimeLimitedBonusManager implements Listener {
 
     private Component buildBossBarText(ActiveChallenge challenge, long remainingMs) {
         String text = String.format("⚡ %s: %d/%d [%.0fs]",
-            challenge.type.displayName,
-            challenge.currentProgress,
-            challenge.type.targetCount,
-            remainingMs / 1000.0);
+                challenge.type.displayName,
+                challenge.currentProgress,
+                challenge.type.targetCount,
+                remainingMs / 1000.0);
 
         NamedTextColor color = remainingMs < 5000 ? NamedTextColor.RED : NamedTextColor.GOLD;
         return Component.text(text).color(color).decorate(TextDecoration.BOLD);
@@ -257,7 +256,8 @@ public class TimeLimitedBonusManager implements Listener {
         int remaining = challenge.type.targetCount - challenge.currentProgress;
         if (remaining > 0) {
             String progressBar = buildProgressBar(challenge.currentProgress, challenge.type.targetCount);
-            player.sendActionBar(Component.text("§e⚡ " + progressBar + " §7(" + remaining + " restant" + (remaining > 1 ? "s" : "") + ")"));
+            player.sendActionBar(Component
+                    .text("§e⚡ " + progressBar + " §7(" + remaining + " restant" + (remaining > 1 ? "s" : "") + ")"));
         }
     }
 
@@ -277,7 +277,8 @@ public class TimeLimitedBonusManager implements Listener {
      */
     public void checkCombo(Player player, int combo) {
         ActiveChallenge challenge = activeChallenges.get(player.getUniqueId());
-        if (challenge == null || !challenge.type.id.equals("COMBO_MASTER")) return;
+        if (challenge == null || !challenge.type.id.equals("COMBO_MASTER"))
+            return;
 
         challenge.currentProgress = Math.max(challenge.currentProgress, combo);
 
@@ -291,7 +292,8 @@ public class TimeLimitedBonusManager implements Listener {
      */
     public void onDamageTaken(Player player, double damage) {
         ActiveChallenge challenge = activeChallenges.get(player.getUniqueId());
-        if (challenge == null) return;
+        if (challenge == null)
+            return;
 
         if (challenge.type.id.equals("NO_DAMAGE") && !challenge.tookDamage) {
             challenge.tookDamage = true;
@@ -306,29 +308,33 @@ public class TimeLimitedBonusManager implements Listener {
     private void completeChallenge(Player player, ActiveChallenge challenge) {
         activeChallenges.remove(player.getUniqueId());
         cleanup(player, challenge);
-
+        long bonusXp = 0;
+        long bonusPoints = 0;
         // Calculer les récompenses
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data != null) {
-            long bonusXp = (long) (100 * challenge.type.xpMultiplier);
-            long bonusPoints = (long) (50 * challenge.type.pointsMultiplier);
+            bonusXp = (long) (100 * challenge.type.xpMultiplier);
+            bonusPoints = (long) (50 * challenge.type.pointsMultiplier);
             data.addXp(bonusXp);
             data.addPoints(bonusPoints);
             data.setStat("last_challenge_time", System.currentTimeMillis());
         }
 
         // Feedback de succès - ActionBar + son (pas de Title intrusif)
-        player.sendActionBar(Component.text("§a§l✓ " + challenge.type.displayName + " réussi! §r§7(§a+" + bonusXp + " XP§7, §e+" + bonusPoints + " Points§7)"));
+        player.sendActionBar(Component.text("§a§l✓ " + challenge.type.displayName + " réussi! §r§7(§a+" + bonusXp
+                + " XP§7, §e+" + bonusPoints + " Points§7)"));
 
         // Message chat simple avec valeurs fixes
-        player.sendMessage("§a✓ §fDéfi complété: §e" + challenge.type.displayName + " §7(§a+" + bonusXp + " XP§7, §e+" + bonusPoints + " Points§7)");
+        player.sendMessage("§a✓ §fDéfi complété: §e" + challenge.type.displayName + " §7(§a+" + bonusXp + " XP§7, §e+"
+                + bonusPoints + " Points§7)");
 
         // Sons satisfaisants
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
         player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.2f);
 
         // Particules de célébration (légères)
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.4, 0.6, 0.4, 0.1);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.4, 0.6, 0.4,
+                0.1);
     }
 
     /**
@@ -348,8 +354,8 @@ public class TimeLimitedBonusManager implements Listener {
         }
 
         // Feedback d'échec discret - ActionBar seulement
-        String message = customMessage != null ? customMessage :
-            "§c✗ Temps écoulé! §7(" + challenge.currentProgress + "/" + challenge.type.targetCount + ")";
+        String message = customMessage != null ? customMessage
+                : "§c✗ Temps écoulé! §7(" + challenge.currentProgress + "/" + challenge.type.targetCount + ")";
         player.sendActionBar(Component.text(message));
 
         // Son d'échec discret
@@ -376,7 +382,8 @@ public class TimeLimitedBonusManager implements Listener {
      */
     private long getLastChallengeTime(Player player) {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
-        if (data == null) return 0;
+        if (data == null)
+            return 0;
         return data.getStat("last_challenge_time");
     }
 
@@ -386,8 +393,10 @@ public class TimeLimitedBonusManager implements Listener {
     private void startChallengeProposer() {
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : plugin.getServer().getOnlinePlayers()) {
-                if (activeChallenges.containsKey(player.getUniqueId())) continue;
-                if (plugin.getZoneManager().getPlayerZone(player) == null) continue;
+                if (activeChallenges.containsKey(player.getUniqueId()))
+                    continue;
+                if (plugin.getZoneManager().getPlayerZone(player) == null)
+                    continue;
 
                 long lastChallenge = getLastChallengeTime(player);
                 long elapsed = System.currentTimeMillis() - lastChallenge;
@@ -405,13 +414,15 @@ public class TimeLimitedBonusManager implements Listener {
      */
     public double getActiveXpMultiplier(Player player) {
         ActiveChallenge challenge = activeChallenges.get(player.getUniqueId());
-        if (challenge == null) return 1.0;
+        if (challenge == null)
+            return 1.0;
         return challenge.currentProgress > 0 ? challenge.type.xpMultiplier : 1.0;
     }
 
     public double getActivePointsMultiplier(Player player) {
         ActiveChallenge challenge = activeChallenges.get(player.getUniqueId());
-        if (challenge == null) return 1.0;
+        if (challenge == null)
+            return 1.0;
         return challenge.currentProgress > 0 ? challenge.type.pointsMultiplier : 1.0;
     }
 
@@ -431,16 +442,18 @@ public class TimeLimitedBonusManager implements Listener {
         LivingEntity entity = event.getEntity();
         Player killer = entity.getKiller();
 
-        if (killer == null) return;
-        if (!plugin.getZombieManager().isZombieZMob(entity)) return;
+        if (killer == null)
+            return;
+        if (!plugin.getZombieManager().isZombieZMob(entity))
+            return;
 
         // Détection correcte des élites via ZombieType
         boolean isElite = false;
         ZombieType zombieType = plugin.getZombieManager().getZombieType(entity);
         if (zombieType != null) {
             isElite = zombieType.getCategory() == ZombieType.ZombieCategory.ELITE ||
-                      zombieType.getCategory() == ZombieType.ZombieCategory.MINIBOSS ||
-                      zombieType.getCategory() == ZombieType.ZombieCategory.ZONE_BOSS;
+                    zombieType.getCategory() == ZombieType.ZombieCategory.MINIBOSS ||
+                    zombieType.getCategory() == ZombieType.ZombieCategory.ZONE_BOSS;
         }
 
         // Vérification headshot via scoreboard tag (plus fiable que metadata à la mort)
@@ -451,13 +464,16 @@ public class TimeLimitedBonusManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) return;
+        if (!(event.getEntity() instanceof Player player))
+            return;
 
         // Ignorer si pas de défi actif
-        if (!activeChallenges.containsKey(player.getUniqueId())) return;
+        if (!activeChallenges.containsKey(player.getUniqueId()))
+            return;
 
         // Ignorer les dégâts nuls ou très faibles
-        if (event.getFinalDamage() < 0.5) return;
+        if (event.getFinalDamage() < 0.5)
+            return;
 
         onDamageTaken(player, event.getFinalDamage());
     }
@@ -491,14 +507,14 @@ public class TimeLimitedBonusManager implements Listener {
     // ═══════════════════════════════════════════════════════════════════════
 
     private record ChallengeType(
-        String id,
-        String displayName,
-        String description,
-        int targetCount,
-        int durationSeconds,
-        double xpMultiplier,
-        double pointsMultiplier
-    ) {}
+            String id,
+            String displayName,
+            String description,
+            int targetCount,
+            int durationSeconds,
+            double xpMultiplier,
+            double pointsMultiplier) {
+    }
 
     private static class ActiveChallenge {
         final Player player;
