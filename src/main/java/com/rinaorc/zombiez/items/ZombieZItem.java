@@ -203,10 +203,10 @@ public class ZombieZItem {
         List<String> lore = new ArrayList<>();
 
         // ═══════════════════════════════════════
-        // EN-TÊTE: Rareté puis Item Score
+        // EN-TÊTE: Rareté puis Item Score + Zone
         // ═══════════════════════════════════════
         lore.add(rarity.getChatColor() + "§l" + rarity.getDisplayName().toUpperCase() + " " + rarity.getStars());
-        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
+        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore + " §8(Zone " + zoneLevel + ")");
         lore.add("");
 
         // ═══════════════════════════════════════
@@ -329,9 +329,9 @@ public class ZombieZItem {
     private void storeData(ItemStack item) {
         var meta = item.getItemMeta();
         if (meta == null) return;
-        
+
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
-        
+
         // Namespace pour toutes les données
         NamespacedKey keyUuid = new NamespacedKey("zombiez", "uuid");
         NamespacedKey keyRarity = new NamespacedKey("zombiez", "rarity");
@@ -343,6 +343,8 @@ public class ZombieZItem {
         NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
         NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
         NamespacedKey keyHasPower = new NamespacedKey("zombiez", "has_power");
+        NamespacedKey keyBaseStats = new NamespacedKey("zombiez", "base_stats");
+        NamespacedKey keyAffixStats = new NamespacedKey("zombiez", "affix_stats");
 
         pdc.set(keyUuid, PersistentDataType.STRING, uuid.toString());
         pdc.set(keyRarity, PersistentDataType.STRING, rarity.name());
@@ -357,15 +359,31 @@ public class ZombieZItem {
             pdc.set(keyHasPower, PersistentDataType.BYTE, (byte) 1);
             pdc.set(keyPowerId, PersistentDataType.STRING, powerId);
         }
-        
-        // Sérialiser les affixes (format simplifié: "id1:tier1,id2:tier2")
+
+        // Sérialiser les stats de base (format: "STAT_TYPE:value;STAT_TYPE:value")
+        StringBuilder baseStatsStr = new StringBuilder();
+        for (var entry : baseStats.entrySet()) {
+            if (baseStatsStr.length() > 0) baseStatsStr.append(";");
+            baseStatsStr.append(entry.getKey().name()).append(":").append(entry.getValue());
+        }
+        pdc.set(keyBaseStats, PersistentDataType.STRING, baseStatsStr.toString());
+
+        // Sérialiser les affixes avec leurs stats complètes
+        // Format: "affixId:tier|STAT:value;STAT:value,affixId:tier|STAT:value"
         StringBuilder affixStr = new StringBuilder();
         for (RolledAffix ra : affixes) {
             if (affixStr.length() > 0) affixStr.append(",");
             affixStr.append(ra.getAffix().getId()).append(":").append(ra.getAffix().getTier().ordinal());
+            affixStr.append("|");
+            StringBuilder statsStr = new StringBuilder();
+            for (var entry : ra.getRolledStats().entrySet()) {
+                if (statsStr.length() > 0) statsStr.append(";");
+                statsStr.append(entry.getKey().name()).append(":").append(entry.getValue());
+            }
+            affixStr.append(statsStr);
         }
         pdc.set(keyAffixes, PersistentDataType.STRING, affixStr.toString());
-        
+
         item.setItemMeta(meta);
     }
 
@@ -511,22 +529,24 @@ public class ZombieZItem {
     
     /**
      * Reconstruit un ZombieZItem depuis un ItemStack
-     * Note: Ne reconstruit pas les affixes complets, juste les données de base
+     * Restaure les stats de base et les affixes depuis le PDC
      */
     public static ZombieZItem fromItemStack(ItemStack item) {
         if (!isZombieZItem(item)) return null;
-        
+
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
-        
+
         UUID uuid = getItemUUID(item);
         Rarity rarity = getItemRarity(item);
         int score = getItemScore(item);
-        
+
         NamespacedKey keyType = new NamespacedKey("zombiez", "type");
         NamespacedKey keyZone = new NamespacedKey("zombiez", "zone");
         NamespacedKey keyCreated = new NamespacedKey("zombiez", "created");
         NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
         NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
+        NamespacedKey keyBaseStats = new NamespacedKey("zombiez", "base_stats");
+        NamespacedKey keyAffixes = new NamespacedKey("zombiez", "affixes");
 
         String typeStr = pdc.get(keyType, PersistentDataType.STRING);
         ItemType type = typeStr != null ? ItemType.valueOf(typeStr) : ItemType.SWORD;
@@ -535,6 +555,60 @@ public class ZombieZItem {
         Long created = pdc.get(keyCreated, PersistentDataType.LONG);
         Integer ilvl = pdc.get(keyItemLevel, PersistentDataType.INTEGER);
         String power = pdc.get(keyPowerId, PersistentDataType.STRING);
+
+        // Désérialiser les stats de base (format: "STAT_TYPE:value;STAT_TYPE:value")
+        Map<StatType, Double> baseStats = new EnumMap<>(StatType.class);
+        String baseStatsStr = pdc.get(keyBaseStats, PersistentDataType.STRING);
+        if (baseStatsStr != null && !baseStatsStr.isEmpty()) {
+            for (String statPair : baseStatsStr.split(";")) {
+                String[] parts = statPair.split(":");
+                if (parts.length == 2) {
+                    try {
+                        StatType statType = StatType.valueOf(parts[0]);
+                        double value = Double.parseDouble(parts[1]);
+                        baseStats.put(statType, value);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Désérialiser les affixes (format: "affixId:tier|STAT:value;STAT:value,...")
+        List<RolledAffix> affixes = new ArrayList<>();
+        String affixesStr = pdc.get(keyAffixes, PersistentDataType.STRING);
+        if (affixesStr != null && !affixesStr.isEmpty()) {
+            var affixRegistry = com.rinaorc.zombiez.items.affixes.AffixRegistry.getInstance();
+            for (String affixData : affixesStr.split(",")) {
+                if (affixData.isEmpty()) continue;
+                String[] mainParts = affixData.split("\\|");
+                if (mainParts.length >= 1) {
+                    String[] idTier = mainParts[0].split(":");
+                    if (idTier.length >= 1) {
+                        String affixId = idTier[0];
+                        var affix = affixRegistry.getAffix(affixId);
+                        if (affix != null) {
+                            Map<StatType, Double> rolledStats = new EnumMap<>(StatType.class);
+                            // Lire les stats si présentes
+                            if (mainParts.length == 2 && !mainParts[1].isEmpty()) {
+                                for (String statPair : mainParts[1].split(";")) {
+                                    String[] parts = statPair.split(":");
+                                    if (parts.length == 2) {
+                                        try {
+                                            StatType statType = StatType.valueOf(parts[0]);
+                                            double value = Double.parseDouble(parts[1]);
+                                            rolledStats.put(statType, value);
+                                        } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                            affixes.add(RolledAffix.builder()
+                                .affix(affix)
+                                .rolledStats(rolledStats)
+                                .build());
+                        }
+                    }
+                }
+            }
+        }
 
         return ZombieZItem.builder()
             .uuid(uuid)
@@ -547,8 +621,8 @@ public class ZombieZItem {
             .generatedName(item.hasItemMeta() && item.getItemMeta().hasDisplayName() ?
                 net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
                     .serialize(item.getItemMeta().displayName()) : item.getType().name())
-            .baseStats(new HashMap<>())
-            .affixes(new ArrayList<>())
+            .baseStats(baseStats)
+            .affixes(affixes)
             .itemScore(score)
             .createdAt(created != null ? created : System.currentTimeMillis())
             .identified(true)

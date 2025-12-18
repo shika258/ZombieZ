@@ -61,18 +61,18 @@ public class PetDisplayManager {
     private static final double HOLOGRAM_Y_OFFSET = 1.85;
     private static final double HOLOGRAM_LINE_SPACING = 0.25;
 
-    // Interpolation fluide pour les hologrammes
-    private static final int HOLOGRAM_INTERPOLATION_TICKS = 3; // Durée d'interpolation client-side
+    // Interpolation fluide pour les hologrammes - durée plus longue pour mouvement smooth
+    private static final int HOLOGRAM_INTERPOLATION_TICKS = 2; // Durée d'interpolation client-side (doit être >= update interval)
 
-    // Cache des positions de base des hologrammes pour interpolation fluide
-    private final Map<UUID, Location> hologramBaseLocations = new ConcurrentHashMap<>();
+    // Cache des dernières positions des hologrammes pour le suivi fluide
+    private final Map<UUID, Location> lastHologramPositions = new ConcurrentHashMap<>();
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
         this.petManager = petManager;
 
-        // Tâche de suivi toutes les 2 ticks pour plus de fluidité
-        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 2L, 2L);
+        // Tâche de suivi chaque tick pour fluidité maximale des hologrammes
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 1L, 1L);
 
         // Tâche de mise à jour des noms toutes les secondes (pour le timer ultime)
         nameUpdateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPetNames, 20L, 20L);
@@ -237,7 +237,7 @@ public class PetDisplayManager {
         // Mettre à jour la position cible
         targetLocations.put(playerUuid, targetLoc);
 
-        // Mettre à jour la position des hologrammes (toutes les 2 ticks pour fluidité)
+        // Mettre à jour la position des hologrammes (chaque tick pour fluidité maximale)
         updateHologramPositions(playerUuid, entity.getLocation());
     }
 
@@ -421,8 +421,8 @@ public class PetDisplayManager {
         // Supprimer les anciens hologrammes s'ils existent
         removeHologramDisplays(playerUuid);
 
-        // Stocker la position de base pour l'interpolation fluide
-        hologramBaseLocations.put(playerUuid, petLoc.clone());
+        // Stocker la dernière position pour le suivi fluide
+        lastHologramPositions.put(playerUuid, petLoc.clone());
 
         // Calculer les positions
         Location line1Loc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET, 0);
@@ -516,77 +516,125 @@ public class PetDisplayManager {
         // Nettoyer les caches
         lastLine1Text.remove(playerUuid);
         lastLine2Text.remove(playerUuid);
-        hologramBaseLocations.remove(playerUuid);
+        lastHologramPositions.remove(playerUuid);
     }
 
     /**
      * Met à jour la position des hologrammes pour suivre le pet avec interpolation fluide
-     * Utilise le système de Translation de Minecraft pour un mouvement smooth côté client
+     * Utilise une combinaison de teleport + transformation pour un mouvement 100% smooth
      */
     private void updateHologramPositions(UUID playerUuid, Location petLoc) {
-        Location baseLoc = hologramBaseLocations.get(playerUuid);
+        Location lastPos = lastHologramPositions.get(playerUuid);
 
-        // Si pas de position de base ou trop loin (>8 blocs), reset via teleport
-        if (baseLoc == null || !baseLoc.getWorld().equals(petLoc.getWorld()) ||
-            baseLoc.distanceSquared(petLoc) > 64) { // 8² = 64
-            // Reset: teleport et mettre à jour la position de base
-            hologramBaseLocations.put(playerUuid, petLoc.clone());
-            teleportHologramsToPosition(playerUuid, petLoc);
+        // Calculer les positions cibles
+        Location targetLine1 = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET, 0);
+        Location targetLine2 = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET - HOLOGRAM_LINE_SPACING, 0);
+
+        // Si première update ou changement de monde, teleport direct
+        if (lastPos == null || !lastPos.getWorld().equals(petLoc.getWorld())) {
+            teleportHologramsDirect(playerUuid, targetLine1, targetLine2);
+            lastHologramPositions.put(playerUuid, petLoc.clone());
             return;
         }
 
-        // Calculer le delta depuis la position de base
-        // Note: l'offset Y (HOLOGRAM_Y_OFFSET) est déjà appliqué lors du spawn,
-        // donc on applique seulement le delta de mouvement
-        double deltaX = petLoc.getX() - baseLoc.getX();
-        double deltaY = petLoc.getY() - baseLoc.getY();
-        double deltaZ = petLoc.getZ() - baseLoc.getZ();
+        // Calculer le delta de mouvement depuis la dernière position
+        double deltaX = petLoc.getX() - lastPos.getX();
+        double deltaY = petLoc.getY() - lastPos.getY();
+        double deltaZ = petLoc.getZ() - lastPos.getZ();
+        double distanceSquared = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 
-        // Mise à jour ligne 1 avec interpolation
+        // Si déplacement > 5 blocs, teleport direct (évite les sauts visuels trop grands)
+        if (distanceSquared > 25) {
+            teleportHologramsDirect(playerUuid, targetLine1, targetLine2);
+            lastHologramPositions.put(playerUuid, petLoc.clone());
+            return;
+        }
+
+        // Pour les petits déplacements, utiliser la transformation pour interpolation fluide
+        // Le client Minecraft interpolera automatiquement le mouvement
+
+        // Mise à jour ligne 1
         UUID line1Uuid = hologramLine1.get(playerUuid);
         if (line1Uuid != null) {
             Entity entity = Bukkit.getEntity(line1Uuid);
             if (entity instanceof TextDisplay textDisplay && entity.isValid()) {
-                // Appliquer la translation fluide (seulement le delta, l'offset Y est déjà dans la position spawn)
-                textDisplay.setInterpolationDuration(HOLOGRAM_INTERPOLATION_TICKS);
-                textDisplay.setTransformation(new Transformation(
-                    new Vector3f((float) deltaX, (float) deltaY, (float) deltaZ),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1f, 1f, 1f),
-                    new AxisAngle4f(0, 0, 0, 1)
-                ));
+                // Obtenir la transformation actuelle pour accumuler le mouvement
+                Transformation currentTrans = textDisplay.getTransformation();
+                Vector3f currentTranslation = currentTrans.getTranslation();
+
+                // Nouvelle translation = ancienne + delta
+                float newX = currentTranslation.x() + (float) deltaX;
+                float newY = currentTranslation.y() + (float) deltaY;
+                float newZ = currentTranslation.z() + (float) deltaZ;
+
+                // Si la translation accumulée devient trop grande (>3 blocs), reset via teleport
+                if (Math.abs(newX) > 3 || Math.abs(newY) > 3 || Math.abs(newZ) > 3) {
+                    textDisplay.teleport(targetLine1);
+                    textDisplay.setTransformation(new Transformation(
+                        new Vector3f(0, 0, 0),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1f, 1f, 1f),
+                        new AxisAngle4f(0, 0, 0, 1)
+                    ));
+                } else {
+                    // Appliquer la transformation avec interpolation fluide
+                    textDisplay.setInterpolationDuration(HOLOGRAM_INTERPOLATION_TICKS);
+                    textDisplay.setTransformation(new Transformation(
+                        new Vector3f(newX, newY, newZ),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1f, 1f, 1f),
+                        new AxisAngle4f(0, 0, 0, 1)
+                    ));
+                }
             }
         }
 
-        // Mise à jour ligne 2 avec interpolation
+        // Mise à jour ligne 2
         UUID line2Uuid = hologramLine2.get(playerUuid);
         if (line2Uuid != null) {
             Entity entity = Bukkit.getEntity(line2Uuid);
             if (entity instanceof TextDisplay textDisplay && entity.isValid()) {
-                // Appliquer la translation fluide (seulement le delta)
-                textDisplay.setInterpolationDuration(HOLOGRAM_INTERPOLATION_TICKS);
-                textDisplay.setTransformation(new Transformation(
-                    new Vector3f((float) deltaX, (float) deltaY, (float) deltaZ),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1f, 1f, 1f),
-                    new AxisAngle4f(0, 0, 0, 1)
-                ));
+                Transformation currentTrans = textDisplay.getTransformation();
+                Vector3f currentTranslation = currentTrans.getTranslation();
+
+                float newX = currentTranslation.x() + (float) deltaX;
+                float newY = currentTranslation.y() + (float) deltaY;
+                float newZ = currentTranslation.z() + (float) deltaZ;
+
+                if (Math.abs(newX) > 3 || Math.abs(newY) > 3 || Math.abs(newZ) > 3) {
+                    textDisplay.teleport(targetLine2);
+                    textDisplay.setTransformation(new Transformation(
+                        new Vector3f(0, 0, 0),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1f, 1f, 1f),
+                        new AxisAngle4f(0, 0, 0, 1)
+                    ));
+                } else {
+                    textDisplay.setInterpolationDuration(HOLOGRAM_INTERPOLATION_TICKS);
+                    textDisplay.setTransformation(new Transformation(
+                        new Vector3f(newX, newY, newZ),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1f, 1f, 1f),
+                        new AxisAngle4f(0, 0, 0, 1)
+                    ));
+                }
             }
         }
+
+        // Mettre à jour la dernière position
+        lastHologramPositions.put(playerUuid, petLoc.clone());
     }
 
     /**
-     * Teleporte les hologrammes à une position (utilisé pour reset lors de grandes distances)
+     * Teleporte les hologrammes directement à leurs positions cibles
      */
-    private void teleportHologramsToPosition(UUID playerUuid, Location petLoc) {
+    private void teleportHologramsDirect(UUID playerUuid, Location line1Loc, Location line2Loc) {
         // Teleport ligne 1
         UUID line1Uuid = hologramLine1.get(playerUuid);
         if (line1Uuid != null) {
             Entity entity = Bukkit.getEntity(line1Uuid);
             if (entity instanceof TextDisplay textDisplay && entity.isValid()) {
-                Location newLoc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET, 0);
-                textDisplay.teleport(newLoc);
-                // Reset la transformation après teleport
+                textDisplay.teleport(line1Loc);
                 textDisplay.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
@@ -601,9 +649,7 @@ public class PetDisplayManager {
         if (line2Uuid != null) {
             Entity entity = Bukkit.getEntity(line2Uuid);
             if (entity instanceof TextDisplay textDisplay && entity.isValid()) {
-                Location newLoc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET - HOLOGRAM_LINE_SPACING, 0);
-                textDisplay.teleport(newLoc);
-                // Reset la transformation après teleport
+                textDisplay.teleport(line2Loc);
                 textDisplay.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
@@ -1004,7 +1050,7 @@ public class PetDisplayManager {
         // Nettoyer les caches
         lastLine1Text.clear();
         lastLine2Text.clear();
-        hologramBaseLocations.clear();
+        lastHologramPositions.clear();
 
         // Supprimer les entités de pet
         for (UUID entityUuid : activePetEntities.values()) {

@@ -126,8 +126,18 @@ public class CombatListener implements Listener {
 
         // Joueur attaque mob passif ZombieZ
         if (damager instanceof Player player && victim instanceof Animals animal) {
-            handlePlayerAttackPassiveMob(event, player, animal);
-            return;
+            if (plugin.getPassiveMobManager().isZombieZPassiveMob(animal)) {
+                handlePlayerAttackPassiveMob(event, player, animal);
+                return;
+            }
+        }
+
+        // Joueur attaque n'importe quel autre mob (vanilla) - afficher hologramme de dégâts
+        if (damager instanceof Player player && victim instanceof LivingEntity livingVictim) {
+            if (!(livingVictim instanceof Player)) {
+                handlePlayerAttackGenericMob(event, player, livingVictim);
+                return;
+            }
         }
 
         // Mob ZombieZ attaque joueur (zombie, squelette, etc.)
@@ -321,11 +331,6 @@ public class CombatListener implements Listener {
      * Affiche les indicateurs de dégâts et applique les stats d'équipement
      */
     private void handlePlayerAttackPassiveMob(EntityDamageByEntityEvent event, Player player, Animals animal) {
-        // Vérifier si c'est un mob passif ZombieZ
-        if (!plugin.getPassiveMobManager().isZombieZPassiveMob(animal)) {
-            return;
-        }
-
         // ============ SECONDARY DAMAGE CHECK ============
         boolean isSecondaryDamage = animal.hasMetadata("zombiez_secondary_damage");
         if (isSecondaryDamage) {
@@ -382,10 +387,70 @@ public class CombatListener implements Listener {
             animal.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
         }
 
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (animal.isValid()) {
+                plugin.getPassiveMobManager().updatePassiveMobHealthDisplay(animal);
+            }
+        });
+
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
             animal.getWorld().spawnParticle(Particle.CRIT, animal.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+        }
+    }
+
+    /**
+     * Gère les attaques de joueur sur n'importe quel mob (vanilla/non-ZombieZ)
+     * Affiche simplement l'indicateur de dégâts sans appliquer de bonus spéciaux
+     */
+    private void handlePlayerAttackGenericMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
+        double finalDamage = event.getDamage();
+        boolean isCritical = false;
+
+        // ============ STATS D'ÉQUIPEMENT ============
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ SYSTÈME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (random.nextDouble() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0;
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // ============ APPLIQUER LES DÉGÂTS FINAUX ============
+        event.setDamage(finalDamage);
+
+        // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS ============
+        mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        mob.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        mob.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
+        // ============ FEEDBACK VISUEL ============
+        if (isCritical) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+            mob.getWorld().spawnParticle(Particle.CRIT, mob.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
         }
     }
 
