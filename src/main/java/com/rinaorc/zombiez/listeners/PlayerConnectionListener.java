@@ -11,6 +11,7 @@ import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.mobs.food.FoodItem;
 import com.rinaorc.zombiez.mobs.food.FoodItemRegistry;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -73,6 +74,9 @@ public class PlayerConnectionListener implements Listener {
      */
     private void onPlayerDataLoaded(Player player, PlayerData data) {
         if (!player.isOnline()) return;
+
+        // Par défaut, tous les joueurs sont en spectateur
+        player.setGameMode(GameMode.SPECTATOR);
 
         // Configurer l'affichage de la santé à 10 cœurs fixes
         // Peu importe la vie max du plugin, la barre de cœurs affiche toujours 10 cœurs
