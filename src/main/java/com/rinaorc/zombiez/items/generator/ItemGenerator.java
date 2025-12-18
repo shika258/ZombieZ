@@ -123,6 +123,17 @@ public class ItemGenerator {
         // Déterminer si l'item a un pouvoir (sera appliqué plus tard par l'ItemManager)
         String powerId = null; // Sera assigné par l'ItemManager si nécessaire
 
+        // Générer un armor trim pour les armures
+        String trimPatternKey = null;
+        String trimMaterialKey = null;
+        if (itemType.isArmor()) {
+            ArmorTrimGenerator.TrimResult trimResult = ArmorTrimGenerator.getInstance().generateTrim(rarity, zoneId);
+            if (trimResult != null) {
+                trimPatternKey = trimResult.getPatternKey();
+                trimMaterialKey = trimResult.getMaterialKey();
+            }
+        }
+
         // Construire l'item
         return ZombieZItem.builder()
             .uuid(UUID.randomUUID())
@@ -140,6 +151,8 @@ public class ItemGenerator {
             .identified(true)
             .itemLevel(itemLevel)
             .powerId(powerId)
+            .trimPatternKey(trimPatternKey)
+            .trimMaterialKey(trimMaterialKey)
             .build();
     }
 
