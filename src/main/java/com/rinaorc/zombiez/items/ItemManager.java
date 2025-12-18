@@ -342,10 +342,60 @@ public class ItemManager {
             }
         }
 
+        // Appliquer les caps sur les stats critiques pour éviter les valeurs absurdes
+        applyStatCaps(totalStats);
+
         // Mettre en cache (expire après 5 secondes)
         playerStatsCache.put(playerUuid, new CachedPlayerStats(totalStats));
 
         return totalStats;
+    }
+
+    /**
+     * Applique des caps (limites maximales) sur les stats critiques
+     * pour éviter les builds complètement cassés
+     */
+    private void applyStatCaps(Map<StatType, Double> stats) {
+        // CAPS DE SÉCURITÉ - Évite les valeurs complètement absurdes
+
+        // Stats offensives
+        capStat(stats, StatType.CRIT_CHANCE, 75.0);           // Max 75% crit chance
+        capStat(stats, StatType.CRIT_DAMAGE, 250.0);          // Max +250% crit damage
+        capStat(stats, StatType.LIFESTEAL, 25.0);             // Max 25% lifesteal
+        capStat(stats, StatType.DAMAGE_PERCENT, 150.0);       // Max +150% damage bonus
+
+        // Stats défensives
+        capStat(stats, StatType.DAMAGE_REDUCTION, 60.0);      // Max 60% damage reduction
+        capStat(stats, StatType.DODGE_CHANCE, 40.0);          // Max 40% dodge
+        capStat(stats, StatType.CHEAT_DEATH_CHANCE, 10.0);    // Max 10% cheat death
+        capStat(stats, StatType.ARMOR_PERCENT, 100.0);        // Max +100% armor bonus
+
+        // Stats utilitaires
+        capStat(stats, StatType.MOVEMENT_SPEED, 50.0);        // Max +50% movement speed
+        capStat(stats, StatType.DRAW_SPEED, 75.0);            // Max +75% draw speed
+
+        // Stats de momentum/fever
+        capStat(stats, StatType.FEVER_DAMAGE_BONUS, 100.0);   // Max +100% fever damage
+        capStat(stats, StatType.FEVER_DURATION_BONUS, 100.0); // Max +100% fever duration
+        capStat(stats, StatType.STREAK_DAMAGE_BONUS, 5.0);    // Max +5% per streak kill
+
+        // Stats d'exécution
+        capStat(stats, StatType.EXECUTE_DAMAGE, 100.0);       // Max +100% execute damage
+        capStat(stats, StatType.EXECUTE_THRESHOLD, 15.0);     // Max execute at <15% HP
+
+        // Stats de chance/loot
+        capStat(stats, StatType.DOUBLE_LOOT_CHANCE, 30.0);    // Max 30% double loot
+        capStat(stats, StatType.LEGENDARY_DROP_BONUS, 100.0); // Max +100% legendary drop
+    }
+
+    /**
+     * Applique un cap à une stat si elle existe dans la map
+     */
+    private void capStat(Map<StatType, Double> stats, StatType stat, double maxValue) {
+        Double current = stats.get(stat);
+        if (current != null && current > maxValue) {
+            stats.put(stat, maxValue);
+        }
     }
 
     /**

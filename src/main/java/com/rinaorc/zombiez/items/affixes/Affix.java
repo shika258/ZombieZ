@@ -152,11 +152,14 @@ public class Affix {
      */
     @Getter
     public enum AffixTier {
+        // Multiplicateurs réduits pour éviter l'inflation de stats
+        // Avant: 1.0 / 1.2 / 1.5 / 1.8 / 2.2 (total max 14.3x avec zone)
+        // Après: 1.0 / 1.1 / 1.2 / 1.35 / 1.5 (total max 9.75x avec zone)
         TIER_1("I", "§f", 1.0, 100),
-        TIER_2("II", "§a", 1.2, 60),
-        TIER_3("III", "§9", 1.5, 30),
-        TIER_4("IV", "§5", 1.8, 12),
-        TIER_5("V", "§6", 2.2, 4);
+        TIER_2("II", "§a", 1.1, 60),
+        TIER_3("III", "§9", 1.2, 30),
+        TIER_4("IV", "§5", 1.35, 12),
+        TIER_5("V", "§6", 1.5, 4);
 
         private final String numeral;
         private final String color;

@@ -72,7 +72,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{15, 25}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{6, 10}))  // Réduit de 15-25 à 6-10
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
             .build());
@@ -83,7 +83,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(15)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{25, 40}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{10, 15}))  // Réduit de 25-40 à 10-15
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
             .build());
@@ -94,7 +94,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(5)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{40, 60}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{15, 22}))  // Réduit de 40-60 à 15-22
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(9)
             .build());
@@ -118,7 +118,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
-            .stats(Map.of(StatType.LIFESTEAL, new double[]{4, 8}))
+            .stats(Map.of(StatType.LIFESTEAL, new double[]{2, 4}))  // Réduit de 4-8 à 2-4
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(5)
             .build());
@@ -129,7 +129,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.LIFESTEAL, new double[]{10, 15}))
+            .stats(Map.of(StatType.LIFESTEAL, new double[]{4, 6}))  // Réduit de 10-15 à 4-6
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
@@ -154,8 +154,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{5, 10},
-                StatType.CRIT_DAMAGE, new double[]{10, 25}
+                StatType.CRIT_CHANCE, new double[]{3, 6},    // Réduit de 5-10 à 3-6
+                StatType.CRIT_DAMAGE, new double[]{5, 12}    // Réduit de 10-25 à 5-12
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
@@ -168,8 +168,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{12, 20},
-                StatType.CRIT_DAMAGE, new double[]{40, 75}
+                StatType.CRIT_CHANCE, new double[]{6, 10},   // Réduit de 12-20 à 6-10
+                StatType.CRIT_DAMAGE, new double[]{15, 30}   // Réduit de 40-75 à 15-30
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
@@ -205,7 +205,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{15, 25}))
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{6, 10}))  // Réduit de 15-25 à 6-10
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(4)
             .build());
@@ -216,7 +216,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{30, 45}))
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{12, 18}))  // Réduit de 30-45 à 12-18
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(8)
             .build());
@@ -240,7 +240,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(45)
-            .stats(Map.of(StatType.MAX_HEALTH, new double[]{10, 20}))
+            .stats(Map.of(StatType.MAX_HEALTH, new double[]{4, 8}))  // Réduit de 10-20 à 4-8
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(4)
             .build());
@@ -251,7 +251,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
-            .stats(Map.of(StatType.MAX_HEALTH, new double[]{25, 40}))
+            .stats(Map.of(StatType.MAX_HEALTH, new double[]{8, 14}))  // Réduit de 25-40 à 8-14
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(8)
             .build());
@@ -466,7 +466,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
-            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{10, 18}))
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{5, 10}))  // Réduit de 10-18 à 5-10
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(6)
             .build());
@@ -572,7 +572,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{2.0, 4.0}))
+            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{0.8, 1.5}))  // Réduit de 2-4 à 0.8-1.5
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
@@ -612,7 +612,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(20)
-            .stats(Map.of(StatType.FEVER_DURATION_BONUS, new double[]{20, 50})) // +20-50% durée fever
+            .stats(Map.of(StatType.FEVER_DURATION_BONUS, new double[]{8, 18}))  // Réduit de 20-50 à 8-18
             .minZone(5)
             .build());
 
@@ -624,8 +624,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_4)
             .weight(12)
             .stats(Map.of(
-                StatType.FEVER_DAMAGE_BONUS, new double[]{15, 30},
-                StatType.FEVER_DURATION_BONUS, new double[]{10, 25}
+                StatType.FEVER_DAMAGE_BONUS, new double[]{6, 12},       // Réduit de 15-30 à 6-12
+                StatType.FEVER_DURATION_BONUS, new double[]{5, 12}     // Réduit de 10-25 à 5-12
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
@@ -639,8 +639,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(5)
             .stats(Map.of(
-                StatType.FEVER_DAMAGE_BONUS, new double[]{30, 50},
-                StatType.FEVER_DURATION_BONUS, new double[]{30, 60}
+                StatType.FEVER_DAMAGE_BONUS, new double[]{12, 20},      // Réduit de 30-50 à 12-20
+                StatType.FEVER_DURATION_BONUS, new double[]{12, 25}    // Réduit de 30-60 à 12-25
             ))
             .minZone(9)
             .build());
@@ -693,7 +693,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
-            .stats(Map.of(StatType.EXECUTE_DAMAGE, new double[]{10, 25})) // +10-25% vs <30% HP
+            .stats(Map.of(StatType.EXECUTE_DAMAGE, new double[]{5, 12}))  // Réduit de 10-25 à 5-12
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(5)
             .build());
@@ -706,8 +706,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(4)
             .stats(Map.of(
-                StatType.EXECUTE_DAMAGE, new double[]{35, 60},
-                StatType.EXECUTE_THRESHOLD, new double[]{5, 10} // Exécute <5-10% HP
+                StatType.EXECUTE_DAMAGE, new double[]{15, 25},   // Réduit de 35-60 à 15-25
+                StatType.EXECUTE_THRESHOLD, new double[]{3, 6}  // Réduit de 5-10 à 3-6
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
@@ -734,8 +734,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(3)
             .stats(Map.of(
-                StatType.LEGENDARY_DROP_BONUS, new double[]{25, 75},
-                StatType.DOUBLE_LOOT_CHANCE, new double[]{5, 12}
+                StatType.LEGENDARY_DROP_BONUS, new double[]{10, 25},  // Réduit de 25-75 à 10-25
+                StatType.DOUBLE_LOOT_CHANCE, new double[]{3, 6}       // Réduit de 5-12 à 3-6
             ))
             .minZone(8)
             .build());
@@ -789,8 +789,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{30, 40},
-                StatType.DAMAGE_PERCENT, new double[]{5, 15}
+                StatType.DRAW_SPEED, new double[]{12, 18},      // Réduit de 30-40 à 12-18
+                StatType.DAMAGE_PERCENT, new double[]{3, 7}    // Réduit de 5-15 à 3-7
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(7)
@@ -804,9 +804,9 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(6)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{40, 50},
-                StatType.DAMAGE_PERCENT, new double[]{10, 25},
-                StatType.CRIT_CHANCE, new double[]{5, 12}
+                StatType.DRAW_SPEED, new double[]{18, 25},      // Réduit de 40-50 à 18-25
+                StatType.DAMAGE_PERCENT, new double[]{5, 10},  // Réduit de 10-25 à 5-10
+                StatType.CRIT_CHANCE, new double[]{3, 6}       // Réduit de 5-12 à 3-6
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(9)
@@ -837,8 +837,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{8, 15},
-                StatType.CRIT_DAMAGE, new double[]{20, 40}
+                StatType.CRIT_CHANCE, new double[]{4, 8},       // Réduit de 8-15 à 4-8
+                StatType.CRIT_DAMAGE, new double[]{8, 18}      // Réduit de 20-40 à 8-18
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(4)
@@ -852,9 +852,9 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{15, 25},
-                StatType.CRIT_CHANCE, new double[]{10, 18},
-                StatType.CRIT_DAMAGE, new double[]{30, 60}
+                StatType.DRAW_SPEED, new double[]{8, 14},       // Réduit de 15-25 à 8-14
+                StatType.CRIT_CHANCE, new double[]{5, 10},     // Réduit de 10-18 à 5-10
+                StatType.CRIT_DAMAGE, new double[]{12, 25}     // Réduit de 30-60 à 12-25
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(8)
@@ -869,7 +869,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(2)
-            .stats(Map.of(StatType.CHEAT_DEATH_CHANCE, new double[]{3, 8}))
+            .stats(Map.of(StatType.CHEAT_DEATH_CHANCE, new double[]{1, 2}))  // Réduit de 3-8 à 1-2
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(9)
             .build());
@@ -882,8 +882,8 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(1)
             .stats(Map.of(
-                StatType.CHEAT_DEATH_CHANCE, new double[]{5, 12},
-                StatType.REVIVE_DAMAGE_BOOST, new double[]{50, 100} // +50-100% dégâts pendant 10s
+                StatType.CHEAT_DEATH_CHANCE, new double[]{2, 3},     // Réduit de 5-12 à 2-3
+                StatType.REVIVE_DAMAGE_BOOST, new double[]{20, 40}  // Réduit de 50-100 à 20-40
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(10)
