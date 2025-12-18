@@ -348,115 +348,210 @@ public class ItemGenerator {
 
     /**
      * Générateur de noms pour les items
+     * Thème: Survie post-apocalyptique / Zombie
      */
     private static class NameGenerator {
-        
+
         private final Map<ItemType, List<String>> baseNames = new HashMap<>();
-        
+        private final Random random = new Random();
+
+        // Titres thématiques par rareté
+        private static final String[] LEGENDARY_TITLES = {
+            "Relique", "Survivant", "Dernier", "Légendaire", "Ancien"
+        };
+
+        private static final String[] MYTHIC_TITLES = {
+            "Fléau des Morts", "Purificateur", "Extinction", "Patient Zéro", "Héritage"
+        };
+
+        private static final String[] EXALTED_TITLES = {
+            "Némésis", "Apocalypse", "Omega", "Alpha", "Jugement"
+        };
+
         public NameGenerator() {
             initializeNames();
         }
-        
+
         private void initializeNames() {
-            // Épées
+            // ==================== ARMES DE MÊLÉE ====================
+
+            // Épées - Mix militaire/improvisé/survie
             baseNames.put(ItemType.SWORD, Arrays.asList(
-                "Épée", "Lame", "Glaive", "Sabre", "Rapière", "Estoc", "Cimeterre"
+                "Lame",              // Générique mais efficace
+                "Machette",          // Classique survie zombie
+                "Coupe-coupe",       // Outil de survie
+                "Sabre",             // Militaire
+                "Tranchoir",         // Improvisé/boucher
+                "Katana",            // Iconique zombie fiction
+                "Lame Brisée",       // Récupéré
+                "Fendoir"            // Brutal/improvisé
             ));
-            
-            // Haches
+
+            // Haches - Outils de survie convertis
             baseNames.put(ItemType.AXE, Arrays.asList(
-                "Hache", "Cognée", "Francisque", "Bardiche", "Tomahawk"
+                "Hache",             // Classique
+                "Hachette",          // Survie compacte
+                "Hache de Pompier",  // Urgence/sauvetage
+                "Cognée",            // Bûcheron
+                "Hache Tactique",    // Militaire moderne
+                "Tomahawk",          // Survie/combat
+                "Hache Rouillée"     // Récupérée
             ));
-            
-            // Masse (1.21.4)
+
+            // Masse - Armes contondantes improvisées
             baseNames.put(ItemType.MACE, Arrays.asList(
-                "Masse", "Massue", "Marteau", "Maillet", "Fléau"
+                "Masse",             // Base
+                "Batte",             // Baseball classique
+                "Matraque",          // Sécurité/police
+                "Marteau",           // Outil
+                "Pied-de-Biche",     // Outil polyvalent
+                "Barre de Fer",      // Improvisé
+                "Concasseur"         // Brutal
             ));
-            
-            // Arc
+
+            // ==================== ARMES À DISTANCE ====================
+
+            // Arcs - Armes silencieuses de survie
             baseNames.put(ItemType.BOW, Arrays.asList(
-                "Arc", "Arc Long", "Arc Court", "Arc Composite"
+                "Arc",               // Base
+                "Arc de Chasse",     // Survivaliste
+                "Arc Composite",     // Moderne
+                "Arc Improvisé",     // Récupéré
+                "Arc Silencieux",    // Tactique
+                "Arc de Survie"      // Thématique
             ));
-            
-            // Arbalète
+
+            // Arbalètes - Puissance et précision
             baseNames.put(ItemType.CROSSBOW, Arrays.asList(
-                "Arbalète", "Arbalète Lourde", "Baliste"
+                "Arbalète",          // Base
+                "Arbalète Tactique", // Militaire
+                "Carreau Mortel",    // Agressif
+                "Arbalète Lourde",   // Puissante
+                "Perce-Crâne"        // Thématique zombie
             ));
-            
-            // Trident
+
+            // Trident - Armes exotiques de survie
             baseNames.put(ItemType.TRIDENT, Arrays.asList(
-                "Trident", "Fourche", "Lance Marine"
+                "Harpon",            // Maritime/survie
+                "Fourche",           // Agricole réutilisé
+                "Trident",           // Base
+                "Pique",             // Défense
+                "Lance Improvisée"   // Récupéré
             ));
-            
-            // Casques
+
+            // ==================== ARMURES ====================
+
+            // Casques - Protection de tête survie/tactique
             baseNames.put(ItemType.HELMET, Arrays.asList(
-                "Casque", "Heaume", "Capuche", "Chapeau", "Coiffe", "Couronne"
+                "Casque",            // Base
+                "Casque Tactique",   // Militaire
+                "Casque Anti-Émeute",// Police
+                "Masque de Survie",  // Post-apo
+                "Casque de Chantier",// Improvisé
+                "Heaume Blindé",     // Lourd
+                "Capuche Renforcée"  // Léger
             ));
-            
-            // Plastrons
+
+            // Plastrons - Protection du torse
             baseNames.put(ItemType.CHESTPLATE, Arrays.asList(
-                "Plastron", "Cuirasse", "Armure", "Tunique", "Cotte", "Haubert"
+                "Plastron",          // Base
+                "Gilet Pare-Balles", // Tactique
+                "Gilet Tactique",    // Militaire
+                "Armure de Fortune", // Improvisé
+                "Cuirasse",          // Lourd
+                "Veste Renforcée",   // Léger
+                "Armure de Survie"   // Thématique
             ));
-            
-            // Jambières
+
+            // Jambières - Protection des jambes
             baseNames.put(ItemType.LEGGINGS, Arrays.asList(
-                "Jambières", "Cuissardes", "Pantalon", "Grègues"
+                "Jambières",         // Base
+                "Pantalon Tactique", // Militaire
+                "Pantalon Cargo",    // Survie
+                "Protèges-Jambes",   // Protection
+                "Cuissards",         // Armure
+                "Pantalon Renforcé"  // Improvisé
             ));
-            
-            // Bottes
+
+            // Bottes - Chaussures de survie
             baseNames.put(ItemType.BOOTS, Arrays.asList(
-                "Bottes", "Chaussures", "Sandales", "Grèves", "Solerets"
+                "Bottes",            // Base
+                "Bottes de Combat",  // Militaire
+                "Rangers",           // Tactique
+                "Bottes de Survie",  // Thématique
+                "Chaussures Lourdes",// Protection
+                "Bottes Renforcées"  // Improvisé
             ));
-            
-            // Bouclier
+
+            // Bouclier - Protection défensive
             baseNames.put(ItemType.SHIELD, Arrays.asList(
-                "Bouclier", "Écu", "Pavois", "Targe", "Rondache"
+                "Bouclier",          // Base
+                "Bouclier Anti-Émeute", // Police
+                "Plaque de Blindage",   // Improvisé
+                "Bouclier Tactique",    // Militaire
+                "Barricade Portative",  // Survie
+                "Panneau Renforcé"      // Récupéré
             ));
         }
-        
+
         /**
          * Obtient un nom de base aléatoire pour un type
          */
         public String getBaseName(ItemType type) {
             List<String> names = baseNames.getOrDefault(type, List.of(type.getDisplayName()));
-            return names.get((int) (Math.random() * names.size()));
+            return names.get(random.nextInt(names.size()));
         }
-        
+
         /**
          * Génère le nom complet avec préfixes et suffixes
+         * Structure: [PRÉFIXE] [NOM DE BASE] [SUFFIXE]
+         * Ex: "Infecté Machette du Survivant"
          */
         public String generateFullName(String baseName, List<ZombieZItem.RolledAffix> affixes, Rarity rarity) {
             StringBuilder name = new StringBuilder();
-            
-            // Ajouter le préfixe (si présent)
+
+            // Ajouter le préfixe d'affix (si présent)
             Optional<ZombieZItem.RolledAffix> prefix = affixes.stream()
                 .filter(a -> a.getAffix().getType() == Affix.AffixType.PREFIX)
                 .findFirst();
-            
+
             if (prefix.isPresent()) {
                 name.append(prefix.get().getAffix().getDisplayName()).append(" ");
             }
-            
+
             // Nom de base
             name.append(baseName);
-            
-            // Ajouter le suffixe (si présent)
+
+            // Ajouter le suffixe d'affix (si présent)
             Optional<ZombieZItem.RolledAffix> suffix = affixes.stream()
                 .filter(a -> a.getAffix().getType() == Affix.AffixType.SUFFIX)
                 .findFirst();
-            
+
             if (suffix.isPresent()) {
                 name.append(" ").append(suffix.get().getAffix().getDisplayName());
             }
-            
-            // Pour les raretés très élevées sans affixes, ajouter un titre
-            if (affixes.isEmpty() && rarity.isAtLeast(Rarity.LEGENDARY)) {
-                String[] titles = {"Ancien", "Maudit", "Béni", "Oublié", "Éternel"};
-                String title = titles[(int) (Math.random() * titles.length)];
-                name.insert(0, title + " ");
+
+            // Pour les raretés élevées sans affixes, ajouter un titre thématique
+            if (affixes.isEmpty()) {
+                String title = getTitleForRarity(rarity);
+                if (title != null) {
+                    name.insert(0, title + " ");
+                }
             }
-            
+
             return name.toString();
+        }
+
+        /**
+         * Obtient un titre thématique selon la rareté
+         */
+        private String getTitleForRarity(Rarity rarity) {
+            return switch (rarity) {
+                case LEGENDARY -> LEGENDARY_TITLES[random.nextInt(LEGENDARY_TITLES.length)];
+                case MYTHIC -> MYTHIC_TITLES[random.nextInt(MYTHIC_TITLES.length)];
+                case EXALTED -> EXALTED_TITLES[random.nextInt(EXALTED_TITLES.length)];
+                default -> null;
+            };
         }
     }
 }

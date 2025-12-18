@@ -43,10 +43,11 @@ public class AffixRegistry {
         if (initialized) return;
 
         // ==================== PREFIXES OFFENSIFS ====================
-        
+        // Thème: Survie / Combat anti-zombie
+
         registerAffix(Affix.builder()
             .id("sharp")
-            .displayName("Tranchant")
+            .displayName("Aiguisé")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(100)
@@ -57,7 +58,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("keen")
-            .displayName("Affûté")
+            .displayName("Brutal")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(70)
@@ -68,42 +69,43 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("vicious")
-            .displayName("Vicieux")
+            .displayName("Meurtrier")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{6, 10}))  // Réduit de 15-25 à 6-10
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{6, 10}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
             .build());
 
         registerAffix(Affix.builder()
             .id("deadly")
-            .displayName("Mortel")
+            .displayName("Tueur de Z")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(15)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{10, 15}))  // Réduit de 25-40 à 10-15
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{10, 15}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
             .build());
 
         registerAffix(Affix.builder()
             .id("annihilating")
-            .displayName("Annihilant")
+            .displayName("Exterminateur")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(5)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{15, 22}))  // Réduit de 40-60 à 15-22
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{15, 22}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(9)
             .build());
 
         // ==================== PREFIXES VAMPIRIQUES ====================
+        // Thème: Vol de vie / Régénération
 
         registerAffix(Affix.builder()
             .id("leeching")
-            .displayName("Sangsue")
+            .displayName("Draineur")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(60)
@@ -118,23 +120,24 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
-            .stats(Map.of(StatType.LIFESTEAL, new double[]{2, 4}))  // Réduit de 4-8 à 2-4
+            .stats(Map.of(StatType.LIFESTEAL, new double[]{2, 4}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(5)
             .build());
 
         registerAffix(Affix.builder()
             .id("sanguine")
-            .displayName("Sanguinaire")
+            .displayName("Assoiffé")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.LIFESTEAL, new double[]{4, 6}))  // Réduit de 10-15 à 4-6
+            .stats(Map.of(StatType.LIFESTEAL, new double[]{4, 6}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
 
         // ==================== PREFIXES CRITIQUES ====================
+        // Thème: Précision / Headshots
 
         registerAffix(Affix.builder()
             .id("precise")
@@ -149,13 +152,13 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("critical")
-            .displayName("Critique")
+            .displayName("Chirurgical")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{3, 6},    // Réduit de 5-10 à 3-6
-                StatType.CRIT_DAMAGE, new double[]{5, 12}    // Réduit de 10-25 à 5-12
+                StatType.CRIT_CHANCE, new double[]{3, 6},
+                StatType.CRIT_DAMAGE, new double[]{5, 12}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
@@ -163,23 +166,24 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("devastating")
-            .displayName("Dévastateur")
+            .displayName("Décapiteur")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{6, 10},   // Réduit de 12-20 à 6-10
-                StatType.CRIT_DAMAGE, new double[]{15, 30}   // Réduit de 40-75 à 15-30
+                StatType.CRIT_CHANCE, new double[]{6, 10},
+                StatType.CRIT_DAMAGE, new double[]{15, 30}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
 
         // ==================== PREFIXES DÉFENSIFS ====================
+        // Thème: Protection / Survie
 
         registerAffix(Affix.builder()
             .id("sturdy")
-            .displayName("Robuste")
+            .displayName("Solide")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(100)
@@ -190,7 +194,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("reinforced")
-            .displayName("Renforcé")
+            .displayName("Blindé")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(70)
@@ -201,31 +205,32 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("fortified")
-            .displayName("Fortifié")
+            .displayName("Barricadé")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{6, 10}))  // Réduit de 15-25 à 6-10
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{6, 10}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(4)
             .build());
 
         registerAffix(Affix.builder()
             .id("impenetrable")
-            .displayName("Impénétrable")
+            .displayName("Bunker")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{12, 18}))  // Réduit de 30-45 à 12-18
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{12, 18}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(8)
             .build());
 
         // ==================== PREFIXES VITALITÉ ====================
+        // Thème: Endurance / Survie
 
         registerAffix(Affix.builder()
             .id("healthy")
-            .displayName("Sain")
+            .displayName("Tenace")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(90)
@@ -236,31 +241,32 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("vital")
-            .displayName("Vital")
+            .displayName("Résistant")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(45)
-            .stats(Map.of(StatType.MAX_HEALTH, new double[]{4, 8}))  // Réduit de 10-20 à 4-8
+            .stats(Map.of(StatType.MAX_HEALTH, new double[]{4, 8}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(4)
             .build());
 
         registerAffix(Affix.builder()
             .id("titanic")
-            .displayName("Titanique")
+            .displayName("Indestructible")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
-            .stats(Map.of(StatType.MAX_HEALTH, new double[]{8, 14}))  // Réduit de 25-40 à 8-14
+            .stats(Map.of(StatType.MAX_HEALTH, new double[]{8, 14}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(8)
             .build());
 
         // ==================== SUFFIXES ÉLÉMENTAIRES FEU ====================
+        // Thème: Purification / Crémation (très thématique zombie)
 
         registerAffix(Affix.builder()
             .id("of_embers")
-            .displayName("Braises")
+            .displayName("des Braises")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -271,7 +277,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_flames")
-            .displayName("Flammes")
+            .displayName("du Crématorium")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -284,7 +290,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_inferno")
-            .displayName("Inferno")
+            .displayName("du Purificateur")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -296,10 +302,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES ÉLÉMENTAIRES GLACE ====================
+        // Thème: Cryogénie / Conservation
 
         registerAffix(Affix.builder()
             .id("of_frost")
-            .displayName("Givre")
+            .displayName("du Givre")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -310,7 +317,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_ice")
-            .displayName("Glace")
+            .displayName("Cryogénique")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -323,7 +330,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_blizzard")
-            .displayName("Blizzard")
+            .displayName("de l'Hiver Nucléaire")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -335,10 +342,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES ÉLÉMENTAIRES FOUDRE ====================
+        // Thème: Électricité / Générateur
 
         registerAffix(Affix.builder()
             .id("of_sparks")
-            .displayName("Étincelles")
+            .displayName("Électrifié")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_1)
             .weight(70)
@@ -349,7 +357,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_lightning")
-            .displayName("Foudre")
+            .displayName("du Générateur")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -362,7 +370,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_storms")
-            .displayName("Tempêtes")
+            .displayName("de la Tempête")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
@@ -374,10 +382,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES POISON ====================
+        // Thème: Infection / Contamination (très zombie)
 
         registerAffix(Affix.builder()
             .id("of_venom")
-            .displayName("Venin")
+            .displayName("Contaminé")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -390,7 +399,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_plague")
-            .displayName("Peste")
+            .displayName("de la Peste")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(10)
@@ -402,10 +411,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES RÉSISTANCES ARMURE ====================
+        // Thème: Protection / Équipement spécialisé
 
         registerAffix(Affix.builder()
             .id("of_fire_ward")
-            .displayName("Protection Feu")
+            .displayName("Ignifugé")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -416,7 +426,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_frost_ward")
-            .displayName("Protection Glace")
+            .displayName("Isolé")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -427,7 +437,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_grounding")
-            .displayName("Mise à Terre")
+            .displayName("Anti-Choc")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -438,7 +448,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_antidote")
-            .displayName("Antidote")
+            .displayName("Immunisé")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -448,10 +458,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES UTILITAIRES ====================
+        // Thème: Survie / Agilité
 
         registerAffix(Affix.builder()
             .id("of_haste")
-            .displayName("Célérité")
+            .displayName("du Sprinter")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(60)
@@ -462,18 +473,18 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_wind")
-            .displayName("Vent")
+            .displayName("du Marathonien")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
-            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{5, 10}))  // Réduit de 10-18 à 5-10
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{5, 10}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(6)
             .build());
 
         registerAffix(Affix.builder()
             .id("of_fortune")
-            .displayName("Fortune")
+            .displayName("du Pilleur")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
@@ -483,7 +494,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_wisdom")
-            .displayName("Sagesse")
+            .displayName("du Vétéran")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -493,7 +504,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_prosperity")
-            .displayName("Prospérité")
+            .displayName("du Chasseur")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
@@ -502,10 +513,11 @@ public class AffixRegistry {
             .build());
 
         // ==================== SUFFIXES DÉFENSIFS SPÉCIAUX ====================
+        // Thème: Auto-soins / Défense active
 
         registerAffix(Affix.builder()
             .id("of_regeneration")
-            .displayName("Régénération")
+            .displayName("Auto-Soins")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
@@ -516,7 +528,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_thorns")
-            .displayName("Épines")
+            .displayName("Barbelé")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(40)
@@ -527,7 +539,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_evasion")
-            .displayName("Évasion")
+            .displayName("Furtif")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
@@ -538,7 +550,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_wall")
-            .displayName("Rempart")
+            .displayName("de la Forteresse")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(15)
@@ -550,47 +562,47 @@ public class AffixRegistry {
             .minZone(7)
             .build());
 
-        // ==================== NOUVEAUX AFFIXES MOMENTUM ====================
-        // Synergies avec le nouveau système de combo/streak
+        // ==================== AFFIXES MOMENTUM ====================
+        // Thème: Rage / Frénésie de combat
 
         registerAffix(Affix.builder()
             .id("frenzied")
-            .displayName("Frénétique")
+            .displayName("Déchaîné")
             .specialDescription("Bonus de dégâts par kill streak")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(25)
-            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{0.5, 1.5})) // +0.5-1.5% par kill streak
+            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{0.5, 1.5}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
             .build());
 
         registerAffix(Affix.builder()
             .id("relentless")
-            .displayName("Implacable")
+            .displayName("Machine à Tuer")
             .specialDescription("Bonus de dégâts massif par streak")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{0.8, 1.5}))  // Réduit de 2-4 à 0.8-1.5
+            .stats(Map.of(StatType.STREAK_DAMAGE_BONUS, new double[]{0.8, 1.5}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
 
         registerAffix(Affix.builder()
             .id("of_momentum")
-            .displayName("Élan")
+            .displayName("du Berserker")
             .specialDescription("Bonus de vitesse par combo")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
-            .stats(Map.of(StatType.COMBO_SPEED_BONUS, new double[]{1, 3})) // +1-3% vitesse par combo
+            .stats(Map.of(StatType.COMBO_SPEED_BONUS, new double[]{1, 3}))
             .minZone(2)
             .build());
 
         registerAffix(Affix.builder()
             .id("of_the_storm")
-            .displayName("Tempête")
+            .displayName("de la Fureur")
             .specialDescription("Vitesse d'attaque augmentée en combo")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
@@ -604,28 +616,29 @@ public class AffixRegistry {
             .build());
 
         // ==================== AFFIXES FEVER ====================
+        // Thème: Rage / Mode Enragé
 
         registerAffix(Affix.builder()
             .id("fevered")
-            .displayName("Fiévreux")
+            .displayName("Enragé")
             .specialDescription("Durée de Fever augmentée")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(20)
-            .stats(Map.of(StatType.FEVER_DURATION_BONUS, new double[]{8, 18}))  // Réduit de 20-50 à 8-18
+            .stats(Map.of(StatType.FEVER_DURATION_BONUS, new double[]{8, 18}))
             .minZone(5)
             .build());
 
         registerAffix(Affix.builder()
             .id("blazing")
-            .displayName("Embrasé")
+            .displayName("Possédé")
             .specialDescription("Bonus massif pendant Fever")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(12)
             .stats(Map.of(
-                StatType.FEVER_DAMAGE_BONUS, new double[]{6, 12},       // Réduit de 15-30 à 6-12
-                StatType.FEVER_DURATION_BONUS, new double[]{5, 12}     // Réduit de 10-25 à 5-12
+                StatType.FEVER_DAMAGE_BONUS, new double[]{6, 12},
+                StatType.FEVER_DURATION_BONUS, new double[]{5, 12}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
@@ -633,34 +646,35 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_inferno_fever")
-            .displayName("Inferno")
+            .displayName("de l'Apocalypse")
             .specialDescription("Effets Fever amplifiés")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(5)
             .stats(Map.of(
-                StatType.FEVER_DAMAGE_BONUS, new double[]{12, 20},      // Réduit de 30-50 à 12-20
-                StatType.FEVER_DURATION_BONUS, new double[]{12, 25}    // Réduit de 30-60 à 12-25
+                StatType.FEVER_DAMAGE_BONUS, new double[]{12, 20},
+                StatType.FEVER_DURATION_BONUS, new double[]{12, 25}
             ))
             .minZone(9)
             .build());
 
         // ==================== AFFIXES DE GROUPE ====================
+        // Thème: Escouade / Groupe de survivants
 
         registerAffix(Affix.builder()
             .id("of_synergy")
-            .displayName("Synergie")
+            .displayName("de l'Escouade")
             .specialDescription("Bonus de proximité de groupe amélioré")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(25)
-            .stats(Map.of(StatType.PARTY_BONUS, new double[]{10, 25})) // +10-25% bonus party
+            .stats(Map.of(StatType.PARTY_BONUS, new double[]{10, 25}))
             .minZone(4)
             .build());
 
         registerAffix(Affix.builder()
             .id("of_the_pack")
-            .displayName("Meute")
+            .displayName("de la Horde")
             .specialDescription("Bonus de dégâts par membre proche")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
@@ -674,26 +688,27 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("rallying")
-            .displayName("Galvanisant")
+            .displayName("Protecteur")
             .specialDescription("Soigne les alliés proches")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(10)
-            .stats(Map.of(StatType.PARTY_HEAL_ON_KILL, new double[]{1, 3})) // 1-3 PV aux alliés par kill
+            .stats(Map.of(StatType.PARTY_HEAL_ON_KILL, new double[]{1, 3}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
             .build());
 
         // ==================== AFFIXES D'EXÉCUTION ====================
+        // Thème: Achèvement / Coup de grâce
 
         registerAffix(Affix.builder()
             .id("executioner")
-            .displayName("Bourreau")
+            .displayName("Exécuteur")
             .specialDescription("Dégâts bonus contre les cibles blessées")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(30)
-            .stats(Map.of(StatType.EXECUTE_DAMAGE, new double[]{5, 12}))  // Réduit de 10-25 à 5-12
+            .stats(Map.of(StatType.EXECUTE_DAMAGE, new double[]{5, 12}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(5)
             .build());
@@ -706,18 +721,19 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_5)
             .weight(4)
             .stats(Map.of(
-                StatType.EXECUTE_DAMAGE, new double[]{15, 25},   // Réduit de 35-60 à 15-25
-                StatType.EXECUTE_THRESHOLD, new double[]{3, 6}  // Réduit de 5-10 à 3-6
+                StatType.EXECUTE_DAMAGE, new double[]{15, 25},
+                StatType.EXECUTE_THRESHOLD, new double[]{3, 6}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(8)
             .build());
 
         // ==================== AFFIXES DE CHANCE ====================
+        // Thème: Butin / Récupération
 
         registerAffix(Affix.builder()
             .id("of_fortune_loot")
-            .displayName("Fortune")
+            .displayName("du Récupérateur")
             .specialDescription("Chance de double loot")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
@@ -728,23 +744,24 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_jackpot")
-            .displayName("Jackpot")
+            .displayName("du Jackpot")
             .specialDescription("Chance de drop légendaire augmentée")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(3)
             .stats(Map.of(
-                StatType.LEGENDARY_DROP_BONUS, new double[]{10, 25},  // Réduit de 25-75 à 10-25
-                StatType.DOUBLE_LOOT_CHANCE, new double[]{3, 6}       // Réduit de 5-12 à 3-6
+                StatType.LEGENDARY_DROP_BONUS, new double[]{10, 25},
+                StatType.DOUBLE_LOOT_CHANCE, new double[]{3, 6}
             ))
             .minZone(8)
             .build());
 
         // ==================== AFFIXES ARCS/ARBALÈTES (CADENCE DE TIR) ====================
+        // Thème: Tireur / Précision tactique
 
         registerAffix(Affix.builder()
             .id("swift")
-            .displayName("Rapide")
+            .displayName("Tireur")
             .specialDescription("Cadence de tir améliorée")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_1)
@@ -756,7 +773,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("rapid")
-            .displayName("Véloce")
+            .displayName("Rafale")
             .specialDescription("Cadence de tir grandement améliorée")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_2)
@@ -768,7 +785,7 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("hasty")
-            .displayName("Hâtif")
+            .displayName("Automatique")
             .specialDescription("Tir en rafale")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
@@ -783,14 +800,14 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("gatling")
-            .displayName("Mitrailleur")
+            .displayName("Suppresseur")
             .specialDescription("Cadence de tir extrême")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{12, 18},      // Réduit de 30-40 à 12-18
-                StatType.DAMAGE_PERCENT, new double[]{3, 7}    // Réduit de 5-15 à 3-7
+                StatType.DRAW_SPEED, new double[]{12, 18},
+                StatType.DAMAGE_PERCENT, new double[]{3, 7}
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(7)
@@ -798,25 +815,26 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("machinegun")
-            .displayName("Mitrailleuse")
+            .displayName("Nettoyeur")
             .specialDescription("Cadence de tir légendaire")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(6)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{18, 25},      // Réduit de 40-50 à 18-25
-                StatType.DAMAGE_PERCENT, new double[]{5, 10},  // Réduit de 10-25 à 5-10
-                StatType.CRIT_CHANCE, new double[]{3, 6}       // Réduit de 5-12 à 3-6
+                StatType.DRAW_SPEED, new double[]{18, 25},
+                StatType.DAMAGE_PERCENT, new double[]{5, 10},
+                StatType.CRIT_CHANCE, new double[]{3, 6}
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(9)
             .build());
 
         // ==================== SUFFIXES SPÉCIAUX ARCS/ARBALÈTES ====================
+        // Thème: Tir de précision / Survie à distance
 
         registerAffix(Affix.builder()
             .id("of_the_hunter")
-            .displayName("Chasseur")
+            .displayName("du Survivant")
             .specialDescription("Bonus de précision et cadence")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_2)
@@ -831,14 +849,14 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_sniper")
-            .displayName("Tireur d'élite")
+            .displayName("du Sniper")
             .specialDescription("Critiques dévastateurs")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(35)
             .stats(Map.of(
-                StatType.CRIT_CHANCE, new double[]{4, 8},       // Réduit de 8-15 à 4-8
-                StatType.CRIT_DAMAGE, new double[]{8, 18}      // Réduit de 20-40 à 8-18
+                StatType.CRIT_CHANCE, new double[]{4, 8},
+                StatType.CRIT_DAMAGE, new double[]{8, 18}
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(4)
@@ -846,44 +864,45 @@ public class AffixRegistry {
 
         registerAffix(Affix.builder()
             .id("of_the_marksman")
-            .displayName("Maître archer")
+            .displayName("du Tireur d'Élite")
             .specialDescription("Maîtrise ultime de l'arc")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
             .stats(Map.of(
-                StatType.DRAW_SPEED, new double[]{8, 14},       // Réduit de 15-25 à 8-14
-                StatType.CRIT_CHANCE, new double[]{5, 10},     // Réduit de 10-18 à 5-10
-                StatType.CRIT_DAMAGE, new double[]{12, 25}     // Réduit de 30-60 à 12-25
+                StatType.DRAW_SPEED, new double[]{8, 14},
+                StatType.CRIT_CHANCE, new double[]{5, 10},
+                StatType.CRIT_DAMAGE, new double[]{12, 25}
             ))
             .allowedTypes(List.of(ItemType.BOW, ItemType.CROSSBOW))
             .minZone(8)
             .build());
 
         // ==================== AFFIXES SPÉCIAUX UNIQUES ====================
+        // Thème: Survie ultime / Résurrection
 
         registerAffix(Affix.builder()
             .id("undying")
-            .displayName("Immortel")
+            .displayName("Survivant")
             .specialDescription("Chance d'ignorer un coup fatal")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(2)
-            .stats(Map.of(StatType.CHEAT_DEATH_CHANCE, new double[]{1, 2}))  // Réduit de 3-8 à 1-2
+            .stats(Map.of(StatType.CHEAT_DEATH_CHANCE, new double[]{1, 2}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(9)
             .build());
 
         registerAffix(Affix.builder()
             .id("of_the_phoenix")
-            .displayName("Phénix")
+            .displayName("du Dernier Debout")
             .specialDescription("Renaître avec bonus après éviter la mort")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(1)
             .stats(Map.of(
-                StatType.CHEAT_DEATH_CHANCE, new double[]{2, 3},     // Réduit de 5-12 à 2-3
-                StatType.REVIVE_DAMAGE_BOOST, new double[]{20, 40}  // Réduit de 50-100 à 20-40
+                StatType.CHEAT_DEATH_CHANCE, new double[]{2, 3},
+                StatType.REVIVE_DAMAGE_BOOST, new double[]{20, 40}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(10)
