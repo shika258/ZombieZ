@@ -288,19 +288,19 @@ public class ItemManager {
      */
     public Map<StatType, Double> calculatePlayerStats(Player player) {
         UUID playerUuid = player.getUniqueId();
-        
+
         // Vérifier le cache
         CachedPlayerStats cached = playerStatsCache.get(playerUuid);
         if (cached != null && !cached.isExpired()) {
             return cached.stats;
         }
-        
+
         Map<StatType, Double> totalStats = new EnumMap<>(StatType.class);
-        
+
         // Parcourir l'équipement
         for (ItemStack item : player.getInventory().getArmorContents()) {
             if (item != null && ZombieZItem.isZombieZItem(item)) {
-                ZombieZItem zItem = getItem(item);
+                ZombieZItem zItem = getOrRestoreItem(item);
                 if (zItem != null) {
                     for (var entry : zItem.getTotalStats().entrySet()) {
                         totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
@@ -308,33 +308,55 @@ public class ItemManager {
                 }
             }
         }
-        
+
         // Arme en main
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         if (ZombieZItem.isZombieZItem(mainHand)) {
-            ZombieZItem zItem = getItem(mainHand);
+            ZombieZItem zItem = getOrRestoreItem(mainHand);
             if (zItem != null) {
                 for (var entry : zItem.getTotalStats().entrySet()) {
                     totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
                 }
             }
         }
-        
+
         // Off-hand
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (ZombieZItem.isZombieZItem(offHand)) {
-            ZombieZItem zItem = getItem(offHand);
+            ZombieZItem zItem = getOrRestoreItem(offHand);
             if (zItem != null) {
                 for (var entry : zItem.getTotalStats().entrySet()) {
                     totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
                 }
             }
         }
-        
+
         // Mettre en cache (expire après 5 secondes)
         playerStatsCache.put(playerUuid, new CachedPlayerStats(totalStats));
-        
+
         return totalStats;
+    }
+
+    /**
+     * Obtient un ZombieZItem depuis le cache, ou le restaure depuis le PDC si non trouvé
+     */
+    private ZombieZItem getOrRestoreItem(ItemStack itemStack) {
+        UUID uuid = ZombieZItem.getItemUUID(itemStack);
+        if (uuid == null) return null;
+
+        // Vérifier le cache d'abord
+        ZombieZItem cached = itemCache.getIfPresent(uuid);
+        if (cached != null) {
+            return cached;
+        }
+
+        // Si pas dans le cache, restaurer depuis le PDC
+        ZombieZItem restored = ZombieZItem.fromItemStack(itemStack);
+        if (restored != null) {
+            // Mettre en cache pour les prochains accès
+            itemCache.put(uuid, restored);
+        }
+        return restored;
     }
 
     /**
