@@ -224,10 +224,11 @@ public class EliteZombieAI extends ZombieAI {
             playParticles(Particle.SCULK_SOUL, zombie.getLocation().add(0, 1, 0), 5, 0.5, 0.5, 0.5);
             playParticles(Particle.SOUL, zombie.getLocation().add(0, 0.5, 0), 3, 0.8, 0.3, 0.8);
 
-            // Darkness aux joueurs proches
+            // Darkness aux joueurs proches (sauf ceux avec protection de respawn)
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 8, 5, 8).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
+                .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                 .forEach(p -> p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0, false, false)));
         }
 
@@ -259,6 +260,9 @@ public class EliteZombieAI extends ZombieAI {
         for (int i = 0; i < 20; i++) {
             final int step = i;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // Annuler si le zombie est mort
+                if (!zombie.isValid()) return;
+
                 Location currentLoc = rayLoc.clone().add(direction.clone().multiply(step));
                 playParticles(Particle.SONIC_BOOM, currentLoc, 1, 0, 0, 0);
 
@@ -376,14 +380,6 @@ public class EliteZombieAI extends ZombieAI {
                 }, 10L);
             }, bolt * 15L);
         }
-    }
-
-    /**
-     * Vérifie si un joueur a la protection de respawn (Résistance 255)
-     */
-    private boolean hasRespawnProtection(Player player) {
-        PotionEffect resistance = player.getPotionEffect(PotionEffectType.RESISTANCE);
-        return resistance != null && resistance.getAmplifier() >= 200;
     }
 
     private void holyNova() {

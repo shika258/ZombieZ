@@ -374,123 +374,107 @@ public class ItemGenerator {
 
         private void initializeNames() {
             // ==================== ARMES DE MÊLÉE ====================
+            // Noms courts et percutants - les affixes ajouteront le style
 
-            // Épées - Mix militaire/improvisé/survie
+            // Épées - Noms courts
             baseNames.put(ItemType.SWORD, Arrays.asList(
-                "Lame",              // Générique mais efficace
-                "Machette",          // Classique survie zombie
-                "Coupe-coupe",       // Outil de survie
-                "Sabre",             // Militaire
-                "Tranchoir",         // Improvisé/boucher
-                "Katana",            // Iconique zombie fiction
-                "Lame Brisée",       // Récupéré
-                "Fendoir"            // Brutal/improvisé
+                "Lame",
+                "Machette",
+                "Sabre",
+                "Tranchoir",
+                "Katana",
+                "Fendoir",
+                "Couperet",
+                "Épée"
             ));
 
-            // Haches - Outils de survie convertis
+            // Haches - Noms courts
             baseNames.put(ItemType.AXE, Arrays.asList(
-                "Hache",             // Classique
-                "Hachette",          // Survie compacte
-                "Hache de Pompier",  // Urgence/sauvetage
-                "Cognée",            // Bûcheron
-                "Hache Tactique",    // Militaire moderne
-                "Tomahawk",          // Survie/combat
-                "Hache Rouillée"     // Récupérée
+                "Hache",
+                "Hachette",
+                "Cognée",
+                "Tomahawk",
+                "Fendeuse",
+                "Coupoir"
             ));
 
-            // Masse - Armes contondantes improvisées
+            // Masse - Noms courts
             baseNames.put(ItemType.MACE, Arrays.asList(
-                "Masse",             // Base
-                "Batte",             // Baseball classique
-                "Matraque",          // Sécurité/police
-                "Marteau",           // Outil
-                "Pied-de-Biche",     // Outil polyvalent
-                "Barre de Fer",      // Improvisé
-                "Concasseur"         // Brutal
+                "Masse",
+                "Batte",
+                "Matraque",
+                "Marteau",
+                "Gourdin",
+                "Massue"
             ));
 
             // ==================== ARMES À DISTANCE ====================
 
-            // Arcs - Armes silencieuses de survie
+            // Arcs - Noms courts
             baseNames.put(ItemType.BOW, Arrays.asList(
-                "Arc",               // Base
-                "Arc de Chasse",     // Survivaliste
-                "Arc Composite",     // Moderne
-                "Arc Improvisé",     // Récupéré
-                "Arc Silencieux",    // Tactique
-                "Arc de Survie"      // Thématique
+                "Arc",
+                "Arc Long",
+                "Arc Court",
+                "Arc Recourbé"
             ));
 
-            // Arbalètes - Puissance et précision
+            // Arbalètes - Noms courts
             baseNames.put(ItemType.CROSSBOW, Arrays.asList(
-                "Arbalète",          // Base
-                "Arbalète Tactique", // Militaire
-                "Carreau Mortel",    // Agressif
-                "Arbalète Lourde",   // Puissante
-                "Perce-Crâne"        // Thématique zombie
+                "Arbalète",
+                "Arbalète Lourde",
+                "Carreau"
             ));
 
-            // Trident - Armes exotiques de survie
+            // Trident - Noms courts
             baseNames.put(ItemType.TRIDENT, Arrays.asList(
-                "Harpon",            // Maritime/survie
-                "Fourche",           // Agricole réutilisé
-                "Trident",           // Base
-                "Pique",             // Défense
-                "Lance Improvisée"   // Récupéré
+                "Harpon",
+                "Fourche",
+                "Trident",
+                "Pique",
+                "Lance"
             ));
 
             // ==================== ARMURES ====================
 
-            // Casques - Protection de tête survie/tactique
+            // Casques - Noms courts
             baseNames.put(ItemType.HELMET, Arrays.asList(
-                "Casque",            // Base
-                "Casque Tactique",   // Militaire
-                "Casque Anti-Émeute",// Police
-                "Masque de Survie",  // Post-apo
-                "Casque de Chantier",// Improvisé
-                "Heaume Blindé",     // Lourd
-                "Capuche Renforcée"  // Léger
+                "Casque",
+                "Heaume",
+                "Masque",
+                "Capuche"
             ));
 
-            // Plastrons - Protection du torse
+            // Plastrons - Noms courts
             baseNames.put(ItemType.CHESTPLATE, Arrays.asList(
-                "Plastron",          // Base
-                "Gilet Pare-Balles", // Tactique
-                "Gilet Tactique",    // Militaire
-                "Armure de Fortune", // Improvisé
-                "Cuirasse",          // Lourd
-                "Veste Renforcée",   // Léger
-                "Armure de Survie"   // Thématique
+                "Plastron",
+                "Gilet",
+                "Cuirasse",
+                "Armure",
+                "Veste"
             ));
 
-            // Jambières - Protection des jambes
+            // Jambières - Noms courts
             baseNames.put(ItemType.LEGGINGS, Arrays.asList(
-                "Jambières",         // Base
-                "Pantalon Tactique", // Militaire
-                "Pantalon Cargo",    // Survie
-                "Protèges-Jambes",   // Protection
-                "Cuissards",         // Armure
-                "Pantalon Renforcé"  // Improvisé
+                "Jambières",
+                "Pantalon",
+                "Cuissards",
+                "Grèves"
             ));
 
-            // Bottes - Chaussures de survie
+            // Bottes - Noms courts
             baseNames.put(ItemType.BOOTS, Arrays.asList(
-                "Bottes",            // Base
-                "Bottes de Combat",  // Militaire
-                "Rangers",           // Tactique
-                "Bottes de Survie",  // Thématique
-                "Chaussures Lourdes",// Protection
-                "Bottes Renforcées"  // Improvisé
+                "Bottes",
+                "Rangers",
+                "Brodequins",
+                "Bottines"
             ));
 
-            // Bouclier - Protection défensive
+            // Bouclier - Noms courts
             baseNames.put(ItemType.SHIELD, Arrays.asList(
-                "Bouclier",          // Base
-                "Bouclier Anti-Émeute", // Police
-                "Plaque de Blindage",   // Improvisé
-                "Bouclier Tactique",    // Militaire
-                "Barricade Portative",  // Survie
-                "Panneau Renforcé"      // Récupéré
+                "Bouclier",
+                "Écu",
+                "Pavois",
+                "Targe"
             ));
         }
 
@@ -504,39 +488,47 @@ public class ItemGenerator {
 
         /**
          * Génère le nom complet avec préfixes et suffixes
-         * Structure: [PRÉFIXE] [NOM DE BASE] [SUFFIXE]
-         * Ex: "Infecté Machette du Survivant"
+         * Structure simplifiée pour éviter les noms trop longs:
+         * - Si préfixe ET suffixe: [PRÉFIXE] [NOM DE BASE] (on ignore le suffixe)
+         * - Si seulement préfixe: [PRÉFIXE] [NOM DE BASE]
+         * - Si seulement suffixe: [NOM DE BASE] [SUFFIXE]
+         * Ex: "Possédé Machette" ou "Arc du Survivant"
          */
         public String generateFullName(String baseName, List<ZombieZItem.RolledAffix> affixes, Rarity rarity) {
             StringBuilder name = new StringBuilder();
 
-            // Ajouter le préfixe d'affix (si présent)
+            // Récupérer préfixe et suffixe
             Optional<ZombieZItem.RolledAffix> prefix = affixes.stream()
                 .filter(a -> a.getAffix().getType() == Affix.AffixType.PREFIX)
                 .findFirst();
 
-            if (prefix.isPresent()) {
-                name.append(prefix.get().getAffix().getDisplayName()).append(" ");
-            }
-
-            // Nom de base
-            name.append(baseName);
-
-            // Ajouter le suffixe d'affix (si présent)
             Optional<ZombieZItem.RolledAffix> suffix = affixes.stream()
                 .filter(a -> a.getAffix().getType() == Affix.AffixType.SUFFIX)
                 .findFirst();
 
-            if (suffix.isPresent()) {
-                name.append(" ").append(suffix.get().getAffix().getDisplayName());
-            }
+            // Logique simplifiée: préfixe OU suffixe, pas les deux
+            // Sauf si le nom reste court (moins de 25 caractères)
+            if (prefix.isPresent()) {
+                name.append(prefix.get().getAffix().getDisplayName()).append(" ");
+                name.append(baseName);
 
-            // Pour les raretés élevées sans affixes, ajouter un titre thématique
-            if (affixes.isEmpty()) {
+                // Ajouter le suffixe SEULEMENT si le nom total reste court
+                if (suffix.isPresent()) {
+                    String fullName = name + " " + suffix.get().getAffix().getDisplayName();
+                    if (fullName.length() <= 28) {
+                        name.append(" ").append(suffix.get().getAffix().getDisplayName());
+                    }
+                }
+            } else if (suffix.isPresent()) {
+                // Pas de préfixe, on utilise le suffixe
+                name.append(baseName).append(" ").append(suffix.get().getAffix().getDisplayName());
+            } else {
+                // Pas d'affix - nom de base seul ou avec titre pour raretés élevées
                 String title = getTitleForRarity(rarity);
                 if (title != null) {
-                    name.insert(0, title + " ");
+                    name.append(title).append(" ");
                 }
+                name.append(baseName);
             }
 
             return name.toString();

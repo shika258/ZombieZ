@@ -102,13 +102,24 @@ public abstract class ZombieAI {
     }
 
     /**
-     * Applique un effet de zone
+     * Applique un effet de zone (vérifie la protection de respawn)
      */
     protected void applyAreaEffect(double radius, PotionEffectType effect, int duration, int amplifier) {
+        if (!zombie.isValid()) return;
+
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius, radius, radius).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
+                .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                 .forEach(p -> p.addPotionEffect(new PotionEffect(effect, duration, amplifier)));
+    }
+
+    /**
+     * Vérifie si un joueur a la protection de respawn (Résistance >= 200)
+     */
+    protected boolean hasRespawnProtection(Player player) {
+        PotionEffect resistance = player.getPotionEffect(PotionEffectType.RESISTANCE);
+        return resistance != null && resistance.getAmplifier() >= 200;
     }
 
     /**
