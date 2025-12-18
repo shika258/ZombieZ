@@ -21,7 +21,10 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Listener pour l'intégration des pets avec le système de combat
@@ -32,8 +35,60 @@ public class PetCombatListener implements Listener {
     private final ZombieZPlugin plugin;
     private final Random random = new Random();
 
+    // Tracking des cibles des joueurs pour le système de pet
+    private static final Map<UUID, UUID> playerTargets = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> targetTimestamps = new ConcurrentHashMap<>();
+    private static final long TARGET_EXPIRY_MS = 5000; // La cible expire après 5 secondes sans attaque
+
     public PetCombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Récupère la cible actuelle du joueur (le dernier mob attaqué)
+     * @return L'entité ciblée ou null si aucune cible valide
+     */
+    public static LivingEntity getPlayerTarget(Player player) {
+        UUID targetId = playerTargets.get(player.getUniqueId());
+        if (targetId == null) return null;
+
+        // Vérifier si la cible n'a pas expiré
+        Long timestamp = targetTimestamps.get(player.getUniqueId());
+        if (timestamp == null || System.currentTimeMillis() - timestamp > TARGET_EXPIRY_MS) {
+            playerTargets.remove(player.getUniqueId());
+            targetTimestamps.remove(player.getUniqueId());
+            return null;
+        }
+
+        // Chercher l'entité dans le monde
+        for (Entity entity : player.getNearbyEntities(20, 20, 20)) {
+            if (entity.getUniqueId().equals(targetId) && entity instanceof LivingEntity living) {
+                if (living.isValid() && !living.isDead()) {
+                    return living;
+                }
+            }
+        }
+
+        // Cible non trouvée ou morte
+        playerTargets.remove(player.getUniqueId());
+        targetTimestamps.remove(player.getUniqueId());
+        return null;
+    }
+
+    /**
+     * Enregistre une cible pour un joueur
+     */
+    private static void setPlayerTarget(Player player, LivingEntity target) {
+        playerTargets.put(player.getUniqueId(), target.getUniqueId());
+        targetTimestamps.put(player.getUniqueId(), System.currentTimeMillis());
+    }
+
+    /**
+     * Nettoie les données d'un joueur déconnecté
+     */
+    public static void cleanupPlayer(UUID playerId) {
+        playerTargets.remove(playerId);
+        targetTimestamps.remove(playerId);
     }
 
     /**
@@ -50,6 +105,11 @@ public class PetCombatListener implements Listener {
             return;
         if (target instanceof Player)
             return; // Pas de PvP
+
+        // Enregistrer la cible pour le système de pet
+        if (target instanceof Monster) {
+            setPlayerTarget(player, target);
+        }
 
         PlayerPetData playerData = plugin.getPetManager().getPlayerData(player.getUniqueId());
         if (playerData == null || playerData.getEquippedPet() == null)

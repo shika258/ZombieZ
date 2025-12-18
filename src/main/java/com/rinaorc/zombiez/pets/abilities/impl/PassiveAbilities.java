@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.listeners.PetCombatListener;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -149,14 +150,20 @@ class AttackPassive implements PetAbility {
     private final String description;
     private final double damage;
     private final int intervalTicks;
+    private final int attackRange;
     private final Map<UUID, Long> lastAttack = new HashMap<>();
 
     AttackPassive(String id, String name, String desc, double damage, int interval) {
+        this(id, name, desc, damage, interval, 5); // Range par défaut de 5 blocs
+    }
+
+    AttackPassive(String id, String name, String desc, double damage, int interval, int range) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.damage = damage;
         this.intervalTicks = interval;
+        this.attackRange = range;
         PassiveAbilityCleanup.registerForCleanup(lastAttack);
     }
 
@@ -175,18 +182,47 @@ class AttackPassive implements PetAbility {
         lastAttack.put(player.getUniqueId(), now);
 
         double adjustedDamage = damage * petData.getStatMultiplier();
-        Collection<Entity> nearby = player.getNearbyEntities(3, 3, 3);
+        Monster target = findTarget(player);
 
-        for (Entity entity : nearby) {
-            if (entity instanceof Monster monster && monster.isValid()) {
-                monster.damage(adjustedDamage, player);
-                petData.addDamage((long) adjustedDamage);
+        if (target != null) {
+            target.damage(adjustedDamage, player);
+            petData.addDamage((long) adjustedDamage);
 
-                // Effet visuel
-                monster.getWorld().spawnParticle(Particle.CRIT, monster.getLocation().add(0, 1, 0), 5);
-                break; // Une seule cible par tick
+            // Effet visuel
+            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 5);
+        }
+    }
+
+    /**
+     * Trouve la meilleure cible pour le pet
+     * Priorité 1: Le mob que le joueur attaque actuellement
+     * Priorité 2: Le mob le plus proche dans la portée
+     */
+    private Monster findTarget(Player player) {
+        // Priorité 1: La cible du joueur
+        LivingEntity playerTarget = PetCombatListener.getPlayerTarget(player);
+        if (playerTarget instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+            double distance = player.getLocation().distance(monster.getLocation());
+            if (distance <= attackRange) {
+                return monster;
             }
         }
+
+        // Priorité 2: Le mob le plus proche
+        Monster closestMonster = null;
+        double closestDistance = Double.MAX_VALUE;
+
+        for (Entity entity : player.getNearbyEntities(attackRange, attackRange, attackRange)) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                double distance = player.getLocation().distance(monster.getLocation());
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestMonster = monster;
+                }
+            }
+        }
+
+        return closestMonster;
     }
 }
 
@@ -428,12 +464,34 @@ class AuraPassive implements PetAbility {
         double adjustedDamage = damagePerSecond * petData.getStatMultiplier();
         int adjustedRadius = (int) (radius * petData.getStatMultiplier());
 
-        Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
-        for (Entity entity : nearby) {
-            if (entity instanceof Monster monster) {
-                monster.damage(adjustedDamage, player);
-                petData.addDamage((long) adjustedDamage);
+        // Récupérer la cible prioritaire du joueur
+        LivingEntity playerTarget = PetCombatListener.getPlayerTarget(player);
+        UUID priorityTargetId = playerTarget != null ? playerTarget.getUniqueId() : null;
+
+        // Collecter et trier les mobs par distance (les plus proches d'abord)
+        List<Monster> monsters = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                monsters.add(monster);
             }
+        }
+
+        // Trier par distance (plus proche = premier)
+        monsters.sort(Comparator.comparingDouble(m -> player.getLocation().distanceSquared(m.getLocation())));
+
+        // Appliquer les dégâts avec bonus sur la cible prioritaire
+        for (Monster monster : monsters) {
+            double damageToApply = adjustedDamage;
+
+            // Bonus de 50% sur la cible que le joueur attaque
+            if (priorityTargetId != null && monster.getUniqueId().equals(priorityTargetId)) {
+                damageToApply *= 1.5;
+                // Effet visuel spécial pour la cible prioritaire
+                monster.getWorld().spawnParticle(Particle.FLAME, monster.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0.01);
+            }
+
+            monster.damage(damageToApply, player);
+            petData.addDamage((long) damageToApply);
         }
     }
 }
