@@ -31,13 +31,13 @@ public class PetShopGUI implements InventoryHolder {
     private static final String TITLE = "§0\u2800\u2800\u2800\u2800\u2800\u2800\u2800💎 Boutique Pet";
     private static final int SIZE = 54;
 
-    // Layout réorganisé par sections claires
+    // Layout réorganisé avec sections colorées et bien centrées
     private static final int SLOT_BALANCE = 4;                              // Solde centré en haut
-    private static final int[] HOT_DEALS_SLOTS = {10, 11, 12};              // Ligne 1 : Offres flash
-    private static final int[] EGGS_SLOTS = {19, 20, 21, 22, 23, 24, 25};   // Ligne 2 : Oeufs
-    private static final int[] FRAGMENTS_SLOTS = {29, 30, 31};              // Ligne 3 : Fragments
-    private static final int[] FIRST_PURCHASE_SLOTS = {39, 40, 41};         // Ligne 4 : Packs exclusifs
-    private static final int SLOT_DAILY = 43;                               // Récompense quotidienne
+    private static final int[] HOT_DEALS_SLOTS = {11, 12, 13};              // Ligne 1 : Offres flash (centrées)
+    private static final int SLOT_DAILY = 16;                               // Récompense quotidienne (à droite)
+    private static final int[] EGGS_SLOTS = {19, 20, 21, 22, 23, 24, 25};   // Ligne 2 : Oeufs (7 slots)
+    private static final int[] FRAGMENTS_SLOTS = {29, 30, 31};              // Ligne 3 : Fragments (centrés)
+    private static final int[] FIRST_PURCHASE_SLOTS = {39, 40, 41};         // Ligne 4 : Packs exclusifs (centrés)
     private static final int SLOT_BACK = 49;                                // Retour centré en bas
 
     // Séparateur visuel
@@ -60,13 +60,7 @@ public class PetShopGUI implements InventoryHolder {
     }
 
     private void setupGUI() {
-        // Fond noir uniforme
-        ItemStack filler = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
-        for (int i = 0; i < SIZE; i++) {
-            inventory.setItem(i, filler);
-        }
-
-        // === HEADER (Ligne 0) ===
+        // === LIGNE 0 : HEADER VIOLET ===
         ItemStack headerGlass = ItemBuilder.placeholder(Material.PURPLE_STAINED_GLASS_PANE);
         for (int i = 0; i < 9; i++) {
             inventory.setItem(i, headerGlass);
@@ -94,32 +88,69 @@ public class PetShopGUI implements InventoryHolder {
             .glow(true)
             .build());
 
-        // === SECTION 1 : OFFRES FLASH (Ligne 1) ===
-        inventory.setItem(9, new ItemBuilder(Material.FIRE_CHARGE)
+        // === LIGNE 1 : OFFRES FLASH (fond orange) ===
+        ItemStack orangeGlass = ItemBuilder.placeholder(Material.ORANGE_STAINED_GLASS_PANE);
+        for (int i = 9; i < 18; i++) {
+            inventory.setItem(i, orangeGlass);
+        }
+
+        // Label offres flash
+        inventory.setItem(10, new ItemBuilder(Material.FIRE_CHARGE)
             .name("§c§l🔥 OFFRES FLASH")
             .lore(List.of(
                 "",
-                "§7Offres limitées dans le temps",
-                "§7Changent toutes les §e8 heures",
-                "",
-                "§c§lNE LES RATEZ PAS!"
+                "§7Offres limitées!",
+                "§7Changent toutes les §e8h"
             ))
             .build());
 
+        // Offres flash centrées
         List<TimedOffer> timedOffers = shopSystem.getTimedOffers();
         for (int i = 0; i < timedOffers.size() && i < HOT_DEALS_SLOTS.length; i++) {
             inventory.setItem(HOT_DEALS_SLOTS[i], createTimedOfferItem(timedOffers.get(i)));
         }
 
-        // === SECTION 2 : OEUFS (Ligne 2) ===
-        inventory.setItem(18, new ItemBuilder(Material.DRAGON_EGG)
-            .name("§f§l🥚 OEUFS")
+        // Récompense quotidienne (à droite)
+        boolean canClaimDaily = plugin.getDailyRewardManager() != null &&
+            plugin.getDailyRewardManager().canClaim(player);
+        int streak = getStreak();
+        inventory.setItem(SLOT_DAILY, new ItemBuilder(canClaimDaily ? Material.CHEST : Material.ENDER_CHEST)
+            .name(canClaimDaily ? "§a§l🎁 RÉCOMPENSE!" : "§8🎁 Quotidienne")
+            .lore(canClaimDaily ?
+                List.of(
+                    "",
+                    "§aVotre récompense est prête!",
+                    "",
+                    "§7Streak: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
+                    "",
+                    "§a§l► Cliquez pour réclamer!"
+                ) :
+                List.of(
+                    "",
+                    "§8Déjà réclamée aujourd'hui",
+                    "",
+                    "§7Streak: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
+                    "",
+                    "§7Revenez demain!"
+                ))
+            .glow(canClaimDaily)
+            .build());
+
+        // === LIGNE 2 : OEUFS (fond lime) ===
+        ItemStack limeGlass = ItemBuilder.placeholder(Material.LIME_STAINED_GLASS_PANE);
+        for (int i = 18; i < 27; i++) {
+            inventory.setItem(i, limeGlass);
+        }
+
+        // Label oeufs
+        inventory.setItem(18, new ItemBuilder(Material.TURTLE_EGG)
+            .name("§a§l🥚 OEUFS")
             .lore(List.of(
                 "",
-                "§7Achetez des oeufs de pet",
-                "§7pour obtenir des compagnons!",
+                "§7Achetez des oeufs",
+                "§7pour des compagnons!",
                 "",
-                "§eChaque oeuf donne un pet aléatoire"
+                "§eChaque oeuf = 1 pet aléatoire"
             ))
             .build());
 
@@ -130,16 +161,22 @@ public class PetShopGUI implements InventoryHolder {
             inventory.setItem(EGGS_SLOTS[i], createEggOfferItem(eggOffers.get(i)));
         }
 
-        // === SECTION 3 : FRAGMENTS (Ligne 3) ===
-        inventory.setItem(27, new ItemBuilder(Material.PRISMARINE_SHARD)
-            .name("§d§l💎 FRAGMENTS")
+        // === LIGNE 3 : FRAGMENTS (fond cyan) ===
+        ItemStack cyanGlass = ItemBuilder.placeholder(Material.CYAN_STAINED_GLASS_PANE);
+        for (int i = 27; i < 36; i++) {
+            inventory.setItem(i, cyanGlass);
+        }
+
+        // Label fragments
+        inventory.setItem(28, new ItemBuilder(Material.PRISMARINE_SHARD)
+            .name("§b§l💎 FRAGMENTS")
             .lore(List.of(
                 "",
-                "§7Achetez des fragments avec",
-                "§7vos points de jeu.",
+                "§7Convertissez vos points",
+                "§7de jeu en fragments!",
                 "",
                 "§dUtilisez les fragments pour",
-                "§dacheter dans la boutique!"
+                "§dacheter des packs exclusifs"
             ))
             .build());
 
@@ -150,9 +187,15 @@ public class PetShopGUI implements InventoryHolder {
             inventory.setItem(FRAGMENTS_SLOTS[i], createFragmentOfferItem(fragmentOffers.get(i)));
         }
 
-        // === SECTION 4 : PACKS EXCLUSIFS (Ligne 4) ===
-        inventory.setItem(36, new ItemBuilder(Material.NETHER_STAR)
-            .name("§b§l⭐ PACKS EXCLUSIFS")
+        // === LIGNE 4 : PACKS EXCLUSIFS (fond magenta) ===
+        ItemStack magentaGlass = ItemBuilder.placeholder(Material.MAGENTA_STAINED_GLASS_PANE);
+        for (int i = 36; i < 45; i++) {
+            inventory.setItem(i, magentaGlass);
+        }
+
+        // Label packs exclusifs
+        inventory.setItem(38, new ItemBuilder(Material.NETHER_STAR)
+            .name("§d§l⭐ PACKS EXCLUSIFS")
             .lore(List.of(
                 "",
                 "§7Offres uniques et avantageuses!",
@@ -168,37 +211,7 @@ public class PetShopGUI implements InventoryHolder {
             inventory.setItem(FIRST_PURCHASE_SLOTS[i], createFirstPurchaseItem(firstOffers.get(i)));
         }
 
-        // Récompense quotidienne (à droite des packs)
-        boolean canClaimDaily = plugin.getDailyRewardManager() != null &&
-            plugin.getDailyRewardManager().canClaim(player);
-        int streak = getStreak();
-        inventory.setItem(SLOT_DAILY, new ItemBuilder(canClaimDaily ? Material.CHEST : Material.ENDER_CHEST)
-            .name(canClaimDaily ? "§a§l🎁 RÉCOMPENSE DISPONIBLE!" : "§8🎁 Récompense Quotidienne")
-            .lore(canClaimDaily ?
-                List.of(
-                    "",
-                    "§aVotre récompense est prête!",
-                    "",
-                    LORE_SEPARATOR,
-                    "",
-                    "§7Streak actuel: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
-                    "",
-                    "§a§l► Cliquez pour réclamer!"
-                ) :
-                List.of(
-                    "",
-                    "§8Déjà réclamée aujourd'hui",
-                    "",
-                    LORE_SEPARATOR,
-                    "",
-                    "§7Streak actuel: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
-                    "",
-                    "§7Revenez demain!"
-                ))
-            .glow(canClaimDaily)
-            .build());
-
-        // === FOOTER (Ligne 5) ===
+        // === LIGNE 5 : FOOTER GRIS ===
         ItemStack footerGlass = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
         for (int i = 45; i < 54; i++) {
             inventory.setItem(i, footerGlass);
