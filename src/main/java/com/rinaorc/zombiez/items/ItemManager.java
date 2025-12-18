@@ -386,6 +386,15 @@ public class ItemManager {
         // Stats de chance/loot
         capStat(stats, StatType.DOUBLE_LOOT_CHANCE, 30.0);    // Max 30% double loot
         capStat(stats, StatType.LEGENDARY_DROP_BONUS, 100.0); // Max +100% legendary drop
+
+        // Stats de vie
+        capStat(stats, StatType.MAX_HEALTH, 150.0);           // Max +150 HP (évite les tanks immortels)
+
+        // Dégâts élémentaires (évite les one-shots élémentaires)
+        capStat(stats, StatType.FIRE_DAMAGE, 100.0);          // Max +100 fire damage
+        capStat(stats, StatType.ICE_DAMAGE, 100.0);           // Max +100 ice damage
+        capStat(stats, StatType.LIGHTNING_DAMAGE, 100.0);     // Max +100 lightning damage
+        capStat(stats, StatType.POISON_DAMAGE, 50.0);         // Max +50 poison damage/s (DoT plus bas)
     }
 
     /**
