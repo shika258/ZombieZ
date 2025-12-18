@@ -222,7 +222,8 @@ public class ZombieZItem {
         // EN-TÊTE: Rareté puis Item Score + Zone
         // ═══════════════════════════════════════
         lore.add(rarity.getChatColor() + "§l" + rarity.getDisplayName().toUpperCase() + " " + rarity.getStars());
-        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore + " §8(Zone " + zoneLevel + ")");
+        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
+        lore.add("§8Requiert: §eZone " + zoneLevel);
         lore.add("");
 
         // ═══════════════════════════════════════
@@ -454,12 +455,25 @@ public class ZombieZItem {
      */
     public static Rarity getItemRarity(ItemStack item) {
         if (!isZombieZItem(item)) return null;
-        
+
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
         NamespacedKey keyRarity = new NamespacedKey("zombiez", "rarity");
         String rarityStr = pdc.get(keyRarity, PersistentDataType.STRING);
-        
+
         return rarityStr != null ? Rarity.valueOf(rarityStr) : Rarity.COMMON;
+    }
+
+    /**
+     * Obtient le niveau de zone d'un ItemStack ZombieZ
+     */
+    public static int getItemZoneLevel(ItemStack item) {
+        if (!isZombieZItem(item)) return 0;
+
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        NamespacedKey keyZone = new NamespacedKey("zombiez", "zone");
+        Integer zone = pdc.get(keyZone, PersistentDataType.INTEGER);
+
+        return zone != null ? zone : 1;
     }
 
     /**

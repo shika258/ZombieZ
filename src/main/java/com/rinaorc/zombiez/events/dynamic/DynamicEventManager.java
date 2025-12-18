@@ -408,6 +408,10 @@ public class DynamicEventManager {
 
             // Trouver la hauteur du sol
             int highestY = world.getHighestBlockYAt((int) x, (int) z);
+
+            // Limiter Y à +5 au-dessus du joueur pour éviter les spawns sur les toits/arbres
+            if (highestY > playerLocation.getY() + 5) continue;
+
             checkLoc.setY(highestY + 1);
 
             // Vérifier que le bloc du sol est solide

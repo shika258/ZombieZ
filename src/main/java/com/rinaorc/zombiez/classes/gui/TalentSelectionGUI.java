@@ -140,10 +140,20 @@ public class TalentSelectionGUI implements Listener {
             lore.add(line);
         }
 
+        // Compter les talents activés vs sélectionnés
+        int selectedCount = data.getSelectedTalentCount();
+        int disabledCount = (int) data.getAllSelectedTalents().values().stream()
+            .filter(id -> !data.isTalentEnabled(id))
+            .count();
+        int activeCount = selectedCount - disabledCount;
+
         lore.add("");
         lore.add("§8──────────────");
         lore.add("");
-        lore.add("§7Talents actifs: §a" + data.getSelectedTalentCount() + "§7/§a9");
+        lore.add("§7Talents sélectionnés: §e" + selectedCount + "§7/§e9");
+        if (disabledCount > 0) {
+            lore.add("§7Talents actifs: §a" + activeCount + " §8(" + disabledCount + " désactivé" + (disabledCount > 1 ? "s" : "") + ")");
+        }
 
         return new ItemBuilder(branch.getIcon())
             .name(branch.getColor() + "§l" + branch.getDisplayName().toUpperCase())
@@ -180,6 +190,8 @@ public class TalentSelectionGUI implements Listener {
         lore.add("§8──────────────");
         lore.add("");
 
+        boolean isEnabled = data.isTalentEnabled(talent.getId());
+
         if (!tierUnlocked) {
             int playerLevel = data.getClassLevel().get();
             int levelsNeeded = tier.getRequiredLevel() - playerLevel;
@@ -187,7 +199,13 @@ public class TalentSelectionGUI implements Listener {
             lore.add("§7Niveau " + tier.getRequiredLevel() + " requis");
             lore.add("§8Encore " + levelsNeeded + " niveau(x)");
         } else if (isSelected) {
-            lore.add("§a✓ SÉLECTIONNÉ");
+            if (isEnabled) {
+                lore.add("§a✓ ACTIF");
+            } else {
+                lore.add("§c✗ DÉSACTIVÉ");
+            }
+            lore.add("");
+            lore.add("§7Clic-droit: " + (isEnabled ? "§cDésactiver" : "§aActiver"));
         } else {
             lore.add("§e> Clic pour sélectionner");
         }
@@ -196,15 +214,18 @@ public class TalentSelectionGUI implements Listener {
         Material icon;
         if (!tierUnlocked) {
             icon = Material.BARRIER;
+        } else if (isSelected && !isEnabled) {
+            icon = Material.GRAY_DYE; // Icône grise si désactivé
         } else {
             icon = talent.getIcon();
         }
 
+        String nameColor = isSelected ? (isEnabled ? "§a" : "§8") : talent.getIconColor();
         ItemBuilder builder = new ItemBuilder(icon)
-            .name((isSelected ? "§a" : talent.getIconColor()) + talent.getName())
+            .name(nameColor + talent.getName())
             .lore(lore);
 
-        if (isSelected) {
+        if (isSelected && isEnabled) {
             builder.glow(true);
         }
 
@@ -246,7 +267,7 @@ public class TalentSelectionGUI implements Listener {
         // Clic sur un talent
         Talent clickedTalent = getTalentFromSlot(slot, player);
         if (clickedTalent != null) {
-            handleTalentClick(player, clickedTalent);
+            handleTalentClick(player, clickedTalent, event.isRightClick());
         }
     }
 
@@ -269,7 +290,7 @@ public class TalentSelectionGUI implements Listener {
         return null;
     }
 
-    private void handleTalentClick(Player player, Talent talent) {
+    private void handleTalentClick(Player player, Talent talent, boolean isRightClick) {
         ClassData data = classManager.getClassData(player);
 
         // Vérifier si le tier est débloqué
@@ -282,13 +303,30 @@ public class TalentSelectionGUI implements Listener {
 
         // Vérifier si c'est déjà le talent sélectionné
         String currentTalentId = data.getSelectedTalentId(talent.getTier());
-        if (talent.getId().equals(currentTalentId)) {
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
-            player.sendMessage("§7Ce talent est déjà sélectionné.");
+        boolean isSelected = talent.getId().equals(currentTalentId);
+
+        if (isSelected) {
+            // Talent déjà sélectionné - clic droit pour toggle activation
+            if (isRightClick) {
+                boolean newState = data.toggleTalentEnabled(talent.getId());
+                if (newState) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
+                    player.sendMessage("§a✓ Talent §f" + talent.getName() + " §aactivé!");
+                } else {
+                    player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.8f);
+                    player.sendMessage("§c✗ Talent §f" + talent.getName() + " §cdésactivé.");
+                }
+                // Rafraîchir le GUI
+                open(player);
+            } else {
+                // Clic gauche sur talent déjà sélectionné
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
+                player.sendMessage("§7Ce talent est déjà sélectionné. §8(Clic-droit pour activer/désactiver)");
+            }
             return;
         }
 
-        // Sélectionner le talent
+        // Clic gauche - Sélectionner le talent
         if (talentManager.selectTalent(player, talent)) {
             // Rafraîchir le GUI
             open(player);

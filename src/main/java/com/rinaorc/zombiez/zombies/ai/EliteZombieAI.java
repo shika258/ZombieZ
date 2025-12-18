@@ -81,12 +81,7 @@ public class EliteZombieAI extends ZombieAI {
             speed.setBaseValue(speed.getBaseValue() * 1.1);
         }
 
-        // Notify players (sauf pour les Cuirassassins qui sont trop communs)
-        if (zombieType != ZombieType.ARMORED_ELITE) {
-            zombie.getWorld().getNearbyEntities(zombie.getLocation(), 30, 20, 30).stream()
-                .filter(e -> e instanceof Player)
-                .forEach(e -> ((Player) e).sendMessage("§c§l⚠ " + zombieType.getDisplayName() + " entre en phase " + newPhase + "!"));
-        }
+        // Feedback visuel/sonore uniquement - pas de message chat (spam)
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -270,6 +265,7 @@ public class EliteZombieAI extends ZombieAI {
                 currentLoc.getWorld().getNearbyEntities(currentLoc, 1.5, 1.5, 1.5).stream()
                     .filter(e -> e instanceof Player)
                     .map(e -> (Player) e)
+                    .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                     .forEach(p -> {
                         p.damage(15 + level * 2, zombie);
                         p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 3));
@@ -303,10 +299,11 @@ public class EliteZombieAI extends ZombieAI {
         playSound(Sound.ENTITY_WARDEN_ROAR, 3f, 0.5f);
         playParticles(Particle.SONIC_BOOM, zombie.getLocation().add(0, 1.5, 0), 10, 1, 1, 1);
 
-        // Dégâts et knockback massifs
+        // Dégâts et knockback massifs - n'affecte pas les joueurs protégés
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 10, 5, 10).stream()
             .filter(e -> e instanceof Player)
             .map(e -> (Player) e)
+            .filter(p -> !p.isDead() && !hasRespawnProtection(p))
             .forEach(p -> {
                 p.damage(20 + level * 2, zombie);
                 Vector knockback = p.getLocation().toVector()
@@ -356,19 +353,22 @@ public class EliteZombieAI extends ZombieAI {
         for (int i = 0; i < 3; i++) {
             final int bolt = i;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid() || !target.isOnline() || target.isDead()) return;
 
                 Location strikeLoc = target.getLocation();
                 playParticles(Particle.END_ROD, strikeLoc.clone().add(0, 10, 0), 50, 0.5, 5, 0.5);
 
                 // Impact
                 plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (!target.isOnline() || target.isDead()) return;
+
                     playSound(Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1f, 1.5f);
                     playParticles(Particle.FLASH, strikeLoc, 1, 0, 0, 0);
 
                     strikeLoc.getWorld().getNearbyEntities(strikeLoc, 2, 2, 2).stream()
                         .filter(e -> e instanceof Player)
                         .map(e -> (Player) e)
+                        .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                         .forEach(p -> {
                             p.damage(10 + level, zombie);
                             p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20, 1));
@@ -376,6 +376,14 @@ public class EliteZombieAI extends ZombieAI {
                 }, 10L);
             }, bolt * 15L);
         }
+    }
+
+    /**
+     * Vérifie si un joueur a la protection de respawn (Résistance 255)
+     */
+    private boolean hasRespawnProtection(Player player) {
+        PotionEffect resistance = player.getPotionEffect(PotionEffectType.RESISTANCE);
+        return resistance != null && resistance.getAmplifier() >= 200;
     }
 
     private void holyNova() {
@@ -401,6 +409,7 @@ public class EliteZombieAI extends ZombieAI {
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 12, 6, 12).stream()
                 .filter(e -> e instanceof Player)
                 .map(e -> (Player) e)
+                .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                 .forEach(p -> {
                     p.damage(18 + level * 2, zombie);
                     p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0));
@@ -419,14 +428,14 @@ public class EliteZombieAI extends ZombieAI {
         for (int i = 0; i < 40; i++) {
             final int tick = i;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!target.isOnline()) return;
+                if (!target.isOnline() || target.isDead()) return;
                 playParticles(Particle.END_ROD, target.getLocation().add(0, 2.5, 0), 10, 0.3, 0.1, 0.3);
             }, i);
         }
 
         // Exécution
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (!zombie.isValid() || !target.isOnline()) return;
+            if (!zombie.isValid() || !target.isOnline() || target.isDead() || hasRespawnProtection(target)) return;
 
             playSound(Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2f, 0.5f);
             playParticles(Particle.FLASH, target.getLocation(), 1, 0, 0, 0);
@@ -450,6 +459,12 @@ public class EliteZombieAI extends ZombieAI {
 
         Location projectileLoc = zombie.getEyeLocation().clone();
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
+            // Annuler si la cible est morte ou protégée
+            if (!target.isOnline() || target.isDead() || hasRespawnProtection(target)) {
+                task.cancel();
+                return;
+            }
+
             projectileLoc.add(direction.clone().multiply(2));
             playParticles(Particle.END_ROD, projectileLoc, 5, 0.1, 0.1, 0.1);
 
@@ -499,10 +514,11 @@ public class EliteZombieAI extends ZombieAI {
             }
             case ARCHON -> {
                 playParticles(Particle.END_ROD, zombie.getLocation(), 100, 3, 3, 3);
-                // Dernière bénédiction corrompue
+                // Dernière bénédiction corrompue - n'affecte pas les joueurs avec protection
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 10, 5, 10).stream()
                     .filter(e -> e instanceof Player)
                     .map(e -> (Player) e)
+                    .filter(p -> !p.isDead() && !hasRespawnProtection(p))
                     .forEach(p -> {
                         p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 60, 2));
                         p.damage(10, zombie);

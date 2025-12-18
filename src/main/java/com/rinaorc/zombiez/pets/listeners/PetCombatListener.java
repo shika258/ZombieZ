@@ -17,7 +17,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -44,6 +46,45 @@ public class PetCombatListener implements Listener {
     public PetCombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROTECTION DES PETS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Empêche tous les mobs de cibler les pets des joueurs
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onEntityTargetPet(EntityTargetLivingEntityEvent event) {
+        if (event.getTarget() == null) return;
+
+        // Vérifier si la cible est un pet
+        if (isPetEntity(event.getTarget())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Annule tous les dégâts reçus par les pets (protection totale)
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPetDamage(EntityDamageEvent event) {
+        // Vérifier si c'est un pet
+        if (isPetEntity(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Vérifie si une entité est un pet de joueur
+     */
+    private boolean isPetEntity(Entity entity) {
+        return entity.getScoreboardTags().contains("zombiez_pet");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SYSTÈME DE CIBLAGE
+    // ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Récupère la cible actuelle du joueur (le dernier mob attaqué)

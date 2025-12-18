@@ -31,9 +31,10 @@ public final class ZoneScaling {
 
     /**
      * Multiplicateur linéaire par zone pour les stats
-     * Zone 1: 1.0, Zone 50: 1.0 + (50 * 0.08) = 5.0
+     * Zone 1: 1.0, Zone 50: 1.0 + (50 * 0.05) = 3.5
+     * Réduit de 0.08 à 0.05 pour éviter l'inflation de stats
      */
-    private static final double LINEAR_SCALING_PER_ZONE = 0.08;
+    private static final double LINEAR_SCALING_PER_ZONE = 0.05;
 
     /**
      * Base du scaling exponentiel (pour les valeurs qui doivent croître plus vite)
@@ -109,12 +110,13 @@ public final class ZoneScaling {
 
     /**
      * Multiplicateur pour les valeurs d'affixes
-     * Scaling plus agressif car c'est là que la puissance vient
+     * Scaling modéré pour éviter l'inflation de stats
      */
     public static double getAffixMultiplier(int zoneId) {
         int safeZoneId = clampZone(zoneId);
-        // Zone 1: 1.0, Zone 25: 3.0, Zone 50: 5.0
-        return 1.0 + (safeZoneId * 0.08);
+        // Zone 1: 1.0, Zone 25: 2.25, Zone 50: 3.5
+        // Réduit de 0.08 à 0.05 pour éviter les stats absurdes en late-game
+        return 1.0 + (safeZoneId * 0.05);
     }
 
     /**

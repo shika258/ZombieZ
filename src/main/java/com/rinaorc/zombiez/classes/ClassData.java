@@ -33,6 +33,10 @@ public class ClassData {
     // Talents sélectionnés (TalentTier -> Talent ID)
     private final Map<TalentTier, String> selectedTalents = new ConcurrentHashMap<>();
 
+    // Talents désactivés (Talent ID -> true si désactivé)
+    // Par défaut un talent sélectionné est activé
+    private final Set<String> disabledTalents = ConcurrentHashMap.newKeySet();
+
     // Cooldown de changement de talent par tier (TalentTier -> timestamp)
     private final Map<TalentTier, Long> talentChangeCooldowns = new ConcurrentHashMap<>();
 
@@ -212,10 +216,71 @@ public class ClassData {
     }
 
     /**
-     * Vérifie si le joueur a un talent spécifique actif
+     * Vérifie si le joueur a un talent spécifique actif ET activé
      */
     public boolean hasTalent(String talentId) {
+        return selectedTalents.containsValue(talentId) && !disabledTalents.contains(talentId);
+    }
+
+    /**
+     * Vérifie si un talent est sélectionné (même s'il est désactivé)
+     */
+    public boolean hasTalentSelected(String talentId) {
         return selectedTalents.containsValue(talentId);
+    }
+
+    /**
+     * Vérifie si un talent est activé (s'il est sélectionné)
+     */
+    public boolean isTalentEnabled(String talentId) {
+        return !disabledTalents.contains(talentId);
+    }
+
+    /**
+     * Active ou désactive un talent
+     * @return le nouvel état (true = activé, false = désactivé)
+     */
+    public boolean toggleTalentEnabled(String talentId) {
+        if (!selectedTalents.containsValue(talentId)) {
+            return false; // Talent pas sélectionné
+        }
+
+        boolean wasDisabled = disabledTalents.contains(talentId);
+        if (wasDisabled) {
+            disabledTalents.remove(talentId);
+        } else {
+            disabledTalents.add(talentId);
+        }
+        markDirty();
+        return wasDisabled; // Retourne le nouvel état (inverse de l'ancien)
+    }
+
+    /**
+     * Définit l'état d'activation d'un talent
+     */
+    public void setTalentEnabled(String talentId, boolean enabled) {
+        if (!selectedTalents.containsValue(talentId)) return;
+
+        if (enabled) {
+            disabledTalents.remove(talentId);
+        } else {
+            disabledTalents.add(talentId);
+        }
+        markDirty();
+    }
+
+    /**
+     * Obtient l'ensemble des talents désactivés (pour sauvegarde)
+     */
+    public Set<String> getDisabledTalents() {
+        return Collections.unmodifiableSet(disabledTalents);
+    }
+
+    /**
+     * Obtient l'ensemble interne des talents désactivés (pour chargement BDD)
+     */
+    public Set<String> getDisabledTalentsInternal() {
+        return disabledTalents;
     }
 
     /**
@@ -256,6 +321,7 @@ public class ClassData {
      */
     public void resetTalents() {
         selectedTalents.clear();
+        disabledTalents.clear();
         talentChangeCooldowns.clear();
         resetBranch();
         markDirty();
@@ -455,6 +521,8 @@ public class ClassData {
         // Copier les talents
         this.selectedTalents.clear();
         this.selectedTalents.putAll(other.selectedTalents);
+        this.disabledTalents.clear();
+        this.disabledTalents.addAll(other.disabledTalents);
         this.talentChangeCooldowns.clear();
         this.talentChangeCooldowns.putAll(other.talentChangeCooldowns);
         // Copier la branche

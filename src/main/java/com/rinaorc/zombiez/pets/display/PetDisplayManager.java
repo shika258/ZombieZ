@@ -61,11 +61,11 @@ public class PetDisplayManager {
     private BukkitTask nameUpdateTask;
 
     // Constantes de comportement du pet
-    private static final double TELEPORT_DISTANCE = 15.0;
+    private static final double TELEPORT_DISTANCE = 20.0;  // TP si > 20 blocs
     private static final double FOLLOW_START_DISTANCE = 3.5;
     private static final double IDEAL_DISTANCE = 2.5;
-    private static final double MAX_SPEED = 0.4;
-    private static final double ACCELERATION = 0.15;
+    private static final double MAX_SPEED = 0.8;  // Vitesse doublée pour mieux suivre
+    private static final double ACCELERATION = 0.20;  // Accélération légèrement augmentée
 
     // Constantes pour les hologrammes TextDisplay (offsets via Transformation)
     // Ces offsets sont appliqués via setTransformation() car les hologrammes sont des passagers

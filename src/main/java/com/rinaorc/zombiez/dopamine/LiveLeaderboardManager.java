@@ -39,6 +39,10 @@ public class LiveLeaderboardManager {
     // Configuration
     private static final int UPDATE_INTERVAL_TICKS = 20 * 30; // 30 secondes
     private static final int TOP_ANNOUNCEMENT_THRESHOLD = 10; // Annonce pour entrée dans le top 10
+    private static final long ANNOUNCEMENT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes entre chaque annonce
+
+    // Cooldown des annonces par joueur et type
+    private final Map<UUID, Map<LeaderboardType, Long>> lastAnnouncementTime = new ConcurrentHashMap<>();
 
     public LiveLeaderboardManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -74,7 +78,7 @@ public class LiveLeaderboardManager {
         // Vérifier les changements de position
         if (newPosition < oldPosition) {
             // Montée dans le classement!
-            handlePositionGain(player, type, oldPosition, newPosition);
+            handlePositionGain(player, type, oldPosition, newPosition, newValue);
         }
 
         // Mettre à jour la position en cache de manière thread-safe
@@ -89,24 +93,76 @@ public class LiveLeaderboardManager {
     /**
      * Gère une montée dans le classement
      */
-    private void handlePositionGain(Player player, LeaderboardType type, int oldPosition, int newPosition) {
+    private void handlePositionGain(Player player, LeaderboardType type, int oldPosition, int newPosition, long value) {
         // Notification différente selon l'importance
         if (newPosition <= 3) {
             // Entrée dans le top 3!
-            handleTop3Entry(player, type, newPosition);
+            handleTop3Entry(player, type, newPosition, value);
         } else if (newPosition <= TOP_ANNOUNCEMENT_THRESHOLD && oldPosition > TOP_ANNOUNCEMENT_THRESHOLD) {
             // Entrée dans le top 10
-            handleTop10Entry(player, type, newPosition);
+            handleTop10Entry(player, type, newPosition, value);
         } else if (newPosition < oldPosition) {
             // Progression normale
-            handleNormalProgress(player, type, oldPosition, newPosition);
+            handleNormalProgress(player, type, oldPosition, newPosition, value);
         }
+    }
+
+    /**
+     * Vérifie si une annonce peut être faite (cooldown de 5 minutes)
+     */
+    private boolean canAnnounce(Player player, LeaderboardType type) {
+        UUID uuid = player.getUniqueId();
+        Map<LeaderboardType, Long> playerCooldowns = lastAnnouncementTime.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+        long lastTime = playerCooldowns.getOrDefault(type, 0L);
+        return System.currentTimeMillis() - lastTime >= ANNOUNCEMENT_COOLDOWN_MS;
+    }
+
+    /**
+     * Enregistre le temps d'une annonce
+     */
+    private void recordAnnouncement(Player player, LeaderboardType type) {
+        UUID uuid = player.getUniqueId();
+        Map<LeaderboardType, Long> playerCooldowns = lastAnnouncementTime.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+        playerCooldowns.put(type, System.currentTimeMillis());
+    }
+
+    /**
+     * Formate la valeur selon le type de classement
+     */
+    private String formatValue(LeaderboardType type, long value) {
+        return switch (type) {
+            case KILLS -> "§f" + value + " §7kills";
+            case XP -> "§f" + formatNumber(value) + " §7XP";
+            case POINTS -> "§f" + formatNumber(value) + " §7points";
+            case LEVEL -> "§fNiveau " + value;
+            case STREAK -> "§f" + value + " §7kills d'affilée";
+        };
+    }
+
+    /**
+     * Formate un nombre avec des séparateurs
+     */
+    private String formatNumber(long value) {
+        if (value >= 1_000_000) {
+            return String.format("%.1fM", value / 1_000_000.0);
+        } else if (value >= 1_000) {
+            return String.format("%.1fK", value / 1_000.0);
+        }
+        return String.valueOf(value);
     }
 
     /**
      * Gère une entrée dans le top 3
      */
-    private void handleTop3Entry(Player player, LeaderboardType type, int position) {
+    private void handleTop3Entry(Player player, LeaderboardType type, int position, long value) {
+        // Vérifier le cooldown avant d'annoncer
+        if (!canAnnounce(player, type)) {
+            // Notification silencieuse au joueur seulement
+            player.sendMessage("§a⬆ §7Tu es toujours §f#" + position + " §7en " + type.getDisplayName() + " avec " + formatValue(type, value));
+            return;
+        }
+        recordAnnouncement(player, type);
+
         String medal = switch (position) {
             case 1 -> "§6§l🥇 #1";
             case 2 -> "§7§l🥈 #2";
@@ -114,12 +170,14 @@ public class LiveLeaderboardManager {
             default -> "§e#" + position;
         };
 
-        // Titre spectaculaire
-        player.sendTitle(medal, "§f" + type.getDisplayName(), 10, 60, 15);
+        String valueText = formatValue(type, value);
 
-        // Annonce serveur
+        // Titre spectaculaire avec la valeur
+        player.sendTitle(medal, "§f" + type.getDisplayName() + " §8- " + valueText, 10, 60, 15);
+
+        // Annonce serveur avec la valeur
         String announcement = medal + " §e" + player.getName() + " §7est maintenant §f" +
-            getPositionText(position) + " §7en " + type.getDisplayName() + "!";
+            getPositionText(position) + " §7en " + type.getDisplayName() + "! §8(" + valueText + "§8)";
         plugin.getServer().broadcastMessage(announcement);
 
         // Sons épiques
@@ -131,48 +189,62 @@ public class LiveLeaderboardManager {
         // Particules
         spawnTopPlayerParticles(player, position);
 
-        // Message chat
+        // Message chat amélioré
         player.sendMessage("");
-        player.sendMessage("§6§l★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★");
-        player.sendMessage("§6§l★ " + medal + " §eTu es " + getPositionText(position) + " du serveur! §6§l★");
-        player.sendMessage("§6§l★ §7Classement: §f" + type.getDisplayName());
-        player.sendMessage("§6§l★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★");
+        player.sendMessage("§6§l╔════════════════════════════════════════╗");
+        player.sendMessage("§6§l║  " + medal + " §eTu es " + getPositionText(position) + " du serveur!");
+        player.sendMessage("§6§l║  §7Classement: §f" + type.getDisplayName());
+        player.sendMessage("§6§l║  §7Score: " + valueText);
+        player.sendMessage("§6§l╚════════════════════════════════════════╝");
         player.sendMessage("");
     }
 
     /**
      * Gère une entrée dans le top 10
      */
-    private void handleTop10Entry(Player player, LeaderboardType type, int position) {
-        // Titre
-        player.sendTitle("§e§lTOP 10!", "§7#" + position + " en " + type.getDisplayName(), 10, 50, 10);
+    private void handleTop10Entry(Player player, LeaderboardType type, int position, long value) {
+        // Vérifier le cooldown avant d'annoncer au serveur
+        boolean canBroadcast = canAnnounce(player, type);
+        if (canBroadcast) {
+            recordAnnouncement(player, type);
+        }
 
-        // Annonce serveur
-        String announcement = "§e⬆ " + player.getName() + " §7entre dans le §fTOP 10 §7en " +
-            type.getDisplayName() + " §8(#" + position + ")";
-        plugin.getServer().broadcastMessage(announcement);
+        String valueText = formatValue(type, value);
+
+        // Titre avec la valeur
+        player.sendTitle("§e§lTOP 10!", "§7#" + position + " en " + type.getDisplayName() + " §8- " + valueText, 10, 50, 10);
+
+        // Annonce serveur (seulement si pas en cooldown)
+        if (canBroadcast) {
+            String announcement = "§e⬆ " + player.getName() + " §7entre dans le §fTOP 10 §7en " +
+                type.getDisplayName() + "! §8(#" + position + " - " + valueText + "§8)";
+            plugin.getServer().broadcastMessage(announcement);
+        }
 
         // Sons
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1.5f);
 
-        // Message personnel
-        player.sendMessage("§a§l★ Félicitations! §eTu es maintenant #" + position + " en " + type.getDisplayName() + "!");
+        // Message personnel avec plus d'infos
+        player.sendMessage("§a§l★ §eTu es maintenant §f#" + position + " §een " + type.getDisplayName() + "!");
+        player.sendMessage("§7   Score actuel: " + valueText);
     }
 
     /**
      * Gère une progression normale
      */
-    private void handleNormalProgress(Player player, LeaderboardType type, int oldPosition, int newPosition) {
+    private void handleNormalProgress(Player player, LeaderboardType type, int oldPosition, int newPosition, long value) {
         int positionsGained = oldPosition - newPosition;
 
         // Ne notifier que pour des progressions significatives
         if (positionsGained < 5 && newPosition > 20) return;
 
-        // Message subtil
+        String valueText = formatValue(type, value);
+
+        // Message subtil avec la valeur
         String message = "§a⬆ §7Tu as gagné §a" + positionsGained + " place" +
             (positionsGained > 1 ? "s" : "") + " §7en " + type.getDisplayName() +
-            "! §8(Maintenant #" + newPosition + ")";
+            "! §8(#" + newPosition + " - " + valueText + "§8)";
         player.sendMessage(message);
 
         // Son subtil
@@ -362,6 +434,7 @@ public class LiveLeaderboardManager {
     public void clearPlayer(UUID uuid) {
         previousPositions.remove(uuid);
         previousValues.remove(uuid);
+        lastAnnouncementTime.remove(uuid);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

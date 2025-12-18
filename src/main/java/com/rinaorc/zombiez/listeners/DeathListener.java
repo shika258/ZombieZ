@@ -15,6 +15,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  * Listener pour la gestion des morts et respawns
@@ -26,9 +28,12 @@ public class DeathListener implements Listener {
 
     // Pénalité de points à la mort (pourcentage)
     private static final double DEATH_POINT_PENALTY = 0.10; // 10%
-    
+
     // Points minimum préservés
     private static final long MIN_POINTS_PRESERVED = 100;
+
+    // Durée d'invulnérabilité au respawn (en ticks) - 5 secondes
+    private static final int RESPAWN_INVULNERABILITY_TICKS = 100;
 
     public DeathListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -158,21 +163,32 @@ public class DeathListener implements Listener {
             event.setRespawnLocation(respawnLocation);
         }
 
-        // Message de respawn
+        // Appliquer l'invulnérabilité au respawn
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
+                // Résistance 255 = invulnérabilité totale
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.RESISTANCE,
+                    RESPAWN_INVULNERABILITY_TICKS,
+                    255, // Niveau max = invincible
+                    false,
+                    false,
+                    true // Afficher l'icône
+                ));
+
                 int checkpoint = data.getCurrentCheckpoint().get();
-                
+
                 if (checkpoint > 0) {
                     MessageUtils.sendTitle(player, "§c§lMORT", "§7Respawn au checkpoint " + checkpoint, 10, 40, 10);
                 } else {
                     MessageUtils.sendTitle(player, "§c§lMORT", "§7Respawn au spawn", 10, 40, 10);
                 }
-                
-                // Conseil
+
+                // Info invulnérabilité
+                MessageUtils.send(player, "§a✦ Invulnérable pendant 5 secondes!");
                 MessageUtils.send(player, "§7Conseil: Active des §echeckpoints §7dans les refuges pour respawn plus près!");
             }
-        }, 5L);
+        }, 1L); // 1 tick après le respawn pour s'assurer que le joueur est bien spawn
     }
 
     /**
