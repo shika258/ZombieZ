@@ -5,18 +5,23 @@ import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventManager;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
 import com.rinaorc.zombiez.zones.Zone;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,11 +49,15 @@ public class DeathRaceEvent extends MicroEvent {
     private long raceEndTime = 0;
     private boolean recordBroken = false;
 
+    // TextDisplay flottant pour l'affichage
+    private TextDisplay titleDisplay;
+
     // Configuration
     private static final int MIN_ZOMBIES = 8;
     private static final int MAX_ZOMBIES = 12;
     private static final double ZOMBIE_HEALTH = 20.0;
-    private static final double ZOMBIE_SPACING = 3.5; // Blocs entre chaque zombie
+    private static final double SPAWN_RADIUS = 48.0; // Rayon de spawn autour du joueur
+    private static final float TEXT_SCALE = 1.5f;
 
     public DeathRaceEvent(ZombieZPlugin plugin, Player player, Location location, Zone zone, MicroEventManager manager) {
         super(plugin, MicroEventType.DEATH_RACE, player, location, zone);
@@ -60,17 +69,42 @@ public class DeathRaceEvent extends MicroEvent {
 
     @Override
     protected void onStart() {
-        // Calculer la direction vers laquelle le joueur regarde
-        Vector direction = player.getLocation().getDirection().setY(0).normalize();
+        // Creer le TextDisplay flottant au-dessus du joueur
+        Location displayLoc = player.getLocation().add(0, 3.5, 0);
+        titleDisplay = displayLoc.getWorld().spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setBackgroundColor(org.bukkit.Color.fromARGB(180, 0, 0, 0));
+            display.setTransformation(new org.bukkit.util.Transformation(
+                new Vector3f(0, 0, 0),
+                new org.joml.Quaternionf(),
+                new Vector3f(TEXT_SCALE, TEXT_SCALE, TEXT_SCALE),
+                new org.joml.Quaternionf()
+            ));
+            display.text(Component.text("🏃 COURSE MORTELLE 🏃", NamedTextColor.AQUA, TextDecoration.BOLD)
+                .appendNewline()
+                .append(Component.text("Cibles: ", NamedTextColor.GRAY))
+                .append(Component.text(totalZombies + " zombies", NamedTextColor.RED)));
+        });
+        registerEntity(titleDisplay);
 
-        // Spawn les zombies en ligne devant le joueur
-        Location startLoc = player.getLocation().add(direction.multiply(8)); // 8 blocs devant
+        // Spawn les zombies aleatoirement dans un rayon de 48 blocs autour du joueur
+        Location playerLoc = player.getLocation();
+        java.util.Random random = new java.util.Random();
 
         for (int i = 0; i < totalZombies; i++) {
-            // Position le long de la ligne
-            Location zombieLoc = startLoc.clone().add(direction.clone().multiply(i * ZOMBIE_SPACING));
+            // Position aleatoire dans le rayon de spawn
+            double angle = random.nextDouble() * Math.PI * 2;
+            double distance = 10 + random.nextDouble() * (SPAWN_RADIUS - 10); // Min 10 blocs, max 48 blocs
 
-            // Ajuster au sol
+            Location zombieLoc = playerLoc.clone().add(
+                Math.cos(angle) * distance,
+                0,
+                Math.sin(angle) * distance
+            );
+
+            // Ajuster au sol (trouver le bloc solide le plus haut)
             zombieLoc.setY(zombieLoc.getWorld().getHighestBlockYAt(zombieLoc) + 1);
 
             // Spawn le zombie
@@ -78,12 +112,13 @@ public class DeathRaceEvent extends MicroEvent {
             raceZombies.add(zombie.getUniqueId());
             registerEntity(zombie);
 
-            // Configuration - zombies cibles statiques
-            zombie.setCustomName("§b§l" + (i + 1) + " §7/ " + totalZombies);
+            // Configuration - zombies cibles statiques avec GLOWING
+            zombie.setCustomName("§b§l🎯 " + (i + 1) + " §7/ " + totalZombies);
             zombie.setCustomNameVisible(true);
             zombie.setBaby(false);
             zombie.setShouldBurnInDay(false);
             zombie.setAI(false); // Immobiles!
+            zombie.setGlowing(true); // EFFET GLOWING pour visibilité
 
             // Stats faibles (cibles faciles)
             zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(ZOMBIE_HEALTH);
@@ -101,10 +136,11 @@ public class DeathRaceEvent extends MicroEvent {
 
             // Effet de spawn en sequence
             final int index = i;
+            final Location spawnLoc = zombieLoc.clone();
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (zombie.isValid()) {
-                    zombieLoc.getWorld().spawnParticle(Particle.FLASH, zombieLoc.clone().add(0, 1, 0), 1);
-                    zombieLoc.getWorld().playSound(zombieLoc, Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1f + (index * 0.1f));
+                    spawnLoc.getWorld().spawnParticle(Particle.FLASH, spawnLoc.clone().add(0, 1, 0), 1);
+                    spawnLoc.getWorld().playSound(spawnLoc, Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1f + (index * 0.1f));
                 }
             }, i * 2L);
         }
@@ -129,6 +165,32 @@ public class DeathRaceEvent extends MicroEvent {
             return;
         }
 
+        // Mettre a jour le TextDisplay (suit le joueur et affiche le timer)
+        if (titleDisplay != null && titleDisplay.isValid()) {
+            // Suivre le joueur
+            titleDisplay.teleport(player.getLocation().add(0, 3.5, 0));
+
+            // Mettre a jour le texte
+            int remaining = totalZombies - zombiesKilled;
+            Component timerComponent;
+
+            if (raceStarted) {
+                double elapsed = (System.currentTimeMillis() - raceStartTime) / 1000.0;
+                timerComponent = Component.text(String.format("%.2f", elapsed) + "s", NamedTextColor.YELLOW, TextDecoration.BOLD);
+            } else {
+                timerComponent = Component.text("En attente...", NamedTextColor.GRAY);
+            }
+
+            titleDisplay.text(
+                Component.text("🏃 COURSE MORTELLE 🏃", NamedTextColor.AQUA, TextDecoration.BOLD)
+                    .appendNewline()
+                    .append(Component.text("Cibles: ", NamedTextColor.GRAY))
+                    .append(Component.text(remaining + "/" + totalZombies, NamedTextColor.RED))
+                    .append(Component.text(" | Timer: ", NamedTextColor.DARK_GRAY))
+                    .append(timerComponent)
+            );
+        }
+
         // Afficher les cibles restantes avec particules
         if (elapsedTicks % 10 == 0) {
             for (int i = zombiesKilled; i < raceZombies.size(); i++) {
@@ -144,7 +206,7 @@ public class DeathRaceEvent extends MicroEvent {
             }
         }
 
-        // ActionBar
+        // ActionBar (en complement du TextDisplay)
         String timerText;
         if (raceStarted) {
             double elapsed = (System.currentTimeMillis() - raceStartTime) / 1000.0;
@@ -160,13 +222,20 @@ public class DeathRaceEvent extends MicroEvent {
 
     @Override
     protected void onCleanup() {
-        // Supprime les zombies restants avec effet
+        // Nettoyer le TextDisplay
+        if (titleDisplay != null && titleDisplay.isValid()) {
+            titleDisplay.remove();
+        }
+
+        // Supprime les zombies restants avec effet visuel
         for (UUID zombieId : raceZombies) {
             var entity = plugin.getServer().getEntity(zombieId);
             if (entity != null && !entity.isDead()) {
                 entity.getWorld().spawnParticle(Particle.SMOKE, entity.getLocation(), 10, 0.3, 0.5, 0.3, 0.02);
+                entity.remove(); // Forcer la suppression
             }
         }
+        raceZombies.clear(); // Nettoyer la liste pour eviter les fuites de memoire
     }
 
     @Override

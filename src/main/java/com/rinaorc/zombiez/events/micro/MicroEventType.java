@@ -90,7 +90,7 @@ public enum MicroEventType {
         "§6",
         "Un zombie Jackpot apparait! Tentez votre chance!",
         Sound.BLOCK_NOTE_BLOCK_BELL,
-        25 * 20,        // 25 secondes
+        45 * 20,        // 45 secondes (augmente de 25s)
         100,            // Points de base (le jackpot donne plus)
         40,             // XP
         15              // Poids
