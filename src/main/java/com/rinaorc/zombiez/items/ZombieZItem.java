@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.items;
 
 import com.rinaorc.zombiez.items.affixes.Affix;
+import com.rinaorc.zombiez.items.generator.ArmorTrimGenerator;
 import com.rinaorc.zombiez.items.types.ItemType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
@@ -63,6 +64,12 @@ public class ZombieZItem {
     // Pouvoir associé (optionnel)
     @Setter
     private String powerId;
+
+    // Armor Trim (optionnel, pour les armures uniquement)
+    @Setter
+    private String trimPatternKey;
+    @Setter
+    private String trimMaterialKey;
 
     /**
      * Calcule toutes les stats combinées de l'item
@@ -173,6 +180,15 @@ public class ZombieZItem {
 
         // Rendre l'item incassable (sans afficher le tag)
         builder.unbreakable();
+
+        // Appliquer l'armor trim si c'est une armure et qu'un trim est défini
+        if (itemType.isArmor() && trimPatternKey != null && trimMaterialKey != null) {
+            ArmorTrimGenerator.TrimResult trimResult =
+                ArmorTrimGenerator.getInstance().getTrimByKeys(trimPatternKey, trimMaterialKey);
+            if (trimResult != null) {
+                builder.trim(trimResult.pattern(), trimResult.material());
+            }
+        }
 
         // Stocker les données dans le PDC
         ItemStack item = builder.build();
@@ -384,6 +400,14 @@ public class ZombieZItem {
         }
         pdc.set(keyAffixes, PersistentDataType.STRING, affixStr.toString());
 
+        // Stocker l'armor trim si présent
+        if (trimPatternKey != null && trimMaterialKey != null) {
+            NamespacedKey keyTrimPattern = new NamespacedKey("zombiez", "trim_pattern");
+            NamespacedKey keyTrimMaterial = new NamespacedKey("zombiez", "trim_material");
+            pdc.set(keyTrimPattern, PersistentDataType.STRING, trimPatternKey);
+            pdc.set(keyTrimMaterial, PersistentDataType.STRING, trimMaterialKey);
+        }
+
         item.setItemMeta(meta);
     }
 
@@ -556,6 +580,12 @@ public class ZombieZItem {
         Integer ilvl = pdc.get(keyItemLevel, PersistentDataType.INTEGER);
         String power = pdc.get(keyPowerId, PersistentDataType.STRING);
 
+        // Lire les données d'armor trim
+        NamespacedKey keyTrimPattern = new NamespacedKey("zombiez", "trim_pattern");
+        NamespacedKey keyTrimMaterial = new NamespacedKey("zombiez", "trim_material");
+        String trimPattern = pdc.get(keyTrimPattern, PersistentDataType.STRING);
+        String trimMaterial = pdc.get(keyTrimMaterial, PersistentDataType.STRING);
+
         // Désérialiser les stats de base (format: "STAT_TYPE:value;STAT_TYPE:value")
         Map<StatType, Double> baseStats = new EnumMap<>(StatType.class);
         String baseStatsStr = pdc.get(keyBaseStats, PersistentDataType.STRING);
@@ -628,6 +658,8 @@ public class ZombieZItem {
             .identified(true)
             .itemLevel(ilvl != null ? ilvl : 1)
             .powerId(power)
+            .trimPatternKey(trimPattern)
+            .trimMaterialKey(trimMaterial)
             .build();
     }
 }

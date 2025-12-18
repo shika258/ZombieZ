@@ -11,9 +11,13 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
@@ -298,6 +302,31 @@ public class ItemBuilder {
      */
     public ItemBuilder color(int r, int g, int b) {
         return color(Color.fromRGB(r, g, b));
+    }
+
+    /**
+     * Applique un armor trim (motif décoratif) à une armure
+     * Ne fonctionne que sur les pièces d'armure (pas le cuir)
+     *
+     * @param pattern Le motif du trim (coast, dune, spire, etc.)
+     * @param material Le matériau du trim (gold, diamond, netherite, etc.)
+     */
+    public ItemBuilder trim(TrimPattern pattern, TrimMaterial material) {
+        if (meta instanceof ArmorMeta armorMeta) {
+            ArmorTrim trim = new ArmorTrim(material, pattern);
+            armorMeta.setTrim(trim);
+        }
+        return this;
+    }
+
+    /**
+     * Applique un armor trim pré-construit
+     */
+    public ItemBuilder trim(ArmorTrim trim) {
+        if (meta instanceof ArmorMeta armorMeta && trim != null) {
+            armorMeta.setTrim(trim);
+        }
+        return this;
     }
 
     /**

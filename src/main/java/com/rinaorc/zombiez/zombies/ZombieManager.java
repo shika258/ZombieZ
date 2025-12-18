@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.zombies;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.items.generator.ArmorTrimGenerator;
 import com.rinaorc.zombiez.items.generator.LootTable;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
 import com.rinaorc.zombiez.zombies.ai.ZombieAI;
@@ -10,11 +11,16 @@ import lombok.Getter;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.inventory.meta.ArmorMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -379,9 +385,9 @@ public class ZombieManager {
                 if (entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
                     entity.getEquipment().setItemInMainHandDropChance(0);
-                    // Armure légère selon le niveau
+                    // Armure légère selon le niveau (avec trim)
                     if (level > 10) {
-                        entity.getEquipment().setHelmet(new ItemStack(Material.CHAINMAIL_HELMET));
+                        entity.getEquipment().setHelmet(createArmorWithTrim(Material.CHAINMAIL_HELMET, level));
                         entity.getEquipment().setHelmetDropChance(0);
                     }
                 }
@@ -393,9 +399,8 @@ public class ZombieManager {
                 if (entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
                     entity.getEquipment().setItemInMainHandDropChance(0);
-                    // Armure de glace (cuir bleu)
-                    ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
-                    entity.getEquipment().setHelmet(helmet);
+                    // Armure de glace avec trim
+                    entity.getEquipment().setHelmet(createArmorWithTrim(Material.LEATHER_HELMET, level));
                     entity.getEquipment().setHelmetDropChance(0);
                 }
                 // Résistance au froid
@@ -592,39 +597,39 @@ public class ZombieManager {
         switch (type.getCategory()) {
             case TANK -> {
                 // Armure lourde pour les tanks
-                equipment.setHelmet(new ItemStack(level > 5 ? Material.DIAMOND_HELMET : Material.IRON_HELMET));
-                equipment.setChestplate(new ItemStack(level > 5 ? Material.DIAMOND_CHESTPLATE : Material.IRON_CHESTPLATE));
-                equipment.setLeggings(new ItemStack(level > 5 ? Material.DIAMOND_LEGGINGS : Material.IRON_LEGGINGS));
-                equipment.setBoots(new ItemStack(level > 5 ? Material.DIAMOND_BOOTS : Material.IRON_BOOTS));
+                equipment.setHelmet(createArmorWithTrim(level > 5 ? Material.DIAMOND_HELMET : Material.IRON_HELMET, level));
+                equipment.setChestplate(createArmorWithTrim(level > 5 ? Material.DIAMOND_CHESTPLATE : Material.IRON_CHESTPLATE, level));
+                equipment.setLeggings(createArmorWithTrim(level > 5 ? Material.DIAMOND_LEGGINGS : Material.IRON_LEGGINGS, level));
+                equipment.setBoots(createArmorWithTrim(level > 5 ? Material.DIAMOND_BOOTS : Material.IRON_BOOTS, level));
             }
             case MELEE -> {
                 // Arme puissante pour les melee
                 equipment.setItemInMainHand(new ItemStack(level > 7 ? Material.NETHERITE_AXE : Material.IRON_AXE));
                 if (type == ZombieType.BERSERKER) {
-                    equipment.setHelmet(new ItemStack(Material.CHAINMAIL_HELMET));
+                    equipment.setHelmet(createArmorWithTrim(Material.CHAINMAIL_HELMET, level));
                 }
             }
             case ELITE -> {
-                // Équipement complet pour les élites
-                equipment.setHelmet(new ItemStack(Material.NETHERITE_HELMET));
-                equipment.setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+                // Équipement complet pour les élites (toujours avec trim)
+                equipment.setHelmet(createArmorWithTrim(Material.NETHERITE_HELMET, level, true));
+                equipment.setChestplate(createArmorWithTrim(Material.NETHERITE_CHESTPLATE, level, true));
                 equipment.setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
             }
             case MINIBOSS, ZONE_BOSS, FINAL_BOSS -> {
-                // Boss ont un équipement unique
-                equipment.setHelmet(new ItemStack(Material.NETHERITE_HELMET));
-                equipment.setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
-                equipment.setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
-                equipment.setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+                // Boss ont un équipement unique (toujours avec trim prestigieux)
+                equipment.setHelmet(createArmorWithTrim(Material.NETHERITE_HELMET, level, true));
+                equipment.setChestplate(createArmorWithTrim(Material.NETHERITE_CHESTPLATE, level, true));
+                equipment.setLeggings(createArmorWithTrim(Material.NETHERITE_LEGGINGS, level, true));
+                equipment.setBoots(createArmorWithTrim(Material.NETHERITE_BOOTS, level, true));
                 equipment.setItemInMainHand(new ItemStack(Material.NETHERITE_AXE));
             }
             default -> {
                 // Équipement basique basé sur le niveau
                 if (level > 3) {
-                    equipment.setHelmet(new ItemStack(Material.LEATHER_HELMET));
+                    equipment.setHelmet(createArmorWithTrim(Material.LEATHER_HELMET, level));
                 }
                 if (level > 6) {
-                    equipment.setChestplate(new ItemStack(Material.LEATHER_CHESTPLATE));
+                    equipment.setChestplate(createArmorWithTrim(Material.LEATHER_CHESTPLATE, level));
                 }
             }
         }
@@ -635,6 +640,72 @@ public class ZombieManager {
         equipment.setLeggingsDropChance(0);
         equipment.setBootsDropChance(0);
         equipment.setItemInMainHandDropChance(0);
+    }
+
+    /**
+     * Crée une pièce d'armure avec un trim aléatoire
+     * @param material Le matériau de l'armure
+     * @param level Le niveau de la zone (affecte la probabilité et le type de trim)
+     * @return L'ItemStack d'armure avec ou sans trim
+     */
+    private ItemStack createArmorWithTrim(Material material, int level) {
+        return createArmorWithTrim(material, level, false);
+    }
+
+    /**
+     * Crée une pièce d'armure avec un trim aléatoire
+     * @param material Le matériau de l'armure
+     * @param level Le niveau de la zone
+     * @param guaranteedTrim Si true, le trim est garanti
+     * @return L'ItemStack d'armure avec ou sans trim
+     */
+    private ItemStack createArmorWithTrim(Material material, int level, boolean guaranteedTrim) {
+        ItemStack armor = new ItemStack(material);
+
+        // Probabilité de trim basée sur le niveau (20% base + 5% par niveau, max 80%)
+        double trimChance = guaranteedTrim ? 1.0 : Math.min(0.80, 0.20 + (level * 0.05));
+
+        if (Math.random() > trimChance) {
+            return armor;
+        }
+
+        // Générer un trim aléatoire pour les mobs
+        ArmorTrimGenerator.TrimResult trimResult = generateMobTrim(level, guaranteedTrim);
+        if (trimResult == null) {
+            return armor;
+        }
+
+        // Appliquer le trim
+        var meta = armor.getItemMeta();
+        if (meta instanceof ArmorMeta armorMeta) {
+            ArmorTrim trim = new ArmorTrim(trimResult.material(), trimResult.pattern());
+            armorMeta.setTrim(trim);
+            armor.setItemMeta(armorMeta);
+        }
+
+        return armor;
+    }
+
+    /**
+     * Génère un trim adapté aux mobs basé sur le niveau
+     */
+    private ArmorTrimGenerator.TrimResult generateMobTrim(int level, boolean prestigious) {
+        // Utiliser le générateur existant avec une rareté simulée basée sur le niveau
+        com.rinaorc.zombiez.items.types.Rarity simulatedRarity;
+        if (prestigious || level >= 8) {
+            simulatedRarity = com.rinaorc.zombiez.items.types.Rarity.LEGENDARY;
+        } else if (level >= 6) {
+            simulatedRarity = com.rinaorc.zombiez.items.types.Rarity.EPIC;
+        } else if (level >= 4) {
+            simulatedRarity = com.rinaorc.zombiez.items.types.Rarity.RARE;
+        } else if (level >= 2) {
+            simulatedRarity = com.rinaorc.zombiez.items.types.Rarity.UNCOMMON;
+        } else {
+            simulatedRarity = com.rinaorc.zombiez.items.types.Rarity.COMMON;
+        }
+
+        // Forcer la génération d'un trim (on a déjà vérifié la probabilité)
+        return ArmorTrimGenerator.getInstance().generateTrimForMob(simulatedRarity, level);
     }
 
     /**

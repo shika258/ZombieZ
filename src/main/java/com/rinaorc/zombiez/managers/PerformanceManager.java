@@ -141,9 +141,14 @@ public class PerformanceManager {
      * Appelé périodiquement selon cleanupIntervalTicks
      */
     private void runCleanupCycle() {
-        // Déléguer le cleanup des mobs au ZombieManager
+        // Déléguer le cleanup des zombies au ZombieManager
         if (plugin.getZombieManager() != null) {
             plugin.getZombieManager().cleanupDistantZombies();
+        }
+
+        // Déléguer le cleanup des mobs passifs au PassiveMobManager
+        if (plugin.getPassiveMobManager() != null) {
+            plugin.getPassiveMobManager().cleanupDistantMobs();
         }
     }
 
@@ -160,34 +165,36 @@ public class PerformanceManager {
      */
     public int cleanupChunk(Chunk chunk) {
         int cleaned = 0;
+
+        // Nettoyer les zombies via ZombieManager
         var zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) return 0;
+        if (zombieManager != null) {
+            NamespacedKey pdcMobKey = zombieManager.getPdcMobKey();
 
-        NamespacedKey pdcMobKey = zombieManager.getPdcMobKey();
+            for (Entity entity : chunk.getEntities()) {
+                if (!(entity instanceof LivingEntity living)) continue;
 
-        for (Entity entity : chunk.getEntities()) {
-            if (!(entity instanceof LivingEntity living)) continue;
+                // Vérification PDC (prioritaire - ultra-rapide)
+                boolean isZombieZMob = living.getPersistentDataContainer()
+                        .has(pdcMobKey, PersistentDataType.BYTE);
 
-            // Vérification PDC (prioritaire - ultra-rapide)
-            boolean isZombieZMob = living.getPersistentDataContainer()
-                    .has(pdcMobKey, PersistentDataType.BYTE);
+                // Fallback sur scoreboard tag
+                if (!isZombieZMob) {
+                    isZombieZMob = entity.getScoreboardTags().contains("zombiez_mob");
+                }
 
-            // Fallback sur scoreboard tag
-            if (!isZombieZMob) {
-                isZombieZMob = entity.getScoreboardTags().contains("zombiez_mob");
+                if (isZombieZMob) {
+                    zombieManager.onZombieDeath(entity.getUniqueId(), null);
+                    entity.remove();
+                    cleaned++;
+                }
             }
+        }
 
-            if (isZombieZMob) {
-                zombieManager.onZombieDeath(entity.getUniqueId(), null);
-                entity.remove();
-                cleaned++;
-            }
-
-            // Nettoyer aussi les mobs passifs du plugin
-            if (entity.getScoreboardTags().contains("zombiez_passive")) {
-                entity.remove();
-                cleaned++;
-            }
+        // Nettoyer les mobs passifs via PassiveMobManager
+        var passiveMobManager = plugin.getPassiveMobManager();
+        if (passiveMobManager != null) {
+            cleaned += passiveMobManager.cleanupChunk(chunk);
         }
 
         if (cleaned > 0) {
