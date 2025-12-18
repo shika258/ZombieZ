@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
@@ -52,6 +53,16 @@ public class PetConnectionListener implements Listener {
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPetDamage(EntityDamageEvent event) {
+        if (isPetEntity(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Empêche les pets de prendre feu (soleil pour les Phantoms, etc.)
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPetCombust(EntityCombustEvent event) {
         if (isPetEntity(event.getEntity())) {
             event.setCancelled(true);
         }
