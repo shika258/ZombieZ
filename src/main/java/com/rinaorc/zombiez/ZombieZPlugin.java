@@ -169,6 +169,24 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.managers.PerformanceManager performanceManager;
 
+    // Système Dopamine - Feedback et engagement
+    @Getter
+    private com.rinaorc.zombiez.dopamine.LowHealthHeartbeatManager lowHealthHeartbeatManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.LootExplosionManager lootExplosionManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.MultiKillCascadeManager multiKillCascadeManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.PersonalBestManager personalBestManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.TimeLimitedBonusManager timeLimitedBonusManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.DailyLoginStreakManager dailyLoginStreakManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.LiveLeaderboardManager liveLeaderboardManager;
+    @Getter
+    private com.rinaorc.zombiez.dopamine.AssistManager assistManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -287,6 +305,24 @@ public class ZombieZPlugin extends JavaPlugin {
         if (performanceManager != null) {
             log(Level.INFO, "§7Arrêt du système de performance...");
             performanceManager.shutdown();
+        }
+
+        // Cleanup du système dopamine
+        if (lowHealthHeartbeatManager != null) {
+            log(Level.INFO, "§7Arrêt du système de battement de cœur...");
+            lowHealthHeartbeatManager.shutdown();
+        }
+        if (multiKillCascadeManager != null) {
+            log(Level.INFO, "§7Arrêt du système multi-kill cascade...");
+            multiKillCascadeManager.shutdown();
+        }
+        if (timeLimitedBonusManager != null) {
+            log(Level.INFO, "§7Arrêt du système de bonus temporaires...");
+            timeLimitedBonusManager.shutdown();
+        }
+        if (assistManager != null) {
+            log(Level.INFO, "§7Arrêt du système d'assists...");
+            assistManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -469,6 +505,33 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Pet Shop System - Boutique de pets
         petShopSystem = new com.rinaorc.zombiez.pets.gacha.PetShopSystem(this);
+
+        // ===== Système Dopamine - Feedback et Engagement =====
+
+        // Low Health Heartbeat - Battement de cœur quand vie faible
+        lowHealthHeartbeatManager = new com.rinaorc.zombiez.dopamine.LowHealthHeartbeatManager(this);
+        lowHealthHeartbeatManager.start();
+
+        // Loot Explosion - Effets visuels pour les drops de loot
+        lootExplosionManager = new com.rinaorc.zombiez.dopamine.LootExplosionManager(this);
+
+        // Multi-Kill Cascade - Effets pour les kills rapides en chaîne
+        multiKillCascadeManager = new com.rinaorc.zombiez.dopamine.MultiKillCascadeManager(this);
+
+        // Personal Best - Records personnels et popups de célébration
+        personalBestManager = new com.rinaorc.zombiez.dopamine.PersonalBestManager(this);
+
+        // Time-Limited Bonus - Défis temporaires avec bonus
+        timeLimitedBonusManager = new com.rinaorc.zombiez.dopamine.TimeLimitedBonusManager(this);
+
+        // Daily Login Streak - Récompenses de connexion quotidienne
+        dailyLoginStreakManager = new com.rinaorc.zombiez.dopamine.DailyLoginStreakManager(this);
+
+        // Live Leaderboard - Mises à jour en temps réel du classement
+        liveLeaderboardManager = new com.rinaorc.zombiez.dopamine.LiveLeaderboardManager(this);
+
+        // Assist System - Système d'assists pour les kills en équipe
+        assistManager = new com.rinaorc.zombiez.dopamine.AssistManager(this);
     }
 
     /**
@@ -658,6 +721,31 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetOptionsGUI.GUIListener(this), this);
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetShopGUI.ShopListener(this), this);
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.EggOpeningAnimation.AnimationListener(), this);
+        }
+
+        // Listener système dopamine - Low Health Heartbeat
+        if (lowHealthHeartbeatManager != null) {
+            pm.registerEvents(lowHealthHeartbeatManager, this);
+        }
+
+        // Listener système dopamine - Multi-Kill Cascade
+        if (multiKillCascadeManager != null) {
+            pm.registerEvents(multiKillCascadeManager, this);
+        }
+
+        // Listener système dopamine - Time-Limited Bonus
+        if (timeLimitedBonusManager != null) {
+            pm.registerEvents(timeLimitedBonusManager, this);
+        }
+
+        // Listener système dopamine - Daily Login Streak
+        if (dailyLoginStreakManager != null) {
+            pm.registerEvents(dailyLoginStreakManager, this);
+        }
+
+        // Listener système dopamine - Assist System
+        if (assistManager != null) {
+            pm.registerEvents(assistManager, this);
         }
     }
 

@@ -196,8 +196,13 @@ public class ItemManager {
             startDropEffect(droppedItem, zItem);
         }
 
-        // Son de drop
-        playDropSound(location, zItem.getRarity());
+        // Explosion de loot dopamine (système amélioré)
+        if (plugin.getLootExplosionManager() != null && zItem.getRarity().isAtLeast(Rarity.UNCOMMON)) {
+            plugin.getLootExplosionManager().triggerExplosion(location, zItem.getRarity(), null);
+        } else {
+            // Son de drop basique si le système dopamine n'est pas actif
+            playDropSound(location, zItem.getRarity());
+        }
 
         // Marquer pour le système de nettoyage (PerformanceManager)
         // Les drops sont automatiquement supprimés après le délai configuré
