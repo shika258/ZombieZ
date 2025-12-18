@@ -47,10 +47,12 @@ public class PetDisplayManager {
     // Les hologrammes sont montés en passagers sur le pet pour fluidité parfaite
     private final Map<UUID, UUID> hologramLine1 = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> hologramLine2 = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> hologramLine3 = new ConcurrentHashMap<>();
 
     // Cache du dernier texte affiché pour optimisation (éviter updates inutiles)
     private final Map<UUID, String> lastLine1Text = new ConcurrentHashMap<>();
     private final Map<UUID, String> lastLine2Text = new ConcurrentHashMap<>();
+    private final Map<UUID, String> lastLine3Text = new ConcurrentHashMap<>();
 
     // Task de mise à jour des positions du pet (pas des hologrammes)
     private BukkitTask updateTask;
@@ -67,8 +69,9 @@ public class PetDisplayManager {
 
     // Constantes pour les hologrammes TextDisplay (offsets via Transformation)
     // Ces offsets sont appliqués via setTransformation() car les hologrammes sont des passagers
-    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f;
-    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f; // 1.85 - 0.25 (line spacing)
+    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f;  // Nom du pet (en gras)
+    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f;  // Propriétaire
+    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 1.35f;  // Timer ultime
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
@@ -382,12 +385,13 @@ public class PetDisplayManager {
     }
 
     /**
-     * Construit la ligne 1 de l'hologramme : Nom du pet / niveau (+ étoiles)
-     * Exemple : §bPanthère §7[Lv.12] §e★★
+     * Construit la ligne 1 de l'hologramme : Nom du pet en gras / niveau (+ étoiles)
+     * Exemple : §l§bPanthère§r §7[Lv.12] §e★★
      */
     private String buildPetLine1(PetType type, PetData petData) {
         StringBuilder line = new StringBuilder();
-        line.append(type.getColoredName());
+        // Nom en gras avec §l, puis reset §r pour le reste
+        line.append("§l").append(type.getColoredName()).append("§r");
         line.append(" §7[Lv.").append(petData.getLevel()).append("]");
         if (petData.getStarPower() > 0) {
             line.append(" §e").append("★".repeat(petData.getStarPower()));
@@ -396,13 +400,23 @@ public class PetDisplayManager {
     }
 
     /**
-     * Construit la ligne 2 de l'hologramme : Timer d'ultime
+     * Construit la ligne 2 de l'hologramme : Propriétaire
+     * Format : §7Propriétaire: §f{playerName}
+     */
+    private String buildPetLine2(UUID playerUuid) {
+        Player player = Bukkit.getPlayer(playerUuid);
+        String playerName = player != null ? player.getName() : "Inconnu";
+        return "§7Propriétaire: §f" + playerName;
+    }
+
+    /**
+     * Construit la ligne 3 de l'hologramme : Timer d'ultime
      * Si cooldown > 0 : §d⚡ Ultime: §f{remaining}s
      * Si prêt : §a⚡ Ultime: §lPRÊTE!
-     * Si pas d'ultime : null (pas de ligne 2)
+     * Si pas d'ultime : null (pas de ligne 3)
      */
-    private String buildPetLine2(PetType type, UUID playerUuid) {
-        // Pas de ligne 2 si le pet n'a pas d'ultime
+    private String buildPetLine3(PetType type, UUID playerUuid) {
+        // Pas de ligne 3 si le pet n'a pas d'ultime
         if (type.getUltimateCooldown() <= 0) {
             return null;
         }
@@ -438,7 +452,7 @@ public class PetDisplayManager {
 
         Location spawnLoc = petEntity.getLocation();
 
-        // Créer la ligne 1 (nom + niveau + étoiles) - montée en passager
+        // Créer la ligne 1 (nom en gras + niveau + étoiles) - montée en passager
         String line1Text = buildPetLine1(type, petData);
         TextDisplay line1 = spawnMountedTextDisplay(world, spawnLoc, line1Text, HOLOGRAM_Y_OFFSET_LINE1);
         if (line1 != null) {
@@ -448,15 +462,25 @@ public class PetDisplayManager {
             lastLine1Text.put(playerUuid, line1Text);
         }
 
-        // Créer la ligne 2 (timer ultime) seulement si le pet a une ultime
-        String line2Text = buildPetLine2(type, playerUuid);
-        if (line2Text != null) {
-            TextDisplay line2 = spawnMountedTextDisplay(world, spawnLoc, line2Text, HOLOGRAM_Y_OFFSET_LINE2);
-            if (line2 != null) {
+        // Créer la ligne 2 (propriétaire) - toujours affichée
+        String line2Text = buildPetLine2(playerUuid);
+        TextDisplay line2 = spawnMountedTextDisplay(world, spawnLoc, line2Text, HOLOGRAM_Y_OFFSET_LINE2);
+        if (line2 != null) {
+            // Monter l'hologramme comme passager du pet
+            petEntity.addPassenger(line2);
+            hologramLine2.put(playerUuid, line2.getUniqueId());
+            lastLine2Text.put(playerUuid, line2Text);
+        }
+
+        // Créer la ligne 3 (timer ultime) seulement si le pet a une ultime
+        String line3Text = buildPetLine3(type, playerUuid);
+        if (line3Text != null) {
+            TextDisplay line3 = spawnMountedTextDisplay(world, spawnLoc, line3Text, HOLOGRAM_Y_OFFSET_LINE3);
+            if (line3 != null) {
                 // Monter l'hologramme comme passager du pet
-                petEntity.addPassenger(line2);
-                hologramLine2.put(playerUuid, line2.getUniqueId());
-                lastLine2Text.put(playerUuid, line2Text);
+                petEntity.addPassenger(line3);
+                hologramLine3.put(playerUuid, line3.getUniqueId());
+                lastLine3Text.put(playerUuid, line3Text);
             }
         }
     }
@@ -547,9 +571,22 @@ public class PetDisplayManager {
             }
         }
 
+        // Supprimer la ligne 3
+        UUID line3Uuid = hologramLine3.remove(playerUuid);
+        if (line3Uuid != null) {
+            Entity entity = Bukkit.getEntity(line3Uuid);
+            if (entity != null && entity.isValid()) {
+                if (entity.getVehicle() != null) {
+                    entity.getVehicle().removePassenger(entity);
+                }
+                entity.remove();
+            }
+        }
+
         // Nettoyer les caches de texte
         lastLine1Text.remove(playerUuid);
         lastLine2Text.remove(playerUuid);
+        lastLine3Text.remove(playerUuid);
     }
 
     /**
@@ -557,7 +594,7 @@ public class PetDisplayManager {
      * Note: La position n'a pas besoin d'être mise à jour car les hologrammes sont des passagers.
      */
     private void updateHologramText(UUID playerUuid, PetType type, PetData petData) {
-        // Mise à jour ligne 1 (nom + niveau + étoiles)
+        // Mise à jour ligne 1 (nom en gras + niveau + étoiles)
         String newLine1 = buildPetLine1(type, petData);
         String oldLine1 = lastLine1Text.get(playerUuid);
 
@@ -572,45 +609,60 @@ public class PetDisplayManager {
             }
         }
 
-        // Mise à jour ligne 2 (timer ultime)
-        String newLine2 = buildPetLine2(type, playerUuid);
+        // Mise à jour ligne 2 (propriétaire) - généralement statique
+        String newLine2 = buildPetLine2(playerUuid);
         String oldLine2 = lastLine2Text.get(playerUuid);
 
-        // Gérer le cas où la ligne 2 doit apparaître/disparaître
-        UUID line2Uuid = hologramLine2.get(playerUuid);
-
-        if (newLine2 == null) {
-            // Pas d'ultime - supprimer la ligne 2 si elle existe
-            if (line2Uuid != null) {
-                Entity entity = Bukkit.getEntity(line2Uuid);
-                if (entity != null && entity.isValid()) {
-                    entity.remove();
-                }
-                hologramLine2.remove(playerUuid);
-                lastLine2Text.remove(playerUuid);
-            }
-        } else if (newLine2.equals(oldLine2)) {
-            // Pas de changement - ne rien faire
-        } else {
-            // Texte changé - mettre à jour
+        if (!newLine2.equals(oldLine2)) {
+            UUID line2Uuid = hologramLine2.get(playerUuid);
             if (line2Uuid != null) {
                 Entity entity = Bukkit.getEntity(line2Uuid);
                 if (entity instanceof TextDisplay textDisplay) {
                     textDisplay.setText(newLine2);
                     lastLine2Text.put(playerUuid, newLine2);
                 }
+            }
+        }
+
+        // Mise à jour ligne 3 (timer ultime)
+        String newLine3 = buildPetLine3(type, playerUuid);
+        String oldLine3 = lastLine3Text.get(playerUuid);
+
+        // Gérer le cas où la ligne 3 doit apparaître/disparaître
+        UUID line3Uuid = hologramLine3.get(playerUuid);
+
+        if (newLine3 == null) {
+            // Pas d'ultime - supprimer la ligne 3 si elle existe
+            if (line3Uuid != null) {
+                Entity entity = Bukkit.getEntity(line3Uuid);
+                if (entity != null && entity.isValid()) {
+                    entity.remove();
+                }
+                hologramLine3.remove(playerUuid);
+                lastLine3Text.remove(playerUuid);
+            }
+        } else if (newLine3.equals(oldLine3)) {
+            // Pas de changement - ne rien faire
+        } else {
+            // Texte changé - mettre à jour
+            if (line3Uuid != null) {
+                Entity entity = Bukkit.getEntity(line3Uuid);
+                if (entity instanceof TextDisplay textDisplay) {
+                    textDisplay.setText(newLine3);
+                    lastLine3Text.put(playerUuid, newLine3);
+                }
             } else {
-                // La ligne 2 n'existe pas mais devrait - la créer et la monter en passager
+                // La ligne 3 n'existe pas mais devrait - la créer et la monter en passager
                 UUID petEntityUuid = activePetEntities.get(playerUuid);
                 if (petEntityUuid != null) {
                     Entity petEntity = Bukkit.getEntity(petEntityUuid);
                     if (petEntity != null && petEntity.isValid()) {
                         // Créer et monter le TextDisplay en passager
-                        TextDisplay line2 = spawnMountedTextDisplay(petEntity.getWorld(), petEntity.getLocation(), newLine2, HOLOGRAM_Y_OFFSET_LINE2);
-                        if (line2 != null) {
-                            petEntity.addPassenger(line2);
-                            hologramLine2.put(playerUuid, line2.getUniqueId());
-                            lastLine2Text.put(playerUuid, newLine2);
+                        TextDisplay line3 = spawnMountedTextDisplay(petEntity.getWorld(), petEntity.getLocation(), newLine3, HOLOGRAM_Y_OFFSET_LINE3);
+                        if (line3 != null) {
+                            petEntity.addPassenger(line3);
+                            hologramLine3.put(playerUuid, line3.getUniqueId());
+                            lastLine3Text.put(playerUuid, newLine3);
                         }
                     }
                 }
@@ -941,9 +993,18 @@ public class PetDisplayManager {
         }
         hologramLine2.clear();
 
+        for (UUID line3Uuid : hologramLine3.values()) {
+            Entity entity = Bukkit.getEntity(line3Uuid);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+        hologramLine3.clear();
+
         // Nettoyer les caches de texte
         lastLine1Text.clear();
         lastLine2Text.clear();
+        lastLine3Text.clear();
 
         // Supprimer les entités de pet
         for (UUID entityUuid : activePetEntities.values()) {
