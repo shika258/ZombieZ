@@ -35,6 +35,9 @@ public class PetDisplayManager {
     // Task de mise à jour des positions
     private BukkitTask updateTask;
 
+    // Task de mise à jour des noms (pour le timer ultime)
+    private BukkitTask nameUpdateTask;
+
     // Constantes de comportement
     private static final double TELEPORT_DISTANCE = 15.0;
     private static final double FOLLOW_START_DISTANCE = 3.5;
@@ -48,6 +51,9 @@ public class PetDisplayManager {
 
         // Tâche de suivi toutes les 2 ticks pour plus de fluidité
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 2L, 2L);
+
+        // Tâche de mise à jour des noms toutes les secondes (pour le timer ultime)
+        nameUpdateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPetNames, 20L, 20L);
     }
 
     /**
@@ -303,6 +309,62 @@ public class PetDisplayManager {
     }
 
     /**
+     * Met à jour les noms de tous les pets (pour le timer ultime)
+     */
+    private void updateAllPetNames() {
+        for (Map.Entry<UUID, UUID> entry : activePetEntities.entrySet()) {
+            UUID playerUuid = entry.getKey();
+            UUID entityUuid = entry.getValue();
+
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player == null || !player.isOnline()) continue;
+
+            Entity entity = Bukkit.getEntity(entityUuid);
+            if (entity == null || !entity.isValid()) continue;
+
+            PlayerPetData playerData = petManager.getPlayerData(playerUuid);
+            if (playerData == null || playerData.getEquippedPet() == null) continue;
+
+            PetType type = playerData.getEquippedPet();
+            PetData petData = playerData.getPet(type);
+            if (petData == null) continue;
+
+            // Construire le nouveau nom avec le timer
+            String displayName = buildPetDisplayName(type, petData, playerUuid);
+            entity.setCustomName(displayName);
+        }
+    }
+
+    /**
+     * Construit le nom d'affichage du pet avec le timer d'ultime
+     */
+    private String buildPetDisplayName(PetType type, PetData petData, UUID playerUuid) {
+        StringBuilder name = new StringBuilder();
+
+        // Nom du pet avec niveau
+        name.append(type.getColoredName());
+        name.append(" §7[Lv.").append(petData.getLevel()).append("]");
+
+        // Étoiles de pouvoir
+        if (petData.getStarPower() > 0) {
+            name.append(" §e").append("★".repeat(petData.getStarPower()));
+        }
+
+        // Timer ultime si le pet a une ultime
+        if (type.getUltimateCooldown() > 0) {
+            int remainingSeconds = petManager.getCooldownRemainingSeconds(playerUuid, type);
+            name.append("\n");
+            if (remainingSeconds > 0) {
+                name.append("§d⚡ Ultime: §f").append(remainingSeconds).append("s");
+            } else {
+                name.append("§a⚡ Ultime: §lPRÊTE!");
+            }
+        }
+
+        return name.toString();
+    }
+
+    /**
      * Calcule la position où le pet doit suivre
      */
     private Location getFollowLocation(Player player) {
@@ -509,13 +571,12 @@ public class PetDisplayManager {
         PlayerPetData playerData = petManager.getPlayerData(player.getUniqueId());
         PetData petData = playerData != null ? playerData.getPet(type) : null;
 
-        // Nom affiché
-        String displayName = type.getColoredName();
+        // Nom affiché avec timer d'ultime
+        String displayName;
         if (petData != null) {
-            displayName += " §7[Lv." + petData.getLevel() + "]";
-            if (petData.getStarPower() > 0) {
-                displayName += " §e" + "★".repeat(petData.getStarPower());
-            }
+            displayName = buildPetDisplayName(type, petData, player.getUniqueId());
+        } else {
+            displayName = type.getColoredName() + " §7[Lv.1]";
         }
         entity.setCustomName(displayName);
         entity.setCustomNameVisible(true);
@@ -613,6 +674,9 @@ public class PetDisplayManager {
     public void removeAllDisplays() {
         if (updateTask != null) {
             updateTask.cancel();
+        }
+        if (nameUpdateTask != null) {
+            nameUpdateTask.cancel();
         }
 
         for (UUID entityUuid : activePetEntities.values()) {
