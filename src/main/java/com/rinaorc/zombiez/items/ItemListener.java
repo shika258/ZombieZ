@@ -237,8 +237,9 @@ public class ItemListener implements Listener {
 
     /**
      * Gère le changement d'équipement
+     * Vérifie la restriction de zone avant de permettre l'équipement
      */
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
@@ -248,10 +249,41 @@ public class ItemListener implements Listener {
         int slot = event.getSlot();
         boolean isArmorSlot = slot >= 36 && slot <= 39;
         boolean isOffhand = slot == 40;
+        boolean isShiftClickToArmor = false;
 
         if (!isArmorSlot && !isOffhand) {
             // Vérifier si c'est un shift-click vers l'armure
             if (!event.isShiftClick()) {
+                return;
+            }
+            isShiftClickToArmor = true;
+        }
+
+        // Déterminer quel item va être équipé
+        ItemStack itemToEquip = null;
+
+        if (isShiftClickToArmor) {
+            // Shift-click: l'item cliqué va être équipé
+            itemToEquip = event.getCurrentItem();
+        } else if (isArmorSlot || isOffhand) {
+            // Clic direct sur slot d'armure: l'item sur le curseur va être équipé
+            itemToEquip = event.getCursor();
+        }
+
+        // Vérifier la restriction de zone pour les items ZombieZ
+        if (itemToEquip != null && ZombieZItem.isZombieZItem(itemToEquip)) {
+            int itemZone = ZombieZItem.getItemZoneLevel(itemToEquip);
+            int playerMaxZone = plugin.getPlayerDataManager().getPlayer(player).getMaxZoneReached();
+
+            if (itemZone > playerMaxZone) {
+                // Bloquer l'équipement
+                event.setCancelled(true);
+
+                // Message d'erreur
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                MessageUtils.sendRaw(player, "§c✗ Vous devez atteindre la §eZone " + itemZone + " §cpour équiper cet objet!");
+                MessageUtils.sendRaw(player, "§7Votre progression actuelle: §fZone " + playerMaxZone);
+
                 return;
             }
         }
@@ -273,18 +305,29 @@ public class ItemListener implements Listener {
 
     /**
      * Gère le changement d'item en main
+     * Note: La restriction de zone n'est pas appliquée ici car
+     * les items en main ne sont pas "équipés" au sens strict.
+     * Seuls les slots d'armure et offhand sont restreints.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onItemHeld(PlayerItemHeldEvent event) {
         Player player = event.getPlayer();
-        
+
         // Invalider le cache
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             plugin.getItemManager().invalidatePlayerStats(player.getUniqueId());
-            
+
             ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
             if (newItem != null && ZombieZItem.isZombieZItem(newItem)) {
-                showItemStats(player, newItem);
+                // Afficher un avertissement si l'item nécessite une zone non atteinte
+                int itemZone = ZombieZItem.getItemZoneLevel(newItem);
+                int playerMaxZone = plugin.getPlayerDataManager().getPlayer(player).getMaxZoneReached();
+
+                if (itemZone > playerMaxZone) {
+                    MessageUtils.sendActionBar(player, "§c⚠ Zone " + itemZone + " requise §7(vous: Zone " + playerMaxZone + ")");
+                } else {
+                    showItemStats(player, newItem);
+                }
             }
         }, 1L);
     }
