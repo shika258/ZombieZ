@@ -81,12 +81,7 @@ public class EliteZombieAI extends ZombieAI {
             speed.setBaseValue(speed.getBaseValue() * 1.1);
         }
 
-        // Notify players (sauf pour les Cuirassassins qui sont trop communs)
-        if (zombieType != ZombieType.ARMORED_ELITE) {
-            zombie.getWorld().getNearbyEntities(zombie.getLocation(), 30, 20, 30).stream()
-                .filter(e -> e instanceof Player)
-                .forEach(e -> ((Player) e).sendMessage("§c§l⚠ " + zombieType.getDisplayName() + " entre en phase " + newPhase + "!"));
-        }
+        // Feedback visuel/sonore uniquement - pas de message chat (spam)
     }
 
     // ═══════════════════════════════════════════════════════════════
