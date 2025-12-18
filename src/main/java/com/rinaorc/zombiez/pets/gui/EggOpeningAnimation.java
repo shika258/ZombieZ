@@ -160,7 +160,7 @@ public class EggOpeningAnimation implements InventoryHolder {
                     // Particules de côté qui s'intensifient
                     if (tick > slowdownStart) {
                         Location loc = player.getLocation().add(0, 1.5, 0);
-                        player.spawnParticle(Particle.CRIT_MAGIC, loc, 8, 1, 0.5, 1, 0.1);
+                        player.spawnParticle(Particle.ENCHANTED_HIT, loc, 8, 1, 0.5, 1, 0.1);
                     }
                 }
 
@@ -551,7 +551,7 @@ public class EggOpeningAnimation implements InventoryHolder {
                     inventory.setItem(displaySlot, createPetIcon(pet, index == results.size() - 1));
 
                     // Particules rapides
-                    player.spawnParticle(Particle.CRIT_MAGIC, player.getLocation().add(0, 1.5, 0), 10, 0.5, 0.3, 0.5, 0.1);
+                    player.spawnParticle(Particle.ENCHANTED_HIT, player.getLocation().add(0, 1.5, 0), 10, 0.5, 0.3, 0.5, 0.1);
 
                     index++;
                 }
