@@ -212,21 +212,127 @@ public class PetMainGUI implements InventoryHolder {
 
     private ItemStack createStatsItem() {
         List<String> lore = new ArrayList<>();
-        lore.add("");
 
         if (petData != null) {
-            lore.add("§7Oeufs ouverts: §e" + petData.getTotalEggsOpened());
-            lore.add("§7Légendaires obtenus: §6" + petData.getLegendariesObtained());
-            lore.add("§7Mythiques obtenus: §c" + petData.getMythicsObtained());
+            // Section Collection
             lore.add("");
-            lore.add("§7Collection: §a" + String.format("%.1f", petData.getCollectionCompletion()) + "%");
-            lore.add("§7Pets max level: §e" + petData.getMaxLevelPetCount());
+            lore.add("§e§l═══ COLLECTION ═══");
+            int totalPets = PetType.values().length;
+            int ownedPets = petData.getPetCount();
+            lore.add("§7Progression: §a" + ownedPets + "§7/§e" + totalPets + " §7(" + String.format("%.1f", petData.getCollectionCompletion()) + "%)");
+            lore.add(createProgressBar(ownedPets, totalPets, 20));
+
+            // Répartition par rareté
+            lore.add("§7Par rareté:");
+            for (PetRarity rarity : PetRarity.values()) {
+                int owned = petData.getPetCountByRarity(rarity);
+                int total = PetType.getByRarity(rarity).length;
+                String bar = createMiniBar(owned, total);
+                lore.add("  " + rarity.getColoredName() + " " + bar + " §7" + owned + "/" + total);
+            }
+
+            // Section Oeufs
+            lore.add("");
+            lore.add("§b§l═══ OEUFS ═══");
+            lore.add("§7Oeufs ouverts: §e" + formatNumber(petData.getTotalEggsOpened()));
+            lore.add("§7Légendaires: §6" + petData.getLegendariesObtained() + " §7| Mythiques: §c" + petData.getMythicsObtained());
+            lore.add("§7Fragments gagnés: §d" + formatNumber(petData.getTotalFragmentsEarned()));
+
+            // Calculer les totaux de tous les pets
+            long totalDamage = 0;
+            long totalKills = 0;
+            long totalTimeEquipped = 0;
+            int totalCopies = 0;
+            PetType mostUsedPet = null;
+            int maxTimesUsed = 0;
+            PetType strongestPet = null;
+            long maxDamage = 0;
+
+            for (PetType type : PetType.values()) {
+                if (petData.hasPet(type)) {
+                    PetData pet = petData.getPet(type);
+                    totalDamage += pet.getTotalDamageDealt();
+                    totalKills += pet.getTotalKills();
+                    totalTimeEquipped += pet.getTimeEquipped();
+                    totalCopies += pet.getCopies();
+
+                    if (pet.getTimesUsed() > maxTimesUsed) {
+                        maxTimesUsed = pet.getTimesUsed();
+                        mostUsedPet = type;
+                    }
+                    if (pet.getTotalDamageDealt() > maxDamage) {
+                        maxDamage = pet.getTotalDamageDealt();
+                        strongestPet = type;
+                    }
+                }
+            }
+
+            // Section Performance
+            lore.add("");
+            lore.add("§c§l═══ COMBAT ═══");
+            lore.add("§7Dégâts totaux: §c" + formatNumber(totalDamage));
+            lore.add("§7Kills assistés: §a" + formatNumber(totalKills));
+            lore.add("§7Temps équipé: §b" + formatTime(totalTimeEquipped));
+            lore.add("§7Copies totales: §e" + totalCopies);
+
+            // Section Records
+            lore.add("");
+            lore.add("§6§l═══ RECORDS ═══");
+            lore.add("§7Pets niveau max: §e" + petData.getMaxLevelPetCount() + "§7/§e" + ownedPets);
+            if (mostUsedPet != null) {
+                lore.add("§7Pet favori: " + mostUsedPet.getColoredName());
+            }
+            if (strongestPet != null && maxDamage > 0) {
+                lore.add("§7Plus fort: " + strongestPet.getColoredName() + " §7(" + formatNumber(maxDamage) + " dégâts)");
+            }
+        } else {
+            lore.add("");
+            lore.add("§8Aucune statistique disponible");
         }
 
         return new ItemBuilder(Material.BOOK)
             .name("§6📊 Statistiques")
             .lore(lore)
             .build();
+    }
+
+    private String createProgressBar(int current, int max, int length) {
+        if (max == 0) return "§8" + "▌".repeat(length);
+        int filled = Math.min(length, (int) ((current * (double) length) / max));
+        int empty = length - filled;
+        return "§a" + "▌".repeat(filled) + "§8" + "▌".repeat(empty);
+    }
+
+    private String createMiniBar(int current, int max) {
+        if (max == 0) return "§8▌▌▌▌▌";
+        int filled = Math.min(5, (int) ((current * 5.0) / max));
+        int empty = 5 - filled;
+        return "§a" + "▌".repeat(filled) + "§8" + "▌".repeat(empty);
+    }
+
+    private String formatNumber(long number) {
+        if (number < 1000) return String.valueOf(number);
+        if (number < 1000000) return String.format("%.1fK", number / 1000.0);
+        if (number < 1000000000) return String.format("%.1fM", number / 1000000.0);
+        return String.format("%.1fB", number / 1000000000.0);
+    }
+
+    private String formatTime(long millis) {
+        long seconds = millis / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (days > 0) {
+            return days + "j " + (hours % 24) + "h";
+        }
+        if (hours > 0) {
+            return hours + "h " + (minutes % 60) + "m";
+        }
+        if (minutes > 0) {
+            return minutes + "m " + (seconds % 60) + "s";
+        }
+        return seconds + "s";
     }
 
     public void open() {
