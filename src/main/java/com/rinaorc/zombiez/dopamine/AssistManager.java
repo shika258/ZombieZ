@@ -139,12 +139,13 @@ public class AssistManager implements Listener {
 
         // Donner les récompenses
         PlayerData data = plugin.getPlayerDataManager().getPlayer(assistant);
+        long totalXp = 0;
+
         if (data != null) {
             data.addXp(assistXp);
             data.addPoints(assistPoints);
-
-            // Tracker les stats d'assists
             data.incrementStat("total_assists");
+            totalXp = data.getTotalXp().get();
         }
 
         // Notification
@@ -157,10 +158,10 @@ public class AssistManager implements Listener {
         // Son subtil
         assistant.playSound(assistant.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
 
-        // Mise à jour du leaderboard
-        if (plugin.getLiveLeaderboardManager() != null) {
+        // Mise à jour du leaderboard (seulement si data existe)
+        if (data != null && plugin.getLiveLeaderboardManager() != null) {
             plugin.getLiveLeaderboardManager().notifyStatChange(assistant,
-                LiveLeaderboardManager.LeaderboardType.XP, data != null ? data.getTotalXp().get() : 0);
+                LiveLeaderboardManager.LeaderboardType.XP, totalXp);
         }
     }
 
@@ -182,15 +183,23 @@ public class AssistManager implements Listener {
     }
 
     /**
+     * Obtient le type de mob de manière sécurisée
+     */
+    private String getMobType(LivingEntity mob) {
+        if (!mob.hasMetadata("zombiez_type")) return "";
+        var metadata = mob.getMetadata("zombiez_type");
+        if (metadata.isEmpty()) return "";
+        return metadata.get(0).asString();
+    }
+
+    /**
      * Obtient la récompense XP de base pour un mob
      */
     private int getBaseXpReward(LivingEntity mob) {
-        if (mob.hasMetadata("zombiez_type")) {
-            String type = mob.getMetadata("zombiez_type").get(0).asString();
-            if (type.contains("BOSS")) return 500;
-            if (type.contains("ELITE")) return 50;
-            if (type.contains("SPECIAL")) return 30;
-        }
+        String type = getMobType(mob);
+        if (type.contains("BOSS")) return 500;
+        if (type.contains("ELITE")) return 50;
+        if (type.contains("SPECIAL")) return 30;
         return 10;
     }
 
@@ -198,12 +207,10 @@ public class AssistManager implements Listener {
      * Obtient la récompense points de base pour un mob
      */
     private int getBasePointsReward(LivingEntity mob) {
-        if (mob.hasMetadata("zombiez_type")) {
-            String type = mob.getMetadata("zombiez_type").get(0).asString();
-            if (type.contains("BOSS")) return 1000;
-            if (type.contains("ELITE")) return 100;
-            if (type.contains("SPECIAL")) return 50;
-        }
+        String type = getMobType(mob);
+        if (type.contains("BOSS")) return 1000;
+        if (type.contains("ELITE")) return 100;
+        if (type.contains("SPECIAL")) return 50;
         return 20;
     }
 
@@ -239,11 +246,12 @@ public class AssistManager implements Listener {
 
     /**
      * Tracker de dégâts pour un mob spécifique
+     * Thread-safe pour gérer les accès concurrents
      */
     private static class DamageTracker {
         private final double maxHealth;
-        private final Map<UUID, DamageEntry> damageByPlayer = new HashMap<>();
-        private long lastDamageTime = System.currentTimeMillis();
+        private final Map<UUID, DamageEntry> damageByPlayer = new ConcurrentHashMap<>();
+        private volatile long lastDamageTime = System.currentTimeMillis();
 
         DamageTracker(double maxHealth) {
             this.maxHealth = maxHealth;

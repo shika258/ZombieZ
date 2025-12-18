@@ -398,12 +398,22 @@ public class TimeLimitedBonusManager implements Listener {
         // Vérifier si c'est un mob ZombieZ
         if (!plugin.getZombieManager().isZombieZMob(entity)) return;
 
-        // Déterminer le type de mob
-        boolean isElite = entity.hasMetadata("zombiez_type") &&
-            entity.getMetadata("zombiez_type").get(0).asString().contains("ELITE");
+        // Déterminer le type de mob (avec vérification de bounds)
+        boolean isElite = false;
+        if (entity.hasMetadata("zombiez_type")) {
+            var metadata = entity.getMetadata("zombiez_type");
+            if (!metadata.isEmpty()) {
+                isElite = metadata.get(0).asString().contains("ELITE");
+            }
+        }
 
-        boolean isHeadshot = entity.hasMetadata("zombiez_damage_headshot") &&
-            entity.getMetadata("zombiez_damage_headshot").get(0).asBoolean();
+        boolean isHeadshot = false;
+        if (entity.hasMetadata("zombiez_damage_headshot")) {
+            var metadata = entity.getMetadata("zombiez_damage_headshot");
+            if (!metadata.isEmpty()) {
+                isHeadshot = metadata.get(0).asBoolean();
+            }
+        }
 
         onKill(killer, entity, isElite, isHeadshot);
     }

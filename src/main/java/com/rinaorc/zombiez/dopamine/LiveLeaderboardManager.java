@@ -49,22 +49,27 @@ public class LiveLeaderboardManager {
      * Notifie un changement de stat (appelé quand une stat change significativement)
      */
     public void notifyStatChange(Player player, LeaderboardType type, long newValue) {
+        if (player == null || !player.isOnline()) return;
+
         UUID uuid = player.getUniqueId();
 
-        // Obtenir les valeurs précédentes
+        // Obtenir les valeurs précédentes de manière thread-safe
         Map<LeaderboardType, Long> playerValues = previousValues.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
         long oldValue = playerValues.getOrDefault(type, 0L);
 
         // Mettre à jour la valeur
         playerValues.put(type, newValue);
 
-        // Vérifier si le changement est significatif
+        // Vérifier si le changement est significatif (augmentation de 5%+ ou top 20)
         if (newValue <= oldValue) return;
+        if (newValue < oldValue * 1.05 && oldValue > 100) return; // Ignorer les petits changements
 
         // Calculer la nouvelle position
         int newPosition = calculatePosition(player, type, newValue);
-        int oldPosition = previousPositions.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
-            .getOrDefault(type, Integer.MAX_VALUE);
+
+        // Obtenir la position précédente de manière thread-safe
+        Map<LeaderboardType, Integer> playerPositions = previousPositions.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+        int oldPosition = playerPositions.getOrDefault(type, Integer.MAX_VALUE);
 
         // Vérifier les changements de position
         if (newPosition < oldPosition) {
@@ -72,11 +77,13 @@ public class LiveLeaderboardManager {
             handlePositionGain(player, type, oldPosition, newPosition);
         }
 
-        // Mettre à jour la position en cache
-        previousPositions.get(uuid).put(type, newPosition);
+        // Mettre à jour la position en cache de manière thread-safe
+        playerPositions.put(type, newPosition);
 
-        // Vérifier si quelqu'un est sur le point d'être dépassé
-        checkOvertakeWarning(player, type, newValue);
+        // Vérifier si quelqu'un est sur le point d'être dépassé (seulement pour top 20)
+        if (newPosition <= 20) {
+            checkOvertakeWarning(player, type, newValue);
+        }
     }
 
     /**
@@ -246,16 +253,20 @@ public class LiveLeaderboardManager {
 
     /**
      * Calcule la position d'un joueur dans un classement
+     * Optimisé pour ne compter que les joueurs avec une valeur supérieure
      */
     private int calculatePosition(Player player, LeaderboardType type, long value) {
-        List<PlayerScore> topPlayers = getTopPlayers(type, Integer.MAX_VALUE);
-
         int position = 1;
-        for (PlayerScore score : topPlayers) {
-            if (score.uuid.equals(player.getUniqueId())) {
-                return position;
-            }
-            if (score.value > value) {
+
+        // Compter uniquement les joueurs avec une valeur supérieure (O(n) mais sans tri)
+        for (Player online : plugin.getServer().getOnlinePlayers()) {
+            if (online.getUniqueId().equals(player.getUniqueId())) continue;
+
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(online);
+            if (data == null) continue;
+
+            long otherValue = getStatValue(data, type);
+            if (otherValue > value) {
                 position++;
             }
         }
@@ -263,30 +274,42 @@ public class LiveLeaderboardManager {
     }
 
     /**
+     * Obtient la valeur d'une stat pour un PlayerData
+     */
+    private long getStatValue(PlayerData data, LeaderboardType type) {
+        return switch (type) {
+            case KILLS -> data.getTotalKills();
+            case XP -> data.getTotalXp().get();
+            case POINTS -> data.getPoints().get();
+            case LEVEL -> data.getLevel().get();
+            case STREAK -> data.getBestKillStreak().get();
+        };
+    }
+
+    /**
      * Obtient les meilleurs joueurs pour un type de classement
+     * Limité à 100 joueurs max pour les performances
      */
     private List<PlayerScore> getTopPlayers(LeaderboardType type, int limit) {
         List<PlayerScore> scores = new ArrayList<>();
+        int effectiveLimit = Math.min(limit, 100); // Maximum 100 joueurs
 
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
             if (data == null) continue;
 
-            long value = switch (type) {
-                case KILLS -> data.getTotalKills();
-                case XP -> data.getTotalXp().get();
-                case POINTS -> data.getPoints().get();
-                case LEVEL -> data.getLevel().get();
-                case STREAK -> data.getBestKillStreak().get();
-            };
-
+            long value = getStatValue(data, type);
             scores.add(new PlayerScore(player.getUniqueId(), player.getName(), value));
         }
 
         // Trier par valeur décroissante
         scores.sort((a, b) -> Long.compare(b.value, a.value));
 
-        return scores.stream().limit(limit).collect(Collectors.toList());
+        // Limiter le résultat
+        if (scores.size() > effectiveLimit) {
+            return scores.subList(0, effectiveLimit);
+        }
+        return scores;
     }
 
     /**

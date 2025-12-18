@@ -2,6 +2,9 @@ package com.rinaorc.zombiez.dopamine;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -102,7 +105,62 @@ public class MultiKillCascadeManager implements Listener {
             spawnChainEffect(data.getLastTwoPositions());
         }
 
+        // ActionBar feedback pour montrer le compteur de chaîne
+        if (data.currentChainCount >= 2) {
+            showChainActionBar(player, data.currentChainCount);
+        }
+
         return bonusMultiplier;
+    }
+
+    /**
+     * Affiche l'ActionBar avec le compteur de chaîne actuel
+     */
+    private void showChainActionBar(Player player, int chainCount) {
+        // Construire la barre de progression visuelle
+        NamedTextColor color = getActionBarColor(chainCount);
+        String tierText = getChainTierText(chainCount);
+
+        // Créer des symboles de chaîne visuels
+        StringBuilder chainSymbols = new StringBuilder();
+        int maxSymbols = Math.min(chainCount, 10);
+        for (int i = 0; i < maxSymbols; i++) {
+            chainSymbols.append("⚔");
+        }
+        if (chainCount > 10) {
+            chainSymbols.append("+");
+        }
+
+        Component actionBar = Component.text("⚡ ", NamedTextColor.YELLOW)
+            .append(Component.text("CHAÎNE x" + chainCount, color, TextDecoration.BOLD))
+            .append(Component.text(" " + chainSymbols + " ", NamedTextColor.WHITE))
+            .append(Component.text(tierText, color));
+
+        player.sendActionBar(actionBar);
+    }
+
+    /**
+     * Obtient la couleur de l'ActionBar selon le nombre de kills
+     */
+    private NamedTextColor getActionBarColor(int chainCount) {
+        if (chainCount >= 10) return NamedTextColor.DARK_RED;
+        if (chainCount >= 7) return NamedTextColor.DARK_PURPLE;
+        if (chainCount >= 5) return NamedTextColor.RED;
+        if (chainCount >= 4) return NamedTextColor.GOLD;
+        if (chainCount >= 3) return NamedTextColor.YELLOW;
+        return NamedTextColor.GREEN;
+    }
+
+    /**
+     * Obtient le texte du tier pour l'ActionBar
+     */
+    private String getChainTierText(int chainCount) {
+        for (int i = TIERS.length - 1; i >= 0; i--) {
+            if (chainCount >= TIERS[i].killCount) {
+                return TIERS[i].name;
+            }
+        }
+        return chainCount >= 2 ? "→ Triple: " + (3 - chainCount) : "";
     }
 
     /**

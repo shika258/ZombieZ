@@ -50,6 +50,9 @@ public class LowHealthHeartbeatManager implements Listener {
     // Map des joueurs avec leur task de battement actif
     private final Map<UUID, HeartbeatData> activeHeartbeats = new ConcurrentHashMap<>();
 
+    // Task principale de monitoring (stockée pour shutdown propre)
+    private BukkitTask monitoringTask;
+
     public LowHealthHeartbeatManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
     }
@@ -59,7 +62,7 @@ public class LowHealthHeartbeatManager implements Listener {
      */
     public void start() {
         // Task de vérification périodique toutes les 10 ticks (0.5s)
-        new BukkitRunnable() {
+        monitoringTask = new BukkitRunnable() {
             @Override
             public void run() {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
@@ -73,7 +76,13 @@ public class LowHealthHeartbeatManager implements Listener {
      * Arrête proprement le système
      */
     public void shutdown() {
-        // Annuler toutes les tâches actives
+        // Annuler la tâche de monitoring principale
+        if (monitoringTask != null && !monitoringTask.isCancelled()) {
+            monitoringTask.cancel();
+            monitoringTask = null;
+        }
+
+        // Annuler toutes les tâches de heartbeat actives
         for (HeartbeatData data : activeHeartbeats.values()) {
             if (data.task != null && !data.task.isCancelled()) {
                 data.task.cancel();
@@ -86,10 +95,12 @@ public class LowHealthHeartbeatManager implements Listener {
      * Vérifie la vie d'un joueur et ajuste le battement de cœur
      */
     private void checkPlayerHealth(Player player) {
-        if (player == null || !player.isOnline()) return;
+        if (player == null || !player.isOnline() || player.isDead()) return;
 
         double currentHealth = player.getHealth();
-        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double maxHealth = getMaxHealth(player);
+        if (maxHealth <= 0) return; // Protection division par zéro
+
         double healthPercent = currentHealth / maxHealth;
 
         UUID uuid = player.getUniqueId();
@@ -164,13 +175,22 @@ public class LowHealthHeartbeatManager implements Listener {
     }
 
     /**
+     * Obtient la vie maximum d'un joueur de manière sécurisée
+     */
+    private double getMaxHealth(Player player) {
+        var attribute = player.getAttribute(Attribute.MAX_HEALTH);
+        return attribute != null ? attribute.getValue() : 20.0; // 20 = valeur par défaut MC
+    }
+
+    /**
      * Joue un battement de cœur avec effets audio et visuels
      *
      * @param player Le joueur
      * @param isFirstBeat true pour le premier battement (fort), false pour le second (faible)
      */
     private void playHeartbeat(Player player, boolean isFirstBeat) {
-        double healthPercent = player.getHealth() / player.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double maxHealth = getMaxHealth(player);
+        double healthPercent = maxHealth > 0 ? player.getHealth() / maxHealth : 1.0;
 
         // ═══════════════════════════════════════════════════════════════════
         // SON DU BATTEMENT DE CŒUR

@@ -235,7 +235,7 @@ public class LootExplosionManager {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 2L); // Optimisé: toutes les 2 ticks au lieu de 1
     }
 
     /**
@@ -286,7 +286,7 @@ public class LootExplosionManager {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 2L); // Optimisé: toutes les 2 ticks au lieu de 1
     }
 
     /**
@@ -365,7 +365,7 @@ public class LootExplosionManager {
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 2L); // Optimisé: toutes les 2 ticks au lieu de 1
     }
 
     // ═══════════════════════════════════════════════════════════════════════

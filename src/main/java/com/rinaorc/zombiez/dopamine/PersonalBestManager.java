@@ -13,9 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.text.DecimalFormat;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Système de gestion des records personnels
@@ -46,9 +43,6 @@ public class PersonalBestManager {
     private static final String STAT_BEST_MULTIKILL = "best_multikill";
     private static final String STAT_BEST_SESSION_KILLS = "best_session_kills";
     private static final String STAT_BEST_SINGLE_HIT = "best_single_hit";
-
-    // Cache des valeurs actuelles pour éviter les requêtes répétées
-    private final Map<UUID, PersonalBestCache> playerCache = new ConcurrentHashMap<>();
 
     public PersonalBestManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -378,13 +372,6 @@ public class PersonalBestManager {
         }
     }
 
-    /**
-     * Nettoie le cache pour un joueur
-     */
-    public void clearCache(UUID uuid) {
-        playerCache.remove(uuid);
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // ENUMS ET CLASSES INTERNES
     // ═══════════════════════════════════════════════════════════════════════
@@ -410,18 +397,5 @@ public class PersonalBestManager {
 
         public String getDisplayName() { return displayName; }
         public String getColor() { return color; }
-    }
-
-    /**
-     * Cache des records pour éviter les accès répétés
-     */
-    private static class PersonalBestCache {
-        long bestCombo;
-        long bestStreak;
-        long bestDPS;
-        long bestMultiKill;
-        long bestSessionKills;
-        long bestSingleHit;
-        long lastUpdate;
     }
 }
