@@ -20,6 +20,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.Map;
 import java.util.Random;
@@ -154,7 +155,9 @@ public class PetCombatListener implements Listener {
         if (passive instanceof MultiAttackPassive map) {
             int attackCount = map.getAttackCount();
             // Les attaques supplémentaires font des dégâts réduits
+            // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
             for (int i = 1; i < attackCount; i++) {
+                target.setMetadata("zombiez_secondary_damage", new FixedMetadataValue(plugin, true));
                 target.damage(originalDamage * 0.3, player);
             }
         }

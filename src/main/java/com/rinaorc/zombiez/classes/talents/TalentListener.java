@@ -718,6 +718,8 @@ public class TalentListener implements Listener {
                                 double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
                                 // Seulement instakill les mobs < 50 HP max
                                 if (target.getHealth() / maxHp < threshold && maxHp <= 50) {
+                                    // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                     target.damage(target.getHealth() + 100, player);
                                 }
                             }
@@ -736,6 +738,8 @@ public class TalentListener implements Listener {
                                 double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
                                 // Seulement instakill les mobs < 50 HP max
                                 if (target.getHealth() / maxHp < threshold && Math.random() < chance && maxHp <= 50) {
+                                    // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                     target.damage(target.getHealth() + 100, player);
                                     target.getWorld().spawnParticle(Particle.SOUL, target.getLocation(), 5, 0.3, 0.3, 0.3, 0.02);
                                 }
@@ -871,6 +875,8 @@ public class TalentListener implements Listener {
         // Degats
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -886,6 +892,8 @@ public class TalentListener implements Listener {
     private void procSeismicStrikeNoEcho(Player player, Location center, double damage, double radius) {
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -906,6 +914,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -922,6 +932,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -940,6 +952,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -958,6 +972,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -987,6 +1003,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
@@ -1011,6 +1029,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -1030,6 +1050,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
@@ -1054,6 +1076,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -1087,6 +1111,8 @@ public class TalentListener implements Listener {
 
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
+                        // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                        target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                         target.damage(damage, player);
                     }
                 }
@@ -1107,6 +1133,8 @@ public class TalentListener implements Listener {
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
+                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
         }
@@ -1139,6 +1167,8 @@ public class TalentListener implements Listener {
 
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
+                        // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                        target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                         target.damage(damage, player);
                     }
                 }
