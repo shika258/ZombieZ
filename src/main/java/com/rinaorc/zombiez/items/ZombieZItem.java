@@ -203,10 +203,10 @@ public class ZombieZItem {
         List<String> lore = new ArrayList<>();
 
         // ═══════════════════════════════════════
-        // EN-TÊTE: Rareté puis Item Score
+        // EN-TÊTE: Rareté puis Item Score + Zone
         // ═══════════════════════════════════════
         lore.add(rarity.getChatColor() + "§l" + rarity.getDisplayName().toUpperCase() + " " + rarity.getStars());
-        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore);
+        lore.add("§7Item Score: " + getItemScoreColor() + "§l" + itemScore + " §8(Zone " + zoneLevel + ")");
         lore.add("");
 
         // ═══════════════════════════════════════
