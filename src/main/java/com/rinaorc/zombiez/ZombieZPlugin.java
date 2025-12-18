@@ -681,10 +681,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // ActionBar permanent pour tous les joueurs (Zone, Combo, Streak, Points)
         new com.rinaorc.zombiez.listeners.ActionBarTask(this).start();
 
-        // Nettoyage périodique du cache des indicateurs de dégâts (toutes les 30
-        // secondes)
+        // Nettoyage périodique du cache des indicateurs de dégâts (toutes les 30 secondes)
+        // Nettoie les deux systèmes pour compatibilité (fallback + ProtocolLib)
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             com.rinaorc.zombiez.combat.DamageIndicator.cleanup();
+            com.rinaorc.zombiez.combat.PacketDamageIndicator.cleanup();
         }, 20L * 30, 20L * 30);
     }
 
