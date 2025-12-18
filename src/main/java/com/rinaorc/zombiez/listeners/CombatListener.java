@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.combat.DPSTracker;
 import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.types.StatType;
@@ -299,6 +300,9 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
+        // ============ ENREGISTRER DPS ============
+        DPSTracker.getInstance().recordDamage(player, finalDamage);
+
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
         // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
         if (!isSecondaryDamage) {
@@ -379,6 +383,9 @@ public class CombatListener implements Listener {
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
 
+        // ============ ENREGISTRER DPS ============
+        DPSTracker.getInstance().recordDamage(player, finalDamage);
+
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
         // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
         if (!isSecondaryDamage) {
@@ -441,6 +448,9 @@ public class CombatListener implements Listener {
 
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
+
+        // ============ ENREGISTRER DPS ============
+        DPSTracker.getInstance().recordDamage(player, finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS ============
         mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
@@ -726,6 +736,9 @@ public class CombatListener implements Listener {
 
         // ============ APPLIQUER LES DÉGÂTS FINAUX ============
         event.setDamage(finalDamage);
+
+        // ============ ENREGISTRER DPS ============
+        DPSTracker.getInstance().recordDamage(player, finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
         // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
