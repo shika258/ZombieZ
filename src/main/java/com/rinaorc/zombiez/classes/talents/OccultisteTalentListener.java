@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -19,6 +20,7 @@ import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -262,7 +264,9 @@ public class OccultisteTalentListener implements Listener {
 
     /**
      * Applique les degats du joueur proprietaire aux attaques des minions
-     * Les minions font maintenant des degats bases sur les stats du joueur
+     * Les minions font maintenant des degats bases sur les stats ACTUELS du joueur
+     * Calcule dynamiquement en fonction de l'equipement du proprietaire au moment de l'attaque
+     * Affiche aussi les indicateurs de degats comme pour les attaques de joueur
      */
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onMinionDealDamage(EntityDamageByEntityEvent event) {
@@ -274,59 +278,258 @@ public class OccultisteTalentListener implements Listener {
             damager = shooter;
         }
 
-        // Verifier si c'est un minion du joueur
-        if (!damager.getScoreboardTags().contains("player_minion")) return;
+        // Verifier si c'est un minion du joueur (via scoreboard tag ou metadata)
+        if (!damager.getScoreboardTags().contains("player_minion") &&
+            !damager.hasMetadata("Minion_Occultiste")) return;
 
         // Ne pas modifier les degats aux joueurs (ne devrait pas arriver mais securite)
         if (target instanceof Player) return;
+        if (!(target instanceof LivingEntity livingTarget)) return;
 
-        // Trouver le proprietaire du minion
-        String ownerUUID = damager.getScoreboardTags().stream()
-            .filter(tag -> tag.startsWith("owner_"))
-            .map(tag -> tag.substring(6))
-            .findFirst()
-            .orElse(null);
+        // Trouver le proprietaire du minion - priorite a la metadata Minion_Occultiste
+        String ownerUUID = null;
+        if (damager.hasMetadata("Minion_Occultiste")) {
+            ownerUUID = damager.getMetadata("Minion_Occultiste").get(0).asString();
+        } else {
+            ownerUUID = damager.getScoreboardTags().stream()
+                .filter(tag -> tag.startsWith("owner_"))
+                .map(tag -> tag.substring(6))
+                .findFirst()
+                .orElse(null);
+        }
 
         if (ownerUUID == null) return;
 
-        Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+        Player owner;
+        try {
+            owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+        } catch (IllegalArgumentException e) {
+            return;
+        }
         if (owner == null || !owner.isOnline()) return;
 
-        // Calculer les degats bases sur les stats du joueur
-        double playerDamage = calculateMinionDamage(owner);
+        // Calculer les degats bases sur les stats ACTUELS du joueur
+        // (prend en compte l'item en main, l'equipement, les talents, etc.)
+        MinionDamageResult damageResult = calculateMinionDamage(owner, livingTarget);
 
         // Appliquer les degats
-        event.setDamage(playerDamage);
+        event.setDamage(damageResult.damage);
+
+        // Configurer les metadata pour l'affichage de l'indicateur de degats (gere par CombatListener MONITOR)
+        livingTarget.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        livingTarget.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, damageResult.isCritical));
+        livingTarget.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Mettre a jour l'affichage de vie si c'est un mob ZombieZ
+        if (plugin.getZombieManager().isZombieZMob(livingTarget)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (livingTarget.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(livingTarget);
+                }
+            });
+
+            // Enregistrer le proprietaire pour le loot
+            livingTarget.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Effet visuel critique pour les minions
+        if (damageResult.isCritical) {
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+            livingTarget.getWorld().spawnParticle(Particle.CRIT, livingTarget.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Appliquer les effets elementaires sur la cible
+        applyMinionElementalEffects(owner, livingTarget, damageResult);
+
+        // Lifesteal pour le proprietaire
+        if (damageResult.lifestealAmount > 0) {
+            double newHealth = Math.min(owner.getHealth() + damageResult.lifestealAmount, owner.getMaxHealth());
+            owner.setHealth(newHealth);
+            if (damageResult.lifestealAmount > 1) {
+                owner.getWorld().spawnParticle(Particle.HEART, owner.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
+            }
+        }
     }
 
     /**
-     * Calcule les degats qu'un minion devrait faire base sur les stats du joueur
+     * Resultat du calcul de degats d'un minion
+     * Inclut les degats finaux, si c'etait un critique, et le montant de lifesteal
      */
-    private double calculateMinionDamage(Player player) {
-        // Degats de base du joueur (attribut Minecraft)
+    private static class MinionDamageResult {
+        final double damage;
+        final boolean isCritical;
+        final double lifestealAmount;
+        final double fireDamage;
+        final double iceDamage;
+        final double lightningDamage;
+        final boolean lightningProc;
+
+        MinionDamageResult(double damage, boolean isCritical, double lifestealAmount,
+                          double fireDamage, double iceDamage, double lightningDamage, boolean lightningProc) {
+            this.damage = damage;
+            this.isCritical = isCritical;
+            this.lifestealAmount = lifestealAmount;
+            this.fireDamage = fireDamage;
+            this.iceDamage = iceDamage;
+            this.lightningDamage = lightningDamage;
+            this.lightningProc = lightningProc;
+        }
+    }
+
+    /**
+     * Calcule les degats qu'un minion devrait faire base sur les stats ACTUELS du joueur
+     * Replique exactement la logique de CombatListener.handlePlayerAttackZombieZMob
+     *
+     * @param player Le proprietaire du minion
+     * @param target La cible de l'attaque (pour execute damage)
+     * @return Les degats calcules et les informations de critique/lifesteal
+     */
+    private MinionDamageResult calculateMinionDamage(Player player, LivingEntity target) {
+        // ============ 1. DEGATS DE BASE DU JOUEUR ============
+        // Inclut les enchantements de l'arme (Sharpness, etc.)
         double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
 
-        // Bonus de degats % de l'equipement ZombieZ
-        double damagePercent = plugin.getItemManager().getPlayerStat(player, StatType.DAMAGE_PERCENT);
-        baseDamage *= (1 + damagePercent / 100.0);
+        // ============ 2. STATS D'EQUIPEMENT ZOMBIEZ ============
+        // Utilise calculatePlayerStats() pour avoir TOUTES les stats actuelles
+        java.util.Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
 
-        // Degats elementaires
-        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.FIRE_DAMAGE);
-        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.ICE_DAMAGE);
-        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.LIGHTNING_DAMAGE);
-        baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.POISON_DAMAGE);
+        // Bonus de degats flat (ex: +10 degats)
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
 
-        // Critique (les minions peuvent critiquer!)
-        double critChance = plugin.getItemManager().getPlayerStat(player, StatType.CRIT_CHANCE) / 100.0;
-        if (Math.random() < critChance) {
-            double critDamage = 1.5 + plugin.getItemManager().getPlayerStat(player, StatType.CRIT_DAMAGE) / 100.0;
-            baseDamage *= critDamage;
+        // Bonus de degats en pourcentage (ex: +15% degats)
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ 3. SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+
+        // Bonus degats passifs (Puissance I/II/III)
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ 4. SYSTEME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (Math.random() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0; // 150% de base
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
         }
 
-        // Multiplicateur de degats des minions (pour equilibrage, 80% des degats du joueur)
-        baseDamage *= 0.8;
+        // ============ 5. MOMENTUM SYSTEM ============
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(player);
+        finalDamage *= momentumMultiplier;
 
-        return Math.max(1.0, baseDamage);
+        // ============ 6. EXECUTE DAMAGE (<20% HP cible) ============
+        double mobHealthPercent = target.getHealth() / target.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // ============ 7. BERSERKER (<30% HP joueur) ============
+        double playerHealthPercent = player.getHealth() / player.getMaxHealth() * 100;
+        if (playerHealthPercent <= 30) {
+            double berserkerBonus = skillManager.getSkillBonus(player, SkillBonus.BERSERKER);
+            if (berserkerBonus > 0) {
+                finalDamage *= (1 + berserkerBonus / 100.0);
+            }
+        }
+
+        // ============ 8. DEGATS ELEMENTAIRES ============
+        double fireDamage = playerStats.getOrDefault(StatType.FIRE_DAMAGE, 0.0);
+        double iceDamage = playerStats.getOrDefault(StatType.ICE_DAMAGE, 0.0);
+        double lightningDamage = playerStats.getOrDefault(StatType.LIGHTNING_DAMAGE, 0.0);
+        boolean lightningProc = false;
+
+        if (fireDamage > 0) {
+            finalDamage += fireDamage * 0.5;
+        }
+        if (iceDamage > 0) {
+            finalDamage += iceDamage * 0.5;
+        }
+        if (lightningDamage > 0 && Math.random() < 0.15) {
+            lightningProc = true;
+            finalDamage += lightningDamage * 2;
+        }
+
+        // ============ 9. MULTIPLICATEUR MINION (equilibrage) ============
+        // Les minions font 80% des degats du joueur pour l'equilibrage
+        finalDamage *= 0.8;
+
+        // ============ 10. LIFESTEAL ============
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        double lifestealAmount = 0;
+
+        if (totalLifesteal > 0) {
+            lifestealAmount = finalDamage * (totalLifesteal / 100.0);
+        }
+
+        return new MinionDamageResult(
+            Math.max(1.0, finalDamage),
+            isCritical,
+            lifestealAmount,
+            fireDamage,
+            iceDamage,
+            lightningDamage,
+            lightningProc
+        );
+    }
+
+    /**
+     * Applique les effets elementaires du stuff du joueur via son minion
+     */
+    private void applyMinionElementalEffects(Player owner, LivingEntity target, MinionDamageResult damageResult) {
+        // Feu - Enflamme la cible
+        if (damageResult.fireDamage > 0) {
+            target.setFireTicks((int) (damageResult.fireDamage * 20));
+        }
+
+        // Glace - Gele la cible
+        if (damageResult.iceDamage > 0) {
+            target.setFreezeTicks((int) (damageResult.iceDamage * 20));
+        }
+
+        // Foudre - Effet visuel et sonore (15% chance, deja calculee)
+        if (damageResult.lightningProc) {
+            spawnMinionLightningParticles(target.getLocation());
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.6f, 1.5f);
+        }
+    }
+
+    /**
+     * Genere une animation d'eclair en particules pour les minions
+     */
+    private void spawnMinionLightningParticles(Location loc) {
+        if (loc.getWorld() == null) return;
+
+        Location top = loc.clone().add(0, 5, 0);
+        Location bottom = loc.clone().add(0, 0.5, 0);
+
+        for (double y = 0; y <= 4.5; y += 0.3) {
+            double offsetX = (Math.random() - 0.5) * 0.3;
+            double offsetZ = (Math.random() - 0.5) * 0.3;
+            Location point = top.clone().subtract(0, y, 0).add(offsetX, 0, offsetZ);
+            loc.getWorld().spawnParticle(Particle.END_ROD, point, 1, 0, 0, 0, 0);
+        }
+
+        loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, bottom, 15, 0.4, 0.2, 0.4, 0.05);
+        loc.getWorld().spawnParticle(Particle.FIREWORK, bottom, 8, 0.3, 0.1, 0.3, 0.02);
     }
 
     /**
@@ -1654,6 +1857,9 @@ public class OccultisteTalentListener implements Listener {
             minion.getScoreboardTags().add("owner_" + player.getUniqueId());
             minion.setPersistent(false);
 
+            // Metadata pour identification facile des serviteurs de l'Occultiste
+            minion.setMetadata("Minion_Occultiste", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
             // Set stats based on victim and talent
             double statPercent = talent.getValue(1);
             // Check Immortal Army buff
@@ -1825,6 +2031,9 @@ public class OccultisteTalentListener implements Listener {
         minion.getScoreboardTags().add("player_minion");
         minion.getScoreboardTags().add("owner_" + player.getUniqueId());
         minion.setPersistent(false);
+
+        // Metadata pour identification facile des serviteurs de l'Occultiste
+        minion.setMetadata("Minion_Occultiste", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // Check Immortal Army buff for stats
         double statPercent = talent.getValue(0);
