@@ -747,6 +747,11 @@ public class CombatListener implements Listener {
             victim.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
             victim.setMetadata("zombiez_damage_headshot", new FixedMetadataValue(plugin, isHeadshot));
             victim.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
+            // Tag scoreboard pour le système de défis (persiste jusqu'à la mort)
+            if (isHeadshot) {
+                victim.addScoreboardTag("zombiez_headshot_kill");
+            }
         }
 
         // ============ FEEDBACK VISUEL CRITIQUE ============
