@@ -39,7 +39,8 @@ public class PlayerConnectionListener implements Listener {
     }
 
     /**
-     * Pré-chargement des données (async, avant que le joueur soit vraiment connecté)
+     * Pré-chargement des données (async, avant que le joueur soit vraiment
+     * connecté)
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onAsyncPreLogin(AsyncPlayerPreLoginEvent event) {
@@ -73,10 +74,11 @@ public class PlayerConnectionListener implements Listener {
      * Appelé quand les données du joueur sont chargées
      */
     private void onPlayerDataLoaded(Player player, PlayerData data) {
-        if (!player.isOnline()) return;
+        if (!player.isOnline())
+            return;
 
         // Par défaut, tous les joueurs sont en spectateur
-        player.setGameMode(GameMode.SPECTATOR);
+        player.setGameMode(GameMode.ADVENTURE);
 
         // Configurer l'affichage de la santé à 10 cœurs fixes
         // Peu importe la vie max du plugin, la barre de cœurs affiche toujours 10 cœurs
@@ -116,7 +118,7 @@ public class PlayerConnectionListener implements Listener {
         // Log
         if (plugin.getConfigManager().isDebugMode()) {
             plugin.log(Level.INFO, "§7Joueur " + player.getName() + " chargé (Niveau " +
-                data.getLevel().get() + ", Zone " + data.getCurrentZone().get() + ")");
+                    data.getLevel().get() + ", Zone " + data.getCurrentZone().get() + ")");
         }
     }
 
@@ -170,26 +172,26 @@ public class PlayerConnectionListener implements Listener {
     private ZombieZItem createStarterWeapon(ItemGenerator generator) {
         // Stats de base pour l'épée de départ
         Map<StatType, Double> baseStats = new EnumMap<>(StatType.class);
-        baseStats.put(StatType.DAMAGE, 7.0);          // Dégâts de base
-        baseStats.put(StatType.ATTACK_SPEED, 1.6);    // Vitesse d'attaque standard
+        baseStats.put(StatType.DAMAGE, 7.0); // Dégâts de base
+        baseStats.put(StatType.ATTACK_SPEED, 1.6); // Vitesse d'attaque standard
 
         // Créer un item avec des stats prédéfinies
         return ZombieZItem.builder()
-            .uuid(UUID.randomUUID())
-            .itemType(ItemType.SWORD)
-            .material(Material.IRON_SWORD)
-            .rarity(Rarity.UNCOMMON)
-            .tier(1)
-            .zoneLevel(1)
-            .baseName("Épée du Survivant")
-            .generatedName("⚔ Épée du Survivant")
-            .baseStats(baseStats)
-            .affixes(new ArrayList<>())
-            .itemScore(50)
-            .createdAt(System.currentTimeMillis())
-            .identified(true)
-            .itemLevel(5)
-            .build();
+                .uuid(UUID.randomUUID())
+                .itemType(ItemType.SWORD)
+                .material(Material.IRON_SWORD)
+                .rarity(Rarity.UNCOMMON)
+                .tier(1)
+                .zoneLevel(1)
+                .baseName("Épée du Survivant")
+                .generatedName("⚔ Épée du Survivant")
+                .baseStats(baseStats)
+                .affixes(new ArrayList<>())
+                .itemScore(50)
+                .createdAt(System.currentTimeMillis())
+                .identified(true)
+                .itemLevel(5)
+                .build();
     }
 
     /**
@@ -235,21 +237,21 @@ public class PlayerConnectionListener implements Listener {
         baseStats.put(StatType.MAX_HEALTH, 2.0);
 
         return ZombieZItem.builder()
-            .uuid(UUID.randomUUID())
-            .itemType(armorType)
-            .material(material)
-            .rarity(Rarity.COMMON)
-            .tier(0)
-            .zoneLevel(1)
-            .baseName(baseName)
-            .generatedName("🛡 " + baseName)
-            .baseStats(baseStats)
-            .affixes(new ArrayList<>())
-            .itemScore(25)
-            .createdAt(System.currentTimeMillis())
-            .identified(true)
-            .itemLevel(3)
-            .build();
+                .uuid(UUID.randomUUID())
+                .itemType(armorType)
+                .material(material)
+                .rarity(Rarity.COMMON)
+                .tier(0)
+                .zoneLevel(1)
+                .baseName(baseName)
+                .generatedName("🛡 " + baseName)
+                .baseStats(baseStats)
+                .affixes(new ArrayList<>())
+                .itemScore(25)
+                .createdAt(System.currentTimeMillis())
+                .identified(true)
+                .itemLevel(3)
+                .build();
     }
 
     /**
@@ -319,14 +321,14 @@ public class PlayerConnectionListener implements Listener {
     private void sendReturnMessage(Player player, PlayerData data) {
         String zone = "Zone " + data.getCurrentZone().get();
         String time = MessageUtils.formatTime(data.getPlaytime().get());
-        
+
         MessageUtils.sendTitle(player, "§a§lBon retour!", "§7" + zone + " • " + time + " de jeu", 10, 40, 10);
-        
+
         // Résumé rapide
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            MessageUtils.send(player, "§7Niveau §e" + data.getLevel().get() + 
-                " §7| §c" + data.getKills().get() + " §7kills | §6" + 
-                EconomyManager.formatCompact(data.getPoints().get()) + " §7points");
+            MessageUtils.send(player, "§7Niveau §e" + data.getLevel().get() +
+                    " §7| §c" + data.getKills().get() + " §7kills | §6" +
+                    EconomyManager.formatCompact(data.getPoints().get()) + " §7points");
         }, 20L);
     }
 
@@ -335,7 +337,8 @@ public class PlayerConnectionListener implements Listener {
      * Le niveau et la progression sont affichés dans la barre d'XP native Minecraft
      */
     public void updatePlayerExpBar(Player player, PlayerData data) {
-        if (player == null || !player.isOnline() || data == null) return;
+        if (player == null || !player.isOnline() || data == null)
+            return;
 
         // Définir le niveau affiché (niveau du plugin)
         player.setLevel(data.getLevel().get());
@@ -366,23 +369,23 @@ public class PlayerConnectionListener implements Listener {
 
         // Supprimer le message de quit par défaut
         event.quitMessage(null);
-        
+
         // Broadcast
         MessageUtils.broadcast("§c- §7" + player.getName() + " §7a quitté le serveur");
 
         // Supprimer du cache de zone
         plugin.getZoneManager().removeFromCache(player.getUniqueId());
-        
+
         // Nettoyer le cache de déplacement (FIX: fuite mémoire)
         if (plugin.getPlayerMoveListener() != null) {
             plugin.getPlayerMoveListener().removeFromCache(player.getUniqueId());
         }
-        
+
         // Nettoyer le momentum (garder les records mais nettoyer l'état temporaire)
         if (plugin.getMomentumManager() != null) {
             plugin.getMomentumManager().onPlayerQuit(player);
         }
-        
+
         // Nettoyer les invitations de party en attente
         if (plugin.getPartyManager() != null) {
             plugin.getPartyManager().onPlayerQuit(player);

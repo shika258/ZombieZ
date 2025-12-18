@@ -1090,7 +1090,7 @@ public class OccultisteTalentListener implements Listener {
         // Propager le feu aux ennemis proches
         double radius = talent.getValue(2);
         for (Entity entity : target.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isFriendlyEntity(entity, player)) {
                 startOrExtendBurn(le, 100); // 5 secondes de feu
                 damageNoKnockback(le, totalDamage * 0.3, player); // 30% des degats aux proches
             }
@@ -1163,7 +1163,7 @@ public class OccultisteTalentListener implements Listener {
      */
     private void damageAreaNoKnockback(Location center, double radius, double damage, Player source) {
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isFriendlyEntity(entity, source)) {
                 damageNoKnockback(le, damage, source);
             }
         }
@@ -1306,7 +1306,7 @@ public class OccultisteTalentListener implements Listener {
             List<LivingEntity> nearbyEnemies = new ArrayList<>();
             for (Entity entity : target.getNearbyEntities(range, range, range)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player) && !entity.isDead()
-                        && !isFriendlyEntity(entity)) {
+                        && !isFriendlyEntity(entity, player)) {
                     nearbyEnemies.add(le);
                     if (nearbyEnemies.size() >= targets)
                         break;
@@ -1809,7 +1809,8 @@ public class OccultisteTalentListener implements Listener {
                     // Damage nearby - sans knockback
                     double damage = baseDamage * damagePercent;
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 2, 2, 2)) {
-                        if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                        if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                                && !isFriendlyEntity(entity, player)) {
                             damageNoKnockback(le, damage, player);
                             // Enflammer et prolonger Surchauffe
                             le.setFireTicks(burnTicks);
@@ -1880,7 +1881,7 @@ public class OccultisteTalentListener implements Listener {
 
         // AoE damage
         for (Entity entity : target.getNearbyEntities(4, 4, 4)) {
-            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isFriendlyEntity(entity, player)) {
                 le.damage(totalDamage, player);
             }
         }
@@ -1903,7 +1904,8 @@ public class OccultisteTalentListener implements Listener {
             double radius = talent.getValue(2);
 
             for (Entity entity : victim.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     le.damage(damage, player);
                     le.setFireTicks(60);
                 }
@@ -1925,7 +1927,7 @@ public class OccultisteTalentListener implements Listener {
         double damage = baseDamage * (0.3 + (victimStacks * 0.1)); // 30% + 10% par stack
 
         for (Entity entity : victim.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isFriendlyEntity(entity, player)) {
                 le.damage(damage, player);
                 // Ajouter des stacks aux ennemis proches (propagation)
                 addFrostStacks(player, le, Math.max(1, victimStacks / 2));
@@ -2065,7 +2067,7 @@ public class OccultisteTalentListener implements Listener {
 
         // Freeze all nearby enemies and apply frost stacks
         for (Entity entity : player.getNearbyEntities(30, 30, 30)) {
-            if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity le && !(entity instanceof Player) && !isFriendlyEntity(entity, player)) {
                 // Freeze
                 le.addPotionEffect(
                         new PotionEffect(PotionEffectType.SLOWNESS, (int) (duration / 50), 255, false, false, false));
@@ -2288,10 +2290,19 @@ public class OccultisteTalentListener implements Listener {
         }
     }
 
-    private boolean isFriendlyEntity(Entity entity) {
-        return entity.getScoreboardTags().contains("zombiez_pet")
-                || entity.getScoreboardTags().contains("player_minion")
-                || entity.getScoreboardTags().contains("zombiez_pet_ally");
+    private boolean isFriendlyEntity(Entity entity, Player player) {
+        if (entity.getScoreboardTags().contains("zombiez_pet")) {
+            return true;
+        }
+
+        if (entity.getScoreboardTags().contains("zombiez_pet_ally")) {
+            return true;
+        }
+        if (isPlayerMinion(entity, player)) {
+            return true;
+        }
+
+        return false;
     }
 
     private void processLightningStorm() {
@@ -2313,7 +2324,7 @@ public class OccultisteTalentListener implements Listener {
             List<LivingEntity> nearbyEnemies = new ArrayList<>();
             for (Entity entity : player.getNearbyEntities(range, range, range)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player) && !entity.isDead()
-                        && !isFriendlyEntity(entity)) {
+                        && !isFriendlyEntity(entity, player)) {
                     nearbyEnemies.add(le);
                     if (nearbyEnemies.size() >= targets)
                         break;
@@ -2356,7 +2367,7 @@ public class OccultisteTalentListener implements Listener {
             List<LivingEntity> nearbyEnemies = new ArrayList<>();
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                 if (entity instanceof LivingEntity le && !(entity instanceof Player) && !entity.isDead()
-                        && !isFriendlyEntity(entity)) {
+                        && !isFriendlyEntity(entity, player)) {
                     nearbyEnemies.add(le);
                 }
             }
@@ -2403,7 +2414,8 @@ public class OccultisteTalentListener implements Listener {
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     // Degats sans knockback (AoE)
                     damageNoKnockback(le, damage, player);
                     // Enflammer et prolonger Surchauffe
@@ -2450,7 +2462,8 @@ public class OccultisteTalentListener implements Listener {
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     // Degats sans knockback (AoE nova)
                     damageNoKnockback(le, damage, player);
                     // Enflammer et prolonger massivement Surchauffe
@@ -2512,7 +2525,8 @@ public class OccultisteTalentListener implements Listener {
             double damage = baseDamage * damagePercent;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     // Degats sans knockback
                     damageNoKnockback(le, damage, player);
                     // Enflammer et prolonger Surchauffe
@@ -2571,7 +2585,8 @@ public class OccultisteTalentListener implements Listener {
             int stacksPerTick = talent.getValues().length > 1 ? (int) talent.getValue(1) : 1;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     // Ajouter des stacks de Givre
                     addFrostStacks(player, le, stacksPerTick);
 
@@ -2613,7 +2628,8 @@ public class OccultisteTalentListener implements Listener {
             for (Entity entity : player.getNearbyEntities(range, range, range)) {
                 if (struck >= maxTargets)
                     break;
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, player)) {
                     // Degats sans knockback
                     damageNoKnockback(le, damage, player);
                     // Lightning visual (sans strikeLightningEffect qui est lourd)
@@ -2669,7 +2685,8 @@ public class OccultisteTalentListener implements Listener {
 
                     // Damage - sans knockback
                     for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, 3, 3, 3)) {
-                        if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                        if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                                && !isFriendlyEntity(entity, player)) {
                             damageNoKnockback(le, damage, player);
                             // Enflammer massivement (T9 = +3s par meteore)
                             le.setFireTicks(burnTicks);
@@ -2898,7 +2915,8 @@ public class OccultisteTalentListener implements Listener {
 
                 // Ajouter des stacks aux ennemis dans la zone ET infliger des dégâts
                 for (Entity entity : world.getNearbyEntities(loc, radius, radius, radius)) {
-                    if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                    if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                            && !isFriendlyEntity(entity, iceAgeOwner)) {
                         if (iceAgeOwner != null) {
                             addFrostStacks(iceAgeOwner, le, stacksPerSec);
                         }
@@ -3167,7 +3185,8 @@ public class OccultisteTalentListener implements Listener {
 
             // Effet sur les ennemis proches
             for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, owner)) {
                     // Ralentissement
                     le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 15, data.slowLevel, false, false));
 
@@ -3206,7 +3225,8 @@ public class OccultisteTalentListener implements Listener {
 
             // Aspiration violente
             for (Entity entity : center.getWorld().getNearbyEntities(center, data.radius, data.radius, data.radius)) {
-                if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
+                if (entity instanceof LivingEntity le && !(entity instanceof Player)
+                        && !isFriendlyEntity(entity, owner)) {
                     Vector direction = center.toVector().subtract(le.getLocation().toVector()).normalize();
                     double distance = le.getLocation().distance(center);
                     double pullStrength = Math.min(1.5, (data.radius - distance) / data.radius * 2.0);

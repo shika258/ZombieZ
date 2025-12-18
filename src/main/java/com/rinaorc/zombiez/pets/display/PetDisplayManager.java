@@ -61,24 +61,27 @@ public class PetDisplayManager {
     private BukkitTask nameUpdateTask;
 
     // Constantes de comportement du pet
-    private static final double TELEPORT_DISTANCE = 20.0;  // TP si > 20 blocs
+    private static final double TELEPORT_DISTANCE = 20.0; // TP si > 20 blocs
     private static final double FOLLOW_START_DISTANCE = 3.5;
     private static final double IDEAL_DISTANCE = 2.5;
-    private static final double MAX_SPEED = 0.8;  // Vitesse doublée pour mieux suivre
-    private static final double ACCELERATION = 0.20;  // Accélération légèrement augmentée
+    private static final double MAX_SPEED = 0.8; // Vitesse doublée pour mieux suivre
+    private static final double ACCELERATION = 0.20; // Accélération légèrement augmentée
 
     // Constantes pour les hologrammes TextDisplay (offsets via Transformation)
-    // Ces offsets sont appliqués via setTransformation() car les hologrammes sont des passagers
-    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f;  // Nom du pet (en gras)
-    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f;  // Propriétaire
-    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 1.35f;  // Timer ultime
+    // Ces offsets sont appliqués via setTransformation() car les hologrammes sont
+    // des passagers
+    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f; // Nom du pet (en gras)
+    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f; // Propriétaire
+    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 1.35f; // Timer ultime
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
         this.petManager = petManager;
 
-        // Tâche de suivi du pet (pas des hologrammes - ils suivent automatiquement en tant que passagers)
-        // Réduit à 2 ticks car les hologrammes n'ont plus besoin d'être mis à jour chaque tick
+        // Tâche de suivi du pet (pas des hologrammes - ils suivent automatiquement en
+        // tant que passagers)
+        // Réduit à 2 ticks car les hologrammes n'ont plus besoin d'être mis à jour
+        // chaque tick
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 1L, 2L);
 
         // Tâche de mise à jour des noms toutes les secondes (pour le timer ultime)
@@ -90,11 +93,13 @@ public class PetDisplayManager {
      */
     public void spawnPetDisplay(Player player, PetType type) {
         // Vérifier que le joueur est en ligne et dans un monde valide
-        if (!player.isOnline() || player.getWorld() == null) return;
+        if (!player.isOnline() || player.getWorld() == null)
+            return;
 
         // Vérifier l'option d'affichage du pet
         PlayerPetData playerData = petManager.getPlayerData(player.getUniqueId());
-        if (playerData != null && !playerData.isShowPetEntity()) return;
+        if (playerData != null && !playerData.isShowPetEntity())
+            return;
 
         // Retirer l'ancien pet s'il existe
         removePetDisplay(player);
@@ -103,7 +108,8 @@ public class PetDisplayManager {
 
         // Créer l'entité basée sur le type de pet
         Entity petEntity = spawnPetEntity(spawnLoc, type, player);
-        if (petEntity == null) return;
+        if (petEntity == null)
+            return;
 
         // Configurer l'entité
         configurePetEntity(petEntity, type, player);
@@ -165,7 +171,8 @@ public class PetDisplayManager {
     public void updatePetDisplay(Player player) {
         UUID playerUuid = player.getUniqueId();
         UUID entityUuid = activePetEntities.get(playerUuid);
-        if (entityUuid == null) return;
+        if (entityUuid == null)
+            return;
 
         // Vérifier si le joueur a changé de monde
         UUID currentWorldUuid = player.getWorld().getUID();
@@ -211,8 +218,7 @@ public class PetDisplayManager {
         if (player.isInsideVehicle()) {
             // Suivre à plus grande distance et ne pas bloquer
             targetLoc = player.getLocation().clone().add(
-                player.getLocation().getDirection().multiply(-3).setY(0)
-            ).add(0, 1, 0);
+                    player.getLocation().getDirection().multiply(-3).setY(0)).add(0, 1, 0);
         }
 
         // Vérifier si le chunk du pet est chargé - si non, téléporter immédiatement
@@ -258,8 +264,10 @@ public class PetDisplayManager {
         // Mettre à jour la position cible
         targetLocations.put(playerUuid, targetLoc);
 
-        // Note: Les hologrammes suivent automatiquement le pet car ils sont montés en passagers
-        // Pas besoin de updateHologramPositions() - le client gère l'interpolation nativement
+        // Note: Les hologrammes suivent automatiquement le pet car ils sont montés en
+        // passagers
+        // Pas besoin de updateHologramPositions() - le client gère l'interpolation
+        // nativement
     }
 
     /**
@@ -292,9 +300,9 @@ public class PetDisplayManager {
      */
     private boolean isFlyingEntity(EntityType type) {
         return type == EntityType.BAT || type == EntityType.VEX ||
-               type == EntityType.ALLAY || type == EntityType.BEE ||
-               type == EntityType.PARROT || type == EntityType.PHANTOM ||
-               type == EntityType.BLAZE || type == EntityType.GHAST;
+                type == EntityType.ALLAY || type == EntityType.BEE ||
+                type == EntityType.PARROT || type == EntityType.PHANTOM ||
+                type == EntityType.BLAZE || type == EntityType.GHAST;
     }
 
     /**
@@ -302,7 +310,8 @@ public class PetDisplayManager {
      * Gère les cas où le chunk source n'est pas chargé
      */
     private void teleportPetWithEffect(Entity entity, Location target) {
-        if (target == null || target.getWorld() == null) return;
+        if (target == null || target.getWorld() == null)
+            return;
 
         // S'assurer que le chunk de destination est chargé
         if (!target.isChunkLoaded()) {
@@ -315,6 +324,14 @@ public class PetDisplayManager {
             oldLoc.getWorld().spawnParticle(Particle.PORTAL, oldLoc.clone().add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
         }
 
+        // CORRECTION: Forcer les Tameable (Wolf/Cat) à ne pas être assis avant
+        // téléportation
+        if (entity instanceof Tameable tameable && tameable.isTamed()) {
+            if (entity instanceof Sittable sittable) {
+                sittable.setSitting(false);
+            }
+        }
+
         // Téléportation - utiliser teleportAsync si disponible pour plus de fiabilité
         boolean success = entity.teleport(target);
 
@@ -322,11 +339,11 @@ public class PetDisplayManager {
         if (!success) {
             // Essayer de forcer la position via setVelocity puis teleport
             entity.setVelocity(new Vector(0, 0, 0));
-            entity.teleport(target);
+            success = entity.teleport(target);
         }
 
-        // Effet d'arrivée
-        if (target.getWorld() != null) {
+        // CORRECTION: Jouer les effets SEULEMENT si la téléportation a réussi
+        if (success && target.getWorld() != null) {
             Location effectLoc = target.clone().add(0, 0.5, 0);
             target.getWorld().spawnParticle(Particle.PORTAL, effectLoc, 15, 0.3, 0.5, 0.3, 0.1);
             target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 0.3f, 1.5f);
@@ -394,28 +411,35 @@ public class PetDisplayManager {
             UUID entityUuid = entry.getValue();
 
             Player player = Bukkit.getPlayer(playerUuid);
-            if (player == null || !player.isOnline()) continue;
+            if (player == null || !player.isOnline())
+                continue;
 
             Entity entity = Bukkit.getEntity(entityUuid);
-            if (entity == null || !entity.isValid()) continue;
+            if (entity == null || !entity.isValid())
+                continue;
 
             // Optimisation: skip si le chunk n'est pas chargé
-            if (!entity.getLocation().isChunkLoaded()) continue;
+            if (!entity.getLocation().isChunkLoaded())
+                continue;
 
             PlayerPetData playerData = petManager.getPlayerData(playerUuid);
-            if (playerData == null || playerData.getEquippedPet() == null) continue;
+            if (playerData == null || playerData.getEquippedPet() == null)
+                continue;
 
             PetType type = playerData.getEquippedPet();
             PetData petData = playerData.getPet(type);
-            if (petData == null) continue;
+            if (petData == null)
+                continue;
 
-            // Mettre à jour les hologrammes TextDisplay (optimisé - seulement si changement)
+            // Mettre à jour les hologrammes TextDisplay (optimisé - seulement si
+            // changement)
             updateHologramText(playerUuid, type, petData);
         }
     }
 
     /**
-     * Construit la ligne 1 de l'hologramme : Nom du pet en gras / niveau (+ étoiles)
+     * Construit la ligne 1 de l'hologramme : Nom du pet en gras / niveau (+
+     * étoiles)
      * Exemple : §l§bPanthère§r §7[Lv.12] §e★★
      */
     private String buildPetLine1(PetType type, PetData petData) {
@@ -469,13 +493,14 @@ public class PetDisplayManager {
      * - Le client Minecraft interpoler automatiquement le mouvement
      *
      * @param playerUuid UUID du joueur propriétaire
-     * @param petEntity L'entité du pet sur laquelle monter les hologrammes
-     * @param type Type du pet
-     * @param petData Données du pet
+     * @param petEntity  L'entité du pet sur laquelle monter les hologrammes
+     * @param type       Type du pet
+     * @param petData    Données du pet
      */
     private void createHologramDisplays(UUID playerUuid, Entity petEntity, PetType type, PetData petData) {
         World world = petEntity.getWorld();
-        if (world == null) return;
+        if (world == null)
+            return;
 
         // Supprimer les anciens hologrammes s'ils existent
         removeHologramDisplays(playerUuid);
@@ -516,14 +541,15 @@ public class PetDisplayManager {
     }
 
     /**
-     * Spawn un TextDisplay configuré pour être monté en passager avec offset Y via transformation.
+     * Spawn un TextDisplay configuré pour être monté en passager avec offset Y via
+     * transformation.
      *
      * Le TextDisplay est positionné à la location du pet, mais son offset visuel
      * est géré via setTransformation() pour que le client interpole correctement.
      *
-     * @param world Le monde où spawner
-     * @param loc La location de base (position du pet)
-     * @param text Le texte à afficher
+     * @param world   Le monde où spawner
+     * @param loc     La location de base (position du pet)
+     * @param text    Le texte à afficher
      * @param yOffset L'offset Y pour positionner le texte au-dessus du pet
      * @return Le TextDisplay créé
      */
@@ -546,10 +572,10 @@ public class PetDisplayManager {
         // Comme le TextDisplay est un passager, sa position de base est celle du pet
         // L'offset Y est donc appliqué via la translation de la transformation
         display.setTransformation(new Transformation(
-            new Vector3f(0, yOffset, 0),     // Translation Y pour offset vertical
-            new AxisAngle4f(0, 0, 0, 1),     // Rotation gauche (identité)
-            new Vector3f(1f, 1f, 1f),        // Échelle normale
-            new AxisAngle4f(0, 0, 0, 1)      // Rotation droite (identité)
+                new Vector3f(0, yOffset, 0), // Translation Y pour offset vertical
+                new AxisAngle4f(0, 0, 0, 1), // Rotation gauche (identité)
+                new Vector3f(1f, 1f, 1f), // Échelle normale
+                new AxisAngle4f(0, 0, 0, 1) // Rotation droite (identité)
         ));
 
         // Pas besoin d'interpolation pour la transformation car elle est statique
@@ -573,7 +599,8 @@ public class PetDisplayManager {
 
     /**
      * Supprime les TextDisplay hologrammes d'un joueur.
-     * Les hologrammes sont des passagers du pet, ils seront automatiquement éjectés lors du remove().
+     * Les hologrammes sont des passagers du pet, ils seront automatiquement éjectés
+     * lors du remove().
      */
     private void removeHologramDisplays(UUID playerUuid) {
         // Supprimer la ligne 1
@@ -581,7 +608,8 @@ public class PetDisplayManager {
         if (line1Uuid != null) {
             Entity entity = Bukkit.getEntity(line1Uuid);
             if (entity != null && entity.isValid()) {
-                // Éjecter du véhicule si monté (sera fait automatiquement par remove() mais explicite pour clarté)
+                // Éjecter du véhicule si monté (sera fait automatiquement par remove() mais
+                // explicite pour clarté)
                 if (entity.getVehicle() != null) {
                     entity.getVehicle().removePassenger(entity);
                 }
@@ -621,7 +649,8 @@ public class PetDisplayManager {
 
     /**
      * Met à jour le texte des hologrammes (optimisé - seulement si changement).
-     * Note: La position n'a pas besoin d'être mise à jour car les hologrammes sont des passagers.
+     * Note: La position n'a pas besoin d'être mise à jour car les hologrammes sont
+     * des passagers.
      */
     private void updateHologramText(UUID playerUuid, PetType type, PetData petData) {
         // Mise à jour ligne 1 (nom en gras + niveau + étoiles)
@@ -688,7 +717,8 @@ public class PetDisplayManager {
                     Entity petEntity = Bukkit.getEntity(petEntityUuid);
                     if (petEntity != null && petEntity.isValid()) {
                         // Créer et monter le TextDisplay en passager
-                        TextDisplay line3 = spawnMountedTextDisplay(petEntity.getWorld(), petEntity.getLocation(), newLine3, HOLOGRAM_Y_OFFSET_LINE3);
+                        TextDisplay line3 = spawnMountedTextDisplay(petEntity.getWorld(), petEntity.getLocation(),
+                                newLine3, HOLOGRAM_Y_OFFSET_LINE3);
                         if (line3 != null) {
                             petEntity.addPassenger(line3);
                             hologramLine3.put(playerUuid, line3.getUniqueId());
@@ -709,7 +739,7 @@ public class PetDisplayManager {
         // Position à 2.5 blocs derrière et 0.5 bloc à droite du joueur
         Vector behind = playerLoc.getDirection().multiply(-2.5);
         Vector right = new Vector(-playerLoc.getDirection().getZ(), 0, playerLoc.getDirection().getX())
-            .normalize().multiply(0.5);
+                .normalize().multiply(0.5);
 
         return playerLoc.add(behind).add(right).add(0, 0.5, 0);
     }
@@ -719,7 +749,8 @@ public class PetDisplayManager {
      */
     private Entity spawnPetEntity(Location loc, PetType type, Player player) {
         World world = loc.getWorld();
-        if (world == null) return null;
+        if (world == null)
+            return null;
 
         Entity entity;
 
@@ -821,7 +852,8 @@ public class PetDisplayManager {
                 entity = shulker;
             }
             case ENDER_DRAGON -> {
-                // Les EnderDragons sont trop grands et problématiques - utiliser un Phantom stylisé
+                // Les EnderDragons sont trop grands et problématiques - utiliser un Phantom
+                // stylisé
                 Phantom dragonPet = (Phantom) world.spawnEntity(loc, EntityType.PHANTOM);
                 dragonPet.setSize(2); // Un peu plus grand pour ressembler à un dragon
                 entity = dragonPet;
@@ -904,7 +936,8 @@ public class PetDisplayManager {
      * Configure l'entité du pet (nom, tags, etc.)
      */
     private void configurePetEntity(Entity entity, PetType type, Player player) {
-        // Ne plus utiliser setCustomName() - l'affichage est géré par les TextDisplay hologrammes
+        // Ne plus utiliser setCustomName() - l'affichage est géré par les TextDisplay
+        // hologrammes
         // On désactive le customName pour éviter les doublons visuels
         entity.setCustomNameVisible(false);
 
@@ -919,13 +952,22 @@ public class PetDisplayManager {
         entity.setPersistent(false);
         entity.setGravity(!isFlyingEntity(entity.getType()));
 
-        // Désactiver l'AI pour les mobs
+        // Configuration de l'AI pour les mobs
+        // IMPORTANT: Ne PAS utiliser setAware(false) car cela bloque la téléportation!
+        // À la place, on garde setAware(true) mais on retire les goals et targets
         if (entity instanceof Mob mob) {
-            mob.setAware(false);
+            // Retirer la cible pour éviter l'aggro
             mob.setTarget(null);
-            // Pour les loups et chats, ils suivront naturellement leur propriétaire
-            if (entity instanceof Tameable) {
-                mob.setAware(true);
+
+            // Garder setAware(true) pour permettre la téléportation
+            // Même sans goals, le mob ne fera rien mais pourra se téléporter
+            mob.setAware(true);
+
+            // Désactiver les goals (mouvement libre, attaque, etc.)
+            try {
+                mob.setAI(false); // Désactive les pathfinders mais garde la téléportation
+            } catch (Exception e) {
+                // Certaines entités ne supportent pas setAI(false), ignorer
             }
         }
 
@@ -953,7 +995,8 @@ public class PetDisplayManager {
             }
 
             Location loc = entity.getLocation().add(0, 0.5, 0);
-            if (loc.getWorld() == null) return;
+            if (loc.getWorld() == null)
+                return;
 
             switch (type.getRarity()) {
                 case EPIC -> loc.getWorld().spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0);
@@ -965,7 +1008,8 @@ public class PetDisplayManager {
                     loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 5, 0.3, 0.3, 0.3, 0.5);
                     loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 2, 0.2, 0.2, 0.2, 0);
                 }
-                default -> {} // Pas de particules pour common/uncommon/rare
+                default -> {
+                } // Pas de particules pour common/uncommon/rare
             }
         }, 10L, 10L);
     }
@@ -1063,7 +1107,8 @@ public class PetDisplayManager {
             if (tag.startsWith("pet_owner_")) {
                 try {
                     return UUID.fromString(tag.substring("pet_owner_".length()));
-                } catch (IllegalArgumentException ignored) {}
+                } catch (IllegalArgumentException ignored) {
+                }
             }
         }
         return null;

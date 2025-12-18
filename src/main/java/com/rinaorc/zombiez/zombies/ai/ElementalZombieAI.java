@@ -35,7 +35,8 @@ public class ElementalZombieAI extends ZombieAI {
     private void applyElementalAura() {
         switch (zombieType) {
             case FROZEN, YETI, WENDIGO -> {
-                zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                zombie.addPotionEffect(
+                        new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             }
             case DEMON, INFERNAL -> {
                 zombie.setFireTicks(0); // Immunité au feu
@@ -71,9 +72,9 @@ public class ElementalZombieAI extends ZombieAI {
 
             // Ralentir les joueurs proches
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 4, 3, 4).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false)));
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false)));
         }
 
         // Souffle gelé
@@ -122,7 +123,8 @@ public class ElementalZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         // Traque rapide
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 1, false, false));
@@ -157,9 +159,9 @@ public class ElementalZombieAI extends ZombieAI {
 
             // Enflammer les joueurs proches
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 2.5, 2, 2.5).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> p.setFireTicks(Math.max(p.getFireTicks(), 40)));
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> p.setFireTicks(Math.max(p.getFireTicks(), 40)));
         }
 
         // Boule de feu
@@ -185,12 +187,12 @@ public class ElementalZombieAI extends ZombieAI {
 
             // Zone de chaleur
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 4, 3, 4).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    p.setFireTicks(Math.max(p.getFireTicks(), 60));
-                    p.damage(1, zombie);
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        p.setFireTicks(Math.max(p.getFireTicks(), 60));
+                        p.damage(1, zombie);
+                    });
         }
 
         // Nova infernale
@@ -219,7 +221,7 @@ public class ElementalZombieAI extends ZombieAI {
         playSound(Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 2f);
 
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         Location breathLoc = zombie.getEyeLocation().clone();
         for (int i = 0; i < 10; i++) {
@@ -230,13 +232,13 @@ public class ElementalZombieAI extends ZombieAI {
                 playParticles(Particle.CLOUD, currentLoc, 5, 0.3, 0.3, 0.3);
 
                 currentLoc.getWorld().getNearbyEntities(currentLoc, 1.5, 1.5, 1.5).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.damage(4 + level, zombie);
-                        p.setFreezeTicks(p.getMaxFreezeTicks());
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.damage(4 + level, zombie);
+                            p.setFreezeTicks(p.getMaxFreezeTicks());
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
+                        });
             }, i * 2L);
         }
     }
@@ -249,7 +251,8 @@ public class ElementalZombieAI extends ZombieAI {
         for (int second = 0; second < 5; second++) {
             final int tick = second;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
 
                 // Particules de tempête
                 for (int i = 0; i < 30; i++) {
@@ -261,13 +264,13 @@ public class ElementalZombieAI extends ZombieAI {
 
                 // Effets aux joueurs dans la zone
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 8, 4, 8).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.damage(2, zombie);
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1));
-                        p.setFreezeTicks(Math.min(p.getFreezeTicks() + 40, p.getMaxFreezeTicks()));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.damage(2, zombie);
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1));
+                            p.setFreezeTicks(Math.min(p.getFreezeTicks() + 40, p.getMaxFreezeTicks()));
+                        });
             }, tick * 20L);
         }
 
@@ -291,13 +294,13 @@ public class ElementalZombieAI extends ZombieAI {
 
         // Effet de peur
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 10, 5, 10).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
-                p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0));
-                p.sendMessage("§b§l❄ Le hurlement vous glace le sang!");
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0));
+                    p.sendMessage("§b§l❄ Le hurlement vous glace le sang!");
+                });
     }
 
     private void devouringBite(Player target) {
@@ -323,16 +326,16 @@ public class ElementalZombieAI extends ZombieAI {
         for (int i = 0; i < 3; i++) {
             final int shot = i;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
 
                 Vector direction = target.getEyeLocation().toVector()
-                    .subtract(zombie.getEyeLocation().toVector()).normalize();
+                        .subtract(zombie.getEyeLocation().toVector()).normalize();
                 // Ajouter un peu de spread
                 direction.add(new Vector(
-                    (random.nextDouble() - 0.5) * 0.2,
-                    (random.nextDouble() - 0.5) * 0.2,
-                    (random.nextDouble() - 0.5) * 0.2
-                ));
+                        (random.nextDouble() - 0.5) * 0.2,
+                        (random.nextDouble() - 0.5) * 0.2,
+                        (random.nextDouble() - 0.5) * 0.2));
 
                 Location projectileLoc = zombie.getEyeLocation().clone();
 
@@ -348,7 +351,8 @@ public class ElementalZombieAI extends ZombieAI {
                         target.setFireTicks(100);
                         task.cancel();
                     }
-                    if (projectileLoc.distance(zombie.getLocation()) > 30) task.cancel();
+                    if (projectileLoc.distance(zombie.getLocation()) > 30)
+                        task.cancel();
                 }, 0L, 1L);
             }, shot * 5L);
         }
@@ -362,32 +366,34 @@ public class ElementalZombieAI extends ZombieAI {
         for (int ring = 0; ring < 6; ring++) {
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
 
                 double radius = 2 + r * 2;
                 for (int angle = 0; angle < 360; angle += 15) {
                     double rad = Math.toRadians(angle);
-                    Location particleLoc = zombie.getLocation().add(Math.cos(rad) * radius, 0.5, Math.sin(rad) * radius);
+                    Location particleLoc = zombie.getLocation().add(Math.cos(rad) * radius, 0.5,
+                            Math.sin(rad) * radius);
                     playParticles(Particle.FLAME, particleLoc, 5, 0.2, 0.2, 0.2);
                     playParticles(Particle.LAVA, particleLoc, 1, 0, 0, 0);
                 }
 
                 // Dégâts à cette distance
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius + 1, 3, radius + 1).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .filter(p -> {
-                        double dist = p.getLocation().distance(zombie.getLocation());
-                        return dist >= radius - 1 && dist <= radius + 1;
-                    })
-                    .forEach(p -> {
-                        p.damage(8 + level, zombie);
-                        p.setFireTicks(200);
-                        Vector knockback = p.getLocation().toVector()
-                            .subtract(zombie.getLocation().toVector()).normalize()
-                            .multiply(1.5).setY(0.5);
-                        p.setVelocity(knockback);
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .filter(p -> {
+                            double dist = p.getLocation().distance(zombie.getLocation());
+                            return dist >= radius - 1 && dist <= radius + 1;
+                        })
+                        .forEach(p -> {
+                            p.damage(8 + level, zombie);
+                            p.setFireTicks(200);
+                            Vector knockback = p.getLocation().toVector()
+                                    .subtract(zombie.getLocation().toVector()).normalize()
+                                    .multiply(1.5).setY(0.5);
+                            p.setVelocity(knockback);
+                        });
             }, r * 3L);
         }
     }
@@ -413,13 +419,13 @@ public class ElementalZombieAI extends ZombieAI {
             }
 
             target.getWorld().getNearbyEntities(target, 2, 5, 2).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    p.damage(10 + level, zombie);
-                    p.setFireTicks(200);
-                    p.setVelocity(new Vector(0, 1, 0));
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        p.damage(10 + level, zombie);
+                        p.setFireTicks(200);
+                        p.setVelocity(new Vector(0, 1, 0));
+                    });
         }, 25L);
     }
 
@@ -471,11 +477,12 @@ public class ElementalZombieAI extends ZombieAI {
                 playParticles(Particle.SNOWFLAKE, zombie.getLocation(), 100, 3, 2, 3);
                 applyAreaEffect(5, PotionEffectType.SLOWNESS, 100, 2);
 
-                // Geler tous les joueurs proches
+                // Geler tous les joueurs proches (sauf s'ils sont déjà morts)
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 5, 3, 5).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> p.setFreezeTicks(p.getMaxFreezeTicks()));
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .filter(p -> !p.isDead()) // CRITIQUE: Ne pas geler les joueurs morts!
+                        .forEach(p -> p.setFreezeTicks(p.getMaxFreezeTicks()));
             }
             case DEMON, INFERNAL -> {
                 playSound(Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.5f);
@@ -484,16 +491,16 @@ public class ElementalZombieAI extends ZombieAI {
 
                 // Enflammer et repousser
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 5, 3, 5).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.damage(6, zombie);
-                        p.setFireTicks(200);
-                        Vector knockback = p.getLocation().toVector()
-                            .subtract(zombie.getLocation().toVector()).normalize()
-                            .multiply(1.5).setY(0.6);
-                        p.setVelocity(knockback);
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.damage(6, zombie);
+                            p.setFireTicks(200);
+                            Vector knockback = p.getLocation().toVector()
+                                    .subtract(zombie.getLocation().toVector()).normalize()
+                                    .multiply(1.5).setY(0.6);
+                            p.setVelocity(knockback);
+                        });
             }
         }
     }
