@@ -160,6 +160,13 @@ public class CombatListener implements Listener {
      * Applique: Stats d'items, Momentum, Skills, Critiques, Effets
      */
     private void handlePlayerAttackZombieZMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
+        // ============ SECONDARY DAMAGE CHECK ============
+        // Si les dégâts sont secondaires (AoE talents, pet multi-attack, etc.), ne pas afficher d'indicateur
+        boolean isSecondaryDamage = mob.hasMetadata("zombiez_secondary_damage");
+        if (isSecondaryDamage) {
+            mob.removeMetadata("zombiez_secondary_damage", plugin);
+        }
+
         // ============ CONSUMABLE DAMAGE CHECK ============
         // Si les dégâts viennent d'un consommable, ne pas appliquer les stats d'arme
         if (mob.hasMetadata("zombiez_consumable_damage")) {
@@ -283,9 +290,12 @@ public class CombatListener implements Listener {
         event.setDamage(finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
-        mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-        mob.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
-        mob.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
+        if (!isSecondaryDamage) {
+            mob.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            mob.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+            mob.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        }
 
         // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
         // Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts
@@ -314,6 +324,12 @@ public class CombatListener implements Listener {
         // Vérifier si c'est un mob passif ZombieZ
         if (!plugin.getPassiveMobManager().isZombieZPassiveMob(animal)) {
             return;
+        }
+
+        // ============ SECONDARY DAMAGE CHECK ============
+        boolean isSecondaryDamage = animal.hasMetadata("zombiez_secondary_damage");
+        if (isSecondaryDamage) {
+            animal.removeMetadata("zombiez_secondary_damage", plugin);
         }
 
         double baseDamage = event.getDamage();
@@ -359,9 +375,12 @@ public class CombatListener implements Listener {
         event.setDamage(finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
-        animal.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-        animal.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
-        animal.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
+        if (!isSecondaryDamage) {
+            animal.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            animal.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+            animal.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        }
 
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
@@ -550,6 +569,12 @@ public class CombatListener implements Listener {
         // Vérifier si c'est un mob ZombieZ
         if (!isZombieZMob(victim)) return;
 
+        // ============ SECONDARY DAMAGE CHECK ============
+        boolean isSecondaryDamage = victim.hasMetadata("zombiez_secondary_damage");
+        if (isSecondaryDamage) {
+            victim.removeMetadata("zombiez_secondary_damage", plugin);
+        }
+
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
@@ -638,10 +663,13 @@ public class CombatListener implements Listener {
         event.setDamage(finalDamage);
 
         // ============ PRÉPARER L'INDICATEUR DE DÉGÂTS (affiché par MONITOR après talents) ============
-        victim.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-        victim.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
-        victim.setMetadata("zombiez_damage_headshot", new FixedMetadataValue(plugin, isHeadshot));
-        victim.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        // Ne pas afficher d'indicateur pour les dégâts secondaires (AoE, multi-attack, etc.)
+        if (!isSecondaryDamage) {
+            victim.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            victim.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+            victim.setMetadata("zombiez_damage_headshot", new FixedMetadataValue(plugin, isHeadshot));
+            victim.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+        }
 
         // ============ FEEDBACK VISUEL CRITIQUE ============
         if (isCritical) {
