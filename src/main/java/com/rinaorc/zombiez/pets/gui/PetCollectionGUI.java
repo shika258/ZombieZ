@@ -219,31 +219,23 @@ public class PetCollectionGUI implements InventoryHolder {
         boolean owned = petData != null && petData.hasPet(type);
 
         if (!owned) {
-            List<String> unownedLore = new ArrayList<>();
-            unownedLore.add("");
-            unownedLore.add("§7Rareté: " + type.getRarity().getColoredName());
-            unownedLore.add("§7Thème: §8" + type.getTheme());
-            unownedLore.add("");
-            unownedLore.add("§8Pet non découvert");
-            unownedLore.add("");
-            // Afficher un aperçu des capacités même si non possédé
-            unownedLore.add("§7═══ APERÇU ═══");
-            unownedLore.add("");
-            unownedLore.add("§8[Passif]");
-            for (String line : wrapText(type.getPassiveDescription(), 38)) {
-                unownedLore.add("§8  " + line);
-            }
-            unownedLore.add("");
-            unownedLore.add("§8[Ultime] " + type.getUltimateName());
-            for (String line : wrapText(type.getUltimateDescription(), 38)) {
-                unownedLore.add("§8  " + line);
-            }
-            unownedLore.add("");
-            unownedLore.add("§7Obtenez ce pet via les oeufs!");
-
             return new ItemBuilder(Material.GRAY_DYE)
-                .name("§8" + type.getDisplayName() + " " + type.getRarity().getStars())
-                .lore(unownedLore)
+                .name("§8??? " + type.getRarity().getStars())
+                .lore(
+                    "",
+                    "§7Rareté: " + type.getRarity().getColoredName(),
+                    "§7Thème: §8" + type.getTheme(),
+                    "",
+                    "§8╔══════════════════════╗",
+                    "§8║  §7Pet non découvert  §8║",
+                    "§8╚══════════════════════╝",
+                    "",
+                    "§8Les capacités de ce pet",
+                    "§8restent un mystère...",
+                    "",
+                    "§7Obtenez ce pet via les",
+                    "§7oeufs pour le découvrir!"
+                )
                 .build();
         }
 
