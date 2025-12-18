@@ -147,7 +147,7 @@ public class TimeLimitedBonusManager implements Listener {
             @Override
             public void run() {
                 if (!player.isOnline() || !activeChallenges.containsKey(player.getUniqueId())) {
-                    cleanup(player);
+                    cleanup(player, challenge);
                     cancel();
                     return;
                 }
@@ -264,7 +264,7 @@ public class TimeLimitedBonusManager implements Listener {
     private void completeChallenge(Player player, ActiveChallenge challenge) {
         // Retirer le défi
         activeChallenges.remove(player.getUniqueId());
-        cleanup(player);
+        cleanup(player, challenge);
 
         // Calculer les récompenses
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
@@ -305,7 +305,7 @@ public class TimeLimitedBonusManager implements Listener {
     private void failChallenge(Player player, ActiveChallenge challenge) {
         // Retirer le défi
         activeChallenges.remove(player.getUniqueId());
-        cleanup(player);
+        cleanup(player, challenge);
 
         // Enregistrer le temps
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
@@ -329,8 +329,7 @@ public class TimeLimitedBonusManager implements Listener {
     /**
      * Nettoie les ressources d'un défi
      */
-    private void cleanup(Player player) {
-        ActiveChallenge challenge = activeChallenges.get(player.getUniqueId());
+    private void cleanup(Player player, ActiveChallenge challenge) {
         if (challenge != null) {
             if (challenge.bossBar != null) {
                 player.hideBossBar(challenge.bossBar);
@@ -440,7 +439,7 @@ public class TimeLimitedBonusManager implements Listener {
         for (Map.Entry<UUID, ActiveChallenge> entry : activeChallenges.entrySet()) {
             Player player = plugin.getServer().getPlayer(entry.getKey());
             if (player != null) {
-                cleanup(player);
+                cleanup(player, entry.getValue());
             }
         }
         activeChallenges.clear();
