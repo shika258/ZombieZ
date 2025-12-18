@@ -27,16 +27,16 @@ import java.util.List;
 public class PetMainGUI implements InventoryHolder {
 
     private static final String TITLE = "§8§l🐾 Mes Compagnons";
-    private static final int SIZE = 45;
+    private static final int SIZE = 54;
 
-    // Slots
-    private static final int SLOT_EQUIPPED_PET = 13;
-    private static final int SLOT_SHOP = 22;
-    private static final int SLOT_COLLECTION = 29;
-    private static final int SLOT_EGGS = 31;
-    private static final int SLOT_OPTIONS = 33;
-    private static final int SLOT_FRAGMENTS = 39;
-    private static final int SLOT_STATS = 41;
+    // Slots - Layout 6 lignes centré
+    private static final int SLOT_EQUIPPED_PET = 22;     // Centre ligne 3
+    private static final int SLOT_COLLECTION = 29;       // Ligne 4 gauche
+    private static final int SLOT_SHOP = 31;             // Ligne 4 centre
+    private static final int SLOT_EGGS = 33;             // Ligne 4 droite
+    private static final int SLOT_OPTIONS = 40;          // Ligne 5 centre-gauche
+    private static final int SLOT_FRAGMENTS = 38;        // Ligne 5 gauche
+    private static final int SLOT_STATS = 42;            // Ligne 5 centre-droite
 
     private final ZombieZPlugin plugin;
     private final Player player;
@@ -59,17 +59,30 @@ public class PetMainGUI implements InventoryHolder {
             inventory.setItem(i, filler);
         }
 
-        // Bordure décorative
-        ItemStack border = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        // === LIGNE 0 : HEADER ===
+        ItemStack headerGlass = ItemBuilder.placeholder(Material.PURPLE_STAINED_GLASS_PANE);
         for (int i = 0; i < 9; i++) {
-            inventory.setItem(i, border);
-            inventory.setItem(SIZE - 9 + i, border);
+            inventory.setItem(i, headerGlass);
         }
 
-        // Pet équipé
+        // === LIGNE 1-2 : Zone du pet équipé ===
+        // Décoration autour du pet
+        ItemStack accentGlass = ItemBuilder.placeholder(Material.MAGENTA_STAINED_GLASS_PANE);
+        inventory.setItem(12, accentGlass);
+        inventory.setItem(14, accentGlass);
+        inventory.setItem(21, accentGlass);
+        inventory.setItem(23, accentGlass);
+
+        // Pet équipé au centre
         inventory.setItem(SLOT_EQUIPPED_PET, createEquippedPetItem());
 
-        // Boutons de menu
+        // === LIGNE 5 : FOOTER ===
+        ItemStack footerGlass = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        for (int i = 45; i < 54; i++) {
+            inventory.setItem(i, footerGlass);
+        }
+
+        // === BOUTONS DE MENU ===
         inventory.setItem(SLOT_COLLECTION, new ItemBuilder(Material.CHEST)
             .name("§e📦 Collection")
             .lore(
