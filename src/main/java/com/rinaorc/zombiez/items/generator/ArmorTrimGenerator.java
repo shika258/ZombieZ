@@ -291,14 +291,14 @@ public class ArmorTrimGenerator {
          * Obtient la clé du pattern pour sérialisation
          */
         public String getPatternKey() {
-            return pattern.key().getKey();
+            return pattern.key().value();
         }
 
         /**
          * Obtient la clé du matériau pour sérialisation
          */
         public String getMaterialKey() {
-            return material.key().getKey();
+            return material.key().value();
         }
     }
 }
