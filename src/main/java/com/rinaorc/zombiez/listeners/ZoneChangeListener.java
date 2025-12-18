@@ -55,12 +55,12 @@ public class ZoneChangeListener implements Listener {
     private void sendZoneEntryMessage(Player player, Zone zone, boolean firstTime) {
         int zoneLevel = zone.getId();
 
-        // Titre principal avec niveau
+        // Titre principal avec zone
         String title = zone.getColor() + zone.getDisplayName().toUpperCase();
-        String subtitle = "§7Niveau §e" + zoneLevel + " §8| " + zone.getStarsDisplay();
+        String subtitle = "§7Zone §e" + zoneLevel + " §8| " + zone.getStarsDisplay();
 
         if (firstTime) {
-            subtitle = "§6✦ §eNouvelle zone découverte! §7(Niv. " + zoneLevel + ") §6✦";
+            subtitle = "§6✦ §eNouvelle zone découverte! §7(Zone " + zoneLevel + ") §6✦";
         }
 
         MessageUtils.sendTitle(player, title, subtitle, 10, 40, 20);
@@ -72,11 +72,11 @@ public class ZoneChangeListener implements Listener {
             MessageUtils.playSound(player, Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1f);
         }
 
-        // Message dans le chat avec description et niveau
+        // Message dans le chat avec description et zone
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             MessageUtils.sendRaw(player, "");
             MessageUtils.sendRaw(player, "§8§m                              ");
-            MessageUtils.sendRaw(player, "  " + zone.getColor() + "§l" + zone.getDisplayName() + " §7(Niveau " + zoneLevel + ")");
+            MessageUtils.sendRaw(player, "  " + zone.getColor() + "§l" + zone.getDisplayName() + " §7(Zone " + zoneLevel + ")");
             MessageUtils.sendRaw(player, "  §7" + zone.getDescription());
             MessageUtils.sendRaw(player, "  §7Difficulté: " + zone.getStarsDisplay());
             MessageUtils.sendRaw(player, "§8§m                              ");
