@@ -48,10 +48,12 @@ public class DamageIndicator {
     private static final float CRITICAL_SCALE = 1.4f;  // Taille réduite (÷1.5)
     private static final float HEAL_SCALE = 0.9f;      // Taille réduite (÷1.5)
 
-    // Animation optimisée - mise à jour tous les 3 ticks, interpolation native pour fluidité
+    // Animation optimisée - mise à jour tous les 3 ticks, interpolation native pour fluidité maximale
+    // L'interpolation est légèrement plus longue que l'intervalle pour un overlap smooth
     private static final int ANIMATION_INTERVAL_TICKS = 3;
-    // Durée d'interpolation native (client-side, très fluide)
-    private static final int INTERPOLATION_TICKS = 4;
+    // Durée d'interpolation native étendue (client-side, 60Hz+ smooth)
+    // 5 ticks d'interpolation avec 3 ticks d'intervalle = overlap de 2 ticks pour transitions fluides
+    private static final int INTERPOLATION_TICKS = 5;
 
     // Système anti-stack: garde trace des positions récentes par entité
     private static final Map<UUID, Deque<IndicatorSlot>> recentIndicators = new ConcurrentHashMap<>();
