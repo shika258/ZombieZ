@@ -27,10 +27,12 @@ public class SupportZombieAI extends ZombieAI {
     private int screamCharges = 3;
     private long lastScream = 0;
     private boolean isScreaming = false;
+    private long lastJumpTime = 0;
 
     // Paramètres
     private static final long SCREAM_COOLDOWN = 8000;
     private static final double SUPPORT_RANGE = 15.0;
+    private static final long JUMP_COOLDOWN = 3000; // 3 secondes de cooldown entre les sauts en arrière
 
     public SupportZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
         super(plugin, zombie, zombieType, level);
@@ -43,6 +45,7 @@ public class SupportZombieAI extends ZombieAI {
 
         switch (zombieType) {
             case SCREAMER -> tickScreamer();
+            case ZOMBIE_VILLAGER -> tickZombieVillager();
             default -> tickScreamer();
         }
     }
@@ -73,6 +76,27 @@ public class SupportZombieAI extends ZombieAI {
         double distance = zombie.getLocation().distance(target.getLocation());
         if (distance < 5 && !isScreaming) {
             retreatAndScream(target);
+        }
+    }
+
+    /**
+     * Villagroin (Zombie Villager): Saute en arrière quand le joueur est proche
+     * Cooldown de 3 secondes entre chaque saut
+     */
+    private void tickZombieVillager() {
+        Player target = findNearestPlayer(20);
+        if (target == null) return;
+
+        // Sauter en arrière quand le joueur est proche
+        double distance = zombie.getLocation().distance(target.getLocation());
+        if (distance < 5 && canJump()) {
+            // Sauter en arrière
+            Vector retreatDir = zombie.getLocation().toVector()
+                .subtract(target.getLocation().toVector()).normalize();
+            zombie.setVelocity(retreatDir.multiply(0.8).setY(0.4));
+
+            lastJumpTime = System.currentTimeMillis();
+            playSound(Sound.ENTITY_ZOMBIE_VILLAGER_AMBIENT, 1f, 1.2f);
         }
     }
 
@@ -180,13 +204,28 @@ public class SupportZombieAI extends ZombieAI {
     }
 
     /**
+     * Vérifie si le zombie peut sauter (cooldown respecté)
+     */
+    private boolean canJump() {
+        return System.currentTimeMillis() - lastJumpTime >= JUMP_COOLDOWN;
+    }
+
+    /**
      * Recule et crie
      */
     private void retreatAndScream(Player threat) {
+        // Vérifier le cooldown du saut pour le Villagroin
+        if (zombieType == ZombieType.ZOMBIE_VILLAGER && !canJump()) {
+            return;
+        }
+
         // Sauter en arrière
         Vector retreatDir = zombie.getLocation().toVector()
             .subtract(threat.getLocation().toVector()).normalize();
         zombie.setVelocity(retreatDir.multiply(0.8).setY(0.4));
+
+        // Enregistrer le temps du saut
+        lastJumpTime = System.currentTimeMillis();
 
         playSound(Sound.ENTITY_PHANTOM_FLAP, 1f, 1.5f);
 
