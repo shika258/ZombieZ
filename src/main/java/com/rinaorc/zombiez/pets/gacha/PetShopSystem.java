@@ -12,21 +12,21 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Système de boutique pour les Pets
- * Offres, bundles, deals limités dans le temps
+ * Organisation claire : Points pour oeufs/conversion, Fragments pour offres spéciales
  */
 public class PetShopSystem {
 
     private final ZombieZPlugin plugin;
 
-    // Offres permanentes
+    // Offres permanentes (oeufs + conversion fragments) - en POINTS
     @Getter
     private final List<ShopOffer> permanentOffers = new ArrayList<>();
 
-    // Offres limitées dans le temps (rotatives)
+    // Offres limitées dans le temps - en FRAGMENTS
     @Getter
     private final List<TimedOffer> timedOffers = new ArrayList<>();
 
-    // Offres "first purchase" bonus (une seule fois)
+    // Offres "first purchase" bonus - en FRAGMENTS
     @Getter
     private final List<FirstPurchaseOffer> firstPurchaseOffers = new ArrayList<>();
 
@@ -43,149 +43,160 @@ public class PetShopSystem {
     }
 
     private void initializeOffers() {
-        // ==================== OFFRES PERMANENTES ====================
+        // ==================== ACHATS EN POINTS ====================
+        // Oeufs et conversion points → fragments
 
-        // Oeufs individuels
+        // --- OEUFS STANDARDS ---
         permanentOffers.add(new ShopOffer(
-            "egg_standard_1", "§fOeuf Standard",
-            "§71 oeuf standard", EggType.STANDARD, 1, 0,
-            500, CurrencyType.POINTS, 0, false
+            "egg_standard_1", "§f🥚 Oeuf Standard",
+            "1 oeuf standard\nToutes raretés possibles",
+            EggType.STANDARD, 1, 0,
+            500, CurrencyType.POINTS, 0
         ));
 
         permanentOffers.add(new ShopOffer(
-            "egg_standard_10", "§fPack 10 Oeufs Standards",
-            "§7+1 oeuf bonus!", EggType.STANDARD, 11, 0,
-            4500, CurrencyType.POINTS, 10, false // 10% réduction
+            "egg_standard_10", "§f🥚 Pack 10 Standards",
+            "10 oeufs + 1 bonus!\nÉconomisez 10%",
+            EggType.STANDARD, 11, 0,
+            4500, CurrencyType.POINTS, 10
+        ));
+
+        // --- OEUFS DE ZONE ---
+        permanentOffers.add(new ShopOffer(
+            "egg_zone_1", "§e🥚 Oeuf de Zone",
+            "1 oeuf de zone\n§aRare minimum garanti!",
+            EggType.ZONE, 1, 0,
+            2000, CurrencyType.POINTS, 0
         ));
 
         permanentOffers.add(new ShopOffer(
-            "egg_zone_1", "§eOeuf de Zone",
-            "§7Rare minimum garanti", EggType.ZONE, 1, 0,
-            2000, CurrencyType.POINTS, 0, false
+            "egg_zone_5", "§e🥚 Pack 5 Zones",
+            "5 oeufs + 1 bonus!\nÉconomisez 10%",
+            EggType.ZONE, 6, 0,
+            9000, CurrencyType.POINTS, 10
+        ));
+
+        // --- OEUFS ÉLITE ---
+        permanentOffers.add(new ShopOffer(
+            "egg_elite_1", "§d🥚 Oeuf Élite",
+            "1 oeuf élite\n§dÉpique minimum garanti!",
+            EggType.ELITE, 1, 0,
+            5000, CurrencyType.POINTS, 0
         ));
 
         permanentOffers.add(new ShopOffer(
-            "egg_zone_5", "§ePack 5 Oeufs de Zone",
-            "§7+1 oeuf bonus!", EggType.ZONE, 6, 0,
-            9000, CurrencyType.POINTS, 10, false
+            "egg_elite_3", "§d🥚 Pack 3 Élite",
+            "3 oeufs + 1 bonus!\nÉconomisez 10%",
+            EggType.ELITE, 4, 0,
+            13500, CurrencyType.POINTS, 10
+        ));
+
+        // --- OEUF LÉGENDAIRE ---
+        permanentOffers.add(new ShopOffer(
+            "egg_legendary_1", "§6🥚 Oeuf Légendaire",
+            "1 oeuf légendaire\n§6§lLÉGENDAIRE GARANTI!",
+            EggType.LEGENDARY, 1, 0,
+            15000, CurrencyType.POINTS, 0
+        ));
+
+        // --- CONVERSION POINTS → FRAGMENTS ---
+        permanentOffers.add(new ShopOffer(
+            "fragments_100", "§d💎 100 Fragments",
+            "Petit pack de fragments\nPour débuter",
+            null, 0, 100,
+            800, CurrencyType.POINTS, 0
         ));
 
         permanentOffers.add(new ShopOffer(
-            "egg_elite_1", "§dOeuf Élite",
-            "§7Épique minimum garanti", EggType.ELITE, 1, 0,
-            5000, CurrencyType.POINTS, 0, false
+            "fragments_500", "§d💎 550 Fragments",
+            "500 + 50 bonus!\n§a+10% gratuits",
+            null, 0, 550,
+            3500, CurrencyType.POINTS, 10
         ));
 
         permanentOffers.add(new ShopOffer(
-            "egg_elite_3", "§dPack 3 Oeufs Élite",
-            "§7+1 oeuf bonus!", EggType.ELITE, 4, 0,
-            13500, CurrencyType.POINTS, 10, false
+            "fragments_2000", "§d💎 2400 Fragments",
+            "2000 + 400 bonus!\n§a+20% gratuits",
+            null, 0, 2400,
+            12000, CurrencyType.POINTS, 20
         ));
 
-        permanentOffers.add(new ShopOffer(
-            "egg_legendary_1", "§6Oeuf Légendaire",
-            "§7Légendaire garanti!", EggType.LEGENDARY, 1, 0,
-            15000, CurrencyType.POINTS, 0, false
-        ));
-
-        // Packs de fragments
-        permanentOffers.add(new ShopOffer(
-            "fragments_100", "§ePetit Sac de Fragments",
-            "§7100 fragments", null, 0, 100,
-            800, CurrencyType.POINTS, 0, false
-        ));
-
-        permanentOffers.add(new ShopOffer(
-            "fragments_500", "§6Sac de Fragments",
-            "§7500 fragments + 50 bonus", null, 0, 550,
-            3500, CurrencyType.POINTS, 12, false
-        ));
-
-        permanentOffers.add(new ShopOffer(
-            "fragments_2000", "§c§lCoffre de Fragments",
-            "§72000 fragments + 400 bonus!", null, 0, 2400,
-            12000, CurrencyType.POINTS, 20, false
-        ));
-
-        // ==================== OFFRES PREMIERE ACHAT ====================
-        // Double valeur pour le premier achat (conversion $$ -> points implicite)
+        // ==================== ACHATS EN FRAGMENTS ====================
+        // Offres first purchase - meilleur rapport qualité/prix
 
         firstPurchaseOffers.add(new FirstPurchaseOffer(
             "first_starter", "§a§lPack Débutant",
-            "§7Le meilleur départ!\n§e§lUNE SEULE FOIS!",
+            "Le meilleur départ!",
             Arrays.asList(
                 new RewardItem(EggType.STANDARD, 10),
                 new RewardItem(EggType.ZONE, 3),
-                new RewardItem(EggType.ELITE, 1),
-                new RewardItem(null, 500) // fragments
+                new RewardItem(EggType.ELITE, 1)
             ),
-            2000, CurrencyType.POINTS, 75 // 75% de réduction affichée
+            800, CurrencyType.FRAGMENTS, 75
         ));
 
         firstPurchaseOffers.add(new FirstPurchaseOffer(
             "first_elite", "§d§lPack Élite",
-            "§7Pour les collectionneurs!\n§e§lUNE SEULE FOIS!",
+            "Pour les collectionneurs!",
             Arrays.asList(
                 new RewardItem(EggType.ELITE, 5),
-                new RewardItem(EggType.LEGENDARY, 1),
-                new RewardItem(null, 1000)
+                new RewardItem(EggType.LEGENDARY, 1)
             ),
-            8000, CurrencyType.POINTS, 70
+            2500, CurrencyType.FRAGMENTS, 70
         ));
 
         firstPurchaseOffers.add(new FirstPurchaseOffer(
             "first_legendary", "§6§lPack Légendaire",
-            "§7L'ultime pack!\n§c§lEXCLUSIF!",
+            "L'ultime pack!",
             Arrays.asList(
                 new RewardItem(EggType.LEGENDARY, 3),
-                new RewardItem(EggType.ELITE, 5),
-                new RewardItem(null, 3000)
+                new RewardItem(EggType.ELITE, 5)
             ),
-            25000, CurrencyType.POINTS, 65
+            6000, CurrencyType.FRAGMENTS, 65
         ));
 
-        // ==================== OFFRES TEMPORAIRES (EXEMPLES) ====================
+        // Offres temporaires
         refreshTimedOffers();
     }
 
     /**
-     * Rafraîchit les offres temporaires
+     * Rafraîchit les offres temporaires (en FRAGMENTS)
      */
     public void refreshTimedOffers() {
         timedOffers.clear();
         Instant now = Instant.now();
 
-        // Hot Deal - Change toutes les 8 heures
+        // Hot Deal 1 - Oeuf Élite à prix réduit
         timedOffers.add(new TimedOffer(
-            "hot_deal_1", "§c§l🔥 HOT DEAL!",
-            "§7Oeuf Élite à -40%!\n§c§lTEMPS LIMITÉ",
+            "hot_deal_elite", "§c🔥 Oeuf Élite -40%",
+            "1 Oeuf Élite\n§d§lÉpique minimum!",
             EggType.ELITE, 1, 0,
-            3000, CurrencyType.POINTS, 40,
+            150, CurrencyType.FRAGMENTS, 40,
             now.plus(ROTATION_INTERVAL)
         ));
 
-        // Mega Pack rotatif
+        // Hot Deal 2 - Pack rotatif selon le temps
         Random random = new Random(now.toEpochMilli() / ROTATION_INTERVAL.toMillis());
-        EggType[] megaTypes = {EggType.ZONE, EggType.ELITE, EggType.LEGENDARY};
+        EggType[] megaTypes = {EggType.ZONE, EggType.ELITE};
         EggType megaType = megaTypes[random.nextInt(megaTypes.length)];
-        int megaCount = megaType == EggType.LEGENDARY ? 2 : (megaType == EggType.ELITE ? 4 : 8);
-        int megaPrice = megaType.getPointsCost() * megaCount / 2; // 50% off
+        int megaCount = megaType == EggType.ELITE ? 3 : 5;
+        int megaPrice = megaType == EggType.ELITE ? 350 : 300;
 
         timedOffers.add(new TimedOffer(
-            "mega_pack", "§6§l⭐ MEGA PACK!",
-            "§7" + megaCount + "x " + megaType.getColoredName() + "\n§a§l-50%!",
-            megaType, megaCount, megaCount * 50, // bonus fragments
-            megaPrice, CurrencyType.POINTS, 50,
+            "hot_deal_mega", "§6⭐ Mega Pack -50%",
+            megaCount + "x " + megaType.getColoredName() + "\n§a§l-50% de réduction!",
+            megaType, megaCount, 0,
+            megaPrice, CurrencyType.FRAGMENTS, 50,
             now.plus(ROTATION_INTERVAL)
         ));
 
-        // Bundle du jour
+        // Hot Deal 3 - Oeuf Légendaire (rare deal)
         timedOffers.add(new TimedOffer(
-            "daily_bundle", "§e§l📦 Bundle du Jour",
-            "§7Un peu de tout!",
-            null, 0, 300, // 300 fragments
-            1500, CurrencyType.POINTS, 25,
-            now.plus(Duration.ofHours(24))
+            "hot_deal_legendary", "§6🔥 Légendaire -30%",
+            "1 Oeuf Légendaire\n§6§lGARANTI LÉGENDAIRE!",
+            EggType.LEGENDARY, 1, 0,
+            700, CurrencyType.FRAGMENTS, 30,
+            now.plus(ROTATION_INTERVAL)
         ));
 
         lastRotation = now;
@@ -300,7 +311,7 @@ public class PetShopSystem {
                     .append(item.eggType().getColoredName()).append("\n");
             } else {
                 petData.addFragments(item.amount());
-                rewards.append("§a+ §e").append(item.amount()).append(" §7fragments\n");
+                rewards.append("§a+ §d").append(item.amount()).append(" §7fragments\n");
             }
         }
 
@@ -355,7 +366,7 @@ public class PetShopSystem {
 
         if (fragments > 0) {
             petData.addFragments(fragments);
-            rewards.append("§a+ §e").append(fragments).append(" §7fragments\n");
+            rewards.append("§a+ §d").append(fragments).append(" §7fragments\n");
         }
 
         return new PurchaseResult(true, rewards.toString(), null);
@@ -397,9 +408,9 @@ public class PetShopSystem {
     // ==================== CLASSES INTERNES ====================
 
     public enum CurrencyType {
-        POINTS,     // Points de jeu (zombies tués)
-        FRAGMENTS,  // Fragments de pet
-        PREMIUM     // Monnaie premium (si implémentée)
+        POINTS,     // Points de jeu (zombies tués) - pour oeufs et conversion
+        FRAGMENTS,  // Fragments de pet - pour offres spéciales
+        PREMIUM     // Monnaie premium (réservé)
     }
 
     public record ShopOffer(
@@ -411,8 +422,7 @@ public class PetShopSystem {
         int fragments,
         int price,
         CurrencyType currency,
-        int discountPercent,
-        boolean featured
+        int discountPercent
     ) {}
 
     public record TimedOffer(
