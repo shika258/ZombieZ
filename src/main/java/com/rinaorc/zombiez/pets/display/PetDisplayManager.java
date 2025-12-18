@@ -214,9 +214,7 @@ public class PetDisplayManager {
         Vector velocity = direction.normalize().multiply(speed);
 
         // Ajuster pour les entités volantes
-        if (entity.getType() == EntityType.BAT || entity.getType() == EntityType.VEX ||
-            entity.getType() == EntityType.ALLAY || entity.getType() == EntityType.BEE ||
-            entity.getType() == EntityType.PARROT) {
+        if (isFlyingEntity(entity.getType())) {
             // Les entités volantes ont besoin d'un Y pour voler
             velocity.setY(velocity.getY() + 0.05); // Légère poussée vers le haut
         } else {
@@ -225,6 +223,16 @@ public class PetDisplayManager {
         }
 
         entity.setVelocity(velocity);
+    }
+
+    /**
+     * Vérifie si un type d'entité peut voler
+     */
+    private boolean isFlyingEntity(EntityType type) {
+        return type == EntityType.BAT || type == EntityType.VEX ||
+               type == EntityType.ALLAY || type == EntityType.BEE ||
+               type == EntityType.PARROT || type == EntityType.PHANTOM ||
+               type == EntityType.BLAZE || type == EntityType.GHAST;
     }
 
     /**
@@ -317,8 +325,7 @@ public class PetDisplayManager {
 
         Entity entity;
 
-        // Utiliser un ArmorStand invisible avec un custom model comme base
-        // Pour simplifier, on utilise des entités existantes configurées
+        // Spawn l'entité selon le type configuré dans PetType
         switch (type.getEntityType()) {
             case BAT -> {
                 Bat bat = (Bat) world.spawnEntity(loc, EntityType.BAT);
@@ -343,7 +350,7 @@ public class PetDisplayManager {
                 cat.setTamed(true);
                 cat.setOwner(player);
                 cat.setSitting(false);
-                cat.setCatType(Cat.Type.ALL_BLACK);
+                cat.setCatType(getCatType(type));
                 entity = cat;
             }
             case BEE -> {
@@ -361,22 +368,138 @@ public class PetDisplayManager {
                 entity = vex;
             }
             case CHICKEN -> {
-                // Pour les phénix
                 Chicken chicken = (Chicken) world.spawnEntity(loc, EntityType.CHICKEN);
                 chicken.setBaby();
                 entity = chicken;
             }
-            default -> {
-                // Fallback: ArmorStand invisible
+            case RABBIT -> {
+                Rabbit rabbit = (Rabbit) world.spawnEntity(loc, EntityType.RABBIT);
+                rabbit.setRabbitType(Rabbit.Type.BLACK);
+                rabbit.setBaby();
+                entity = rabbit;
+            }
+            case SLIME -> {
+                Slime slime = (Slime) world.spawnEntity(loc, EntityType.SLIME);
+                slime.setSize(1); // Taille minimale
+                entity = slime;
+            }
+            case BLAZE -> {
+                Blaze blaze = (Blaze) world.spawnEntity(loc, EntityType.BLAZE);
+                entity = blaze;
+            }
+            case SPIDER -> {
+                Spider spider = (Spider) world.spawnEntity(loc, EntityType.SPIDER);
+                entity = spider;
+            }
+            case PHANTOM -> {
+                Phantom phantom = (Phantom) world.spawnEntity(loc, EntityType.PHANTOM);
+                phantom.setSize(0); // Taille minimale
+                entity = phantom;
+            }
+            case SILVERFISH -> {
+                Silverfish silverfish = (Silverfish) world.spawnEntity(loc, EntityType.SILVERFISH);
+                entity = silverfish;
+            }
+            case ENDERMITE -> {
+                Endermite endermite = (Endermite) world.spawnEntity(loc, EntityType.ENDERMITE);
+                entity = endermite;
+            }
+            case AXOLOTL -> {
+                Axolotl axolotl = (Axolotl) world.spawnEntity(loc, EntityType.AXOLOTL);
+                axolotl.setVariant(getAxolotlVariant(type));
+                entity = axolotl;
+            }
+            case SQUID -> {
+                Squid squid = (Squid) world.spawnEntity(loc, EntityType.SQUID);
+                entity = squid;
+            }
+            case ENDERMAN -> {
+                Enderman enderman = (Enderman) world.spawnEntity(loc, EntityType.ENDERMAN);
+                entity = enderman;
+            }
+            case SHULKER -> {
+                Shulker shulker = (Shulker) world.spawnEntity(loc, EntityType.SHULKER);
+                shulker.setColor(getShulkerColor(type));
+                entity = shulker;
+            }
+            case ENDER_DRAGON -> {
+                // Les EnderDragons sont trop grands et problématiques - utiliser un Phantom stylisé
+                Phantom dragonPet = (Phantom) world.spawnEntity(loc, EntityType.PHANTOM);
+                dragonPet.setSize(2); // Un peu plus grand pour ressembler à un dragon
+                entity = dragonPet;
+            }
+            case ARMOR_STAND -> {
+                // Pour les golems et autres - ArmorStand visible avec équipement
                 ArmorStand stand = (ArmorStand) world.spawnEntity(loc, EntityType.ARMOR_STAND);
-                stand.setVisible(false);
+                stand.setVisible(true);
                 stand.setSmall(true);
-                stand.setMarker(true);
+                stand.setArms(true);
+                stand.setBasePlate(false);
+                configureArmorStandAppearance(stand, type);
                 entity = stand;
+            }
+            default -> {
+                // Fallback: Allay (visible et petit)
+                Allay fallback = (Allay) world.spawnEntity(loc, EntityType.ALLAY);
+                entity = fallback;
             }
         }
 
         return entity;
+    }
+
+    /**
+     * Configure l'apparence d'un ArmorStand selon le type de pet
+     */
+    private void configureArmorStandAppearance(ArmorStand stand, PetType type) {
+        org.bukkit.inventory.ItemStack helmet = null;
+
+        switch (type) {
+            case GOLEM_POCHE -> helmet = new org.bukkit.inventory.ItemStack(Material.IRON_BLOCK);
+            case GOLEM_CRISTAL -> helmet = new org.bukkit.inventory.ItemStack(Material.AMETHYST_CLUSTER);
+            case GOLEM_LAVE -> helmet = new org.bukkit.inventory.ItemStack(Material.MAGMA_BLOCK);
+            case TITAN_MINIATURE -> helmet = new org.bukkit.inventory.ItemStack(Material.NETHERITE_BLOCK);
+            case COLOSSUS_OUBLIE -> helmet = new org.bukkit.inventory.ItemStack(Material.ANCIENT_DEBRIS);
+            default -> helmet = new org.bukkit.inventory.ItemStack(Material.STONE);
+        }
+
+        if (helmet != null) {
+            stand.getEquipment().setHelmet(helmet);
+        }
+    }
+
+    /**
+     * Obtient le type de chat selon le pet
+     */
+    private Cat.Type getCatType(PetType type) {
+        return switch (type) {
+            case FELIN_OMBRE -> Cat.Type.ALL_BLACK;
+            default -> Cat.Type.BLACK;
+        };
+    }
+
+    /**
+     * Obtient la variante d'axolotl selon le type de pet
+     */
+    private Axolotl.Variant getAxolotlVariant(PetType type) {
+        return switch (type) {
+            case SALAMANDRE_ELEMENTAIRE -> Axolotl.Variant.GOLD;
+            default -> Axolotl.Variant.WILD;
+        };
+    }
+
+    /**
+     * Obtient la couleur du shulker selon le type de pet
+     */
+    private DyeColor getShulkerColor(PetType type) {
+        return switch (type.getRarity()) {
+            case COMMON -> DyeColor.GRAY;
+            case UNCOMMON -> DyeColor.LIME;
+            case RARE -> DyeColor.CYAN;
+            case EPIC -> DyeColor.PURPLE;
+            case LEGENDARY -> DyeColor.YELLOW;
+            case MYTHIC -> DyeColor.RED;
+        };
     }
 
     /**
@@ -406,7 +529,7 @@ public class PetDisplayManager {
         entity.setInvulnerable(true);
         entity.setSilent(true);
         entity.setPersistent(false);
-        entity.setGravity(entity.getType() != EntityType.VEX && entity.getType() != EntityType.BAT && entity.getType() != EntityType.ALLAY);
+        entity.setGravity(!isFlyingEntity(entity.getType()));
 
         // Désactiver l'AI pour les mobs
         if (entity instanceof Mob mob) {
