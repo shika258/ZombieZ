@@ -14,6 +14,8 @@ import org.bukkit.util.Vector;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -332,6 +334,13 @@ public class PetDisplayManager {
             }
         }
 
+        // CRITIQUE: Retirer les passagers (hologrammes) avant la téléportation
+        // car ils peuvent bloquer entity.teleport()
+        List<Entity> passengers = new ArrayList<>(entity.getPassengers());
+        if (!passengers.isEmpty()) {
+            entity.eject(); // Retire tous les passagers
+        }
+
         // Téléportation - utiliser teleportAsync si disponible pour plus de fiabilité
         boolean success = entity.teleport(target);
 
@@ -340,6 +349,15 @@ public class PetDisplayManager {
             // Essayer de forcer la position via setVelocity puis teleport
             entity.setVelocity(new Vector(0, 0, 0));
             success = entity.teleport(target);
+        }
+
+        // Remettre les passagers après la téléportation réussie
+        if (success && !passengers.isEmpty()) {
+            for (Entity passenger : passengers) {
+                if (passenger.isValid() && !passenger.isDead()) {
+                    entity.addPassenger(passenger);
+                }
+            }
         }
 
         // CORRECTION: Jouer les effets SEULEMENT si la téléportation a réussi
@@ -956,18 +974,10 @@ public class PetDisplayManager {
         // IMPORTANT: Ne PAS utiliser setAware(false) car cela bloque la téléportation!
         // À la place, on garde setAware(true) mais on retire les goals et targets
         if (entity instanceof Mob mob) {
-            // Retirer la cible pour éviter l'aggro
+            mob.setAware(false);
             mob.setTarget(null);
-
-            // Garder setAware(true) pour permettre la téléportation
-            // Même sans goals, le mob ne fera rien mais pourra se téléporter
-            mob.setAware(true);
-
-            // Désactiver les goals (mouvement libre, attaque, etc.)
-            try {
-                mob.setAI(false); // Désactive les pathfinders mais garde la téléportation
-            } catch (Exception e) {
-                // Certaines entités ne supportent pas setAI(false), ignorer
+            if (entity instanceof Tameable) {
+                mob.setAware(true);
             }
         }
 

@@ -323,6 +323,9 @@ public class MeleeZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
 
         // Système de combo

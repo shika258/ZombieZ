@@ -58,7 +58,8 @@ public class StealthZombieAI extends ZombieAI {
 
         if (target == null) {
             // Pas de cible, rester caché
-            if (!isInvisible) goInvisible();
+            if (!isInvisible)
+                goInvisible();
             return;
         }
 
@@ -89,7 +90,8 @@ public class StealthZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(AMBUSH_RANGE);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
 
@@ -120,7 +122,8 @@ public class StealthZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(AMBUSH_RANGE);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         // Drain de vie à distance
         if (canUseAbility()) {
@@ -254,7 +257,8 @@ public class StealthZombieAI extends ZombieAI {
         // Particules de drain
         Vector direction = target.getLocation().toVector().subtract(zombie.getLocation().toVector()).normalize();
         for (int i = 0; i < 10; i++) {
-            org.bukkit.Location particleLoc = zombie.getLocation().add(0, 1, 0).add(direction.clone().multiply(i * 0.5));
+            org.bukkit.Location particleLoc = zombie.getLocation().add(0, 1, 0)
+                    .add(direction.clone().multiply(i * 0.5));
             playParticles(Particle.SOUL, particleLoc, 1, 0, 0, 0);
         }
 
@@ -286,18 +290,21 @@ public class StealthZombieAI extends ZombieAI {
                 return;
             }
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 1.5, 1.5, 1.5).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    p.damage(5 + level, zombie);
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 40, 0));
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        p.damage(5 + level, zombie);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 40, 0));
+                    });
             playParticles(Particle.SOUL, zombie.getLocation(), 5, 0.3, 0.3, 0.3);
         }, 0L, 2L);
     }
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
 
         // Bonus de dégâts si invisible
@@ -328,7 +335,7 @@ public class StealthZombieAI extends ZombieAI {
             } else {
                 // Sauter en arrière et devenir invisible
                 Vector awayDir = zombie.getLocation().toVector()
-                    .subtract(player.getLocation().toVector()).normalize();
+                        .subtract(player.getLocation().toVector()).normalize();
                 zombie.setVelocity(awayDir.multiply(1).setY(0.4));
                 goInvisible();
             }

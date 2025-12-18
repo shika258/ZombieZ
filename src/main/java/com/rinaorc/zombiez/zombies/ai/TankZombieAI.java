@@ -241,6 +241,9 @@ public class TankZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
         consecutiveHits++;
 

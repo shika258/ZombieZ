@@ -729,6 +729,9 @@ public class BossZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
         // Dégâts bonus de boss
         double bonusDamage = switch (zombieType.getCategory()) {

@@ -61,7 +61,8 @@ public class SummonerZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
 
@@ -93,7 +94,7 @@ public class SummonerZombieAI extends ZombieAI {
      */
     private void retreatFromTarget(Player target) {
         Vector away = zombie.getLocation().toVector()
-            .subtract(target.getLocation().toVector()).normalize();
+                .subtract(target.getLocation().toVector()).normalize();
         zombie.setVelocity(away.multiply(0.6).setY(0.2));
     }
 
@@ -126,7 +127,8 @@ public class SummonerZombieAI extends ZombieAI {
 
             for (int i = 0; i < minionCount && summonedMinions.size() < MAX_MINIONS; i++) {
                 Location spawnLoc = getRandomSpawnLocation();
-                if (spawnLoc == null) continue;
+                if (spawnLoc == null)
+                    continue;
 
                 // Effet de spawn
                 playParticles(Particle.SOUL, spawnLoc.add(0, 1, 0), 20, 0.3, 0.5, 0.3);
@@ -135,10 +137,9 @@ public class SummonerZombieAI extends ZombieAI {
                 var zombieManager = plugin.getZombieManager();
                 if (zombieManager != null) {
                     var minion = zombieManager.spawnZombie(
-                        random.nextFloat() < 0.7f ? ZombieType.WALKER : ZombieType.CRAWLER,
-                        spawnLoc,
-                        Math.max(1, level - 3)
-                    );
+                            random.nextFloat() < 0.7f ? ZombieType.WALKER : ZombieType.CRAWLER,
+                            spawnLoc,
+                            Math.max(1, level - 3));
 
                     if (minion != null) {
                         summonedMinions.add(minion.getEntityId());
@@ -165,10 +166,9 @@ public class SummonerZombieAI extends ZombieAI {
             double angle = random.nextDouble() * 2 * Math.PI;
             double distance = 3 + random.nextDouble() * 4;
             Location loc = zombie.getLocation().add(
-                Math.cos(angle) * distance,
-                0,
-                Math.sin(angle) * distance
-            );
+                    Math.cos(angle) * distance,
+                    0,
+                    Math.sin(angle) * distance);
 
             // Trouver le sol
             for (int y = (int) loc.getY(); y > zombie.getWorld().getMinHeight(); y--) {
@@ -189,7 +189,7 @@ public class SummonerZombieAI extends ZombieAI {
 
         // Créer un projectile visuel
         Vector direction = target.getEyeLocation().toVector()
-            .subtract(zombie.getEyeLocation().toVector()).normalize();
+                .subtract(zombie.getEyeLocation().toVector()).normalize();
 
         Location projectileLoc = zombie.getEyeLocation().clone();
 
@@ -293,6 +293,9 @@ public class SummonerZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
 
         // Le Nécromancien drain la vie au corps à corps
@@ -336,7 +339,7 @@ public class SummonerZombieAI extends ZombieAI {
      */
     private void teleportAway(Player threat) {
         Vector away = zombie.getLocation().toVector()
-            .subtract(threat.getLocation().toVector()).normalize();
+                .subtract(threat.getLocation().toVector()).normalize();
         Location teleportLoc = zombie.getLocation().add(away.multiply(10));
 
         // Trouver une position valide

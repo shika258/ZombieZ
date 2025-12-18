@@ -105,7 +105,8 @@ public abstract class ZombieAI {
      * Applique un effet de zone (vérifie la protection de respawn)
      */
     protected void applyAreaEffect(double radius, PotionEffectType effect, int duration, int amplifier) {
-        if (!zombie.isValid()) return;
+        if (!zombie.isValid())
+            return;
 
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), radius, radius, radius).stream()
                 .filter(e -> e instanceof Player)
@@ -120,6 +121,27 @@ public abstract class ZombieAI {
     protected boolean hasRespawnProtection(Player player) {
         PotionEffect resistance = player.getPotionEffect(PotionEffectType.RESISTANCE);
         return resistance != null && resistance.getAmplifier() >= 200;
+    }
+
+    /**
+     * CRITIQUE: Inflige des dégâts de manière sécurisée en vérifiant que le joueur
+     * n'est pas déjà mort.
+     * Ceci empêche les boucles infinies de dégâts récursifs (EntityDamageEvent ->
+     * onAttack -> damage -> loop).
+     * 
+     * TOUJOURS utiliser cette méthode au lieu de player.damage() dans onAttack() !
+     * 
+     * @param player Le joueur à endommager
+     * @param damage Les dégâts à infliger
+     * @return true si les dégâts ont été appliqués, false si le joueur était déjà
+     *         mort
+     */
+    protected boolean safeDamage(Player player, double damage) {
+        if (player == null || player.isDead()) {
+            return false; // Ne pas endommager un joueur mort (empêche boucle infinie)
+        }
+        player.damage(damage, zombie);
+        return true;
     }
 
     /**

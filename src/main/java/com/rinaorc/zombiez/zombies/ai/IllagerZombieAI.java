@@ -92,7 +92,8 @@ public class IllagerZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
 
@@ -122,21 +123,19 @@ public class IllagerZombieAI extends ZombieAI {
         Vector targetVel = target.getVelocity();
         double dist = eyeLoc.distance(target.getEyeLocation());
         Location predictedLoc = target.getEyeLocation().add(
-            targetVel.getX() * dist * 0.15,
-            targetVel.getY() * dist * 0.1,
-            targetVel.getZ() * dist * 0.15
-        );
+                targetVel.getX() * dist * 0.15,
+                targetVel.getY() * dist * 0.1,
+                targetVel.getZ() * dist * 0.15);
 
         Vector direction = predictedLoc.toVector()
-            .subtract(eyeLoc.toVector()).normalize();
+                .subtract(eyeLoc.toVector()).normalize();
 
         // L'arbalète est plus précise que l'arc
         double spread = Math.max(0.02, 0.08 - (level * 0.001));
         direction.add(new Vector(
-            (random.nextDouble() - 0.5) * spread,
-            (random.nextDouble() - 0.5) * spread * 0.5,
-            (random.nextDouble() - 0.5) * spread
-        ));
+                (random.nextDouble() - 0.5) * spread,
+                (random.nextDouble() - 0.5) * spread * 0.5,
+                (random.nextDouble() - 0.5) * spread));
 
         // Son de tir d'arbalète
         playSound(Sound.ITEM_CROSSBOW_SHOOT, 1f, 1f);
@@ -144,11 +143,10 @@ public class IllagerZombieAI extends ZombieAI {
 
         // Créer le carreau (flèche mais plus puissante)
         Arrow bolt = zombie.getWorld().spawnArrow(
-            eyeLoc.add(direction.clone().multiply(0.5)),
-            direction,
-            2.5f, // Plus rapide qu'un arc
-            0
-        );
+                eyeLoc.add(direction.clone().multiply(0.5)),
+                direction,
+                2.5f, // Plus rapide qu'un arc
+                0);
 
         bolt.setShooter(zombie);
         bolt.setDamage(6 + level * 0.15);
@@ -170,7 +168,7 @@ public class IllagerZombieAI extends ZombieAI {
      */
     private void retreatTactically(Player target) {
         Vector away = zombie.getLocation().toVector()
-            .subtract(target.getLocation().toVector()).normalize();
+                .subtract(target.getLocation().toVector()).normalize();
 
         // Mouvement diagonal pour être imprévisible
         Vector lateral = new Vector(-away.getZ(), 0, away.getX()).multiply(random.nextBoolean() ? 0.5 : -0.5);
@@ -183,12 +181,13 @@ public class IllagerZombieAI extends ZombieAI {
      * Strafe latéral
      */
     private void strafeSideway(Player target) {
-        if (tickCounter % 20 != 0) return;
+        if (tickCounter % 20 != 0)
+            return;
 
         Vector toTarget = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
         Vector strafe = new Vector(-toTarget.getZ(), 0, toTarget.getX())
-            .multiply(random.nextBoolean() ? 0.35 : -0.35);
+                .multiply(random.nextBoolean() ? 0.35 : -0.35);
 
         zombie.setVelocity(strafe);
     }
@@ -205,7 +204,8 @@ public class IllagerZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(20);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
         zombie.setTarget(target);
@@ -239,7 +239,7 @@ public class IllagerZombieAI extends ZombieAI {
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 2, false, false));
 
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
             if (!zombie.isValid() || !isCharging) {
@@ -253,16 +253,16 @@ public class IllagerZombieAI extends ZombieAI {
 
             // Vérifier collision avec joueurs
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 1.5, 1.5, 1.5).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .forEach(p -> {
-                    double damage = 10 + level * 1.5;
-                    p.damage(damage, zombie);
-                    p.setVelocity(direction.clone().multiply(1.5).setY(0.5));
-                    playSound(Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
-                    isCharging = false;
-                    task.cancel();
-                });
+                    .filter(e -> e instanceof Player)
+                    .map(e -> (Player) e)
+                    .forEach(p -> {
+                        double damage = 10 + level * 1.5;
+                        p.damage(damage, zombie);
+                        p.setVelocity(direction.clone().multiply(1.5).setY(0.5));
+                        playSound(Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
+                        isCharging = false;
+                        task.cancel();
+                    });
 
             // Timeout
             if (zombie.getLocation().distance(target.getLocation()) < 2) {
@@ -284,24 +284,24 @@ public class IllagerZombieAI extends ZombieAI {
         playParticles(Particle.SWEEP_ATTACK, zombie.getLocation().add(0, 1, 0), 5, 1.5, 0.5, 1.5);
 
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 3, 2, 3).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                double damage = 7 + level;
-                p.damage(damage, zombie);
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    double damage = 7 + level;
+                    p.damage(damage, zombie);
 
-                // Knockback latéral
-                Vector knockback = p.getLocation().toVector()
-                    .subtract(zombie.getLocation().toVector()).normalize()
-                    .multiply(1.0).setY(0.3);
-                p.setVelocity(knockback);
+                    // Knockback latéral
+                    Vector knockback = p.getLocation().toVector()
+                            .subtract(zombie.getLocation().toVector()).normalize()
+                            .multiply(1.0).setY(0.3);
+                    p.setVelocity(knockback);
 
-                // Chance de désarmer (ralentir l'attaque)
-                if (random.nextFloat() < 0.2f) {
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 60, 1));
-                    p.sendMessage("§c§l✦ Le Vindicator vous a désarmé temporairement!");
-                }
-            });
+                    // Chance de désarmer (ralentir l'attaque)
+                    if (random.nextFloat() < 0.2f) {
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 60, 1));
+                        p.sendMessage("§c§l✦ Le Vindicator vous a désarmé temporairement!");
+                    }
+                });
     }
 
     /**
@@ -319,8 +319,8 @@ public class IllagerZombieAI extends ZombieAI {
 
         // Avertissement aux joueurs
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 10, 15).stream()
-            .filter(e -> e instanceof Player)
-            .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le Vindicator entre en RAGE!"));
+                .filter(e -> e instanceof Player)
+                .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le Vindicator entre en RAGE!"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -339,7 +339,8 @@ public class IllagerZombieAI extends ZombieAI {
         }
 
         Player target = findNearestPlayer(25);
-        if (target == null) return;
+        if (target == null)
+            return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
 
@@ -397,8 +398,7 @@ public class IllagerZombieAI extends ZombieAI {
             for (int i = 0; i < vexCount && summonedVexes.size() < MAX_VEXES; i++) {
                 double angle = random.nextDouble() * 2 * Math.PI;
                 Location spawnLoc = zombie.getLocation().add(
-                    Math.cos(angle) * 2, 1.5, Math.sin(angle) * 2
-                );
+                        Math.cos(angle) * 2, 1.5, Math.sin(angle) * 2);
 
                 // Simuler un Vex avec un zombie invisible qui fait des dégâts
                 // Dans la vraie implémentation, on spawnerait un vrai Vex
@@ -421,7 +421,7 @@ public class IllagerZombieAI extends ZombieAI {
         playParticles(Particle.WITCH, loc, 20, 0.3, 0.3, 0.3);
 
         // Le vex "vit" pendant 10 secondes et attaque périodiquement
-        final Location[] vexLoc = {loc.clone()};
+        final Location[] vexLoc = { loc.clone() };
 
         plugin.getServer().getScheduler().runTaskTimer(plugin, task -> {
             if (!summonedVexes.contains(vexId) || !zombie.isValid()) {
@@ -433,7 +433,7 @@ public class IllagerZombieAI extends ZombieAI {
             // Le vex se déplace vers la cible
             if (target.isOnline() && target.getWorld().equals(vexLoc[0].getWorld())) {
                 Vector direction = target.getLocation().add(0, 1, 0).toVector()
-                    .subtract(vexLoc[0].toVector()).normalize();
+                        .subtract(vexLoc[0].toVector()).normalize();
                 vexLoc[0].add(direction.multiply(0.8));
 
                 // Particules du vex
@@ -464,7 +464,7 @@ public class IllagerZombieAI extends ZombieAI {
 
         // Direction vers la cible
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         // Créer une ligne de crocs
         for (int i = 1; i <= 8; i++) {
@@ -480,12 +480,12 @@ public class IllagerZombieAI extends ZombieAI {
 
                 // Dégâts aux joueurs dans la zone
                 fangLoc.getWorld().getNearbyEntities(fangLoc, 1, 2, 1).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.damage(6 + level, zombie);
-                        p.setVelocity(new Vector(0, 0.5, 0));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.damage(6 + level, zombie);
+                            p.setVelocity(new Vector(0, 0.5, 0));
+                        });
             }, step * 2L);
         }
     }
@@ -497,7 +497,7 @@ public class IllagerZombieAI extends ZombieAI {
         if (random.nextFloat() < 0.3f) {
             // Téléportation courte
             Vector away = zombie.getLocation().toVector()
-                .subtract(target.getLocation().toVector()).normalize();
+                    .subtract(target.getLocation().toVector()).normalize();
             Location tpLoc = zombie.getLocation().add(away.multiply(6));
 
             playParticles(Particle.WITCH, zombie.getLocation(), 30, 0.5, 1, 0.5);
@@ -507,7 +507,7 @@ public class IllagerZombieAI extends ZombieAI {
         } else {
             // Recul normal
             Vector away = zombie.getLocation().toVector()
-                .subtract(target.getLocation().toVector()).normalize();
+                    .subtract(target.getLocation().toVector()).normalize();
             zombie.setVelocity(away.multiply(0.6).setY(0.2));
         }
     }
@@ -525,11 +525,13 @@ public class IllagerZombieAI extends ZombieAI {
         for (int tick = 0; tick < 30; tick++) {
             final int t = tick;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!zombie.isValid()) return;
+                if (!zombie.isValid())
+                    return;
 
                 for (int angle = 0; angle < 360; angle += 30) {
                     double rad = Math.toRadians(angle + t * 12);
-                    Location particleLoc = zombie.getLocation().add(Math.cos(rad) * 2.5, 0.5 + t * 0.05, Math.sin(rad) * 2.5);
+                    Location particleLoc = zombie.getLocation().add(Math.cos(rad) * 2.5, 0.5 + t * 0.05,
+                            Math.sin(rad) * 2.5);
                     playParticles(Particle.WITCH, particleLoc, 2, 0, 0, 0);
                 }
             }, t);
@@ -556,6 +558,9 @@ public class IllagerZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
         consecutiveHits++;
 
@@ -648,12 +653,12 @@ public class IllagerZombieAI extends ZombieAI {
 
                 // Explosion magique finale
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 5, 3, 5).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        p.damage(5, zombie);
-                        p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0));
-                    });
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            p.damage(5, zombie);
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0));
+                        });
             }
         }
     }

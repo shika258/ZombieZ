@@ -55,25 +55,26 @@ public class PackZombieAI extends ZombieAI {
      * Met à jour le bonus de meute basé sur les autres loups proches
      */
     private void updatePackBonus() {
-        if (tickCounter % 20 != 0) return; // Vérifier toutes les secondes
+        if (tickCounter % 20 != 0)
+            return; // Vérifier toutes les secondes
 
         List<Entity> nearbyWolves = zombie.getWorld()
-            .getNearbyEntities(zombie.getLocation(), 12, 8, 12).stream()
-            .filter(e -> e instanceof Zombie || e instanceof Wolf)
-            .filter(e -> e.hasMetadata("zombiez_type"))
-            .filter(e -> {
-                String typeName = e.getMetadata("zombiez_type").get(0).asString();
-                return typeName.equals("RABID_WOLF");
-            })
-            .filter(e -> !e.getUniqueId().equals(zombie.getUniqueId()))
-            .collect(Collectors.toList());
+                .getNearbyEntities(zombie.getLocation(), 12, 8, 12).stream()
+                .filter(e -> e instanceof Zombie || e instanceof Wolf)
+                .filter(e -> e.hasMetadata("zombiez_type"))
+                .filter(e -> {
+                    String typeName = e.getMetadata("zombiez_type").get(0).asString();
+                    return typeName.equals("RABID_WOLF");
+                })
+                .filter(e -> !e.getUniqueId().equals(zombie.getUniqueId()))
+                .collect(Collectors.toList());
 
         packBonus = Math.min(nearbyWolves.size(), 5); // Max 5 bonus de meute
 
         // Effets visuels de meute active
         if (packBonus >= 2 && tickCounter % 40 == 0) {
             playParticles(Particle.ANGRY_VILLAGER, zombie.getLocation().add(0, 1.2, 0),
-                packBonus, 0.3, 0.2, 0.3);
+                    packBonus, 0.3, 0.2, 0.3);
         }
     }
 
@@ -170,31 +171,31 @@ public class PackZombieAI extends ZombieAI {
 
         // Effet de peur sur les joueurs proches
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 8, 15).stream()
-            .filter(e -> e instanceof Player)
-            .map(e -> (Player) e)
-            .forEach(p -> {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 40, 0, false, false));
-                p.sendMessage("§c§l🐺 Un hurlement sinistre résonne... La meute arrive!");
-            });
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .forEach(p -> {
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 40, 0, false, false));
+                    p.sendMessage("§c§l🐺 Un hurlement sinistre résonne... La meute arrive!");
+                });
 
         // Alerter les autres loups de la zone (boost temporaire)
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 30, 15, 30).stream()
-            .filter(e -> e instanceof Zombie)
-            .filter(e -> e.hasMetadata("zombiez_type"))
-            .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
-            .forEach(wolf -> {
-                if (wolf instanceof LivingEntity living) {
-                    living.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 2, false, false));
-                    living.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 100, 0, false, false));
-                    wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, wolf.getLocation().add(0, 1, 0),
-                        5, 0.3, 0.3, 0.3);
+                .filter(e -> e instanceof Zombie)
+                .filter(e -> e.hasMetadata("zombiez_type"))
+                .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
+                .forEach(wolf -> {
+                    if (wolf instanceof LivingEntity living) {
+                        living.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 2, false, false));
+                        living.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 100, 0, false, false));
+                        wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, wolf.getLocation().add(0, 1, 0),
+                                5, 0.3, 0.3, 0.3);
 
-                    // Cibler le même joueur
-                    if (wolf instanceof Zombie z) {
-                        z.setTarget(target);
+                        // Cibler le même joueur
+                        if (wolf instanceof Zombie z) {
+                            z.setTarget(target);
+                        }
                     }
-                }
-            });
+                });
 
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> isHowling = false, 30L);
     }
@@ -209,7 +210,7 @@ public class PackZombieAI extends ZombieAI {
 
         // Direction vers la cible avec arc de saut
         Vector direction = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         // Saut puissant
         zombie.setVelocity(direction.multiply(1.3).setY(0.6));
@@ -234,20 +235,20 @@ public class PackZombieAI extends ZombieAI {
 
                 // Dégâts d'impact si proche
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 2, 2, 2).stream()
-                    .filter(e -> e instanceof Player)
-                    .map(e -> (Player) e)
-                    .forEach(p -> {
-                        double damage = (6 + level + packBonus * 2);
-                        p.damage(damage, zombie);
-                        playSound(Sound.ENTITY_WOLF_GROWL, 1.5f, 0.6f);
-                        playParticles(Particle.DAMAGE_INDICATOR, p.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2);
+                        .filter(e -> e instanceof Player)
+                        .map(e -> (Player) e)
+                        .forEach(p -> {
+                            double damage = (6 + level + packBonus * 2);
+                            p.damage(damage, zombie);
+                            playSound(Sound.ENTITY_WOLF_GROWL, 1.5f, 0.6f);
+                            playParticles(Particle.DAMAGE_INDICATOR, p.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2);
 
-                        // Chance de mettre à terre
-                        if (random.nextFloat() < 0.3f) {
-                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 2));
-                            p.sendMessage("§c§l✦ Le loup vous met à terre!");
-                        }
-                    });
+                            // Chance de mettre à terre
+                            if (random.nextFloat() < 0.3f) {
+                                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 2));
+                                p.sendMessage("§c§l✦ Le loup vous met à terre!");
+                            }
+                        });
             }
         }, 5L, 3L);
 
@@ -285,11 +286,12 @@ public class PackZombieAI extends ZombieAI {
     private void flankingManeuver(Player target) {
         // Se déplacer sur le côté de la cible
         Vector toTarget = target.getLocation().toVector()
-            .subtract(zombie.getLocation().toVector()).normalize();
+                .subtract(zombie.getLocation().toVector()).normalize();
 
         // Vecteur perpendiculaire (flanc)
         Vector flankDir = new Vector(-toTarget.getZ(), 0, toTarget.getX());
-        if (random.nextBoolean()) flankDir.multiply(-1);
+        if (random.nextBoolean())
+            flankDir.multiply(-1);
 
         // Petit mouvement latéral
         zombie.setVelocity(flankDir.multiply(0.5).setY(0.1));
@@ -299,6 +301,9 @@ public class PackZombieAI extends ZombieAI {
 
     @Override
     public void onAttack(Player target) {
+        if (target.isDead())
+            return; // Protection contre boucle infinie
+
         currentTarget = target;
 
         // Morsure enragée
@@ -318,10 +323,9 @@ public class PackZombieAI extends ZombieAI {
         if (random.nextFloat() < 0.15f + packBonus * 0.03f) {
             target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1));
             target.setVelocity(target.getVelocity().add(new Vector(
-                (random.nextDouble() - 0.5) * 0.3,
-                0.2,
-                (random.nextDouble() - 0.5) * 0.3
-            )));
+                    (random.nextDouble() - 0.5) * 0.3,
+                    0.2,
+                    (random.nextDouble() - 0.5) * 0.3)));
         }
     }
 
@@ -333,17 +337,17 @@ public class PackZombieAI extends ZombieAI {
         // Les autres loups deviennent plus agressifs
         if (attacker instanceof Player player) {
             zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 8, 15).stream()
-                .filter(e -> e instanceof Zombie)
-                .filter(e -> e.hasMetadata("zombiez_type"))
-                .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
-                .filter(e -> !e.getUniqueId().equals(zombie.getUniqueId()))
-                .forEach(wolf -> {
-                    if (wolf instanceof Zombie z) {
-                        z.setTarget(player);
-                    }
-                    wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
-                        wolf.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2);
-                });
+                    .filter(e -> e instanceof Zombie)
+                    .filter(e -> e.hasMetadata("zombiez_type"))
+                    .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
+                    .filter(e -> !e.getUniqueId().equals(zombie.getUniqueId()))
+                    .forEach(wolf -> {
+                        if (wolf instanceof Zombie z) {
+                            z.setTarget(player);
+                        }
+                        wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
+                                wolf.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2);
+                    });
         }
 
         // Fuite si gravement blessé (instinct de survie)
@@ -352,7 +356,7 @@ public class PackZombieAI extends ZombieAI {
             if (random.nextFloat() < 0.5f) {
                 // Fuir
                 Vector away = zombie.getLocation().toVector()
-                    .subtract(player.getLocation().toVector()).normalize();
+                        .subtract(player.getLocation().toVector()).normalize();
                 zombie.setVelocity(away.multiply(1.0).setY(0.3));
                 zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 2, false, false));
             } else {
@@ -360,8 +364,8 @@ public class PackZombieAI extends ZombieAI {
                 enrage();
                 playSound(Sound.ENTITY_WOLF_GROWL, 2f, 0.5f);
                 zombie.getWorld().getNearbyEntities(zombie.getLocation(), 10, 5, 10).stream()
-                    .filter(e -> e instanceof Player)
-                    .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le loup entre dans une rage désespérée!"));
+                        .filter(e -> e instanceof Player)
+                        .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le loup entre dans une rage désespérée!"));
             }
         }
     }
@@ -377,18 +381,18 @@ public class PackZombieAI extends ZombieAI {
 
         // Les autres loups de la meute deviennent enragés
         zombie.getWorld().getNearbyEntities(zombie.getLocation(), 20, 10, 20).stream()
-            .filter(e -> e instanceof Zombie)
-            .filter(e -> e.hasMetadata("zombiez_type"))
-            .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
-            .forEach(wolf -> {
-                if (wolf instanceof LivingEntity living) {
-                    living.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 1, false, true));
-                    living.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 1, false, true));
-                    wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
-                        wolf.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
-                    wolf.getWorld().playSound(wolf.getLocation(), Sound.ENTITY_WOLF_HOWL, 1f, 0.8f);
-                }
-            });
+                .filter(e -> e instanceof Zombie)
+                .filter(e -> e.hasMetadata("zombiez_type"))
+                .filter(e -> e.getMetadata("zombiez_type").get(0).asString().equals("RABID_WOLF"))
+                .forEach(wolf -> {
+                    if (wolf instanceof LivingEntity living) {
+                        living.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 1, false, true));
+                        living.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 1, false, true));
+                        wolf.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
+                                wolf.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
+                        wolf.getWorld().playSound(wolf.getLocation(), Sound.ENTITY_WOLF_HOWL, 1f, 0.8f);
+                    }
+                });
 
         // Message si la meute était grande
         if (packBonus >= 3 && killer != null) {
