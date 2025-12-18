@@ -48,6 +48,18 @@ public class PlayerPetData {
     @Setter
     private long lastEquipTime = 0;
 
+    // Options du joueur
+    @Getter @Setter
+    private boolean showPetEntity = true;
+    @Getter @Setter
+    private boolean showPetParticles = true;
+    @Getter @Setter
+    private boolean showAbilityMessages = true;
+    @Getter @Setter
+    private boolean autoEquipOnJoin = true;
+    @Getter @Setter
+    private boolean playPetSounds = true;
+
     // Flag dirty
     private final transient AtomicBoolean dirty = new AtomicBoolean(false);
 

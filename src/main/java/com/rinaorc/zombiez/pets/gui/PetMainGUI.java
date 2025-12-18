@@ -269,8 +269,7 @@ public class PetMainGUI implements InventoryHolder {
                 }
                 case SLOT_OPTIONS -> {
                     player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    // TODO: Options GUI
-                    player.sendMessage("§e[Pet] §7Options à venir!");
+                    new PetOptionsGUI(gui.plugin, player).open();
                 }
             }
         }

@@ -186,8 +186,10 @@ public class PetManager {
             passive.onEquip(player, petData);
         }
 
-        // Spawn l'entité visuelle
-        displayManager.spawnPetDisplay(player, type);
+        // Spawn l'entité visuelle si l'option est activée
+        if (data.isShowPetEntity()) {
+            displayManager.spawnPetDisplay(player, type);
+        }
 
         player.sendMessage("§a[Pet] §7Vous avez équipé " + type.getColoredName() + "§7!");
         return true;
@@ -356,7 +358,12 @@ public class PetManager {
                 legendaries_obtained INT DEFAULT 0,
                 mythics_obtained INT DEFAULT 0,
                 total_fragments_earned BIGINT DEFAULT 0,
-                last_equip_time BIGINT DEFAULT 0
+                last_equip_time BIGINT DEFAULT 0,
+                show_pet_entity BOOLEAN DEFAULT TRUE,
+                show_pet_particles BOOLEAN DEFAULT TRUE,
+                show_ability_messages BOOLEAN DEFAULT TRUE,
+                auto_equip_on_join BOOLEAN DEFAULT TRUE,
+                play_pet_sounds BOOLEAN DEFAULT TRUE
             );
 
             CREATE TABLE IF NOT EXISTS pet_collection (
@@ -426,6 +433,16 @@ public class PetManager {
                     data.setMythicsObtained(rs.getInt("mythics_obtained"));
                     data.setTotalFragmentsEarned(rs.getLong("total_fragments_earned"));
                     data.setLastEquipTime(rs.getLong("last_equip_time"));
+                    // Charger les options (avec gestion des colonnes manquantes)
+                    try {
+                        data.setShowPetEntity(rs.getBoolean("show_pet_entity"));
+                        data.setShowPetParticles(rs.getBoolean("show_pet_particles"));
+                        data.setShowAbilityMessages(rs.getBoolean("show_ability_messages"));
+                        data.setAutoEquipOnJoin(rs.getBoolean("auto_equip_on_join"));
+                        data.setPlayPetSounds(rs.getBoolean("play_pet_sounds"));
+                    } catch (SQLException ignored) {
+                        // Colonnes manquantes - garder les valeurs par défaut
+                    }
                 }
             }
 
@@ -501,8 +518,9 @@ public class PetManager {
             // Sauvegarder les données principales
             String mainSql = """
                 REPLACE INTO pet_data (uuid, equipped_pet, fragments, total_eggs_opened,
-                    legendaries_obtained, mythics_obtained, total_fragments_earned, last_equip_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    legendaries_obtained, mythics_obtained, total_fragments_earned, last_equip_time,
+                    show_pet_entity, show_pet_particles, show_ability_messages, auto_equip_on_join, play_pet_sounds)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
             try (PreparedStatement stmt = conn.prepareStatement(mainSql)) {
                 stmt.setString(1, uuidStr);
@@ -513,6 +531,11 @@ public class PetManager {
                 stmt.setInt(6, data.getMythicsObtained());
                 stmt.setLong(7, data.getTotalFragmentsEarned());
                 stmt.setLong(8, data.getLastEquipTime());
+                stmt.setBoolean(9, data.isShowPetEntity());
+                stmt.setBoolean(10, data.isShowPetParticles());
+                stmt.setBoolean(11, data.isShowAbilityMessages());
+                stmt.setBoolean(12, data.isAutoEquipOnJoin());
+                stmt.setBoolean(13, data.isPlayPetSounds());
                 stmt.executeUpdate();
             }
 
@@ -633,7 +656,7 @@ public class PetManager {
      */
     public void onPlayerJoin(Player player) {
         loadPlayerData(player.getUniqueId()).thenAccept(data -> {
-            if (data.getEquippedPet() != null) {
+            if (data.getEquippedPet() != null && data.isAutoEquipOnJoin()) {
                 // Réactiver le pet
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     PetType type = data.getEquippedPet();
@@ -644,7 +667,10 @@ public class PetManager {
                         passive.onEquip(player, petData);
                     }
 
-                    displayManager.spawnPetDisplay(player, type);
+                    // Respecter l'option d'affichage de l'entité
+                    if (data.isShowPetEntity()) {
+                        displayManager.spawnPetDisplay(player, type);
+                    }
                 });
             }
         });
