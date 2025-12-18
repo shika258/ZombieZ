@@ -199,7 +199,7 @@ public class PetDisplayManager {
         // Vérifier que le pet est dans le même monde que le joueur
         if (!entity.getWorld().getUID().equals(player.getWorld().getUID())) {
             // Téléporter le pet vers le joueur
-            entity.teleport(getFollowLocation(player));
+            teleportPetWithEffect(entity, getFollowLocation(player));
             return;
         }
 
@@ -215,10 +215,24 @@ public class PetDisplayManager {
             ).add(0, 1, 0);
         }
 
-        double distance = entityLoc.distance(player.getLocation());
+        // Vérifier si le chunk du pet est chargé - si non, téléporter immédiatement
+        if (!entityLoc.isChunkLoaded()) {
+            teleportPetWithEffect(entity, targetLoc);
+            return;
+        }
 
-        // Téléportation si trop loin ou dans un mauvais état
-        if (distance > TELEPORT_DISTANCE || entity.getLocation().getY() < player.getLocation().getY() - 10) {
+        // Calculer la distance (seulement si même monde, ce qui est garanti ici)
+        double distance;
+        try {
+            distance = entityLoc.distance(player.getLocation());
+        } catch (IllegalArgumentException e) {
+            // En cas d'erreur (mondes différents malgré la vérification), téléporter
+            teleportPetWithEffect(entity, targetLoc);
+            return;
+        }
+
+        // Téléportation si trop loin ou dans un mauvais état (Y trop bas)
+        if (distance > TELEPORT_DISTANCE || entityLoc.getY() < player.getLocation().getY() - 10) {
             teleportPetWithEffect(entity, targetLoc);
             return;
         }
@@ -285,20 +299,36 @@ public class PetDisplayManager {
 
     /**
      * Téléporte le pet avec un effet visuel
+     * Gère les cas où le chunk source n'est pas chargé
      */
     private void teleportPetWithEffect(Entity entity, Location target) {
-        // Effet de départ
-        Location oldLoc = entity.getLocation();
-        if (oldLoc.getWorld() != null) {
-            oldLoc.getWorld().spawnParticle(Particle.PORTAL, oldLoc.add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
+        if (target == null || target.getWorld() == null) return;
+
+        // S'assurer que le chunk de destination est chargé
+        if (!target.isChunkLoaded()) {
+            target.getChunk().load();
         }
 
-        // Téléportation
-        entity.teleport(target);
+        // Effet de départ (seulement si le chunk source est chargé)
+        Location oldLoc = entity.getLocation();
+        if (oldLoc.getWorld() != null && oldLoc.isChunkLoaded()) {
+            oldLoc.getWorld().spawnParticle(Particle.PORTAL, oldLoc.clone().add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
+        }
+
+        // Téléportation - utiliser teleportAsync si disponible pour plus de fiabilité
+        boolean success = entity.teleport(target);
+
+        // Si la téléportation échoue, forcer le déplacement
+        if (!success) {
+            // Essayer de forcer la position via setVelocity puis teleport
+            entity.setVelocity(new Vector(0, 0, 0));
+            entity.teleport(target);
+        }
 
         // Effet d'arrivée
         if (target.getWorld() != null) {
-            target.getWorld().spawnParticle(Particle.PORTAL, target.add(0, 0.5, 0), 15, 0.3, 0.5, 0.3, 0.1);
+            Location effectLoc = target.clone().add(0, 0.5, 0);
+            target.getWorld().spawnParticle(Particle.PORTAL, effectLoc, 15, 0.3, 0.5, 0.3, 0.1);
             target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 0.3f, 1.5f);
         }
     }
