@@ -75,8 +75,8 @@ public class PlayerConnectionListener implements Listener {
     private void onPlayerDataLoaded(Player player, PlayerData data) {
         if (!player.isOnline()) return;
 
-        // Par défaut, tous les joueurs sont en spectateur
-        player.setGameMode(GameMode.SPECTATOR);
+        // Par défaut, tous les joueurs sont en mode aventure
+        player.setGameMode(GameMode.ADVENTURE);
 
         // Configurer l'affichage de la santé à 10 cœurs fixes
         // Peu importe la vie max du plugin, la barre de cœurs affiche toujours 10 cœurs
