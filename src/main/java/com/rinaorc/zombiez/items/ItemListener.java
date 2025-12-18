@@ -22,10 +22,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -284,6 +287,12 @@ public class ItemListener implements Listener {
                 MessageUtils.sendRaw(player, "§c✗ Vous devez atteindre la §eZone " + itemZone + " §cpour équiper cet objet!");
                 MessageUtils.sendRaw(player, "§7Votre progression actuelle: §fZone " + playerMaxZone);
 
+                // Forcer une mise à jour de l'inventaire pour éviter la désynchronisation
+                // et garantir que l'item reste bien dans l'inventaire
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    player.updateInventory();
+                }, 1L);
+
                 return;
             }
         }
@@ -330,6 +339,99 @@ public class ItemListener implements Listener {
                 }
             }
         }, 1L);
+    }
+
+    /**
+     * Bloque l'équipement d'armure par clic droit si la zone n'est pas débloquée
+     * C'est le cas principal où les items disparaissaient car le clic droit
+     * équipe l'armure via le comportement vanilla avant que le système puisse intervenir
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onArmorRightClick(PlayerInteractEvent event) {
+        // Ignorer les clics gauches
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        // Ignorer la main secondaire
+        if (event.getHand() == EquipmentSlot.OFF_HAND) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+
+        if (item == null || !ZombieZItem.isZombieZItem(item)) {
+            return;
+        }
+
+        // Vérifier si c'est une pièce d'armure qui peut être équipée par clic droit
+        if (!isEquippableArmor(item.getType())) {
+            return;
+        }
+
+        // Vérifier la restriction de zone
+        int itemZone = ZombieZItem.getItemZoneLevel(item);
+        int playerMaxZone = plugin.getPlayerDataManager().getPlayer(player).getMaxZoneReached();
+
+        if (itemZone > playerMaxZone) {
+            // Bloquer l'équipement par clic droit
+            event.setCancelled(true);
+
+            // Message d'erreur
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            MessageUtils.sendRaw(player, "§c✗ Vous devez atteindre la §eZone " + itemZone + " §cpour équiper cet objet!");
+            MessageUtils.sendRaw(player, "§7Votre progression actuelle: §fZone " + playerMaxZone);
+        }
+    }
+
+    /**
+     * Bloque l'échange d'items entre main principale et secondaire
+     * si l'item de la main principale ne peut pas aller en offhand à cause de la zone
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onSwapHandItems(PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+        ItemStack offhandItem = event.getOffHandItem(); // L'item qui va dans l'offhand
+
+        if (offhandItem == null || !ZombieZItem.isZombieZItem(offhandItem)) {
+            return;
+        }
+
+        // Vérifier la restriction de zone pour l'offhand
+        int itemZone = ZombieZItem.getItemZoneLevel(offhandItem);
+        int playerMaxZone = plugin.getPlayerDataManager().getPlayer(player).getMaxZoneReached();
+
+        if (itemZone > playerMaxZone) {
+            // Bloquer l'échange
+            event.setCancelled(true);
+
+            // Message d'erreur
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            MessageUtils.sendRaw(player, "§c✗ Vous devez atteindre la §eZone " + itemZone + " §cpour équiper cet objet!");
+            MessageUtils.sendRaw(player, "§7Votre progression actuelle: §fZone " + playerMaxZone);
+        }
+    }
+
+    /**
+     * Vérifie si un matériau est une pièce d'armure équipable par clic droit
+     */
+    private boolean isEquippableArmor(Material material) {
+        return switch (material) {
+            // Casques
+            case LEATHER_HELMET, CHAINMAIL_HELMET, IRON_HELMET, GOLDEN_HELMET, DIAMOND_HELMET, NETHERITE_HELMET,
+            // Plastrons
+            LEATHER_CHESTPLATE, CHAINMAIL_CHESTPLATE, IRON_CHESTPLATE, GOLDEN_CHESTPLATE, DIAMOND_CHESTPLATE, NETHERITE_CHESTPLATE,
+            // Jambières
+            LEATHER_LEGGINGS, CHAINMAIL_LEGGINGS, IRON_LEGGINGS, GOLDEN_LEGGINGS, DIAMOND_LEGGINGS, NETHERITE_LEGGINGS,
+            // Bottes
+            LEATHER_BOOTS, CHAINMAIL_BOOTS, IRON_BOOTS, GOLDEN_BOOTS, DIAMOND_BOOTS, NETHERITE_BOOTS,
+            // Têtes spéciales équipables
+            CARVED_PUMPKIN, PLAYER_HEAD, ZOMBIE_HEAD, SKELETON_SKULL, WITHER_SKELETON_SKULL, CREEPER_HEAD, DRAGON_HEAD, PIGLIN_HEAD,
+            // Elytres (équipable sur le torse)
+            ELYTRA -> true;
+            default -> false;
+        };
     }
 
     /**
