@@ -43,6 +43,14 @@ public class ConfigManager {
     @Getter private int zoneCheckInterval;
     @Getter private int autoSaveInterval;
 
+    // Paramètres de performance (cache pour accès rapide)
+    @Getter private double despawnDistance;
+    @Getter private int cleanupInterval;
+    @Getter private int cleanupBatchSize;
+    @Getter private boolean dropCleanupEnabled;
+    @Getter private int dropRemovalDelay;
+    @Getter private int maxGlobalMobs;
+
     public ConfigManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
     }
@@ -134,6 +142,14 @@ public class ConfigManager {
         serverLanguage = mainConfig.getString("server.language", "fr");
         zoneCheckInterval = mainConfig.getInt("performance.zone-check-interval", 10);
         autoSaveInterval = mainConfig.getInt("performance.auto-save-interval", 300);
+
+        // Paramètres de performance (clearlag intelligent)
+        despawnDistance = mainConfig.getDouble("performance.despawn-distance", 64.0);
+        cleanupInterval = mainConfig.getInt("performance.cleanup-interval", 30);
+        cleanupBatchSize = mainConfig.getInt("performance.cleanup-batch-size", 50);
+        dropCleanupEnabled = mainConfig.getBoolean("performance.drop-cleanup-enabled", true);
+        dropRemovalDelay = mainConfig.getInt("performance.drop-removal-delay", 10);
+        maxGlobalMobs = mainConfig.getInt("zombies.max-global", 500);
     }
 
     /**

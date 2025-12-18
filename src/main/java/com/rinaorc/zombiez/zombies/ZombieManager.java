@@ -9,11 +9,15 @@ import com.rinaorc.zombiez.zombies.types.ZombieType;
 import lombok.Getter;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.entity.Husk;
 import org.bukkit.entity.Drowned;
 import org.bukkit.entity.ZombieVillager;
@@ -71,6 +75,27 @@ public class ZombieManager {
     private long totalSpawned = 0;
     private long totalKilled = 0;
 
+    // === PERSISTENT DATA CONTAINER KEYS ===
+    // Clé PDC pour identifier les mobs ZombieZ de manière ultra-performante
+    @Getter
+    private final NamespacedKey pdcMobKey;
+    @Getter
+    private final NamespacedKey pdcTypeKey;
+    @Getter
+    private final NamespacedKey pdcLevelKey;
+    @Getter
+    private final NamespacedKey pdcZoneKey;
+    @Getter
+    private final NamespacedKey pdcSpawnTimeKey;
+
+    // === SYSTÈME DE COLLISION (DÉSACTIVATION) ===
+    private static final String COLLISION_TEAM_NAME = "zombiez_nocollide";
+    private Team noCollisionTeam;
+
+    // === LIMITE GLOBALE DE SPAWN ===
+    @Getter
+    private int maxGlobalZombies = 500; // Valeur par défaut, modifiable via config
+
     // === SYSTÈME DE LOOT AMÉLIORÉ ===
     // Pity system: kills sans drop par joueur (reset quand drop)
     private final Map<UUID, Integer> killsWithoutDrop = new ConcurrentHashMap<>();
@@ -92,7 +117,76 @@ public class ZombieManager {
         this.maxZombiesPerZone = new ConcurrentHashMap<>();
         this.lastSpawnByZone = new ConcurrentHashMap<>();
 
+        // Initialisation des clés PDC pour marquage ultra-performant
+        this.pdcMobKey = new NamespacedKey(plugin, "zombiez_mob");
+        this.pdcTypeKey = new NamespacedKey(plugin, "zombiez_type");
+        this.pdcLevelKey = new NamespacedKey(plugin, "zombiez_level");
+        this.pdcZoneKey = new NamespacedKey(plugin, "zombiez_zone");
+        this.pdcSpawnTimeKey = new NamespacedKey(plugin, "zombiez_spawn_time");
+
+        // Chargement de la limite globale depuis la config
+        loadConfigValues();
+
+        // Initialisation du système de collision désactivée
+        initializeCollisionTeam();
+
         initializeZoneLimits();
+    }
+
+    /**
+     * Charge les valeurs de configuration pour les performances
+     */
+    public void loadConfigValues() {
+        var config = plugin.getConfigManager().getMainConfig();
+        if (config != null) {
+            this.maxGlobalZombies = config.getInt("zombies.max-global", 500);
+        }
+    }
+
+    /**
+     * Initialise la team pour désactiver les collisions entre zombies
+     * Réduit drastiquement les calculs physiques quand les zombies sont nombreux
+     */
+    private void initializeCollisionTeam() {
+        Scoreboard scoreboard = plugin.getServer().getScoreboardManager().getMainScoreboard();
+
+        // Supprimer l'ancienne team si elle existe
+        Team existingTeam = scoreboard.getTeam(COLLISION_TEAM_NAME);
+        if (existingTeam != null) {
+            existingTeam.unregister();
+        }
+
+        // Créer la nouvelle team avec collisions désactivées
+        noCollisionTeam = scoreboard.registerNewTeam(COLLISION_TEAM_NAME);
+        noCollisionTeam.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
+        noCollisionTeam.setCanSeeFriendlyInvisibles(false);
+
+        plugin.getLogger().info("§7[Performance] Team de collision désactivée initialisée: " + COLLISION_TEAM_NAME);
+    }
+
+    /**
+     * Ajoute une entité à la team sans collision
+     */
+    private void addToNoCollisionTeam(Entity entity) {
+        if (noCollisionTeam != null && entity instanceof LivingEntity) {
+            try {
+                noCollisionTeam.addEntry(entity.getUniqueId().toString());
+            } catch (Exception e) {
+                // Silencieux - la team peut avoir des limites
+            }
+        }
+    }
+
+    /**
+     * Retire une entité de la team sans collision
+     */
+    private void removeFromNoCollisionTeam(Entity entity) {
+        if (noCollisionTeam != null) {
+            try {
+                noCollisionTeam.removeEntry(entity.getUniqueId().toString());
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     /**
@@ -142,7 +236,14 @@ public class ZombieManager {
     public ActiveZombie spawnZombie(ZombieType type, Location location, int level) {
         int zoneId = plugin.getZoneManager().getZoneAt(location).getId();
 
-        // Vérifier la limite
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 1: Limite globale (Global Cap)
+        // ═══════════════════════════════════════════════════════════════════
+        if (activeZombies.size() >= maxGlobalZombies) {
+            return null;
+        }
+
+        // Vérifier la limite de zone
         int currentCount = zombieCountByZone.getOrDefault(zoneId, 0);
         int maxCount = maxZombiesPerZone.getOrDefault(zoneId, 50);
 
@@ -163,6 +264,8 @@ public class ZombieManager {
             return null;
         }
 
+        long spawnTime = System.currentTimeMillis();
+
         // Créer l'ActiveZombie
         ActiveZombie zombie = new ActiveZombie(entity.getUniqueId(), type, level, zoneId);
 
@@ -171,7 +274,17 @@ public class ZombieManager {
             applyRandomAffix(zombie, entity, zoneId);
         }
 
-        // Stocker les métadonnées
+        // ═══════════════════════════════════════════════════════════════════
+        // MARQUAGE PDC (PersistentDataContainer) - Ultra-performant
+        // ═══════════════════════════════════════════════════════════════════
+        var pdc = entity.getPersistentDataContainer();
+        pdc.set(pdcMobKey, PersistentDataType.BYTE, (byte) 1);           // Marqueur principal
+        pdc.set(pdcTypeKey, PersistentDataType.STRING, type.name());     // Type de zombie
+        pdc.set(pdcLevelKey, PersistentDataType.INTEGER, level);         // Niveau
+        pdc.set(pdcZoneKey, PersistentDataType.INTEGER, zoneId);         // Zone de spawn
+        pdc.set(pdcSpawnTimeKey, PersistentDataType.LONG, spawnTime);    // Temps de spawn
+
+        // Stocker les métadonnées (conservé pour compatibilité)
         entity.setMetadata("zombiez_type", new FixedMetadataValue(plugin, type.name()));
         entity.setMetadata("zombiez_level", new FixedMetadataValue(plugin, level));
         entity.setMetadata("zombiez_zone", new FixedMetadataValue(plugin, zoneId));
@@ -179,6 +292,11 @@ public class ZombieManager {
         if (zombie.hasAffix()) {
             entity.setMetadata("zombiez_affix", new FixedMetadataValue(plugin, zombie.getAffix().getId()));
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DÉSACTIVATION DES COLLISIONS - Performance
+        // ═══════════════════════════════════════════════════════════════════
+        addToNoCollisionTeam(entity);
 
         // Créer l'IA pour ce zombie (seulement si c'est un Zombie)
         if (entity instanceof Zombie zombieEntity) {
@@ -721,6 +839,12 @@ public class ZombieManager {
         ActiveZombie zombie = activeZombies.remove(entityId);
         if (zombie == null) return;
 
+        // Nettoyer de la team de collision
+        Entity entity = plugin.getServer().getEntity(entityId);
+        if (entity != null) {
+            removeFromNoCollisionTeam(entity);
+        }
+
         // Notifier l'AIManager
         aiManager.onZombieDeath(entityId, killer);
 
@@ -912,9 +1036,31 @@ public class ZombieManager {
 
     /**
      * Vérifie si une entité est un zombie ZombieZ
+     * Utilise le PDC en priorité (ultra-performant), puis fallback sur metadata
      */
     public boolean isZombieZMob(Entity entity) {
+        if (!(entity instanceof LivingEntity living)) {
+            return false;
+        }
+
+        // Vérification PDC (prioritaire - O(1) ultra-rapide)
+        if (living.getPersistentDataContainer().has(pdcMobKey, PersistentDataType.BYTE)) {
+            return true;
+        }
+
+        // Fallback sur metadata (compatibilité avec anciens mobs)
         return entity.hasMetadata("zombiez_type");
+    }
+
+    /**
+     * Vérifie si une entité est un zombie ZombieZ via PDC uniquement
+     * Plus rapide que isZombieZMob() car pas de fallback
+     */
+    public boolean isZombieZMobPDC(Entity entity) {
+        if (!(entity instanceof LivingEntity living)) {
+            return false;
+        }
+        return living.getPersistentDataContainer().has(pdcMobKey, PersistentDataType.BYTE);
     }
 
     /**
