@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -263,6 +264,7 @@ public class OccultisteTalentListener implements Listener {
     /**
      * Applique les degats du joueur proprietaire aux attaques des minions
      * Les minions font maintenant des degats bases sur les stats du joueur
+     * Affiche aussi les indicateurs de degats comme pour les attaques de joueur
      */
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onMinionDealDamage(EntityDamageByEntityEvent event) {
@@ -292,17 +294,56 @@ public class OccultisteTalentListener implements Listener {
         Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
         if (owner == null || !owner.isOnline()) return;
 
-        // Calculer les degats bases sur les stats du joueur
-        double playerDamage = calculateMinionDamage(owner);
+        // Calculer les degats bases sur les stats du joueur (retourne damage et isCritical)
+        MinionDamageResult damageResult = calculateMinionDamage(owner);
 
         // Appliquer les degats
-        event.setDamage(playerDamage);
+        event.setDamage(damageResult.damage);
+
+        // Configurer les metadata pour l'affichage de l'indicateur de degats (gere par CombatListener MONITOR)
+        if (target instanceof LivingEntity livingTarget) {
+            livingTarget.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            livingTarget.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, damageResult.isCritical));
+            livingTarget.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+            // Mettre a jour l'affichage de vie si c'est un mob ZombieZ
+            if (plugin.getZombieManager().isZombieZMob(livingTarget)) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (livingTarget.isValid()) {
+                        plugin.getZombieManager().updateZombieHealthDisplay(livingTarget);
+                    }
+                });
+
+                // Enregistrer le proprietaire pour le loot
+                livingTarget.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+            }
+
+            // Effet visuel critique pour les minions
+            if (damageResult.isCritical) {
+                owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+                livingTarget.getWorld().spawnParticle(Particle.CRIT, livingTarget.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+            }
+        }
+    }
+
+    /**
+     * Resultat du calcul de degats d'un minion
+     */
+    private static class MinionDamageResult {
+        final double damage;
+        final boolean isCritical;
+
+        MinionDamageResult(double damage, boolean isCritical) {
+            this.damage = damage;
+            this.isCritical = isCritical;
+        }
     }
 
     /**
      * Calcule les degats qu'un minion devrait faire base sur les stats du joueur
+     * Retourne les degats et si c'etait un coup critique
      */
-    private double calculateMinionDamage(Player player) {
+    private MinionDamageResult calculateMinionDamage(Player player) {
         // Degats de base du joueur (attribut Minecraft)
         double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
 
@@ -317,8 +358,10 @@ public class OccultisteTalentListener implements Listener {
         baseDamage += plugin.getItemManager().getPlayerStat(player, StatType.POISON_DAMAGE);
 
         // Critique (les minions peuvent critiquer!)
+        boolean isCritical = false;
         double critChance = plugin.getItemManager().getPlayerStat(player, StatType.CRIT_CHANCE) / 100.0;
         if (Math.random() < critChance) {
+            isCritical = true;
             double critDamage = 1.5 + plugin.getItemManager().getPlayerStat(player, StatType.CRIT_DAMAGE) / 100.0;
             baseDamage *= critDamage;
         }
@@ -326,7 +369,7 @@ public class OccultisteTalentListener implements Listener {
         // Multiplicateur de degats des minions (pour equilibrage, 80% des degats du joueur)
         baseDamage *= 0.8;
 
-        return Math.max(1.0, baseDamage);
+        return new MinionDamageResult(Math.max(1.0, baseDamage), isCritical);
     }
 
     /**
@@ -1654,6 +1697,9 @@ public class OccultisteTalentListener implements Listener {
             minion.getScoreboardTags().add("owner_" + player.getUniqueId());
             minion.setPersistent(false);
 
+            // Metadata pour identification facile des serviteurs de l'Occultiste
+            minion.setMetadata("Minion_Occultiste", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
             // Set stats based on victim and talent
             double statPercent = talent.getValue(1);
             // Check Immortal Army buff
@@ -1825,6 +1871,9 @@ public class OccultisteTalentListener implements Listener {
         minion.getScoreboardTags().add("player_minion");
         minion.getScoreboardTags().add("owner_" + player.getUniqueId());
         minion.setPersistent(false);
+
+        // Metadata pour identification facile des serviteurs de l'Occultiste
+        minion.setMetadata("Minion_Occultiste", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // Check Immortal Army buff for stats
         double statPercent = talent.getValue(0);
