@@ -188,13 +188,23 @@ public class ZombieListener implements Listener {
     @EventHandler
     public void onZombieTarget(EntityTargetLivingEntityEvent event) {
         Entity entity = event.getEntity();
-        
+
         if (!zombieManager.isZombieZMob(entity)) {
             return;
         }
-        
+
+        if (event.getTarget() == null) {
+            return;
+        }
+
+        // Empêcher de cibler les pets des joueurs
+        if (event.getTarget().getScoreboardTags().contains("zombiez_pet")) {
+            event.setCancelled(true);
+            return;
+        }
+
         // Vérifier si la cible est un zombie allié (pour les nécromanciens)
-        if (event.getTarget() != null && event.getTarget().getScoreboardTags().stream()
+        if (event.getTarget().getScoreboardTags().stream()
                 .anyMatch(tag -> tag.startsWith("zombiez_ally_"))) {
             event.setCancelled(true);
         }
