@@ -733,18 +733,25 @@ public class ZombieZPlugin extends JavaPlugin {
     /**
      * Nettoie tous les mobs zombies/hostiles au démarrage du serveur
      * Évite les bugs avec des anciens zombies générés avant le reboot
-     * AMÉLIORATION: Nettoie TOUS les mobs hostiles, pas seulement ceux tagués
+     * AMÉLIORATION: Nettoie TOUS les mobs hostiles + vérifie PDC pour les mobs marqués
+     *
+     * NOTE: Cette méthode nettoie uniquement les chunks déjà chargés.
+     * Les chunks chargés ultérieurement sont gérés par ChunkUnloadListener.onChunkLoad()
      */
     private void clearAllZombieMobs() {
         int clearedHostile = 0;
         int clearedPassive = 0;
+        int clearedPDC = 0;
+
+        // Clé PDC pour identifier les mobs ZombieZ
+        org.bukkit.NamespacedKey pdcMobKey = new org.bukkit.NamespacedKey(this, "zombiez_mob");
 
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntities()) {
                 EntityType type = entity.getType();
 
                 // ═══════════════════════════════════════════════════════════════════
-                // NETTOYAGE COMPLET: Tous les mobs hostiles potentiellement du plugin
+                // NETTOYAGE 1: Tous les mobs hostiles potentiellement du plugin
                 // ═══════════════════════════════════════════════════════════════════
                 if (isHostileMobType(type)) {
                     entity.remove();
@@ -752,18 +759,34 @@ public class ZombieZPlugin extends JavaPlugin {
                     continue;
                 }
 
-                // Nettoyer les mobs passifs gérés par le plugin (avec tag)
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 2: Mobs avec marqueur PDC (mobs ZombieZ persistés)
+                // ═══════════════════════════════════════════════════════════════════
+                if (entity instanceof LivingEntity living) {
+                    if (living.getPersistentDataContainer().has(pdcMobKey,
+                            org.bukkit.persistence.PersistentDataType.BYTE)) {
+                        entity.remove();
+                        clearedPDC++;
+                        continue;
+                    }
+                }
+
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 3: Mobs passifs gérés par le plugin (avec tag/metadata)
+                // ═══════════════════════════════════════════════════════════════════
                 if (entity.getScoreboardTags().contains("zombiez_passive") ||
-                        entity.getScoreboardTags().contains("zombiez_mob")) {
+                        entity.getScoreboardTags().contains("zombiez_mob") ||
+                        entity.hasMetadata("zombiez_type")) {
                     entity.remove();
                     clearedPassive++;
                 }
             }
         }
 
-        if (clearedHostile > 0 || clearedPassive > 0) {
-            log(Level.INFO, "§7Nettoyage: §c" + clearedHostile + " mobs hostiles §7et §a" + clearedPassive
-                    + " mobs passifs §7supprimés.");
+        int totalCleared = clearedHostile + clearedPassive + clearedPDC;
+        if (totalCleared > 0) {
+            log(Level.INFO, "§7Nettoyage initial: §c" + clearedHostile + " hostiles§7, §e" + clearedPDC
+                    + " PDC§7, §a" + clearedPassive + " passifs §7supprimés (total: " + totalCleared + ")");
         }
     }
 
