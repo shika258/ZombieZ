@@ -6,13 +6,19 @@ import com.rinaorc.zombiez.events.micro.MicroEventType;
 import com.rinaorc.zombiez.zombies.ZombieManager;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import com.rinaorc.zombiez.zones.Zone;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.entity.Zombie;
+import org.joml.Vector3f;
 
 import java.util.HashSet;
 import java.util.List;
@@ -38,6 +44,10 @@ public class TemporalRiftEvent extends MicroEvent {
     private int spawnInterval = 30; // 1.5 secondes entre spawns (accelere)
     private boolean riftClosed = false;
 
+    // TextDisplay flottant au-dessus du portail
+    private TextDisplay riftDisplay;
+    private static final float TEXT_SCALE = 1.4f;
+
     // Configuration
     private static final int MIN_ZOMBIES = 15;
     private static final int MAX_ZOMBIES = 25;
@@ -56,6 +66,23 @@ public class TemporalRiftEvent extends MicroEvent {
         // Effet d'ouverture du portail
         spawnRiftOpenEffect();
 
+        // Creer le TextDisplay flottant au-dessus du portail
+        Location displayLoc = location.clone().add(0, 3, 0);
+        riftDisplay = displayLoc.getWorld().spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setBackgroundColor(org.bukkit.Color.fromARGB(180, 80, 0, 120));
+            display.setTransformation(new org.bukkit.util.Transformation(
+                new Vector3f(0, 0, 0),
+                new org.joml.Quaternionf(),
+                new Vector3f(TEXT_SCALE, TEXT_SCALE, TEXT_SCALE),
+                new org.joml.Quaternionf()
+            ));
+            display.text(createRiftDisplay());
+        });
+        registerEntity(riftDisplay);
+
         // Spawn les premiers zombies immediatement
         spawnZombie();
         spawnZombie();
@@ -71,6 +98,11 @@ public class TemporalRiftEvent extends MicroEvent {
         // Son ambiant du portail
         if (elapsedTicks % 40 == 0) {
             location.getWorld().playSound(location, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.2f);
+        }
+
+        // Mettre a jour le TextDisplay
+        if (riftDisplay != null && riftDisplay.isValid()) {
+            riftDisplay.text(createRiftDisplay());
         }
 
         // Spawn des zombies
@@ -254,8 +286,40 @@ public class TemporalRiftEvent extends MicroEvent {
         return sb.toString();
     }
 
+    /**
+     * Cree le Component pour l'affichage du portail
+     */
+    private Component createRiftDisplay() {
+        int remaining = zombiesToSpawn - zombiesKilled;
+        double progressPercent = (double) zombiesKilled / zombiesToSpawn;
+
+        // Couleur basee sur la progression
+        NamedTextColor progressColor = progressPercent > 0.66 ? NamedTextColor.GREEN :
+            (progressPercent > 0.33 ? NamedTextColor.YELLOW : NamedTextColor.RED);
+
+        // Barre de vie visuelle
+        int barLength = 10;
+        int filled = (int) (progressPercent * barLength);
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < barLength; i++) {
+            bar.append(i < filled ? "█" : "░");
+        }
+
+        return Component.text("⚡ FAILLE TEMPORELLE ⚡", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
+            .appendNewline()
+            .append(Component.text(bar.toString(), progressColor))
+            .append(Component.text(" " + remaining + " restants", NamedTextColor.RED))
+            .appendNewline()
+            .append(Component.text("⏱ " + getRemainingTimeSeconds() + "s", NamedTextColor.YELLOW));
+    }
+
     @Override
     protected void onCleanup() {
+        // Nettoyer le TextDisplay
+        if (riftDisplay != null && riftDisplay.isValid()) {
+            riftDisplay.remove();
+        }
+
         // Effet de fermeture du portail
         if (riftClosed) {
             Location center = location.clone().add(0, 1, 0);
