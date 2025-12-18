@@ -95,7 +95,7 @@ public class PetShopGUI implements InventoryHolder {
         long points = 0;
         var playerData = plugin.getPlayerDataManager().getPlayer(player);
         if (playerData != null) {
-            points = playerData.getPoints();
+            points = playerData.getPoints().get();
         }
         inventory.setItem(8, new ItemBuilder(Material.SUNFLOWER)
             .name("§6§lVotre Solde")
