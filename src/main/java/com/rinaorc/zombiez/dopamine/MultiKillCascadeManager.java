@@ -1,10 +1,6 @@
 package com.rinaorc.zombiez.dopamine;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.utils.MessageUtils;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -105,62 +101,52 @@ public class MultiKillCascadeManager implements Listener {
             spawnChainEffect(data.getLastTwoPositions());
         }
 
-        // ActionBar feedback pour montrer le compteur de chaîne
-        if (data.currentChainCount >= 2) {
-            showChainActionBar(player, data.currentChainCount);
+        // Feedback subtitle pour les chaînes (SEULEMENT si pas de tier atteint)
+        // Note: ActionBar est écrasé par ActionBarTask, donc on utilise subtitle
+        if (tier == null && data.currentChainCount >= 2) {
+            showChainSubtitle(player, data.currentChainCount);
         }
 
         return bonusMultiplier;
     }
 
     /**
-     * Affiche l'ActionBar avec le compteur de chaîne actuel
+     * Affiche un subtitle rapide avec le compteur de chaîne
+     * Utilisé entre les tiers pour montrer la progression
      */
-    private void showChainActionBar(Player player, int chainCount) {
-        // Construire la barre de progression visuelle
-        NamedTextColor color = getActionBarColor(chainCount);
-        String tierText = getChainTierText(chainCount);
-
+    private void showChainSubtitle(Player player, int chainCount) {
         // Créer des symboles de chaîne visuels
-        StringBuilder chainSymbols = new StringBuilder();
+        String color = getChainColor(chainCount);
+        StringBuilder symbols = new StringBuilder();
         int maxSymbols = Math.min(chainCount, 10);
         for (int i = 0; i < maxSymbols; i++) {
-            chainSymbols.append("⚔");
+            symbols.append("⚔");
         }
         if (chainCount > 10) {
-            chainSymbols.append("+");
+            symbols.append("+");
         }
 
-        Component actionBar = Component.text("⚡ ", NamedTextColor.YELLOW)
-            .append(Component.text("CHAÎNE x" + chainCount, color, TextDecoration.BOLD))
-            .append(Component.text(" " + chainSymbols + " ", NamedTextColor.WHITE))
-            .append(Component.text(tierText, color));
+        // Subtitle court et discret (ne remplace pas le title principal)
+        String subtitle = color + "Chaîne x" + chainCount + " §7" + symbols;
 
-        player.sendActionBar(actionBar);
+        // Subtitle court (5 ticks fade in, 15 ticks stay, 5 ticks fade out)
+        player.sendTitle("", subtitle, 3, 12, 3);
+
+        // Son subtil de progression
+        float pitch = 1.0f + (chainCount * 0.05f);
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.3f, Math.min(2.0f, pitch));
     }
 
     /**
-     * Obtient la couleur de l'ActionBar selon le nombre de kills
+     * Obtient la couleur du texte selon le nombre de kills
      */
-    private NamedTextColor getActionBarColor(int chainCount) {
-        if (chainCount >= 10) return NamedTextColor.DARK_RED;
-        if (chainCount >= 7) return NamedTextColor.DARK_PURPLE;
-        if (chainCount >= 5) return NamedTextColor.RED;
-        if (chainCount >= 4) return NamedTextColor.GOLD;
-        if (chainCount >= 3) return NamedTextColor.YELLOW;
-        return NamedTextColor.GREEN;
-    }
-
-    /**
-     * Obtient le texte du tier pour l'ActionBar
-     */
-    private String getChainTierText(int chainCount) {
-        for (int i = TIERS.length - 1; i >= 0; i--) {
-            if (chainCount >= TIERS[i].killCount) {
-                return TIERS[i].name;
-            }
-        }
-        return chainCount >= 2 ? "→ Triple: " + (3 - chainCount) : "";
+    private String getChainColor(int chainCount) {
+        if (chainCount >= 10) return "§4§l";
+        if (chainCount >= 7) return "§5§l";
+        if (chainCount >= 5) return "§c§l";
+        if (chainCount >= 4) return "§6";
+        if (chainCount >= 3) return "§e";
+        return "§a";
     }
 
     /**

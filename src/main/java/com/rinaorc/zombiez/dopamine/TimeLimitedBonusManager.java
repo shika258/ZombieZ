@@ -34,6 +34,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Récompenses multiplicatives (XP, points)
  * - Différents types de défis (kills, combo, streak)
  *
+ * INTÉGRATION BOSSBAR:
+ * Ce manager utilise Adventure BossBar (net.kyori.adventure.bossbar.BossBar)
+ * qui coexiste avec le DynamicBossBarManager (org.bukkit.boss.BossBar).
+ * Les deux systèmes sont indépendants - le joueur verra les deux barres
+ * simultanément quand un défi est actif pendant un event/boss/fever.
+ * Ce comportement est intentionnel pour maximiser l'urgence visuelle.
+ *
  * @author ZombieZ Dopamine System
  */
 public class TimeLimitedBonusManager implements Listener {
