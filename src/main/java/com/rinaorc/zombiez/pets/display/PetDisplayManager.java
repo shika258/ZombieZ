@@ -7,8 +7,12 @@ import com.rinaorc.zombiez.pets.PetType;
 import com.rinaorc.zombiez.pets.PlayerPetData;
 import org.bukkit.*;
 import org.bukkit.entity.*;
+import org.bukkit.entity.Display.Billboard;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +36,14 @@ public class PetDisplayManager {
     // Map des mondes des joueurs pour détecter les changements
     private final Map<UUID, UUID> playerWorlds = new ConcurrentHashMap<>();
 
+    // Maps des TextDisplay hologrammes: Player UUID -> TextDisplay Entity UUID
+    private final Map<UUID, UUID> hologramLine1 = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> hologramLine2 = new ConcurrentHashMap<>();
+
+    // Cache du dernier texte affiché pour optimisation (éviter updates inutiles)
+    private final Map<UUID, String> lastLine1Text = new ConcurrentHashMap<>();
+    private final Map<UUID, String> lastLine2Text = new ConcurrentHashMap<>();
+
     // Task de mise à jour des positions
     private BukkitTask updateTask;
 
@@ -44,6 +56,10 @@ public class PetDisplayManager {
     private static final double IDEAL_DISTANCE = 2.5;
     private static final double MAX_SPEED = 0.4;
     private static final double ACCELERATION = 0.15;
+
+    // Constantes pour les hologrammes TextDisplay
+    private static final double HOLOGRAM_Y_OFFSET = 1.85;
+    private static final double HOLOGRAM_LINE_SPACING = 0.25;
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
@@ -64,8 +80,8 @@ public class PetDisplayManager {
         if (!player.isOnline() || player.getWorld() == null) return;
 
         // Vérifier l'option d'affichage du pet
-        PlayerPetData data = petManager.getPlayerData(player.getUniqueId());
-        if (data != null && !data.isShowPetEntity()) return;
+        PlayerPetData playerData = petManager.getPlayerData(player.getUniqueId());
+        if (playerData != null && !playerData.isShowPetEntity()) return;
 
         // Retirer l'ancien pet s'il existe
         removePetDisplay(player);
@@ -80,9 +96,16 @@ public class PetDisplayManager {
         configurePetEntity(petEntity, type, player);
 
         // Enregistrer l'entité et le monde actuel
-        activePetEntities.put(player.getUniqueId(), petEntity.getUniqueId());
-        playerWorlds.put(player.getUniqueId(), player.getWorld().getUID());
-        targetLocations.put(player.getUniqueId(), spawnLoc.clone());
+        UUID playerUuid = player.getUniqueId();
+        activePetEntities.put(playerUuid, petEntity.getUniqueId());
+        playerWorlds.put(playerUuid, player.getWorld().getUID());
+        targetLocations.put(playerUuid, spawnLoc.clone());
+
+        // Créer les hologrammes TextDisplay
+        PetData petData = playerData != null ? playerData.getPet(type) : null;
+        if (petData != null) {
+            createHologramDisplays(playerUuid, petEntity.getLocation(), type, petData);
+        }
     }
 
     /**
@@ -99,6 +122,9 @@ public class PetDisplayManager {
         UUID entityUuid = activePetEntities.remove(playerUuid);
         playerWorlds.remove(playerUuid);
         targetLocations.remove(playerUuid);
+
+        // Supprimer les hologrammes TextDisplay
+        removeHologramDisplays(playerUuid);
 
         if (entityUuid != null) {
             Entity entity = Bukkit.getEntity(entityUuid);
@@ -204,6 +230,9 @@ public class PetDisplayManager {
 
         // Mettre à jour la position cible
         targetLocations.put(playerUuid, targetLoc);
+
+        // Mettre à jour la position des hologrammes (toutes les 2 ticks pour fluidité)
+        updateHologramPositions(playerUuid, entity.getLocation());
     }
 
     /**
@@ -299,6 +328,10 @@ public class PetDisplayManager {
      * Nettoie les données d'un joueur déconnecté
      */
     private void cleanupDisconnectedPlayer(UUID playerUuid, UUID entityUuid) {
+        // Supprimer les hologrammes TextDisplay
+        removeHologramDisplays(playerUuid);
+
+        // Supprimer l'entité du pet
         Entity entity = Bukkit.getEntity(entityUuid);
         if (entity != null && entity.isValid()) {
             entity.remove();
@@ -310,6 +343,7 @@ public class PetDisplayManager {
 
     /**
      * Met à jour les noms de tous les pets (pour le timer ultime)
+     * Utilise les TextDisplay hologrammes au lieu de setCustomName()
      */
     private void updateAllPetNames() {
         for (Map.Entry<UUID, UUID> entry : activePetEntities.entrySet()) {
@@ -322,6 +356,9 @@ public class PetDisplayManager {
             Entity entity = Bukkit.getEntity(entityUuid);
             if (entity == null || !entity.isValid()) continue;
 
+            // Optimisation: skip si le chunk n'est pas chargé
+            if (!entity.getLocation().isChunkLoaded()) continue;
+
             PlayerPetData playerData = petManager.getPlayerData(playerUuid);
             if (playerData == null || playerData.getEquippedPet() == null) continue;
 
@@ -329,39 +366,231 @@ public class PetDisplayManager {
             PetData petData = playerData.getPet(type);
             if (petData == null) continue;
 
-            // Construire le nouveau nom avec le timer
-            String displayName = buildPetDisplayName(type, petData, playerUuid);
-            entity.setCustomName(displayName);
+            // Mettre à jour les hologrammes TextDisplay (optimisé - seulement si changement)
+            updateHologramText(playerUuid, type, petData);
         }
     }
 
     /**
-     * Construit le nom d'affichage du pet avec le timer d'ultime
+     * Construit la ligne 1 de l'hologramme : Nom du pet / niveau (+ étoiles)
+     * Exemple : §bPanthère §7[Lv.12] §e★★
      */
-    private String buildPetDisplayName(PetType type, PetData petData, UUID playerUuid) {
-        StringBuilder name = new StringBuilder();
-
-        // Nom du pet avec niveau
-        name.append(type.getColoredName());
-        name.append(" §7[Lv.").append(petData.getLevel()).append("]");
-
-        // Étoiles de pouvoir
+    private String buildPetLine1(PetType type, PetData petData) {
+        StringBuilder line = new StringBuilder();
+        line.append(type.getColoredName());
+        line.append(" §7[Lv.").append(petData.getLevel()).append("]");
         if (petData.getStarPower() > 0) {
-            name.append(" §e").append("★".repeat(petData.getStarPower()));
+            line.append(" §e").append("★".repeat(petData.getStarPower()));
+        }
+        return line.toString();
+    }
+
+    /**
+     * Construit la ligne 2 de l'hologramme : Timer d'ultime
+     * Si cooldown > 0 : §d⚡ Ultime: §f{remaining}s
+     * Si prêt : §a⚡ Ultime: §lPRÊTE!
+     * Si pas d'ultime : null (pas de ligne 2)
+     */
+    private String buildPetLine2(PetType type, UUID playerUuid) {
+        // Pas de ligne 2 si le pet n'a pas d'ultime
+        if (type.getUltimateCooldown() <= 0) {
+            return null;
         }
 
-        // Timer ultime si le pet a une ultime
-        if (type.getUltimateCooldown() > 0) {
-            int remainingSeconds = petManager.getCooldownRemainingSeconds(playerUuid, type);
-            name.append("\n");
-            if (remainingSeconds > 0) {
-                name.append("§d⚡ Ultime: §f").append(remainingSeconds).append("s");
-            } else {
-                name.append("§a⚡ Ultime: §lPRÊTE!");
+        int remainingSeconds = petManager.getCooldownRemainingSeconds(playerUuid, type);
+        if (remainingSeconds > 0) {
+            return "§d⚡ Ultime: §f" + remainingSeconds + "s";
+        } else {
+            return "§a⚡ Ultime: §lPRÊTE!";
+        }
+    }
+
+    /**
+     * Crée les TextDisplay hologrammes pour un pet
+     */
+    private void createHologramDisplays(UUID playerUuid, Location petLoc, PetType type, PetData petData) {
+        World world = petLoc.getWorld();
+        if (world == null) return;
+
+        // Supprimer les anciens hologrammes s'ils existent
+        removeHologramDisplays(playerUuid);
+
+        // Calculer les positions
+        Location line1Loc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET, 0);
+        Location line2Loc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET - HOLOGRAM_LINE_SPACING, 0);
+
+        // Créer la ligne 1 (nom + niveau + étoiles)
+        String line1Text = buildPetLine1(type, petData);
+        TextDisplay line1 = spawnTextDisplay(world, line1Loc, line1Text);
+        if (line1 != null) {
+            hologramLine1.put(playerUuid, line1.getUniqueId());
+            lastLine1Text.put(playerUuid, line1Text);
+        }
+
+        // Créer la ligne 2 (timer ultime) seulement si le pet a une ultime
+        String line2Text = buildPetLine2(type, playerUuid);
+        if (line2Text != null) {
+            TextDisplay line2 = spawnTextDisplay(world, line2Loc, line2Text);
+            if (line2 != null) {
+                hologramLine2.put(playerUuid, line2.getUniqueId());
+                lastLine2Text.put(playerUuid, line2Text);
+            }
+        }
+    }
+
+    /**
+     * Spawn un TextDisplay configuré pour l'affichage hologramme
+     */
+    private TextDisplay spawnTextDisplay(World world, Location loc, String text) {
+        TextDisplay display = (TextDisplay) world.spawnEntity(loc, EntityType.TEXT_DISPLAY);
+
+        // Configuration du texte
+        display.setText(text);
+
+        // Billboard centré (face toujours la caméra)
+        display.setBillboard(Billboard.CENTER);
+
+        // Pas de background (transparent)
+        display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+        // Pas d'ombre
+        display.setShadowed(false);
+
+        // Taille raisonnable
+        display.setTransformation(new Transformation(
+            new Vector3f(0, 0, 0),           // Translation
+            new AxisAngle4f(0, 0, 0, 1),     // Rotation gauche
+            new Vector3f(1f, 1f, 1f),        // Échelle
+            new AxisAngle4f(0, 0, 0, 1)      // Rotation droite
+        ));
+
+        // Distance de vue standard
+        display.setViewRange(0.5f);
+
+        // Configuration supplémentaire
+        display.setPersistent(false);
+        display.setInvulnerable(true);
+
+        // Tags pour identification
+        display.addScoreboardTag("zombiez_pet_hologram");
+
+        return display;
+    }
+
+    /**
+     * Supprime les TextDisplay hologrammes d'un joueur
+     */
+    private void removeHologramDisplays(UUID playerUuid) {
+        // Supprimer la ligne 1
+        UUID line1Uuid = hologramLine1.remove(playerUuid);
+        if (line1Uuid != null) {
+            Entity entity = Bukkit.getEntity(line1Uuid);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
             }
         }
 
-        return name.toString();
+        // Supprimer la ligne 2
+        UUID line2Uuid = hologramLine2.remove(playerUuid);
+        if (line2Uuid != null) {
+            Entity entity = Bukkit.getEntity(line2Uuid);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le cache de texte
+        lastLine1Text.remove(playerUuid);
+        lastLine2Text.remove(playerUuid);
+    }
+
+    /**
+     * Met à jour la position des hologrammes pour suivre le pet
+     */
+    private void updateHologramPositions(UUID playerUuid, Location petLoc) {
+        // Mise à jour ligne 1
+        UUID line1Uuid = hologramLine1.get(playerUuid);
+        if (line1Uuid != null) {
+            Entity entity = Bukkit.getEntity(line1Uuid);
+            if (entity != null && entity.isValid()) {
+                Location newLoc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET, 0);
+                entity.teleport(newLoc);
+            }
+        }
+
+        // Mise à jour ligne 2
+        UUID line2Uuid = hologramLine2.get(playerUuid);
+        if (line2Uuid != null) {
+            Entity entity = Bukkit.getEntity(line2Uuid);
+            if (entity != null && entity.isValid()) {
+                Location newLoc = petLoc.clone().add(0, HOLOGRAM_Y_OFFSET - HOLOGRAM_LINE_SPACING, 0);
+                entity.teleport(newLoc);
+            }
+        }
+    }
+
+    /**
+     * Met à jour le texte des hologrammes (optimisé - seulement si changement)
+     */
+    private void updateHologramText(UUID playerUuid, PetType type, PetData petData) {
+        // Mise à jour ligne 1 (nom + niveau + étoiles)
+        String newLine1 = buildPetLine1(type, petData);
+        String oldLine1 = lastLine1Text.get(playerUuid);
+
+        if (!newLine1.equals(oldLine1)) {
+            UUID line1Uuid = hologramLine1.get(playerUuid);
+            if (line1Uuid != null) {
+                Entity entity = Bukkit.getEntity(line1Uuid);
+                if (entity instanceof TextDisplay textDisplay) {
+                    textDisplay.setText(newLine1);
+                    lastLine1Text.put(playerUuid, newLine1);
+                }
+            }
+        }
+
+        // Mise à jour ligne 2 (timer ultime)
+        String newLine2 = buildPetLine2(type, playerUuid);
+        String oldLine2 = lastLine2Text.get(playerUuid);
+
+        // Gérer le cas où la ligne 2 doit apparaître/disparaître
+        UUID line2Uuid = hologramLine2.get(playerUuid);
+
+        if (newLine2 == null) {
+            // Pas d'ultime - supprimer la ligne 2 si elle existe
+            if (line2Uuid != null) {
+                Entity entity = Bukkit.getEntity(line2Uuid);
+                if (entity != null && entity.isValid()) {
+                    entity.remove();
+                }
+                hologramLine2.remove(playerUuid);
+                lastLine2Text.remove(playerUuid);
+            }
+        } else if (newLine2.equals(oldLine2)) {
+            // Pas de changement - ne rien faire
+        } else {
+            // Texte changé - mettre à jour
+            if (line2Uuid != null) {
+                Entity entity = Bukkit.getEntity(line2Uuid);
+                if (entity instanceof TextDisplay textDisplay) {
+                    textDisplay.setText(newLine2);
+                    lastLine2Text.put(playerUuid, newLine2);
+                }
+            } else {
+                // La ligne 2 n'existe pas mais devrait - la créer
+                UUID petEntityUuid = activePetEntities.get(playerUuid);
+                if (petEntityUuid != null) {
+                    Entity petEntity = Bukkit.getEntity(petEntityUuid);
+                    if (petEntity != null && petEntity.isValid()) {
+                        Location line2Loc = petEntity.getLocation().add(0, HOLOGRAM_Y_OFFSET - HOLOGRAM_LINE_SPACING, 0);
+                        TextDisplay line2 = spawnTextDisplay(petEntity.getWorld(), line2Loc, newLine2);
+                        if (line2 != null) {
+                            hologramLine2.put(playerUuid, line2.getUniqueId());
+                            lastLine2Text.put(playerUuid, newLine2);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -568,18 +797,9 @@ public class PetDisplayManager {
      * Configure l'entité du pet (nom, tags, etc.)
      */
     private void configurePetEntity(Entity entity, PetType type, Player player) {
-        PlayerPetData playerData = petManager.getPlayerData(player.getUniqueId());
-        PetData petData = playerData != null ? playerData.getPet(type) : null;
-
-        // Nom affiché avec timer d'ultime
-        String displayName;
-        if (petData != null) {
-            displayName = buildPetDisplayName(type, petData, player.getUniqueId());
-        } else {
-            displayName = type.getColoredName() + " §7[Lv.1]";
-        }
-        entity.setCustomName(displayName);
-        entity.setCustomNameVisible(true);
+        // Ne plus utiliser setCustomName() - l'affichage est géré par les TextDisplay hologrammes
+        // On désactive le customName pour éviter les doublons visuels
+        entity.setCustomNameVisible(false);
 
         // Tags pour identification
         entity.addScoreboardTag("zombiez_pet");
@@ -679,6 +899,28 @@ public class PetDisplayManager {
             nameUpdateTask.cancel();
         }
 
+        // Supprimer tous les hologrammes TextDisplay
+        for (UUID line1Uuid : hologramLine1.values()) {
+            Entity entity = Bukkit.getEntity(line1Uuid);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+        hologramLine1.clear();
+
+        for (UUID line2Uuid : hologramLine2.values()) {
+            Entity entity = Bukkit.getEntity(line2Uuid);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+        hologramLine2.clear();
+
+        // Nettoyer le cache de texte
+        lastLine1Text.clear();
+        lastLine2Text.clear();
+
+        // Supprimer les entités de pet
         for (UUID entityUuid : activePetEntities.values()) {
             Entity entity = Bukkit.getEntity(entityUuid);
             if (entity != null && entity.isValid()) {
@@ -686,6 +928,8 @@ public class PetDisplayManager {
             }
         }
         activePetEntities.clear();
+        playerWorlds.clear();
+        targetLocations.clear();
     }
 
     /**
