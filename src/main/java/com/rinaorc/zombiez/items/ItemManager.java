@@ -198,6 +198,12 @@ public class ItemManager {
 
         // Son de drop
         playDropSound(location, zItem.getRarity());
+
+        // Marquer pour le système de nettoyage (PerformanceManager)
+        // Les drops sont automatiquement supprimés après le délai configuré
+        if (plugin.getPerformanceManager() != null) {
+            plugin.getPerformanceManager().markAsZombieZDrop(droppedItem);
+        }
     }
 
     /**

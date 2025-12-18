@@ -49,18 +49,41 @@ database:
 performance:
   # Intervalle de vérification des zones (en ticks, 20 = 1 seconde)
   zone-check-interval: 10
-  
+
   # Intervalle de sauvegarde automatique (en secondes)
   auto-save-interval: 300
-  
+
   # Intervalle de mise à jour du scoreboard (en ticks)
   scoreboard-update-interval: 20
-  
+
   # Taille du cache joueurs
   player-cache-size: 250
-  
+
   # Durée de rétention du cache récent (en secondes)
   recent-cache-duration: 300
+
+  # === SYSTÈME CLEARLAG INTELLIGENT ===
+
+  # Distance de despawn des zombies (en blocs)
+  # Les zombies à plus de cette distance de tout joueur seront supprimés
+  despawn-distance: 64
+
+  # Intervalle de nettoyage automatique (en secondes)
+  # Les zombies distants sont vérifiés et supprimés selon cet intervalle
+  cleanup-interval: 30
+
+  # Nombre max de mobs traités par cycle de cleanup
+  # Réduire si vous observez des lags pendant le cleanup
+  cleanup-batch-size: 50
+
+  # === SYSTÈME DE NETTOYAGE DES DROPS ===
+
+  # Active/désactive le nettoyage automatique des drops de zombies
+  drop-cleanup-enabled: true
+
+  # Délai avant suppression des drops (en secondes)
+  # Les items droppés par les zombies disparaissent après ce délai
+  drop-removal-delay: 10
 
 # ========================================
 # GAMEPLAY

@@ -165,6 +165,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.pets.gacha.PetShopSystem petShopSystem;
 
+    // Système de Performance (clearlag intelligent)
+    @Getter
+    private com.rinaorc.zombiez.managers.PerformanceManager performanceManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -279,6 +283,12 @@ public class ZombieZPlugin extends JavaPlugin {
             petManager.shutdown();
         }
 
+        // Cleanup du système de performance
+        if (performanceManager != null) {
+            log(Level.INFO, "§7Arrêt du système de performance...");
+            performanceManager.shutdown();
+        }
+
         // Fermeture de la base de données
         if (databaseManager != null) {
             log(Level.INFO, "§7Fermeture de la connexion BDD...");
@@ -335,6 +345,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
+
+        // Performance Manager - Clearlag intelligent et optimisations
+        performanceManager = new com.rinaorc.zombiez.managers.PerformanceManager(this);
 
         // Spawn System - Spawn dynamique des zombies
         spawnSystem = new SpawnSystem(this, zombieManager);
@@ -700,6 +713,16 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Recharger les zones
         zoneManager.loadZones();
+
+        // Recharger le système de performance
+        if (performanceManager != null) {
+            performanceManager.reload();
+        }
+
+        // Recharger les paramètres du ZombieManager
+        if (zombieManager != null) {
+            zombieManager.loadConfigValues();
+        }
 
         // Recharger les messages
         MessageUtils.reload();
