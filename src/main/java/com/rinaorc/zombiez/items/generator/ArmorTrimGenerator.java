@@ -158,6 +158,25 @@ public class ArmorTrimGenerator {
     }
 
     /**
+     * Génère un trim pour un mob (sans vérification de probabilité)
+     * Utilisé par ZombieManager pour équiper les zombies
+     *
+     * @param rarity La rareté simulée basée sur le niveau du mob
+     * @param zoneId La zone du mob
+     * @return Un TrimResult contenant le pattern et le matériau, ou null si erreur
+     */
+    public TrimResult generateTrimForMob(Rarity rarity, int zoneId) {
+        TrimPattern pattern = selectPattern(rarity);
+        TrimMaterial material = selectMaterial(rarity, zoneId);
+
+        if (pattern == null || material == null) {
+            return null;
+        }
+
+        return new TrimResult(pattern, material);
+    }
+
+    /**
      * Probabilité d'avoir un trim selon la rareté
      */
     private double getTrimChance(Rarity rarity) {
