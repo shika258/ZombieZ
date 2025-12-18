@@ -213,19 +213,75 @@ public class PassiveMobManager implements Listener {
 
         // Configuration du mob
         entity.setRemoveWhenFarAway(true);
-        entity.setCustomName(type.getDisplayName());
-        entity.setCustomNameVisible(false);
 
         // Métadonnées ZombieZ
         entity.setMetadata("zombiez_passive", new FixedMetadataValue(plugin, true));
         entity.setMetadata("zombiez_passive_type", new FixedMetadataValue(plugin, type.name()));
         entity.setMetadata("zombiez_zone", new FixedMetadataValue(plugin, zoneId));
 
+        // Afficher le nom avec la vie
+        updatePassiveMobHealthDisplay(entity);
+        entity.setCustomNameVisible(true);
+
         // Enregistrer
         PassiveMobData data = new PassiveMobData(entity.getUniqueId(), type, zoneId);
         activeMobs.put(entity.getUniqueId(), data);
 
         return entity;
+    }
+
+    /**
+     * Met à jour l'affichage de vie d'un mob passif
+     */
+    public void updatePassiveMobHealthDisplay(LivingEntity entity) {
+        if (!isZombieZPassiveMob(entity)) return;
+
+        // Récupérer le type
+        PassiveMobType type = getPassiveMobType(entity);
+        if (type == null) return;
+
+        // Calculer la vie
+        var maxHealthAttr = entity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        int currentHealth = (int) Math.ceil(entity.getHealth());
+        int maxHealth = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : 20;
+
+        // Formater l'affichage
+        String healthDisplay = formatHealthDisplay(currentHealth, maxHealth);
+        String fullName = type.getDisplayName() + " " + healthDisplay;
+
+        entity.setCustomName(fullName);
+        entity.setCustomNameVisible(true);
+    }
+
+    /**
+     * Formate l'affichage de la vie: "❤ 10/10"
+     */
+    private String formatHealthDisplay(int currentHealth, int maxHealth) {
+        double healthPercent = maxHealth > 0 ? (double) currentHealth / maxHealth : 0;
+        String healthColor;
+        if (healthPercent > 0.6) {
+            healthColor = "§a"; // Vert
+        } else if (healthPercent > 0.3) {
+            healthColor = "§e"; // Jaune
+        } else {
+            healthColor = "§c"; // Rouge
+        }
+        return healthColor + currentHealth + "§7/§a" + maxHealth + " §c❤";
+    }
+
+    /**
+     * Obtient le type de mob passif depuis une entité
+     */
+    public PassiveMobType getPassiveMobType(Entity entity) {
+        if (!entity.hasMetadata("zombiez_passive_type")) {
+            return null;
+        }
+        try {
+            String typeName = entity.getMetadata("zombiez_passive_type").get(0).asString();
+            return PassiveMobType.valueOf(typeName);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

@@ -387,6 +387,13 @@ public class CombatListener implements Listener {
             animal.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
         }
 
+        // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (animal.isValid()) {
+                plugin.getPassiveMobManager().updatePassiveMobHealthDisplay(animal);
+            }
+        });
+
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
