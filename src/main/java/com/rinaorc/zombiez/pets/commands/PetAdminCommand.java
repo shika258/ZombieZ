@@ -252,7 +252,7 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
         // Débloquer tous les pets au niveau 1 avec 1 copie
         for (PetType type : PetType.values()) {
             if (!playerData.hasPet(type)) {
-                playerData.addPet(type, 1, 1);
+                playerData.addPet(type);
                 unlockedCount++;
             }
         }
