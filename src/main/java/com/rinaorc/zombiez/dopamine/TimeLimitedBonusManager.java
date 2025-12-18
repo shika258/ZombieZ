@@ -102,8 +102,10 @@ public class TimeLimitedBonusManager implements Listener {
         String subtitle = String.format("§e" + type.description + " §7(%ds)", type.targetCount, type.durationSeconds);
         player.sendTitle("§6⚡ " + type.displayName, subtitle, 5, 30, 5);
 
-        // Message chat simple
-        String bonusText = "+" + (int)((type.xpMultiplier - 1) * 100) + "% XP/Points";
+        // Message chat simple avec valeurs fixes
+        long bonusXp = (long) (100 * type.xpMultiplier);
+        long bonusPoints = (long) (50 * type.pointsMultiplier);
+        String bonusText = "§a+" + bonusXp + " XP§7, §e+" + bonusPoints + " Points";
         player.sendMessage("§6⚡ §eNouveau défi: §f" + type.displayName + " §7- " + bonusText);
 
         // Sons discrets
@@ -316,11 +318,10 @@ public class TimeLimitedBonusManager implements Listener {
         }
 
         // Feedback de succès - ActionBar + son (pas de Title intrusif)
-        int bonusPercent = (int)((challenge.type.xpMultiplier - 1) * 100);
-        player.sendActionBar(Component.text("§a§l✓ " + challenge.type.displayName + " réussi! §r§7(+" + bonusPercent + "% bonus)"));
+        player.sendActionBar(Component.text("§a§l✓ " + challenge.type.displayName + " réussi! §r§7(§a+" + bonusXp + " XP§7, §e+" + bonusPoints + " Points§7)"));
 
-        // Message chat simple
-        player.sendMessage("§a✓ §fDéfi complété: §e" + challenge.type.displayName + " §7(+" + bonusPercent + "% XP/Points)");
+        // Message chat simple avec valeurs fixes
+        player.sendMessage("§a✓ §fDéfi complété: §e" + challenge.type.displayName + " §7(§a+" + bonusXp + " XP§7, §e+" + bonusPoints + " Points§7)");
 
         // Sons satisfaisants
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
