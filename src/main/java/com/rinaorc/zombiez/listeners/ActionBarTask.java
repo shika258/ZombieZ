@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * Tâche pour afficher l'ActionBar permanent aux joueurs
- * Affiche: HP / Défense / Dégâts / IS (Item Score)
+ * Affiche: HP / Défense / Dégâts / Boussole
  *
  * Format épuré et lisible pour une meilleure expérience de jeu
  */
@@ -42,7 +42,7 @@ public class ActionBarTask extends BukkitRunnable {
 
     /**
      * Construit et envoie l'ActionBar à un joueur
-     * Format: ❤ HP/Max │ 🛡 Défense │ ⚔ Dégâts │ IS: Score
+     * Format: ❤ HP/Max │ 🛡 Défense │ ⚔ Dégâts │ Boussole
      */
     private void sendActionBar(Player player) {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
@@ -94,13 +94,52 @@ public class ActionBarTask extends BukkitRunnable {
 
         bar.append(" §8│ ");
 
-        // ============ ITEM SCORE ============
-        int totalItemScore = plugin.getItemManager().calculateTotalItemScore(player);
-        String isColor = getItemScoreColor(totalItemScore);
-        bar.append(isColor).append("IS: ").append(formatNumber(totalItemScore));
+        // ============ BOUSSOLE ============
+        bar.append(buildCompass(player));
 
         // ============ ENVOYER ============
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString()));
+    }
+
+    /**
+     * Construit la boussole visuelle basée sur la direction du joueur
+     * Le Nord est mis en évidence car c'est la direction de progression
+     */
+    private String buildCompass(Player player) {
+        // Obtenir le yaw du joueur et le normaliser (0-360)
+        float yaw = player.getLocation().getYaw();
+        yaw = ((yaw % 360) + 360) % 360;
+
+        // Les 8 directions avec leurs positions en degrés
+        // S=0°, SW=45°, W=90°, NW=135°, N=180°, NE=225°, E=270°, SE=315°
+        String[] directions = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
+        int directionIndex = (int) Math.round(yaw / 45) % 8;
+
+        // Construire la boussole avec la direction centrale mise en évidence
+        StringBuilder compass = new StringBuilder();
+
+        // Direction principale (celle vers laquelle le joueur regarde)
+        String mainDir = directions[directionIndex];
+
+        // Si c'est le Nord, colorer en cyan (direction de progression)
+        // Sinon, couleur normale
+        if (mainDir.equals("N")) {
+            compass.append("§b§l⬆ N");
+        } else if (mainDir.contains("N")) {
+            // Contient Nord (NE, NW)
+            compass.append("§b↗ ").append(mainDir);
+        } else if (mainDir.equals("S")) {
+            compass.append("§7⬇ S");
+        } else if (mainDir.equals("E")) {
+            compass.append("§e→ E");
+        } else if (mainDir.equals("W")) {
+            compass.append("§e← W");
+        } else {
+            // SE, SW
+            compass.append("§7↘ ").append(mainDir);
+        }
+
+        return compass.toString();
     }
 
     /**
@@ -144,41 +183,6 @@ public class ActionBarTask extends BukkitRunnable {
         if (damage >= 25) return "§6";       // Orange
         if (damage >= 10) return "§e";       // Jaune
         return "§f";                          // Blanc
-    }
-
-    /**
-     * Obtient la couleur de l'Item Score basée sur la valeur totale
-     */
-    private String getItemScoreColor(int score) {
-        if (score >= 50000) return "§c§l";   // Rouge brillant (end-game)
-        if (score >= 30000) return "§d";     // Violet (late-game)
-        if (score >= 15000) return "§6";     // Orange (mid-late)
-        if (score >= 7000) return "§e";      // Jaune (mid-game)
-        if (score >= 3000) return "§a";      // Vert (early-mid)
-        if (score >= 1000) return "§f";      // Blanc (early)
-        return "§7";                          // Gris (débutant)
-    }
-
-    /**
-     * Formate un nombre avec suffixes k, M
-     * Ex: 10500 -> "10.5k", 1500000 -> "1.5M"
-     */
-    private String formatNumber(int value) {
-        if (value >= 1_000_000) {
-            double millions = value / 1_000_000.0;
-            if (millions == (int) millions) {
-                return (int) millions + "M";
-            }
-            return String.format("%.1fM", millions);
-        }
-        if (value >= 1_000) {
-            double thousands = value / 1_000.0;
-            if (thousands == (int) thousands) {
-                return (int) thousands + "k";
-            }
-            return String.format("%.1fk", thousands);
-        }
-        return String.valueOf(value);
     }
 
     /**
