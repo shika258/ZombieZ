@@ -28,16 +28,20 @@ import java.util.List;
  */
 public class PetShopGUI implements InventoryHolder {
 
-    private static final String TITLE = "§8§l💎 Boutique Pet";
+    private static final String TITLE = "§0\u2800\u2800\u2800\u2800\u2800\u2800\u2800💎 Boutique Pet";
     private static final int SIZE = 54;
 
-    // Sections du shop
-    private static final int[] HOT_DEALS_SLOTS = {10, 11, 12};
-    private static final int[] FIRST_PURCHASE_SLOTS = {14, 15, 16};
-    private static final int[] EGGS_SLOTS = {28, 29, 30, 31, 32, 33, 34};
-    private static final int[] FRAGMENTS_SLOTS = {37, 38, 39};
-    private static final int SLOT_DAILY = 43;
-    private static final int SLOT_BACK = 49;
+    // Layout réorganisé par sections claires
+    private static final int SLOT_BALANCE = 4;                              // Solde centré en haut
+    private static final int[] HOT_DEALS_SLOTS = {10, 11, 12};              // Ligne 1 : Offres flash
+    private static final int[] EGGS_SLOTS = {19, 20, 21, 22, 23, 24, 25};   // Ligne 2 : Oeufs
+    private static final int[] FRAGMENTS_SLOTS = {29, 30, 31};              // Ligne 3 : Fragments
+    private static final int[] FIRST_PURCHASE_SLOTS = {39, 40, 41};         // Ligne 4 : Packs exclusifs
+    private static final int SLOT_DAILY = 43;                               // Récompense quotidienne
+    private static final int SLOT_BACK = 49;                                // Retour centré en bas
+
+    // Séparateur visuel
+    private static final String LORE_SEPARATOR = "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬";
 
     private final ZombieZPlugin plugin;
     private final Player player;
@@ -56,101 +60,154 @@ public class PetShopGUI implements InventoryHolder {
     }
 
     private void setupGUI() {
-        // Fond
+        // Fond noir uniforme
         ItemStack filler = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
         for (int i = 0; i < SIZE; i++) {
             inventory.setItem(i, filler);
         }
 
-        // Bordures décoratives
-        ItemStack border = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        // === HEADER (Ligne 0) ===
+        ItemStack headerGlass = ItemBuilder.placeholder(Material.PURPLE_STAINED_GLASS_PANE);
         for (int i = 0; i < 9; i++) {
-            inventory.setItem(i, border);
-            inventory.setItem(45 + i, border);
+            inventory.setItem(i, headerGlass);
         }
 
-        // Titres de section
-        inventory.setItem(1, new ItemBuilder(Material.FIRE_CHARGE)
-            .name("§c§l🔥 OFFRES FLASH")
-            .lore(List.of("§7Offres limitées dans le temps!", "§7Changent toutes les 8h"))
-            .build());
-
-        inventory.setItem(4, new ItemBuilder(Material.DIAMOND)
-            .name("§b§l💎 PACKS EXCLUSIFS")
-            .lore(List.of("§7Offres uniques!", "§e§lUNE SEULE FOIS par compte"))
-            .build());
-
-        inventory.setItem(19, new ItemBuilder(Material.EGG)
-            .name("§f§l🥚 OEUFS")
-            .lore(List.of("§7Achetez des oeufs de pet"))
-            .build());
-
-        inventory.setItem(46, new ItemBuilder(Material.GOLD_NUGGET)
-            .name("§e§l✧ FRAGMENTS")
-            .lore(List.of("§7Achetez des fragments"))
-            .build());
-
-        // Afficher le solde du joueur
+        // Solde du joueur centré
         int fragments = petData != null ? petData.getFragments() : 0;
         long points = 0;
         var playerData = plugin.getPlayerDataManager().getPlayer(player);
         if (playerData != null) {
             points = playerData.getPoints().get();
         }
-        inventory.setItem(8, new ItemBuilder(Material.SUNFLOWER)
-            .name("§6§lVotre Solde")
+        inventory.setItem(SLOT_BALANCE, new ItemBuilder(Material.GOLD_INGOT)
+            .name("§6§l💰 Votre Solde")
             .lore(List.of(
                 "",
-                "§7Points: §a" + String.format("%,d", points),
-                "§7Fragments: §d" + String.format("%,d", fragments),
+                "§e► §7Points: §a" + String.format("%,d", points),
+                "§d► §7Fragments: §d" + String.format("%,d", fragments),
                 "",
-                "§8Utilisez les points pour",
-                "§8acheter oeufs et fragments"
+                LORE_SEPARATOR,
+                "",
+                "§8Points = acheter oeufs/fragments",
+                "§8Fragments = acheter dans la boutique"
+            ))
+            .glow(true)
+            .build());
+
+        // === SECTION 1 : OFFRES FLASH (Ligne 1) ===
+        inventory.setItem(9, new ItemBuilder(Material.FIRE_CHARGE)
+            .name("§c§l🔥 OFFRES FLASH")
+            .lore(List.of(
+                "",
+                "§7Offres limitées dans le temps",
+                "§7Changent toutes les §e8 heures",
+                "",
+                "§c§lNE LES RATEZ PAS!"
             ))
             .build());
 
-        // Hot Deals (offres temporaires)
         List<TimedOffer> timedOffers = shopSystem.getTimedOffers();
         for (int i = 0; i < timedOffers.size() && i < HOT_DEALS_SLOTS.length; i++) {
             inventory.setItem(HOT_DEALS_SLOTS[i], createTimedOfferItem(timedOffers.get(i)));
         }
 
-        // First Purchase (une seule fois)
+        // === SECTION 2 : OEUFS (Ligne 2) ===
+        inventory.setItem(18, new ItemBuilder(Material.DRAGON_EGG)
+            .name("§f§l🥚 OEUFS")
+            .lore(List.of(
+                "",
+                "§7Achetez des oeufs de pet",
+                "§7pour obtenir des compagnons!",
+                "",
+                "§eChaque oeuf donne un pet aléatoire"
+            ))
+            .build());
+
+        List<ShopOffer> eggOffers = shopSystem.getPermanentOffers().stream()
+            .filter(o -> o.eggType() != null)
+            .toList();
+        for (int i = 0; i < eggOffers.size() && i < EGGS_SLOTS.length; i++) {
+            inventory.setItem(EGGS_SLOTS[i], createEggOfferItem(eggOffers.get(i)));
+        }
+
+        // === SECTION 3 : FRAGMENTS (Ligne 3) ===
+        inventory.setItem(27, new ItemBuilder(Material.PRISMARINE_SHARD)
+            .name("§d§l💎 FRAGMENTS")
+            .lore(List.of(
+                "",
+                "§7Achetez des fragments avec",
+                "§7vos points de jeu.",
+                "",
+                "§dUtilisez les fragments pour",
+                "§dacheter dans la boutique!"
+            ))
+            .build());
+
+        List<ShopOffer> fragmentOffers = shopSystem.getPermanentOffers().stream()
+            .filter(o -> o.eggType() == null && o.fragments() > 0)
+            .toList();
+        for (int i = 0; i < fragmentOffers.size() && i < FRAGMENTS_SLOTS.length; i++) {
+            inventory.setItem(FRAGMENTS_SLOTS[i], createFragmentOfferItem(fragmentOffers.get(i)));
+        }
+
+        // === SECTION 4 : PACKS EXCLUSIFS (Ligne 4) ===
+        inventory.setItem(36, new ItemBuilder(Material.NETHER_STAR)
+            .name("§b§l⭐ PACKS EXCLUSIFS")
+            .lore(List.of(
+                "",
+                "§7Offres uniques et avantageuses!",
+                "",
+                "§e§lUNE SEULE FOIS",
+                "§eper compte"
+            ))
+            .glow(true)
+            .build());
+
         List<FirstPurchaseOffer> firstOffers = shopSystem.getFirstPurchaseOffers();
         for (int i = 0; i < firstOffers.size() && i < FIRST_PURCHASE_SLOTS.length; i++) {
             inventory.setItem(FIRST_PURCHASE_SLOTS[i], createFirstPurchaseItem(firstOffers.get(i)));
         }
 
-        // Oeufs permanents
-        List<ShopOffer> eggOffers = shopSystem.getPermanentOffers().stream()
-            .filter(o -> o.eggType() != null)
-            .toList();
-        for (int i = 0; i < eggOffers.size() && i < EGGS_SLOTS.length; i++) {
-            inventory.setItem(EGGS_SLOTS[i], createPermanentOfferItem(eggOffers.get(i)));
-        }
-
-        // Fragments permanents
-        List<ShopOffer> fragmentOffers = shopSystem.getPermanentOffers().stream()
-            .filter(o -> o.eggType() == null && o.fragments() > 0)
-            .toList();
-        for (int i = 0; i < fragmentOffers.size() && i < FRAGMENTS_SLOTS.length; i++) {
-            inventory.setItem(FRAGMENTS_SLOTS[i], createPermanentOfferItem(fragmentOffers.get(i)));
-        }
-
-        // Récompense quotidienne
+        // Récompense quotidienne (à droite des packs)
         boolean canClaimDaily = plugin.getDailyRewardManager() != null &&
             plugin.getDailyRewardManager().canClaim(player);
+        int streak = getStreak();
         inventory.setItem(SLOT_DAILY, new ItemBuilder(canClaimDaily ? Material.CHEST : Material.ENDER_CHEST)
-            .name(canClaimDaily ? "§a§l🎁 Récompense Quotidienne!" : "§7🎁 Récompense Quotidienne")
+            .name(canClaimDaily ? "§a§l🎁 RÉCOMPENSE DISPONIBLE!" : "§8🎁 Récompense Quotidienne")
             .lore(canClaimDaily ?
-                List.of("", "§a§lCLIQUEZ POUR RÉCLAMER!", "", "§7Streak: §e" + getStreak() + " jour(s)") :
-                List.of("", "§8Déjà réclamée aujourd'hui", "", "§7Streak: §e" + getStreak() + " jour(s)", "§7Revenez demain!"))
+                List.of(
+                    "",
+                    "§aVotre récompense est prête!",
+                    "",
+                    LORE_SEPARATOR,
+                    "",
+                    "§7Streak actuel: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
+                    "",
+                    "§a§l► Cliquez pour réclamer!"
+                ) :
+                List.of(
+                    "",
+                    "§8Déjà réclamée aujourd'hui",
+                    "",
+                    LORE_SEPARATOR,
+                    "",
+                    "§7Streak actuel: §e" + streak + " jour" + (streak > 1 ? "s" : ""),
+                    "",
+                    "§7Revenez demain!"
+                ))
             .glow(canClaimDaily)
             .build());
 
-        // Retour
+        // === FOOTER (Ligne 5) ===
+        ItemStack footerGlass = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        for (int i = 45; i < 54; i++) {
+            inventory.setItem(i, footerGlass);
+        }
+
+        // Bouton retour centré
         inventory.setItem(SLOT_BACK, new ItemBuilder(Material.ARROW)
-            .name("§c◄ Retour")
+            .name("§c§l◄ Retour")
+            .lore(List.of("", "§7Retourner au menu principal"))
             .build());
     }
 
@@ -162,28 +219,46 @@ public class PetShopGUI implements InventoryHolder {
     private ItemStack createTimedOfferItem(TimedOffer offer) {
         Duration remaining = shopSystem.getTimeRemaining(offer.id());
         String timeStr = formatDuration(remaining);
+        int playerFragments = petData != null ? petData.getFragments() : 0;
+        boolean canAfford = playerFragments >= offer.price();
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.addAll(List.of(offer.description().split("\n")));
+
+        // Description
+        for (String line : offer.description().split("\n")) {
+            lore.add("§7" + line);
+        }
+
+        lore.add("");
+        lore.add(LORE_SEPARATOR);
         lore.add("");
 
+        // Prix avec format homogène
         if (offer.discountPercent() > 0) {
-            lore.add("§c§m" + (offer.price() * 100 / (100 - offer.discountPercent())) + "§r §a" + offer.price() + " fragments");
-            lore.add("§a-" + offer.discountPercent() + "% de réduction!");
+            int originalPrice = offer.price() * 100 / (100 - offer.discountPercent());
+            lore.add("§7Prix: §c§m" + String.format("%,d", originalPrice) + "§r §a" + String.format("%,d", offer.price()) + " §dfragments");
+            lore.add("§a§l-" + offer.discountPercent() + "% §ade réduction!");
         } else {
-            lore.add("§ePrix: §f" + offer.price() + " fragments");
+            lore.add("§7Prix: §f" + String.format("%,d", offer.price()) + " §dfragments");
         }
 
         lore.add("");
         lore.add("§c⏱ Expire dans: §f" + timeStr);
         lore.add("");
-        lore.add("§eCliquez pour acheter!");
+
+        // Statut d'achat
+        if (canAfford) {
+            lore.add("§a§l► Cliquez pour acheter!");
+        } else {
+            lore.add("§c✗ Fragments insuffisants");
+            lore.add("§7  Manque: §c" + String.format("%,d", offer.price() - playerFragments));
+        }
 
         Material icon = offer.eggType() != null ? offer.eggType().getIcon() : Material.CHEST;
 
         return new ItemBuilder(icon)
-            .name(offer.name())
+            .name("§c§l🔥 " + offer.name())
             .lore(lore)
             .glow(true)
             .build();
@@ -191,74 +266,174 @@ public class PetShopGUI implements InventoryHolder {
 
     private ItemStack createFirstPurchaseItem(FirstPurchaseOffer offer) {
         boolean alreadyBought = shopSystem.hasUsedFirstPurchase(player.getUniqueId(), offer.id());
+        int playerFragments = petData != null ? petData.getFragments() : 0;
+        boolean canAfford = playerFragments >= offer.price();
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.addAll(List.of(offer.description().split("\n")));
-        lore.add("");
-        lore.add("§7Contenu:");
 
+        // Description
+        for (String line : offer.description().split("\n")) {
+            lore.add("§7" + line);
+        }
+
+        lore.add("");
+        lore.add("§e§lContenu du pack:");
         for (RewardItem item : offer.rewards()) {
             if (item.eggType() != null) {
-                lore.add("  §a• " + item.amount() + "x " + item.eggType().getColoredName());
+                lore.add("§a  • §f" + item.amount() + "x " + item.eggType().getColoredName());
             } else {
-                lore.add("  §a• §e" + item.amount() + " §7fragments");
+                lore.add("§a  • §f" + String.format("%,d", item.amount()) + " §dfragments");
             }
         }
 
         lore.add("");
+        lore.add(LORE_SEPARATOR);
+        lore.add("");
+
+        // Prix avec format homogène
         if (offer.discountPercent() > 0) {
             int originalPrice = offer.price() * 100 / (100 - offer.discountPercent());
-            lore.add("§c§m" + originalPrice + "§r §a" + offer.price() + " fragments");
+            lore.add("§7Prix: §c§m" + String.format("%,d", originalPrice) + "§r §a" + String.format("%,d", offer.price()) + " §dfragments");
             lore.add("§a§l-" + offer.discountPercent() + "% §ade réduction!");
         } else {
-            lore.add("§ePrix: §f" + offer.price() + " fragments");
+            lore.add("§7Prix: §f" + String.format("%,d", offer.price()) + " §dfragments");
         }
 
         lore.add("");
+
+        // Statut d'achat
         if (alreadyBought) {
-            lore.add("§c§l✗ DÉJÀ ACHETÉ");
+            lore.add("§8§l✗ DÉJÀ ACHETÉ");
+        } else if (canAfford) {
+            lore.add("§a§l► Cliquez pour acheter!");
         } else {
-            lore.add("§a§lCliquez pour acheter!");
+            lore.add("§c✗ Fragments insuffisants");
+            lore.add("§7  Manque: §c" + String.format("%,d", offer.price() - playerFragments));
         }
 
-        return new ItemBuilder(alreadyBought ? Material.GRAY_DYE : Material.NETHER_STAR)
-            .name(offer.name())
+        return new ItemBuilder(alreadyBought ? Material.GRAY_DYE : Material.DIAMOND)
+            .name(alreadyBought ? "§8" + offer.name() : "§b§l⭐ " + offer.name())
             .lore(lore)
-            .glow(!alreadyBought)
+            .glow(!alreadyBought && canAfford)
             .build();
     }
 
-    private ItemStack createPermanentOfferItem(ShopOffer offer) {
+    private ItemStack createEggOfferItem(ShopOffer offer) {
+        long playerPoints = 0;
+        var playerData = plugin.getPlayerDataManager().getPlayer(player);
+        if (playerData != null) {
+            playerPoints = playerData.getPoints().get();
+        }
+        boolean canAfford = playerPoints >= offer.price();
+
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.addAll(List.of(offer.description().split("\n")));
+
+        // Description
+        for (String line : offer.description().split("\n")) {
+            lore.add("§7" + line);
+        }
+
+        // Info sur l'oeuf
+        if (offer.eggType() != null) {
+            lore.add("");
+            lore.add("§e§lRaretés possibles:");
+            lore.add("§7" + offer.eggType().getRarityInfo());
+        }
+
+        lore.add("");
+        lore.add(LORE_SEPARATOR);
         lore.add("");
 
+        // Prix avec format homogène (en POINTS pour les oeufs)
         if (offer.discountPercent() > 0) {
             int originalPrice = offer.price() * 100 / (100 - offer.discountPercent());
-            lore.add("§c§m" + originalPrice + "§r §a" + offer.price() + " fragments");
-            lore.add("§a-" + offer.discountPercent() + "% économisé!");
+            lore.add("§7Prix: §c§m" + String.format("%,d", originalPrice) + "§r §a" + String.format("%,d", offer.price()) + " §epoints");
+            lore.add("§a§l-" + offer.discountPercent() + "% §ade réduction!");
         } else {
-            lore.add("§ePrix: §f" + offer.price() + " fragments");
+            lore.add("§7Prix: §f" + String.format("%,d", offer.price()) + " §epoints");
         }
 
-        int playerFragments = petData != null ? petData.getFragments() : 0;
-        if (playerFragments >= offer.price()) {
-            lore.add("");
-            lore.add("§aCliquez pour acheter!");
+        lore.add("");
+
+        // Statut d'achat
+        if (canAfford) {
+            lore.add("§a§l► Cliquez pour acheter!");
         } else {
-            lore.add("");
-            lore.add("§cPas assez de fragments!");
-            lore.add("§7Besoin: §c" + (offer.price() - playerFragments) + " §7de plus");
+            lore.add("§c✗ Points insuffisants");
+            lore.add("§7  Manque: §c" + String.format("%,d", offer.price() - playerPoints));
         }
 
-        Material icon = offer.eggType() != null ? offer.eggType().getIcon() :
-            (offer.fragments() > 1000 ? Material.GOLD_BLOCK : Material.GOLD_NUGGET);
+        Material icon = offer.eggType() != null ? offer.eggType().getIcon() : Material.EGG;
 
         return new ItemBuilder(icon)
             .name(offer.name())
             .lore(lore)
+            .glow(canAfford)
+            .build();
+    }
+
+    private ItemStack createFragmentOfferItem(ShopOffer offer) {
+        long playerPoints = 0;
+        var playerData = plugin.getPlayerDataManager().getPlayer(player);
+        if (playerData != null) {
+            playerPoints = playerData.getPoints().get();
+        }
+        boolean canAfford = playerPoints >= offer.price();
+
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+
+        // Description
+        for (String line : offer.description().split("\n")) {
+            lore.add("§7" + line);
+        }
+
+        // Quantité de fragments
+        lore.add("");
+        lore.add("§d§lVous recevez:");
+        lore.add("§f  ➤ §d" + String.format("%,d", offer.fragments()) + " fragments");
+
+        // Bonus si applicable
+        if (offer.discountPercent() > 0) {
+            int bonus = offer.fragments() - (offer.fragments() * (100 - offer.discountPercent()) / 100);
+            if (bonus > 0) {
+                lore.add("§a  ➤ +" + String.format("%,d", bonus) + " bonus!");
+            }
+        }
+
+        lore.add("");
+        lore.add(LORE_SEPARATOR);
+        lore.add("");
+
+        // Prix avec format homogène (en POINTS)
+        lore.add("§7Prix: §f" + String.format("%,d", offer.price()) + " §epoints");
+
+        lore.add("");
+
+        // Statut d'achat
+        if (canAfford) {
+            lore.add("§a§l► Cliquez pour acheter!");
+        } else {
+            lore.add("§c✗ Points insuffisants");
+            lore.add("§7  Manque: §c" + String.format("%,d", offer.price() - playerPoints));
+        }
+
+        // Icône selon la quantité
+        Material icon;
+        if (offer.fragments() >= 2000) {
+            icon = Material.DIAMOND_BLOCK;
+        } else if (offer.fragments() >= 500) {
+            icon = Material.GOLD_BLOCK;
+        } else {
+            icon = Material.PRISMARINE_SHARD;
+        }
+
+        return new ItemBuilder(icon)
+            .name(offer.name())
+            .lore(lore)
+            .glow(canAfford)
             .build();
     }
 
