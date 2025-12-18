@@ -3,6 +3,8 @@ package com.rinaorc.zombiez.classes.talents;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.items.generator.ArmorTrimGenerator;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import org.bukkit.*;
@@ -21,6 +23,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.inventory.meta.ArmorMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -1915,11 +1919,11 @@ public class OccultisteTalentListener implements Listener {
             minion.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).setBaseValue(Math.max(10 * statPercent, 8));
             minion.getAttribute(org.bukkit.attribute.Attribute.ARMOR).setBaseValue(8);
 
-            // Give iron armor and sword
-            minion.getEquipment().setHelmet(new org.bukkit.inventory.ItemStack(Material.IRON_HELMET));
-            minion.getEquipment().setChestplate(new org.bukkit.inventory.ItemStack(Material.IRON_CHESTPLATE));
-            minion.getEquipment().setLeggings(new org.bukkit.inventory.ItemStack(Material.IRON_LEGGINGS));
-            minion.getEquipment().setBoots(new org.bukkit.inventory.ItemStack(Material.IRON_BOOTS));
+            // Give iron armor with random armor trims for visual variety
+            minion.getEquipment().setHelmet(createTrimmedArmor(Material.IRON_HELMET));
+            minion.getEquipment().setChestplate(createTrimmedArmor(Material.IRON_CHESTPLATE));
+            minion.getEquipment().setLeggings(createTrimmedArmor(Material.IRON_LEGGINGS));
+            minion.getEquipment().setBoots(createTrimmedArmor(Material.IRON_BOOTS));
 
             org.bukkit.inventory.ItemStack sword = new org.bukkit.inventory.ItemStack(Material.IRON_SWORD);
             sword.addEnchantment(org.bukkit.enchantments.Enchantment.SHARPNESS, 3);
@@ -2092,25 +2096,17 @@ public class OccultisteTalentListener implements Listener {
         bow.addEnchantment(org.bukkit.enchantments.Enchantment.FLAME, 1);
         minion.getEquipment().setItemInMainHand(bow);
 
-        // Purple-tinted leather armor
-        org.bukkit.inventory.meta.LeatherArmorMeta armorMeta;
-        org.bukkit.Color purpleColor = org.bukkit.Color.fromRGB(128, 0, 128);
-
-        org.bukkit.inventory.ItemStack helmet = new org.bukkit.inventory.ItemStack(Material.LEATHER_HELMET);
-        armorMeta = (org.bukkit.inventory.meta.LeatherArmorMeta) helmet.getItemMeta();
-        armorMeta.setColor(purpleColor);
-        helmet.setItemMeta(armorMeta);
-        minion.getEquipment().setHelmet(helmet);
-
-        org.bukkit.inventory.ItemStack chestplate = new org.bukkit.inventory.ItemStack(Material.LEATHER_CHESTPLATE);
-        armorMeta = (org.bukkit.inventory.meta.LeatherArmorMeta) chestplate.getItemMeta();
-        armorMeta.setColor(purpleColor);
-        chestplate.setItemMeta(armorMeta);
-        minion.getEquipment().setChestplate(chestplate);
+        // Chainmail armor with random armor trims for visual variety
+        minion.getEquipment().setHelmet(createTrimmedArmor(Material.CHAINMAIL_HELMET));
+        minion.getEquipment().setChestplate(createTrimmedArmor(Material.CHAINMAIL_CHESTPLATE));
+        minion.getEquipment().setLeggings(createTrimmedArmor(Material.CHAINMAIL_LEGGINGS));
+        minion.getEquipment().setBoots(createTrimmedArmor(Material.CHAINMAIL_BOOTS));
 
         // Prevent equipment drops
         minion.getEquipment().setHelmetDropChance(0f);
         minion.getEquipment().setChestplateDropChance(0f);
+        minion.getEquipment().setLeggingsDropChance(0f);
+        minion.getEquipment().setBootsDropChance(0f);
         minion.getEquipment().setItemInMainHandDropChance(0f);
 
         // Add glowing effect
@@ -3636,6 +3632,25 @@ public class OccultisteTalentListener implements Listener {
     private void sendActionBar(Player player, String message) {
         player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
             net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
+    }
+
+    /**
+     * Crée une pièce d'armure avec un armor trim aléatoire pour varier l'apparence des serviteurs
+     */
+    private org.bukkit.inventory.ItemStack createTrimmedArmor(Material armorMaterial) {
+        org.bukkit.inventory.ItemStack armor = new org.bukkit.inventory.ItemStack(armorMaterial);
+
+        // Générer un trim aléatoire (rareté RARE pour avoir accès à plus de patterns)
+        ArmorTrimGenerator.TrimResult trim = ArmorTrimGenerator.getInstance().generateTrimForMob(Rarity.RARE, 1);
+        if (trim != null) {
+            ArmorMeta meta = (ArmorMeta) armor.getItemMeta();
+            if (meta != null) {
+                meta.setTrim(new ArmorTrim(trim.material(), trim.pattern()));
+                armor.setItemMeta(meta);
+            }
+        }
+
+        return armor;
     }
 
     // ==================== DATA CLASSES ====================
