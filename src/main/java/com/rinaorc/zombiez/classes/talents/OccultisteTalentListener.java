@@ -802,16 +802,19 @@ public class OccultisteTalentListener implements Listener {
                     Map<String, Long> playerCooldowns = internalCooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
                     Long lastUse = playerCooldowns.get("time_stasis");
 
-                    if (lastUse != null && now - lastUse < cooldownMs) {
+                    // lastUse stores the EXPIRATION timestamp (not last activation time)
+                    // This ensures the cleanup task doesn't delete the cooldown prematurely
+                    if (lastUse != null && now < lastUse) {
                         // On cooldown - show remaining time and skip
-                        long remainingMs = cooldownMs - (now - lastUse);
+                        long remainingMs = lastUse - now;
                         int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
                         sendActionBar(player, "§b❄ Stase Temporelle §8- §cCooldown: §e" + remainingSec + "s");
                         return;
                     }
 
                     // Set cooldown IMMEDIATELY before processing to prevent race conditions
-                    playerCooldowns.put("time_stasis", now);
+                    // Store expiration timestamp (now + cooldown) so cleanup task doesn't remove it early
+                    playerCooldowns.put("time_stasis", now + cooldownMs);
                     processTimeStasis(player);
                 } else {
                     // Record this sneak for potential double sneak
