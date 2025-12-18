@@ -131,6 +131,10 @@ public class OccultisteTalentListener implements Listener {
     // Active Voidlings tracking (player UUID -> voidling entity UUID)
     private final Map<UUID, UUID> activeVoidlings = new ConcurrentHashMap<>();
 
+    // ==================== SOUL SIPHON BUFF TRACKING ====================
+    // Soul Siphon damage buff tracking (player UUID -> expiry timestamp)
+    private final Map<UUID, Long> soulSiphonBuff = new ConcurrentHashMap<>();
+
     public OccultisteTalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -638,6 +642,18 @@ public class OccultisteTalentListener implements Listener {
             }
         }
 
+        // BUFF: Soul Siphon - temporary damage buff after kill
+        if (hasTalentEffect(player, Talent.TalentEffectType.SOUL_SIPHON)) {
+            Long buffExpiry = soulSiphonBuff.get(player.getUniqueId());
+            if (buffExpiry != null && System.currentTimeMillis() < buffExpiry) {
+                Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.SOUL_SIPHON);
+                if (talent.getValues().length > 2) {
+                    double soulSiphonBonus = talent.getValue(2); // 0.25 = 25%
+                    bonusDamage += baseDamage * soulSiphonBonus;
+                }
+            }
+        }
+
         // Apply bonus damage
         if (bonusDamage > 0) {
             event.setDamage(baseDamage + bonusDamage);
@@ -654,9 +670,9 @@ public class OccultisteTalentListener implements Listener {
         if (hasTalentEffect(player, Talent.TalentEffectType.FROST_LORD)) {
             processFrostLord(player, target);
         }
-        // Frost Bite - normal freeze chance
+        // Frost Bite - normal freeze chance + bonus damage
         else if (hasTalentEffect(player, Talent.TalentEffectType.FROST_BITE)) {
-            processFrostBite(player, target);
+            processFrostBite(player, target, baseDamage);
         }
 
         // Chain Lightning
@@ -853,7 +869,7 @@ public class OccultisteTalentListener implements Listener {
         }
     }
 
-    private void processFrostBite(Player player, LivingEntity target) {
+    private void processFrostBite(Player player, LivingEntity target, double baseDamage) {
         Talent talent = getTalentWithEffect(player, Talent.TalentEffectType.FROST_BITE);
         if (!checkCooldown(player, "frost_bite", talent.getInternalCooldownMs())) return;
 
@@ -861,6 +877,16 @@ public class OccultisteTalentListener implements Listener {
             int stacksToAdd = talent.getValues().length > 3 ? (int) talent.getValue(3) : 1;
             addFrostStacks(player, target, stacksToAdd);
             applyFreeze(target, (int)(talent.getValue(2) * 1000), talent.getValue(1));
+
+            // BUFF: Dégâts directs bonus quand le freeze proc (nouveau)
+            if (talent.getValues().length > 4) {
+                double bonusDamagePercent = talent.getValue(4); // 0.30 = 30%
+                double bonusDamage = baseDamage * bonusDamagePercent;
+                damageNoKnockback(target, bonusDamage, player);
+
+                // Visual de dégâts de givre
+                target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.1);
+            }
         }
     }
 
@@ -1767,6 +1793,13 @@ public class OccultisteTalentListener implements Listener {
             soulOrbs.put(player.getUniqueId(), currentOrbs + 1);
         }
 
+        // BUFF: Activer le buff de dégâts temporaire (nouveau)
+        if (talent.getValues().length > 3) {
+            long buffDurationMs = (long) talent.getValue(3); // 5000ms = 5s
+            soulSiphonBuff.put(player.getUniqueId(), System.currentTimeMillis() + buffDurationMs);
+            sendActionBar(player, "§d✦ §5Siphon d'Ame §8- §c+25% degats §7pendant §e5s");
+        }
+
         // Visual
         player.getWorld().spawnParticle(Particle.SOUL, player.getLocation().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.05);
         player.playSound(player.getLocation(), Sound.PARTICLE_SOUL_ESCAPE, 0.5f, 1.2f);
@@ -2591,8 +2624,14 @@ public class OccultisteTalentListener implements Listener {
                 double auraRadius = talent.getValue(0);
                 double slowPercent = talent.getValues().length > 1 ? talent.getValue(1) : 0.30;
                 int stacksPerSec = talent.getValues().length > 2 ? (int) talent.getValue(2) : 1;
+                // BUFF: Dégâts de zone par seconde (nouveau)
+                double damagePercent = talent.getValues().length > 3 ? talent.getValue(3) : 0.0;
 
-                // Aura qui ralentit et ajoute des stacks (ne gele plus directement)
+                // Calculer les dégâts de base du joueur pour le buff
+                double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                double auraDamage = baseDamage * damagePercent;
+
+                // Aura qui ralentit, ajoute des stacks ET inflige des dégâts
                 for (Entity nearby : frozen.getNearbyEntities(auraRadius, auraRadius, auraRadius)) {
                     if (nearby instanceof LivingEntity le && !(nearby instanceof Player)) {
                         // Ajouter des stacks de Givre
@@ -2600,6 +2639,10 @@ public class OccultisteTalentListener implements Listener {
                         // Appliquer un slow leger (pas de freeze)
                         le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30,
                             (int)(slowPercent * 3), false, false, true));
+                        // BUFF: Infliger des dégâts de zone (nouveau)
+                        if (auraDamage > 0) {
+                            damageNoKnockback(le, auraDamage, player);
+                        }
                     }
                 }
 
@@ -2713,8 +2756,18 @@ public class OccultisteTalentListener implements Listener {
                     (int) iceAgeTalent.getValue(2) : 2;
                 double slowPercent = iceAgeTalent != null && iceAgeTalent.getValues().length > 3 ?
                     iceAgeTalent.getValue(3) : 0.35;
+                // BUFF: Dégâts de zone par seconde (nouveau index 5)
+                double damagePercent = iceAgeTalent != null && iceAgeTalent.getValues().length > 5 ?
+                    iceAgeTalent.getValue(5) : 0.0;
 
-                // Ajouter des stacks aux ennemis dans la zone
+                // Calculer les dégâts de zone si le propriétaire existe
+                double zoneDamage = 0;
+                if (iceAgeOwner != null && damagePercent > 0) {
+                    double baseDamage = iceAgeOwner.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                    zoneDamage = baseDamage * damagePercent;
+                }
+
+                // Ajouter des stacks aux ennemis dans la zone ET infliger des dégâts
                 for (Entity entity : world.getNearbyEntities(loc, radius, radius, radius)) {
                     if (entity instanceof LivingEntity le && !(entity instanceof Player)) {
                         if (iceAgeOwner != null) {
@@ -2723,6 +2776,10 @@ public class OccultisteTalentListener implements Listener {
                         // Slow de zone
                         le.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30,
                             (int)(slowPercent * 4), false, false, true));
+                        // BUFF: Dégâts de zone (nouveau)
+                        if (zoneDamage > 0 && iceAgeOwner != null) {
+                            damageNoKnockback(le, zoneDamage, iceAgeOwner);
+                        }
                     }
                 }
 
@@ -3280,6 +3337,9 @@ public class OccultisteTalentListener implements Listener {
 
         // Clean ice zones
         iceZones.entrySet().removeIf(entry -> now > entry.getValue());
+
+        // Clean soul siphon buff
+        soulSiphonBuff.entrySet().removeIf(entry -> now > entry.getValue());
 
         // Clean shadow DOTs
         shadowDots.entrySet().removeIf(entry -> now > entry.getValue().expiry || Bukkit.getEntity(entry.getKey()) == null);

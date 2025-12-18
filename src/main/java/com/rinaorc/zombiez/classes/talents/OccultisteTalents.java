@@ -54,14 +54,15 @@ public final class OccultisteTalents {
             .internalCooldownMs(500)
             .build());
 
-        // 1.2 - GIVRE MORDANT
+        // 1.2 - GIVRE MORDANT (BUFFÉ: +30% dégâts directs pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_frost_bite")
             .name("Givre Mordant")
-            .description("20% chance de geler l'ennemi")
+            .description("20% chance de geler + degats")
             .loreLines(new String[]{
                 "§7Vos attaques ont §e20%§7 de chance",
-                "§7de §bgeler§7 l'ennemi.",
+                "§7de §bgeler§7 l'ennemi et infliger",
+                "§c+30%§7 degats bonus.",
                 "",
                 "§8Ralentissement: §b40%§8 pendant 2s",
                 "§8Accumule des §3stacks de Givre§8",
@@ -73,7 +74,7 @@ public final class OccultisteTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.FROST_BITE)
-            .values(new double[]{0.20, 0.40, 2.0, 1}) // chance, slow%, duration_s, frost_stacks
+            .values(new double[]{0.20, 0.40, 2.0, 1, 0.30}) // chance, slow%, duration_s, frost_stacks, bonus_damage% (nouveau)
             .internalCooldownMs(600)
             .build());
 
@@ -100,15 +101,16 @@ public final class OccultisteTalents {
             .internalCooldownMs(500)
             .build());
 
-        // 1.4 - SIPHON D'AME
+        // 1.4 - SIPHON D'AME (BUFFÉ: +25% dégâts pendant 5s après kill pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_siphon")
             .name("Siphon d'Ame")
-            .description("Elimination = 3% PV + orbe d'ame")
+            .description("Kill = 3% PV + orbe + buff degats")
             .loreLines(new String[]{
                 "§7Chaque elimination restaure §a3%§7",
-                "§7de vos PV max et genere une",
-                "§dorbe d'ame§7 (max 5).",
+                "§7de vos PV max, genere une",
+                "§dorbe d'ame§7 (max 5) et vous",
+                "§7confere §c+25%§7 degats pendant §e5s§7.",
                 "",
                 "§8Synergie: Mage des ames"
             })
@@ -118,7 +120,7 @@ public final class OccultisteTalents {
             .icon(Material.SOUL_LANTERN)
             .iconColor("§d")
             .effectType(Talent.TalentEffectType.SOUL_SIPHON)
-            .values(new double[]{0.03, 5}) // heal%, max_orbs
+            .values(new double[]{0.03, 5, 0.25, 5000}) // heal%, max_orbs, damage_buff% (nouveau), buff_duration_ms (nouveau)
             .build());
 
         // 1.5 - MOT DE L'OMBRE (Shadow Word: Pain)
@@ -213,7 +215,7 @@ public final class OccultisteTalents {
             .values(new double[]{1}) // extra_targets_per_crit
             .build());
 
-        // 2.4 - RESERVOIR D'AMES
+        // 2.4 - RESERVOIR D'AMES (BUFFÉ: 150% par orbe au lieu de 100% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_reservoir")
             .name("Reservoir d'Ames")
@@ -223,7 +225,7 @@ public final class OccultisteTalents {
                 "§7Consomme toutes les §dorbes§7 pour",
                 "§7une explosion de degats.",
                 "",
-                "§8Degats par orbe: §c100%§8 de base"
+                "§8Degats par orbe: §c150%§8 de base"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -231,7 +233,7 @@ public final class OccultisteTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§d")
             .effectType(Talent.TalentEffectType.SOUL_RESERVOIR)
-            .values(new double[]{1.0}) // damage_per_orb%
+            .values(new double[]{1.5}) // damage_per_orb% (buffé 1.0→1.5)
             .build());
 
         // 2.5 - TOUCHER VAMPIRIQUE (Vampiric Touch)
@@ -284,17 +286,18 @@ public final class OccultisteTalents {
             .internalCooldownMs(2500)
             .build());
 
-        // 3.2 - BLIZZARD
+        // 3.2 - BLIZZARD (BUFFÉ: +25%/s dégâts de zone pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_blizzard")
             .name("Blizzard")
-            .description("Les geles creent une aura de froid")
+            .description("Aura de froid avec degats")
             .loreLines(new String[]{
                 "§7Les ennemis §bgeles§7 generent",
-                "§7une aura qui §bralentit§7 les autres.",
+                "§7une aura qui §bralentit§7 et",
+                "§7§cblesse§7 les autres.",
                 "",
                 "§8Rayon aura: 2.5 blocs",
-                "§8Slow: §b30%§8 (ne gele pas)",
+                "§8Slow: §b30%§8 + §c25%§8 degats/s",
                 "§8Ajoute §3+1 stack de Givre§8/s"
             })
             .classType(ClassType.OCCULTISTE)
@@ -303,7 +306,7 @@ public final class OccultisteTalents {
             .icon(Material.POWDER_SNOW_BUCKET)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.BLIZZARD)
-            .values(new double[]{2.5, 0.30, 1}) // aura_radius, slow%, stacks_per_second
+            .values(new double[]{2.5, 0.30, 1, 0.25}) // aura_radius, slow%, stacks_per_second, damage%/s (nouveau)
             .build());
 
         // 3.3 - TEMPETE ELECTRIQUE
@@ -328,16 +331,17 @@ public final class OccultisteTalents {
             .values(new double[]{1500, 2, 0.40, 6}) // tick_ms, targets, damage%, range
             .build());
 
-        // 3.4 - PACTE DES AMES
+        // 3.4 - PACTE DES AMES (BUFFÉ: +8% par orbe au lieu de +5%, max 40% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_pact")
             .name("Pacte des Ames")
-            .description("+5% degats par orbe d'ame")
+            .description("+8% degats par orbe d'ame")
             .loreLines(new String[]{
                 "§7Chaque §dorbe d'ame§7 augmente",
-                "§7vos degats de §c+5%§7.",
+                "§7vos degats de §c+8%§7.",
                 "",
-                "§8Max: §c+25%§8 (5 orbes)",
+                "§8Max: §c+40%§8 (5 orbes)",
+                "§8Max: §c+80%§8 (10 orbes avec Legion)",
                 "§8Synergie: Soul stacking core"
             })
             .classType(ClassType.OCCULTISTE)
@@ -346,7 +350,7 @@ public final class OccultisteTalents {
             .icon(Material.AMETHYST_SHARD)
             .iconColor("§d")
             .effectType(Talent.TalentEffectType.SOUL_PACT)
-            .values(new double[]{0.05}) // damage_per_orb%
+            .values(new double[]{0.08}) // damage_per_orb% (buffé 0.05→0.08)
             .build());
 
         // 3.5 - APPARITIONS D'OMBRE (Shadowy Apparitions)
@@ -400,7 +404,7 @@ public final class OccultisteTalents {
             .values(new double[]{0.25, 0.12, 3.0, 10000, 3.0}) // dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s
             .build());
 
-        // 4.2 - ZERO ABSOLU (nerfé: dégâts divisés par 2, max stacks augmenté à 20)
+        // 4.2 - ZERO ABSOLU (BUFFÉ: 3%/stack au lieu de 2%, CD 8s au lieu de 10s pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_absolute_zero")
             .name("Zero Absolu")
@@ -409,10 +413,10 @@ public final class OccultisteTalents {
                 "§7Les ennemis avec §35+ stacks de Givre§7",
                 "§7declenchent une §bBrisure Glaciale§7:",
                 "",
-                "§8Degats: §c2%§8 PV max par stack",
-                "§8Boss/Elite: §c1%§8 PV max par stack",
+                "§8Degats: §c3%§8 PV max par stack",
+                "§8Boss/Elite: §c1.5%§8 PV max par stack",
                 "§8Max stacks: §b20",
-                "§8Cooldown: §e10s§8 par ennemi"
+                "§8Cooldown: §e8s§8 par ennemi"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -420,7 +424,7 @@ public final class OccultisteTalents {
             .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_ZERO)
-            .values(new double[]{5, 0.02, 0.01, 10000}) // min_stacks, damage_per_stack%, boss_damage_per_stack%, cooldown_ms
+            .values(new double[]{5, 0.03, 0.015, 8000}) // min_stacks, damage_per_stack% (buffé 0.02→0.03), boss_damage_per_stack% (buffé 0.01→0.015), cooldown_ms (buffé 10000→8000)
             .build());
 
         // 4.3 - CONDUCTEUR
@@ -739,18 +743,18 @@ public final class OccultisteTalents {
             .values(new double[]{12000, 1.50, 5.0, 4.0}) // cooldown_ms, damage%, radius, burn_extension_s
             .build());
 
-        // 6.2 - ERE GLACIAIRE
+        // 6.2 - ERE GLACIAIRE (BUFFÉ: +50%/s dégâts de zone pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_ice_age")
             .name("Ere Glaciaire")
-            .description("Zones de givre persistantes au sol")
+            .description("Zones de givre avec degats")
             .loreLines(new String[]{
                 "§7La mort d'un ennemi avec §35+",
                 "§3stacks§7 cree une zone de givre.",
                 "",
                 "§8Duree: §b4s§8, Rayon: §e2.5§8 blocs",
                 "§8Ennemis dedans: §3+2 stacks§8/s",
-                "§8Slow zone: §b35%"
+                "§8Slow zone: §b35%§8 + §c50%§8 degats/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -758,10 +762,10 @@ public final class OccultisteTalents {
             .icon(Material.BLUE_STAINED_GLASS)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ICE_AGE)
-            .values(new double[]{4000, 2.5, 2, 0.35, 5}) // duration_ms, radius, stacks_per_sec, slow%, min_stacks_to_trigger
+            .values(new double[]{4000, 2.5, 2, 0.35, 5, 0.50}) // duration_ms, radius, stacks_per_sec, slow%, min_stacks_to_trigger, damage%/s (nouveau)
             .build());
 
-        // 6.3 - TEMPETE PERPETUELLE
+        // 6.3 - TEMPETE PERPETUELLE (NERFÉ: tick 0.5s → 1.0s pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_perpetual_storm")
             .name("Tempete Perpetuelle")
@@ -771,7 +775,7 @@ public final class OccultisteTalents {
                 "§etempete electrique§7 permanente.",
                 "",
                 "§8Rayon: 5 blocs",
-                "§8Tick: Toutes les 0.5s",
+                "§8Tick: Toutes les 1s",
                 "§8Cibles: 3 random, §c25%§8 dmg"
             })
             .classType(ClassType.OCCULTISTE)
@@ -780,10 +784,10 @@ public final class OccultisteTalents {
             .icon(Material.PRISMARINE_SHARD)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.PERPETUAL_STORM)
-            .values(new double[]{500, 5.0, 3, 0.25}) // tick_ms, radius, targets, damage%
+            .values(new double[]{1000, 5.0, 3, 0.25}) // tick_ms (nerfé 500→1000), radius, targets, damage%
             .build());
 
-        // 7.4 - NECROMANCIEN
+        // 7.4 - NECROMANCIEN (BUFFÉ: 120% stats au lieu de 100% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_necromancer")
             .name("Necromancien")
@@ -793,7 +797,7 @@ public final class OccultisteTalents {
                 "§7Depensez §d1 orbe§7 pour invoquer",
                 "§7un §8squelette archer§7 puissant.",
                 "",
-                "§8Stats: §c100%§8 des votres",
+                "§8Stats: §c120%§8 des votres",
                 "§8Duree: §e30s§8, Max: §a8§8 squelettes",
                 "§8Activation: §eSneak + Clic Droit"
             })
@@ -803,7 +807,7 @@ public final class OccultisteTalents {
             .icon(Material.SKELETON_SKULL)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.NECROMANCER)
-            .values(new double[]{1.0, 30000, 8}) // stats%, duration_ms, max_summons
+            .values(new double[]{1.2, 30000, 8}) // stats% (buffé 1.0→1.2), duration_ms, max_summons
             .build());
 
         // 7.5 - SINGULARITE
@@ -878,16 +882,16 @@ public final class OccultisteTalents {
             .values(new double[]{6.0, 1, 0.05, 0.40}) // radius, stacks_per_sec, damage_per_stack%, max_damage_bonus%
             .build());
 
-        // 7.3 - MJOLNIR
+        // 7.3 - MJOLNIR (NERFÉ: 3 strikes → 2 strikes pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_mjolnir")
             .name("Mjolnir")
-            .description("Chain lightning x3 strikes")
+            .description("Chain lightning x2 strikes")
             .loreLines(new String[]{
                 "§7Vos §echain lightning§7 frappent",
-                "§c3 fois§7 chaque cible.",
+                "§c2 fois§7 chaque cible.",
                 "",
-                "§8Degats: 60% x3 = §c180%§8 total",
+                "§8Degats: 60% x2 = §c120%§8 total",
                 "§8Synergie: Lightning legendary"
             })
             .classType(ClassType.OCCULTISTE)
@@ -896,7 +900,7 @@ public final class OccultisteTalents {
             .icon(Material.TRIDENT)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.MJOLNIR)
-            .values(new double[]{3, 0.60}) // strikes, damage_per_strike%
+            .values(new double[]{2, 0.60}) // strikes (nerfé 3→2), damage_per_strike%
             .build());
 
         // 7.4 - SEIGNEUR DES MORTS
@@ -994,7 +998,7 @@ public final class OccultisteTalents {
             .values(new double[]{120000, 3000, 10}) // cooldown_ms, duration_ms, stacks_applied
             .build());
 
-        // 9.3 - JUGEMENT DIVIN
+        // 9.3 - JUGEMENT DIVIN (NERFÉ: 300% → 200% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_divine_judgment")
             .name("Jugement Divin")
@@ -1004,7 +1008,7 @@ public final class OccultisteTalents {
                 "§7divin frappe §cTOUS§7 les ennemis.",
                 "",
                 "§8Rayon: §e25§8 blocs, sans knockback",
-                "§8Degats: §c300%§8 a chacun",
+                "§8Degats: §c200%§8 a chacun",
                 "§8Max cibles: §e30"
             })
             .classType(ClassType.OCCULTISTE)
@@ -1013,7 +1017,7 @@ public final class OccultisteTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.DIVINE_JUDGMENT)
-            .values(new double[]{30000, 3.0, 25.0}) // cooldown_ms, damage%, range
+            .values(new double[]{30000, 2.0, 25.0}) // cooldown_ms, damage% (nerfé 3.0→2.0), range
             .build());
 
         // 8.4 - ARMEE IMMORTELLE
