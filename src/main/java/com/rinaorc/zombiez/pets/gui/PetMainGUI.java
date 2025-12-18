@@ -31,6 +31,7 @@ public class PetMainGUI implements InventoryHolder {
 
     // Slots
     private static final int SLOT_EQUIPPED_PET = 13;
+    private static final int SLOT_SHOP = 22;
     private static final int SLOT_COLLECTION = 29;
     private static final int SLOT_EGGS = 31;
     private static final int SLOT_OPTIONS = 33;
@@ -90,6 +91,21 @@ public class PetMainGUI implements InventoryHolder {
                 "",
                 "§eCliquez pour ouvrir"
             )
+            .build());
+
+        // Boutique
+        inventory.setItem(SLOT_SHOP, new ItemBuilder(Material.EMERALD)
+            .name("§a💎 Boutique")
+            .lore(
+                "",
+                "§7Achetez des oeufs et fragments",
+                "§7avec vos points de jeu!",
+                "",
+                "§7Offres flash disponibles!",
+                "",
+                "§eCliquez pour ouvrir"
+            )
+            .glow(true)
             .build());
 
         // Fragments
@@ -270,6 +286,10 @@ public class PetMainGUI implements InventoryHolder {
                 case SLOT_OPTIONS -> {
                     player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     new PetOptionsGUI(gui.plugin, player).open();
+                }
+                case SLOT_SHOP -> {
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    new PetShopGUI(gui.plugin, player).open();
                 }
             }
         }

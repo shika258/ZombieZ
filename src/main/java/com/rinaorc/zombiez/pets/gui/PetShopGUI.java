@@ -92,14 +92,20 @@ public class PetShopGUI implements InventoryHolder {
 
         // Afficher le solde du joueur
         int fragments = petData != null ? petData.getFragments() : 0;
+        long points = 0;
+        var playerData = plugin.getPlayerDataManager().getPlayer(player);
+        if (playerData != null) {
+            points = playerData.getPoints();
+        }
         inventory.setItem(8, new ItemBuilder(Material.SUNFLOWER)
             .name("§6§lVotre Solde")
             .lore(List.of(
                 "",
-                "§7Fragments: §e" + fragments,
+                "§7Points: §a" + String.format("%,d", points),
+                "§7Fragments: §d" + String.format("%,d", fragments),
                 "",
-                "§8Utilisez les fragments pour",
-                "§8acheter dans la boutique"
+                "§8Utilisez les points pour",
+                "§8acheter oeufs et fragments"
             ))
             .build());
 

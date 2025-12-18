@@ -265,13 +265,31 @@ public class PetShopSystem {
             return new PurchaseResult(false, "Données joueur introuvables!", null);
         }
 
-        // Pour l'instant, on utilise les fragments comme monnaie
-        if (!petData.hasFragments(offer.price())) {
-            return new PurchaseResult(false, "Pas assez de fragments! (Besoin: " + offer.price() + ")", null);
+        // Vérifier selon le type de monnaie
+        boolean hasEnough;
+        String currencyName;
+
+        if (offer.currency() == CurrencyType.POINTS) {
+            var playerData = plugin.getPlayerDataManager().getPlayer(playerUuid);
+            if (playerData == null) {
+                return new PurchaseResult(false, "Données joueur introuvables!", null);
+            }
+            hasEnough = playerData.hasPoints(offer.price());
+            currencyName = "points";
+            if (hasEnough) {
+                playerData.removePoints(offer.price());
+            }
+        } else {
+            hasEnough = petData.hasFragments(offer.price());
+            currencyName = "fragments";
+            if (hasEnough) {
+                petData.removeFragments(offer.price());
+            }
         }
 
-        // Effectuer l'achat
-        petData.removeFragments(offer.price());
+        if (!hasEnough) {
+            return new PurchaseResult(false, "Pas assez de " + currencyName + "! (Besoin: " + offer.price() + ")", null);
+        }
 
         // Donner les récompenses
         StringBuilder rewards = new StringBuilder();
@@ -299,15 +317,33 @@ public class PetShopSystem {
             return new PurchaseResult(false, "Données joueur introuvables!", null);
         }
 
-        // Vérifier les fonds (pour l'instant juste les fragments/points)
-        if (!petData.hasFragments(price)) {
-            return new PurchaseResult(false, "Pas assez de " +
-                (currency == CurrencyType.POINTS ? "points" : "fragments") +
-                "! (Besoin: " + price + ")", null);
+        // Vérifier et retirer les fonds selon le type de monnaie
+        boolean hasEnough;
+        String currencyName;
+
+        if (currency == CurrencyType.POINTS) {
+            var playerData = plugin.getPlayerDataManager().getPlayer(playerUuid);
+            if (playerData == null) {
+                return new PurchaseResult(false, "Données joueur introuvables!", null);
+            }
+            hasEnough = playerData.hasPoints(price);
+            currencyName = "points";
+            if (hasEnough) {
+                playerData.removePoints(price);
+            }
+        } else if (currency == CurrencyType.FRAGMENTS) {
+            hasEnough = petData.hasFragments(price);
+            currencyName = "fragments";
+            if (hasEnough) {
+                petData.removeFragments(price);
+            }
+        } else {
+            return new PurchaseResult(false, "Type de monnaie non supporté!", null);
         }
 
-        // Effectuer l'achat
-        petData.removeFragments(price);
+        if (!hasEnough) {
+            return new PurchaseResult(false, "Pas assez de " + currencyName + "! (Besoin: " + price + ")", null);
+        }
 
         StringBuilder rewards = new StringBuilder();
 

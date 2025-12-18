@@ -643,6 +643,8 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetDetailsGUI.GUIListener(this), this);
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetEggGUI.GUIListener(this), this);
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetOptionsGUI.GUIListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetShopGUI.ShopListener(this), this);
+            pm.registerEvents(new com.rinaorc.zombiez.pets.gui.EggOpeningAnimation.AnimationListener(), this);
         }
     }
 
