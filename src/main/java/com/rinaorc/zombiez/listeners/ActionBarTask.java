@@ -1,7 +1,6 @@
 package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.combat.DPSTracker;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.types.StatType;
 import net.md_5.bungee.api.ChatMessageType;
@@ -14,7 +13,7 @@ import java.util.Map;
 
 /**
  * Tâche pour afficher l'ActionBar permanent aux joueurs
- * Affiche: HP / Défense / Dégâts / DPS
+ * Affiche: HP / Défense / Dégâts / IS (Item Score)
  *
  * Format épuré et lisible pour une meilleure expérience de jeu
  */
@@ -43,7 +42,7 @@ public class ActionBarTask extends BukkitRunnable {
 
     /**
      * Construit et envoie l'ActionBar à un joueur
-     * Format: ❤ HP/Max │ 🛡 Défense │ ⚔ Dégâts │ ⚡ DPS
+     * Format: ❤ HP/Max │ 🛡 Défense │ ⚔ Dégâts │ IS: Score
      */
     private void sendActionBar(Player player) {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
@@ -95,11 +94,10 @@ public class ActionBarTask extends BukkitRunnable {
 
         bar.append(" §8│ ");
 
-        // ============ DPS ============
-        double dps = DPSTracker.getInstance().getDPS(player);
-        String dpsColor = DPSTracker.getDPSColor(dps);
-        String formattedDPS = DPSTracker.formatDPS(dps);
-        bar.append(dpsColor).append("⚡ ").append(formattedDPS);
+        // ============ ITEM SCORE ============
+        int totalItemScore = plugin.getItemManager().calculateTotalItemScore(player);
+        String isColor = getItemScoreColor(totalItemScore);
+        bar.append(isColor).append("IS: ").append(formatNumber(totalItemScore));
 
         // ============ ENVOYER ============
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString()));
@@ -146,6 +144,41 @@ public class ActionBarTask extends BukkitRunnable {
         if (damage >= 25) return "§6";       // Orange
         if (damage >= 10) return "§e";       // Jaune
         return "§f";                          // Blanc
+    }
+
+    /**
+     * Obtient la couleur de l'Item Score basée sur la valeur totale
+     */
+    private String getItemScoreColor(int score) {
+        if (score >= 50000) return "§c§l";   // Rouge brillant (end-game)
+        if (score >= 30000) return "§d";     // Violet (late-game)
+        if (score >= 15000) return "§6";     // Orange (mid-late)
+        if (score >= 7000) return "§e";      // Jaune (mid-game)
+        if (score >= 3000) return "§a";      // Vert (early-mid)
+        if (score >= 1000) return "§f";      // Blanc (early)
+        return "§7";                          // Gris (débutant)
+    }
+
+    /**
+     * Formate un nombre avec suffixes k, M
+     * Ex: 10500 -> "10.5k", 1500000 -> "1.5M"
+     */
+    private String formatNumber(int value) {
+        if (value >= 1_000_000) {
+            double millions = value / 1_000_000.0;
+            if (millions == (int) millions) {
+                return (int) millions + "M";
+            }
+            return String.format("%.1fM", millions);
+        }
+        if (value >= 1_000) {
+            double thousands = value / 1_000.0;
+            if (thousands == (int) thousands) {
+                return (int) thousands + "k";
+            }
+            return String.format("%.1fk", thousands);
+        }
+        return String.valueOf(value);
     }
 
     /**
