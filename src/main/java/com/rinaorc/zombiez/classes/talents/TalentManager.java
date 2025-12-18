@@ -81,6 +81,7 @@ public class TalentManager {
 
     /**
      * Obtient tous les talents actifs d'un joueur
+     * Ne retourne que les talents sélectionnés ET activés (pas dans disabledTalents)
      */
     public List<Talent> getActiveTalents(Player player) {
         ClassData data = plugin.getClassManager().getClassData(player);
@@ -88,8 +89,10 @@ public class TalentManager {
 
         List<Talent> active = new ArrayList<>();
         for (Map.Entry<TalentTier, String> entry : data.getAllSelectedTalents().entrySet()) {
-            Talent talent = talentsById.get(entry.getValue());
-            if (talent != null && data.isTalentTierUnlocked(entry.getKey())) {
+            String talentId = entry.getValue();
+            Talent talent = talentsById.get(talentId);
+            // Vérifier que le talent existe, que le palier est débloqué ET que le talent est activé
+            if (talent != null && data.isTalentTierUnlocked(entry.getKey()) && data.isTalentEnabled(talentId)) {
                 active.add(talent);
             }
         }
@@ -98,6 +101,7 @@ public class TalentManager {
 
     /**
      * Obtient le talent actif d'un joueur pour un palier
+     * Retourne null si le talent est désactivé
      */
     public Talent getActiveTalentForTier(Player player, TalentTier tier) {
         ClassData data = plugin.getClassManager().getClassData(player);
@@ -105,7 +109,12 @@ public class TalentManager {
         if (!data.isTalentTierUnlocked(tier)) return null;
 
         String talentId = data.getSelectedTalentId(tier);
-        return talentId != null ? talentsById.get(talentId) : null;
+        if (talentId == null) return null;
+
+        // Vérifier que le talent est activé (pas dans disabledTalents)
+        if (!data.isTalentEnabled(talentId)) return null;
+
+        return talentsById.get(talentId);
     }
 
     // ==================== VÉRIFICATION ====================
