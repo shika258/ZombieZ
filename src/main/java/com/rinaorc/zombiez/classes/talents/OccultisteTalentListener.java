@@ -226,7 +226,7 @@ public class OccultisteTalentListener implements Listener {
     // ==================== DAMAGE EVENTS ====================
 
     /**
-     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     * Empeche les serviteurs d'attaquer leur proprietaire, d'autres joueurs, ou d'autres serviteurs allies
      * Priorite HIGHEST pour annuler l'evenement avant tout traitement
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -242,6 +242,17 @@ public class OccultisteTalentListener implements Listener {
         // Verifier si c'est une attaque de minion a bloquer
         if (shouldPreventMinionAttack(damager, target)) {
             event.setCancelled(true);
+
+            // Si le minion essaie d'attaquer un joueur, forcer une nouvelle cible
+            if (target instanceof Player && damager instanceof Mob mob) {
+                String ownerUUID = getMinionOwnerUUID(damager);
+                if (ownerUUID != null) {
+                    Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+                    if (owner != null) {
+                        setMinionTarget(owner, mob);
+                    }
+                }
+            }
         }
     }
 
@@ -533,46 +544,50 @@ public class OccultisteTalentListener implements Listener {
     }
 
     /**
-     * Empeche les serviteurs de cibler leur proprietaire ou d'autres serviteurs allies
+     * Empeche les serviteurs de cibler leur proprietaire, d'autres joueurs, ou d'autres serviteurs allies
+     * Les minions ne doivent cibler QUE des mobs hostiles
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMinionTarget(EntityTargetLivingEntityEvent event) {
         Entity entity = event.getEntity();
-        if (!entity.getScoreboardTags().contains("player_minion")) return;
+
+        // Verifier si c'est un minion (via metadata OU scoreboard tag)
+        if (!isMinion(entity)) return;
 
         LivingEntity target = event.getTarget();
         if (target == null) return;
 
         // Trouver le proprietaire du minion
-        String ownerUUID = entity.getScoreboardTags().stream()
-            .filter(tag -> tag.startsWith("owner_"))
-            .map(tag -> tag.substring(6))
-            .findFirst()
-            .orElse(null);
+        String ownerUUID = getMinionOwnerUUID(entity);
 
-        if (ownerUUID == null) return;
-
-        // Empecher le ciblage du proprietaire
-        if (target instanceof Player player && player.getUniqueId().toString().equals(ownerUUID)) {
+        // BLOQUER LE CIBLAGE DE TOUT JOUEUR
+        // Les minions ne doivent JAMAIS cibler de joueur (ni leur proprietaire, ni d'autres joueurs)
+        if (target instanceof Player) {
             event.setCancelled(true);
-            // Forcer a chercher une autre cible
-            if (entity instanceof Mob mob) {
-                Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
-                if (owner != null) {
-                    setMinionTarget(owner, mob);
-                }
+            // Forcer a chercher une cible valide (mob hostile)
+            if (entity instanceof Mob mob && ownerUUID != null) {
+                try {
+                    Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+                    if (owner != null) {
+                        setMinionTarget(owner, mob);
+                    }
+                } catch (IllegalArgumentException ignored) {}
             }
             return;
         }
 
         // Empecher le ciblage d'autres serviteurs du meme proprietaire
-        if (target.getScoreboardTags().contains("player_minion") &&
-            target.getScoreboardTags().contains("owner_" + ownerUUID)) {
-            event.setCancelled(true);
-            if (entity instanceof Mob mob) {
-                Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
-                if (owner != null) {
-                    setMinionTarget(owner, mob);
+        if (isMinion(target) && ownerUUID != null) {
+            String targetOwner = getMinionOwnerUUID(target);
+            if (ownerUUID.equals(targetOwner)) {
+                event.setCancelled(true);
+                if (entity instanceof Mob mob) {
+                    try {
+                        Player owner = Bukkit.getPlayer(UUID.fromString(ownerUUID));
+                        if (owner != null) {
+                            setMinionTarget(owner, mob);
+                        }
+                    } catch (IllegalArgumentException ignored) {}
                 }
             }
         }
@@ -3308,6 +3323,7 @@ public class OccultisteTalentListener implements Listener {
     /**
      * Definit une cible pour un serviteur (squelette ou zombie)
      * Le serviteur attaquera l'ennemi le plus proche du joueur
+     * IMPORTANT: Ne cible JAMAIS de joueur ou d'autre minion allie
      */
     private void setMinionTarget(Player owner, Mob minion) {
         if (minion == null || minion.isDead()) return;
@@ -3317,9 +3333,10 @@ public class OccultisteTalentListener implements Listener {
         double closestDistance = 20.0; // Rayon de recherche
 
         for (Entity entity : owner.getNearbyEntities(closestDistance, closestDistance, closestDistance)) {
-            // Ignorer les joueurs et les autres minions
+            // JAMAIS cibler un joueur
             if (entity instanceof Player) continue;
-            if (entity.getScoreboardTags().contains("player_minion")) continue;
+            // JAMAIS cibler un autre minion (verifie metadata ET scoreboard tag)
+            if (isMinion(entity)) continue;
             if (!(entity instanceof LivingEntity le)) continue;
             if (le.isDead()) continue;
 
@@ -3332,6 +3349,12 @@ public class OccultisteTalentListener implements Listener {
 
         if (closestEnemy != null) {
             minion.setTarget(closestEnemy);
+        } else {
+            // Pas de cible valide trouvee, effacer la cible actuelle si c'est un joueur
+            LivingEntity currentTarget = minion.getTarget();
+            if (currentTarget instanceof Player) {
+                minion.setTarget(null);
+            }
         }
     }
 
@@ -3354,7 +3377,17 @@ public class OccultisteTalentListener implements Listener {
 
                 // Verifier si le minion a deja une cible valide
                 LivingEntity currentTarget = minion.getTarget();
+
+                // SECURITE: Si la cible actuelle est un joueur, forcer une nouvelle cible
+                if (currentTarget instanceof Player) {
+                    minion.setTarget(null);
+                    setMinionTarget(owner, minion);
+                    currentTarget = minion.getTarget();
+                }
+
                 boolean hasValidTarget = currentTarget != null && !currentTarget.isDead() &&
+                    !(currentTarget instanceof Player) && // JAMAIS de joueur comme cible valide
+                    !isMinion(currentTarget) && // JAMAIS un autre minion allie
                     currentTarget.getLocation().distance(owner.getLocation()) < 25;
 
                 if (!hasValidTarget) {
@@ -3370,6 +3403,12 @@ public class OccultisteTalentListener implements Listener {
                         minion.teleport(owner.getLocation().add(
                             Math.random() * 3 - 1.5, 0, Math.random() * 3 - 1.5));
                     }
+                    continue;
+                }
+
+                // SECURITE SUPPLEMENTAIRE: Ne JAMAIS attaquer un joueur
+                if (currentTarget instanceof Player) {
+                    minion.setTarget(null);
                     continue;
                 }
 
@@ -3445,40 +3484,68 @@ public class OccultisteTalentListener implements Listener {
         }
     }
 
+    // ==================== MINION UTILITY METHODS ====================
+
     /**
-     * Verifie si une entite est un serviteur d'un joueur specifique
+     * Verifie si une entite est un serviteur (minion) de l'Occultiste
+     * Verifie a la fois la metadata Minion_Occultiste et le scoreboard tag player_minion
      */
-    private boolean isPlayerMinion(Entity entity, Player player) {
-        return entity.getScoreboardTags().contains("player_minion") &&
-               entity.getScoreboardTags().contains("owner_" + player.getUniqueId());
+    private boolean isMinion(Entity entity) {
+        return entity.hasMetadata("Minion_Occultiste") ||
+               entity.getScoreboardTags().contains("player_minion");
     }
 
     /**
-     * Empeche les serviteurs d'attaquer leur proprietaire ou d'autres serviteurs allies
+     * Recupere l'UUID du proprietaire d'un minion
+     * Verifie d'abord la metadata Minion_Occultiste, puis le scoreboard tag owner_
+     * @return L'UUID du proprietaire ou null si non trouve
+     */
+    private String getMinionOwnerUUID(Entity minion) {
+        // Priorite a la metadata Minion_Occultiste
+        if (minion.hasMetadata("Minion_Occultiste")) {
+            return minion.getMetadata("Minion_Occultiste").get(0).asString();
+        }
+
+        // Fallback sur le scoreboard tag
+        return minion.getScoreboardTags().stream()
+            .filter(tag -> tag.startsWith("owner_"))
+            .map(tag -> tag.substring(6))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Verifie si une entite est un serviteur d'un joueur specifique
+     * Utilise les deux methodes d'identification (metadata et scoreboard tag)
+     */
+    private boolean isPlayerMinion(Entity entity, Player player) {
+        if (!isMinion(entity)) return false;
+
+        String ownerUUID = getMinionOwnerUUID(entity);
+        return ownerUUID != null && ownerUUID.equals(player.getUniqueId().toString());
+    }
+
+    /**
+     * Empeche les serviteurs d'attaquer leur proprietaire, d'autres joueurs, ou d'autres serviteurs allies
+     * Les minions ne doivent attaquer QUE des mobs hostiles
      */
     private boolean shouldPreventMinionAttack(Entity attacker, Entity target) {
         // Si l'attaquant n'est pas un minion, ne pas bloquer
-        if (!attacker.getScoreboardTags().contains("player_minion")) return false;
+        if (!isMinion(attacker)) return false;
 
-        // Trouver le proprietaire du minion
-        String ownerTag = attacker.getScoreboardTags().stream()
-            .filter(tag -> tag.startsWith("owner_"))
-            .findFirst()
-            .orElse(null);
-
-        if (ownerTag == null) return false;
-
-        String ownerUUID = ownerTag.substring(6);
-
-        // Bloquer si la cible est le proprietaire
-        if (target instanceof Player player && player.getUniqueId().toString().equals(ownerUUID)) {
+        // BLOQUER TOUTE ATTAQUE CONTRE UN JOUEUR
+        // Les minions ne doivent JAMAIS attaquer de joueur (ni leur proprietaire, ni d'autres joueurs)
+        if (target instanceof Player) {
             return true;
         }
 
         // Bloquer si la cible est un autre minion du meme proprietaire
-        if (target.getScoreboardTags().contains("player_minion") &&
-            target.getScoreboardTags().contains(ownerTag)) {
-            return true;
+        if (isMinion(target)) {
+            String attackerOwner = getMinionOwnerUUID(attacker);
+            String targetOwner = getMinionOwnerUUID(target);
+            if (attackerOwner != null && attackerOwner.equals(targetOwner)) {
+                return true;
+            }
         }
 
         return false;
