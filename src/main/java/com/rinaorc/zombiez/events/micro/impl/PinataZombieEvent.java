@@ -260,17 +260,18 @@ public class PinataZombieEvent extends MicroEvent {
 
     /**
      * Fait exploser le loot dans toutes les directions
+     * Avec affichage du nom et Glowing selon la rarete
      */
     private void explodeLoot(Location center) {
         // Calculer le nombre de loot (base + bonus hits)
         int lootCount = BASE_LOOT_COUNT + Math.min(hitCount / 3, MAX_LOOT_COUNT - BASE_LOOT_COUNT);
 
         for (int i = 0; i < lootCount; i++) {
-            // Generer un item
-            ItemStack lootItem = generateLootItem();
+            // Generer un item avec sa rarete
+            LootResult lootResult = generateLootItemWithRarity();
 
             // Spawn l'item avec velocite vers l'exterieur
-            Item droppedItem = center.getWorld().dropItem(center, lootItem);
+            Item droppedItem = center.getWorld().dropItem(center, lootResult.item);
 
             // Velocite aleatoire vers l'exterieur (comme une explosion)
             double angle = random.nextDouble() * Math.PI * 2;
@@ -283,9 +284,17 @@ public class PinataZombieEvent extends MicroEvent {
                 Math.sin(angle) * outward
             );
             droppedItem.setVelocity(velocity);
+
+            // Appliquer le Glowing et afficher le nom selon la rarete
+            if (lootResult.rarity != null) {
+                droppedItem.setCustomName(lootResult.rarity.getChatColor() + lootResult.displayName);
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedItem, lootResult.rarity);
+            }
         }
 
-        // Ajouter quelques pieces (points visuels)
+        // Ajouter quelques pieces (points visuels) avec Glowing dore
         for (int i = 0; i < 5; i++) {
             ItemStack goldNugget = new ItemStack(Material.GOLD_NUGGET, random.nextInt(5) + 1);
             Item nugget = center.getWorld().dropItem(center, goldNugget);
@@ -296,40 +305,73 @@ public class PinataZombieEvent extends MicroEvent {
                 0.5,
                 Math.sin(angle) * 0.3
             ));
+
+            // Pieces dorees brillantes
+            nugget.setCustomName("§6✧ Pièce d'or");
+            nugget.setCustomNameVisible(true);
+            nugget.setGlowing(true);
+            plugin.getItemManager().applyGlowForRarity(nugget, Rarity.LEGENDARY);
         }
     }
 
     /**
-     * Genere un item de loot aleatoire
+     * Resultat de generation de loot avec rarete
      */
-    private ItemStack generateLootItem() {
+    private record LootResult(ItemStack item, Rarity rarity, String displayName) {}
+
+    /**
+     * Genere un item de loot aleatoire avec sa rarete
+     */
+    private LootResult generateLootItemWithRarity() {
         // Utiliser le systeme de loot du plugin
         try {
             // Determiner la rarete
             double roll = random.nextDouble() * 100;
             Rarity rarity;
 
-            if (roll < 60) {
+            if (roll < 55) {
                 rarity = Rarity.COMMON;
-            } else if (roll < 85) {
+            } else if (roll < 80) {
                 rarity = Rarity.UNCOMMON;
-            } else if (roll < 95) {
+            } else if (roll < 93) {
                 rarity = Rarity.RARE;
-            } else if (roll < 99) {
+            } else if (roll < 98.5) {
                 rarity = Rarity.EPIC;
             } else {
                 rarity = Rarity.LEGENDARY;
             }
 
             // Generer l'item via l'ItemManager
-            return plugin.getItemManager().generateItem(zone.getId(), rarity);
+            ItemStack item = plugin.getItemManager().generateItem(zone.getId(), rarity);
+            if (item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                String displayName = item.getItemMeta().getDisplayName();
+                return new LootResult(item, rarity, displayName);
+            } else if (item != null) {
+                // Utiliser le nom du material comme fallback
+                String displayName = formatMaterialName(item.getType());
+                return new LootResult(item, rarity, displayName);
+            }
         } catch (Exception e) {
-            // Fallback: item basique
-            Material[] fallbacks = {
-                Material.IRON_INGOT, Material.GOLD_INGOT, Material.DIAMOND,
-                Material.EMERALD, Material.IRON_SWORD, Material.IRON_AXE
-            };
-            return new ItemStack(fallbacks[random.nextInt(fallbacks.length)]);
+            // Fallback en cas d'erreur
         }
+
+        // Fallback: item basique avec rarete simulee
+        Material[] fallbacks = {
+            Material.IRON_INGOT, Material.GOLD_INGOT, Material.DIAMOND,
+            Material.EMERALD, Material.IRON_SWORD, Material.IRON_AXE
+        };
+        Material material = fallbacks[random.nextInt(fallbacks.length)];
+        Rarity fallbackRarity = material == Material.DIAMOND || material == Material.EMERALD ?
+            Rarity.RARE : Rarity.UNCOMMON;
+
+        return new LootResult(new ItemStack(material), fallbackRarity, formatMaterialName(material));
+    }
+
+    /**
+     * Formate le nom d'un material pour l'affichage
+     */
+    private String formatMaterialName(Material material) {
+        String name = material.name().toLowerCase().replace("_", " ");
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 }

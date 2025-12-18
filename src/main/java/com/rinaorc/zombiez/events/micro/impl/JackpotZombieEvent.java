@@ -61,7 +61,8 @@ public class JackpotZombieEvent extends MicroEvent {
 
     // Configuration
     private static final double JACKPOT_HEALTH = 100.0;
-    private static final int SPIN_SPEED = 3; // Ticks entre chaque changement de symbole
+    private static final int SPIN_SPEED = 2; // Ticks entre chaque changement de symbole (plus rapide = plus excitant)
+    private int spinSoundTick = 0; // Pour le feedback sonore ameliore
 
     public JackpotZombieEvent(ZombieZPlugin plugin, Player player, Location location, Zone zone) {
         super(plugin, MicroEventType.JACKPOT_ZOMBIE, player, location, zone);
@@ -215,25 +216,37 @@ public class JackpotZombieEvent extends MicroEvent {
             if (resultCalculated) {
                 complete();
             } else {
+                // Stopper tous les rouleaux restants avant de fail
+                forceStopAllReels();
                 fail();
             }
             return;
         }
 
-        // Faire tourner les rouleaux non stoppes
+        // Faire tourner les rouleaux non stoppes avec feedback sonore ameliore
         spinTick++;
+        spinSoundTick++;
+
         if (spinTick >= SPIN_SPEED) {
             spinTick = 0;
 
+            boolean anySpinning = false;
             for (int i = 0; i < 3; i++) {
                 if (!reelsStopped[i]) {
+                    anySpinning = true;
                     // Changer le symbole
                     reels[i] = SYMBOLS[random.nextInt(SYMBOLS.length)];
+                }
+            }
 
-                    // Son de rotation
-                    if (i == 1) { // Son seulement pour le rouleau central
-                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.3f, 1.5f);
-                    }
+            // Son de rotation ameliore - cascade de notes
+            if (anySpinning && spinSoundTick % 3 == 0) {
+                float pitch = 1.0f + (spinSoundTick % 10) * 0.05f;
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, pitch);
+
+                // Ajouter une note de xylophone pour plus d'excitation
+                if (spinSoundTick % 6 == 0) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.2f, 1.2f + random.nextFloat() * 0.3f);
                 }
             }
 
@@ -241,20 +254,58 @@ public class JackpotZombieEvent extends MicroEvent {
             updateSlotDisplays();
         }
 
-        // Particules
-        if (elapsedTicks % 5 == 0) {
+        // Particules - effet de rotation autour du zombie
+        if (elapsedTicks % 3 == 0) {
             Location loc = jackpotZombie.getLocation().add(0, 2.5, 0);
-            loc.getWorld().spawnParticle(Particle.DUST, loc, 3,
-                0.5, 0.3, 0.5, 0,
-                new Particle.DustOptions(Color.YELLOW, 0.8f));
+
+            // Particules dorées en cercle
+            double angle = elapsedTicks * 0.3;
+            double x = Math.cos(angle) * 0.8;
+            double z = Math.sin(angle) * 0.8;
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z), 1,
+                0, 0, 0, 0,
+                new Particle.DustOptions(Color.YELLOW, 1.0f));
+
+            // Étoiles pour les rouleaux stoppés
+            for (int i = 0; i < reelsStoppedCount; i++) {
+                loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add((i - 1) * 0.6, 0.3, 0), 1, 0.1, 0.1, 0.1, 0);
+            }
         }
 
-        // ActionBar
-        String status = reelsStoppedCount == 0 ? "§eROULEAUX EN COURS..." :
-                       (reelsStoppedCount == 1 ? "§a1/3 stoppe" :
-                       (reelsStoppedCount == 2 ? "§a2/3 stoppes" : "§a§lREVELATION!"));
+        // ActionBar avec animation
+        String spinAnim = getSpinAnimation();
+        String status = reelsStoppedCount == 0 ? "§e" + spinAnim + " ROULEAUX EN COURS " + spinAnim :
+                       (reelsStoppedCount == 1 ? "§a✓ 1/3 stoppé" :
+                       (reelsStoppedCount == 2 ? "§a✓✓ 2/3 stoppés" : "§a§l✓✓✓ RÉVÉLATION!"));
 
         sendActionBar("§6🎰 Jackpot Zombie §7| " + status + " §7| §e" + getRemainingTimeSeconds() + "s");
+    }
+
+    /**
+     * Animation de spin pour l'ActionBar
+     */
+    private String getSpinAnimation() {
+        int frame = (elapsedTicks / 4) % 4;
+        return switch (frame) {
+            case 0 -> "◐";
+            case 1 -> "◓";
+            case 2 -> "◑";
+            default -> "◒";
+        };
+    }
+
+    /**
+     * Force l'arret de tous les rouleaux (pour le timeout)
+     */
+    private void forceStopAllReels() {
+        for (int i = 0; i < 3; i++) {
+            if (!reelsStopped[i]) {
+                reelsStopped[i] = true;
+                reels[i] = SYMBOLS[random.nextInt(SYMBOLS.length)];
+            }
+        }
+        reelsStoppedCount = 3;
+        updateSlotDisplays();
     }
 
     /**
@@ -271,7 +322,15 @@ public class JackpotZombieEvent extends MicroEvent {
 
     @Override
     protected void onCleanup() {
-        // Les TextDisplays sont supprimes via registerEntity
+        // Nettoyage explicite des TextDisplays pour eviter les fuites de memoire
+        for (TextDisplay display : slotDisplays) {
+            if (display != null && display.isValid()) {
+                display.remove();
+            }
+        }
+        slotDisplays.clear();
+
+        // Le zombie est supprime via registerEntity dans la classe parente
     }
 
     @Override
@@ -417,28 +476,59 @@ public class JackpotZombieEvent extends MicroEvent {
 
             updateSlotDisplays();
 
-            // Effet de stop
+            // Effet de stop ameliore - son de slot machine
             int symbolIndex = getSymbolIndex(reels[reelToStop]);
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 1f, 0.8f + (reelToStop * 0.3f));
+            float basePitch = 0.8f + (reelToStop * 0.3f);
 
+            // Séquence de sons pour effet "slot machine"
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 1f, basePitch);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, basePitch + 0.2f);
+            }, 2L);
+
+            // Particules ameliorees
             Location zombieLoc = jackpotZombie.getLocation().add(0, 2.5, 0);
             zombieLoc.getWorld().spawnParticle(Particle.FLASH, zombieLoc, 1);
+            zombieLoc.getWorld().spawnParticle(Particle.FIREWORK, zombieLoc.clone().add((reelToStop - 1) * 0.6, 0, 0), 10, 0.1, 0.1, 0.1, 0.05);
 
             // Messages
             player.sendMessage("§6🎰 §7Rouleau " + (reelToStop + 1) + ": " +
                 SYMBOL_COLORS[symbolIndex] + "§l" + reels[reelToStop]);
 
-            // Si tous les rouleaux sont stoppes, tuer le zombie pour declencher la fin
+            // Verifier si on a deja 2 symboles identiques (suspense!)
+            if (reelToStop == 1 && reels[0].equals(reels[1])) {
+                player.sendMessage("§e§l⚡ Deux identiques! Un de plus pour le JACKPOT!");
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.5f);
+            }
+
+            // Si tous les rouleaux sont stoppes, calculer le resultat et tuer le zombie
             if (reelsStoppedCount >= 3) {
-                // Petit delai pour le suspense
+                // Calculer le resultat AVANT de tuer le zombie
+                calculateResult();
+
+                // Effets de suspense selon le resultat
+                int suspenseDelay = jackpotLevel >= 2 ? 30 : 20; // Plus de suspense pour un jackpot
+
                 plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    // Son de revelation
+                    if (jackpotLevel >= 2) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.5f);
+                        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+                        }, 5L);
+                    } else if (jackpotLevel == 1) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+                    } else {
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+                    }
+
                     if (jackpotZombie != null && !jackpotZombie.isDead()) {
                         // Effet de mort
                         Location loc = jackpotZombie.getLocation();
                         loc.getWorld().spawnParticle(Particle.EXPLOSION, loc.add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0.1);
                         jackpotZombie.setHealth(0);
                     }
-                }, 20L); // 1 seconde de suspense
+                }, suspenseDelay);
             }
         }
 

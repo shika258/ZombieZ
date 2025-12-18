@@ -3,17 +3,19 @@ package com.rinaorc.zombiez.events.micro.impl;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
+import com.rinaorc.zombiez.zombies.ZombieManager;
+import com.rinaorc.zombiez.zombies.types.ZombieType;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -101,7 +103,7 @@ public class TemporalRiftEvent extends MicroEvent {
     }
 
     /**
-     * Spawn un zombie de la faille
+     * Spawn un zombie custom de la faille via le ZombieManager
      */
     private void spawnZombie() {
         if (zombiesSpawned >= zombiesToSpawn) return;
@@ -114,35 +116,94 @@ public class TemporalRiftEvent extends MicroEvent {
             0,
             Math.sin(angle) * radius
         );
+        spawnLoc.setY(spawnLoc.getWorld().getHighestBlockYAt(spawnLoc) + 1);
 
-        // Spawn
-        Zombie zombie = (Zombie) location.getWorld().spawnEntity(spawnLoc, EntityType.ZOMBIE);
-        riftZombies.add(zombie.getUniqueId());
-        registerEntity(zombie);
-        zombiesSpawned++;
+        // Selectionner un type de zombie custom approprie pour la zone
+        ZombieType zombieType = selectZombieType();
+        int level = Math.max(1, zone.getId() / 2); // Niveau base sur la zone
 
-        // Configuration
-        zombie.setCustomName("§d⚡ Zombie Temporel §7[§c" + (int) ZOMBIE_HEALTH + "❤§7]");
-        zombie.setCustomNameVisible(true);
-        zombie.setBaby(false);
-        zombie.setShouldBurnInDay(false);
+        // Spawn via le ZombieManager du plugin
+        ZombieManager.ActiveZombie activeZombie = plugin.getZombieManager().spawnZombie(zombieType, spawnLoc, level);
 
-        // Stats (plus faibles mais nombreux)
-        zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(ZOMBIE_HEALTH);
-        zombie.setHealth(ZOMBIE_HEALTH);
-        zombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.28);
+        if (activeZombie != null) {
+            UUID zombieId = activeZombie.getEntityId();
+            riftZombies.add(zombieId);
 
-        // Tags
-        zombie.addScoreboardTag("micro_event_entity");
-        zombie.addScoreboardTag("temporal_rift");
-        zombie.addScoreboardTag("event_" + id);
+            // Recuperer l'entite pour la configurer
+            var entity = plugin.getServer().getEntity(zombieId);
+            if (entity instanceof LivingEntity living) {
+                registerEntity(living);
 
-        // Cibler le joueur
-        zombie.setTarget(player);
+                // Ajouter des tags specifiques a l'event
+                living.addScoreboardTag("micro_event_entity");
+                living.addScoreboardTag("temporal_rift");
+                living.addScoreboardTag("event_" + id);
+
+                // Ajouter l'effet temporel (particules violettes)
+                living.setGlowing(true);
+
+                // Cibler le joueur si c'est un Zombie
+                if (living instanceof Zombie zombie) {
+                    zombie.setTarget(player);
+                }
+            }
+
+            zombiesSpawned++;
+        } else {
+            // Fallback: spawn un zombie vanilla si le ZombieManager echoue
+            spawnFallbackZombie(spawnLoc);
+        }
 
         // Effet de spawn depuis le portail
         spawnLoc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, spawnLoc, 15, 0.3, 0.5, 0.3, 0.1);
         spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 0.5f, 1.5f);
+    }
+
+    /**
+     * Selectionne un type de zombie custom approprie pour la zone
+     */
+    private ZombieType selectZombieType() {
+        // Obtenir les types de zombies valides pour cette zone
+        List<ZombieType> validTypes = java.util.Arrays.stream(ZombieType.values())
+            .filter(t -> t.canSpawnInZone(zone.getId()))
+            .filter(t -> !t.isBoss()) // Pas de boss dans les events
+            .filter(t -> t.getTier() <= 3) // Limiter la difficulte
+            .toList();
+
+        if (validTypes.isEmpty()) {
+            // Fallback sur les types de base
+            return ZombieType.WALKER;
+        }
+
+        // Choisir aleatoirement parmi les types valides
+        return validTypes.get((int) (Math.random() * validTypes.size()));
+    }
+
+    /**
+     * Spawn un zombie vanilla en fallback
+     */
+    private void spawnFallbackZombie(Location spawnLoc) {
+        Zombie zombie = (Zombie) location.getWorld().spawn(spawnLoc, Zombie.class, z -> {
+            z.setCustomName("§d⚡ Zombie Temporel §7[§c" + (int) ZOMBIE_HEALTH + "❤§7]");
+            z.setCustomNameVisible(true);
+            z.setBaby(false);
+            z.setShouldBurnInDay(false);
+            z.setGlowing(true);
+
+            z.getAttribute(Attribute.MAX_HEALTH).setBaseValue(ZOMBIE_HEALTH);
+            z.setHealth(ZOMBIE_HEALTH);
+            z.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.28);
+
+            z.addScoreboardTag("micro_event_entity");
+            z.addScoreboardTag("temporal_rift");
+            z.addScoreboardTag("event_" + id);
+
+            z.setTarget(player);
+        });
+
+        riftZombies.add(zombie.getUniqueId());
+        registerEntity(zombie);
+        zombiesSpawned++;
     }
 
     /**

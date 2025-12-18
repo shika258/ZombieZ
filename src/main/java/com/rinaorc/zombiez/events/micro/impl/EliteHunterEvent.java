@@ -39,7 +39,8 @@ public class EliteHunterEvent extends MicroEvent {
 
     // Configuration
     private static final double ELITE_HEALTH = 80.0;
-    private static final double ELITE_SPEED = 0.35; // Tres rapide
+    private static final double ELITE_SPEED = 0.22; // Vitesse reduite mais plus menaçant
+    private static final double SPAWN_DISTANCE = 15.0; // Distance de spawn proche du joueur
     private static final int PARTICLE_INTERVAL = 5; // Particules toutes les 5 ticks
 
     public EliteHunterEvent(ZombieZPlugin plugin, Player player, Location location, Zone zone) {
@@ -48,22 +49,33 @@ public class EliteHunterEvent extends MicroEvent {
 
     @Override
     protected void onStart() {
+        // Calculer une position de spawn proche du joueur (15 blocs)
+        Location playerLoc = player.getLocation();
+        double angle = Math.random() * Math.PI * 2;
+        Location spawnLoc = playerLoc.clone().add(
+            Math.cos(angle) * SPAWN_DISTANCE,
+            0,
+            Math.sin(angle) * SPAWN_DISTANCE
+        );
+        spawnLoc.setY(spawnLoc.getWorld().getHighestBlockYAt(spawnLoc) + 1);
+
         // Spawn le zombie elite
-        eliteZombie = (Zombie) location.getWorld().spawnEntity(location, EntityType.ZOMBIE);
+        eliteZombie = (Zombie) spawnLoc.getWorld().spawnEntity(spawnLoc, EntityType.ZOMBIE);
         eliteUUID = eliteZombie.getUniqueId();
         registerEntity(eliteZombie);
 
-        // Configuration du zombie
+        // Configuration du zombie - plus intelligent et menaçant
         eliteZombie.setCustomName("§c§l💀 Elite Chasseur §7[§e" + (int) ELITE_HEALTH + "§c❤§7]");
         eliteZombie.setCustomNameVisible(true);
         eliteZombie.setBaby(false);
         eliteZombie.setShouldBurnInDay(false);
 
-        // Stats
+        // Stats - vitesse reduite mais meilleure armor
         eliteZombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(ELITE_HEALTH);
         eliteZombie.setHealth(ELITE_HEALTH);
         eliteZombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(ELITE_SPEED);
-        eliteZombie.getAttribute(Attribute.ARMOR).setBaseValue(8.0);
+        eliteZombie.getAttribute(Attribute.ARMOR).setBaseValue(12.0); // Plus resistant
+        eliteZombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE).setBaseValue(0.6); // Resist aux knockbacks
 
         // Equipement distinctif (armure en or)
         eliteZombie.getEquipment().setHelmet(new ItemStack(Material.GOLDEN_HELMET));
@@ -75,8 +87,7 @@ public class EliteHunterEvent extends MicroEvent {
         eliteZombie.getEquipment().setLeggingsDropChance(0f);
         eliteZombie.getEquipment().setBootsDropChance(0f);
 
-        // Effets
-        eliteZombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
+        // Effets visuels - pas de bonus de vitesse (vitesse reduite)
         eliteZombie.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
 
         // Tag pour identification
@@ -85,8 +96,8 @@ public class EliteHunterEvent extends MicroEvent {
         eliteZombie.addScoreboardTag("event_" + id);
 
         // Effet de spawn
-        location.getWorld().spawnParticle(Particle.SMOKE, location, 30, 0.5, 1, 0.5, 0.1);
-        location.getWorld().playSound(location, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 0.5f);
+        spawnLoc.getWorld().spawnParticle(Particle.SMOKE, spawnLoc, 30, 0.5, 1, 0.5, 0.1);
+        spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 0.5f);
     }
 
     @Override
@@ -133,10 +144,10 @@ public class EliteHunterEvent extends MicroEvent {
     }
 
     /**
-     * Fait fuir le zombie loin du joueur
+     * Fait fuir le zombie loin du joueur - Navigation intelligente via Pathfinder
      */
     private void makeZombieFlee() {
-        if (eliteZombie == null || player == null) return;
+        if (eliteZombie == null || !eliteZombie.isValid() || player == null) return;
 
         Location zombieLoc = eliteZombie.getLocation();
         Location playerLoc = player.getLocation();
@@ -144,21 +155,29 @@ public class EliteHunterEvent extends MicroEvent {
         // Direction opposee au joueur
         Vector fleeDirection = zombieLoc.toVector().subtract(playerLoc.toVector()).normalize();
 
-        // Ajouter un peu de randomisation
+        // Ajouter un peu de randomisation pour un comportement plus naturel
         fleeDirection.add(new Vector(
-            (Math.random() - 0.5) * 0.3,
+            (Math.random() - 0.5) * 0.4,
             0,
-            (Math.random() - 0.5) * 0.3
+            (Math.random() - 0.5) * 0.4
         )).normalize();
 
-        // Calculer la destination
-        Location targetLoc = zombieLoc.clone().add(fleeDirection.multiply(10));
+        // Calculer la destination (plus loin pour meilleure navigation)
+        Location targetLoc = zombieLoc.clone().add(fleeDirection.multiply(15));
+
+        // Ajuster Y au sol pour eviter les bugs de navigation
+        targetLoc.setY(targetLoc.getWorld().getHighestBlockYAt(targetLoc) + 1);
+
+        // Utiliser le Pathfinder natif de Paper pour une navigation fluide
+        try {
+            eliteZombie.getPathfinder().moveTo(targetLoc, ELITE_SPEED * 1.5);
+        } catch (Exception e) {
+            // Fallback: utiliser velocite directe si pathfinder echoue
+            eliteZombie.setVelocity(fleeDirection.multiply(0.3).setY(0));
+        }
 
         // Faire regarder dans la direction de fuite
         eliteZombie.lookAt(targetLoc);
-
-        // Appliquer la velocite
-        eliteZombie.setVelocity(fleeDirection.multiply(0.4).setY(0));
     }
 
     /**
