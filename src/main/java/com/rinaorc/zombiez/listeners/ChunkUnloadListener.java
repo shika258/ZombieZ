@@ -73,48 +73,60 @@ public class ChunkUnloadListener implements Listener {
 
     /**
      * Nettoie les mobs ZombieZ orphelins dans un chunk
-     * Un mob orphelin est un mob avec le marqueur PDC mais qui n'est pas dans le tracking du ZombieManager
+     * Un mob orphelin est un mob avec le marqueur PDC mais qui n'est pas dans le tracking du ZombieManager/PassiveMobManager
      */
     private void cleanupOrphanedMobs(Chunk chunk) {
         var zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) return;
-
-        NamespacedKey pdcMobKey = zombieManager.getPdcMobKey();
+        var passiveMobManager = plugin.getPassiveMobManager();
         int cleaned = 0;
+
+        NamespacedKey pdcMobKey = zombieManager != null ? zombieManager.getPdcMobKey() : null;
 
         for (Entity entity : chunk.getEntities()) {
             if (!(entity instanceof LivingEntity living)) continue;
 
-            boolean isZombieZMob = false;
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION DES ZOMBIES ORPHELINS
+            // ═══════════════════════════════════════════════════════════════════
+            if (zombieManager != null && pdcMobKey != null) {
+                boolean isZombieZMob = false;
 
-            // Vérification PDC (prioritaire - ultra-rapide)
-            if (living.getPersistentDataContainer().has(pdcMobKey, PersistentDataType.BYTE)) {
-                isZombieZMob = true;
-            }
+                // Vérification PDC (prioritaire - ultra-rapide)
+                if (living.getPersistentDataContainer().has(pdcMobKey, PersistentDataType.BYTE)) {
+                    isZombieZMob = true;
+                }
 
-            // Fallback sur scoreboard tag
-            if (!isZombieZMob && entity.getScoreboardTags().contains("zombiez_mob")) {
-                isZombieZMob = true;
-            }
+                // Fallback sur scoreboard tag
+                if (!isZombieZMob && entity.getScoreboardTags().contains("zombiez_mob")) {
+                    isZombieZMob = true;
+                }
 
-            // Fallback sur metadata (anciens mobs)
-            if (!isZombieZMob && entity.hasMetadata("zombiez_type")) {
-                isZombieZMob = true;
-            }
+                // Fallback sur metadata (anciens mobs)
+                if (!isZombieZMob && entity.hasMetadata("zombiez_type")) {
+                    isZombieZMob = true;
+                }
 
-            if (isZombieZMob) {
-                // Vérifier si ce mob est tracké par le ZombieManager
-                // Si non, c'est un orphelin (persisté après reboot) -> supprimer
-                if (zombieManager.getActiveZombie(entity.getUniqueId()) == null) {
-                    entity.remove();
-                    cleaned++;
+                if (isZombieZMob) {
+                    // Vérifier si ce mob est tracké par le ZombieManager
+                    // Si non, c'est un orphelin (persisté après reboot) -> supprimer
+                    if (zombieManager.getActiveZombie(entity.getUniqueId()) == null) {
+                        entity.remove();
+                        cleaned++;
+                        continue;
+                    }
                 }
             }
 
-            // Nettoyer aussi les mobs passifs orphelins
-            if (entity.getScoreboardTags().contains("zombiez_passive")) {
-                entity.remove();
-                cleaned++;
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION DES MOBS PASSIFS ORPHELINS
+            // ═══════════════════════════════════════════════════════════════════
+            if (passiveMobManager != null && passiveMobManager.isZombieZPassiveMob(entity)) {
+                // Vérifier si ce mob passif est tracké par le PassiveMobManager
+                // Si non, c'est un orphelin (persisté après reboot) -> supprimer
+                if (passiveMobManager.getActiveMob(entity.getUniqueId()) == null) {
+                    entity.remove();
+                    cleaned++;
+                }
             }
         }
 

@@ -17,6 +17,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.Chunk;
 
 /**
  * Gestionnaire des mobs passifs custom
@@ -407,6 +408,140 @@ public class PassiveMobManager implements Listener {
         return activeMobs.size();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYSTÈME DE CLEANUP (CLEARLAG)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private static final double PLAYER_NEARBY_RADIUS = 64.0;     // Rayon pour joueur proche
+    private static final long MOB_MAX_AGE_MS = 5 * 60 * 1000;    // 5 minutes max d'existence si isolé
+    private static final int CLEANUP_BATCH_SIZE = 30;            // Nombre max de mobs à traiter par tick
+
+    /**
+     * Système de clearlag pour les mobs passifs - appelé périodiquement par PerformanceManager
+     * Nettoie les mobs distants, isolés ou invalides
+     */
+    public void cleanupDistantMobs() {
+        List<UUID> toRemove = new ArrayList<>();
+        int processed = 0;
+
+        for (Map.Entry<UUID, PassiveMobData> entry : activeMobs.entrySet()) {
+            if (processed >= CLEANUP_BATCH_SIZE) break;
+            processed++;
+
+            UUID entityId = entry.getKey();
+            PassiveMobData data = entry.getValue();
+            Entity entity = plugin.getServer().getEntity(entityId);
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 1: Entité invalide ou morte
+            // ═══════════════════════════════════════════════════════════════════
+            if (entity == null || !entity.isValid() || entity.isDead()) {
+                toRemove.add(entityId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 2: Chunk non chargé
+            // ═══════════════════════════════════════════════════════════════════
+            if (!entity.getLocation().getChunk().isLoaded()) {
+                entity.remove();
+                toRemove.add(entityId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 3: Pas de joueur à proximité
+            // ═══════════════════════════════════════════════════════════════════
+            if (!hasPlayerNearby(entity, PLAYER_NEARBY_RADIUS)) {
+                entity.remove();
+                toRemove.add(entityId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // VÉRIFICATION 4: Mob isolé depuis trop longtemps
+            // ═══════════════════════════════════════════════════════════════════
+            long age = System.currentTimeMillis() - data.spawnTime;
+            if (age > MOB_MAX_AGE_MS) {
+                entity.remove();
+                toRemove.add(entityId);
+            }
+        }
+
+        // Nettoyer les entrées
+        for (UUID id : toRemove) {
+            activeMobs.remove(id);
+        }
+
+        // Log si beaucoup de mobs nettoyés (debug mode only)
+        if (toRemove.size() > 5 && plugin.getConfigManager().isDebugMode()) {
+            plugin.getLogger().info("[Clearlag Passifs] " + toRemove.size() + " mobs passifs nettoyés");
+        }
+    }
+
+    /**
+     * Vérifie si un joueur est à proximité d'une entité
+     */
+    private boolean hasPlayerNearby(Entity entity, double radius) {
+        double radiusSq = radius * radius;
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (player.getWorld().equals(entity.getWorld())) {
+                if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Nettoie tous les mobs passifs ZombieZ dans un chunk
+     * Appelé par ChunkUnloadListener lors du déchargement
+     *
+     * @param chunk Le chunk à nettoyer
+     * @return Le nombre de mobs nettoyés
+     */
+    public int cleanupChunk(Chunk chunk) {
+        int cleaned = 0;
+
+        for (Entity entity : chunk.getEntities()) {
+            if (isZombieZPassiveMob(entity)) {
+                activeMobs.remove(entity.getUniqueId());
+                entity.remove();
+                cleaned++;
+            }
+        }
+
+        return cleaned;
+    }
+
+    /**
+     * Force le nettoyage de tous les mobs passifs (commande admin)
+     *
+     * @return Le nombre de mobs supprimés
+     */
+    public int forceCleanupAll() {
+        int cleaned = 0;
+
+        for (Map.Entry<UUID, PassiveMobData> entry : activeMobs.entrySet()) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+                cleaned++;
+            }
+        }
+
+        activeMobs.clear();
+        return cleaned;
+    }
+
+    /**
+     * Obtient les données d'un mob passif actif
+     */
+    public PassiveMobData getActiveMob(UUID entityId) {
+        return activeMobs.get(entityId);
+    }
+
     /**
      * Types de mobs passifs
      */
@@ -436,11 +571,11 @@ public class PassiveMobManager implements Listener {
     /**
      * Données d'un mob passif actif
      */
-    private static class PassiveMobData {
-        final UUID entityId;
-        final PassiveMobType type;
-        final int zoneId;
-        final long spawnTime;
+    public static class PassiveMobData {
+        public final UUID entityId;
+        public final PassiveMobType type;
+        public final int zoneId;
+        public final long spawnTime;
 
         PassiveMobData(UUID entityId, PassiveMobType type, int zoneId) {
             this.entityId = entityId;
