@@ -172,7 +172,7 @@ public class Talent {
         KILL_ZONE,               // Personal attack speed zone
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
-        VOLLEY_MASTER,           // Extra projectiles based on consecutive hits
+        BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain
         EAGLE_SIGHT,             // Crit damage scales with distance
         SHADOW_STRIKE,           // Backstab bonus from stealth
         PREY_WEAKNESS,           // Marked enemies take more crit damage

@@ -578,26 +578,32 @@ public final class ChasseurTalents {
     // ==================== PALIER 6 - NIVEAU 25 (Ascension) ====================
 
     private static void registerTier6Talents() {
-        // 6.1 - MAITRE DE LA VOLEE
+        // 6.1 - FURIE DU BARRAGE
         TALENTS.add(Talent.builder()
-            .id("chasseur_volley_master")
-            .name("Maitre de la Volee")
-            .description("5 tirs consecutifs: +1 projectile bonus")
+            .id("chasseur_barrage_fury")
+            .name("Furie du Barrage")
+            .description("Kills avec pluie = charges -> SUPER PLUIE!")
             .loreLines(new String[]{
-                "§7Tous les §e5 tirs§7 consecutifs",
-                "§7sur la meme cible, gagnez",
-                "§e+1 projectile§7 bonus permanent.",
+                "§7Chaque §ckill§7 avec une pluie de",
+                "§7fleches donne §e1 charge§7.",
                 "",
-                "§8Max: §e+3§8 projectiles",
-                "§8Reinitialise si vous changez de cible"
+                "§7A §e5 charges§7, la prochaine pluie",
+                "§7devient une §6§lSUPER PLUIE§7!",
+                "",
+                "§6Super Pluie:",
+                "§8- §e2x§8 plus de fleches",
+                "§8- §e+50%§8 zone d'effet",
+                "§8- §cFleches explosives§8!",
+                "",
+                "§8Effet visuel spectaculaire!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(0)
-            .icon(Material.SPECTRAL_ARROW)
-            .iconColor("§f")
-            .effectType(Talent.TalentEffectType.VOLLEY_MASTER)
-            .values(new double[]{5, 1, 3}) // hits_per_stack, projectiles_per_stack, max_stacks
+            .icon(Material.FIRE_CHARGE)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.BARRAGE_FURY)
+            .values(new double[]{5, 2.0, 1.5}) // charges_needed, arrow_multiplier, zone_multiplier
             .build());
 
         // 6.2 - VISION D'AIGLE

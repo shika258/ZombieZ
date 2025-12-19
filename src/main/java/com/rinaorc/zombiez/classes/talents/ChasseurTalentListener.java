@@ -77,6 +77,10 @@ public class ChasseurTalentListener implements Listener {
     private final Map<UUID, Location> lastLocation = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> isMoving = new ConcurrentHashMap<>();
 
+    // Barrage Fury - charges pour SUPER PLUIE
+    private final Map<UUID, Integer> barrageFuryCharges = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<UUID>> arrowRainKillTracking = new ConcurrentHashMap<>();
+
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -749,6 +753,34 @@ public class ChasseurTalentListener implements Listener {
         double damagePerArrow = 5 * talent.getValue(1);
         int arrows = (int) talent.getValue(2);
         double radius = talent.getValue(3);
+        UUID uuid = player.getUniqueId();
+
+        // === BARRAGE FURY - SUPER PLUIE ===
+        Talent barrageFury = getActiveTalentIfHas(player, Talent.TalentEffectType.BARRAGE_FURY);
+        boolean isSuperRain = false;
+        if (barrageFury != null) {
+            int charges = barrageFuryCharges.getOrDefault(uuid, 0);
+            int chargesNeeded = (int) barrageFury.getValue(0);
+
+            if (charges >= chargesNeeded) {
+                // SUPER PLUIE ACTIVÉE!
+                isSuperRain = true;
+                arrows = (int) (arrows * barrageFury.getValue(1)); // 2x flèches
+                radius = radius * barrageFury.getValue(2); // 1.5x zone
+                barrageFuryCharges.put(uuid, 0); // Reset charges
+
+                // Message et effets épiques
+                player.sendMessage("§6§l✦ SUPER PLUIE DÉCLENCHÉE! ✦");
+                player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.2f);
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.5f);
+
+                // Particules d'annonce spectaculaires
+                center.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 5, 0), 100, 3, 2, 3, 0.5);
+                center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 10, 0), 50, radius/2, 1, radius/2, 0.1);
+            } else if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§7Charges Barrage: §e" + charges + "§7/§e" + chargesNeeded);
+            }
+        }
 
         // Deluge upgrade
         Talent deluge = getActiveTalentIfHas(player, Talent.TalentEffectType.DELUGE);
@@ -766,53 +798,88 @@ public class ChasseurTalentListener implements Listener {
             return;
         }
 
-        // Son d'annonce
-        player.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.5f);
-        player.getWorld().playSound(center, Sound.ITEM_CROSSBOW_LOADING_MIDDLE, 1.0f, 0.8f);
+        // Préparer le tracking des kills pour Barrage Fury
+        Set<UUID> rainKills = ConcurrentHashMap.newKeySet();
+        arrowRainKillTracking.put(uuid, rainKills);
+
+        // Sons d'annonce
+        if (isSuperRain) {
+            player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 2.0f, 0.8f);
+            player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.5f, 1.2f);
+        } else {
+            player.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.5f);
+            player.getWorld().playSound(center, Sound.ITEM_CROSSBOW_LOADING_MIDDLE, 1.0f, 0.8f);
+        }
+
+        final boolean finalIsSuperRain = isSuperRain;
+        final int finalArrows = arrows;
+        final double finalRadius = radius;
+        final double finalDamageBase = damagePerArrow * (isSuperRain ? 1.5 : 1.0); // +50% dégâts en super
 
         for (int wave = 0; wave < waves; wave++) {
-            int finalWave = wave;
             boolean finalPierce = pierce;
             boolean finalCanCrit = canCrit;
 
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 // Son de volée de flèches
-                center.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.2f);
+                if (finalIsSuperRain) {
+                    center.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.0f);
+                } else {
+                    center.getWorld().playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.2f);
+                }
 
-                for (int i = 0; i < arrows; i++) {
+                for (int i = 0; i < finalArrows; i++) {
                     // Position de chute aléatoire dans le rayon
-                    double x = center.getX() + (Math.random() - 0.5) * radius * 2;
-                    double z = center.getZ() + (Math.random() - 0.5) * radius * 2;
+                    double x = center.getX() + (Math.random() - 0.5) * finalRadius * 2;
+                    double z = center.getZ() + (Math.random() - 0.5) * finalRadius * 2;
                     Location impactLoc = new Location(center.getWorld(), x, center.getY(), z);
 
                     // Spawner une vraie flèche qui tombe du ciel
                     Location spawnLoc = impactLoc.clone().add(0, 15 + Math.random() * 5, 0);
-                    int arrowDelay = (int) (Math.random() * 10); // Décalage pour effet de pluie
+                    int arrowDelay = (int) (Math.random() * 10);
 
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         Arrow arrow = center.getWorld().spawnArrow(spawnLoc, new Vector(0, -3, 0), 2.0f, 0);
                         arrow.setShooter(player);
                         arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-                        arrow.setDamage(0); // Dégâts gérés manuellement
+                        arrow.setDamage(0);
                         arrow.setGravity(true);
                         arrow.setPierceLevel(finalPierce ? 3 : 0);
 
-                        // Particules de traînée sur la flèche
+                        // Flèches en feu pour SUPER PLUIE
+                        if (finalIsSuperRain) {
+                            arrow.setFireTicks(200);
+                        }
+
+                        // Particules de traînée
                         new BukkitRunnable() {
                             int ticks = 0;
                             @Override
                             public void run() {
                                 if (arrow.isDead() || arrow.isOnGround() || ticks > 40) {
-                                    // Impact au sol
                                     Location loc = arrow.getLocation();
-                                    center.getWorld().spawnParticle(Particle.CRIT, loc, 8, 0.3, 0.1, 0.3, 0.1);
-                                    center.getWorld().spawnParticle(Particle.DUST, loc, 5, 0.2, 0.1, 0.2, 0,
-                                        new Particle.DustOptions(Color.fromRGB(139, 90, 43), 1.0f));
+
+                                    // Effets d'impact
+                                    if (finalIsSuperRain) {
+                                        // SUPER PLUIE - Explosion!
+                                        center.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1);
+                                        center.getWorld().spawnParticle(Particle.FLAME, loc, 20, 0.5, 0.3, 0.5, 0.1);
+                                        center.getWorld().spawnParticle(Particle.DUST, loc, 10, 0.3, 0.2, 0.3, 0,
+                                            new Particle.DustOptions(Color.fromRGB(255, 165, 0), 1.5f));
+                                        center.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.5f);
+                                    } else {
+                                        center.getWorld().spawnParticle(Particle.CRIT, loc, 8, 0.3, 0.1, 0.3, 0.1);
+                                        center.getWorld().spawnParticle(Particle.DUST, loc, 5, 0.2, 0.1, 0.2, 0,
+                                            new Particle.DustOptions(Color.fromRGB(139, 90, 43), 1.0f));
+                                    }
+
+                                    // Rayon d'impact plus grand en SUPER
+                                    double hitRadius = finalIsSuperRain ? 2.0 : 1.0;
 
                                     // Appliquer les dégâts aux entités proches
-                                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.0, 1.0, 1.0)) {
+                                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, hitRadius, hitRadius, hitRadius)) {
                                         if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
-                                            double finalDamage = damagePerArrow;
+                                            double finalDamage = finalDamageBase;
 
                                             // Crit check
                                             if (finalCanCrit) {
@@ -823,7 +890,18 @@ public class ChasseurTalentListener implements Listener {
                                                 }
                                             }
 
+                                            // Track health before damage for kill detection
+                                            double healthBefore = target.getHealth();
                                             target.damage(finalDamage, player);
+
+                                            // Check if killed for Barrage Fury
+                                            if (target.isDead() || target.getHealth() <= 0) {
+                                                Set<UUID> kills = arrowRainKillTracking.get(uuid);
+                                                if (kills != null) {
+                                                    kills.add(target.getUniqueId());
+                                                }
+                                            }
+
                                             if (!finalPierce) break;
                                         }
                                     }
@@ -833,7 +911,13 @@ public class ChasseurTalentListener implements Listener {
                                     return;
                                 }
                                 // Particules de traînée
-                                center.getWorld().spawnParticle(Particle.CRIT, arrow.getLocation(), 1, 0, 0, 0, 0);
+                                if (finalIsSuperRain) {
+                                    center.getWorld().spawnParticle(Particle.FLAME, arrow.getLocation(), 2, 0.05, 0.05, 0.05, 0.01);
+                                    center.getWorld().spawnParticle(Particle.DUST, arrow.getLocation(), 1, 0, 0, 0, 0,
+                                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
+                                } else {
+                                    center.getWorld().spawnParticle(Particle.CRIT, arrow.getLocation(), 1, 0, 0, 0, 0);
+                                }
                                 ticks++;
                             }
                         }.runTaskTimer(plugin, 0L, 1L);
@@ -841,6 +925,34 @@ public class ChasseurTalentListener implements Listener {
                     }, arrowDelay);
                 }
             }, wave * 25L);
+        }
+
+        // Compter les kills après la fin de la pluie pour Barrage Fury
+        if (barrageFury != null && !isSuperRain) {
+            int totalDelay = waves * 25 + 50; // Attendre que toutes les flèches soient tombées
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                Set<UUID> kills = arrowRainKillTracking.remove(uuid);
+                if (kills != null && !kills.isEmpty()) {
+                    int newCharges = kills.size();
+                    int currentCharges = barrageFuryCharges.getOrDefault(uuid, 0);
+                    int totalCharges = currentCharges + newCharges;
+                    int chargesNeeded = (int) barrageFury.getValue(0);
+                    barrageFuryCharges.put(uuid, totalCharges);
+
+                    // Feedback satisfaisant
+                    if (newCharges > 0) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f + (totalCharges * 0.1f));
+                        player.sendMessage("§6+" + newCharges + " charge" + (newCharges > 1 ? "s" : "") +
+                            " Barrage! §7(§e" + totalCharges + "§7/§e" + chargesNeeded + "§7)");
+
+                        // Effet visuel quand proche du max
+                        if (totalCharges >= chargesNeeded - 1) {
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
+                            player.sendMessage("§6§l⚡ SUPER PLUIE PRÊTE!");
+                        }
+                    }
+                }
+            }, totalDelay);
         }
     }
 
