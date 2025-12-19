@@ -156,12 +156,12 @@ public class MultiKillCascadeManager implements Listener {
         Location playerLoc = player.getLocation();
 
         // ═══════════════════════════════════════════════════════════════════
-        // 1. TITRE SPECTACULAIRE
+        // 1. AFFICHAGE DU MULTI-KILL (en subtitle pour ne pas encombrer l'écran)
         // ═══════════════════════════════════════════════════════════════════
-        String title = tier.color + "§l" + tier.name + "!";
-        String subtitle = "§7" + tier.killCount + " kills en chaîne!";
+        String killName = tier.color + "§l" + tier.name + "!";
+        String chainInfo = "§7" + tier.killCount + " kills en chaîne!";
 
-        player.sendTitle(title, subtitle, 5, 25, 10);
+        player.sendTitle(chainInfo, killName, 5, 25, 10);
 
         // ═══════════════════════════════════════════════════════════════════
         // 2. SONS PROGRESSIFS
