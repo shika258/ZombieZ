@@ -1433,7 +1433,7 @@ public class ChasseurTalentListener implements Listener {
                 // Explosion principale
                 player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc.clone().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0);
                 player.getWorld().spawnParticle(Particle.FLAME, loc.clone().add(0, 0.5, 0), 50, explosionRadius/2, 1, explosionRadius/2, 0.1);
-                player.getWorld().spawnParticle(Particle.SMOKE_LARGE, loc.clone().add(0, 2, 0), 30, explosionRadius/2, 2, explosionRadius/2, 0.05);
+                player.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc.clone().add(0, 2, 0), 30, explosionRadius/2, 2, explosionRadius/2, 0.05);
                 player.getWorld().spawnParticle(Particle.LAVA, loc, 20, explosionRadius/2, 0.5, explosionRadius/2, 0);
 
                 // Effet de cratère
@@ -1823,7 +1823,7 @@ public class ChasseurTalentListener implements Listener {
                 comboCounter.put(uuid, 0);
                 // Effet visuel et sonore du combo
                 player.getWorld().playSound(target.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
-                target.getWorld().spawnParticle(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+                target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
                 if (shouldSendTalentMessage(player)) {
                     player.sendMessage("§c✦ RAFALE! x" + (int)((1 + burstShot.getValue(1)) * 100) + "% dégâts!");
                 }
