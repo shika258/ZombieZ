@@ -89,10 +89,25 @@ public class ClassSelectionGUI implements Listener {
         lore.add("");
         lore.add("§7Difficulté: " + classType.getDifficultyDisplay());
         lore.add("");
-        lore.add("§6Bonus de classe:");
 
-        for (String bonus : classType.getBonusDescription()) {
-            lore.add(bonus);
+        // Section Stats de base
+        lore.add("§e§lStats de base:");
+        lore.add(formatStatCompact("Dégâts", classType.getDamageMultiplier()));
+        lore.add(formatStatCompact("Vie", classType.getHealthMultiplier()));
+        lore.add(formatStatCompact("Vitesse", classType.getSpeedMultiplier()));
+        lore.add(formatStatCompact("Critique", classType.getCritMultiplier()));
+        if (classType.getLifesteal() > 0) {
+            lore.add("§7Vol de vie: §a+" + (int)(classType.getLifesteal() * 100) + "%");
+        }
+
+        lore.add("");
+        lore.add("§8──────────────");
+        lore.add("");
+
+        // Section Traits de classe
+        lore.add(classType.getColor() + "§lTraits de classe:");
+        for (ClassType.ClassTrait trait : classType.getClassTraits()) {
+            lore.add(trait.getName());
         }
 
         lore.add("");
@@ -110,6 +125,12 @@ public class ClassSelectionGUI implements Listener {
             .lore(lore)
             .glow(isSelected)
             .build();
+    }
+
+    private String formatStatCompact(String name, double value) {
+        int percent = (int) ((value - 1.0) * 100);
+        String color = percent > 0 ? "§a+" : (percent < 0 ? "§c" : "§f");
+        return "§7" + name + ": " + color + percent + "%";
     }
 
     @EventHandler

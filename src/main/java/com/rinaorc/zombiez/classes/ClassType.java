@@ -3,9 +3,13 @@ package com.rinaorc.zombiez.classes;
 import lombok.Getter;
 import org.bukkit.Material;
 
+import java.util.List;
+
 /**
  * Système de classes simplifié - 3 classes accessibles et distinctes
  * Chaque classe a une identité claire et un style de jeu unique
+ *
+ * Équilibrage v2.0 - Stats rééquilibrées et traits de classe ajoutés
  */
 @Getter
 public enum ClassType {
@@ -22,17 +26,24 @@ public enum ClassType {
         Material.NETHERITE_CHESTPLATE,
         "§7Tank brutal au cœur de la mêlée",
         new String[]{
-            "§c⚔ §7Frappe au corps à corps",
-            "§c❤ §7Résistant aux coups",
-            "§c✦ §7Se soigne en frappant"
+            "§c⚔ §7Spécialiste du corps à corps",
+            "§c❤ §7Résistance exceptionnelle",
+            "§c✦ §7Récupère de la vie en frappant"
         },
         "§e★§7☆☆ Facile",
-        // Stats de base
-        1.20,   // Multiplicateur de dégâts mêlée
-        0.95,   // Vitesse légèrement réduite
-        1.25,   // +25% HP
-        0.90,   // Moins de critiques
-        0.05    // Vol de vie naturel RÉDUIT (10%→5%)
+        // Stats de base - ÉQUILIBRÉES v2.0
+        1.15,   // Multiplicateur de dégâts (+15%)
+        0.90,   // Vitesse réduite (-10%)
+        1.30,   // +30% HP (tank principal)
+        0.85,   // Moins de critiques (-15%)
+        0.08,   // Vol de vie naturel (8%)
+        // Traits de classe uniques
+        new ClassTrait[]{
+            new ClassTrait("§c⚔ Brutalité", "§7+25% dégâts mêlée supplémentaires", 0.25),
+            new ClassTrait("§c🛡 Cuirasse", "§7-15% dégâts subis", 0.15),
+            new ClassTrait("§c💪 Inébranlable", "§7Résistance au recul +50%", 0.50),
+            new ClassTrait("§c❤ Vitalité", "§7Régénération +2 HP/5s hors combat", 2.0)
+        }
     ),
 
     /**
@@ -48,16 +59,23 @@ public enum ClassType {
         "§7Tireur d'élite rapide et mortel",
         new String[]{
             "§a⚡ §7Coups critiques dévastateurs",
-            "§a✧ §7Agile et insaisissable",
-            "§a➤ §7Tue à distance"
+            "§a✧ §7Agilité et esquive",
+            "§a➤ §7Maître de la distance"
         },
         "§e★★§7☆ Moyen",
-        // Stats de base
-        1.05,   // Dégâts légèrement augmentés
-        1.15,   // Plus rapide
-        0.90,   // Moins de HP
-        1.30,   // +30% critiques
-        0.0     // Pas de vol de vie
+        // Stats de base - ÉQUILIBRÉES v2.0
+        1.20,   // Multiplicateur de dégâts (+20%)
+        1.20,   // Vitesse augmentée (+20%)
+        0.85,   // Moins de HP (-15%)
+        1.35,   // +35% critiques
+        0.0,    // Pas de vol de vie
+        // Traits de classe uniques
+        new ClassTrait[]{
+            new ClassTrait("§a🎯 Précision", "§7+30% dégâts à distance", 0.30),
+            new ClassTrait("§a💨 Vélocité", "§7+15% d'esquive", 0.15),
+            new ClassTrait("§a⚡ Adrénaline", "§7Kill = +10% vitesse 3s", 0.10),
+            new ClassTrait("§a🏹 Tir Critique", "§7Critiques: +50% dégâts bonus", 0.50)
+        }
     ),
 
     /**
@@ -72,17 +90,24 @@ public enum ClassType {
         Material.AMETHYST_SHARD,
         "§7Mage sombre aux pouvoirs dévastateurs",
         new String[]{
-            "§5✦ §7Sorts surpuissants",
+            "§5✦ §7Sorts et effets dévastateurs",
             "§5☠ §7Destruction de masse",
-            "§5⚡ §7Fragile mais mortel"
+            "§5⚡ §7Canon de verre tactique"
         },
         "§e★★★ §7Expert",
-        // Stats de base (NOTE: pas de CDR naturel, c'est du skill power)
-        1.40,   // +40% dégâts de compétences
-        1.0,    // Vitesse normale
-        0.80,   // Moins de HP (verre cannon)
-        1.10,   // Critiques légèrement augmentés
-        0.0     // Pas de vol de vie
+        // Stats de base - ÉQUILIBRÉES v2.0
+        1.30,   // +30% dégâts (réduit de 40%)
+        0.95,   // Vitesse légèrement réduite (-5%)
+        0.75,   // Moins de HP (-25%) - vrai glass cannon
+        1.15,   // +15% critiques
+        0.03,   // Faible vol de vie (3% - siphon d'âme)
+        // Traits de classe uniques
+        new ClassTrait[]{
+            new ClassTrait("§5✦ Arcane", "§7+40% dégâts de zone (AoE)", 0.40),
+            new ClassTrait("§5🔮 Canalisation", "§7-20% cooldown des talents", 0.20),
+            new ClassTrait("§5☠ Malédiction", "§7Ennemis touchés: -10% résist.", 0.10),
+            new ClassTrait("§5💀 Siphon", "§7Kill = +5% HP max temporaire", 0.05)
+        }
     );
 
     private final String displayName;
@@ -99,10 +124,14 @@ public enum ClassType {
     private final double critMultiplier;
     private final double lifesteal;
 
+    // Traits de classe uniques
+    private final ClassTrait[] classTraits;
+
     ClassType(String displayName, String color, Material icon, String description,
               String[] bonusDescription, String difficultyDisplay,
               double damageMultiplier, double speedMultiplier,
-              double healthMultiplier, double critMultiplier, double lifesteal) {
+              double healthMultiplier, double critMultiplier, double lifesteal,
+              ClassTrait[] classTraits) {
         this.displayName = displayName;
         this.color = color;
         this.icon = icon;
@@ -114,6 +143,31 @@ public enum ClassType {
         this.healthMultiplier = healthMultiplier;
         this.critMultiplier = critMultiplier;
         this.lifesteal = lifesteal;
+        this.classTraits = classTraits;
+    }
+
+    /**
+     * Record représentant un trait de classe unique
+     * Chaque classe possède 4 traits qui définissent son identité
+     */
+    @Getter
+    public static class ClassTrait {
+        private final String name;
+        private final String description;
+        private final double value;
+
+        public ClassTrait(String name, String description, double value) {
+            this.name = name;
+            this.description = description;
+            this.value = value;
+        }
+
+        /**
+         * Retourne le trait formaté pour l'affichage
+         */
+        public String getFormattedDisplay() {
+            return name + "\n  " + description;
+        }
     }
 
     /**
