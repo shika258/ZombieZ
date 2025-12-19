@@ -29,13 +29,13 @@ public class ClassInfoGUI implements Listener {
     private final ClassManager classManager;
     private static final String GUI_TITLE = "§0§l+ MA CLASSE +";
 
-    // Slots - Layout épuré (stats supprimées, seuls les traits restent)
+    // Slots - Layout réorganisé
     private static final int SLOT_CLASS_INFO = 4;       // Haut centre - Info générale
-    private static final int SLOT_LEVEL_INFO = 21;      // Milieu gauche - Niveau
-    private static final int SLOT_TRAITS_INFO = 23;     // Milieu droite - Traits de classe (seule source de bonus)
-    private static final int SLOT_TALENTS = 30;         // Bas gauche - Talents
-    private static final int SLOT_CHANGE_CLASS = 32;    // Bas centre - Changer
-    private static final int SLOT_TALENT_MESSAGES_TOGGLE = 34;  // Bas droite - Toggle
+    private static final int SLOT_LEVEL_INFO = 19;      // Milieu gauche - Niveau (décalé 2 slots à gauche)
+    private static final int SLOT_TALENTS = 21;         // Milieu - Talents (monté 1 ligne)
+    private static final int SLOT_TRAITS_INFO = 23;     // Milieu droite - Traits de classe
+    private static final int SLOT_TALENT_MESSAGES_TOGGLE = 25;  // Milieu droite - Toggle (monté 1 ligne)
+    private static final int SLOT_CHANGE_CLASS = 31;    // Bas centre - Changer (décalé 1 slot à gauche)
     private static final int SLOT_CLOSE = 40;           // Fermer
 
     public ClassInfoGUI(ZombieZPlugin plugin, ClassManager classManager) {
@@ -71,28 +71,28 @@ public class ClassInfoGUI implements Listener {
             gui.setItem(i, separator);
         }
 
-        // === NIVEAU DE CLASSE (milieu gauche) ===
-        gui.setItem(SLOT_LEVEL_INFO, createLevelItem(data));
-
         // === TRAITS DE CLASSE (milieu droite) - Seule source de bonus de classe ===
         gui.setItem(SLOT_TRAITS_INFO, createTraitsItem(classType));
 
-        // Séparateur bas
-        for (int i = 27; i < 30; i++) {
+        // Séparateur bas (autour du bouton changer de classe)
+        for (int i = 27; i < 31; i++) {
             gui.setItem(i, separator);
         }
-        for (int i = 33; i < 36; i++) {
+        for (int i = 32; i < 36; i++) {
             gui.setItem(i, separator);
         }
 
-        // === TALENTS (bas gauche) ===
+        // === NIVEAU DE CLASSE (milieu gauche) ===
+        gui.setItem(SLOT_LEVEL_INFO, createLevelItem(data));
+
+        // === TALENTS (milieu) ===
         gui.setItem(SLOT_TALENTS, createTalentsButton(data));
+
+        // === TOGGLE MESSAGES DE TALENTS (milieu droite) ===
+        gui.setItem(SLOT_TALENT_MESSAGES_TOGGLE, createTalentMessagesToggle(data));
 
         // === CHANGER DE CLASSE (bas centre) ===
         gui.setItem(SLOT_CHANGE_CLASS, createChangeClassButton(data));
-
-        // === TOGGLE MESSAGES DE TALENTS (bas droite) ===
-        gui.setItem(SLOT_TALENT_MESSAGES_TOGGLE, createTalentMessagesToggle(data));
 
         // Bouton fermer
         gui.setItem(SLOT_CLOSE, new ItemBuilder(Material.BARRIER)
