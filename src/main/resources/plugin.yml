@@ -94,6 +94,12 @@ commands:
     permission: zombiez.refuge
     aliases: [refuges, shelter]
 
+  wiki:
+    description: Wiki des zones - Informations detaillees et teleportation admin
+    usage: /<command> [zone_id]
+    permission: zombiez.zone
+    aliases: [zonewiki, zw, map]
+
   # Commandes Économie
   prestige:
     description: Système de prestige

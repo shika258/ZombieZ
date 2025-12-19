@@ -587,6 +587,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("checkpoint").setExecutor(new CheckpointCommand(this));
         getCommand("refuge").setExecutor(new RefugeCommand(this));
 
+        // Commandes Joueur - Wiki des Zones
+        ZoneWikiCommand wikiCmd = new ZoneWikiCommand(this);
+        getCommand("wiki").setExecutor(wikiCmd);
+        getCommand("wiki").setTabCompleter(wikiCmd);
+
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
         getCommand("bank").setExecutor(bankCmd);
@@ -695,6 +700,10 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);
         pm.registerEvents(new BattlePassGUI.BattlePassGUIListener(this), this);
+
+        // Listeners Wiki des Zones
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneWikiGUI.GUIListener(this), this);
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneDetailGUI.GUIListener(this), this);
 
         // Listener système de classes
         if (classManager != null) {
