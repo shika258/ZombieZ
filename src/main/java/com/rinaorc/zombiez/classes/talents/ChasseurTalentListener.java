@@ -528,19 +528,38 @@ public class ChasseurTalentListener implements Listener {
 
         // Frappe Orbitale - activation par double-sneak
         Talent orbitalStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
-        if (orbitalStrike != null && event.isSneaking() && !isOnCooldown(uuid, "orbital_strike")) {
+        if (orbitalStrike != null && event.isSneaking()) {
             long now = System.currentTimeMillis();
             Long lastSneak = lastOrbitalSneakTime.get(uuid);
 
             if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW) {
-                // Double sneak détecté! Lancer la frappe orbitale
+                // Double sneak détecté!
                 lastOrbitalSneakTime.remove(uuid);
+
+                // Vérifier le cooldown
+                long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
+                if (remainingMs > 0) {
+                    // En cooldown - afficher le temps restant dans l'action bar
+                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                    return;
+                }
+
+                // Lancer la frappe orbitale
                 procOrbitalStrike(player, orbitalStrike);
                 setCooldown(uuid, "orbital_strike", (long) orbitalStrike.getValue(0));
             } else {
                 // Premier sneak, enregistrer le temps
                 lastOrbitalSneakTime.put(uuid, now);
-                // Feedback visuel subtil
+                // Feedback visuel subtil + afficher cooldown si en attente
+                long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
+                if (remainingMs > 0) {
+                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
+                } else {
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §aPRÊT §7(2x Sneak)");
+                }
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
             }
         }
@@ -975,7 +994,7 @@ public class ChasseurTalentListener implements Listener {
                         }
                     }
 
-                    // Attirer les ennemis vers le centre
+                    // Attirer les ennemis vers le centre (force équilibrée)
                     if (ticks % 3 == 0) {
                         for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, finalRadius * 1.5, 3, finalRadius * 1.5)) {
                             if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
@@ -983,16 +1002,25 @@ public class ChasseurTalentListener implements Listener {
                                 Vector toCenter = vortexCenter.toVector().subtract(target.getLocation().toVector());
                                 double distance = toCenter.length();
 
-                                if (distance > 1.0) { // Ne pas attirer si déjà au centre
-                                    // Force d'attraction inversement proportionnelle à la distance
-                                    double pullForce = pullStrength * (1.0 + (finalRadius / distance));
+                                // Zone morte au centre (2 blocs) - les mobs peuvent s'échapper
+                                if (distance > 2.0) {
+                                    // Force d'attraction PROPORTIONNELLE à la distance (plus fort loin, faible proche)
+                                    // Cela permet aux mobs de résister et s'échapper quand ils sont proches du centre
+                                    double distanceFactor = Math.min(distance / finalRadius, 1.0); // 0.0 au centre, 1.0 au bord
+                                    double pullForce = pullStrength * distanceFactor;
+
+                                    // Cap minimum pour que l'effet reste visible
+                                    pullForce = Math.max(pullForce, pullStrength * 0.3);
+
                                     Vector pull = toCenter.normalize().multiply(pullForce);
 
-                                    // Appliquer la vélocité
+                                    // Appliquer la vélocité (réduite pour ne pas overrider le pathfinding)
                                     Vector currentVel = target.getVelocity();
                                     target.setVelocity(currentVel.add(pull).setY(currentVel.getY()));
+                                }
 
-                                    // Marquer comme affecté pour le bonus de dégâts
+                                // Marquer comme affecté pour le bonus de dégâts (même dans la zone morte)
+                                if (distance < finalRadius * 1.2) {
                                     affectedEntities.add(target.getUniqueId());
                                 }
                             }
@@ -1727,64 +1755,200 @@ public class ChasseurTalentListener implements Listener {
     }
 
     /**
+     * Retourne le temps restant en ms pour un cooldown, ou 0 si pas en cooldown
+     */
+    private long getRemainingCooldown(UUID uuid, String ability) {
+        Map<String, Long> playerCooldowns = cooldowns.get(uuid);
+        if (playerCooldowns == null) return 0;
+        Long cooldownEnd = playerCooldowns.get(ability);
+        if (cooldownEnd == null) return 0;
+        long remaining = cooldownEnd - System.currentTimeMillis();
+        return remaining > 0 ? remaining : 0;
+    }
+
+    /**
+     * Envoie un message dans l'actionbar au lieu du chat pour eviter le spam
+     */
+    private void sendActionBar(Player player, String message) {
+        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
+    }
+
+    /**
+     * Compte le nombre de talents actifs de la Voie du Barrage (slotIndex 0)
+     * Utilisé pour calculer le bonus de Tirs Multiples (+10% par talent supplémentaire)
+     */
+    private int countBarrageTalents(Player player) {
+        int count = 0;
+        for (Talent talent : talentManager.getActiveTalents(player)) {
+            if (talent.getSlotIndex() == 0) { // Voie du Barrage
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
      * Applique l'effet de flèche chercheuse à une flèche en vol.
-     * La flèche ajuste légèrement sa trajectoire vers l'ennemi le plus proche.
+     * La flèche ajuste sa trajectoire vers la TÊTE de l'ennemi le plus proche.
+     * Algorithme optimisé pour éviter les flèches qui vont dans le sol.
      *
      * @param arrow La flèche à rendre chercheuse
      * @param player Le joueur propriétaire
-     * @param homingStrength Force d'attraction (0.1-0.3 recommandé)
+     * @param homingStrength Force d'attraction (0.2-0.4 recommandé)
      * @param homingRadius Rayon de détection des cibles
      */
     private void applyHomingBehavior(Arrow arrow, Player player, double homingStrength, double homingRadius) {
         new BukkitRunnable() {
             int ticks = 0;
+            LivingEntity lockedTarget = null; // Verrouillage de cible pour cohérence
+
             @Override
             public void run() {
-                if (arrow.isDead() || arrow.isOnGround() || ticks > 60) {
+                if (arrow.isDead() || arrow.isOnGround() || ticks > 80) {
                     homingArrows.remove(arrow.getUniqueId());
                     this.cancel();
                     return;
                 }
 
-                // Trouver l'ennemi le plus proche dans le rayon
-                LivingEntity closestTarget = null;
-                double closestDistance = homingRadius;
+                Location arrowLoc = arrow.getLocation();
+                Vector currentVelocity = arrow.getVelocity();
+                double speed = currentVelocity.length();
 
-                for (Entity entity : arrow.getNearbyEntities(homingRadius, homingRadius, homingRadius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
-                        double distance = arrow.getLocation().distance(target.getLocation().add(0, target.getHeight() / 2, 0));
-                        if (distance < closestDistance) {
-                            closestDistance = distance;
-                            closestTarget = target;
-                        }
-                    }
+                // Si la flèche est presque à l'arrêt, ne pas appliquer le homing
+                if (speed < 0.3) {
+                    ticks++;
+                    return;
+                }
+
+                // Vérifier si la cible verrouillée est toujours valide
+                if (lockedTarget != null && (lockedTarget.isDead() ||
+                    arrowLoc.distance(lockedTarget.getLocation()) > homingRadius * 1.5)) {
+                    lockedTarget = null;
+                }
+
+                // Trouver la meilleure cible si pas de verrouillage
+                if (lockedTarget == null) {
+                    lockedTarget = findBestHomingTarget(arrow, player, homingRadius, currentVelocity);
                 }
 
                 // Ajuster la trajectoire vers la cible
-                if (closestTarget != null) {
-                    Location targetLoc = closestTarget.getLocation().add(0, closestTarget.getHeight() / 2, 0);
-                    Vector currentVelocity = arrow.getVelocity();
-                    Vector toTarget = targetLoc.toVector().subtract(arrow.getLocation().toVector()).normalize();
+                if (lockedTarget != null) {
+                    // Cibler la TÊTE (85% de la hauteur de l'entité)
+                    Location headLoc = lockedTarget.getLocation().add(0, lockedTarget.getHeight() * 0.85, 0);
 
-                    // Interpoler entre la direction actuelle et la direction vers la cible
-                    Vector newVelocity = currentVelocity.normalize()
-                        .multiply(1 - homingStrength)
-                        .add(toTarget.multiply(homingStrength))
-                        .normalize()
-                        .multiply(currentVelocity.length());
+                    // Prédiction simple: ajuster légèrement vers où la cible va être
+                    if (lockedTarget.getVelocity().lengthSquared() > 0.001) {
+                        Vector targetVel = lockedTarget.getVelocity();
+                        double timeToHit = arrowLoc.distance(headLoc) / speed;
+                        // Prédire la position future (limité à 0.5s)
+                        timeToHit = Math.min(timeToHit, 0.5);
+                        headLoc.add(targetVel.clone().multiply(timeToHit * 20)); // 20 ticks/sec
+                    }
 
+                    Vector toTarget = headLoc.toVector().subtract(arrowLoc.toVector());
+                    double distanceToTarget = toTarget.length();
+                    toTarget.normalize();
+
+                    // Force de tracking adaptative:
+                    // - Plus forte quand on est loin (pour corriger la trajectoire)
+                    // - Plus légère quand on est proche (pour ne pas sur-corriger)
+                    double adaptiveStrength = homingStrength;
+                    if (distanceToTarget < 3.0) {
+                        adaptiveStrength *= 0.5; // Réduire près de la cible
+                    } else if (distanceToTarget > 8.0) {
+                        adaptiveStrength *= 1.3; // Augmenter quand loin
+                    }
+
+                    // COMPENSATION GRAVITÉ: ajouter un léger boost vertical
+                    // La gravité dans MC est ~0.05 par tick sur les flèches
+                    double gravityCompensation = 0.03 + (distanceToTarget * 0.005);
+                    gravityCompensation = Math.min(gravityCompensation, 0.08); // Cap
+
+                    // Calculer la nouvelle vélocité
+                    Vector normalizedCurrent = currentVelocity.clone().normalize();
+                    Vector newDirection = normalizedCurrent
+                        .multiply(1 - adaptiveStrength)
+                        .add(toTarget.multiply(adaptiveStrength))
+                        .normalize();
+
+                    // Ajouter compensation gravité (uniquement si la cible n'est pas en-dessous)
+                    if (headLoc.getY() >= arrowLoc.getY() - 1.0) {
+                        newDirection.setY(newDirection.getY() + gravityCompensation);
+                        newDirection.normalize();
+                    }
+
+                    // Appliquer la nouvelle vélocité en conservant la vitesse
+                    Vector newVelocity = newDirection.multiply(speed);
                     arrow.setVelocity(newVelocity);
 
-                    // Particule de traque subtile
-                    if (ticks % 3 == 0) {
-                        arrow.getWorld().spawnParticle(Particle.DUST, arrow.getLocation(), 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(255, 100, 100), 0.5f));
+                    // Particule de traque distinctive
+                    if (ticks % 2 == 0) {
+                        arrow.getWorld().spawnParticle(Particle.DUST, arrowLoc, 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(255, 50, 50), 0.6f));
                     }
                 }
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 2L, 1L); // Commence après 2 ticks, puis chaque tick
+        }.runTaskTimer(plugin, 1L, 1L); // Commence immédiatement, chaque tick
+    }
+
+    /**
+     * Trouve la meilleure cible pour le homing.
+     * Privilégie les cibles dans la trajectoire de la flèche et évite celles trop en-dessous.
+     */
+    private LivingEntity findBestHomingTarget(Arrow arrow, Player player, double homingRadius, Vector arrowVelocity) {
+        Location arrowLoc = arrow.getLocation();
+        Vector arrowDir = arrowVelocity.clone().normalize();
+
+        LivingEntity bestTarget = null;
+        double bestScore = Double.MAX_VALUE;
+
+        for (Entity entity : arrow.getNearbyEntities(homingRadius, homingRadius, homingRadius)) {
+            if (!(entity instanceof LivingEntity target) || entity == player || entity instanceof ArmorStand) {
+                continue;
+            }
+
+            // Position de la tête de la cible
+            Location headLoc = target.getLocation().add(0, target.getHeight() * 0.85, 0);
+            double distance = arrowLoc.distance(headLoc);
+
+            // FILTRE: Ignorer les cibles trop en-dessous de la flèche (évite plongée dans le sol)
+            double heightDiff = headLoc.getY() - arrowLoc.getY();
+            if (heightDiff < -3.0) {
+                // La cible est plus de 3 blocs en-dessous, ignorer
+                continue;
+            }
+
+            // Calculer l'angle entre la direction de la flèche et la direction vers la cible
+            Vector toTarget = headLoc.toVector().subtract(arrowLoc.toVector()).normalize();
+            double dotProduct = arrowDir.dot(toTarget);
+
+            // FILTRE: Ignorer les cibles derrière la flèche
+            if (dotProduct < 0.2) {
+                continue;
+            }
+
+            // Score: combiner distance et alignement
+            // Plus le score est bas, meilleure est la cible
+            // - Distance faible = bon
+            // - dotProduct élevé (bien aligné) = bon
+            double alignmentBonus = (1.0 - dotProduct) * 5.0; // 0 si parfaitement aligné, jusqu'à 4 sinon
+            double score = distance + alignmentBonus;
+
+            // Bonus si la cible est légèrement au-dessus (trajectoire naturelle de flèche)
+            if (heightDiff > 0 && heightDiff < 2.0) {
+                score -= 1.0;
+            }
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestTarget = target;
+            }
+        }
+
+        return bestTarget;
     }
 
     /**
