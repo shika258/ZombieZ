@@ -884,23 +884,110 @@ public class ChasseurTalentListener implements Listener {
         double radius = talent.getValue(3);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§e§l+ TEMPETE D'ACIER!");
+            player.sendMessage("§6§l+ TEMPETE D'ACIER!");
         }
-        player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
 
+        // Sons épiques d'annonce
+        player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
+        player.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.8f);
+
+        // Spawner les flèches de feu qui tombent du ciel
         for (int i = 0; i < arrows; i++) {
+            // Position de chute aléatoire dans le rayon
             double x = center.getX() + (Math.random() - 0.5) * radius * 2;
             double z = center.getZ() + (Math.random() - 0.5) * radius * 2;
-            Location arrowLoc = new Location(center.getWorld(), x, center.getY(), z);
+            Location impactLoc = new Location(center.getWorld(), x, center.getY(), z);
 
-            center.getWorld().spawnParticle(Particle.CRIT, arrowLoc, 5, 0.1, 0.1, 0.1, 0);
+            // Spawner une flèche depuis le ciel
+            Location spawnLoc = impactLoc.clone().add(0, 15 + Math.random() * 5, 0);
+            int arrowDelay = (int) (Math.random() * 15); // Décalage pour effet de pluie
 
-            for (Entity entity : center.getWorld().getNearbyEntities(arrowLoc, 1, 1, 1)) {
-                if (entity instanceof LivingEntity target && entity != player) {
-                    target.damage(damagePerArrow, player);
-                }
-            }
+            final double finalDamage = damagePerArrow;
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // Créer une flèche de feu
+                Arrow arrow = center.getWorld().spawnArrow(spawnLoc, new Vector(0, -3, 0), 2.5f, 0);
+                arrow.setShooter(player);
+                arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+                arrow.setDamage(0); // Dégâts gérés manuellement
+                arrow.setGravity(true);
+                arrow.setFireTicks(200); // Flèche en feu
+
+                // Particules de traînée de feu
+                new BukkitRunnable() {
+                    int ticks = 0;
+                    @Override
+                    public void run() {
+                        if (arrow.isDead() || arrow.isOnGround() || ticks > 40) {
+                            // Impact au sol - effet de feu
+                            Location loc = arrow.getLocation();
+                            center.getWorld().spawnParticle(Particle.FLAME, loc, 15, 0.4, 0.2, 0.4, 0.05);
+                            center.getWorld().spawnParticle(Particle.LAVA, loc, 3, 0.2, 0.1, 0.2, 0);
+                            center.getWorld().playSound(loc, Sound.BLOCK_FIRE_AMBIENT, 0.8f, 1.2f);
+
+                            // Appliquer les dégâts + DOT de feu aux entités proches
+                            for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.5, 1.5, 1.5)) {
+                                if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                    // Dégâts initiaux
+                                    target.damage(finalDamage, player);
+
+                                    // DOT de feu pendant 3 secondes (60 ticks)
+                                    target.setFireTicks(60);
+
+                                    // Appliquer le DOT custom (dégâts supplémentaires sur la durée)
+                                    applyFireDot(player, target, finalDamage * 0.5, 3000);
+                                }
+                            }
+
+                            arrow.remove();
+                            this.cancel();
+                            return;
+                        }
+                        // Particules de traînée de feu
+                        center.getWorld().spawnParticle(Particle.FLAME, arrow.getLocation(), 2, 0.05, 0.05, 0.05, 0.01);
+                        center.getWorld().spawnParticle(Particle.SMOKE, arrow.getLocation(), 1, 0.02, 0.02, 0.02, 0);
+                        ticks++;
+                    }
+                }.runTaskTimer(plugin, 0L, 1L);
+
+            }, arrowDelay);
         }
+    }
+
+    /**
+     * Applique un DOT de feu sur une cible
+     */
+    private void applyFireDot(Player player, LivingEntity target, double totalDamage, long durationMs) {
+        UUID targetUuid = target.getUniqueId();
+        int ticks = (int) (durationMs / 500); // Tick toutes les 0.5s
+        double damagePerTick = totalDamage / ticks;
+
+        new BukkitRunnable() {
+            int ticksRemaining = ticks;
+
+            @Override
+            public void run() {
+                Entity entity = Bukkit.getEntity(targetUuid);
+                if (entity == null || !entity.isValid() || !(entity instanceof LivingEntity livingTarget)) {
+                    this.cancel();
+                    return;
+                }
+
+                if (ticksRemaining <= 0) {
+                    this.cancel();
+                    return;
+                }
+
+                // Appliquer les dégâts de DOT
+                livingTarget.damage(damagePerTick, player);
+
+                // Particules de feu
+                livingTarget.getWorld().spawnParticle(Particle.FLAME,
+                    livingTarget.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.02);
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(plugin, 10L, 10L); // Toutes les 0.5 secondes
     }
 
     private void procOrbitalStrike(Player player, Talent talent) {
