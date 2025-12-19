@@ -35,19 +35,16 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_multi_shot")
             .name("Tirs Multiples")
-            .description("20% chance +2 fleches bonus")
+            .description("25% chance de tirer 3 fleches")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos attaques a distance ont §e20%§7",
-                "§7de chance de tirer §e2 fleches§7 bonus.",
+                "§7Vos tirs a l'arc ou l'arbalete",
+                "§7ont §e25%§7 de chance de tirer",
+                "§e3 fleches§7 horizontales!",
                 "",
-                "§8► Degats par fleche: §c60%",
-                "§8► Cooldown interne: §e0.5s",
-                "",
-                "§6§lBONUS CUMULATIF:",
-                "§7Chaque talent Barrage ajoute",
-                "§e+10%§7 de chance! §8(max 100%)"
+                "§8► Pattern: §fI I I",
+                "§8► Degats par fleche: §c100%"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -55,8 +52,7 @@ public final class ChasseurTalents {
             .icon(Material.ARROW)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.MULTI_SHOT)
-            .values(new double[]{0.20, 2, 0.60}) // chance, extra_projectiles, damage%
-            .internalCooldownMs(500)
+            .values(new double[]{0.25, 2}) // chance, extra_projectiles (2 bonus = 3 total)
             .build());
 
         // 1.2 - OEIL DE LYNX

@@ -74,7 +74,7 @@ public class MomentumManager {
         data.inFever = true;
         data.feverStartTime = System.currentTimeMillis();
         
-        MessageUtils.sendTitle(player, "§c§l🔥 FEVER MODE!", "§eBonus x2 pendant 30s!", 10, 40, 10);
+        MessageUtils.sendTitle(player, "", "§c§l🔥 FEVER MODE! §eBonus x2 pendant 30s!", 10, 40, 10);
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
         
         // Annoncer aux joueurs proches
@@ -243,7 +243,7 @@ public class MomentumManager {
                     data.inFever = false;
                     Player player = plugin.getServer().getPlayer(entry.getKey());
                     if (player != null) {
-                        MessageUtils.sendTitle(player, "§7§l🔥 FEVER TERMINÉ!", "§8Streak: " + data.streak + " kills", 5, 30, 10);
+                        MessageUtils.sendTitle(player, "", "§7§l🔥 FEVER TERMINÉ! §8Streak: " + data.streak + " kills", 5, 30, 10);
                         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.0f);
                     }
                 }
