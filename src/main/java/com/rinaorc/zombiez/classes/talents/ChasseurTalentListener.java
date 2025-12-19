@@ -17,6 +17,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
@@ -140,30 +141,7 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Tirs Multiples - UNIQUEMENT sur attaques à distance (projectiles)
-        // Bonus: +10% de chance par talent supplémentaire de la Voie du Barrage (cap 100%)
-        Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
-        if (multiShot != null && isRanged && !isOnCooldown(uuid, "multi_shot")) {
-            // Calculer le bonus de chance (chaque talent Barrage après le 1er donne +10%)
-            int barrageTalentCount = countBarrageTalents(player);
-            double bonusChance = (barrageTalentCount - 1) * 0.10; // -1 car Tirs Multiples compte déjà
-            double totalChance = Math.min(1.0, multiShot.getValue(0) + bonusChance); // Cap à 100%
-
-            if (Math.random() < totalChance) {
-                procMultiShot(player, target, damage * multiShot.getValue(2));
-                setCooldown(uuid, "multi_shot", multiShot.getInternalCooldownMs());
-
-                // Feedback avec le bonus affiché
-                if (shouldSendTalentMessage(player)) {
-                    int totalPercent = (int) (totalChance * 100);
-                    if (bonusChance > 0) {
-                        player.sendMessage("§f✦ Tirs Multiples! §7(" + totalPercent + "%)");
-                    } else {
-                        player.sendMessage("§f✦ Tirs Multiples!");
-                    }
-                }
-            }
-        }
+        // Tirs Multiples - Géré dans onProjectileLaunch (déclenché au tir, pas à l'impact)
 
         // Oeil de Lynx - crit bonus
         Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
@@ -457,22 +435,35 @@ public class ChasseurTalentListener implements Listener {
         }
     }
 
-    // ==================== PROJECTILE LAUNCH (RAFALE HOMING) ====================
+    // ==================== PROJECTILE LAUNCH (TIRS MULTIPLES + RAFALE HOMING) ====================
 
     @EventHandler
     public void onProjectileLaunch(ProjectileLaunchEvent event) {
-        if (!(event.getEntity() instanceof Arrow arrow)) return;
+        if (!(event.getEntity() instanceof AbstractArrow arrow)) return;
         if (!(arrow.getShooter() instanceof Player player)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
         if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return;
 
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si c'est une flèche bonus (éviter récursion infinie)
+        if (arrow.hasMetadata("multishot_bonus")) return;
+
+        // Tirs Multiples - 25% chance de tirer 3 flèches horizontales au lieu de 1
+        Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
+        if (multiShot != null && Math.random() < multiShot.getValue(0)) {
+            procMultiShot(player, arrow);
+        }
+
         // Rafale - Appliquer homing aux flèches tirées par le joueur
-        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        if (burstShot != null) {
-            double homingStrength = burstShot.getValue(2);
-            double homingRadius = burstShot.getValue(3);
-            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+        if (arrow instanceof Arrow) {
+            Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+            if (burstShot != null) {
+                double homingStrength = burstShot.getValue(2);
+                double homingRadius = burstShot.getValue(3);
+                applyHomingBehavior((Arrow) arrow, player, homingStrength, homingRadius);
+            }
         }
     }
 
@@ -715,16 +706,26 @@ public class ChasseurTalentListener implements Listener {
 
     // ==================== PROCS ====================
 
-    private void procMultiShot(Player player, LivingEntity target, double damage) {
-        Location playerLoc = player.getEyeLocation();
-        Location targetLoc = target.getLocation().add(0, target.getHeight() / 2, 0);
-        Vector dir = targetLoc.toVector().subtract(playerLoc.toVector()).normalize();
+    /**
+     * Tirs Multiples - Tire 2 flèches bonus horizontales (3 au total avec l'originale)
+     * Pattern: I I I (horizontalement espacées)
+     */
+    private void procMultiShot(Player player, AbstractArrow originalArrow) {
+        Location spawnLoc = originalArrow.getLocation();
+        Vector dir = originalArrow.getVelocity().normalize();
+        double speed = originalArrow.getVelocity().length();
 
         // Calculer le vecteur perpendiculaire horizontal (pour le décalage côte à côte)
         Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
 
-        // Décalage horizontal pour les flèches (I I I pattern)
-        double spacing = 0.6; // Espacement entre les flèches
+        // Espacement entre les flèches (pattern I I I)
+        double spacing = 0.8;
+
+        // Sons distinctifs de tir multiple
+        player.getWorld().playSound(spawnLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.5f);
+
+        // Particules d'effet
+        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, spawnLoc, 8, 0.2, 0.2, 0.2, 0.05);
 
         // Rafale - Flèches chercheuses
         Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
@@ -732,34 +733,30 @@ public class ChasseurTalentListener implements Listener {
         double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
         double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
 
-        // Sons distinctifs de tir multiple
-        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.5f);
-        player.getWorld().playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 2.0f);
-
-        // Particules d'effet au joueur
-        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, playerLoc, 10, 0.3, 0.3, 0.3, 0.1);
-
-        // Tirer 2 flèches côte à côte horizontalement
+        // Tirer 2 flèches bonus sur les côtés (gauche et droite)
         for (int i = 0; i < 2; i++) {
-            // Décalage: -0.5 et +0.5 pour 2 flèches côte à côte
-            double offset = (i == 0 ? -1 : 1) * spacing / 2;
-            Location spawnLoc = playerLoc.clone().add(horizontal.clone().multiply(offset));
+            double offset = (i == 0 ? -1 : 1) * spacing;
+            Location arrowSpawnLoc = spawnLoc.clone().add(horizontal.clone().multiply(offset));
 
-            // Créer une vraie flèche
-            Arrow arrow = player.getWorld().spawnArrow(spawnLoc, dir.clone(), 2.5f, 0);
-            arrow.setShooter(player);
-            arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-            arrow.setDamage(damage / 2); // Dégâts de la flèche (60% répartis)
-            arrow.setGravity(true);
-            arrow.setCritical(true);
+            // Créer une flèche avec les mêmes propriétés que l'originale
+            Arrow bonusArrow = player.getWorld().spawnArrow(arrowSpawnLoc, dir.clone(), (float) speed, 0);
+            bonusArrow.setShooter(player);
+            bonusArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+            bonusArrow.setDamage(originalArrow.getDamage()); // 100% dégâts
+            bonusArrow.setGravity(originalArrow.hasGravity());
+            bonusArrow.setCritical(originalArrow.isCritical());
+            bonusArrow.setFireTicks(originalArrow.getFireTicks());
+
+            // Marquer comme flèche bonus pour éviter la récursion
+            bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
 
             // === RAFALE - Flèches chercheuses ===
             if (hasHoming) {
-                applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+                applyHomingBehavior(bonusArrow, player, homingStrength, homingRadius);
             }
 
-            // Particules de traînée dorée pour distinguer les flèches bonus
-            final Arrow finalArrow = arrow;
+            // Particules de traînée pour distinguer les flèches bonus
+            final Arrow finalArrow = bonusArrow;
             new BukkitRunnable() {
                 int ticks = 0;
                 @Override
@@ -768,9 +765,8 @@ public class ChasseurTalentListener implements Listener {
                         this.cancel();
                         return;
                     }
-                    // Particules dorées pour les flèches bonus
                     finalArrow.getWorld().spawnParticle(Particle.DUST, finalArrow.getLocation(), 1, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 0.8f));
+                        new Particle.DustOptions(Color.fromRGB(255, 255, 255), 0.6f));
                     ticks++;
                 }
             }.runTaskTimer(plugin, 0L, 2L);
@@ -1728,20 +1724,6 @@ public class ChasseurTalentListener implements Listener {
     private void setCooldown(UUID uuid, String ability, long durationMs) {
         cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
             .put(ability, System.currentTimeMillis() + durationMs);
-    }
-
-    /**
-     * Compte le nombre de talents actifs de la Voie du Barrage (slotIndex 0)
-     * Utilisé pour calculer le bonus de Tirs Multiples (+10% par talent supplémentaire)
-     */
-    private int countBarrageTalents(Player player) {
-        int count = 0;
-        for (Talent talent : talentManager.getActiveTalents(player)) {
-            if (talent.getSlotIndex() == 0) { // Voie du Barrage
-                count++;
-            }
-        }
-        return count;
     }
 
     /**
