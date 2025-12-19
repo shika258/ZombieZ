@@ -4,6 +4,8 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zones.Zone;
+import com.rinaorc.zombiez.zones.gui.ZoneDetailGUI;
+import com.rinaorc.zombiez.zones.gui.ZoneWikiGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -16,7 +18,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Commande /zone - Affiche les informations sur la zone actuelle ou une zone spécifique
+ * Commande /zone - Wiki des zones avec menu GUI interactif
+ *
+ * Ouvre un menu GUI wiki complet des zones:
+ * - /zone ou /zones : Ouvre le menu wiki des zones
+ * - /zone <id> : Ouvre les details d'une zone specifique
+ * - /zone list : Liste texte des zones (legacy)
+ * - /zone info : Informations sur la zone actuelle (legacy)
+ *
+ * Les joueurs peuvent consulter toutes les informations.
+ * Les admins peuvent se teleporter vers n'importe quelle zone.
  */
 public class ZoneCommand implements CommandExecutor, TabCompleter {
 
@@ -35,23 +46,49 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0) {
-            // Afficher la zone actuelle
-            showCurrentZone(player);
-        } else if (args[0].equalsIgnoreCase("list")) {
-            // Lister toutes les zones
-            showZoneList(player);
-        } else {
-            // Afficher une zone spécifique
-            try {
-                int zoneId = Integer.parseInt(args[0]);
-                showZoneInfo(player, zoneId);
-            } catch (NumberFormatException e) {
-                // Chercher par nom
-                Zone zone = plugin.getZoneManager().getZoneByName(args[0]);
-                if (zone != null) {
-                    showZoneInfo(player, zone);
-                } else {
-                    MessageUtils.send(player, "§cZone non trouvée! §7Utilise §e/zone list §7pour voir les zones.");
+            // Ouvrir le menu wiki des zones
+            new ZoneWikiGUI(plugin, player, 0).open();
+            return true;
+        }
+
+        // Sous-commandes
+        String subCommand = args[0].toLowerCase();
+
+        switch (subCommand) {
+            case "list" -> {
+                // Mode legacy - affichage texte
+                showZoneList(player);
+            }
+            case "info", "current" -> {
+                // Afficher les infos de la zone actuelle en texte
+                showCurrentZone(player);
+            }
+            case "wiki", "menu", "gui" -> {
+                // Ouvrir le menu wiki
+                new ZoneWikiGUI(plugin, player, 0).open();
+            }
+            default -> {
+                // Essayer de parser comme un ID ou nom de zone
+                try {
+                    int zoneId = Integer.parseInt(args[0]);
+                    Zone zone = plugin.getZoneManager().getZoneById(zoneId);
+
+                    if (zone == null) {
+                        MessageUtils.send(player, "§cZone #" + zoneId + " non trouvee! Les zones vont de 0 a 50.");
+                        return true;
+                    }
+
+                    // Ouvrir le detail de la zone en GUI
+                    new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
+
+                } catch (NumberFormatException e) {
+                    // Chercher par nom
+                    Zone zone = plugin.getZoneManager().getZoneByName(args[0]);
+                    if (zone != null) {
+                        new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
+                    } else {
+                        MessageUtils.send(player, "§cZone non trouvee! §7Utilise §e/zone §7pour ouvrir le wiki.");
+                    }
                 }
             }
         }
@@ -192,18 +229,25 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             String partial = args[0].toLowerCase();
-            
-            // Ajouter "list"
-            if ("list".startsWith(partial)) {
-                completions.add("list");
+
+            // Sous-commandes
+            String[] subCommands = {"list", "info", "wiki", "menu"};
+            for (String sub : subCommands) {
+                if (sub.startsWith(partial)) {
+                    completions.add(sub);
+                }
             }
-            
-            // Ajouter les IDs de zones
-            for (Zone zone : plugin.getZoneManager().getAllZones()) {
-                String id = String.valueOf(zone.getId());
+
+            // IDs de zones (0-50)
+            for (int i = 0; i <= 50; i++) {
+                String id = String.valueOf(i);
                 if (id.startsWith(partial)) {
                     completions.add(id);
                 }
+            }
+
+            // Noms de zones
+            for (Zone zone : plugin.getZoneManager().getAllZones()) {
                 if (zone.getName().toLowerCase().startsWith(partial)) {
                     completions.add(zone.getName());
                 }
