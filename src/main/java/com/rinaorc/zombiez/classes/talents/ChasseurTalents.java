@@ -151,19 +151,20 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("Fleches traqueuses + combo x2")
+            .description("Fleches chercheuses de tete + combo x2")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§6FLECHES TRAQUEUSES:",
-                "§7Vos fleches §eajustent§7 leur trajectoire",
-                "§7vers les ennemis proches!",
+                "§6FLECHES CHERCHEUSES:",
+                "§7Vos fleches §etraquent§7 la §ctête§7",
+                "§7des ennemis proches!",
                 "",
                 "§6COMBO §c(x2 DEGATS!)§6:",
                 "§7Toucher §e3x§7 la meme cible →",
                 "§7Le 4eme tir fait §c+100%§7 degats!",
                 "",
-                "§8► Rayon de traque: §f5 blocs",
+                "§8► Rayon de traque: §f7 blocs",
+                "§8► Verrouillage de cible intelligent",
                 "§8► S'applique aux pluies de fleches!"
             })
             .classType(ClassType.CHASSEUR)
@@ -172,7 +173,7 @@ public final class ChasseurTalents {
             .icon(Material.TIPPED_ARROW)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BURST_SHOT)
-            .values(new double[]{3, 1.0, 0.15, 5.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
+            .values(new double[]{3, 1.0, 0.30, 7.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
             .build());
 
         // 2.2 - SNIPER
