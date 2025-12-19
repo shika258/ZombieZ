@@ -29,11 +29,10 @@ public class ClassInfoGUI implements Listener {
     private final ClassManager classManager;
     private static final String GUI_TITLE = "§0§l+ MA CLASSE +";
 
-    // Slots - Layout réorganisé pour les traits
+    // Slots - Layout épuré (stats supprimées, seuls les traits restent)
     private static final int SLOT_CLASS_INFO = 4;       // Haut centre - Info générale
-    private static final int SLOT_LEVEL_INFO = 20;      // Milieu gauche - Niveau
-    private static final int SLOT_STATS_INFO = 22;      // Milieu centre - Stats
-    private static final int SLOT_TRAITS_INFO = 24;     // Milieu droite - Traits de classe
+    private static final int SLOT_LEVEL_INFO = 21;      // Milieu gauche - Niveau
+    private static final int SLOT_TRAITS_INFO = 23;     // Milieu droite - Traits de classe (seule source de bonus)
     private static final int SLOT_TALENTS = 30;         // Bas gauche - Talents
     private static final int SLOT_CHANGE_CLASS = 32;    // Bas centre - Changer
     private static final int SLOT_TALENT_MESSAGES_TOGGLE = 34;  // Bas droite - Toggle
@@ -75,10 +74,7 @@ public class ClassInfoGUI implements Listener {
         // === NIVEAU DE CLASSE (milieu gauche) ===
         gui.setItem(SLOT_LEVEL_INFO, createLevelItem(data));
 
-        // === STATS DE CLASSE (milieu centre) ===
-        gui.setItem(SLOT_STATS_INFO, createStatsItem(classType));
-
-        // === TRAITS DE CLASSE (milieu droite) - NOUVEAU ===
+        // === TRAITS DE CLASSE (milieu droite) - Seule source de bonus de classe ===
         gui.setItem(SLOT_TRAITS_INFO, createTraitsItem(classType));
 
         // Séparateur bas
@@ -167,37 +163,6 @@ public class ClassInfoGUI implements Listener {
             .build();
     }
 
-    private ItemStack createStatsItem(ClassType classType) {
-        List<String> lore = new ArrayList<>();
-        lore.add("");
-        lore.add("§6§lStats de Base:");
-        lore.add("");
-
-        // Formatage des stats avec couleurs
-        double dmg = classType.getDamageMultiplier();
-        double hp = classType.getHealthMultiplier();
-        double spd = classType.getSpeedMultiplier();
-        double crit = classType.getCritMultiplier();
-        double ls = classType.getLifesteal() * 100;
-
-        lore.add(formatStat("Degats", dmg, 1.0));
-        lore.add(formatStat("Vie", hp, 1.0));
-        lore.add(formatStat("Vitesse", spd, 1.0));
-        lore.add(formatStat("Critique", crit, 1.0));
-
-        if (ls > 0) {
-            lore.add("§7Vol de vie: §a+" + (int) ls + "%");
-        }
-
-        lore.add("");
-        lore.add("§8Ces stats sont appliquees automatiquement");
-
-        return new ItemBuilder(Material.GOLDEN_SWORD)
-            .name("§e§lSTATISTIQUES")
-            .lore(lore)
-            .build();
-    }
-
     private ItemStack createTraitsItem(ClassType classType) {
         List<String> lore = new ArrayList<>();
         lore.add("");
@@ -253,25 +218,6 @@ public class ClassInfoGUI implements Listener {
             .lore(lore)
             .glow(unselected > 0)
             .build();
-    }
-
-    private String formatStat(String name, double value, double base) {
-        String color;
-        String sign;
-        int percent = (int) ((value - base) * 100);
-
-        if (percent > 0) {
-            color = "§a";
-            sign = "+";
-        } else if (percent < 0) {
-            color = "§c";
-            sign = "";
-        } else {
-            color = "§f";
-            sign = "";
-        }
-
-        return "§7" + name + ": " + color + sign + percent + "%";
     }
 
     private ItemStack createChangeClassButton(ClassData data) {

@@ -179,32 +179,38 @@ public class DailyLoginStreakManager implements Listener {
             @Override
             public void run() {
                 player.sendMessage("");
-                player.sendMessage("§6§l╔══════════════════════════════════════╗");
-                player.sendMessage("§6§l║   §e§l✦ RÉCOMPENSE QUOTIDIENNE ✦   §6§l║");
-                player.sendMessage("§6§l╠══════════════════════════════════════╣");
-                player.sendMessage("§6§l║ §fStreak: §a" + streak + " jour" + (streak > 1 ? "s" : "") + " §7consécutifs");
-                player.sendMessage("§6§l║");
-                player.sendMessage("§6§l║ §7Récompenses:");
-                player.sendMessage("§6§l║   §f+" + points + " §7Points");
-                player.sendMessage("§6§l║   §f+" + xp + " §7XP");
-                if (gems > 0) {
-                    player.sendMessage("§6§l║   §d+" + gems + " §7Gemmes §d✦");
-                }
-                player.sendMessage("§6§l║");
 
-                // Bonus du prochain jour
+                // En-tête compact avec emoji
+                if (isMilestone) {
+                    player.sendMessage("§6§l⭐ MILESTONE " + streak + " JOURS! §e— Félicitations!");
+                } else {
+                    player.sendMessage("§e§l☀ Récompense Quotidienne §8— §7Jour §a" + streak);
+                }
+
+                player.sendMessage("§8" + "─".repeat(40));
+
+                // Récompenses sur une ligne compacte avec icônes
+                StringBuilder rewardsLine = new StringBuilder("§f  ");
+                rewardsLine.append("§a+").append(points).append(" §2Points  ");
+                rewardsLine.append("§b+").append(xp).append(" §3XP");
+                if (gems > 0) {
+                    rewardsLine.append("  §d+").append(gems).append(" §5Gemmes ✦");
+                }
+                player.sendMessage(rewardsLine.toString());
+
+                // Aperçu de demain et milestone sur une ligne
                 int nextDayIndex = (streak % 7);
                 int nextPoints = (int) (DAILY_POINTS[nextDayIndex] * (1.0 + (Math.min(streak + 1, 30) * 0.02)));
-                player.sendMessage("§6§l║ §7Demain: §e+" + nextPoints + " Points");
-
-                // Prochain milestone
                 int nextMilestone = getNextMilestone(streak);
+
+                StringBuilder infoLine = new StringBuilder("§7  ");
+                infoLine.append("§7Demain: §e+").append(nextPoints);
                 if (nextMilestone > 0) {
                     int daysLeft = nextMilestone - streak;
-                    player.sendMessage("§6§l║ §7Prochain milestone: §e" + nextMilestone + "j §7(" + daysLeft + "j restants)");
+                    infoLine.append(" §8| §7Milestone §e").append(nextMilestone).append("j §8(").append(daysLeft).append("j)");
                 }
+                player.sendMessage(infoLine.toString());
 
-                player.sendMessage("§6§l╚══════════════════════════════════════╝");
                 player.sendMessage("");
             }
         }.runTaskLater(plugin, 20L);

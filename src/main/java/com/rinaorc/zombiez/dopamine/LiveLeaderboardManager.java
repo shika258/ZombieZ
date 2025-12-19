@@ -189,13 +189,11 @@ public class LiveLeaderboardManager {
         // Particules
         spawnTopPlayerParticles(player, position);
 
-        // Message chat amélioré
+        // Message chat compact
         player.sendMessage("");
-        player.sendMessage("§6§l╔════════════════════════════════════════╗");
-        player.sendMessage("§6§l║  " + medal + " §eTu es " + getPositionText(position) + " du serveur!");
-        player.sendMessage("§6§l║  §7Classement: §f" + type.getDisplayName());
-        player.sendMessage("§6§l║  §7Score: " + valueText);
-        player.sendMessage("§6§l╚════════════════════════════════════════╝");
+        player.sendMessage(medal + " §eTu es " + getPositionText(position) + " du serveur! §8— §f" + type.getDisplayName());
+        player.sendMessage("§8" + "─".repeat(35));
+        player.sendMessage("§7  Score: " + valueText);
         player.sendMessage("");
     }
 
