@@ -299,7 +299,6 @@ public class IllagerZombieAI extends ZombieAI {
                     // Chance de désarmer (ralentir l'attaque)
                     if (random.nextFloat() < 0.2f) {
                         p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 60, 1));
-                        p.sendMessage("§c§l✦ Le Vindicator vous a désarmé temporairement!");
                     }
                 });
     }
@@ -317,10 +316,6 @@ public class IllagerZombieAI extends ZombieAI {
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, false));
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 0, false, false));
 
-        // Avertissement aux joueurs
-        zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 10, 15).stream()
-                .filter(e -> e instanceof Player)
-                .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le Vindicator entre en RAGE!"));
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -579,7 +574,6 @@ public class IllagerZombieAI extends ZombieAI {
                 if (consecutiveHits >= 3) {
                     target.damage(5, zombie);
                     playParticles(Particle.CRIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3);
-                    target.sendMessage("§c§l✦ Combo x" + consecutiveHits + "!");
                 }
             }
             case EVOKER -> {

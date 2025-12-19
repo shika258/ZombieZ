@@ -402,7 +402,6 @@ public class BossZombieAI extends ZombieAI {
             playSound(Sound.ENTITY_PLAYER_ATTACK_CRIT, 2f, 0.5f);
             target.damage(30, zombie);
             playParticles(Particle.ENCHANTED_HIT, target.getLocation(), 50, 0.5, 0.5, 0.5);
-            target.sendMessage("§4§l☠ EXÉCUTION! ☠");
         }
     }
 

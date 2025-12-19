@@ -242,7 +242,6 @@ public class StealthZombieAI extends ZombieAI {
             damage *= 3;
             playSound(Sound.ENTITY_PLAYER_HURT, 1f, 0.5f);
             playParticles(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 30, 0.3, 0.3, 0.3);
-            target.sendMessage("§c§l✦ BACKSTAB! ✦");
         }
 
         target.damage(damage, zombie);
