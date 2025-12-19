@@ -794,10 +794,18 @@ public class ChasseurTalentListener implements Listener {
             }
         }
 
-        // Deluge upgrade
+        // Deluge upgrade - +vagues, +flèches
         Talent deluge = getActiveTalentIfHas(player, Talent.TalentEffectType.DELUGE);
-        int waves = deluge != null ? 3 : 1;
-        boolean pierce = deluge != null;
+        int waves = 1;
+        if (deluge != null) {
+            int extraWaves = (int) deluge.getValue(0);  // +3 vagues
+            double arrowMult = deluge.getValue(1);       // x1.5 flèches
+            waves += extraWaves;
+            arrows = (int) (arrows * arrowMult);
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§b✦ Déluge! +" + extraWaves + " vagues, +" + (int)((arrowMult - 1) * 100) + "% flèches!");
+            }
+        }
 
         // Cyclone Eye upgrade - vortex qui attire et explose
         Talent cycloneEye = getActiveTalentIfHas(player, Talent.TalentEffectType.CYCLONE_EYE);
@@ -959,8 +967,6 @@ public class ChasseurTalentListener implements Listener {
         }
 
         for (int wave = 0; wave < waves; wave++) {
-            boolean finalPierce = pierce;
-
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 // Son de volée de flèches
                 if (finalIsSuperRain) {
@@ -985,7 +991,7 @@ public class ChasseurTalentListener implements Listener {
                         arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
                         arrow.setDamage(0);
                         arrow.setGravity(true);
-                        arrow.setPierceLevel(finalPierce ? 3 : 0);
+                        arrow.setPierceLevel(0); // Les flèches ne traversent pas
 
                         // Flèches en feu pour SUPER PLUIE
                         if (finalIsSuperRain) {
@@ -1084,7 +1090,7 @@ public class ChasseurTalentListener implements Listener {
                                                 loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
                                             }
 
-                                            if (!finalPierce) break;
+                                            break; // Une seule cible par flèche
                                         }
                                     }
 

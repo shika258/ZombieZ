@@ -363,13 +363,16 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_deluge")
             .name("Deluge")
-            .description("Pluie +2s, fleches percent")
+            .description("Pluie +3 vagues, +50% fleches")
             .loreLines(new String[]{
-                "§7La pluie de fleches dure",
-                "§7§e+2s§7 de plus et les fleches",
-                "§7§atraversent§7 les ennemis!",
+                "§7La pluie de fleches est",
+                "§7considerablement renforcee!",
                 "",
-                "§8Devastation aerienne"
+                "§6Ameliorations:",
+                "§8- §e+3 vagues§8 supplementaires",
+                "§8- §e+50%§8 de fleches par vague",
+                "",
+                "§8Un deluge de projectiles!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -377,7 +380,7 @@ public final class ChasseurTalents {
             .icon(Material.TRIDENT)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.DELUGE)
-            .values(new double[]{2000}) // extra_duration_ms
+            .values(new double[]{3, 1.50}) // extra_waves, arrow_multiplier
             .build());
 
         // 4.2 - PREDATEUR SUPREME
