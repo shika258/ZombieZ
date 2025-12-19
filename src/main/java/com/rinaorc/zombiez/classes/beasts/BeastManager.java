@@ -21,6 +21,7 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Gestionnaire des bêtes de la Voie des Bêtes du Chasseur.
@@ -59,8 +60,11 @@ public class BeastManager {
     private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW = 400; // ms
 
-    // Mines explosives actives (Vache)
+    // Mines explosives actives (Vache) - thread-safe
     private final Map<UUID, List<Entity>> activeMines = new ConcurrentHashMap<>();
+
+    // Tracking des bleeds actifs pour éviter le stacking
+    private final Set<UUID> activeBleedTargets = ConcurrentHashMap.newKeySet();
 
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
@@ -86,13 +90,13 @@ public class BeastManager {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche de suivi de formation (5 ticks = 0.25 seconde pour fluidité)
+        // Tâche de suivi de formation (10 ticks = 0.5 seconde - équilibre fluidité/perf)
         new BukkitRunnable() {
             @Override
             public void run() {
                 updatePackFormation();
             }
-        }.runTaskTimer(plugin, 5L, 5L);
+        }.runTaskTimer(plugin, 10L, 10L);
 
         // Tâche de vérification de respawn (20 ticks)
         new BukkitRunnable() {
@@ -181,8 +185,7 @@ public class BeastManager {
         // Effets visuels d'invocation
         spawnBeastEffects(beast.getLocation(), type);
 
-        // Message au joueur
-        player.sendMessage("§6✦ " + type.getColoredName() + " §6invoqué(e)!");
+        // Son d'invocation (pas de message spam - ActionBar serait mieux)
         player.playSound(player.getLocation(), type.getAmbientSound(), 1.0f, 1.0f);
     }
 
@@ -204,8 +207,14 @@ public class BeastManager {
         // Configuration spécifique par type
         switch (type) {
             case BAT -> {
-                if (beast instanceof Bat bat) {
-                    bat.setAwake(true);
+                // Utilise un Vex pour le pathfinding/targeting, stylisé comme chauve-souris
+                if (beast instanceof org.bukkit.entity.Vex vex) {
+                    vex.setCharging(false);
+                    vex.setSilent(true); // Sons custom
+                    // Petite taille visuelle via attribut
+                    if (vex.getAttribute(Attribute.SCALE) != null) {
+                        vex.getAttribute(Attribute.SCALE).setBaseValue(0.6);
+                    }
                 }
             }
             case BEAR -> {
@@ -431,8 +440,10 @@ public class BeastManager {
             bear.getWorld().playSound(loc, Sound.ENTITY_POLAR_BEAR_WARNING, 2.0f, 0.8f);
             bear.getWorld().spawnParticle(Particle.SONIC_BOOM, loc.add(0, 1, 0), 1, 0, 0, 0, 0);
 
-            // Aggroer les monstres dans 5 blocs
+            // Aggroer les monstres dans 5 blocs (limité à 10 cibles max)
+            int aggroCount = 0;
             for (Entity nearby : bear.getNearbyEntities(5, 5, 5)) {
+                if (aggroCount >= 10) break; // Limite pour la perf
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     if (monster instanceof Mob mob) {
                         mob.setTarget(bear);
@@ -440,48 +451,66 @@ public class BeastManager {
                     // Effet visuel
                     nearby.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
                         nearby.getLocation().add(0, 1.5, 0), 3, 0.3, 0.3, 0.3, 0);
+                    aggroCount++;
                 }
             }
 
-            owner.sendMessage("§f✦ L'Ours rugit! Monstres provoqués!");
+            // Pas de message spam - juste effet visuel/sonore
             setCooldown(owner.getUniqueId(), cooldownKey, now + rugissementCooldown);
         }
     }
 
     private void executeWolfAbility(Player owner, LivingEntity wolf, double frenzyMultiplier) {
-        if (!(wolf instanceof Wolf)) return;
+        if (!(wolf instanceof Wolf w)) return;
 
-        // Le loup attaque automatiquement les ennemis proches
+        // Le loup cible automatiquement l'ennemi le plus proche
+        LivingEntity currentTarget = w.getTarget();
+
+        // Ne recalcule que si pas de cible ou cible morte
+        if (currentTarget != null && !currentTarget.isDead() && currentTarget.getLocation().distance(wolf.getLocation()) < 10) {
+            return;
+        }
+
+        // Chercher le plus proche (early exit dès qu'on trouve)
         Entity nearestEnemy = null;
         double nearestDistance = 8.0;
 
         for (Entity nearby : wolf.getNearbyEntities(8, 4, 8)) {
             if (nearby instanceof Monster && !isBeast(nearby)) {
-                double dist = wolf.getLocation().distance(nearby.getLocation());
-                if (dist < nearestDistance) {
-                    nearestDistance = dist;
+                double dist = wolf.getLocation().distanceSquared(nearby.getLocation()); // Squared = plus rapide
+                if (dist < nearestDistance * nearestDistance) {
+                    nearestDistance = Math.sqrt(dist);
                     nearestEnemy = nearby;
+                    if (nearestDistance < 3) break; // Assez proche, on prend
                 }
             }
         }
 
-        if (nearestEnemy != null && nearestEnemy instanceof LivingEntity target) {
-            if (wolf instanceof Mob mob) {
-                mob.setTarget(target);
-            }
+        if (nearestEnemy instanceof LivingEntity target) {
+            w.setTarget(target);
         }
     }
 
     /**
      * Applique le saignement du loup (appelé quand le loup attaque)
+     * Empêche le stacking de plusieurs bleeds sur la même cible
      */
     public void applyWolfBleed(Player owner, LivingEntity target) {
+        UUID targetUuid = target.getUniqueId();
+
+        // Éviter le stacking de bleeds
+        if (activeBleedTargets.contains(targetUuid)) {
+            return;
+        }
+        activeBleedTargets.add(targetUuid);
+
         // Appliquer un DoT pendant 5 secondes
         new BukkitRunnable() {
             int ticks = 0;
             @Override
             public void run() {
                 if (ticks >= 5 || target.isDead()) {
+                    activeBleedTargets.remove(targetUuid);
                     cancel();
                     return;
                 }
@@ -489,13 +518,16 @@ public class BeastManager {
                 target.damage(1.5, owner);
                 target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 1, 0),
                     5, 0.2, 0.3, 0.2, Material.REDSTONE_BLOCK.createBlockData());
-                target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.3f, 1.2f);
+                // Son uniquement toutes les 2 ticks pour réduire le spam
+                if (ticks % 2 == 0) {
+                    target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.3f, 1.2f);
+                }
 
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 20L); // Chaque seconde
 
-        owner.sendMessage("§c✦ Saignement appliqué!");
+        // Message uniquement si c'est une cible importante (pas de spam)
     }
 
     private void executeAxolotlAbility(Player owner, LivingEntity axolotl, long now, String cooldownKey, double frenzyMultiplier) {
@@ -503,16 +535,17 @@ public class BeastManager {
         long shootCooldown = (long) (1500 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver la cible la plus proche
+            // Trouver la cible la plus proche (avec early-exit)
             LivingEntity nearestEnemy = null;
-            double nearestDistance = 8.0;
+            double nearestDistSq = 64.0; // 8^2
 
             for (Entity nearby : axolotl.getNearbyEntities(8, 4, 8)) {
-                if (nearby instanceof Monster && !isBeast(nearby) && nearby instanceof LivingEntity living) {
-                    double dist = axolotl.getLocation().distance(nearby.getLocation());
-                    if (dist < nearestDistance) {
-                        nearestDistance = dist;
-                        nearestEnemy = living;
+                if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                    double distSq = axolotl.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        nearestEnemy = monster;
+                        if (distSq < 9) break; // <3 blocs, on prend direct
                     }
                 }
             }
@@ -586,12 +619,11 @@ public class BeastManager {
         mineItem.setVelocity(new Vector(0, 0, 0));
 
         UUID ownerUuid = owner.getUniqueId();
-        List<Entity> mines = activeMines.computeIfAbsent(ownerUuid, k -> new ArrayList<>());
+        List<Entity> mines = activeMines.computeIfAbsent(ownerUuid, k -> new CopyOnWriteArrayList<>());
         mines.add(mineItem);
 
-        // Son de placement
+        // Son de placement (pas de message pour réduire le spam)
         cow.getWorld().playSound(mineLoc, Sound.BLOCK_SLIME_BLOCK_PLACE, 1.0f, 0.5f);
-        owner.sendMessage("§6✦ Bouse explosive déposée!");
 
         // Vérifier les contacts
         new BukkitRunnable() {
@@ -627,7 +659,7 @@ public class BeastManager {
 
                         mineItem.remove();
                         mines.remove(mineItem);
-                        owner.sendMessage("§c✦ BOOM! Mine explosée!");
+                        // Pas de message - l'effet visuel suffit
                         cancel();
                         return;
                     }
@@ -648,12 +680,12 @@ public class BeastManager {
         long spitCooldown = (long) (3000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver jusqu'à 3 cibles
-            List<LivingEntity> targets = new ArrayList<>();
+            // Trouver jusqu'à 3 cibles (déjà limité naturellement)
+            List<LivingEntity> targets = new ArrayList<>(3);
             for (Entity nearby : llama.getNearbyEntities(6, 4, 6)) {
-                if (nearby instanceof Monster && !isBeast(nearby) && nearby instanceof LivingEntity living) {
-                    targets.add(living);
-                    if (targets.size() >= 3) break;
+                if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                    targets.add(monster);
+                    if (targets.size() >= 3) break; // Limite atteinte
                 }
             }
 
@@ -702,7 +734,7 @@ public class BeastManager {
 
     private void executeShockwave(Player owner, LivingEntity golem) {
         Location center = golem.getLocation();
-        owner.sendMessage("§7✦ Le Golem prépare une onde de choc!");
+        // Pas de message - effet visuel/sonore suffit
 
         // Animation de préparation
         golem.getWorld().playSound(center, Sound.ENTITY_IRON_GOLEM_ATTACK, 1.5f, 0.5f);
@@ -720,11 +752,14 @@ public class BeastManager {
                     return;
                 }
 
-                // Attirer les ennemis
+                // Attirer les ennemis (limité à 15 pour perf)
+                int pulled = 0;
                 for (Entity nearby : center.getWorld().getNearbyEntities(center, 6, 3, 6)) {
+                    if (pulled >= 15) break;
                     if (nearby instanceof LivingEntity living && nearby != golem && !isBeast(nearby) && nearby != owner) {
                         Vector pull = center.toVector().subtract(nearby.getLocation().toVector()).normalize().multiply(0.15);
                         nearby.setVelocity(nearby.getVelocity().add(pull));
+                        pulled++;
                     }
                 }
 
@@ -760,8 +795,10 @@ public class BeastManager {
         center.getWorld().spawnParticle(Particle.DUST, center, 100, 4, 2, 4, 0,
             new Particle.DustOptions(Color.fromRGB(100, 100, 100), 2.0f));
 
-        // Dégâts et projection
+        // Dégâts et projection (limité à 20 cibles pour perf)
+        int damaged = 0;
         for (Entity nearby : center.getWorld().getNearbyEntities(center, 5, 3, 5)) {
+            if (damaged >= 20) break;
             if (nearby instanceof LivingEntity living && nearby != golem && !isBeast(nearby) && nearby != owner) {
                 // Dégâts massifs
                 living.damage(BeastType.IRON_GOLEM.getBaseDamage(), owner);
@@ -773,10 +810,10 @@ public class BeastManager {
 
                 // Effets visuels sur la cible
                 living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3, 0.2);
+                damaged++;
             }
         }
-
-        owner.sendMessage("§7✦ ONDE DE CHOC! Ennemis projetés!");
+        // Pas de message - effets visuels suffisent
     }
 
     // === FRÉNÉSIE DE LA RUCHE (Abeille) ===
