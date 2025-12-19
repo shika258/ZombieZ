@@ -675,42 +675,50 @@ public class ChasseurTalentListener implements Listener {
     // ==================== PROCS ====================
 
     private void procMultiShot(Player player, LivingEntity target, double damage) {
-        Location playerLoc = player.getLocation();
-        Location targetLoc = target.getLocation();
+        Location playerLoc = player.getEyeLocation();
+        Location targetLoc = target.getLocation().add(0, target.getHeight() / 2, 0);
         Vector dir = targetLoc.toVector().subtract(playerLoc.toVector()).normalize();
 
-        // Track entities already hit to avoid double damage
-        Set<UUID> hitEntities = new HashSet<>();
+        // Calculer le vecteur perpendiculaire horizontal (pour le décalage côte à côte)
+        Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
 
-        // Spawn extra arrows in spread pattern
+        // Décalage horizontal pour les flèches (I I I pattern)
+        double spacing = 0.6; // Espacement entre les flèches
+
+        // Son de tir multiple
+        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.3f);
+
+        // Tirer 2 flèches côte à côte horizontalement
         for (int i = 0; i < 2; i++) {
-            Vector spreadDir = dir.clone().rotateAroundY(Math.PI / 8 * (i == 0 ? 1 : -1));
-            Location spreadTarget = playerLoc.clone().add(spreadDir.multiply(10));
+            // Décalage: -0.5 et +0.5 pour 2 flèches côte à côte
+            double offset = (i == 0 ? -1 : 1) * spacing / 2;
+            Location spawnLoc = playerLoc.clone().add(horizontal.clone().multiply(offset));
 
-            // Find entities in the spread direction
-            for (Entity entity : player.getWorld().getNearbyEntities(playerLoc, 8, 4, 8)) {
-                if (entity instanceof LivingEntity nearby && entity != player && entity != target) {
-                    if (hitEntities.contains(entity.getUniqueId())) continue;
+            // Créer une vraie flèche
+            Arrow arrow = player.getWorld().spawnArrow(spawnLoc, dir.clone(), 2.5f, 0);
+            arrow.setShooter(player);
+            arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+            arrow.setDamage(damage / 2); // Dégâts de la flèche (60% répartis)
+            arrow.setGravity(true);
+            arrow.setCritical(true);
 
-                    // Check if entity is roughly in the spread direction
-                    Vector toEntity = entity.getLocation().toVector().subtract(playerLoc.toVector()).normalize();
-                    double angle = toEntity.angle(spreadDir);
-
-                    // Within ~30 degrees of spread direction
-                    if (angle < Math.PI / 6) {
-                        nearby.damage(damage, player);
-                        hitEntities.add(entity.getUniqueId());
-
-                        // Visual effect on hit
-                        nearby.getWorld().spawnParticle(Particle.CRIT, nearby.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0);
-                        break;
+            // Particules de traînée dorée pour distinguer les flèches bonus
+            final Arrow finalArrow = arrow;
+            new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (finalArrow.isDead() || finalArrow.isOnGround() || ticks > 60) {
+                        this.cancel();
+                        return;
                     }
+                    // Particules dorées pour les flèches bonus
+                    finalArrow.getWorld().spawnParticle(Particle.DUST, finalArrow.getLocation(), 1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 0.8f));
+                    ticks++;
                 }
-            }
+            }.runTaskTimer(plugin, 0L, 2L);
         }
-
-        player.getWorld().playSound(targetLoc, Sound.ENTITY_ARROW_SHOOT, 0.5f, 1.5f);
-        player.getWorld().spawnParticle(Particle.CRIT, targetLoc, 10, 0.5, 0.5, 0.5, 0.1);
     }
 
     private void procPiercing(Player player, LivingEntity target, double damage) {
