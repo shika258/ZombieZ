@@ -48,6 +48,7 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
         if (args.length == 0) {
             // Ouvrir le menu wiki des zones
             new ZoneWikiGUI(plugin, player, 0).open();
+            player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.2f);
             return true;
         }
 
@@ -55,45 +56,62 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
         String subCommand = args[0].toLowerCase();
 
         switch (subCommand) {
-            case "list" -> {
-                // Mode legacy - affichage texte
-                showZoneList(player);
-            }
-            case "info", "current" -> {
-                // Afficher les infos de la zone actuelle en texte
-                showCurrentZone(player);
-            }
+            case "list" -> showZoneList(player);
+            case "info", "current" -> showCurrentZone(player);
             case "wiki", "menu", "gui" -> {
-                // Ouvrir le menu wiki
                 new ZoneWikiGUI(plugin, player, 0).open();
+                player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.2f);
             }
-            default -> {
-                // Essayer de parser comme un ID ou nom de zone
-                try {
-                    int zoneId = Integer.parseInt(args[0]);
-                    Zone zone = plugin.getZoneManager().getZoneById(zoneId);
-
-                    if (zone == null) {
-                        MessageUtils.send(player, "§cZone #" + zoneId + " non trouvee! Les zones vont de 0 a 50.");
-                        return true;
-                    }
-
-                    // Ouvrir le detail de la zone en GUI
-                    new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
-
-                } catch (NumberFormatException e) {
-                    // Chercher par nom
-                    Zone zone = plugin.getZoneManager().getZoneByName(args[0]);
-                    if (zone != null) {
-                        new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
-                    } else {
-                        MessageUtils.send(player, "§cZone non trouvee! §7Utilise §e/zone §7pour ouvrir le wiki.");
-                    }
-                }
-            }
+            case "help", "?" -> showHelp(player);
+            default -> openZoneByIdOrName(player, args[0]);
         }
 
         return true;
+    }
+
+    /**
+     * Ouvre une zone par ID ou nom
+     */
+    private void openZoneByIdOrName(Player player, String input) {
+        try {
+            int zoneId = Integer.parseInt(input);
+            Zone zone = plugin.getZoneManager().getZoneById(zoneId);
+
+            if (zone == null) {
+                MessageUtils.send(player, "§cZone #" + zoneId + " non trouvee! §7(0-50)");
+                return;
+            }
+
+            new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+
+        } catch (NumberFormatException e) {
+            Zone zone = plugin.getZoneManager().getZoneByName(input);
+            if (zone != null) {
+                new ZoneDetailGUI(plugin, player, zone, 0, 0).open();
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+            } else {
+                MessageUtils.send(player, "§cZone non trouvee! §7Utilise §e/zone §7pour le wiki.");
+            }
+        }
+    }
+
+    /**
+     * Affiche l'aide de la commande
+     */
+    private void showHelp(Player player) {
+        player.sendMessage("");
+        player.sendMessage("§8§m                                              ");
+        player.sendMessage("         §6§l🗺 COMMANDE /ZONE");
+        player.sendMessage("");
+        player.sendMessage("  §e/zone §8- §7Ouvre le wiki des zones");
+        player.sendMessage("  §e/zone <id> §8- §7Details d'une zone");
+        player.sendMessage("  §e/zone list §8- §7Liste textuelle des zones");
+        player.sendMessage("  §e/zone info §8- §7Info zone actuelle");
+        player.sendMessage("  §e/zone help §8- §7Affiche cette aide");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                              ");
+        player.sendMessage("");
     }
 
     /**
@@ -101,9 +119,9 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
      */
     private void showCurrentZone(Player player) {
         Zone zone = plugin.getZoneManager().getPlayerZone(player);
-        
+
         if (zone == null) {
-            MessageUtils.send(player, "§cVous n'êtes dans aucune zone connue!");
+            MessageUtils.send(player, "§cVous n'etes dans aucune zone connue!");
             return;
         }
 
@@ -231,7 +249,7 @@ public class ZoneCommand implements CommandExecutor, TabCompleter {
             String partial = args[0].toLowerCase();
 
             // Sous-commandes
-            String[] subCommands = {"list", "info", "wiki", "menu"};
+            String[] subCommands = {"list", "info", "wiki", "menu", "help"};
             for (String sub : subCommands) {
                 if (sub.startsWith(partial)) {
                     completions.add(sub);

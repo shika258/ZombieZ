@@ -1,11 +1,13 @@
 package com.rinaorc.zombiez.zones.gui;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.scaling.ZoneScaling;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * GUI Wiki des zones - Affiche toutes les zones avec leurs informations
@@ -43,6 +46,14 @@ public class ZoneWikiGUI implements InventoryHolder {
         37, 38, 39, 40, 41, 42, 43
     };
 
+    // Set pour lookup rapide O(1)
+    private static final Set<Integer> ZONE_SLOTS_SET = Set.of(
+        10, 11, 12, 13, 14, 15, 16,
+        19, 20, 21, 22, 23, 24, 25,
+        28, 29, 30, 31, 32, 33, 34,
+        37, 38, 39, 40, 41, 42, 43
+    );
+
     // Filtres par acte (ligne du haut)
     private static final int SLOT_FILTER_ALL = 0;
     private static final int[] SLOT_FILTERS = {1, 2, 3, 4, 5}; // 5 actes
@@ -51,7 +62,7 @@ public class ZoneWikiGUI implements InventoryHolder {
     private final Player player;
     private final Inventory inventory;
     private final int page;
-    private final int filterAct; // 0 = tous, 1-5 = acte spécifique
+    private final int filterAct; // 0 = tous, 1-5 = acte specifique
     private final List<Zone> filteredZones;
 
     public ZoneWikiGUI(ZombieZPlugin plugin, Player player, int page, int filterAct) {
@@ -227,67 +238,78 @@ public class ZoneWikiGUI implements InventoryHolder {
     private ItemStack createZoneItem(Zone zone) {
         Material material = getZoneMaterial(zone);
         List<String> lore = new ArrayList<>();
+        int playersInZone = plugin.getZoneManager().getPlayersInZone(zone.getId());
 
         lore.add("");
-        lore.add("§7" + zone.getDescription());
+        lore.add("§7§o\"" + zone.getDescription() + "\"");
         lore.add("");
 
-        // Difficulte
+        // Difficulte et infos rapides
         lore.add("§7Difficulte: " + zone.getStarsDisplay());
-
-        // Niveaux de zombies
         if (zone.getMinZombieLevel() > 0) {
-            lore.add("§7Niveaux: §c" + zone.getMinZombieLevel() + " §7- §c" + zone.getMaxZombieLevel());
+            lore.add("§7Niveaux Mobs: §c" + zone.getMinZombieLevel() + "-" + zone.getMaxZombieLevel());
         }
 
         // Item Score moyen
         int avgScore = ZoneScaling.getBaseScoreForZone(zone.getId());
-        lore.add("§7Score Moyen: §6" + formatNumber(avgScore));
+        lore.add("§7Item Score: §6" + formatNumber(avgScore));
 
+        // Multiplicateurs compacts
         lore.add("");
-        lore.add("§7═══ Multiplicateurs ═══");
-        lore.add("§7XP: §a" + formatMultiplier(zone.getXpMultiplier()));
-        lore.add("§7Loot: §a" + formatMultiplier(zone.getLootMultiplier()));
-        lore.add("§7Spawn: §c" + formatMultiplier(zone.getSpawnRateMultiplier()));
+        lore.add("§a+" + formatBonus(zone.getXpMultiplier()) + " XP §8| " +
+                 "§6+" + formatBonus(zone.getLootMultiplier()) + " Loot");
 
         // Effets environnementaux
         if (!zone.getEnvironmentalEffect().equals("NONE")) {
             lore.add("");
-            lore.add("§7═══ Environnement ═══");
-            lore.add("§7Effet: " + getEnvironmentDisplay(zone.getEnvironmentalEffect()));
-            lore.add("§7Degats: §c" + zone.getEnvironmentalDamage() + "/s");
+            lore.add(getEnvironmentDisplay(zone.getEnvironmentalEffect()) +
+                     " §8(§c" + zone.getEnvironmentalDamage() + "/s§8)");
         }
 
         // Flags speciaux
-        if (zone.isPvpEnabled() || zone.isBossZone() || zone.isSafeZone()) {
+        if (zone.isPvpEnabled() || zone.isBossZone() || zone.isSafeZone() || zone.getRefugeId() > 0) {
             lore.add("");
             if (zone.isSafeZone()) lore.add("§a♥ Zone Securisee");
-            if (zone.isPvpEnabled()) lore.add("§4☠ Zone PvP Active");
-            if (zone.isBossZone()) lore.add("§6\uD83D\uDC51 Zone de Boss Final");
+            if (zone.isPvpEnabled()) lore.add("§4☠ PvP Active");
+            if (zone.isBossZone()) lore.add("§6👑 Boss Final");
+            if (zone.getRefugeId() > 0) lore.add("§e🏠 Refuge #" + zone.getRefugeId());
+        }
+
+        // Joueurs presents
+        if (playersInZone > 0) {
+            lore.add("");
+            lore.add("§7Joueurs: §a" + playersInZone + " §7present" + (playersInZone > 1 ? "s" : ""));
         }
 
         lore.add("");
-        lore.add("§e[Clic Gauche] §7Voir les details");
+        lore.add("§e⚲ Clic gauche §8→ §7Details");
         if (player.hasPermission("zombiez.admin")) {
-            lore.add("§c[Clic Droit] §7Se teleporter");
+            lore.add("§d⌖ Clic droit §8→ §7Teleporter");
         }
 
         String prefix = "";
         if (zone.isSafeZone()) prefix = "§a♥ ";
         else if (zone.isPvpEnabled()) prefix = "§4☠ ";
-        else if (zone.isBossZone()) prefix = "§6\uD83D\uDC51 ";
+        else if (zone.isBossZone()) prefix = "§6👑 ";
 
         return new ItemBuilder(material)
-            .name(prefix + zone.getColor() + "Zone " + zone.getId() + " - " + zone.getDisplayName())
+            .name(prefix + zone.getColor() + "Zone " + zone.getId() + " §8- " + zone.getColor() + zone.getDisplayName())
             .lore(lore)
             .glow(zone.isBossZone() || zone.isPvpEnabled())
             .hideAttributes()
             .build();
     }
 
+    private String formatBonus(double multiplier) {
+        int bonus = (int) ((multiplier - 1) * 100);
+        return bonus + "%";
+    }
+
     private ItemStack createInfoItem() {
         Zone currentZone = plugin.getZoneManager().getPlayerZone(player);
-        int highestZone = 1; // TODO: get from player data
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        int highestZone = data != null ? data.getMaxZone().get() : 1;
+        int playersOnline = Bukkit.getOnlinePlayers().size();
 
         List<String> lore = new ArrayList<>();
         lore.add("");
@@ -295,7 +317,11 @@ public class ZoneWikiGUI implements InventoryHolder {
         lore.add("§7Position Z: §e" + player.getLocation().getBlockZ());
         lore.add("");
         lore.add("§7═══ Progression ═══");
-        lore.add("§7Zones decouvertes: §e" + highestZone + "§7/§a50");
+        lore.add("§7Zone max atteinte: §a" + highestZone + "§7/§e50");
+        lore.add(createProgressBar(highestZone, 50));
+        lore.add("");
+        lore.add("§7═══ Serveur ═══");
+        lore.add("§7Joueurs en ligne: §a" + playersOnline);
         lore.add("");
         lore.add("§7═══ Conseils ═══");
         lore.add("§7• Progressez vers le §cNord §7(Z-)");
@@ -303,9 +329,17 @@ public class ZoneWikiGUI implements InventoryHolder {
         lore.add("§7• Les refuges sont vos allies!");
 
         return new ItemBuilder(Material.COMPASS)
-            .name("§6\uD83D\uDDFA Information")
+            .name("§6\uD83D\uDDFA Votre Progression")
             .lore(lore)
+            .glow(highestZone >= 50)
             .build();
+    }
+
+    private String createProgressBar(int current, int max) {
+        int filled = (int) ((current / (double) max) * 20);
+        int empty = 20 - filled;
+        return "§8[§a" + "▌".repeat(filled) + "§7" + "▌".repeat(empty) + "§8] §e" +
+               String.format("%.0f%%", (current / (double) max) * 100);
     }
 
     private Material getZoneMaterial(Zone zone) {
@@ -461,40 +495,52 @@ public class ZoneWikiGUI implements InventoryHolder {
                 return;
             }
 
-            // Clic sur une zone
-            for (int i = 0; i < ZONE_SLOTS.length; i++) {
-                if (slot == ZONE_SLOTS[i]) {
-                    int index = gui.getPage() * ZONES_PER_PAGE + i;
-                    if (index >= gui.getFilteredZones().size()) return;
+            // Clic sur une zone - lookup O(1) avec Set
+            if (ZONE_SLOTS_SET.contains(slot)) {
+                int slotIndex = getSlotIndex(slot);
+                if (slotIndex == -1) return;
 
-                    Zone zone = gui.getFilteredZones().get(index);
+                int index = gui.getPage() * ZONES_PER_PAGE + slotIndex;
+                if (index >= gui.getFilteredZones().size()) return;
 
-                    if (event.isLeftClick()) {
-                        // Ouvrir les details
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                        new ZoneDetailGUI(gui.getPlugin(), player, zone, gui.getPage(), gui.getFilterAct()).open();
-                    } else if (event.isRightClick() && player.hasPermission("zombiez.admin")) {
-                        // Teleporter (admin seulement)
-                        teleportToZone(player, zone);
-                    } else if (event.isRightClick()) {
-                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                        player.sendMessage("§c§l[ZombieZ] §cSeuls les administrateurs peuvent se teleporter!");
-                    }
-                    return;
+                Zone zone = gui.getFilteredZones().get(index);
+
+                if (event.isLeftClick()) {
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+                    new ZoneDetailGUI(gui.getPlugin(), player, zone, gui.getPage(), gui.getFilterAct()).open();
+                } else if (event.isRightClick() && player.hasPermission("zombiez.admin")) {
+                    teleportToZone(player, zone);
+                } else if (event.isRightClick()) {
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+                    player.sendMessage("§c§l[ZombieZ] §cReserve aux administrateurs!");
                 }
             }
         }
 
+        private int getSlotIndex(int slot) {
+            for (int i = 0; i < ZONE_SLOTS.length; i++) {
+                if (ZONE_SLOTS[i] == slot) return i;
+            }
+            return -1;
+        }
+
         private void teleportToZone(Player player, Zone zone) {
+            // Particules avant TP
+            player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1);
+
             // Teleporter au debut de la zone (maxZ - 10)
             int targetZ = zone.getMaxZ() - 10;
             org.bukkit.Location loc = player.getLocation().clone();
             loc.setZ(targetZ);
             loc.setY(player.getWorld().getHighestBlockYAt(loc) + 1);
 
+            player.closeInventory();
             player.teleport(loc);
+
+            // Effets apres TP
             player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-            player.sendMessage("§a§l[ZombieZ] §aTeleporte vers §f" + zone.getDisplayName() + "§a!");
+            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.05);
+            player.sendMessage("§a§l[ZombieZ] §aTeleporte vers " + zone.getColor() + zone.getDisplayName() + "§a!");
         }
 
         @EventHandler

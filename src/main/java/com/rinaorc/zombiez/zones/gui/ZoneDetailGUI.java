@@ -6,6 +6,7 @@ import com.rinaorc.zombiez.utils.ItemBuilder;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,7 +19,6 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -147,22 +147,29 @@ public class ZoneDetailGUI implements InventoryHolder {
     }
 
     private ItemStack createTitleItem() {
+        int playersInZone = plugin.getZoneManager().getPlayersInZone(zone.getId());
+
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7" + zone.getDescription());
+        lore.add("§7§o\"" + zone.getDescription() + "\"");
         lore.add("");
         lore.add("§7═══════════════════════════════");
         lore.add("");
-        lore.add("§7Zone ID: §e" + zone.getId());
+        lore.add("§7Zone ID: §e#" + zone.getId());
         lore.add("§7Acte: §e" + getActName());
-        lore.add("§7Coordonnees Z: §e" + zone.getMinZ() + " §7- §e" + zone.getMaxZ());
-        lore.add("§7Theme: §f" + zone.getTheme().replace("_", " "));
-        lore.add("§7Biome: §f" + zone.getBiomeType().replace("_", " "));
+        lore.add("§7Coordonnees: §fZ " + zone.getMaxZ() + " §8→ §fZ " + zone.getMinZ());
+        lore.add("§7Theme: §f" + formatTheme(zone.getTheme()));
+        lore.add("§7Biome: §f" + translateBiome(zone.getBiomeType()));
+
+        if (playersInZone > 0) {
+            lore.add("");
+            lore.add("§7Joueurs presents: §a" + playersInZone);
+        }
 
         String prefix = "";
         if (zone.isSafeZone()) prefix = "§a♥ ";
         else if (zone.isPvpEnabled()) prefix = "§4☠ ";
-        else if (zone.isBossZone()) prefix = "§6\uD83D\uDC51 ";
+        else if (zone.isBossZone()) prefix = "§6👑 ";
 
         return new ItemBuilder(getTitleMaterial())
             .name(prefix + zone.getColor() + "§l" + zone.getDisplayName().toUpperCase())
@@ -170,6 +177,36 @@ public class ZoneDetailGUI implements InventoryHolder {
             .glow(zone.isBossZone())
             .hideAttributes()
             .build();
+    }
+
+    private String formatTheme(String theme) {
+        if (theme == null || theme.isEmpty()) return "Standard";
+        return theme.replace("_", " ").substring(0, 1).toUpperCase() +
+               theme.replace("_", " ").substring(1).toLowerCase();
+    }
+
+    private String translateBiome(String biome) {
+        if (biome == null) return "Inconnu";
+        return switch (biome.toUpperCase()) {
+            case "PLAINS" -> "Plaines";
+            case "FOREST" -> "Foret";
+            case "DARK_FOREST" -> "Foret Sombre";
+            case "SWAMP" -> "Marais";
+            case "DESERT" -> "Desert";
+            case "TAIGA" -> "Taiga";
+            case "SNOWY_TAIGA" -> "Taiga Enneigee";
+            case "SNOWY_PLAINS" -> "Plaines Enneigees";
+            case "BADLANDS" -> "Badlands";
+            case "JUNGLE" -> "Jungle";
+            case "NETHER_WASTES" -> "Enfer";
+            case "BASALT_DELTAS" -> "Deltas de Basalte";
+            case "CRIMSON_FOREST" -> "Foret Cramoisie";
+            case "WARPED_FOREST" -> "Foret Biscornue";
+            case "SOUL_SAND_VALLEY" -> "Vallee des Ames";
+            case "DEEP_DARK" -> "Abimes Sombres";
+            case "END_HIGHLANDS" -> "Hauts de l'End";
+            default -> biome.replace("_", " ");
+        };
     }
 
     private ItemStack createDifficultyItem() {
@@ -574,17 +611,29 @@ public class ZoneDetailGUI implements InventoryHolder {
             }
 
             // Teleportation (admin)
-            if (slot == SLOT_TELEPORT && player.hasPermission("zombiez.admin")) {
-                Zone zone = gui.getZone();
-                int targetZ = zone.getMaxZ() - 10;
-                org.bukkit.Location loc = player.getLocation().clone();
-                loc.setZ(targetZ);
-                loc.setY(player.getWorld().getHighestBlockYAt(loc) + 1);
+            if (slot == SLOT_TELEPORT) {
+                if (player.hasPermission("zombiez.admin")) {
+                    Zone zone = gui.getZone();
 
-                player.closeInventory();
-                player.teleport(loc);
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                player.sendMessage("§a§l[ZombieZ] §aTeleporte vers §f" + zone.getDisplayName() + "§a!");
+                    // Particules avant TP
+                    player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1);
+
+                    int targetZ = zone.getMaxZ() - 10;
+                    org.bukkit.Location loc = player.getLocation().clone();
+                    loc.setZ(targetZ);
+                    loc.setY(player.getWorld().getHighestBlockYAt(loc) + 1);
+
+                    player.closeInventory();
+                    player.teleport(loc);
+
+                    // Effets apres TP
+                    player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                    player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.05);
+                    player.sendMessage("§a§l[ZombieZ] §aTeleporte vers " + zone.getColor() + zone.getDisplayName() + "§a!");
+                } else {
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+                    player.sendMessage("§c§l[ZombieZ] §cReserve aux administrateurs!");
+                }
                 return;
             }
 
@@ -593,7 +642,7 @@ public class ZoneDetailGUI implements InventoryHolder {
                 Zone prevZone = gui.getZone().getId() > 0 ?
                     gui.getPlugin().getZoneManager().getZoneById(gui.getZone().getId() - 1) : null;
                 if (prevZone != null) {
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
                     new ZoneDetailGUI(gui.getPlugin(), player, prevZone, gui.getReturnPage(), gui.getReturnFilter()).open();
                 }
                 return;
@@ -603,7 +652,7 @@ public class ZoneDetailGUI implements InventoryHolder {
             if (slot == SLOT_NEXT_ZONE) {
                 Zone nextZone = gui.getPlugin().getZoneManager().getZoneById(gui.getZone().getId() + 1);
                 if (nextZone != null) {
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
                     new ZoneDetailGUI(gui.getPlugin(), player, nextZone, gui.getReturnPage(), gui.getReturnFilter()).open();
                 }
                 return;
