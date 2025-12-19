@@ -159,10 +159,6 @@ public class MeleeZombieAI extends ZombieAI {
             playParticles(Particle.FLAME, zombie.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3);
         }, 0L, 10L);
 
-        // Message aux joueurs proches
-        zombie.getWorld().getNearbyEntities(zombie.getLocation(), 15, 10, 15).stream()
-                .filter(e -> e instanceof Player)
-                .forEach(e -> ((Player) e).sendMessage("§c§l⚠ Le Berserker entre en FRÉNÉSIE!"));
     }
 
     /**
@@ -346,10 +342,6 @@ public class MeleeZombieAI extends ZombieAI {
             }
         }
 
-        // Effet visuel de combo
-        if (comboCount > 1) {
-            target.sendMessage("§c✦ Combo x" + comboCount + "!");
-        }
     }
 
     @Override

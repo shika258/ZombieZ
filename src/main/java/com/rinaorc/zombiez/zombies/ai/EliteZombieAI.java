@@ -428,8 +428,6 @@ public class EliteZombieAI extends ZombieAI {
     private void judgement(Player target) {
         playSound(Sound.ENTITY_WARDEN_SONIC_CHARGE, 2f, 1.5f);
 
-        target.sendMessage("§6§l✦ JUGEMENT ✦");
-
         // Marqueur sur la cible
         for (int i = 0; i < 40; i++) {
             final int tick = i;

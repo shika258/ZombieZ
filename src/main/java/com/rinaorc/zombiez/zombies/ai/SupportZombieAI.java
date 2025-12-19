@@ -169,8 +169,6 @@ public class SupportZombieAI extends ZombieAI {
                         p.damage(3, zombie);
                     }
 
-                    // Message d'alerte
-                    p.sendMessage("§c§l☠ Le cri vous paralyse!");
                 });
 
             // EFFET 2: Buff aux zombies alliés

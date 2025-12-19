@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
@@ -81,6 +82,16 @@ public class ChasseurTalentListener implements Listener {
     private final Map<UUID, Integer> barrageFuryCharges = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> arrowRainKillTracking = new ConcurrentHashMap<>();
 
+    // Cyclone Eye - tracking des entités dans le vortex pour bonus de dégâts
+    private final Map<UUID, Set<UUID>> cycloneAffectedEntities = new ConcurrentHashMap<>();
+
+    // Frappe Orbitale - double sneak tracking
+    private final Map<UUID, Long> lastOrbitalSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW = 400; // 400ms pour double sneak
+
+    // Rafale - flèches chercheuses tracking (arrow UUID -> player UUID)
+    private final Map<UUID, UUID> homingArrows = new ConcurrentHashMap<>();
+
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -129,12 +140,28 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Tirs Multiples
+        // Tirs Multiples - UNIQUEMENT sur attaques à distance (projectiles)
+        // Bonus: +10% de chance par talent supplémentaire de la Voie du Barrage (cap 100%)
         Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
         if (multiShot != null && isRanged && !isOnCooldown(uuid, "multi_shot")) {
-            if (Math.random() < multiShot.getValue(0)) {
+            // Calculer le bonus de chance (chaque talent Barrage après le 1er donne +10%)
+            int barrageTalentCount = countBarrageTalents(player);
+            double bonusChance = (barrageTalentCount - 1) * 0.10; // -1 car Tirs Multiples compte déjà
+            double totalChance = Math.min(1.0, multiShot.getValue(0) + bonusChance); // Cap à 100%
+
+            if (Math.random() < totalChance) {
                 procMultiShot(player, target, damage * multiShot.getValue(2));
                 setCooldown(uuid, "multi_shot", multiShot.getInternalCooldownMs());
+
+                // Feedback avec le bonus affiché
+                if (shouldSendTalentMessage(player)) {
+                    int totalPercent = (int) (totalChance * 100);
+                    if (bonusChance > 0) {
+                        player.sendMessage("§f✦ Tirs Multiples! §7(" + totalPercent + "%)");
+                    } else {
+                        player.sendMessage("§f✦ Tirs Multiples!");
+                    }
+                }
             }
         }
 
@@ -201,21 +228,10 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 2 ===
 
-        // Rafale - combo
+        // Rafale - combo + flèches chercheuses (homing géré dans ProjectileLaunchEvent)
         Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        if (burstShot != null) {
-            UUID lastTarget = lastTargetHit.get(uuid);
-            if (lastTarget != null && lastTarget.equals(targetUuid)) {
-                int combo = comboCounter.merge(uuid, 1, Integer::sum);
-                if (combo >= burstShot.getValue(0)) {
-                    damage *= (1 + burstShot.getValue(1));
-                    comboCounter.put(uuid, 0);
-                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
-                }
-            } else {
-                comboCounter.put(uuid, 1);
-            }
-            lastTargetHit.put(uuid, targetUuid);
+        if (burstShot != null && incrementRafaleCombo(player, target)) {
+            damage *= (1 + burstShot.getValue(1)); // +100% sur le 4ème hit
         }
 
         // Sniper - distance bonus
@@ -441,6 +457,25 @@ public class ChasseurTalentListener implements Listener {
         }
     }
 
+    // ==================== PROJECTILE LAUNCH (RAFALE HOMING) ====================
+
+    @EventHandler
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (!(event.getEntity() instanceof Arrow arrow)) return;
+        if (!(arrow.getShooter() instanceof Player player)) return;
+
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return;
+
+        // Rafale - Appliquer homing aux flèches tirées par le joueur
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot != null) {
+            double homingStrength = burstShot.getValue(2);
+            double homingRadius = burstShot.getValue(3);
+            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+        }
+    }
+
     // ==================== MOVEMENT ====================
 
     @EventHandler
@@ -497,6 +532,25 @@ public class ChasseurTalentListener implements Listener {
             if (player.getVelocity().getY() > 0.1) {
                 procBulletTime(player, bulletTime);
                 setCooldown(uuid, "bullet_time", (long) bulletTime.getValue(2));
+            }
+        }
+
+        // Frappe Orbitale - activation par double-sneak
+        Talent orbitalStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
+        if (orbitalStrike != null && event.isSneaking() && !isOnCooldown(uuid, "orbital_strike")) {
+            long now = System.currentTimeMillis();
+            Long lastSneak = lastOrbitalSneakTime.get(uuid);
+
+            if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW) {
+                // Double sneak détecté! Lancer la frappe orbitale
+                lastOrbitalSneakTime.remove(uuid);
+                procOrbitalStrike(player, orbitalStrike);
+                setCooldown(uuid, "orbital_strike", (long) orbitalStrike.getValue(0));
+            } else {
+                // Premier sneak, enregistrer le temps
+                lastOrbitalSneakTime.put(uuid, now);
+                // Feedback visuel subtil
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
             }
         }
     }
@@ -656,24 +710,7 @@ public class ChasseurTalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 20L * 15, 20L * 15);
-
-        // ORBITAL STRIKE (45s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (activeChasseurs.isEmpty()) return;
-                for (UUID uuid : activeChasseurs) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player == null || !player.isOnline()) continue;
-
-                    Talent orbital = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
-                    if (orbital != null && !isOnCooldown(uuid, "orbital_strike")) {
-                        procOrbitalStrike(player, orbital);
-                        setCooldown(uuid, "orbital_strike", (long) orbital.getValue(0));
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 20L * 45, 20L * 45);
+        // Note: Frappe Orbitale est maintenant activée par double-sneak (voir onSneak)
     }
 
     // ==================== PROCS ====================
@@ -689,8 +726,18 @@ public class ChasseurTalentListener implements Listener {
         // Décalage horizontal pour les flèches (I I I pattern)
         double spacing = 0.6; // Espacement entre les flèches
 
-        // Son de tir multiple
-        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.3f);
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        boolean hasHoming = burstShot != null;
+        double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+
+        // Sons distinctifs de tir multiple
+        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.5f);
+        player.getWorld().playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 2.0f);
+
+        // Particules d'effet au joueur
+        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, playerLoc, 10, 0.3, 0.3, 0.3, 0.1);
 
         // Tirer 2 flèches côte à côte horizontalement
         for (int i = 0; i < 2; i++) {
@@ -705,6 +752,11 @@ public class ChasseurTalentListener implements Listener {
             arrow.setDamage(damage / 2); // Dégâts de la flèche (60% répartis)
             arrow.setGravity(true);
             arrow.setCritical(true);
+
+            // === RAFALE - Flèches chercheuses ===
+            if (hasHoming) {
+                applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+            }
 
             // Particules de traînée dorée pour distinguer les flèches bonus
             final Arrow finalArrow = arrow;
@@ -782,20 +834,34 @@ public class ChasseurTalentListener implements Listener {
             }
         }
 
-        // Deluge upgrade
+        // Deluge upgrade - +vagues, +flèches
         Talent deluge = getActiveTalentIfHas(player, Talent.TalentEffectType.DELUGE);
-        int waves = deluge != null ? 3 : 1;
-        boolean pierce = deluge != null;
+        int waves = 1;
+        if (deluge != null) {
+            int extraWaves = (int) deluge.getValue(0);  // +3 vagues
+            double arrowMult = deluge.getValue(1);       // x1.5 flèches
+            waves += extraWaves;
+            arrows = (int) (arrows * arrowMult);
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§b✦ Déluge! +" + extraWaves + " vagues, +" + (int)((arrowMult - 1) * 100) + "% flèches!");
+            }
+        }
 
-        // Armageddon upgrade
-        Talent armageddon = getActiveTalentIfHas(player, Talent.TalentEffectType.AERIAL_ARMAGEDDON);
-        boolean canCrit = armageddon != null;
+        // Cyclone Eye upgrade - vortex qui attire et explose
+        Talent cycloneEye = getActiveTalentIfHas(player, Talent.TalentEffectType.CYCLONE_EYE);
+        boolean hasCyclone = cycloneEye != null;
 
-        // Meteor Shower upgrade
-        Talent meteorShower = getActiveTalentIfHas(player, Talent.TalentEffectType.METEOR_SHOWER);
-        if (meteorShower != null) {
-            procMeteorShower(player, center, meteorShower);
-            return;
+        // Nuée Dévastatrice - x2 rayon + fragmentation
+        Talent devastatingSwarm = getActiveTalentIfHas(player, Talent.TalentEffectType.DEVASTATING_SWARM);
+        boolean hasSwarm = devastatingSwarm != null;
+        if (hasSwarm) {
+            double radiusMult = devastatingSwarm.getValue(0); // x2
+            radius *= radiusMult;
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§6✦ Nuée Dévastatrice! Zone x" + (int)radiusMult + "!");
+            }
+            // Son épique
+            center.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.5f, 0.8f);
         }
 
         // Préparer le tracking des kills pour Barrage Fury
@@ -815,11 +881,139 @@ public class ChasseurTalentListener implements Listener {
         final int finalArrows = arrows;
         final double finalRadius = radius;
         final double finalDamageBase = damagePerArrow * (isSuperRain ? 1.5 : 1.0); // +50% dégâts en super
+        final boolean finalHasCyclone = hasCyclone;
+        final boolean finalHasSwarm = hasSwarm;
+        final Talent finalSwarmTalent = devastatingSwarm;
+
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        final boolean hasHoming = burstShot != null;
+        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
+
+        // === CYCLONE EYE - Créer le vortex ===
+        if (hasCyclone) {
+            double cycloneDmgBonus = cycloneEye.getValue(0);      // +30% dégâts
+            double explosionDmgMult = cycloneEye.getValue(1);     // 100% pour explosion
+            double explosionRadius = cycloneEye.getValue(2);      // 5 blocs
+            double pullStrength = cycloneEye.getValue(3);         // 0.15 force
+
+            // Tracking des entités affectées par le vortex
+            Set<UUID> affectedEntities = ConcurrentHashMap.newKeySet();
+            cycloneAffectedEntities.put(uuid, affectedEntities);
+
+            // Message d'activation
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§b✦ Œil du Cyclone activé!");
+            }
+
+            // Son du vortex
+            center.getWorld().playSound(center, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f, 1.5f);
+
+            // Durée totale du vortex (basée sur les waves)
+            int totalDuration = waves * 25 + 40; // Durée de la pluie + un peu plus
+
+            // Tâche du vortex: attirer les ennemis vers le centre
+            final Location vortexCenter = center.clone();
+            new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (ticks >= totalDuration) {
+                        // === EXPLOSION FINALE ===
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.2f);
+                        vortexCenter.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, vortexCenter, 3, 1, 0.5, 1);
+                        vortexCenter.getWorld().spawnParticle(Particle.SWEEP_ATTACK, vortexCenter, 30, explosionRadius/2, 1, explosionRadius/2);
+                        vortexCenter.getWorld().spawnParticle(Particle.DUST, vortexCenter, 50, explosionRadius/2, 1, explosionRadius/2, 0,
+                            new Particle.DustOptions(Color.fromRGB(0, 200, 255), 2.0f));
+
+                        // Dégâts d'explosion à tous les ennemis dans le rayon
+                        double explosionDamage = finalDamageBase * explosionDmgMult * (finalIsSuperRain ? 2.0 : 1.0);
+                        for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, explosionRadius, explosionRadius, explosionRadius)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                target.damage(explosionDamage, player);
+
+                                // Knockback depuis le centre
+                                Vector knockback = target.getLocation().toVector()
+                                    .subtract(vortexCenter.toVector()).normalize().multiply(1.2).setY(0.5);
+                                target.setVelocity(knockback);
+
+                                // Check kill for Barrage Fury
+                                if (target.isDead() || target.getHealth() <= 0) {
+                                    Set<UUID> kills = arrowRainKillTracking.get(uuid);
+                                    if (kills != null) {
+                                        kills.add(target.getUniqueId());
+                                    }
+                                }
+                            }
+                        }
+
+                        // Cleanup
+                        cycloneAffectedEntities.remove(uuid);
+                        this.cancel();
+                        return;
+                    }
+
+                    // Particules du vortex (tourbillon)
+                    double angle = ticks * 0.3;
+                    for (int i = 0; i < 4; i++) {
+                        double offsetAngle = angle + (i * Math.PI / 2);
+                        double spiralRadius = finalRadius * 0.8 * (1.0 - (ticks % 20) / 40.0);
+                        double x = Math.cos(offsetAngle) * spiralRadius;
+                        double z = Math.sin(offsetAngle) * spiralRadius;
+                        Location particleLoc = vortexCenter.clone().add(x, 0.5, z);
+                        vortexCenter.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.3, 0.1, 0,
+                            new Particle.DustOptions(Color.fromRGB(100, 200, 255), 1.2f));
+                    }
+
+                    // Cercle au sol
+                    if (ticks % 5 == 0) {
+                        for (int i = 0; i < 16; i++) {
+                            double a = (i / 16.0) * 2 * Math.PI;
+                            double circleX = Math.cos(a) * finalRadius * 0.6;
+                            double circleZ = Math.sin(a) * finalRadius * 0.6;
+                            vortexCenter.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
+                                vortexCenter.clone().add(circleX, 0.1, circleZ), 1, 0, 0, 0, 0);
+                        }
+                    }
+
+                    // Attirer les ennemis vers le centre
+                    if (ticks % 3 == 0) {
+                        for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, finalRadius * 1.5, 3, finalRadius * 1.5)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                // Calculer la direction vers le centre
+                                Vector toCenter = vortexCenter.toVector().subtract(target.getLocation().toVector());
+                                double distance = toCenter.length();
+
+                                if (distance > 1.0) { // Ne pas attirer si déjà au centre
+                                    // Force d'attraction inversement proportionnelle à la distance
+                                    double pullForce = pullStrength * (1.0 + (finalRadius / distance));
+                                    Vector pull = toCenter.normalize().multiply(pullForce);
+
+                                    // Appliquer la vélocité
+                                    Vector currentVel = target.getVelocity();
+                                    target.setVelocity(currentVel.add(pull).setY(currentVel.getY()));
+
+                                    // Marquer comme affecté pour le bonus de dégâts
+                                    affectedEntities.add(target.getUniqueId());
+                                }
+                            }
+                        }
+                    }
+
+                    // Son ambiant du vortex
+                    if (ticks % 10 == 0) {
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.5f);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }
 
         for (int wave = 0; wave < waves; wave++) {
-            boolean finalPierce = pierce;
-            boolean finalCanCrit = canCrit;
-
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 // Son de volée de flèches
                 if (finalIsSuperRain) {
@@ -844,11 +1038,16 @@ public class ChasseurTalentListener implements Listener {
                         arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
                         arrow.setDamage(0);
                         arrow.setGravity(true);
-                        arrow.setPierceLevel(finalPierce ? 3 : 0);
+                        arrow.setPierceLevel(0); // Les flèches ne traversent pas
 
                         // Flèches en feu pour SUPER PLUIE
                         if (finalIsSuperRain) {
                             arrow.setFireTicks(200);
+                        }
+
+                        // === RAFALE - Flèches chercheuses ===
+                        if (hasHoming) {
+                            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
                         }
 
                         // Particules de traînée
@@ -881,13 +1080,19 @@ public class ChasseurTalentListener implements Listener {
                                         if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
                                             double finalDamage = finalDamageBase;
 
-                                            // Crit check
-                                            if (finalCanCrit) {
-                                                Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
-                                                if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
-                                                    finalDamage *= 1.5;
-                                                    loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 10, 0.3, 0.3, 0.3, 0.1);
+                                            // Cyclone Eye - bonus de dégâts pour les ennemis dans le vortex
+                                            if (finalHasCyclone) {
+                                                Set<UUID> affected = cycloneAffectedEntities.get(uuid);
+                                                if (affected != null && affected.contains(target.getUniqueId())) {
+                                                    finalDamage *= 1.30; // +30% pour les ennemis aspirés
+                                                    loc.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0,
+                                                        new Particle.DustOptions(Color.fromRGB(0, 200, 255), 1.0f));
                                                 }
+                                            }
+
+                                            // === RAFALE - Combo bonus ===
+                                            if (hasHoming && incrementRafaleCombo(player, target)) {
+                                                finalDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
                                             }
 
                                             // Track health before damage for kill detection
@@ -902,7 +1107,47 @@ public class ChasseurTalentListener implements Listener {
                                                 }
                                             }
 
-                                            if (!finalPierce) break;
+                                            // === NUÉE DÉVASTATRICE - Fragmentation ===
+                                            if (finalHasSwarm && finalSwarmTalent != null) {
+                                                int fragmentCount = (int) finalSwarmTalent.getValue(1);     // 3 éclats
+                                                double fragmentDmgPct = finalSwarmTalent.getValue(2);       // 40%
+                                                double fragmentRadius = finalSwarmTalent.getValue(3);       // 2 blocs
+
+                                                double fragmentDamage = finalDamageBase * fragmentDmgPct;
+
+                                                // Créer les éclats qui partent dans des directions différentes
+                                                for (int frag = 0; frag < fragmentCount; frag++) {
+                                                    double angle = (frag * 2 * Math.PI / fragmentCount) + Math.random() * 0.5;
+                                                    double fragX = loc.getX() + Math.cos(angle) * fragmentRadius;
+                                                    double fragZ = loc.getZ() + Math.sin(angle) * fragmentRadius;
+                                                    Location fragLoc = new Location(loc.getWorld(), fragX, loc.getY(), fragZ);
+
+                                                    // Effet visuel de l'éclat
+                                                    loc.getWorld().spawnParticle(Particle.CRIT, fragLoc, 5, 0.2, 0.2, 0.2, 0.1);
+                                                    loc.getWorld().spawnParticle(Particle.DUST, fragLoc, 3, 0.1, 0.1, 0.1, 0,
+                                                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 0.8f));
+
+                                                    // Dégâts de l'éclat
+                                                    for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
+                                                        if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand)) {
+                                                            fragTarget.damage(fragmentDamage, player);
+
+                                                            // Check kill for Barrage Fury
+                                                            if (fragTarget.isDead() || fragTarget.getHealth() <= 0) {
+                                                                Set<UUID> kills = arrowRainKillTracking.get(uuid);
+                                                                if (kills != null) {
+                                                                    kills.add(fragTarget.getUniqueId());
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Son de fragmentation
+                                                loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
+                                            }
+
+                                            break; // Une seule cible par flèche
                                         }
                                     }
 
@@ -956,52 +1201,44 @@ public class ChasseurTalentListener implements Listener {
         }
     }
 
-    private void procMeteorShower(Player player, Location center, Talent talent) {
-        double damagePerMeteor = 10 * talent.getValue(0);
-        int meteors = (int) talent.getValue(1);
-        double zoneRadius = talent.getValue(2);
-        double explosionRadius = talent.getValue(3);
-
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ METEOR SHOWER!");
-        }
-
-        for (int i = 0; i < meteors; i++) {
-            int delay = i * 5;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double x = center.getX() + (Math.random() - 0.5) * zoneRadius * 2;
-                double z = center.getZ() + (Math.random() - 0.5) * zoneRadius * 2;
-                Location meteorLoc = new Location(center.getWorld(), x, center.getY(), z);
-
-                // Visual
-                center.getWorld().spawnParticle(Particle.EXPLOSION, meteorLoc, 1);
-                center.getWorld().spawnParticle(Particle.FLAME, meteorLoc, 30, explosionRadius/2, 0.5, explosionRadius/2, 0.1);
-                center.getWorld().playSound(meteorLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.0f);
-
-                // Damage
-                for (Entity entity : center.getWorld().getNearbyEntities(meteorLoc, explosionRadius, explosionRadius, explosionRadius)) {
-                    if (entity instanceof LivingEntity target && entity != player) {
-                        target.damage(damagePerMeteor, player);
-                    }
-                }
-            }, delay);
-        }
-    }
-
     private void procSteelStorm(Player player, Talent talent) {
         Location center = player.getLocation();
         double damagePerArrow = 5 * talent.getValue(1);
         int arrows = (int) talent.getValue(2);
         double radius = talent.getValue(3);
+        UUID uuid = player.getUniqueId();
+
+        // Nuée Dévastatrice - x2 rayon
+        Talent devastatingSwarm = getActiveTalentIfHas(player, Talent.TalentEffectType.DEVASTATING_SWARM);
+        boolean hasSwarm = devastatingSwarm != null;
+        if (hasSwarm) {
+            double radiusMult = devastatingSwarm.getValue(0);
+            radius *= radiusMult;
+        }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ TEMPETE D'ACIER!");
+            String msg = "§6§l+ TEMPETE D'ACIER!";
+            if (hasSwarm) msg += " §e(Zone x2)";
+            player.sendMessage(msg);
         }
 
         // Sons épiques d'annonce
         player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
         player.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.8f);
+        if (hasSwarm) {
+            player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.2f, 1.0f);
+        }
+
+        final double finalRadius = radius;
+        final boolean finalHasSwarm = hasSwarm;
+        final Talent finalSwarmTalent = devastatingSwarm;
+
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        final boolean hasHoming = burstShot != null;
+        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
 
         // Spawner les flèches de feu qui tombent du ciel
         for (int i = 0; i < arrows; i++) {
@@ -1025,6 +1262,11 @@ public class ChasseurTalentListener implements Listener {
                 arrow.setGravity(true);
                 arrow.setFireTicks(200); // Flèche en feu
 
+                // === RAFALE - Flèches chercheuses ===
+                if (hasHoming) {
+                    applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+                }
+
                 // Particules de traînée de feu
                 new BukkitRunnable() {
                     int ticks = 0;
@@ -1040,14 +1282,49 @@ public class ChasseurTalentListener implements Listener {
                             // Appliquer les dégâts + DOT de feu aux entités proches
                             for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.5, 1.5, 1.5)) {
                                 if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                    double actualDamage = finalDamage;
+
+                                    // === RAFALE - Combo bonus ===
+                                    if (hasHoming && incrementRafaleCombo(player, target)) {
+                                        actualDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
+                                    }
+
                                     // Dégâts initiaux
-                                    target.damage(finalDamage, player);
+                                    target.damage(actualDamage, player);
 
                                     // DOT de feu pendant 3 secondes (60 ticks)
                                     target.setFireTicks(60);
 
                                     // Appliquer le DOT custom (dégâts supplémentaires sur la durée)
-                                    applyFireDot(player, target, finalDamage * 0.5, 3000);
+                                    applyFireDot(player, target, actualDamage * 0.5, 3000);
+
+                                    // === NUÉE DÉVASTATRICE - Fragmentation enflammée ===
+                                    if (finalHasSwarm && finalSwarmTalent != null) {
+                                        int fragmentCount = (int) finalSwarmTalent.getValue(1);
+                                        double fragmentDmgPct = finalSwarmTalent.getValue(2);
+                                        double fragmentRadius = finalSwarmTalent.getValue(3);
+                                        double fragmentDamage = finalDamage * fragmentDmgPct;
+
+                                        for (int frag = 0; frag < fragmentCount; frag++) {
+                                            double angle = (frag * 2 * Math.PI / fragmentCount) + Math.random() * 0.5;
+                                            double fragX = loc.getX() + Math.cos(angle) * fragmentRadius;
+                                            double fragZ = loc.getZ() + Math.sin(angle) * fragmentRadius;
+                                            Location fragLoc = new Location(loc.getWorld(), fragX, loc.getY(), fragZ);
+
+                                            // Éclats enflammés
+                                            loc.getWorld().spawnParticle(Particle.FLAME, fragLoc, 8, 0.2, 0.2, 0.2, 0.05);
+                                            loc.getWorld().spawnParticle(Particle.DUST, fragLoc, 3, 0.1, 0.1, 0.1, 0,
+                                                new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.8f));
+
+                                            for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
+                                                if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand)) {
+                                                    fragTarget.damage(fragmentDamage, player);
+                                                    fragTarget.setFireTicks(40); // Éclats enflammés
+                                                }
+                                            }
+                                        }
+                                        loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.5f, 1.2f);
+                                    }
                                 }
                             }
 
@@ -1103,30 +1380,131 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private void procOrbitalStrike(Player player, Talent talent) {
-        Location center = player.getLocation();
-        double damage = 10 * talent.getValue(1);
-        double radius = talent.getValue(2);
+        // Valeurs: cooldown_ms, damage_mult, length, explosion_radius, bomb_count
+        double damageMult = talent.getValue(1);
+        double lineLength = talent.getValue(2);
+        double explosionRadius = talent.getValue(3);
+        int bombCount = (int) talent.getValue(4);
+
+        double baseDamage = 15 * damageMult;
+
+        Location start = player.getLocation().clone();
+        Vector direction = player.getLocation().getDirection().setY(0).normalize();
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ ORBITAL STRIKE!");
+            player.sendMessage("§c§l✈ FRAPPE ORBITALE!");
         }
-        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 0.5f);
 
-        // Warning
-        player.getWorld().spawnParticle(Particle.END_ROD, center, 100, radius/2, 5, radius/2, 0);
+        // Son d'avion qui passe
+        player.getWorld().playSound(start, Sound.ENTITY_PHANTOM_FLAP, 2.0f, 0.3f);
+        player.getWorld().playSound(start, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.5f, 1.5f);
 
-        // Delayed impact
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 5, radius/2, 1, radius/2, 0);
-            player.getWorld().spawnParticle(Particle.FLASH, center, 3);
-            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.3f);
+        // Calculer les positions des bombes le long de la ligne
+        double spacing = lineLength / (bombCount - 1);
+        List<Location> bombLocations = new ArrayList<>();
 
-            for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-                if (entity instanceof LivingEntity target && entity != player) {
-                    target.damage(damage, player);
+        for (int i = 0; i < bombCount; i++) {
+            Location bombLoc = start.clone().add(direction.clone().multiply(i * spacing));
+            // Ajuster au sol
+            bombLoc.setY(getGroundY(bombLoc));
+            bombLocations.add(bombLoc);
+        }
+
+        // Phase 1: Indicateurs de ciblage (warning)
+        for (int i = 0; i < bombLocations.size(); i++) {
+            final int index = i;
+            Location loc = bombLocations.get(i);
+
+            // Cercle de ciblage au sol
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                spawnTargetingCircle(loc, explosionRadius);
+                player.getWorld().playSound(loc, Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.5f + (index * 0.1f));
+            }, i * 3L); // Décalage progressif
+        }
+
+        // Phase 2: Explosions séquentielles (après le délai de warning)
+        long warningDelay = 30L; // 1.5 secondes après les indicateurs
+
+        for (int i = 0; i < bombLocations.size(); i++) {
+            final int index = i;
+            Location loc = bombLocations.get(i);
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // Explosion principale
+                player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc.clone().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0);
+                player.getWorld().spawnParticle(Particle.FLAME, loc.clone().add(0, 0.5, 0), 50, explosionRadius/2, 1, explosionRadius/2, 0.1);
+                player.getWorld().spawnParticle(Particle.SMOKE_LARGE, loc.clone().add(0, 2, 0), 30, explosionRadius/2, 2, explosionRadius/2, 0.05);
+                player.getWorld().spawnParticle(Particle.LAVA, loc, 20, explosionRadius/2, 0.5, explosionRadius/2, 0);
+
+                // Effet de cratère
+                player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 15, explosionRadius/3, 0.1, explosionRadius/3, 0.02);
+
+                // Son d'explosion massif
+                player.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.6f + (index * 0.05f));
+                player.getWorld().playSound(loc, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 1.5f, 0.5f);
+
+                // Flash lumineux
+                player.getWorld().spawnParticle(Particle.FLASH, loc.clone().add(0, 1, 0), 2);
+
+                // Dégâts aux entités dans le rayon
+                for (Entity entity : loc.getWorld().getNearbyEntities(loc, explosionRadius, explosionRadius, explosionRadius)) {
+                    if (entity instanceof LivingEntity target && entity != player) {
+                        // Dégâts réduisent avec la distance
+                        double distance = target.getLocation().distance(loc);
+                        double damageMultiplier = 1.0 - (distance / (explosionRadius * 1.5));
+                        damageMultiplier = Math.max(0.3, damageMultiplier); // Minimum 30% des dégâts
+
+                        target.damage(baseDamage * damageMultiplier, player);
+
+                        // Knockback depuis le centre de l'explosion
+                        Vector knockback = target.getLocation().toVector().subtract(loc.toVector()).normalize();
+                        knockback.setY(0.4);
+                        target.setVelocity(knockback.multiply(0.8));
+
+                        // Effet de brûlure
+                        target.setFireTicks(40);
+                    }
                 }
+            }, warningDelay + (i * 4L)); // Explosions séquentielles
+        }
+
+        // Son final de fin de bombardement
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.getWorld().playSound(start, Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
+        }, warningDelay + (bombCount * 4L) + 10L);
+    }
+
+    private double getGroundY(Location loc) {
+        Location check = loc.clone();
+        // Chercher le sol
+        for (int y = (int) loc.getY(); y > loc.getY() - 10; y--) {
+            check.setY(y);
+            if (check.getBlock().getType().isSolid()) {
+                return y + 1;
             }
-        }, 40L);
+        }
+        return loc.getY();
+    }
+
+    private void spawnTargetingCircle(Location center, double radius) {
+        World world = center.getWorld();
+        int points = 24;
+
+        for (int i = 0; i < points; i++) {
+            double angle = (2 * Math.PI * i) / points;
+            double x = center.getX() + radius * Math.cos(angle);
+            double z = center.getZ() + radius * Math.sin(angle);
+            Location point = new Location(world, x, center.getY() + 0.1, z);
+
+            // Cercle rouge de ciblage
+            world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.5f));
+        }
+
+        // Croix au centre
+        world.spawnParticle(Particle.DUST, center.clone().add(0, 0.1, 0), 3, 0.1, 0, 0.1, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 2.0f));
+        world.spawnParticle(Particle.END_ROD, center.clone().add(0, 0.5, 0), 5, 0.1, 0.2, 0.1, 0.01);
     }
 
     private void procToxicAura(Player player, Talent talent) {
@@ -1323,6 +1701,11 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private boolean isRangedAttack(Entity damager) {
+        // Explicitement exclure les attaques au corps à corps (joueur direct)
+        if (damager instanceof Player) {
+            return false;
+        }
+        // Seuls les projectiles comptent comme attaques à distance
         return damager instanceof Projectile;
     }
 
@@ -1345,5 +1728,111 @@ public class ChasseurTalentListener implements Listener {
     private void setCooldown(UUID uuid, String ability, long durationMs) {
         cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
             .put(ability, System.currentTimeMillis() + durationMs);
+    }
+
+    /**
+     * Compte le nombre de talents actifs de la Voie du Barrage (slotIndex 0)
+     * Utilisé pour calculer le bonus de Tirs Multiples (+10% par talent supplémentaire)
+     */
+    private int countBarrageTalents(Player player) {
+        int count = 0;
+        for (Talent talent : talentManager.getActiveTalents(player)) {
+            if (talent.getSlotIndex() == 0) { // Voie du Barrage
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Applique l'effet de flèche chercheuse à une flèche en vol.
+     * La flèche ajuste légèrement sa trajectoire vers l'ennemi le plus proche.
+     *
+     * @param arrow La flèche à rendre chercheuse
+     * @param player Le joueur propriétaire
+     * @param homingStrength Force d'attraction (0.1-0.3 recommandé)
+     * @param homingRadius Rayon de détection des cibles
+     */
+    private void applyHomingBehavior(Arrow arrow, Player player, double homingStrength, double homingRadius) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (arrow.isDead() || arrow.isOnGround() || ticks > 60) {
+                    homingArrows.remove(arrow.getUniqueId());
+                    this.cancel();
+                    return;
+                }
+
+                // Trouver l'ennemi le plus proche dans le rayon
+                LivingEntity closestTarget = null;
+                double closestDistance = homingRadius;
+
+                for (Entity entity : arrow.getNearbyEntities(homingRadius, homingRadius, homingRadius)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                        double distance = arrow.getLocation().distance(target.getLocation().add(0, target.getHeight() / 2, 0));
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestTarget = target;
+                        }
+                    }
+                }
+
+                // Ajuster la trajectoire vers la cible
+                if (closestTarget != null) {
+                    Location targetLoc = closestTarget.getLocation().add(0, closestTarget.getHeight() / 2, 0);
+                    Vector currentVelocity = arrow.getVelocity();
+                    Vector toTarget = targetLoc.toVector().subtract(arrow.getLocation().toVector()).normalize();
+
+                    // Interpoler entre la direction actuelle et la direction vers la cible
+                    Vector newVelocity = currentVelocity.normalize()
+                        .multiply(1 - homingStrength)
+                        .add(toTarget.multiply(homingStrength))
+                        .normalize()
+                        .multiply(currentVelocity.length());
+
+                    arrow.setVelocity(newVelocity);
+
+                    // Particule de traque subtile
+                    if (ticks % 3 == 0) {
+                        arrow.getWorld().spawnParticle(Particle.DUST, arrow.getLocation(), 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(255, 100, 100), 0.5f));
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 2L, 1L); // Commence après 2 ticks, puis chaque tick
+    }
+
+    /**
+     * Incrémente le compteur de combo Rafale pour un joueur sur une cible.
+     * Retourne true si le 4ème hit est atteint (bonus de dégâts).
+     */
+    private boolean incrementRafaleCombo(Player player, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot == null) return false;
+
+        UUID lastTarget = lastTargetHit.get(uuid);
+        if (lastTarget != null && lastTarget.equals(targetUuid)) {
+            int combo = comboCounter.merge(uuid, 1, Integer::sum);
+            if (combo >= burstShot.getValue(0)) {
+                comboCounter.put(uuid, 0);
+                // Effet visuel et sonore du combo
+                player.getWorld().playSound(target.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
+                target.getWorld().spawnParticle(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+                if (shouldSendTalentMessage(player)) {
+                    player.sendMessage("§c✦ RAFALE! x" + (int)((1 + burstShot.getValue(1)) * 100) + "% dégâts!");
+                }
+                return true;
+            }
+        } else {
+            comboCounter.put(uuid, 1);
+        }
+        lastTargetHit.put(uuid, targetUuid);
+        return false;
     }
 }

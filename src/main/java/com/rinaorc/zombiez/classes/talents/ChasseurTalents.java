@@ -35,13 +35,19 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_multi_shot")
             .name("Tirs Multiples")
-            .description("20% chance de tirer 2 projectiles bonus")
+            .description("20% chance +2 fleches bonus")
             .loreLines(new String[]{
-                "§7Vos attaques a distance ont §e20%§7",
-                "§7de chance de tirer §e2§7 projectiles",
-                "§7supplementaires.",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Degats bonus: §c60%§8 chacun"
+                "§7Vos attaques a distance ont §e20%§7",
+                "§7de chance de tirer §e2 fleches§7 bonus.",
+                "",
+                "§8► Degats par fleche: §c60%",
+                "§8► Cooldown interne: §e0.5s",
+                "",
+                "§6§lBONUS CUMULATIF:",
+                "§7Chaque talent Barrage ajoute",
+                "§e+10%§7 de chance! §8(max 100%)"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -141,16 +147,24 @@ public final class ChasseurTalents {
     // ==================== PALIER 2 - NIVEAU 5 (Amplification) ====================
 
     private static void registerTier2Talents() {
-        // 2.1 - RAFALE
+        // 2.1 - RAFALE (Flèches Traqueuses + Combo)
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("4eme tir sur meme cible: +100% degats")
+            .description("Fleches traqueuses + combo x2")
             .loreLines(new String[]{
-                "§7Apres §e3 tirs§7 sur la meme cible,",
-                "§7le 4eme inflige §c+100%§7 degats!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Enchainez vos tirs!"
+                "§6FLECHES TRAQUEUSES:",
+                "§7Vos fleches §eajustent§7 leur trajectoire",
+                "§7vers les ennemis proches!",
+                "",
+                "§6COMBO §c(x2 DEGATS!)§6:",
+                "§7Toucher §e3x§7 la meme cible →",
+                "§7Le 4eme tir fait §c+100%§7 degats!",
+                "",
+                "§8► Rayon de traque: §f5 blocs",
+                "§8► S'applique aux pluies de fleches!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -158,7 +172,7 @@ public final class ChasseurTalents {
             .icon(Material.TIPPED_ARROW)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BURST_SHOT)
-            .values(new double[]{3, 1.0}) // hits_needed, bonus_damage%
+            .values(new double[]{3, 1.0, 0.15, 5.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
             .build());
 
         // 2.2 - SNIPER
@@ -254,13 +268,20 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_arrow_rain")
             .name("Pluie de Fleches")
-            .description("25% chance pluie de fleches AoE")
+            .description("25% chance pluie AoE")
             .loreLines(new String[]{
-                "§7§e25%§7 de chance que votre tir",
-                "§7invoque une pluie de fleches!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Degats: §c30%§8 x8 fleches",
-                "§8Zone: §e4x4§8 blocs"
+                "§7Vos tirs ont §e25%§7 de chance",
+                "§7d'invoquer une §bpluie de fleches§7!",
+                "",
+                "§8► Fleches: §e8",
+                "§8► Degats/fleche: §c30%",
+                "§8► Zone: §e4x4§8 blocs",
+                "§8► Cooldown: §e2s",
+                "",
+                "§6§lAMELIORABLE:",
+                "§8Deluge, Furie, Cyclone, Nuee..."
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -363,13 +384,19 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_deluge")
             .name("Deluge")
-            .description("Pluie +2s, fleches percent")
+            .description("+3 vagues, +50% fleches")
             .loreLines(new String[]{
-                "§7La pluie de fleches dure",
-                "§7§e+2s§7 de plus et les fleches",
-                "§7§atraversent§7 les ennemis!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Devastation aerienne"
+                "§7Vos pluies de fleches deviennent",
+                "§7un §bdeluge devastateur§7!",
+                "",
+                "§6AMELIORATIONS:",
+                "§8► §e+3 vagues§8 supplementaires",
+                "§8► §e+50%§8 fleches par vague",
+                "",
+                "§7Exemple: §e8 → 12 fleches/vague",
+                "§7Total: §c48 fleches§7 au lieu de 8!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -377,7 +404,7 @@ public final class ChasseurTalents {
             .icon(Material.TRIDENT)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.DELUGE)
-            .values(new double[]{2000}) // extra_duration_ms
+            .values(new double[]{3, 1.50}) // extra_waves, arrow_multiplier
             .build());
 
         // 4.2 - PREDATEUR SUPREME
@@ -471,14 +498,19 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_steel_storm")
             .name("Tempete d'Acier")
-            .description("Toutes 15s: mega pluie de fleches")
+            .description("Auto mega-pluie toutes les 15s")
             .loreLines(new String[]{
-                "§7Toutes les §e15s§7, declenche",
-                "§7automatiquement une mega",
-                "§7pluie de fleches!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Degats: §c50%§8 x20 fleches",
-                "§8Zone: §e8x8§8 blocs"
+                "§7Toutes les §e15s§7, une tempete de",
+                "§7fleches §cenflammees§7 s'abat!",
+                "",
+                "§8► Fleches: §c20 fleches de feu",
+                "§8► Degats: §c50%§8 + brulure",
+                "§8► Zone: §e8x8§8 blocs",
+                "",
+                "§6§lAUTOMATIQUE:",
+                "§7Se declenche sans action requise!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -582,20 +614,22 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_barrage_fury")
             .name("Furie du Barrage")
-            .description("Kills avec pluie = charges -> SUPER PLUIE!")
+            .description("5 kills pluie = SUPER PLUIE!")
             .loreLines(new String[]{
-                "§7Chaque §ckill§7 avec une pluie de",
-                "§7fleches donne §e1 charge§7.",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§7A §e5 charges§7, la prochaine pluie",
-                "§7devient une §6§lSUPER PLUIE§7!",
+                "§7Chaque §ckill§7 avec une pluie",
+                "§7accumule §e1 charge§7.",
                 "",
-                "§6Super Pluie:",
-                "§8- §e2x§8 plus de fleches",
-                "§8- §e+50%§8 zone d'effet",
-                "§8- §cFleches explosives§8!",
+                "§6A 5 CHARGES:",
+                "§7La prochaine pluie devient une",
+                "§c§lSUPER PLUIE§7 devastatrice!",
                 "",
-                "§8Effet visuel spectaculaire!"
+                "§6SUPER PLUIE:",
+                "§8► §e2x§8 fleches",
+                "§8► §e+50%§8 zone",
+                "§8► §c+50%§8 degats",
+                "§8► Fleches §6explosives§8!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -698,25 +732,35 @@ public final class ChasseurTalents {
     // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
 
     private static void registerTier7Talents() {
-        // 6.1 - ARMAGEDDON AERIEN
+        // 7.1 - OEIL DU CYCLONE
         TALENTS.add(Talent.builder()
-            .id("chasseur_aerial_armageddon")
-            .name("Armageddon Aerien")
-            .description("Pluie peut faire des critiques + fleches bonus")
+            .id("chasseur_cyclone_eye")
+            .name("Oeil du Cyclone")
+            .description("Vortex qui attire + explose!")
             .loreLines(new String[]{
-                "§7La pluie de fleches peut §ecritiquer§7!",
-                "§7Les critiques font apparaitre",
-                "§7§e2 fleches§7 bonus!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Fleches dorees sur critique"
+                "§7Vos pluies creent un",
+                "§b§lVORTEX DEVASTATEUR§7!",
+                "",
+                "§6EFFETS DU VORTEX:",
+                "§8► §bAttire§8 les ennemis au centre",
+                "§8► §c+30%§8 degats aux aspires",
+                "§8► §6Explosion§8 finale!",
+                "",
+                "§6EXPLOSION:",
+                "§8► Zone: §e5§8 blocs",
+                "§8► Degats: §c100%§8 + knockback",
+                "",
+                "§d§lSYNERGIE: Furie du Barrage!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(0)
-            .icon(Material.END_CRYSTAL)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.AERIAL_ARMAGEDDON)
-            .values(new double[]{2}) // bonus_arrows_on_crit
+            .icon(Material.HEART_OF_THE_SEA)
+            .iconColor("§b")
+            .effectType(Talent.TalentEffectType.CYCLONE_EYE)
+            .values(new double[]{0.30, 1.0, 5.0, 0.15}) // dmg_bonus, explosion_dmg_mult, explosion_radius, pull_strength
             .build());
 
         // 6.2 - MAITRE DES OMBRES
@@ -808,27 +852,34 @@ public final class ChasseurTalents {
     // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
     private static void registerTier8Talents() {
-        // 7.1 - PLUIE DE METEORES
+        // 8.1 - NUEE DEVASTATRICE
         TALENTS.add(Talent.builder()
-            .id("chasseur_meteor_shower")
-            .name("Pluie de Meteores")
-            .description("Pluie = meteores explosifs")
+            .id("chasseur_devastating_swarm")
+            .name("Nuee Devastatrice")
+            .description("x2 zone + fragmentation!")
             .loreLines(new String[]{
-                "§7La pluie de fleches est",
-                "§7remplacee par une pluie de",
-                "§c§lMETEORES EXPLOSIFS§7!",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§8Degats: §c150%§8 x10 meteores",
-                "§8Zone: §e10x10§8 blocs",
-                "§8Explosion: §e2§8 blocs/meteore"
+                "§6ZONE DOUBLEE:",
+                "§7Toutes vos pluies ont",
+                "§e2x§7 leur rayon normal!",
+                "",
+                "§6FRAGMENTATION:",
+                "§7Chaque fleche qui touche",
+                "§7explose en §e3 eclats§7!",
+                "",
+                "§8► Degats eclat: §c40%",
+                "§8► Rayon eclat: §e2§8 blocs",
+                "",
+                "§d§lAPEX DU BARRAGE!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(0)
-            .icon(Material.FIRE_CHARGE)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.METEOR_SHOWER)
-            .values(new double[]{1.50, 10, 10.0, 2.0}) // damage_per_meteor%, meteors, zone_radius, explosion_radius
+            .icon(Material.FIREWORK_STAR)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.DEVASTATING_SWARM)
+            .values(new double[]{2.0, 3, 0.40, 2.0}) // radius_mult, fragment_count, fragment_damage%, fragment_radius
             .build());
 
         // 7.2 - FAUCHEUR
@@ -921,28 +972,37 @@ public final class ChasseurTalents {
     // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
     private static void registerTier9Talents() {
-        // 8.1 - FRAPPE ORBITALE
+        // 9.1 - FRAPPE ORBITALE
         TALENTS.add(Talent.builder()
             .id("chasseur_orbital_strike")
             .name("Frappe Orbitale")
-            .description("Toutes 45s: bombardement orbital")
+            .description("2x SNEAK = bombardement!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§l★ TALENT LEGENDAIRE ★",
+                "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Toutes les §e45s§7, un bombardement",
-                "§7orbital devastateur frappe!",
+                "§7Appuyez §e2x SNEAK§7 rapidement",
+                "§7pour invoquer un §c§lBOMBARDEMENT§7!",
                 "",
-                "§8Degats: §c1000%§8 de base",
-                "§8Zone: §e15§8 blocs de rayon"
+                "§6EFFET:",
+                "§7Une ligne de §c8 bombes§7 explose",
+                "§7dans votre direction!",
+                "",
+                "§8► Longueur: §e30§8 blocs",
+                "§8► Rayon/bombe: §e3§8 blocs",
+                "§8► Degats: §c500%§8 + brulure",
+                "§8► Cooldown: §c30s",
+                "",
+                "§c§lDEVASTATION TOTALE!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(0)
-            .icon(Material.END_CRYSTAL)
+            .icon(Material.TNT)
             .iconColor("§6§l")
             .effectType(Talent.TalentEffectType.ORBITAL_STRIKE)
-            .values(new double[]{45000, 10.0, 15.0}) // cooldown_ms, damage%, radius
-            .internalCooldownMs(45000)
+            .values(new double[]{30000, 5.0, 30.0, 3.0, 8}) // cooldown_ms, damage_mult, length, explosion_radius, bomb_count
+            .internalCooldownMs(30000)
             .build());
 
         // 8.2 - MARCHEUR DU VIDE (EQUILIBRE - pas d'invincibilite totale!)

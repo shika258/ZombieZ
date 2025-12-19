@@ -299,7 +299,6 @@ public class ElementalZombieAI extends ZombieAI {
                 .forEach(p -> {
                     p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
                     p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0));
-                    p.sendMessage("§b§l❄ Le hurlement vous glace le sang!");
                 });
     }
 
@@ -313,7 +312,6 @@ public class ElementalZombieAI extends ZombieAI {
         heal(damage * 0.6);
 
         playParticles(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
-        target.sendMessage("§c§l✦ Le Wendigo vous dévore!");
     }
 
     // ═══════════════════════════════════════════════════════════════

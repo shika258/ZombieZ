@@ -175,7 +175,6 @@ public class PackZombieAI extends ZombieAI {
                 .map(e -> (Player) e)
                 .forEach(p -> {
                     p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 40, 0, false, false));
-                    p.sendMessage("§c§l🐺 Un hurlement sinistre résonne... La meute arrive!");
                 });
 
         // Alerter les autres loups de la zone (boost temporaire)
@@ -246,7 +245,6 @@ public class PackZombieAI extends ZombieAI {
                             // Chance de mettre à terre
                             if (random.nextFloat() < 0.3f) {
                                 p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 2));
-                                p.sendMessage("§c§l✦ Le loup vous met à terre!");
                             }
                         });
             }
@@ -313,10 +311,6 @@ public class PackZombieAI extends ZombieAI {
         if (packBonus > 0) {
             double bonusDamage = packBonus * 2;
             target.damage(bonusDamage, zombie);
-
-            if (packBonus >= 3) {
-                target.sendMessage("§c§l🐺 La meute vous submerge! §7(+" + packBonus + " loups)");
-            }
         }
 
         // Chance de renversement
@@ -363,9 +357,6 @@ public class PackZombieAI extends ZombieAI {
                 // Rage désespérée
                 enrage();
                 playSound(Sound.ENTITY_WOLF_GROWL, 2f, 0.5f);
-                zombie.getWorld().getNearbyEntities(zombie.getLocation(), 10, 5, 10).stream()
-                        .filter(e -> e instanceof Player)
-                        .forEach(e -> ((Player) e).sendMessage("§4§l⚠ Le loup entre dans une rage désespérée!"));
             }
         }
     }
@@ -394,9 +385,5 @@ public class PackZombieAI extends ZombieAI {
                     }
                 });
 
-        // Message si la meute était grande
-        if (packBonus >= 3 && killer != null) {
-            killer.sendMessage("§c§l🐺 La meute rugit de colère face à la perte d'un des leurs!");
-        }
     }
 }
