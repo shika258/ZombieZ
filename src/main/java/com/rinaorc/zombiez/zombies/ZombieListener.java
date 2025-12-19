@@ -18,6 +18,10 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Listener pour les événements liés aux zombies ZombieZ
  */
@@ -25,6 +29,10 @@ public class ZombieListener implements Listener {
 
     private final ZombieZPlugin plugin;
     private final ZombieManager zombieManager;
+
+    // Garde contre la récursion infinie : track les zombies en train d'exécuter
+    // onAttack
+    private final Set<UUID> zombiesInAttack = ConcurrentHashMap.newKeySet();
 
     public ZombieListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -67,7 +75,8 @@ public class ZombieListener implements Listener {
 
     /**
      * Désactive TOUS les drops vanilla des mobs dans le monde ZombieZ
-     * Cette méthode capture tous les mobs non-ZombieZ pour s'assurer qu'aucun drop vanilla n'apparaît
+     * Cette méthode capture tous les mobs non-ZombieZ pour s'assurer qu'aucun drop
+     * vanilla n'apparaît
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onAnyMobDeath(EntityDeathEvent event) {
@@ -115,8 +124,26 @@ public class ZombieListener implements Listener {
             return;
         }
 
-        // Notifier l'AIManager de l'attaque
-        zombieManager.getAiManager().onZombieAttack(damager.getUniqueId(), player);
+        // GARDE ANTI-RÉCURSION : Si ce zombie est déjà en train d'exécuter onAttack(),
+        // ne pas rappeler onAttack() pour éviter la boucle infinie
+        // (cela arrive quand l'IA appelle damage() dans son onAttack, ce qui trigger un
+        // nouvel event)
+        UUID zombieId = damager.getUniqueId();
+        if (zombiesInAttack.contains(zombieId)) {
+            // Ce damage vient de l'IA elle-même, ne pas re-déclencher onAttack
+            return;
+        }
+
+        // Marquer ce zombie comme étant en train d'attaquer
+        zombiesInAttack.add(zombieId);
+
+        try {
+            // Notifier l'AIManager de l'attaque
+            zombieManager.getAiManager().onZombieAttack(zombieId, player);
+        } finally {
+            // Toujours retirer le zombie du set, même si une exception se produit
+            zombiesInAttack.remove(zombieId);
+        }
 
         // Appliquer les effets d'affix si présent
         if (zombie.hasAffix()) {
@@ -161,7 +188,8 @@ public class ZombieListener implements Listener {
         double modifiedDamage = calculatePlayerDamage(attacker, event.getDamage(), zombie);
         event.setDamage(modifiedDamage);
 
-        // Note: L'indicateur de dégâts est affiché par CombatListener pour éviter les doublons
+        // Note: L'indicateur de dégâts est affiché par CombatListener pour éviter les
+        // doublons
 
         // Notifier l'AIManager des dégâts
         zombieManager.getAiManager().onZombieDamaged(victim.getUniqueId(), attacker, modifiedDamage);
@@ -215,18 +243,18 @@ public class ZombieListener implements Listener {
      */
     private Player getPlayerAttacker(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
-        
+
         if (damager instanceof Player player) {
             return player;
         }
-        
+
         if (damager instanceof Projectile projectile) {
             ProjectileSource shooter = projectile.getShooter();
             if (shooter instanceof Player player) {
                 return player;
             }
         }
-        
+
         return null;
     }
 
@@ -235,13 +263,14 @@ public class ZombieListener implements Listener {
      */
     private double calculatePlayerDamageReduction(Player player) {
         double reduction = 0;
-        
+
         // Réduction depuis les stats d'items
         reduction += plugin.getItemManager().getPlayerStat(player, StatType.DAMAGE_REDUCTION) / 100.0;
-        
-        // Réduction depuis l'armure (déjà gérée par Minecraft mais on peut ajouter un bonus)
+
+        // Réduction depuis l'armure (déjà gérée par Minecraft mais on peut ajouter un
+        // bonus)
         reduction += plugin.getItemManager().getPlayerStat(player, StatType.ARMOR_PERCENT) / 200.0;
-        
+
         // Cap à 80%
         return Math.min(0.8, reduction);
     }
@@ -251,31 +280,30 @@ public class ZombieListener implements Listener {
      */
     private double calculatePlayerDamage(Player player, double baseDamage, ZombieManager.ActiveZombie zombie) {
         double damage = baseDamage;
-        
+
         // Bonus de dégâts %
         double damagePercent = plugin.getItemManager().getPlayerStat(player, StatType.DAMAGE_PERCENT);
         damage *= (1 + damagePercent / 100.0);
-        
+
         // Dégâts élémentaires
         damage += plugin.getItemManager().getPlayerStat(player, StatType.FIRE_DAMAGE);
         damage += plugin.getItemManager().getPlayerStat(player, StatType.ICE_DAMAGE);
         damage += plugin.getItemManager().getPlayerStat(player, StatType.LIGHTNING_DAMAGE);
         damage += plugin.getItemManager().getPlayerStat(player, StatType.POISON_DAMAGE);
-        
+
         // Critique
         double critChance = plugin.getItemManager().getPlayerStat(player, StatType.CRIT_CHANCE) / 100.0;
         if (Math.random() < critChance) {
             double critDamage = 1.5 + plugin.getItemManager().getPlayerStat(player, StatType.CRIT_DAMAGE) / 100.0;
             damage *= critDamage;
-            
+
             // Effet visuel de critique
             player.getWorld().spawnParticle(
-                org.bukkit.Particle.CRIT,
-                player.getLocation().add(0, 1, 0),
-                10, 0.3, 0.3, 0.3, 0.1
-            );
+                    org.bukkit.Particle.CRIT,
+                    player.getLocation().add(0, 1, 0),
+                    10, 0.3, 0.3, 0.3, 0.1);
         }
-        
+
         // Pénétration d'armure (réduit l'armure effective du zombie)
         // Géré via les attributs et l'IA personnalisée
 
@@ -287,8 +315,9 @@ public class ZombieListener implements Listener {
      */
     private void handleAffixSpecialAttack(ZombieAffix affix, LivingEntity zombie, Player victim) {
         String ability = affix.getSpecialAbility();
-        if (ability == null) return;
-        
+        if (ability == null)
+            return;
+
         switch (ability) {
             case "ignite_on_hit" -> {
                 victim.setFireTicks(60); // 3 secondes de feu
@@ -299,22 +328,21 @@ public class ZombieListener implements Listener {
             case "chain_lightning" -> {
                 // Dégâts aux joueurs proches
                 victim.getWorld().getNearbyEntities(victim.getLocation(), 5, 3, 5).stream()
-                    .filter(e -> e instanceof Player && e != victim)
-                    .limit(2)
-                    .forEach(e -> {
-                        ((Player) e).damage(3, zombie);
-                        victim.getWorld().spawnParticle(
-                            org.bukkit.Particle.ELECTRIC_SPARK,
-                            ((Player) e).getLocation().add(0, 1, 0),
-                            20, 0.3, 0.5, 0.3, 0.1
-                        );
-                    });
+                        .filter(e -> e instanceof Player && e != victim)
+                        .limit(2)
+                        .forEach(e -> {
+                            ((Player) e).damage(3, zombie);
+                            victim.getWorld().spawnParticle(
+                                    org.bukkit.Particle.ELECTRIC_SPARK,
+                                    ((Player) e).getLocation().add(0, 1, 0),
+                                    20, 0.3, 0.5, 0.3, 0.1);
+                        });
             }
             case "lifesteal" -> {
                 // Soigner le zombie de 20% des dégâts infligés
                 double healAmount = victim.getLastDamage() * 0.2;
-                zombie.setHealth(Math.min(zombie.getHealth() + healAmount, 
-                    zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue()));
+                zombie.setHealth(Math.min(zombie.getHealth() + healAmount,
+                        zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue()));
             }
             case "mana_drain" -> {
                 // Effet mana drain (effet visuel uniquement)
@@ -322,12 +350,10 @@ public class ZombieListener implements Listener {
             case "corruption_spread" -> {
                 // Appliquer wither à tous les joueurs proches
                 victim.getWorld().getNearbyEntities(victim.getLocation(), 4, 2, 4).stream()
-                    .filter(e -> e instanceof Player)
-                    .forEach(e -> ((Player) e).addPotionEffect(
-                        new org.bukkit.potion.PotionEffect(
-                            org.bukkit.potion.PotionEffectType.WITHER, 40, 0
-                        )
-                    ));
+                        .filter(e -> e instanceof Player)
+                        .forEach(e -> ((Player) e).addPotionEffect(
+                                new org.bukkit.potion.PotionEffect(
+                                        org.bukkit.potion.PotionEffectType.WITHER, 40, 0)));
             }
         }
     }
@@ -335,44 +361,42 @@ public class ZombieListener implements Listener {
     /**
      * Gère les abilities spéciales défensives d'affix
      */
-    private void handleAffixSpecialDefense(ZombieAffix affix, LivingEntity zombie, Player attacker, 
-                                           EntityDamageByEntityEvent event) {
+    private void handleAffixSpecialDefense(ZombieAffix affix, LivingEntity zombie, Player attacker,
+            EntityDamageByEntityEvent event) {
         String ability = affix.getSpecialAbility();
-        if (ability == null) return;
-        
+        if (ability == null)
+            return;
+
         switch (ability) {
             case "damage_reflect" -> {
                 // Refléter 20% des dégâts
                 double reflectDamage = event.getDamage() * 0.2;
                 attacker.damage(reflectDamage);
                 attacker.getWorld().spawnParticle(
-                    org.bukkit.Particle.ENCHANTED_HIT,
-                    attacker.getLocation().add(0, 1, 0),
-                    15, 0.3, 0.3, 0.3, 0.1
-                );
+                        org.bukkit.Particle.ENCHANTED_HIT,
+                        attacker.getLocation().add(0, 1, 0),
+                        15, 0.3, 0.3, 0.3, 0.1);
             }
             case "death_prevention" -> {
                 // Si le zombie devrait mourir, le sauver une fois à 10% HP
                 if (!zombie.hasMetadata("death_prevented")) {
                     double maxHealth = zombie.getAttribute(
-                        org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                            org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
                     if (zombie.getHealth() - event.getDamage() <= 0) {
                         event.setDamage(0);
                         zombie.setHealth(maxHealth * 0.1);
-                        zombie.setMetadata("death_prevented", 
-                            new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                        
+                        zombie.setMetadata("death_prevented",
+                                new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+
                         // Effet visuel
                         zombie.getWorld().spawnParticle(
-                            org.bukkit.Particle.TOTEM_OF_UNDYING,
-                            zombie.getLocation().add(0, 1, 0),
-                            30, 0.5, 1, 0.5, 0.2
-                        );
+                                org.bukkit.Particle.TOTEM_OF_UNDYING,
+                                zombie.getLocation().add(0, 1, 0),
+                                30, 0.5, 1, 0.5, 0.2);
                         zombie.getWorld().playSound(
-                            zombie.getLocation(),
-                            org.bukkit.Sound.ITEM_TOTEM_USE,
-                            1f, 1f
-                        );
+                                zombie.getLocation(),
+                                org.bukkit.Sound.ITEM_TOTEM_USE,
+                                1f, 1f);
                     }
                 }
             }
