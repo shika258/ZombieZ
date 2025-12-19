@@ -55,25 +55,30 @@ public final class ChasseurTalents {
             .values(new double[]{0.25, 2}) // chance, extra_projectiles (2 bonus = 3 total)
             .build());
 
-        // 1.2 - OEIL DE LYNX
+        // 1.2 - CHAUVE-SOURIS (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_lynx_eye")
-            .name("Oeil de Lynx")
-            .description("+25% chance critique, +30% degats critiques")
+            .id("chasseur_beast_bat")
+            .name("Chauve-souris")
+            .description("Invoque une chauve-souris qui attaque votre cible")
             .loreLines(new String[]{
-                "§7Votre precision est accrue:",
-                "§7- §e+25%§7 chance de critique",
-                "§7- §c+30%§7 degats critiques",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Vision de predateur"
+                "§7Invoque une §8chauve-souris§7 fidèle",
+                "§7qui attaque vos ennemis focalisés.",
+                "",
+                "§6CAPACITÉ:",
+                "§7Attaque automatiquement la cible",
+                "§7que vous frappez.",
+                "",
+                "§a✦ INVINCIBLE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(1)
-            .icon(Material.ENDER_EYE)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.LYNX_EYE)
-            .values(new double[]{0.25, 0.30}) // crit_chance, crit_damage_bonus
+            .icon(Material.BAT_SPAWN_EGG)
+            .iconColor("§8")
+            .effectType(Talent.TalentEffectType.BEAST_BAT)
+            .values(new double[]{1.5}) // base_damage
             .build());
 
         // 1.3 - CHASSEUR AGILE
@@ -171,25 +176,31 @@ public final class ChasseurTalents {
             .values(new double[]{3, 1.0, 0.15, 5.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
             .build());
 
-        // 2.2 - SNIPER
+        // 2.2 - OURS (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_sniper")
-            .name("Sniper")
-            .description("Distance = degats (+50% max a 15 blocs)")
+            .id("chasseur_beast_bear")
+            .name("Ours")
+            .description("Invoque un ours tank qui protege la meute")
             .loreLines(new String[]{
-                "§7Plus la cible est loin, plus",
-                "§7les degats sont eleves.",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8+3.33%/bloc au-dela de 5 blocs",
-                "§8Max: §c+50%§8 a 15+ blocs"
+                "§7Invoque un §fours puissant§7 qui",
+                "§7protège la meute avec férocité.",
+                "",
+                "§6CAPACITÉ - RUGISSEMENT:",
+                "§7Toutes les §e8s§7, rugit pour",
+                "§7provoquer les mobs dans §e5 blocs§7.",
+                "",
+                "§c♥ PARTAGE VOTRE VIE",
+                "§7Respawn: §e10s§7 après la mort"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(1)
-            .icon(Material.SPYGLASS)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.SNIPER)
-            .values(new double[]{5, 0.0333, 0.50, 15}) // min_dist, bonus_per_block, max_bonus, max_dist
+            .icon(Material.POLAR_BEAR_SPAWN_EGG)
+            .iconColor("§f")
+            .effectType(Talent.TalentEffectType.BEAST_BEAR)
+            .values(new double[]{8000, 5.0, 10000}) // roar_cooldown_ms, roar_radius, respawn_delay_ms
             .build());
 
         // 2.3 - FANTOME
@@ -289,25 +300,30 @@ public final class ChasseurTalents {
             .internalCooldownMs(2000)
             .build());
 
-        // 3.2 - OEIL DU PREDATEUR
+        // 3.2 - LOUP (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_predator_eye")
-            .name("Oeil du Predateur")
-            .description("Critique = 30% chance reinit. esquive")
+            .id("chasseur_beast_wolf")
+            .name("Loup")
+            .description("Invoque un loup qui inflige du saignement")
             .loreLines(new String[]{
-                "§7Les critiques ont §e30%§7 de",
-                "§7chance de reinitialiser le temps",
-                "§7de recharge de l'esquive!",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Hyper mobilite"
+                "§7Invoque un §7loup sauvage§7 aux",
+                "§7crocs empoisonnés de venin.",
+                "",
+                "§6CAPACITÉ - SAIGNEMENT:",
+                "§7Ses morsures infligent un §cDoT§7",
+                "§7pendant §e5s§7 (dégâts/seconde).",
+                "",
+                "§8Traque les ennemis blessés"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(1)
-            .icon(Material.CONDUIT)
-            .iconColor("§b")
-            .effectType(Talent.TalentEffectType.PREDATOR_EYE)
-            .values(new double[]{0.30}) // reset_chance
+            .icon(Material.WOLF_SPAWN_EGG)
+            .iconColor("§7")
+            .effectType(Talent.TalentEffectType.BEAST_WOLF)
+            .values(new double[]{3.0, 5000, 1.5}) // base_damage, bleed_duration_ms, bleed_damage_per_tick
             .build());
 
         // 3.3 - TRAQUEUR
@@ -403,24 +419,31 @@ public final class ChasseurTalents {
             .values(new double[]{3, 1.50}) // extra_waves, arrow_multiplier
             .build());
 
-        // 4.2 - PREDATEUR SUPREME
+        // 4.2 - AXOLOTL (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_supreme_predator")
-            .name("Predateur Supreme")
-            .description("Elimination en invisible: +2s (max 10s)")
+            .id("chasseur_beast_axolotl")
+            .name("Axolotl")
+            .description("Invoque un axolotl qui tire des bulles d'eau")
             .loreLines(new String[]{
-                "§7Les eliminations pendant l'invisibilite",
-                "§7prolongent l'invisibilite de §e+2s§7.",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Limite: 10s max"
+                "§7Invoque un §daxolotl mystique§7",
+                "§7qui maitrise l'eau comme arme.",
+                "",
+                "§6CAPACITÉ - BULLES D'EAU:",
+                "§7Tire des projectiles aquatiques",
+                "§7sur les ennemis proches.",
+                "",
+                "§b~ Portée: §e8 blocs",
+                "§b~ Cadence: §e1.5s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
             .slotIndex(1)
-            .icon(Material.WITHER_SKELETON_SKULL)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.SUPREME_PREDATOR)
-            .values(new double[]{2000, 10000}) // extension_ms, max_duration_ms
+            .icon(Material.AXOLOTL_BUCKET)
+            .iconColor("§d")
+            .effectType(Talent.TalentEffectType.BEAST_AXOLOTL)
+            .values(new double[]{2.5, 8.0, 1500}) // base_damage, range, cooldown_ms
             .build());
 
         // 4.3 - SENTENCE DE MORT
@@ -518,25 +541,31 @@ public final class ChasseurTalents {
             .internalCooldownMs(15000)
             .build());
 
-        // 5.2 - SPECTRE
+        // 5.2 - VACHE (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_spectre")
-            .name("Spectre")
-            .description("3 attaques en invis sans la briser")
+            .id("chasseur_beast_cow")
+            .name("Vache")
+            .description("Invoque une vache qui pose des mines explosives")
             .loreLines(new String[]{
-                "§7Vous pouvez attaquer §e3 fois§7",
-                "§7pendant l'invisibilite sans",
-                "§7la briser!",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Les bonus restent actifs"
+                "§7Invoque une §6vache§7... explosive.",
+                "§7Ne posez pas de questions.",
+                "",
+                "§6CAPACITÉ - BOUSE EXPLOSIVE:",
+                "§7Toutes les §e15s§7, dépose une",
+                "§7mine qui explose au contact.",
+                "",
+                "§c✦ Dégâts de zone",
+                "§c✦ Knockback"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(1)
-            .icon(Material.GHAST_TEAR)
-            .iconColor("§f")
-            .effectType(Talent.TalentEffectType.SPECTRE)
-            .values(new double[]{3}) // attacks_allowed
+            .icon(Material.COW_SPAWN_EGG)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.BEAST_COW)
+            .values(new double[]{15000, 8.0, 3.0}) // mine_cooldown_ms, mine_damage, explosion_radius
             .build());
 
         // 5.3 - CHASSEUR DE PRIMES
@@ -636,26 +665,31 @@ public final class ChasseurTalents {
             .values(new double[]{5, 2.0, 1.5}) // charges_needed, arrow_multiplier, zone_multiplier
             .build());
 
-        // 6.2 - VISION D'AIGLE
+        // 6.2 - LAMA (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_eagle_sight")
-            .name("Vision d'Aigle")
-            .description("+5% degats critiques par 3 blocs de distance")
+            .id("chasseur_beast_llama")
+            .name("Lama")
+            .description("Invoque un lama qui crache sur plusieurs cibles")
             .loreLines(new String[]{
-                "§7Vos degats critiques augmentent",
-                "§7de §c+5%§7 par §e3 blocs§7 de distance.",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Max: §c+50%§8 degats critiques",
-                "§8(a 30+ blocs)",
-                "§8Synergie: Build sniper"
+                "§7Invoque un §elama hautain§7 qui",
+                "§7méprise tous vos ennemis.",
+                "",
+                "§6CAPACITÉ - CRACHAT ACIDE:",
+                "§7Crache sur §e3 cibles§7 simultanément.",
+                "§7Inflige des dégâts + §9Lenteur II§7.",
+                "",
+                "§b~ Portée: §e6 blocs",
+                "§b~ Durée lenteur: §e3s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(1)
-            .icon(Material.SPYGLASS)
+            .icon(Material.LLAMA_SPAWN_EGG)
             .iconColor("§e")
-            .effectType(Talent.TalentEffectType.EAGLE_SIGHT)
-            .values(new double[]{0.05, 3, 0.50}) // bonus_per_step, blocks_per_step, max_bonus
+            .effectType(Talent.TalentEffectType.BEAST_LLAMA)
+            .values(new double[]{3.5, 6.0, 3, 3000}) // base_damage, range, max_targets, slow_duration_ms
             .build());
 
         // 6.3 - FRAPPE DES OMBRES
@@ -759,25 +793,31 @@ public final class ChasseurTalents {
             .values(new double[]{0.30, 1.0, 5.0, 0.15}) // dmg_bonus, explosion_dmg_mult, explosion_radius, pull_strength
             .build());
 
-        // 6.2 - MAITRE DES OMBRES
+        // 7.2 - RENARD (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_shadow_master")
-            .name("Maitre des Ombres")
-            .description("Invis permanente sans degats recus")
+            .id("chasseur_beast_fox")
+            .name("Renard")
+            .description("Invoque un renard chasseur de tresors")
             .loreLines(new String[]{
-                "§7L'invisibilite est §epermanente§7",
-                "§7tant que vous ne prenez pas",
-                "§7de degats!",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Attaques ne brisent plus l'invis"
+                "§7Invoque un §6renard rusé§7 qui",
+                "§7déniche des trésors cachés.",
+                "",
+                "§6CAPACITÉ - CHASSEUR DE TRÉSORS:",
+                "§7Quand un mob meurt près de lui,",
+                "§e20%§7 de chance de vous donner",
+                "§7un bonus §cForce§7 ou §bVitesse§7!",
+                "",
+                "§a✦ Durée bonus: §e10s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(1)
-            .icon(Material.BLACK_WOOL)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.SHADOW_MASTER)
-            .values(new double[]{}) // no values needed
+            .icon(Material.FOX_SPAWN_EGG)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.BEAST_FOX)
+            .values(new double[]{0.20, 10000, 10.0}) // treasure_chance, buff_duration_ms, detection_range
             .build());
 
         // 6.3 - EXECUTEUR DE PRIMES
@@ -878,25 +918,31 @@ public final class ChasseurTalents {
             .values(new double[]{2.0, 3, 0.40, 2.0}) // radius_mult, fragment_count, fragment_damage%, fragment_radius
             .build());
 
-        // 7.2 - FAUCHEUR
+        // 8.2 - ABEILLE (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_stealth_reaper")
-            .name("Faucheur")
-            .description("Attaque furtive: <30% PV = mort instantanee")
+            .id("chasseur_beast_bee")
+            .name("Abeille")
+            .description("Invoque une abeille qui galvanise la meute")
             .loreLines(new String[]{
-                "§7Vos attaques depuis l'invisibilite",
-                "§7§ctuent instantanement§7 les ennemis",
-                "§7sous §c30%§7 PV!",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§8Faux de la mort"
+                "§7Invoque une §eabeille guerrière§7",
+                "§7qui galvanise la meute.",
+                "",
+                "§6CAPACITÉ - FRÉNÉSIE DE LA RUCHE:",
+                "§7§eDouble-Sneak§7 pour activer!",
+                "§c+50%§7 vitesse d'attaque pour",
+                "§7TOUTES les bêtes pendant §e10s§7.",
+                "",
+                "§c⚡ Cooldown: §e20s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(1)
-            .icon(Material.NETHERITE_HOE)
-            .iconColor("§4")
-            .effectType(Talent.TalentEffectType.STEALTH_REAPER)
-            .values(new double[]{0.30}) // threshold
+            .icon(Material.BEE_SPAWN_EGG)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.BEAST_BEE)
+            .values(new double[]{10000, 0.50, 20000}) // frenzy_duration_ms, attack_speed_bonus, cooldown_ms
             .build());
 
         // 7.3 - CHASSEUR LEGENDAIRE
@@ -1001,28 +1047,34 @@ public final class ChasseurTalents {
             .internalCooldownMs(30000)
             .build());
 
-        // 8.2 - MARCHEUR DU VIDE (EQUILIBRE - pas d'invincibilite totale!)
+        // 9.2 - GOLEM DE FER (Voie des Bêtes - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_void_walker")
-            .name("Marcheur du Vide")
-            .description("-60% degats en mouvement")
+            .id("chasseur_beast_iron_golem")
+            .name("Golem de Fer")
+            .description("Invoque un golem devastateur avec onde de choc")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§l★ TALENT LÉGENDAIRE ★",
+                "§6§lVOIE DES BÊTES",
                 "",
-                "§7Vous existez dans les ombres.",
-                "§7§a-60%§7 degats recus tant que",
-                "§7vous etes en mouvement.",
+                "§7Invoque un §7Golem de Fer§7",
+                "§7gardien qui écrase vos ennemis.",
                 "",
-                "§8Note: Vous pouvez toujours mourir!"
+                "§6CAPACITÉ - ONDE DE CHOC:",
+                "§7Toutes les §e12s§7, frappe le sol!",
+                "",
+                "§c1. §7Attire les ennemis (vortex)",
+                "§c2. §7Les projette en l'air",
+                "§c3. §7Dégâts massifs!",
+                "",
+                "§6§l★ PUISSANCE ULTIME ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(1)
-            .icon(Material.ENDER_PEARL)
-            .iconColor("§5§l")
-            .effectType(Talent.TalentEffectType.VOID_WALKER)
-            // BALANCE: -60% DR au lieu d'invincibilite
-            .values(new double[]{0.60}) // damage_reduction%
+            .icon(Material.IRON_BLOCK)
+            .iconColor("§7§l")
+            .effectType(Talent.TalentEffectType.BEAST_IRON_GOLEM)
+            .values(new double[]{12000, 8.0, 5.0}) // shockwave_cooldown_ms, damage, radius
             .build());
 
         // 8.3 - CARNET DE LA MORT

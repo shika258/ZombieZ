@@ -158,6 +158,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.classes.gui.TalentSelectionGUI talentSelectionGUI;
     @Getter
     private com.rinaorc.zombiez.classes.gui.BranchSelectionGUI branchSelectionGUI;
+    @Getter
+    private com.rinaorc.zombiez.classes.beasts.BeastManager beastManager;
 
     // Système de Pets
     @Getter
@@ -293,6 +295,15 @@ public class ZombieZPlugin extends JavaPlugin {
         if (classManager != null) {
             log(Level.INFO, "§7Sauvegarde des données de classe...");
             classManager.shutdown();
+        }
+
+        // Cleanup du système de bêtes
+        if (beastManager != null) {
+            log(Level.INFO, "§7Nettoyage des bêtes invoquées...");
+            // Despawn toutes les bêtes pour tous les joueurs
+            for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+                beastManager.despawnAllBeasts(player);
+            }
         }
 
         // Cleanup du système de pets
@@ -497,6 +508,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Branch Selection GUI - Menu de sélection de branche/spécialisation
         branchSelectionGUI = new com.rinaorc.zombiez.classes.gui.BranchSelectionGUI(this, classManager);
+
+        // Beast Manager - Système de bêtes pour la Voie des Bêtes du Chasseur
+        beastManager = new com.rinaorc.zombiez.classes.beasts.BeastManager(this, talentManager);
 
         // ===== Système de Pets =====
 
@@ -710,6 +724,11 @@ public class ZombieZPlugin extends JavaPlugin {
                     this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager),
                     this);
+        }
+
+        // Listener système de bêtes (Voie des Bêtes du Chasseur)
+        if (beastManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.classes.beasts.BeastListener(this, beastManager), this);
         }
 
         // Listeners système de pets
