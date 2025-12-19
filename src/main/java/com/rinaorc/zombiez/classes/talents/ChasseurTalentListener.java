@@ -803,11 +803,17 @@ public class ChasseurTalentListener implements Listener {
         Talent cycloneEye = getActiveTalentIfHas(player, Talent.TalentEffectType.CYCLONE_EYE);
         boolean hasCyclone = cycloneEye != null;
 
-        // Meteor Shower upgrade
-        Talent meteorShower = getActiveTalentIfHas(player, Talent.TalentEffectType.METEOR_SHOWER);
-        if (meteorShower != null) {
-            procMeteorShower(player, center, meteorShower);
-            return;
+        // Nuée Dévastatrice - x2 rayon + fragmentation
+        Talent devastatingSwarm = getActiveTalentIfHas(player, Talent.TalentEffectType.DEVASTATING_SWARM);
+        boolean hasSwarm = devastatingSwarm != null;
+        if (hasSwarm) {
+            double radiusMult = devastatingSwarm.getValue(0); // x2
+            radius *= radiusMult;
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§6✦ Nuée Dévastatrice! Zone x" + (int)radiusMult + "!");
+            }
+            // Son épique
+            center.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.5f, 0.8f);
         }
 
         // Préparer le tracking des kills pour Barrage Fury
@@ -828,6 +834,8 @@ public class ChasseurTalentListener implements Listener {
         final double finalRadius = radius;
         final double finalDamageBase = damagePerArrow * (isSuperRain ? 1.5 : 1.0); // +50% dégâts en super
         final boolean finalHasCyclone = hasCyclone;
+        final boolean finalHasSwarm = hasSwarm;
+        final Talent finalSwarmTalent = devastatingSwarm;
 
         // === CYCLONE EYE - Créer le vortex ===
         if (hasCyclone) {
@@ -1036,6 +1044,46 @@ public class ChasseurTalentListener implements Listener {
                                                 }
                                             }
 
+                                            // === NUÉE DÉVASTATRICE - Fragmentation ===
+                                            if (finalHasSwarm && finalSwarmTalent != null) {
+                                                int fragmentCount = (int) finalSwarmTalent.getValue(1);     // 3 éclats
+                                                double fragmentDmgPct = finalSwarmTalent.getValue(2);       // 40%
+                                                double fragmentRadius = finalSwarmTalent.getValue(3);       // 2 blocs
+
+                                                double fragmentDamage = finalDamageBase * fragmentDmgPct;
+
+                                                // Créer les éclats qui partent dans des directions différentes
+                                                for (int frag = 0; frag < fragmentCount; frag++) {
+                                                    double angle = (frag * 2 * Math.PI / fragmentCount) + Math.random() * 0.5;
+                                                    double fragX = loc.getX() + Math.cos(angle) * fragmentRadius;
+                                                    double fragZ = loc.getZ() + Math.sin(angle) * fragmentRadius;
+                                                    Location fragLoc = new Location(loc.getWorld(), fragX, loc.getY(), fragZ);
+
+                                                    // Effet visuel de l'éclat
+                                                    loc.getWorld().spawnParticle(Particle.CRIT, fragLoc, 5, 0.2, 0.2, 0.2, 0.1);
+                                                    loc.getWorld().spawnParticle(Particle.DUST, fragLoc, 3, 0.1, 0.1, 0.1, 0,
+                                                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 0.8f));
+
+                                                    // Dégâts de l'éclat
+                                                    for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
+                                                        if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand)) {
+                                                            fragTarget.damage(fragmentDamage, player);
+
+                                                            // Check kill for Barrage Fury
+                                                            if (fragTarget.isDead() || fragTarget.getHealth() <= 0) {
+                                                                Set<UUID> kills = arrowRainKillTracking.get(uuid);
+                                                                if (kills != null) {
+                                                                    kills.add(fragTarget.getUniqueId());
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Son de fragmentation
+                                                loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.5f, 1.5f);
+                                            }
+
                                             if (!finalPierce) break;
                                         }
                                     }
@@ -1090,52 +1138,37 @@ public class ChasseurTalentListener implements Listener {
         }
     }
 
-    private void procMeteorShower(Player player, Location center, Talent talent) {
-        double damagePerMeteor = 10 * talent.getValue(0);
-        int meteors = (int) talent.getValue(1);
-        double zoneRadius = talent.getValue(2);
-        double explosionRadius = talent.getValue(3);
-
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ METEOR SHOWER!");
-        }
-
-        for (int i = 0; i < meteors; i++) {
-            int delay = i * 5;
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                double x = center.getX() + (Math.random() - 0.5) * zoneRadius * 2;
-                double z = center.getZ() + (Math.random() - 0.5) * zoneRadius * 2;
-                Location meteorLoc = new Location(center.getWorld(), x, center.getY(), z);
-
-                // Visual
-                center.getWorld().spawnParticle(Particle.EXPLOSION, meteorLoc, 1);
-                center.getWorld().spawnParticle(Particle.FLAME, meteorLoc, 30, explosionRadius/2, 0.5, explosionRadius/2, 0.1);
-                center.getWorld().playSound(meteorLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.0f);
-
-                // Damage
-                for (Entity entity : center.getWorld().getNearbyEntities(meteorLoc, explosionRadius, explosionRadius, explosionRadius)) {
-                    if (entity instanceof LivingEntity target && entity != player) {
-                        target.damage(damagePerMeteor, player);
-                    }
-                }
-            }, delay);
-        }
-    }
-
     private void procSteelStorm(Player player, Talent talent) {
         Location center = player.getLocation();
         double damagePerArrow = 5 * talent.getValue(1);
         int arrows = (int) talent.getValue(2);
         double radius = talent.getValue(3);
+        UUID uuid = player.getUniqueId();
+
+        // Nuée Dévastatrice - x2 rayon
+        Talent devastatingSwarm = getActiveTalentIfHas(player, Talent.TalentEffectType.DEVASTATING_SWARM);
+        boolean hasSwarm = devastatingSwarm != null;
+        if (hasSwarm) {
+            double radiusMult = devastatingSwarm.getValue(0);
+            radius *= radiusMult;
+        }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ TEMPETE D'ACIER!");
+            String msg = "§6§l+ TEMPETE D'ACIER!";
+            if (hasSwarm) msg += " §e(Zone x2)";
+            player.sendMessage(msg);
         }
 
         // Sons épiques d'annonce
         player.getWorld().playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
         player.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.8f);
+        if (hasSwarm) {
+            player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.2f, 1.0f);
+        }
+
+        final double finalRadius = radius;
+        final boolean finalHasSwarm = hasSwarm;
+        final Talent finalSwarmTalent = devastatingSwarm;
 
         // Spawner les flèches de feu qui tombent du ciel
         for (int i = 0; i < arrows; i++) {
@@ -1182,6 +1215,34 @@ public class ChasseurTalentListener implements Listener {
 
                                     // Appliquer le DOT custom (dégâts supplémentaires sur la durée)
                                     applyFireDot(player, target, finalDamage * 0.5, 3000);
+
+                                    // === NUÉE DÉVASTATRICE - Fragmentation enflammée ===
+                                    if (finalHasSwarm && finalSwarmTalent != null) {
+                                        int fragmentCount = (int) finalSwarmTalent.getValue(1);
+                                        double fragmentDmgPct = finalSwarmTalent.getValue(2);
+                                        double fragmentRadius = finalSwarmTalent.getValue(3);
+                                        double fragmentDamage = finalDamage * fragmentDmgPct;
+
+                                        for (int frag = 0; frag < fragmentCount; frag++) {
+                                            double angle = (frag * 2 * Math.PI / fragmentCount) + Math.random() * 0.5;
+                                            double fragX = loc.getX() + Math.cos(angle) * fragmentRadius;
+                                            double fragZ = loc.getZ() + Math.sin(angle) * fragmentRadius;
+                                            Location fragLoc = new Location(loc.getWorld(), fragX, loc.getY(), fragZ);
+
+                                            // Éclats enflammés
+                                            loc.getWorld().spawnParticle(Particle.FLAME, fragLoc, 8, 0.2, 0.2, 0.2, 0.05);
+                                            loc.getWorld().spawnParticle(Particle.DUST, fragLoc, 3, 0.1, 0.1, 0.1, 0,
+                                                new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.8f));
+
+                                            for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
+                                                if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand)) {
+                                                    fragTarget.damage(fragmentDamage, player);
+                                                    fragTarget.setFireTicks(40); // Éclats enflammés
+                                                }
+                                            }
+                                        }
+                                        loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.5f, 1.2f);
+                                    }
                                 }
                             }
 

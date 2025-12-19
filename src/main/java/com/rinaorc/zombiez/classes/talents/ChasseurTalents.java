@@ -815,27 +815,34 @@ public final class ChasseurTalents {
     // ==================== PALIER 8 - NIVEAU 40 (Apex) ====================
 
     private static void registerTier8Talents() {
-        // 7.1 - PLUIE DE METEORES
+        // 8.1 - NUEE DEVASTATRICE
         TALENTS.add(Talent.builder()
-            .id("chasseur_meteor_shower")
-            .name("Pluie de Meteores")
-            .description("Pluie = meteores explosifs")
+            .id("chasseur_devastating_swarm")
+            .name("Nuee Devastatrice")
+            .description("x2 rayon pluies + fleches fragmentees!")
             .loreLines(new String[]{
-                "§7La pluie de fleches est",
-                "§7remplacee par une pluie de",
-                "§c§lMETEORES EXPLOSIFS§7!",
+                "§7Votre maitrise du barrage atteint",
+                "§7son apogee!",
                 "",
-                "§8Degats: §c150%§8 x10 meteores",
-                "§8Zone: §e10x10§8 blocs",
-                "§8Explosion: §e2§8 blocs/meteore"
+                "§6Rayon x2:",
+                "§8- §ePluie de Fleches§8 x2 zone",
+                "§8- §eTempete d'Acier§8 x2 zone",
+                "§8- §6Super Pluie§8 x2 zone",
+                "",
+                "§6Fragmentation:",
+                "§7Chaque fleche qui touche §eexplose§7",
+                "§7en §e3 eclats§7 qui rebondissent!",
+                "",
+                "§8Les eclats infligent §c40%§8 des degats",
+                "§8dans un rayon de §e2§8 blocs."
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(0)
-            .icon(Material.FIRE_CHARGE)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.METEOR_SHOWER)
-            .values(new double[]{1.50, 10, 10.0, 2.0}) // damage_per_meteor%, meteors, zone_radius, explosion_radius
+            .icon(Material.FIREWORK_STAR)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.DEVASTATING_SWARM)
+            .values(new double[]{2.0, 3, 0.40, 2.0}) // radius_mult, fragment_count, fragment_damage%, fragment_radius
             .build());
 
         // 7.2 - FAUCHEUR

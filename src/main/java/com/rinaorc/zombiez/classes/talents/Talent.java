@@ -185,8 +185,8 @@ public class Talent {
         BLACK_PLAGUE,            // Poison anti-heal + self heal
         GATLING,                 // Full auto mode
 
-        // === CHASSEUR - Tier 7 ===
-        METEOR_SHOWER,           // Arrows become meteors
+        // === CHASSEUR - Tier 8 ===
+        DEVASTATING_SWARM,       // Doubles all rain radius + arrows fragment on impact
         STEALTH_REAPER,          // Stealth execute
         LEGENDARY_HUNTER,        // Multi-mark permanent
         BLIGHT,                  // Passive contagion
