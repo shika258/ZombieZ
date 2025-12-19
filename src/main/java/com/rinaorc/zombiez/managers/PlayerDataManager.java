@@ -61,22 +61,22 @@ public class PlayerDataManager {
         // Cache principal pour joueurs en ligne
         // Taille max 250 pour avoir de la marge sur 200 joueurs
         this.playerCache = Caffeine.newBuilder()
-            .maximumSize(250)
-            .expireAfterAccess(30, TimeUnit.MINUTES) // Expire si pas accédé pendant 30min
-            .removalListener((UUID uuid, PlayerData data, RemovalCause cause) -> {
-                if (data != null && data.isDirty() && cause != RemovalCause.REPLACED) {
-                    // Sauvegarder automatiquement si données modifiées
-                    saveAsync(data);
-                }
-            })
-            .recordStats() // Pour le monitoring
-            .build();
+                .maximumSize(250)
+                .expireAfterAccess(30, TimeUnit.MINUTES) // Expire si pas accédé pendant 30min
+                .removalListener((UUID uuid, PlayerData data, RemovalCause cause) -> {
+                    if (data != null && data.isDirty() && cause != RemovalCause.REPLACED) {
+                        // Sauvegarder automatiquement si données modifiées
+                        saveAsync(data);
+                    }
+                })
+                .recordStats() // Pour le monitoring
+                .build();
 
         // Cache des joueurs récemment déconnectés (5 minutes)
         this.recentCache = Caffeine.newBuilder()
-            .maximumSize(100)
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .build();
+                .maximumSize(100)
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .build();
 
         plugin.log(Level.INFO, "§7PlayerDataManager initialisé (cache: 250 slots)");
     }
@@ -133,7 +133,7 @@ public class PlayerDataManager {
             try {
                 PlayerData data = loadFromDatabase(uuid, name);
                 playerCache.put(uuid, data);
-                
+
                 // Fire event sur le main thread
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     Bukkit.getPluginManager().callEvent(new PlayerDataLoadEvent(player, data));
@@ -151,13 +151,13 @@ public class PlayerDataManager {
      */
     private PlayerData loadFromDatabase(UUID uuid, String name) {
         dbQueries++;
-        
+
         try (Connection conn = db.getConnection()) {
             String sql = "SELECT * FROM " + db.table("players") + " WHERE uuid = ?";
-            
+
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, uuid.toString());
-                
+
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         // Joueur existant
@@ -182,7 +182,7 @@ public class PlayerDataManager {
      */
     private PlayerData loadFromResultSet(ResultSet rs, UUID uuid) throws SQLException {
         PlayerData data = new PlayerData(uuid);
-        
+
         data.setName(rs.getString("name"));
         data.getLevel().set(rs.getInt("level"));
         data.getXp().set(rs.getLong("xp"));
@@ -196,21 +196,21 @@ public class PlayerDataManager {
         data.getMaxZone().set(rs.getInt("max_zone"));
         data.getCurrentCheckpoint().set(rs.getInt("current_checkpoint"));
         data.setVipRank(rs.getString("vip_rank"));
-        
+
         Timestamp vipExpiry = rs.getTimestamp("vip_expiry");
         if (vipExpiry != null) {
             data.setVipExpiry(vipExpiry.toInstant());
         }
-        
+
         Timestamp firstJoin = rs.getTimestamp("first_join");
         if (firstJoin != null) {
             data.setFirstJoin(firstJoin.toInstant());
         }
-        
+
         data.setLastLogin(Instant.now());
         data.startSession();
         data.clearDirty(); // Données fraîches de la BDD
-        
+
         return data;
     }
 
@@ -219,12 +219,12 @@ public class PlayerDataManager {
      */
     private void insertNewPlayer(Connection conn, PlayerData data) throws SQLException {
         String sql = """
-            INSERT INTO %s (uuid, name, level, xp, prestige, points, gems, kills, deaths, 
-                           playtime, current_zone, max_zone, current_checkpoint, vip_rank, 
-                           first_join, last_login)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.formatted(db.table("players"));
-        
+                INSERT INTO %s (uuid, name, level, xp, prestige, points, gems, kills, deaths,
+                               playtime, current_zone, max_zone, current_checkpoint, vip_rank,
+                               first_join, last_login)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.formatted(db.table("players"));
+
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, data.getUuid().toString());
             stmt.setString(2, data.getName());
@@ -242,15 +242,16 @@ public class PlayerDataManager {
             stmt.setString(14, data.getVipRank());
             stmt.setTimestamp(15, Timestamp.from(data.getFirstJoin()));
             stmt.setTimestamp(16, Timestamp.from(Instant.now()));
-            
+
             stmt.executeUpdate();
         }
-        
+
         plugin.log(Level.INFO, "§7Nouveau joueur créé: §e" + data.getName());
     }
 
     /**
      * Obtient les données d'un joueur depuis le cache
+     * 
      * @return null si le joueur n'est pas en cache
      */
     public PlayerData getPlayer(UUID uuid) {
@@ -263,28 +264,28 @@ public class PlayerDataManager {
     public PlayerData getPlayer(Player player) {
         return getPlayer(player.getUniqueId());
     }
-    
+
     /**
      * Alias pour getPlayer - compatibilité
      */
     public PlayerData getPlayerData(UUID uuid) {
         return getPlayer(uuid);
     }
-    
+
     /**
      * Alias pour getPlayer - compatibilité
      */
     public PlayerData getPlayerData(Player player) {
         return getPlayer(player.getUniqueId());
     }
-    
+
     /**
      * Alias pour getPlayer - compatibilité
      */
     public PlayerData getData(UUID uuid) {
         return getPlayer(uuid);
     }
-    
+
     /**
      * Alias pour getPlayer - compatibilité
      */
@@ -308,7 +309,7 @@ public class PlayerDataManager {
         }
 
         UUID uuid = data.getUuid();
-        
+
         // Éviter les doubles sauvegardes
         if (savingPlayers.contains(uuid)) {
             return CompletableFuture.completedFuture(null);
@@ -320,13 +321,11 @@ public class PlayerDataManager {
             try {
                 saveToDatabase(data);
                 data.clearDirty();
-                
-                // Fire event sur le main thread
+
+                // Fire event asynchronously (Paper 1.21.4 requires async-only)
                 Player player = data.getPlayer();
                 if (player != null) {
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        Bukkit.getPluginManager().callEvent(new PlayerDataSaveEvent(player, data));
-                    });
+                    Bukkit.getPluginManager().callEvent(new PlayerDataSaveEvent(player, data));
                 }
             } finally {
                 savingPlayers.remove(uuid);
@@ -339,16 +338,16 @@ public class PlayerDataManager {
      */
     private void saveToDatabase(PlayerData data) {
         dbQueries++;
-        
+
         try (Connection conn = db.getConnection()) {
             String sql = """
-                UPDATE %s SET 
-                    name = ?, level = ?, xp = ?, prestige = ?, points = ?, gems = ?,
-                    kills = ?, deaths = ?, playtime = ?, current_zone = ?, max_zone = ?,
-                    current_checkpoint = ?, vip_rank = ?, vip_expiry = ?, last_login = ?, last_logout = ?
-                WHERE uuid = ?
-                """.formatted(db.table("players"));
-            
+                    UPDATE %s SET
+                        name = ?, level = ?, xp = ?, prestige = ?, points = ?, gems = ?,
+                        kills = ?, deaths = ?, playtime = ?, current_zone = ?, max_zone = ?,
+                        current_checkpoint = ?, vip_rank = ?, vip_expiry = ?, last_login = ?, last_logout = ?
+                    WHERE uuid = ?
+                    """.formatted(db.table("players"));
+
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, data.getName());
                 stmt.setInt(2, data.getLevel().get());
@@ -363,14 +362,11 @@ public class PlayerDataManager {
                 stmt.setInt(11, data.getMaxZone().get());
                 stmt.setInt(12, data.getCurrentCheckpoint().get());
                 stmt.setString(13, data.getVipRank());
-                stmt.setTimestamp(14, data.getVipExpiry() != null ? 
-                    Timestamp.from(data.getVipExpiry()) : null);
-                stmt.setTimestamp(15, data.getLastLogin() != null ? 
-                    Timestamp.from(data.getLastLogin()) : null);
-                stmt.setTimestamp(16, data.getLastLogout() != null ? 
-                    Timestamp.from(data.getLastLogout()) : null);
+                stmt.setTimestamp(14, data.getVipExpiry() != null ? Timestamp.from(data.getVipExpiry()) : null);
+                stmt.setTimestamp(15, data.getLastLogin() != null ? Timestamp.from(data.getLastLogin()) : null);
+                stmt.setTimestamp(16, data.getLastLogout() != null ? Timestamp.from(data.getLastLogout()) : null);
                 stmt.setString(17, data.getUuid().toString());
-                
+
                 stmt.executeUpdate();
             }
         } catch (SQLException e) {
@@ -383,11 +379,12 @@ public class PlayerDataManager {
      */
     public CompletableFuture<Void> unloadPlayer(UUID uuid) {
         PlayerData data = playerCache.getIfPresent(uuid);
-        if (data == null) return CompletableFuture.completedFuture(null);
+        if (data == null)
+            return CompletableFuture.completedFuture(null);
 
         // Terminer la session
         data.endSession();
-        
+
         // Sauvegarder
         return saveAsync(data).thenRun(() -> {
             // Déplacer vers le cache des récents
@@ -401,11 +398,13 @@ public class PlayerDataManager {
      */
     public void saveAllAsync() {
         Collection<PlayerData> allData = playerCache.asMap().values();
-        
-        if (allData.isEmpty()) return;
+
+        if (allData.isEmpty())
+            return;
 
         long dirtyCount = allData.stream().filter(PlayerData::isDirty).count();
-        if (dirtyCount == 0) return;
+        if (dirtyCount == 0)
+            return;
 
         CompletableFuture.runAsync(() -> {
             for (PlayerData data : allData) {
@@ -426,7 +425,7 @@ public class PlayerDataManager {
     public void saveAllSync() {
         Collection<PlayerData> allData = playerCache.asMap().values();
         int saved = 0;
-        
+
         for (PlayerData data : allData) {
             if (data.isDirty()) {
                 data.endSession();
@@ -435,7 +434,7 @@ public class PlayerDataManager {
                 saved++;
             }
         }
-        
+
         plugin.log(Level.INFO, "§7Sauvegarde finale: §e" + saved + " §7joueurs");
     }
 
@@ -459,12 +458,11 @@ public class PlayerDataManager {
     public String getCacheStats() {
         var stats = playerCache.stats();
         return String.format(
-            "Hits: %d, Misses: %d, Hit Rate: %.1f%%, Size: %d, DB Queries: %d",
-            cacheHits, cacheMisses,
-            cacheHits + cacheMisses > 0 ? (double) cacheHits / (cacheHits + cacheMisses) * 100 : 0,
-            playerCache.estimatedSize(),
-            dbQueries
-        );
+                "Hits: %d, Misses: %d, Hit Rate: %.1f%%, Size: %d, DB Queries: %d",
+                cacheHits, cacheMisses,
+                cacheHits + cacheMisses > 0 ? (double) cacheHits / (cacheHits + cacheMisses) * 100 : 0,
+                playerCache.estimatedSize(),
+                dbQueries);
     }
 
     /**
@@ -473,7 +471,7 @@ public class PlayerDataManager {
     public CompletableFuture<PlayerData> reloadPlayer(UUID uuid) {
         playerCache.invalidate(uuid);
         recentCache.invalidate(uuid);
-        
+
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
             return loadPlayerAsync(player);
