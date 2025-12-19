@@ -141,13 +141,13 @@ public class ChasseurTalentListener implements Listener {
         // === TIER 1 ===
 
         // Tirs Multiples - UNIQUEMENT sur attaques à distance (projectiles)
-        // Bonus: +10% de chance par talent supplémentaire de la Voie du Barrage
+        // Bonus: +10% de chance par talent supplémentaire de la Voie du Barrage (cap 100%)
         Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
         if (multiShot != null && isRanged && !isOnCooldown(uuid, "multi_shot")) {
             // Calculer le bonus de chance (chaque talent Barrage après le 1er donne +10%)
             int barrageTalentCount = countBarrageTalents(player);
             double bonusChance = (barrageTalentCount - 1) * 0.10; // -1 car Tirs Multiples compte déjà
-            double totalChance = multiShot.getValue(0) + bonusChance;
+            double totalChance = Math.min(1.0, multiShot.getValue(0) + bonusChance); // Cap à 100%
 
             if (Math.random() < totalChance) {
                 procMultiShot(player, target, damage * multiShot.getValue(2));
@@ -155,9 +155,9 @@ public class ChasseurTalentListener implements Listener {
 
                 // Feedback avec le bonus affiché
                 if (shouldSendTalentMessage(player)) {
+                    int totalPercent = (int) (totalChance * 100);
                     if (bonusChance > 0) {
-                        int bonusPercent = (int) (bonusChance * 100);
-                        player.sendMessage("§f✦ Tirs Multiples! §7(+" + bonusPercent + "% bonus)");
+                        player.sendMessage("§f✦ Tirs Multiples! §7(" + totalPercent + "%)");
                     } else {
                         player.sendMessage("§f✦ Tirs Multiples!");
                     }
