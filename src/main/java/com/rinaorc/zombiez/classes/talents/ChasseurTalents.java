@@ -145,16 +145,21 @@ public final class ChasseurTalents {
     // ==================== PALIER 2 - NIVEAU 5 (Amplification) ====================
 
     private static void registerTier2Talents() {
-        // 2.1 - RAFALE
+        // 2.1 - RAFALE (Flèches Traqueuses + Combo)
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("4eme tir sur meme cible: +100% degats")
+            .description("Fleches chercheuses + 4eme tir = +100% degats")
             .loreLines(new String[]{
+                "§7Vos fleches §etraquent§7 les ennemis",
+                "§7proches et ajustent leur trajectoire!",
+                "",
+                "§6§lBONUS COMBO:",
                 "§7Apres §e3 tirs§7 sur la meme cible,",
                 "§7le 4eme inflige §c+100%§7 degats!",
                 "",
-                "§8Enchainez vos tirs!"
+                "§8Fonctionne sur vos tirs ET les pluies!",
+                "§8Rayon de traque: §f5 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -162,7 +167,7 @@ public final class ChasseurTalents {
             .icon(Material.TIPPED_ARROW)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BURST_SHOT)
-            .values(new double[]{3, 1.0}) // hits_needed, bonus_damage%
+            .values(new double[]{3, 1.0, 0.15, 5.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
             .build());
 
         // 2.2 - SNIPER

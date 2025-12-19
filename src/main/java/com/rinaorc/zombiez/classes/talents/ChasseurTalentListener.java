@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.potion.PotionEffect;
@@ -87,6 +88,9 @@ public class ChasseurTalentListener implements Listener {
     // Frappe Orbitale - double sneak tracking
     private final Map<UUID, Long> lastOrbitalSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW = 400; // 400ms pour double sneak
+
+    // Rafale - flèches chercheuses tracking (arrow UUID -> player UUID)
+    private final Map<UUID, UUID> homingArrows = new ConcurrentHashMap<>();
 
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
@@ -224,21 +228,10 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 2 ===
 
-        // Rafale - combo
+        // Rafale - combo + flèches chercheuses (homing géré dans ProjectileLaunchEvent)
         Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        if (burstShot != null) {
-            UUID lastTarget = lastTargetHit.get(uuid);
-            if (lastTarget != null && lastTarget.equals(targetUuid)) {
-                int combo = comboCounter.merge(uuid, 1, Integer::sum);
-                if (combo >= burstShot.getValue(0)) {
-                    damage *= (1 + burstShot.getValue(1));
-                    comboCounter.put(uuid, 0);
-                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
-                }
-            } else {
-                comboCounter.put(uuid, 1);
-            }
-            lastTargetHit.put(uuid, targetUuid);
+        if (burstShot != null && incrementRafaleCombo(player, target)) {
+            damage *= (1 + burstShot.getValue(1)); // +100% sur le 4ème hit
         }
 
         // Sniper - distance bonus
@@ -461,6 +454,25 @@ public class ChasseurTalentListener implements Listener {
         Map<UUID, Integer> playerPoisons = poisonStacks.get(uuid);
         if (playerPoisons != null) {
             playerPoisons.remove(targetUuid);
+        }
+    }
+
+    // ==================== PROJECTILE LAUNCH (RAFALE HOMING) ====================
+
+    @EventHandler
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (!(event.getEntity() instanceof Arrow arrow)) return;
+        if (!(arrow.getShooter() instanceof Player player)) return;
+
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return;
+
+        // Rafale - Appliquer homing aux flèches tirées par le joueur
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot != null) {
+            double homingStrength = burstShot.getValue(2);
+            double homingRadius = burstShot.getValue(3);
+            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
         }
     }
 
@@ -714,6 +726,12 @@ public class ChasseurTalentListener implements Listener {
         // Décalage horizontal pour les flèches (I I I pattern)
         double spacing = 0.6; // Espacement entre les flèches
 
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        boolean hasHoming = burstShot != null;
+        double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+
         // Sons distinctifs de tir multiple
         player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.5f);
         player.getWorld().playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 2.0f);
@@ -734,6 +752,11 @@ public class ChasseurTalentListener implements Listener {
             arrow.setDamage(damage / 2); // Dégâts de la flèche (60% répartis)
             arrow.setGravity(true);
             arrow.setCritical(true);
+
+            // === RAFALE - Flèches chercheuses ===
+            if (hasHoming) {
+                applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+            }
 
             // Particules de traînée dorée pour distinguer les flèches bonus
             final Arrow finalArrow = arrow;
@@ -861,6 +884,13 @@ public class ChasseurTalentListener implements Listener {
         final boolean finalHasCyclone = hasCyclone;
         final boolean finalHasSwarm = hasSwarm;
         final Talent finalSwarmTalent = devastatingSwarm;
+
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        final boolean hasHoming = burstShot != null;
+        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
 
         // === CYCLONE EYE - Créer le vortex ===
         if (hasCyclone) {
@@ -1015,6 +1045,11 @@ public class ChasseurTalentListener implements Listener {
                             arrow.setFireTicks(200);
                         }
 
+                        // === RAFALE - Flèches chercheuses ===
+                        if (hasHoming) {
+                            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+                        }
+
                         // Particules de traînée
                         new BukkitRunnable() {
                             int ticks = 0;
@@ -1053,6 +1088,11 @@ public class ChasseurTalentListener implements Listener {
                                                     loc.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0,
                                                         new Particle.DustOptions(Color.fromRGB(0, 200, 255), 1.0f));
                                                 }
+                                            }
+
+                                            // === RAFALE - Combo bonus ===
+                                            if (hasHoming && incrementRafaleCombo(player, target)) {
+                                                finalDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
                                             }
 
                                             // Track health before damage for kill detection
@@ -1193,6 +1233,13 @@ public class ChasseurTalentListener implements Listener {
         final boolean finalHasSwarm = hasSwarm;
         final Talent finalSwarmTalent = devastatingSwarm;
 
+        // Rafale - Flèches chercheuses
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        final boolean hasHoming = burstShot != null;
+        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
+        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
+        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
+
         // Spawner les flèches de feu qui tombent du ciel
         for (int i = 0; i < arrows; i++) {
             // Position de chute aléatoire dans le rayon
@@ -1215,6 +1262,11 @@ public class ChasseurTalentListener implements Listener {
                 arrow.setGravity(true);
                 arrow.setFireTicks(200); // Flèche en feu
 
+                // === RAFALE - Flèches chercheuses ===
+                if (hasHoming) {
+                    applyHomingBehavior(arrow, player, homingStrength, homingRadius);
+                }
+
                 // Particules de traînée de feu
                 new BukkitRunnable() {
                     int ticks = 0;
@@ -1230,14 +1282,21 @@ public class ChasseurTalentListener implements Listener {
                             // Appliquer les dégâts + DOT de feu aux entités proches
                             for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.5, 1.5, 1.5)) {
                                 if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                    double actualDamage = finalDamage;
+
+                                    // === RAFALE - Combo bonus ===
+                                    if (hasHoming && incrementRafaleCombo(player, target)) {
+                                        actualDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
+                                    }
+
                                     // Dégâts initiaux
-                                    target.damage(finalDamage, player);
+                                    target.damage(actualDamage, player);
 
                                     // DOT de feu pendant 3 secondes (60 ticks)
                                     target.setFireTicks(60);
 
                                     // Appliquer le DOT custom (dégâts supplémentaires sur la durée)
-                                    applyFireDot(player, target, finalDamage * 0.5, 3000);
+                                    applyFireDot(player, target, actualDamage * 0.5, 3000);
 
                                     // === NUÉE DÉVASTATRICE - Fragmentation enflammée ===
                                     if (finalHasSwarm && finalSwarmTalent != null) {
@@ -1683,5 +1742,97 @@ public class ChasseurTalentListener implements Listener {
             }
         }
         return count;
+    }
+
+    /**
+     * Applique l'effet de flèche chercheuse à une flèche en vol.
+     * La flèche ajuste légèrement sa trajectoire vers l'ennemi le plus proche.
+     *
+     * @param arrow La flèche à rendre chercheuse
+     * @param player Le joueur propriétaire
+     * @param homingStrength Force d'attraction (0.1-0.3 recommandé)
+     * @param homingRadius Rayon de détection des cibles
+     */
+    private void applyHomingBehavior(Arrow arrow, Player player, double homingStrength, double homingRadius) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (arrow.isDead() || arrow.isOnGround() || ticks > 60) {
+                    homingArrows.remove(arrow.getUniqueId());
+                    this.cancel();
+                    return;
+                }
+
+                // Trouver l'ennemi le plus proche dans le rayon
+                LivingEntity closestTarget = null;
+                double closestDistance = homingRadius;
+
+                for (Entity entity : arrow.getNearbyEntities(homingRadius, homingRadius, homingRadius)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                        double distance = arrow.getLocation().distance(target.getLocation().add(0, target.getHeight() / 2, 0));
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestTarget = target;
+                        }
+                    }
+                }
+
+                // Ajuster la trajectoire vers la cible
+                if (closestTarget != null) {
+                    Location targetLoc = closestTarget.getLocation().add(0, closestTarget.getHeight() / 2, 0);
+                    Vector currentVelocity = arrow.getVelocity();
+                    Vector toTarget = targetLoc.toVector().subtract(arrow.getLocation().toVector()).normalize();
+
+                    // Interpoler entre la direction actuelle et la direction vers la cible
+                    Vector newVelocity = currentVelocity.normalize()
+                        .multiply(1 - homingStrength)
+                        .add(toTarget.multiply(homingStrength))
+                        .normalize()
+                        .multiply(currentVelocity.length());
+
+                    arrow.setVelocity(newVelocity);
+
+                    // Particule de traque subtile
+                    if (ticks % 3 == 0) {
+                        arrow.getWorld().spawnParticle(Particle.DUST, arrow.getLocation(), 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(255, 100, 100), 0.5f));
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 2L, 1L); // Commence après 2 ticks, puis chaque tick
+    }
+
+    /**
+     * Incrémente le compteur de combo Rafale pour un joueur sur une cible.
+     * Retourne true si le 4ème hit est atteint (bonus de dégâts).
+     */
+    private boolean incrementRafaleCombo(Player player, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot == null) return false;
+
+        UUID lastTarget = lastTargetHit.get(uuid);
+        if (lastTarget != null && lastTarget.equals(targetUuid)) {
+            int combo = comboCounter.merge(uuid, 1, Integer::sum);
+            if (combo >= burstShot.getValue(0)) {
+                comboCounter.put(uuid, 0);
+                // Effet visuel et sonore du combo
+                player.getWorld().playSound(target.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
+                target.getWorld().spawnParticle(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+                if (shouldSendTalentMessage(player)) {
+                    player.sendMessage("§c✦ RAFALE! x" + (int)((1 + burstShot.getValue(1)) * 100) + "% dégâts!");
+                }
+                return true;
+            }
+        } else {
+            comboCounter.put(uuid, 1);
+        }
+        lastTargetHit.put(uuid, targetUuid);
+        return false;
     }
 }
