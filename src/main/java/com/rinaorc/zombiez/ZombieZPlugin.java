@@ -583,7 +583,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
         getCommand("stats").setExecutor(new StatsCommand(this));
-        getCommand("zone").setExecutor(new ZoneCommand(this));
+        ZoneCommand zoneCmd = new ZoneCommand(this);
+        getCommand("zone").setExecutor(zoneCmd);
+        getCommand("zone").setTabCompleter(zoneCmd);
         getCommand("checkpoint").setExecutor(new CheckpointCommand(this));
         getCommand("refuge").setExecutor(new RefugeCommand(this));
 
@@ -722,6 +724,10 @@ public class ZombieZPlugin extends JavaPlugin {
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.PetShopGUI.ShopListener(this), this);
             pm.registerEvents(new com.rinaorc.zombiez.pets.gui.EggOpeningAnimation.AnimationListener(), this);
         }
+
+        // Listeners système zone wiki GUI
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneWikiGUI.GUIListener(this), this);
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneDetailGUI.GUIListener(this), this);
 
         // Listener système dopamine - Low Health Heartbeat
         if (lowHealthHeartbeatManager != null) {
