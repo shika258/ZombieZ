@@ -537,19 +537,38 @@ public class ChasseurTalentListener implements Listener {
 
         // Frappe Orbitale - activation par double-sneak
         Talent orbitalStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
-        if (orbitalStrike != null && event.isSneaking() && !isOnCooldown(uuid, "orbital_strike")) {
+        if (orbitalStrike != null && event.isSneaking()) {
             long now = System.currentTimeMillis();
             Long lastSneak = lastOrbitalSneakTime.get(uuid);
 
             if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW) {
-                // Double sneak détecté! Lancer la frappe orbitale
+                // Double sneak détecté!
                 lastOrbitalSneakTime.remove(uuid);
+
+                // Vérifier le cooldown
+                long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
+                if (remainingMs > 0) {
+                    // En cooldown - afficher le temps restant dans l'action bar
+                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                    return;
+                }
+
+                // Lancer la frappe orbitale
                 procOrbitalStrike(player, orbitalStrike);
                 setCooldown(uuid, "orbital_strike", (long) orbitalStrike.getValue(0));
             } else {
                 // Premier sneak, enregistrer le temps
                 lastOrbitalSneakTime.put(uuid, now);
-                // Feedback visuel subtil
+                // Feedback visuel subtil + afficher cooldown si en attente
+                long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
+                if (remainingMs > 0) {
+                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
+                } else {
+                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §aPRÊT §7(2x Sneak)");
+                }
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
             }
         }
@@ -1728,6 +1747,26 @@ public class ChasseurTalentListener implements Listener {
     private void setCooldown(UUID uuid, String ability, long durationMs) {
         cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
             .put(ability, System.currentTimeMillis() + durationMs);
+    }
+
+    /**
+     * Retourne le temps restant en ms pour un cooldown, ou 0 si pas en cooldown
+     */
+    private long getRemainingCooldown(UUID uuid, String ability) {
+        Map<String, Long> playerCooldowns = cooldowns.get(uuid);
+        if (playerCooldowns == null) return 0;
+        Long cooldownEnd = playerCooldowns.get(ability);
+        if (cooldownEnd == null) return 0;
+        long remaining = cooldownEnd - System.currentTimeMillis();
+        return remaining > 0 ? remaining : 0;
+    }
+
+    /**
+     * Envoie un message dans l'actionbar au lieu du chat pour eviter le spam
+     */
+    private void sendActionBar(Player player, String message) {
+        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
     }
 
     /**
