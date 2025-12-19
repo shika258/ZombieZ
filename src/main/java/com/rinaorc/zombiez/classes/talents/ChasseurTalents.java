@@ -698,25 +698,32 @@ public final class ChasseurTalents {
     // ==================== PALIER 7 - NIVEAU 30 (Transcendance) ====================
 
     private static void registerTier7Talents() {
-        // 6.1 - ARMAGEDDON AERIEN
+        // 7.1 - OEIL DU CYCLONE
         TALENTS.add(Talent.builder()
-            .id("chasseur_aerial_armageddon")
-            .name("Armageddon Aerien")
-            .description("Pluie peut faire des critiques + fleches bonus")
+            .id("chasseur_cyclone_eye")
+            .name("Oeil du Cyclone")
+            .description("Pluie cree un vortex qui attire + explose!")
             .loreLines(new String[]{
-                "§7La pluie de fleches peut §ecritiquer§7!",
-                "§7Les critiques font apparaitre",
-                "§7§e2 fleches§7 bonus!",
+                "§7La pluie de fleches cree un",
+                "§b§lVORTEX§7 au centre de la zone!",
                 "",
-                "§8Fleches dorees sur critique"
+                "§7Effets du vortex:",
+                "§8- §bAttire§8 les ennemis vers le centre",
+                "§8- §c+30%§8 degats aux ennemis aspires",
+                "§8- §6Explose§8 a la fin de la pluie!",
+                "",
+                "§7L'explosion inflige §c100%§7 des degats",
+                "§7de base dans un rayon de §e5§7 blocs.",
+                "",
+                "§8Synergie: Regrouper = plus de kills!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(0)
-            .icon(Material.END_CRYSTAL)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.AERIAL_ARMAGEDDON)
-            .values(new double[]{2}) // bonus_arrows_on_crit
+            .icon(Material.HEART_OF_THE_SEA)
+            .iconColor("§b")
+            .effectType(Talent.TalentEffectType.CYCLONE_EYE)
+            .values(new double[]{0.30, 1.0, 5.0, 0.15}) // dmg_bonus, explosion_dmg_mult, explosion_radius, pull_strength
             .build());
 
         // 6.2 - MAITRE DES OMBRES

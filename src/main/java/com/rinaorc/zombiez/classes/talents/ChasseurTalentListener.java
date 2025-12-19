@@ -81,6 +81,9 @@ public class ChasseurTalentListener implements Listener {
     private final Map<UUID, Integer> barrageFuryCharges = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> arrowRainKillTracking = new ConcurrentHashMap<>();
 
+    // Cyclone Eye - tracking des entités dans le vortex pour bonus de dégâts
+    private final Map<UUID, Set<UUID>> cycloneAffectedEntities = new ConcurrentHashMap<>();
+
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -796,9 +799,9 @@ public class ChasseurTalentListener implements Listener {
         int waves = deluge != null ? 3 : 1;
         boolean pierce = deluge != null;
 
-        // Armageddon upgrade
-        Talent armageddon = getActiveTalentIfHas(player, Talent.TalentEffectType.AERIAL_ARMAGEDDON);
-        boolean canCrit = armageddon != null;
+        // Cyclone Eye upgrade - vortex qui attire et explose
+        Talent cycloneEye = getActiveTalentIfHas(player, Talent.TalentEffectType.CYCLONE_EYE);
+        boolean hasCyclone = cycloneEye != null;
 
         // Meteor Shower upgrade
         Talent meteorShower = getActiveTalentIfHas(player, Talent.TalentEffectType.METEOR_SHOWER);
@@ -824,10 +827,131 @@ public class ChasseurTalentListener implements Listener {
         final int finalArrows = arrows;
         final double finalRadius = radius;
         final double finalDamageBase = damagePerArrow * (isSuperRain ? 1.5 : 1.0); // +50% dégâts en super
+        final boolean finalHasCyclone = hasCyclone;
+
+        // === CYCLONE EYE - Créer le vortex ===
+        if (hasCyclone) {
+            double cycloneDmgBonus = cycloneEye.getValue(0);      // +30% dégâts
+            double explosionDmgMult = cycloneEye.getValue(1);     // 100% pour explosion
+            double explosionRadius = cycloneEye.getValue(2);      // 5 blocs
+            double pullStrength = cycloneEye.getValue(3);         // 0.15 force
+
+            // Tracking des entités affectées par le vortex
+            Set<UUID> affectedEntities = ConcurrentHashMap.newKeySet();
+            cycloneAffectedEntities.put(uuid, affectedEntities);
+
+            // Message d'activation
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§b✦ Œil du Cyclone activé!");
+            }
+
+            // Son du vortex
+            center.getWorld().playSound(center, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f, 1.5f);
+
+            // Durée totale du vortex (basée sur les waves)
+            int totalDuration = waves * 25 + 40; // Durée de la pluie + un peu plus
+
+            // Tâche du vortex: attirer les ennemis vers le centre
+            final Location vortexCenter = center.clone();
+            new BukkitRunnable() {
+                int ticks = 0;
+                @Override
+                public void run() {
+                    if (ticks >= totalDuration) {
+                        // === EXPLOSION FINALE ===
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.2f);
+                        vortexCenter.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, vortexCenter, 3, 1, 0.5, 1);
+                        vortexCenter.getWorld().spawnParticle(Particle.SWEEP_ATTACK, vortexCenter, 30, explosionRadius/2, 1, explosionRadius/2);
+                        vortexCenter.getWorld().spawnParticle(Particle.DUST, vortexCenter, 50, explosionRadius/2, 1, explosionRadius/2, 0,
+                            new Particle.DustOptions(Color.fromRGB(0, 200, 255), 2.0f));
+
+                        // Dégâts d'explosion à tous les ennemis dans le rayon
+                        double explosionDamage = finalDamageBase * explosionDmgMult * (finalIsSuperRain ? 2.0 : 1.0);
+                        for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, explosionRadius, explosionRadius, explosionRadius)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                target.damage(explosionDamage, player);
+
+                                // Knockback depuis le centre
+                                Vector knockback = target.getLocation().toVector()
+                                    .subtract(vortexCenter.toVector()).normalize().multiply(1.2).setY(0.5);
+                                target.setVelocity(knockback);
+
+                                // Check kill for Barrage Fury
+                                if (target.isDead() || target.getHealth() <= 0) {
+                                    Set<UUID> kills = arrowRainKillTracking.get(uuid);
+                                    if (kills != null) {
+                                        kills.add(target.getUniqueId());
+                                    }
+                                }
+                            }
+                        }
+
+                        // Cleanup
+                        cycloneAffectedEntities.remove(uuid);
+                        this.cancel();
+                        return;
+                    }
+
+                    // Particules du vortex (tourbillon)
+                    double angle = ticks * 0.3;
+                    for (int i = 0; i < 4; i++) {
+                        double offsetAngle = angle + (i * Math.PI / 2);
+                        double spiralRadius = finalRadius * 0.8 * (1.0 - (ticks % 20) / 40.0);
+                        double x = Math.cos(offsetAngle) * spiralRadius;
+                        double z = Math.sin(offsetAngle) * spiralRadius;
+                        Location particleLoc = vortexCenter.clone().add(x, 0.5, z);
+                        vortexCenter.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.3, 0.1, 0,
+                            new Particle.DustOptions(Color.fromRGB(100, 200, 255), 1.2f));
+                    }
+
+                    // Cercle au sol
+                    if (ticks % 5 == 0) {
+                        for (int i = 0; i < 16; i++) {
+                            double a = (i / 16.0) * 2 * Math.PI;
+                            double circleX = Math.cos(a) * finalRadius * 0.6;
+                            double circleZ = Math.sin(a) * finalRadius * 0.6;
+                            vortexCenter.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
+                                vortexCenter.clone().add(circleX, 0.1, circleZ), 1, 0, 0, 0, 0);
+                        }
+                    }
+
+                    // Attirer les ennemis vers le centre
+                    if (ticks % 3 == 0) {
+                        for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, finalRadius * 1.5, 3, finalRadius * 1.5)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
+                                // Calculer la direction vers le centre
+                                Vector toCenter = vortexCenter.toVector().subtract(target.getLocation().toVector());
+                                double distance = toCenter.length();
+
+                                if (distance > 1.0) { // Ne pas attirer si déjà au centre
+                                    // Force d'attraction inversement proportionnelle à la distance
+                                    double pullForce = pullStrength * (1.0 + (finalRadius / distance));
+                                    Vector pull = toCenter.normalize().multiply(pullForce);
+
+                                    // Appliquer la vélocité
+                                    Vector currentVel = target.getVelocity();
+                                    target.setVelocity(currentVel.add(pull).setY(currentVel.getY()));
+
+                                    // Marquer comme affecté pour le bonus de dégâts
+                                    affectedEntities.add(target.getUniqueId());
+                                }
+                            }
+                        }
+                    }
+
+                    // Son ambiant du vortex
+                    if (ticks % 10 == 0) {
+                        vortexCenter.getWorld().playSound(vortexCenter, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.5f);
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }
 
         for (int wave = 0; wave < waves; wave++) {
             boolean finalPierce = pierce;
-            boolean finalCanCrit = canCrit;
 
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 // Son de volée de flèches
@@ -890,12 +1014,13 @@ public class ChasseurTalentListener implements Listener {
                                         if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
                                             double finalDamage = finalDamageBase;
 
-                                            // Crit check
-                                            if (finalCanCrit) {
-                                                Talent lynxEye = getActiveTalentIfHas(player, Talent.TalentEffectType.LYNX_EYE);
-                                                if (lynxEye != null && Math.random() < lynxEye.getValue(0)) {
-                                                    finalDamage *= 1.5;
-                                                    loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 10, 0.3, 0.3, 0.3, 0.1);
+                                            // Cyclone Eye - bonus de dégâts pour les ennemis dans le vortex
+                                            if (finalHasCyclone) {
+                                                Set<UUID> affected = cycloneAffectedEntities.get(uuid);
+                                                if (affected != null && affected.contains(target.getUniqueId())) {
+                                                    finalDamage *= 1.30; // +30% pour les ennemis aspirés
+                                                    loc.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0,
+                                                        new Particle.DustOptions(Color.fromRGB(0, 200, 255), 1.0f));
                                                 }
                                             }
 

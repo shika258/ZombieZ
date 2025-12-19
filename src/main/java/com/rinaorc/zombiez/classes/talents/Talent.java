@@ -179,7 +179,7 @@ public class Talent {
         ARMOR_SHRED,             // Piercing attacks reduce enemy armor
 
         // === CHASSEUR - Tier 7 ===
-        AERIAL_ARMAGEDDON,       // Arrow rain can crit
+        CYCLONE_EYE,             // Arrow rain creates vortex that pulls + explodes
         SHADOW_MASTER,           // Permanent stealth
         BOUNTY_EXECUTIONER,      // Mark execute threshold
         BLACK_PLAGUE,            // Poison anti-heal + self heal
