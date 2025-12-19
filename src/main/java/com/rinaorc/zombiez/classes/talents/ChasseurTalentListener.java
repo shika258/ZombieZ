@@ -84,6 +84,10 @@ public class ChasseurTalentListener implements Listener {
     // Cyclone Eye - tracking des entités dans le vortex pour bonus de dégâts
     private final Map<UUID, Set<UUID>> cycloneAffectedEntities = new ConcurrentHashMap<>();
 
+    // Frappe Orbitale - double sneak tracking
+    private final Map<UUID, Long> lastOrbitalSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW = 400; // 400ms pour double sneak
+
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -133,15 +137,26 @@ public class ChasseurTalentListener implements Listener {
         // === TIER 1 ===
 
         // Tirs Multiples - UNIQUEMENT sur attaques à distance (projectiles)
+        // Bonus: +10% de chance par talent supplémentaire de la Voie du Barrage
         Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
         if (multiShot != null && isRanged && !isOnCooldown(uuid, "multi_shot")) {
-            if (Math.random() < multiShot.getValue(0)) {
+            // Calculer le bonus de chance (chaque talent Barrage après le 1er donne +10%)
+            int barrageTalentCount = countBarrageTalents(player);
+            double bonusChance = (barrageTalentCount - 1) * 0.10; // -1 car Tirs Multiples compte déjà
+            double totalChance = multiShot.getValue(0) + bonusChance;
+
+            if (Math.random() < totalChance) {
                 procMultiShot(player, target, damage * multiShot.getValue(2));
                 setCooldown(uuid, "multi_shot", multiShot.getInternalCooldownMs());
 
-                // Feedback pour confirmer que le talent s'est déclenché
+                // Feedback avec le bonus affiché
                 if (shouldSendTalentMessage(player)) {
-                    player.sendMessage("§f✦ Tirs Multiples!");
+                    if (bonusChance > 0) {
+                        int bonusPercent = (int) (bonusChance * 100);
+                        player.sendMessage("§f✦ Tirs Multiples! §7(+" + bonusPercent + "% bonus)");
+                    } else {
+                        player.sendMessage("§f✦ Tirs Multiples!");
+                    }
                 }
             }
         }
@@ -507,6 +522,25 @@ public class ChasseurTalentListener implements Listener {
                 setCooldown(uuid, "bullet_time", (long) bulletTime.getValue(2));
             }
         }
+
+        // Frappe Orbitale - activation par double-sneak
+        Talent orbitalStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
+        if (orbitalStrike != null && event.isSneaking() && !isOnCooldown(uuid, "orbital_strike")) {
+            long now = System.currentTimeMillis();
+            Long lastSneak = lastOrbitalSneakTime.get(uuid);
+
+            if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW) {
+                // Double sneak détecté! Lancer la frappe orbitale
+                lastOrbitalSneakTime.remove(uuid);
+                procOrbitalStrike(player, orbitalStrike);
+                setCooldown(uuid, "orbital_strike", (long) orbitalStrike.getValue(0));
+            } else {
+                // Premier sneak, enregistrer le temps
+                lastOrbitalSneakTime.put(uuid, now);
+                // Feedback visuel subtil
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
+            }
+        }
     }
 
     // ==================== TACHES PERIODIQUES OPTIMISEES ====================
@@ -664,24 +698,7 @@ public class ChasseurTalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 20L * 15, 20L * 15);
-
-        // ORBITAL STRIKE (45s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (activeChasseurs.isEmpty()) return;
-                for (UUID uuid : activeChasseurs) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player == null || !player.isOnline()) continue;
-
-                    Talent orbital = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
-                    if (orbital != null && !isOnCooldown(uuid, "orbital_strike")) {
-                        procOrbitalStrike(player, orbital);
-                        setCooldown(uuid, "orbital_strike", (long) orbital.getValue(0));
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 20L * 45, 20L * 45);
+        // Note: Frappe Orbitale est maintenant activée par double-sneak (voir onSneak)
     }
 
     // ==================== PROCS ====================
@@ -1304,30 +1321,131 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private void procOrbitalStrike(Player player, Talent talent) {
-        Location center = player.getLocation();
-        double damage = 10 * talent.getValue(1);
-        double radius = talent.getValue(2);
+        // Valeurs: cooldown_ms, damage_mult, length, explosion_radius, bomb_count
+        double damageMult = talent.getValue(1);
+        double lineLength = talent.getValue(2);
+        double explosionRadius = talent.getValue(3);
+        int bombCount = (int) talent.getValue(4);
+
+        double baseDamage = 15 * damageMult;
+
+        Location start = player.getLocation().clone();
+        Vector direction = player.getLocation().getDirection().setY(0).normalize();
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ ORBITAL STRIKE!");
+            player.sendMessage("§c§l✈ FRAPPE ORBITALE!");
         }
-        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 2.0f, 0.5f);
 
-        // Warning
-        player.getWorld().spawnParticle(Particle.END_ROD, center, 100, radius/2, 5, radius/2, 0);
+        // Son d'avion qui passe
+        player.getWorld().playSound(start, Sound.ENTITY_PHANTOM_FLAP, 2.0f, 0.3f);
+        player.getWorld().playSound(start, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.5f, 1.5f);
 
-        // Delayed impact
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 5, radius/2, 1, radius/2, 0);
-            player.getWorld().spawnParticle(Particle.FLASH, center, 3);
-            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.3f);
+        // Calculer les positions des bombes le long de la ligne
+        double spacing = lineLength / (bombCount - 1);
+        List<Location> bombLocations = new ArrayList<>();
 
-            for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-                if (entity instanceof LivingEntity target && entity != player) {
-                    target.damage(damage, player);
+        for (int i = 0; i < bombCount; i++) {
+            Location bombLoc = start.clone().add(direction.clone().multiply(i * spacing));
+            // Ajuster au sol
+            bombLoc.setY(getGroundY(bombLoc));
+            bombLocations.add(bombLoc);
+        }
+
+        // Phase 1: Indicateurs de ciblage (warning)
+        for (int i = 0; i < bombLocations.size(); i++) {
+            final int index = i;
+            Location loc = bombLocations.get(i);
+
+            // Cercle de ciblage au sol
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                spawnTargetingCircle(loc, explosionRadius);
+                player.getWorld().playSound(loc, Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.5f + (index * 0.1f));
+            }, i * 3L); // Décalage progressif
+        }
+
+        // Phase 2: Explosions séquentielles (après le délai de warning)
+        long warningDelay = 30L; // 1.5 secondes après les indicateurs
+
+        for (int i = 0; i < bombLocations.size(); i++) {
+            final int index = i;
+            Location loc = bombLocations.get(i);
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // Explosion principale
+                player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc.clone().add(0, 1, 0), 3, 0.5, 0.5, 0.5, 0);
+                player.getWorld().spawnParticle(Particle.FLAME, loc.clone().add(0, 0.5, 0), 50, explosionRadius/2, 1, explosionRadius/2, 0.1);
+                player.getWorld().spawnParticle(Particle.SMOKE_LARGE, loc.clone().add(0, 2, 0), 30, explosionRadius/2, 2, explosionRadius/2, 0.05);
+                player.getWorld().spawnParticle(Particle.LAVA, loc, 20, explosionRadius/2, 0.5, explosionRadius/2, 0);
+
+                // Effet de cratère
+                player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 15, explosionRadius/3, 0.1, explosionRadius/3, 0.02);
+
+                // Son d'explosion massif
+                player.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.6f + (index * 0.05f));
+                player.getWorld().playSound(loc, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 1.5f, 0.5f);
+
+                // Flash lumineux
+                player.getWorld().spawnParticle(Particle.FLASH, loc.clone().add(0, 1, 0), 2);
+
+                // Dégâts aux entités dans le rayon
+                for (Entity entity : loc.getWorld().getNearbyEntities(loc, explosionRadius, explosionRadius, explosionRadius)) {
+                    if (entity instanceof LivingEntity target && entity != player) {
+                        // Dégâts réduisent avec la distance
+                        double distance = target.getLocation().distance(loc);
+                        double damageMultiplier = 1.0 - (distance / (explosionRadius * 1.5));
+                        damageMultiplier = Math.max(0.3, damageMultiplier); // Minimum 30% des dégâts
+
+                        target.damage(baseDamage * damageMultiplier, player);
+
+                        // Knockback depuis le centre de l'explosion
+                        Vector knockback = target.getLocation().toVector().subtract(loc.toVector()).normalize();
+                        knockback.setY(0.4);
+                        target.setVelocity(knockback.multiply(0.8));
+
+                        // Effet de brûlure
+                        target.setFireTicks(40);
+                    }
                 }
+            }, warningDelay + (i * 4L)); // Explosions séquentielles
+        }
+
+        // Son final de fin de bombardement
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.getWorld().playSound(start, Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
+        }, warningDelay + (bombCount * 4L) + 10L);
+    }
+
+    private double getGroundY(Location loc) {
+        Location check = loc.clone();
+        // Chercher le sol
+        for (int y = (int) loc.getY(); y > loc.getY() - 10; y--) {
+            check.setY(y);
+            if (check.getBlock().getType().isSolid()) {
+                return y + 1;
             }
-        }, 40L);
+        }
+        return loc.getY();
+    }
+
+    private void spawnTargetingCircle(Location center, double radius) {
+        World world = center.getWorld();
+        int points = 24;
+
+        for (int i = 0; i < points; i++) {
+            double angle = (2 * Math.PI * i) / points;
+            double x = center.getX() + radius * Math.cos(angle);
+            double z = center.getZ() + radius * Math.sin(angle);
+            Location point = new Location(world, x, center.getY() + 0.1, z);
+
+            // Cercle rouge de ciblage
+            world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.5f));
+        }
+
+        // Croix au centre
+        world.spawnParticle(Particle.DUST, center.clone().add(0, 0.1, 0), 3, 0.1, 0, 0.1, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 2.0f));
+        world.spawnParticle(Particle.END_ROD, center.clone().add(0, 0.5, 0), 5, 0.1, 0.2, 0.1, 0.01);
     }
 
     private void procToxicAura(Player player, Talent talent) {
@@ -1551,5 +1669,19 @@ public class ChasseurTalentListener implements Listener {
     private void setCooldown(UUID uuid, String ability, long durationMs) {
         cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
             .put(ability, System.currentTimeMillis() + durationMs);
+    }
+
+    /**
+     * Compte le nombre de talents actifs de la Voie du Barrage (slotIndex 0)
+     * Utilisé pour calculer le bonus de Tirs Multiples (+10% par talent supplémentaire)
+     */
+    private int countBarrageTalents(Player player) {
+        int count = 0;
+        for (Talent talent : talentManager.getActiveTalents(player)) {
+            if (talent.getSlotIndex() == 0) { // Voie du Barrage
+                count++;
+            }
+        }
+        return count;
     }
 }

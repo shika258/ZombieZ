@@ -41,7 +41,11 @@ public final class ChasseurTalents {
                 "§7de chance de tirer §e2§7 projectiles",
                 "§7supplementaires.",
                 "",
-                "§8Degats bonus: §c60%§8 chacun"
+                "§8Degats bonus: §c60%§8 chacun",
+                "",
+                "§6§lBONUS VOIE DU BARRAGE:",
+                "§7Chaque talent du Barrage donne",
+                "§e+10%§7 de chance a Tirs Multiples!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -938,28 +942,35 @@ public final class ChasseurTalents {
     // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
     private static void registerTier9Talents() {
-        // 8.1 - FRAPPE ORBITALE
+        // 9.1 - FRAPPE ORBITALE
         TALENTS.add(Talent.builder()
             .id("chasseur_orbital_strike")
             .name("Frappe Orbitale")
-            .description("Toutes 45s: bombardement orbital")
+            .description("Double SNEAK: largage devastateur en ligne!")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
                 "",
-                "§7Toutes les §e45s§7, un bombardement",
-                "§7orbital devastateur frappe!",
+                "§7Appuyez §e2x SNEAK§7 rapidement pour",
+                "§7invoquer un §clargage de bombes§7!",
                 "",
-                "§8Degats: §c1000%§8 de base",
-                "§8Zone: §e15§8 blocs de rayon"
+                "§6Effet:",
+                "§7Une ligne de §c8 explosions§7 devastatrices",
+                "§7dans la direction ou vous regardez.",
+                "",
+                "§8Longueur: §e30§8 blocs",
+                "§8Largeur: §e3§8 blocs par explosion",
+                "§8Degats: §c500%§8 de base par bombe",
+                "",
+                "§8Temps de recharge: §c30s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(0)
-            .icon(Material.END_CRYSTAL)
+            .icon(Material.TNT)
             .iconColor("§6§l")
             .effectType(Talent.TalentEffectType.ORBITAL_STRIKE)
-            .values(new double[]{45000, 10.0, 15.0}) // cooldown_ms, damage%, radius
-            .internalCooldownMs(45000)
+            .values(new double[]{30000, 5.0, 30.0, 3.0, 8}) // cooldown_ms, damage_mult, length, explosion_radius, bomb_count
+            .internalCooldownMs(30000)
             .build());
 
         // 8.2 - MARCHEUR DU VIDE (EQUILIBRE - pas d'invincibilite totale!)
