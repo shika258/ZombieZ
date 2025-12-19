@@ -29,14 +29,15 @@ public class ClassInfoGUI implements Listener {
     private final ClassManager classManager;
     private static final String GUI_TITLE = "§0§l+ MA CLASSE +";
 
-    // Slots
-    private static final int SLOT_CLASS_INFO = 13;
-    private static final int SLOT_LEVEL_INFO = 11;
-    private static final int SLOT_STATS_INFO = 15;
-    private static final int SLOT_TALENTS = 22;
-    private static final int SLOT_CHANGE_CLASS = 31;
-    private static final int SLOT_TALENT_MESSAGES_TOGGLE = 44;
-    private static final int SLOT_CLOSE = 36;
+    // Slots - Layout réorganisé pour les traits
+    private static final int SLOT_CLASS_INFO = 4;       // Haut centre - Info générale
+    private static final int SLOT_LEVEL_INFO = 20;      // Milieu gauche - Niveau
+    private static final int SLOT_STATS_INFO = 22;      // Milieu centre - Stats
+    private static final int SLOT_TRAITS_INFO = 24;     // Milieu droite - Traits de classe
+    private static final int SLOT_TALENTS = 30;         // Bas gauche - Talents
+    private static final int SLOT_CHANGE_CLASS = 32;    // Bas centre - Changer
+    private static final int SLOT_TALENT_MESSAGES_TOGGLE = 34;  // Bas droite - Toggle
+    private static final int SLOT_CLOSE = 40;           // Fermer
 
     public ClassInfoGUI(ZombieZPlugin plugin, ClassManager classManager) {
         this.plugin = plugin;
@@ -62,37 +63,44 @@ public class ClassInfoGUI implements Listener {
             gui.setItem(i, border);
         }
 
-        // Titre
-        gui.setItem(4, new ItemBuilder(Material.NETHER_STAR)
-            .name("§6§lMA CLASSE")
-            .lore(
-                "",
-                "§7Consultez les informations",
-                "§7de votre classe actuelle."
-            )
-            .build());
-
-        // === NIVEAU DE CLASSE ===
-        gui.setItem(SLOT_LEVEL_INFO, createLevelItem(data));
-
-        // === INFO CLASSE ===
+        // === INFO CLASSE (haut centre) ===
         gui.setItem(SLOT_CLASS_INFO, createClassInfoItem(classType, data));
 
-        // === STATS DE CLASSE ===
+        // Séparateur visuel
+        ItemStack separator = new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 9; i < 18; i++) {
+            gui.setItem(i, separator);
+        }
+
+        // === NIVEAU DE CLASSE (milieu gauche) ===
+        gui.setItem(SLOT_LEVEL_INFO, createLevelItem(data));
+
+        // === STATS DE CLASSE (milieu centre) ===
         gui.setItem(SLOT_STATS_INFO, createStatsItem(classType));
 
-        // === TALENTS ===
+        // === TRAITS DE CLASSE (milieu droite) - NOUVEAU ===
+        gui.setItem(SLOT_TRAITS_INFO, createTraitsItem(classType));
+
+        // Séparateur bas
+        for (int i = 27; i < 30; i++) {
+            gui.setItem(i, separator);
+        }
+        for (int i = 33; i < 36; i++) {
+            gui.setItem(i, separator);
+        }
+
+        // === TALENTS (bas gauche) ===
         gui.setItem(SLOT_TALENTS, createTalentsButton(data));
 
-        // === CHANGER DE CLASSE ===
+        // === CHANGER DE CLASSE (bas centre) ===
         gui.setItem(SLOT_CHANGE_CLASS, createChangeClassButton(data));
 
-        // === TOGGLE MESSAGES DE TALENTS ===
+        // === TOGGLE MESSAGES DE TALENTS (bas droite) ===
         gui.setItem(SLOT_TALENT_MESSAGES_TOGGLE, createTalentMessagesToggle(data));
 
         // Bouton fermer
         gui.setItem(SLOT_CLOSE, new ItemBuilder(Material.BARRIER)
-            .name("§c+ Fermer")
+            .name("§c✕ Fermer")
             .build());
 
         player.openInventory(gui);
@@ -162,7 +170,7 @@ public class ClassInfoGUI implements Listener {
     private ItemStack createStatsItem(ClassType classType) {
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7Les multiplicateurs de votre classe:");
+        lore.add("§6§lStats de Base:");
         lore.add("");
 
         // Formatage des stats avec couleurs
@@ -187,6 +195,30 @@ public class ClassInfoGUI implements Listener {
         return new ItemBuilder(Material.GOLDEN_SWORD)
             .name("§e§lSTATISTIQUES")
             .lore(lore)
+            .build();
+    }
+
+    private ItemStack createTraitsItem(ClassType classType) {
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+        lore.add("§6§lTraits uniques de classe:");
+        lore.add("");
+
+        // Afficher chaque trait
+        for (ClassType.ClassTrait trait : classType.getClassTraits()) {
+            lore.add(trait.getName());
+            lore.add("  " + trait.getDescription());
+            lore.add("");
+        }
+
+        lore.add("§8──────────────");
+        lore.add("§8Ces bonus passifs sont");
+        lore.add("§8toujours actifs en combat");
+
+        return new ItemBuilder(Material.NETHER_STAR)
+            .name(classType.getColor() + "§lTRAITS DE CLASSE")
+            .lore(lore)
+            .glow(true)
             .build();
     }
 
