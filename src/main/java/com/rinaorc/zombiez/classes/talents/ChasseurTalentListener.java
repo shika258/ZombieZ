@@ -998,7 +998,7 @@ public class ChasseurTalentListener implements Listener {
                         }
                     }
 
-                    // Attirer les ennemis vers le centre
+                    // Attirer les ennemis vers le centre (force équilibrée)
                     if (ticks % 3 == 0) {
                         for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, finalRadius * 1.5, 3, finalRadius * 1.5)) {
                             if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
@@ -1006,16 +1006,25 @@ public class ChasseurTalentListener implements Listener {
                                 Vector toCenter = vortexCenter.toVector().subtract(target.getLocation().toVector());
                                 double distance = toCenter.length();
 
-                                if (distance > 1.0) { // Ne pas attirer si déjà au centre
-                                    // Force d'attraction inversement proportionnelle à la distance
-                                    double pullForce = pullStrength * (1.0 + (finalRadius / distance));
+                                // Zone morte au centre (2 blocs) - les mobs peuvent s'échapper
+                                if (distance > 2.0) {
+                                    // Force d'attraction PROPORTIONNELLE à la distance (plus fort loin, faible proche)
+                                    // Cela permet aux mobs de résister et s'échapper quand ils sont proches du centre
+                                    double distanceFactor = Math.min(distance / finalRadius, 1.0); // 0.0 au centre, 1.0 au bord
+                                    double pullForce = pullStrength * distanceFactor;
+
+                                    // Cap minimum pour que l'effet reste visible
+                                    pullForce = Math.max(pullForce, pullStrength * 0.3);
+
                                     Vector pull = toCenter.normalize().multiply(pullForce);
 
-                                    // Appliquer la vélocité
+                                    // Appliquer la vélocité (réduite pour ne pas overrider le pathfinding)
                                     Vector currentVel = target.getVelocity();
                                     target.setVelocity(currentVel.add(pull).setY(currentVel.getY()));
+                                }
 
-                                    // Marquer comme affecté pour le bonus de dégâts
+                                // Marquer comme affecté pour le bonus de dégâts (même dans la zone morte)
+                                if (distance < finalRadius * 1.2) {
                                     affectedEntities.add(target.getUniqueId());
                                 }
                             }

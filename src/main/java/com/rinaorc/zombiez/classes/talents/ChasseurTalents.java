@@ -745,7 +745,7 @@ public final class ChasseurTalents {
                 "§b§lVORTEX DEVASTATEUR§7!",
                 "",
                 "§6EFFETS DU VORTEX:",
-                "§8► §bAttire§8 les ennemis au centre",
+                "§8► §bAttire§8 les ennemis vers le centre",
                 "§8► §c+30%§8 degats aux aspires",
                 "§8► §6Explosion§8 finale!",
                 "",
@@ -753,6 +753,7 @@ public final class ChasseurTalents {
                 "§8► Zone: §e5§8 blocs",
                 "§8► Degats: §c100%§8 + knockback",
                 "",
+                "§8Les ennemis peuvent resister au centre",
                 "§d§lSYNERGIE: Furie du Barrage!"
             })
             .classType(ClassType.CHASSEUR)
@@ -761,7 +762,7 @@ public final class ChasseurTalents {
             .icon(Material.HEART_OF_THE_SEA)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.CYCLONE_EYE)
-            .values(new double[]{0.30, 1.0, 5.0, 0.15}) // dmg_bonus, explosion_dmg_mult, explosion_radius, pull_strength
+            .values(new double[]{0.30, 1.0, 5.0, 0.25}) // dmg_bonus, explosion_dmg_mult, explosion_radius, pull_strength
             .build());
 
         // 6.2 - MAITRE DES OMBRES
