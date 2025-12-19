@@ -129,12 +129,17 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Tirs Multiples
+        // Tirs Multiples - UNIQUEMENT sur attaques à distance (projectiles)
         Talent multiShot = getActiveTalentIfHas(player, Talent.TalentEffectType.MULTI_SHOT);
         if (multiShot != null && isRanged && !isOnCooldown(uuid, "multi_shot")) {
             if (Math.random() < multiShot.getValue(0)) {
                 procMultiShot(player, target, damage * multiShot.getValue(2));
                 setCooldown(uuid, "multi_shot", multiShot.getInternalCooldownMs());
+
+                // Feedback pour confirmer que le talent s'est déclenché
+                if (shouldSendTalentMessage(player)) {
+                    player.sendMessage("§f✦ Tirs Multiples!");
+                }
             }
         }
 
@@ -689,8 +694,12 @@ public class ChasseurTalentListener implements Listener {
         // Décalage horizontal pour les flèches (I I I pattern)
         double spacing = 0.6; // Espacement entre les flèches
 
-        // Son de tir multiple
-        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.3f);
+        // Sons distinctifs de tir multiple
+        player.getWorld().playSound(playerLoc, Sound.ENTITY_ARROW_SHOOT, 1.0f, 1.5f);
+        player.getWorld().playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 2.0f);
+
+        // Particules d'effet au joueur
+        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, playerLoc, 10, 0.3, 0.3, 0.3, 0.1);
 
         // Tirer 2 flèches côte à côte horizontalement
         for (int i = 0; i < 2; i++) {
@@ -1323,6 +1332,11 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private boolean isRangedAttack(Entity damager) {
+        // Explicitement exclure les attaques au corps à corps (joueur direct)
+        if (damager instanceof Player) {
+            return false;
+        }
+        // Seuls les projectiles comptent comme attaques à distance
         return damager instanceof Projectile;
     }
 
