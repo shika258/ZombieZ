@@ -125,19 +125,31 @@ public class ShadowListener implements Listener {
             }
         }
 
-        // === T5: EXECUTION - 5 Points = gros dégâts (bonus si marqué) ===
+        // === T5: EXECUTION - 5 Points (ou 3 avec Exécution Préparée) ===
         Talent execution = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
-        if (execution != null && isMelee && shadowManager.hasEnoughPoints(uuid, 5)) {
-            // Exécution fonctionne sur toute cible, bonus si marquée
-            boolean isMarked = shadowManager.isMarkedBy(targetUuid, uuid);
-            double executionDamage = shadowManager.executeExecution(player, target, isMarked);
-            if (executionDamage > 0) {
-                event.setCancelled(true); // On gère les dégâts nous-mêmes
+        if (execution != null && isMelee) {
+            // Vérifier si Exécution Préparée est active (coût réduit de Danse Macabre)
+            int preparedCost = shadowManager.getPreparedExecutionCost(uuid);
+            int requiredPoints = preparedCost > 0 ? preparedCost : 5;
 
-                // === T8: SHADOW_STORM - Exécution kill = AoE ===
-                Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
-                if (shadowStorm != null && target.getHealth() <= 0) {
-                    shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
+            if (shadowManager.hasEnoughPoints(uuid, requiredPoints)) {
+                // Exécution fonctionne sur toute cible, bonus si marquée
+                boolean isMarked = shadowManager.isMarkedBy(targetUuid, uuid);
+                double executionDamage = shadowManager.executeExecutionWithCost(player, target, isMarked, requiredPoints);
+                if (executionDamage > 0) {
+                    event.setCancelled(true); // On gère les dégâts nous-mêmes
+
+                    // Consommer le buff d'Exécution Préparée si utilisé
+                    if (preparedCost > 0) {
+                        shadowManager.consumePreparedExecution(uuid);
+                        player.sendMessage("§5§l[OMBRE] §eExécution Préparée §7utilisée! (§a" + requiredPoints + " pts§7)");
+                    }
+
+                    // === T8: SHADOW_STORM - Exécution kill = AoE ===
+                    Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
+                    if (shadowStorm != null && target.getHealth() <= 0) {
+                        shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
+                    }
                 }
             }
         }
@@ -347,11 +359,12 @@ public class ShadowListener implements Listener {
             }
         }
 
-        // === T6: DANSE_MACABRE - Kill marqué = bonus ===
+        // === T6: DANSE_MACABRE - Kill marqué = Cascade + Frénésie ===
         Talent danseMacabre = getActiveTalent(killer, Talent.TalentEffectType.DANSE_MACABRE);
         if (danseMacabre != null && shadowManager.isMarkedBy(victimUuid, killerUuid)) {
-            shadowManager.activateDanseMacabre(killer);
-            shadowManager.addShadowPoints(killerUuid, 1);
+            // Activer avec le talent et la position du kill pour la cascade
+            shadowManager.activateDanseMacabre(killer, danseMacabre, victim.getLocation());
+            // Note: les points sont maintenant ajoutés dans activateDanseMacabre
         }
 
         // Nettoyer la marque

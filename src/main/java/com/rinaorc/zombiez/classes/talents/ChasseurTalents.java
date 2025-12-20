@@ -863,28 +863,37 @@ public final class ChasseurTalents {
             .values(new double[]{3.5, 6.0, 3, 3000}) // base_damage, range, max_targets, slow_duration_ms
             .build());
 
-        // 6.3 - DANSE MACABRE (Branche Ombre)
+        // 6.3 - DANSE MACABRE (Branche Ombre) - REFONTE
         TALENTS.add(Talent.builder()
             .id("chasseur_danse_macabre")
             .name("Danse Macabre")
-            .description("Kill marqué = 2s invis + reset Pas + vitesse")
+            .description("Kill marqué = cascade de marques + frénésie!")
             .loreLines(new String[]{
-                "§8§lBRANCHE OMBRE",
+                "§5§lBRANCHE OMBRE",
                 "",
                 "§7Tuer une cible §cmarquée§7 déclenche",
                 "§7la §5§lDanse Macabre§7!",
                 "",
-                "§6EFFETS DU KILL:",
-                "§8► §7Invisibilité§8 §e2s",
-                "§8► §bReset§8 cooldown Pas d'Ombre",
-                "§8► §aVitesse II§8 pendant §e3s",
-                "§8► §5+1 Point§8 d'Ombre",
+                "§c§l⚔ CASCADE DE MORT:",
+                "§8► §dMarque§8 TOUS les ennemis à §e8 blocs",
+                "§8► Durée des marques: §e5s",
                 "",
-                "§6ENCHAÎNEMENT:",
-                "§7Parfait pour tuer plusieurs",
-                "§7cibles à la suite!",
+                "§6§l⚡ FRÉNÉSIE D'OMBRE (5s):",
+                "§8► §a+80%§8 vitesse de déplacement",
+                "§8► §c+30%§8 vitesse d'attaque",
                 "",
-                "§5§lL'OMBRE NE S'ARRÊTE JAMAIS"
+                "§5§l✧ EXÉCUTION PRÉPARÉE:",
+                "§8► Prochaine Exécution: §e3 Points§8 seulement!",
+                "§8► Durée du bonus: §e6s",
+                "",
+                "§8► §bReset§8 Pas de l'Ombre",
+                "§8► §5+2 Points§8 d'Ombre",
+                "",
+                "§d§lSYNERGIE:",
+                "§7Cascade → Exécutions en chaîne",
+                "§7→ Tempête d'Ombre sur groupes!",
+                "",
+                "§5§l★ LE BAL DES MORTS ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -892,7 +901,7 @@ public final class ChasseurTalents {
             .icon(Material.PHANTOM_MEMBRANE)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.DANSE_MACABRE)
-            .values(new double[]{2000, 3000, 1}) // invis_duration_ms, speed_duration_ms, points_gained
+            .values(new double[]{8.0, 5000, 5000, 0.80, 0.30, 6000, 3, 2}) // cascade_radius, mark_duration_ms, frenzy_duration_ms, speed_bonus, attack_speed_bonus, prepared_exec_duration_ms, prepared_exec_cost, points_gained
             .build());
 
         // 6.4 - SYNERGIE TOXIQUE (Voie du Poison)

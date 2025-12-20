@@ -10,6 +10,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.*;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
@@ -70,8 +71,14 @@ public class ShadowManager {
     private final Map<UUID, Long> avatarActive = new ConcurrentHashMap<>();
     private final Map<UUID, Long> avatarCooldown = new ConcurrentHashMap<>();
 
-    // Danse Macabre - tracking invisibilité
+    // Danse Macabre - tracking frénésie et exécution préparée
     private final Map<UUID, Long> danceMacabreEnd = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> preparedExecutionEnd = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> preparedExecutionCost = new ConcurrentHashMap<>();
+
+    // Clé pour l'AttributeModifier de vitesse d'attaque Danse Macabre
+    private static final NamespacedKey DANSE_ATTACK_SPEED_KEY =
+        NamespacedKey.fromString("zombiez:danse_macabre_attack_speed");
 
     // Cache des joueurs Ombre actifs
     private final Set<UUID> activeShadowPlayers = ConcurrentHashMap.newKeySet();
@@ -140,8 +147,27 @@ public class ShadowManager {
                     return false;
                 });
 
-                // Cleanup Danse Macabre
-                danceMacabreEnd.entrySet().removeIf(entry -> now > entry.getValue());
+                // Cleanup Danse Macabre et effets associés
+                danceMacabreEnd.entrySet().removeIf(entry -> {
+                    if (now > entry.getValue()) {
+                        // Retirer le buff de vitesse d'attaque
+                        Player player = Bukkit.getPlayer(entry.getKey());
+                        if (player != null) {
+                            removeDanseAttackSpeedBonus(player);
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+
+                // Cleanup Exécution Préparée
+                preparedExecutionEnd.entrySet().removeIf(entry -> {
+                    if (now > entry.getValue()) {
+                        preparedExecutionCost.remove(entry.getKey());
+                        return true;
+                    }
+                    return false;
+                });
 
                 // Régénération Avatar (1 point/s)
                 avatarActive.forEach((uuid, endTime) -> {
@@ -318,12 +344,17 @@ public class ShadowManager {
             }
         }
 
-        // Danse Macabre (invisibilité)
-        if (danceMacabreEnd.containsKey(uuid)) {
+        // Danse Macabre active (frénésie)
+        if (isDanseMacabreActive(uuid)) {
             long remaining = danceMacabreEnd.get(uuid) - System.currentTimeMillis();
-            if (remaining > 0) {
-                bar.append("  §8§lFURTIF");
-            }
+            bar.append("  §5§lDANSE §d").append(String.format("%.1f", remaining / 1000.0)).append("s");
+        }
+
+        // Exécution Préparée (coût réduit)
+        int prepCost = getPreparedExecutionCost(uuid);
+        if (prepCost > 0) {
+            long prepRemaining = preparedExecutionEnd.get(uuid) - System.currentTimeMillis();
+            bar.append("  §e§lEXÉC ").append(prepCost).append("pts §7(").append(String.format("%.0f", prepRemaining / 1000.0)).append("s)");
         }
 
         return bar.toString();
@@ -580,6 +611,66 @@ public class ShadowManager {
         return finalDamage;
     }
 
+    /**
+     * Exécute une Exécution avec un coût de points personnalisé
+     * Utilisé par Exécution Préparée (Danse Macabre) pour réduire le coût à 3
+     *
+     * @param player Le joueur
+     * @param target La cible
+     * @param isMarked Si la cible est marquée par le joueur
+     * @param pointsCost Le coût en points (3 pour préparé, 5 normal)
+     * @return Les dégâts infligés (0 si échec)
+     */
+    public double executeExecutionWithCost(Player player, LivingEntity target, boolean isMarked, int pointsCost) {
+        UUID uuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        // Vérifier les points
+        if (!hasEnoughPoints(uuid, pointsCost)) {
+            player.sendMessage("§c§l[OMBRE] §7Pas assez de Points d'Ombre! (§c" +
+                getShadowPoints(uuid) + "§7/§5" + pointsCost + "§7)");
+            return 0;
+        }
+
+        // Consommer le nombre de points requis
+        int currentPoints = getShadowPoints(uuid);
+        shadowPoints.put(uuid, Math.max(0, currentPoints - pointsCost));
+
+        Player playerEntity = Bukkit.getPlayer(uuid);
+        if (playerEntity != null && pointsCost > 0) {
+            playerEntity.playSound(playerEntity.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.6f, 1.2f);
+        }
+
+        // Calculer les dégâts selon le statut marqué
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double multiplier = isMarked ? 4.0 : 2.5; // 400% si marqué, 250% sinon
+
+        double finalDamage = baseDamage * multiplier;
+
+        // Effets visuels (plus intenses si marqué)
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
+        target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
+
+        // Appliquer les dégâts
+        target.damage(finalDamage, player);
+
+        // Retirer la marque si présente
+        if (isMarked) {
+            removeMark(targetUuid);
+        }
+
+        // Message avec info sur le bonus
+        String bonusInfo = isMarked ? "§d§l[MARQUÉ] " : "";
+        player.sendMessage("§5§l[EXÉCUTION] " + bonusInfo + "§7Dégâts: §c" + String.format("%.0f", finalDamage) +
+            " §7(" + (int)(multiplier * 100) + "%)");
+
+        return finalDamage;
+    }
+
     // ==================== POISON INSIDIEUX ====================
 
     /**
@@ -611,31 +702,219 @@ public class ShadowManager {
     // ==================== DANSE MACABRE ====================
 
     /**
-     * Active Danse Macabre (invisibilité + reset Pas + vitesse)
+     * Active la Danse Macabre (REFONTE)
+     * - Cascade de Mort: marque tous les ennemis proches
+     * - Frénésie d'Ombre: +80% vitesse, +30% attack speed
+     * - Exécution Préparée: prochaine exécution coûte 3 points
+     * - Reset Pas de l'Ombre
+     * - +2 Points d'Ombre
+     *
+     * @param player Le joueur
+     * @param talent Le talent pour récupérer les valeurs
+     * @param killLocation L'emplacement du kill (centre de la cascade)
      */
-    public void activateDanseMacabre(Player player) {
+    public void activateDanseMacabre(Player player, Talent talent, Location killLocation) {
         UUID uuid = player.getUniqueId();
 
-        // 2s d'invisibilité
-        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY,
-            (int) DANCE_MACABRE_INVIS_DURATION, 0, false, false));
+        // Récupérer les valeurs du talent
+        double[] values = talent != null ? talent.getValues() : new double[]{8.0, 5000, 5000, 0.80, 0.30, 6000, 3, 2};
+        double cascadeRadius = values[0];           // 8 blocs
+        long markDurationMs = (long) values[1];     // 5000ms
+        long frenzyDurationMs = (long) values[2];   // 5000ms
+        double speedBonus = values[3];              // 0.80 (+80%)
+        double attackSpeedBonus = values[4];        // 0.30 (+30%)
+        long preparedExecDurationMs = (long) values[5]; // 6000ms
+        int preparedExecCost = (int) values[6];     // 3 points
+        int pointsGained = (int) values[7];         // 2 points
 
-        // +50% vitesse
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED,
-            (int) DANCE_MACABRE_INVIS_DURATION, 1, false, false));
+        long now = System.currentTimeMillis();
+        int enemiesMarked = 0;
 
-        // Reset Pas de l'Ombre
+        // === CASCADE DE MORT - Marquer tous les ennemis proches ===
+        for (Entity entity : killLocation.getWorld().getNearbyEntities(killLocation, cascadeRadius, cascadeRadius, cascadeRadius)) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                // Ne pas remarquer si déjà marqué
+                if (!isMarked(monster.getUniqueId())) {
+                    // Marque avec durée réduite (5s au lieu de 8s)
+                    applyDeathMarkWithDuration(player, monster, markDurationMs);
+                    enemiesMarked++;
+
+                    // Effet visuel de propagation de marque
+                    monster.getWorld().spawnParticle(Particle.WITCH,
+                        monster.getLocation().add(0, monster.getHeight() / 2, 0), 10, 0.3, 0.3, 0.3, 0);
+                }
+            }
+        }
+
+        // === FRÉNÉSIE D'OMBRE - Buffs de vitesse ===
+        int frenzyTicks = (int) (frenzyDurationMs / 50);
+
+        // +80% vitesse de déplacement (Speed IV approximativement)
+        // Speed I = +20%, II = +40%, III = +60%, IV = +80%
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, frenzyTicks, 3, false, true, true));
+
+        // +30% attack speed via AttributeModifier
+        applyDanseAttackSpeedBonus(player, attackSpeedBonus);
+
+        // Tracking de la frénésie
+        danceMacabreEnd.put(uuid, now + frenzyDurationMs);
+
+        // === EXÉCUTION PRÉPARÉE ===
+        preparedExecutionEnd.put(uuid, now + preparedExecDurationMs);
+        preparedExecutionCost.put(uuid, preparedExecCost);
+
+        // === RESET PAS DE L'OMBRE ===
         resetShadowStepCooldown(uuid);
 
-        // Tracking
-        danceMacabreEnd.put(uuid, System.currentTimeMillis() + (DANCE_MACABRE_INVIS_DURATION * 50));
+        // === POINTS D'OMBRE ===
+        addShadowPoints(uuid, pointsGained);
 
-        // Effets
+        // === EFFETS VISUELS ÉPIQUES ===
         Location loc = player.getLocation();
-        loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc.add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.1);
-        loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.0f, 1.2f);
 
-        player.sendMessage("§8§l[OMBRE] §7Danse Macabre! §aInvisible §7+ §bPas reset");
+        // Explosion de particules d'ombre au centre
+        killLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, killLocation.add(0, 1, 0), 60, 1.5, 0.5, 1.5, 0.1);
+        killLocation.getWorld().spawnParticle(Particle.WITCH, killLocation, 40, cascadeRadius / 2, 0.5, cascadeRadius / 2, 0);
+
+        // Cercle de particules montrant la zone de cascade
+        for (double angle = 0; angle < 360; angle += 15) {
+            double rad = Math.toRadians(angle);
+            double x = Math.cos(rad) * cascadeRadius;
+            double z = Math.sin(rad) * cascadeRadius;
+            killLocation.getWorld().spawnParticle(Particle.DUST, killLocation.clone().add(x, 0.5, z), 2, 0, 0, 0, 0,
+                new Particle.DustOptions(Color.fromRGB(128, 0, 180), 1.2f));
+        }
+
+        // Sons
+        loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_SHOOT, 0.8f, 1.5f);
+        loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1.2f, 1.0f);
+        loc.getWorld().playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.6f, 1.8f);
+
+        // === MESSAGE FEEDBACK ===
+        StringBuilder msg = new StringBuilder("§5§l[DANSE MACABRE] ");
+        if (enemiesMarked > 0) {
+            msg.append("§d").append(enemiesMarked).append(" ennemis marqués§7! ");
+        }
+        msg.append("§a+Vitesse §7+ §c+AS §7+ §eExéc. 3pts§7!");
+        player.sendMessage(msg.toString());
+
+        // Aura visuelle pendant la frénésie
+        startDanseMacabreAura(uuid, frenzyTicks);
+    }
+
+    /**
+     * Applique une marque avec durée personnalisée (pour Danse Macabre)
+     */
+    private void applyDeathMarkWithDuration(Player owner, LivingEntity target, long durationMs) {
+        UUID targetUuid = target.getUniqueId();
+        UUID ownerUuid = owner.getUniqueId();
+
+        deathMarks.put(targetUuid, System.currentTimeMillis() + durationMs);
+        markOwners.put(targetUuid, ownerUuid);
+
+        if (deathMarkTeam != null) {
+            deathMarkTeam.addEntity(target);
+        }
+        target.setGlowing(true);
+    }
+
+    /**
+     * Aura visuelle pendant Danse Macabre
+     */
+    private void startDanseMacabreAura(UUID playerUuid, int durationTicks) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                if (ticks >= durationTicks || !danceMacabreEnd.containsKey(playerUuid)) {
+                    cancel();
+                    return;
+                }
+
+                Player player = Bukkit.getPlayer(playerUuid);
+                if (player == null) {
+                    cancel();
+                    return;
+                }
+
+                // Particules autour du joueur (spirale ascendante)
+                if (ticks % 4 == 0) {
+                    double angle = (ticks * 20) % 360;
+                    double rad = Math.toRadians(angle);
+                    double x = Math.cos(rad) * 0.8;
+                    double z = Math.sin(rad) * 0.8;
+                    double y = (ticks % 40) / 40.0 * 2;
+
+                    Location loc = player.getLocation().add(x, y, z);
+                    player.getWorld().spawnParticle(Particle.DUST, loc, 1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.fromRGB(150, 0, 200), 0.8f));
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Applique le bonus de vitesse d'attaque de Danse Macabre
+     */
+    private void applyDanseAttackSpeedBonus(Player player, double bonus) {
+        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed == null) return;
+
+        // Retirer l'ancien modifier s'il existe
+        removeDanseAttackSpeedBonus(player);
+
+        // Ajouter le nouveau modifier
+        AttributeModifier modifier = new AttributeModifier(
+            DANSE_ATTACK_SPEED_KEY,
+            bonus,
+            AttributeModifier.Operation.ADD_SCALAR
+        );
+        attackSpeed.addModifier(modifier);
+    }
+
+    /**
+     * Retire le bonus de vitesse d'attaque de Danse Macabre
+     */
+    private void removeDanseAttackSpeedBonus(Player player) {
+        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed == null) return;
+
+        for (var modifier : attackSpeed.getModifiers()) {
+            if (modifier.getKey().equals(DANSE_ATTACK_SPEED_KEY)) {
+                attackSpeed.removeModifier(modifier);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Vérifie si le joueur a une Exécution Préparée active
+     * @return Le coût réduit (3) ou -1 si pas actif
+     */
+    public int getPreparedExecutionCost(UUID playerUuid) {
+        Long endTime = preparedExecutionEnd.get(playerUuid);
+        if (endTime != null && System.currentTimeMillis() < endTime) {
+            return preparedExecutionCost.getOrDefault(playerUuid, -1);
+        }
+        return -1;
+    }
+
+    /**
+     * Consomme le buff d'Exécution Préparée
+     */
+    public void consumePreparedExecution(UUID playerUuid) {
+        preparedExecutionEnd.remove(playerUuid);
+        preparedExecutionCost.remove(playerUuid);
+    }
+
+    /**
+     * Vérifie si Danse Macabre est active (pour l'ActionBar)
+     */
+    public boolean isDanseMacabreActive(UUID playerUuid) {
+        Long endTime = danceMacabreEnd.get(playerUuid);
+        return endTime != null && System.currentTimeMillis() < endTime;
     }
 
     // ==================== CLONE D'OMBRE ====================
@@ -999,8 +1278,16 @@ public class ShadowManager {
         avatarActive.remove(playerUuid);
         avatarCooldown.remove(playerUuid);
         danceMacabreEnd.remove(playerUuid);
+        preparedExecutionEnd.remove(playerUuid);
+        preparedExecutionCost.remove(playerUuid);
         removeAllClones(playerUuid);
         activeShadowPlayers.remove(playerUuid);
+
+        // Retirer les modifiers d'attributs
+        Player player = Bukkit.getPlayer(playerUuid);
+        if (player != null) {
+            removeDanseAttackSpeedBonus(player);
+        }
 
         // Désenregistrer de l'ActionBarManager
         if (plugin.getActionBarManager() != null) {
