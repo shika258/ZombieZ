@@ -1571,9 +1571,9 @@ public class BeastManager {
             return; // Pas encore le temps de tirer
         }
 
-        // Trouver les cibles proches (on en a besoin pour les tirs multiples) - portée 32 blocs
+        // Trouver les cibles proches (on en a besoin pour les tirs multiples) - portée 24 blocs
         List<LivingEntity> nearbyEnemies = new ArrayList<>();
-        for (Entity nearby : axolotl.getNearbyEntities(32, 16, 32)) {
+        for (Entity nearby : axolotl.getNearbyEntities(24, 16, 24)) {
             if (nearby instanceof Monster monster && !isBeast(nearby)) {
                 nearbyEnemies.add(monster);
             }
@@ -1650,19 +1650,19 @@ public class BeastManager {
         Vector direction = target.getLocation().add(0, 1, 0).subtract(start).toVector().normalize();
 
         // Créer un projectile visuel avec des particules
-        // Vitesse: 1.6 blocs/tick, durée max: 40 ticks = 64 blocs de portée
+        // Vitesse: 1.6 blocs/tick, durée max: 30 ticks = 48 blocs de portée
         new BukkitRunnable() {
             Location current = start.clone();
             int ticks = 0;
 
             @Override
             public void run() {
-                if (ticks > 40) {
+                if (ticks > 30) {
                     cancel();
                     return;
                 }
 
-                // Déplacer la bulle (1.6 blocs/tick pour atteindre les cibles à 32 blocs)
+                // Déplacer la bulle (1.6 blocs/tick pour atteindre les cibles à 24 blocs)
                 current.add(direction.clone().multiply(1.6));
 
                 // Particules de bulle
