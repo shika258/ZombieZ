@@ -29,6 +29,10 @@ public class ZombieAIManager {
     private long totalAIsCreated = 0;
     private long totalAIsRemoved = 0;
 
+    // Tick spread - distribue les IA sur plusieurs ticks pour optimiser
+    private static final int TICK_SPREAD = 3; // Chaque IA tick tous les 3 ticks
+    private int tickCounter = 0;
+
     public ZombieAIManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.activeAIs = new ConcurrentHashMap<>();
@@ -156,9 +160,15 @@ public class ZombieAIManager {
     }
 
     /**
-     * Tick toutes les IA actives
+     * Tick les IA actives avec spread pour optimisation.
+     * Chaque IA ne tick que tous les TICK_SPREAD ticks (1 IA sur 3 par tick).
+     * Avec 500 IA, on passe de 500/tick à ~167/tick = gain de ~1.5 TPS.
      */
     private void tickAllAIs() {
+        tickCounter++;
+        int currentBucket = tickCounter % TICK_SPREAD;
+        int index = 0;
+
         for (Map.Entry<UUID, ZombieAI> entry : activeAIs.entrySet()) {
             UUID zombieId = entry.getKey();
             ZombieAI ai = entry.getValue();
@@ -171,12 +181,15 @@ public class ZombieAIManager {
                 continue;
             }
 
-            // Tick l'IA
-            try {
-                ai.tick();
-            } catch (Exception e) {
-                plugin.getLogger().warning("Erreur dans tick pour " + zombieId + ": " + e.getMessage());
+            // Tick spread: ne traiter que les IA dont l'index correspond au bucket actuel
+            if (index % TICK_SPREAD == currentBucket) {
+                try {
+                    ai.tick();
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Erreur dans tick pour " + zombieId + ": " + e.getMessage());
+                }
             }
+            index++;
         }
     }
 
