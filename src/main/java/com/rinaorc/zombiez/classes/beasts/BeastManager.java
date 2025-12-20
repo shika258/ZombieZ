@@ -70,6 +70,11 @@ public class BeastManager {
     private final Map<UUID, Long> foxMarkedEntities = new ConcurrentHashMap<>();
     private static final double FOX_MARK_DAMAGE_BONUS = 0.30; // +30% dégâts
 
+    // Stacks de piqûres d'abeille (UUID entité -> nombre de stacks)
+    private final Map<UUID, Integer> beeStingStacks = new ConcurrentHashMap<>();
+    private static final int BEE_MAX_STACKS = 5;
+    private static final double BEE_VENOM_EXPLOSION_DAMAGE = 1.5; // 150% des dégâts de base
+
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
@@ -484,7 +489,7 @@ public class BeastManager {
             case COW -> executeCowAbility(owner, beast, now, cooldownKey);
             case LLAMA -> executeLlamaAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case FOX -> executeFoxAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
-            case BEE -> {} // Actif - géré par double-sneak
+            case BEE -> executeBeeAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
         }
         // L'ours a maintenant sa propre vie indépendante (x3 vie joueur + armure)
@@ -1110,59 +1115,179 @@ public class BeastManager {
         // Pas de message - effets visuels suffisent
     }
 
-    // === FRÉNÉSIE DE LA RUCHE (Abeille) ===
+    // === ABEILLE - ESSAIM VENIMEUX ===
 
     /**
-     * Gère le double-sneak pour activer la Frénésie
+     * Capacité de l'abeille: attaque en essaim avec piqûres empilables
      */
-    public void handleSneak(Player player, boolean isSneaking) {
-        if (!isSneaking) return;
+    private void executeBeeAbility(Player owner, LivingEntity bee, long now, String cooldownKey, double frenzyMultiplier) {
+        // Attaque toutes les 2 secondes
+        long stingCooldown = (long) (2000 / frenzyMultiplier);
 
-        UUID uuid = player.getUniqueId();
-
-        // Vérifier si le joueur a l'abeille
-        Map<BeastType, UUID> beasts = playerBeasts.get(uuid);
-        if (beasts == null || !beasts.containsKey(BeastType.BEE)) return;
-
-        long now = System.currentTimeMillis();
-        Long lastSneak = lastSneakTime.get(uuid);
-
-        if (lastSneak != null && now - lastSneak <= DOUBLE_SNEAK_WINDOW) {
-            // Double-sneak détecté!
-            activateFrenzy(player);
-            lastSneakTime.remove(uuid);
-        } else {
-            lastSneakTime.put(uuid, now);
+        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+            // Trouver jusqu'à 3 cibles proches
+            List<LivingEntity> targets = findBeeTargets(bee, 3);
+            if (!targets.isEmpty()) {
+                launchSwarmAttack(owner, bee, targets);
+                setCooldown(owner.getUniqueId(), cooldownKey, now + stingCooldown);
+            }
         }
     }
 
-    private void activateFrenzy(Player player) {
-        UUID uuid = player.getUniqueId();
+    /**
+     * Trouve les cibles pour l'essaim (priorité aux cibles déjà piquées)
+     */
+    private List<LivingEntity> findBeeTargets(LivingEntity bee, int maxTargets) {
+        List<LivingEntity> targets = new ArrayList<>();
+        List<LivingEntity> candidates = new ArrayList<>();
 
-        // Vérifier le cooldown
-        if (isOnCooldown(uuid, "frenzy", System.currentTimeMillis())) {
-            player.sendMessage("§c✦ Frénésie en cooldown!");
-            return;
-        }
-
-        // Activer la frénésie
-        frenzyActiveUntil.put(uuid, System.currentTimeMillis() + 10000); // 10 secondes
-        setCooldown(uuid, "frenzy", System.currentTimeMillis() + 20000); // 20 secondes de cooldown
-
-        // Effets
-        player.sendMessage("§e§l✦ FRÉNÉSIE DE LA RUCHE ACTIVÉE! +50% vitesse d'attaque pour 10s!");
-        player.playSound(player.getLocation(), Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 2.0f, 1.5f);
-
-        // Particules sur toutes les bêtes
-        Map<BeastType, UUID> beasts = playerBeasts.get(uuid);
-        if (beasts != null) {
-            for (UUID beastUuid : beasts.values()) {
-                Entity beast = Bukkit.getEntity(beastUuid);
-                if (beast != null) {
-                    beast.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, beast.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0);
-                }
+        for (Entity nearby : bee.getNearbyEntities(8, 4, 8)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                candidates.add(monster);
             }
         }
+
+        // Trier: priorité aux cibles avec des stacks existants
+        candidates.sort((a, b) -> {
+            int stacksA = beeStingStacks.getOrDefault(a.getUniqueId(), 0);
+            int stacksB = beeStingStacks.getOrDefault(b.getUniqueId(), 0);
+            return Integer.compare(stacksB, stacksA); // Descending
+        });
+
+        for (int i = 0; i < Math.min(maxTargets, candidates.size()); i++) {
+            targets.add(candidates.get(i));
+        }
+
+        return targets;
+    }
+
+    /**
+     * Lance une attaque en essaim sur les cibles
+     */
+    private void launchSwarmAttack(Player owner, LivingEntity bee, List<LivingEntity> targets) {
+        Location beeLocation = bee.getLocation().add(0, 0.5, 0);
+
+        // Son d'essaim
+        bee.getWorld().playSound(beeLocation, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 1.5f, 1.5f);
+
+        for (LivingEntity target : targets) {
+            // Créer un projectile visuel d'abeille
+            launchStingProjectile(owner, bee, target);
+        }
+    }
+
+    /**
+     * Lance un projectile de piqûre vers la cible
+     */
+    private void launchStingProjectile(Player owner, LivingEntity bee, LivingEntity target) {
+        Location start = bee.getLocation().add(0, 0.5, 0);
+
+        new BukkitRunnable() {
+            Location current = start.clone();
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks > 20 || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                // Direction vers la cible (homing)
+                Vector direction = target.getLocation().add(0, 1, 0)
+                    .subtract(current).toVector();
+                if (direction.lengthSquared() < 1) {
+                    // Impact!
+                    applyBeeSting(owner, bee, target);
+                    cancel();
+                    return;
+                }
+                direction.normalize().multiply(1.2);
+
+                // Déplacer le projectile
+                current.add(direction);
+
+                // Particules d'abeille
+                current.getWorld().spawnParticle(Particle.DUST, current, 2, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(Color.YELLOW, 0.6f));
+                current.getWorld().spawnParticle(Particle.DUST, current, 1, 0.05, 0.05, 0.05, 0,
+                    new Particle.DustOptions(Color.BLACK, 0.3f));
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Applique une piqûre d'abeille et gère les stacks
+     */
+    private void applyBeeSting(Player owner, LivingEntity bee, LivingEntity target) {
+        UUID targetUuid = target.getUniqueId();
+
+        // Dégâts de base (10% des dégâts du joueur)
+        double stingDamage = calculateBeastDamage(owner, BeastType.BEE);
+        target.damage(stingDamage, owner);
+
+        // Ajouter un stack
+        int currentStacks = beeStingStacks.getOrDefault(targetUuid, 0);
+        int newStacks = currentStacks + 1;
+
+        // Effets visuels de piqûre
+        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.2, 0),
+            5, 0.2, 0.2, 0.2, 0.05);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_BEE_STING, 1.0f, 1.2f);
+
+        if (newStacks >= BEE_MAX_STACKS) {
+            // Explosion de venin!
+            triggerVenomExplosion(owner, target);
+            beeStingStacks.remove(targetUuid);
+        } else {
+            beeStingStacks.put(targetUuid, newStacks);
+
+            // Particules de stack (plus intense avec les stacks)
+            for (int i = 0; i < newStacks; i++) {
+                double angle = (2 * Math.PI * i) / newStacks;
+                double x = Math.cos(angle) * 0.5;
+                double z = Math.sin(angle) * 0.5;
+                target.getWorld().spawnParticle(Particle.DUST,
+                    target.getLocation().add(x, 2.0 + (i * 0.1), z),
+                    1, 0, 0, 0, 0,
+                    new Particle.DustOptions(Color.ORANGE, 0.5f));
+            }
+        }
+    }
+
+    /**
+     * Déclenche l'explosion de venin à 5 stacks
+     */
+    private void triggerVenomExplosion(Player owner, LivingEntity target) {
+        Location loc = target.getLocation().add(0, 1, 0);
+
+        // Dégâts massifs (150% des dégâts du joueur)
+        double explosionDamage = calculateBeastDamage(owner, BeastType.BEE) * BEE_VENOM_EXPLOSION_DAMAGE * 10; // x10 car 10% de base
+        target.damage(explosionDamage, owner);
+
+        // Poison
+        target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 1)); // Poison II, 3s
+
+        // Effets visuels spectaculaires
+        target.getWorld().spawnParticle(Particle.DUST, loc, 30, 0.5, 0.5, 0.5, 0.1,
+            new Particle.DustOptions(Color.YELLOW, 1.5f));
+        target.getWorld().spawnParticle(Particle.DUST, loc, 20, 0.4, 0.4, 0.4, 0.1,
+            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 1.2f)); // Vert poison
+        target.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, loc, 5, 0.3, 0.3, 0.3, 0);
+
+        // Sons
+        target.getWorld().playSound(loc, Sound.ENTITY_BEE_DEATH, 2.0f, 0.5f);
+        target.getWorld().playSound(loc, Sound.BLOCK_SLIME_BLOCK_BREAK, 1.5f, 1.5f);
+        target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_HURT_SWEET_BERRY_BUSH, 1.0f, 0.8f);
+    }
+
+    /**
+     * Nettoie les stacks de piqûres pour une entité morte
+     */
+    public void cleanupBeeStings(UUID targetUuid) {
+        beeStingStacks.remove(targetUuid);
     }
 
     // === RENARD - TRAQUE & BOND ===

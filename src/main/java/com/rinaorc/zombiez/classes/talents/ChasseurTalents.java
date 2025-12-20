@@ -935,19 +935,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_bee")
             .name("Abeille")
-            .description("Invoque une abeille qui galvanise la meute")
+            .description("Invoque une abeille avec essaim venimeux")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque une §eabeille guerrière§7",
-                "§7qui galvanise la meute.",
+                "§7qui déchaîne son essaim.",
                 "",
-                "§6CAPACITÉ - FRÉNÉSIE DE LA RUCHE:",
-                "§7§eDouble-Sneak§7 pour activer!",
-                "§c+50%§7 vitesse d'attaque pour",
-                "§7TOUTES les bêtes pendant §e10s§7.",
+                "§6CAPACITÉ - ESSAIM VENIMEUX:",
+                "§7Lance des piqûres sur §e3 cibles§7.",
+                "§7Chaque piqûre ajoute §c1 stack§7.",
                 "",
-                "§c⚡ Cooldown: §e20s"
+                "§c✦ À 5 STACKS: EXPLOSION DE VENIN!",
+                "§7Dégâts massifs + §2Poison II",
+                "",
+                "§b~ Cadence: §e2s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -955,7 +957,7 @@ public final class ChasseurTalents {
             .icon(Material.BEE_SPAWN_EGG)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.BEAST_BEE)
-            .values(new double[]{10000, 0.50, 20000}) // frenzy_duration_ms, attack_speed_bonus, cooldown_ms
+            .values(new double[]{2000, 5, 1.5}) // sting_cooldown_ms, max_stacks, explosion_damage_mult
             .build());
 
         // 7.3 - CHASSEUR LEGENDAIRE

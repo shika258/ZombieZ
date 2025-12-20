@@ -240,7 +240,7 @@ public enum BeastType {
 
     /**
      * Tier 8 - Abeille
-     * Frénésie de la Ruche - active par double-sneak.
+     * Essaim venimeux - attaque en groupe avec piqûres empilables.
      */
     BEE(
         8, "Abeille",
@@ -251,15 +251,18 @@ public enum BeastType {
             "§e§lABEILLE",
             "",
             "§7Une abeille guerrière qui",
-            "§7galvanise la meute.",
+            "§7déchaîne son essaim.",
             "",
-            "§6CAPACITÉ - FRÉNÉSIE DE LA RUCHE:",
-            "§7§eDouble-Sneak§7 pour activer!",
-            "§7+50%§7 vitesse d'attaque pour",
-            "§7TOUTES les bêtes pendant §e10s§7.",
+            "§6CAPACITÉ - ESSAIM VENIMEUX:",
+            "§7Lance des piqûres sur §e3 cibles§7.",
+            "§7Chaque piqûre ajoute §c1 stack§7.",
             "",
-            "§e⚔ Dégâts: §f10% §7de vos dégâts",
-            "§c⚡ Cooldown: §e20s"
+            "§c✦ À 5 STACKS: §fEXPLOSION DE VENIN!",
+            "§7Dégâts massifs + Poison II",
+            "",
+            "§e⚔ Dégâts/piqûre: §f10%",
+            "§e⚔ Explosion: §f150%",
+            "§b~ Cadence: §e2s"
         },
         Sound.ENTITY_BEE_LOOP_AGGRESSIVE,
         Sound.ENTITY_BEE_HURT,
