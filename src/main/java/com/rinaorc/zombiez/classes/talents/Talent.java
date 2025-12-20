@@ -142,6 +142,8 @@ public class Talent {
         AGILE_HUNTER,            // Dodge gives invis + damage boost
         HUNTER_MARK,             // Mark enemies for extra damage
         PIERCING_ARROWS,         // Projectiles pierce enemies
+        LYNX_EYE,                // Crit chance + crit damage bonus
+        PREDATOR_EYE,            // Crit resets dodge cooldown
 
         // === CHASSEUR - Tier 2 ===
         BURST_SHOT,              // Combo shot bonus
@@ -149,6 +151,7 @@ public class Talent {
         GHOST,                   // Invis bonus crit damage
         VENOM,                   // Poison DoT
         RICOCHET,                // Bouncing projectiles
+        SNIPER,                  // Distance bonus damage
 
         // === CHASSEUR - Tier 3 ===
         ARROW_RAIN,              // AoE arrow rain proc
@@ -170,6 +173,11 @@ public class Talent {
         BOUNTY_HUNTER,           // Mark kill rewards
         EPIDEMIC,                // Infinite poison stacking
         KILL_ZONE,               // Personal attack speed zone
+        SPECTRE,                 // Stealth attacks don't break invis
+        SHADOW_MASTER,           // Enhanced stealth mechanics
+        STEALTH_REAPER,          // Stealth kill bonuses
+        VOID_WALKER,             // DR while moving
+        SUPREME_PREDATOR,        // Extend stealth on kill
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain

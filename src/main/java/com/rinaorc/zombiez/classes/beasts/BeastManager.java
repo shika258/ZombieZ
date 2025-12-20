@@ -146,7 +146,7 @@ public class BeastManager {
 
         // Pour chaque tier débloqué, vérifier si le talent bête correspondant est actif
         for (TalentTier tier : TalentTier.values()) {
-            if (!tier.isUnlocked(data.getClassLevel())) continue;
+            if (!tier.isUnlocked(data.getClassLevel().get())) continue;
 
             Talent talent = talentManager.getActiveTalentForTier(player, tier);
             if (talent == null) continue;
@@ -1054,7 +1054,7 @@ public class BeastManager {
     private void spawnBeastEffects(Location loc, BeastType type) {
         loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 30, 0.5, 1, 0.5, 0);
         loc.getWorld().spawnParticle(Particle.DUST, loc, 20, 0.5, 1, 0.5, 0,
-            new Particle.DustOptions(Color.GOLD, 1.5f));
+            new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.5f));
         loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
     }
 
