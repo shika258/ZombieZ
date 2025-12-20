@@ -258,17 +258,15 @@ public class ZombieZItem {
         lore.add("");
 
         // ═══════════════════════════════════════
-        // STATS TOTALES (Vue d'ensemble compacte)
+        // STATS DE BASE (sans affixes pour éviter la duplication)
         // ═══════════════════════════════════════
-        Map<StatType, Double> totalStats = getTotalStats();
-
-        if (!totalStats.isEmpty()) {
-            // Header "Statistiques" pour distinguer des Affixes
-            lore.add("§6✧ STATISTIQUES §8(" + totalStats.size() + ")");
+        if (!baseStats.isEmpty()) {
+            // Header "Stats de base"
+            lore.add("§6✧ STATS DE BASE");
 
             // Grouper par catégorie pour un affichage organisé
             Map<StatType.StatCategory, List<Map.Entry<StatType, Double>>> statsByCategory = new LinkedHashMap<>();
-            for (var entry : totalStats.entrySet()) {
+            for (var entry : baseStats.entrySet()) {
                 statsByCategory.computeIfAbsent(entry.getKey().getCategory(), k -> new ArrayList<>()).add(entry);
             }
 
