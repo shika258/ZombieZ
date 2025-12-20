@@ -261,9 +261,9 @@ public class ShadowManager {
                 // Son subtil quand on gagne des points
                 player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.3f, 1.0f + (newValue * 0.1f));
 
-                // Particules d'ombre autour du joueur
+                // Particules d'ombre autour du joueur (réduites)
                 player.getWorld().spawnParticle(Particle.SMOKE,
-                    player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.01);
+                    player.getLocation().add(0, 1, 0), 2, 0.2, 0.2, 0.2, 0.01);
 
                 // Message à 5 points
                 if (newValue == MAX_SHADOW_POINTS && current < MAX_SHADOW_POINTS) {
@@ -437,7 +437,7 @@ public class ShadowManager {
         // Effets visuels au départ (trainée d'ombre)
         Location start = player.getLocation().clone();
         Location startParticle = start.clone().add(0, 1, 0);
-        start.getWorld().spawnParticle(Particle.LARGE_SMOKE, startParticle, 20, 0.3, 0.5, 0.3, 0.05);
+        start.getWorld().spawnParticle(Particle.LARGE_SMOKE, startParticle, 8, 0.2, 0.3, 0.2, 0.03);
         start.getWorld().playSound(start, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.5f);
 
         // Trainée de particules entre départ et arrivée
@@ -446,9 +446,9 @@ public class ShadowManager {
         // Téléportation
         player.teleport(destination);
 
-        // Effets visuels à l'arrivée
-        destination.getWorld().spawnParticle(Particle.LARGE_SMOKE, destination.clone().add(0, 1, 0), 25, 0.4, 0.5, 0.4, 0.05);
-        destination.getWorld().spawnParticle(Particle.WITCH, destination, 15, 0.3, 0.3, 0.3, 0);
+        // Effets visuels à l'arrivée (réduits)
+        destination.getWorld().spawnParticle(Particle.LARGE_SMOKE, destination.clone().add(0, 1, 0), 10, 0.3, 0.4, 0.3, 0.03);
+        destination.getWorld().spawnParticle(Particle.WITCH, destination, 6, 0.2, 0.2, 0.2, 0);
         destination.getWorld().playSound(destination, Sound.ENTITY_PHANTOM_BITE, 1.0f, 1.2f);
 
         // Mettre en cooldown AVANT d'infliger les dégâts pour éviter la boucle infinie
@@ -467,11 +467,11 @@ public class ShadowManager {
         double finalDamage = baseDamage * damageMult;
         target.damage(finalDamage, player);
 
-        // Effets de frappe
+        // Effets de frappe (réduits)
         target.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
-            target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0);
+            target.getLocation().add(0, 1, 0), 1, 0.1, 0.1, 0.1, 0);
         target.getWorld().spawnParticle(Particle.CRIT,
-            target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.2);
+            target.getLocation().add(0, 1, 0), 6, 0.2, 0.2, 0.2, 0.1);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
 
         return finalDamage;
@@ -599,9 +599,9 @@ public class ShadowManager {
         // Effet Glowing (sera violet grâce à la team)
         target.setGlowing(true);
 
-        // Effets visuels
+        // Effets visuels (réduits)
         target.getWorld().spawnParticle(Particle.WITCH,
-            target.getLocation().add(0, target.getHeight() + 0.5, 0), 20, 0.3, 0.3, 0.3, 0);
+            target.getLocation().add(0, target.getHeight() + 0.5, 0), 8, 0.2, 0.2, 0.2, 0);
         target.getWorld().playSound(target.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_SET_SPAWN, 0.8f, 1.5f);
 
         // Particule au-dessus de la tête
@@ -695,11 +695,11 @@ public class ShadowManager {
 
         double finalDamage = baseDamage * multiplier;
 
-        // Effets visuels (plus intenses si marqué)
+        // Effets visuels (réduits, plus intenses si marqué)
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
-        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
-        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 2, 0.3, 0.3, 0.3, 0);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 15 : 8, 0.3, 0.3, 0.3, 0.2);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 10 : 5, 0.2, 0.2, 0.2, 0.05);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
@@ -768,11 +768,11 @@ public class ShadowManager {
 
         double finalDamage = baseDamage * multiplier;
 
-        // Effets visuels (plus intenses si marqué)
+        // Effets visuels (réduits, plus intenses si marqué)
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
-        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
-        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 2, 0.3, 0.3, 0.3, 0);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 15 : 8, 0.3, 0.3, 0.3, 0.2);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 10 : 5, 0.2, 0.2, 0.2, 0.05);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
@@ -860,9 +860,9 @@ public class ShadowManager {
                     applyDeathMarkWithDuration(player, monster, markDurationMs);
                     enemiesMarked++;
 
-                    // Effet visuel de propagation de marque
+                    // Effet visuel de propagation de marque (réduit)
                     monster.getWorld().spawnParticle(Particle.WITCH,
-                        monster.getLocation().add(0, monster.getHeight() / 2, 0), 10, 0.3, 0.3, 0.3, 0);
+                        monster.getLocation().add(0, monster.getHeight() / 2, 0), 4, 0.2, 0.2, 0.2, 0);
                 }
             }
         }
@@ -890,12 +890,12 @@ public class ShadowManager {
         // === POINTS D'OMBRE ===
         addShadowPoints(uuid, pointsGained);
 
-        // === EFFETS VISUELS ÉPIQUES ===
+        // === EFFETS VISUELS (réduits) ===
         Location loc = player.getLocation();
 
         // Explosion de particules d'ombre au centre
-        killLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, killLocation.add(0, 1, 0), 60, 1.5, 0.5, 1.5, 0.1);
-        killLocation.getWorld().spawnParticle(Particle.WITCH, killLocation, 40, cascadeRadius / 2, 0.5, cascadeRadius / 2, 0);
+        killLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, killLocation.add(0, 1, 0), 20, 1.0, 0.3, 1.0, 0.05);
+        killLocation.getWorld().spawnParticle(Particle.WITCH, killLocation, 12, cascadeRadius / 3, 0.3, cascadeRadius / 3, 0);
 
         // Cercle de particules montrant la zone de cascade
         for (double angle = 0; angle < 360; angle += 15) {
@@ -1080,8 +1080,10 @@ public class ShadowManager {
             // Désactiver l'IA vanilla pour utiliser notre IA personnalisée
             skeleton.setAI(false);
 
-            // Apparence: mains vides (pas d'épée)
+            // Apparence: houe en fer comme arme d'ombre
             skeleton.getEquipment().clear();
+            skeleton.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.IRON_HOE));
+            skeleton.getEquipment().setItemInMainHandDropChance(0f);
 
             // Effet visuel de glowing violet
             skeleton.setGlowing(true);
@@ -1096,9 +1098,9 @@ public class ShadowManager {
         clones.add(clone.getUniqueId());
         activeClones.put(ownerUuid, clones);
 
-        // Effets d'apparition
-        spawnLoc.getWorld().spawnParticle(Particle.LARGE_SMOKE, spawnLoc.add(0, 1, 0), 40, 0.4, 0.6, 0.4, 0.08);
-        spawnLoc.getWorld().spawnParticle(Particle.WITCH, spawnLoc, 20, 0.3, 0.5, 0.3, 0.05);
+        // Effets d'apparition (réduits)
+        spawnLoc.getWorld().spawnParticle(Particle.LARGE_SMOKE, spawnLoc.add(0, 1, 0), 15, 0.3, 0.4, 0.3, 0.05);
+        spawnLoc.getWorld().spawnParticle(Particle.WITCH, spawnLoc, 8, 0.2, 0.3, 0.2, 0.03);
         spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 1.2f, 0.6f);
         spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.5f);
 
@@ -1131,15 +1133,15 @@ public class ShadowManager {
                     return;
                 }
 
-                // Aura d'ombre autour du wither skeleton
+                // Aura d'ombre autour du wither skeleton (réduite)
                 Location loc = clone.getLocation();
                 loc.getWorld().spawnParticle(Particle.DUST,
-                    loc.clone().add(0, 1.5, 0), 3, 0.3, 0.5, 0.3, 0,
-                    new Particle.DustOptions(Color.fromRGB(60, 0, 80), 1.0f));
+                    loc.clone().add(0, 1.5, 0), 1, 0.2, 0.3, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(60, 0, 80), 0.8f));
 
-                // Particules de fumée occasionnelles
-                if (Math.random() < 0.3) {
-                    loc.getWorld().spawnParticle(Particle.SMOKE, loc.clone().add(0, 0.5, 0), 2, 0.2, 0.3, 0.2, 0.01);
+                // Particules de fumée occasionnelles (réduites)
+                if (Math.random() < 0.15) {
+                    loc.getWorld().spawnParticle(Particle.SMOKE, loc.clone().add(0, 0.5, 0), 1, 0.1, 0.2, 0.1, 0.01);
                 }
             }
         }.runTaskTimer(plugin, 0L, 4L);
@@ -1224,9 +1226,9 @@ public class ShadowManager {
                         // Impact - appliquer les dégâts
                         applyShadowCloneDamage(owner, clone, target);
 
-                        // Effets d'impact
-                        targetLoc.getWorld().spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.3, 0.3, 0.1);
-                        targetLoc.getWorld().spawnParticle(Particle.WITCH, targetLoc, 10, 0.2, 0.2, 0.2, 0);
+                        // Effets d'impact (réduits)
+                        targetLoc.getWorld().spawnParticle(Particle.CRIT, targetLoc, 6, 0.2, 0.2, 0.2, 0.1);
+                        targetLoc.getWorld().spawnParticle(Particle.WITCH, targetLoc, 4, 0.15, 0.15, 0.15, 0);
                         targetLoc.getWorld().playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.5f);
 
                         cancel();
@@ -1367,14 +1369,14 @@ public class ShadowManager {
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_SKELETON_HURT, 0.8f, 1.4f);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
 
-        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 12, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.1);
         target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
-            8, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.0f));
+            3, 0.15, 0.15, 0.15, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 0.8f));
 
-        // Effet visuel critique
+        // Effet visuel critique (réduit)
         if (isCritical) {
             owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
-            target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.5);
+            target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation().add(0, 1, 0), 6, 0.2, 0.2, 0.2, 0.3);
         }
 
         // Lifesteal pour le propriétaire
@@ -1557,10 +1559,10 @@ public class ShadowManager {
      * @param damageMult Le multiplicateur de dégâts (valeur du talent, ex: 1.50 = 150%)
      */
     public void triggerShadowStorm(Player owner, Location center, double baseDamage, double radius, double damageMult) {
-        // Explosion visuelle (proportionnelle au rayon)
+        // Explosion visuelle (proportionnelle au rayon, réduite)
         center.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, (int)(50 * radius / 5), radius, 1, radius, 0.1);
-        center.getWorld().spawnParticle(Particle.WITCH, center, (int)(40 * radius / 5), radius, 1, radius, 0.05);
+        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, (int)(20 * radius / 5), radius * 0.7, 0.5, radius * 0.7, 0.05);
+        center.getWorld().spawnParticle(Particle.WITCH, center, (int)(12 * radius / 5), radius * 0.5, 0.5, radius * 0.5, 0.03);
         center.getWorld().playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.5f, 1.0f);
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
 
@@ -1665,11 +1667,11 @@ public class ShadowManager {
             deathMarkTeam.addEntity(player);
         }
 
-        // Effets visuels épiques
+        // Effets visuels épiques (réduits)
         Location loc = player.getLocation();
         loc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1);
-        loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 100, 2, 2, 2, 0.2);
-        loc.getWorld().spawnParticle(Particle.WITCH, loc, 60, 1.5, 1.5, 1.5, 0.1);
+        loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 30, 1.5, 1.5, 1.5, 0.1);
+        loc.getWorld().spawnParticle(Particle.WITCH, loc, 15, 1.0, 1.0, 1.0, 0.05);
         loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.5f);
         loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.8f);
 

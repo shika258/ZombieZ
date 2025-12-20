@@ -183,9 +183,9 @@ public class ShadowListener implements Listener {
             double markedDamage = originalDamage * 1.25;
             event.setDamage(markedDamage);
 
-            // Feedback visuel pour le bonus de marque
+            // Feedback visuel pour le bonus de marque (réduit)
             target.getWorld().spawnParticle(Particle.WITCH,
-                target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0);
+                target.getLocation().add(0, 1, 0), 2, 0.15, 0.15, 0.15, 0);
         }
 
         // Tracker l'attaque
@@ -279,22 +279,20 @@ public class ShadowListener implements Listener {
         player.getWorld().playSound(playerLoc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.2f, 1.8f);
         player.getWorld().playSound(playerLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.3f, 2.0f);
 
-        // Particules de traînée (du joueur vers la cible)
+        // Particules de traînée (du joueur vers la cible, réduites)
         Vector direction = targetLoc.toVector().subtract(playerLoc.toVector()).normalize();
         Location particleLoc = playerLoc.clone();
 
-        for (double d = 0; d < distance; d += 0.5) {
-            particleLoc.add(direction.clone().multiply(0.5));
+        for (double d = 0; d < distance; d += 1.0) { // Espacement doublé
+            particleLoc.add(direction.clone().multiply(1.0));
             player.getWorld().spawnParticle(Particle.DUST,
                 particleLoc, 1, 0, 0, 0, 0,
-                new Particle.DustOptions(Color.fromRGB(80, 0, 120), 0.8f));
-            player.getWorld().spawnParticle(Particle.SMOKE,
-                particleLoc, 1, 0.05, 0.05, 0.05, 0);
+                new Particle.DustOptions(Color.fromRGB(80, 0, 120), 0.6f));
         }
 
-        // Impact sur la cible
-        target.getWorld().spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.3, 0.3, 0.1);
-        target.getWorld().spawnParticle(Particle.WITCH, targetLoc, 10, 0.2, 0.2, 0.2, 0);
+        // Impact sur la cible (réduit)
+        target.getWorld().spawnParticle(Particle.CRIT, targetLoc, 6, 0.2, 0.2, 0.2, 0.1);
+        target.getWorld().spawnParticle(Particle.WITCH, targetLoc, 4, 0.15, 0.15, 0.15, 0);
         target.getWorld().playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.5f);
 
         // === APPLIQUER LES DÉGÂTS ===
