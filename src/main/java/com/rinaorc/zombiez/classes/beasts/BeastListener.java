@@ -161,8 +161,8 @@ public class BeastListener implements Listener {
         }
 
         // Appliquer les effets spéciaux selon le type de bête
+        // Note: Le loup gère ses dégâts et bleed via applyWolfBite dans executeWolfAbility
         switch (type) {
-            case WOLF -> beastManager.applyWolfBleed(owner, target);
             case BEAR -> {
                 // L'ours inflige des dégâts lourds + knockback
                 target.setVelocity(target.getLocation().toVector()

@@ -979,32 +979,73 @@ public class BeastManager {
     private void executeWolfAbility(Player owner, LivingEntity wolf, double frenzyMultiplier) {
         if (!(wolf instanceof Wolf w)) return;
 
-        // Le loup cible automatiquement l'ennemi le plus proche
-        LivingEntity currentTarget = w.getTarget();
+        long now = System.currentTimeMillis();
+        String cooldownKey = "wolf_bite";
+        long biteCooldown = (long) (1000 / frenzyMultiplier); // 1s entre chaque morsure
 
-        // Ne recalcule que si pas de cible ou cible morte
-        if (currentTarget != null && !currentTarget.isDead() && currentTarget.getLocation().distance(wolf.getLocation()) < 10) {
-            return;
-        }
-
-        // Chercher le plus proche (early exit dès qu'on trouve)
-        Entity nearestEnemy = null;
-        double nearestDistance = 8.0;
+        // Chercher la cible la plus proche (priorité aux cibles à portée de mêlée)
+        LivingEntity nearestEnemy = null;
+        double nearestDistSq = 64.0; // 8^2
 
         for (Entity nearby : wolf.getNearbyEntities(8, 4, 8)) {
-            if (nearby instanceof Monster && !isBeast(nearby)) {
-                double dist = wolf.getLocation().distanceSquared(nearby.getLocation()); // Squared = plus rapide
-                if (dist < nearestDistance * nearestDistance) {
-                    nearestDistance = Math.sqrt(dist);
-                    nearestEnemy = nearby;
-                    if (nearestDistance < 3) break; // Assez proche, on prend
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                double distSq = wolf.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestEnemy = monster;
+                    if (distSq < 4) break; // <2 blocs, on prend direct (portée mêlée)
                 }
             }
         }
 
-        if (nearestEnemy instanceof LivingEntity target) {
-            w.setTarget(target);
+        if (nearestEnemy == null) return;
+
+        // Définir la cible pour le pathfinding
+        w.setTarget(nearestEnemy);
+
+        // Si à portée de mêlée (< 2.5 blocs) et pas en cooldown, infliger les dégâts
+        double distance = Math.sqrt(nearestDistSq);
+        if (distance <= 2.5 && !isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+            // Infliger les dégâts manuellement (comme les serviteurs Occultiste)
+            applyWolfBite(owner, nearestEnemy, frenzyMultiplier);
+            setCooldown(owner.getUniqueId(), cooldownKey, now + biteCooldown);
         }
+    }
+
+    /**
+     * Applique une morsure du loup avec dégâts et saignement.
+     * Utilise la même logique que les serviteurs de l'Occultiste.
+     */
+    private void applyWolfBite(Player owner, LivingEntity target, double frenzyMultiplier) {
+        double damage = calculateBeastDamage(owner, BeastType.WOLF) * frenzyMultiplier;
+
+        // Configurer les metadata pour l'indicateur de dégâts (comme les serviteurs Occultiste)
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        target.damage(damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
+        // Appliquer le saignement
+        applyWolfBleed(owner, target);
+
+        // Effet sonore de morsure
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WOLF_GROWL, 0.8f, 1.2f);
     }
 
     /**
@@ -1365,9 +1406,33 @@ public class BeastManager {
 
     /**
      * Applique l'effet du crachat du lama (appelé par le listener)
+     * Utilise la même logique que les serviteurs de l'Occultiste pour les dégâts.
      */
     public void applyLlamaSpit(Player owner, LivingEntity target) {
-        target.damage(calculateBeastDamage(owner, BeastType.LLAMA), owner);
+        double damage = calculateBeastDamage(owner, BeastType.LLAMA);
+
+        // Configurer les metadata pour l'indicateur de dégâts (comme les serviteurs Occultiste)
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        target.damage(damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // Lenteur II, 3s
         target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0);
     }
