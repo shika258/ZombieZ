@@ -16,7 +16,6 @@ import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.UUID;
@@ -293,24 +292,5 @@ public class BeastListener implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             beastManager.summonBeastsForPlayer(player);
         }, 20L); // 1 seconde
-    }
-
-    // === FRÉNÉSIE DE LA RUCHE ===
-
-    /**
-     * Gère le double-sneak pour activer la Frénésie de la Ruche
-     */
-    @EventHandler
-    public void onPlayerSneak(PlayerToggleSneakEvent event) {
-        Player player = event.getPlayer();
-        boolean isSneaking = event.isSneaking();
-
-        ClassData data = plugin.getClassManager().getClassData(player);
-        if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return;
-
-        String branchId = data.getSelectedBranchId();
-        if (branchId == null || !branchId.contains("betes")) return;
-
-        beastManager.handleSneak(player, isSneaking);
     }
 }
