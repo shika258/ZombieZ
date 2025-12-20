@@ -466,6 +466,8 @@ public class DynamicEventManager {
             // Tick l'événement
             try {
                 event.tick();
+                // Vérifier les alertes countdown
+                event.checkCountdown();
             } catch (Exception e) {
                 plugin.log(Level.SEVERE, "Erreur lors du tick de l'événement " + event.getId() + ": " + e.getMessage());
                 e.printStackTrace();
