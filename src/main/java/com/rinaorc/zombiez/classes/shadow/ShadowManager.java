@@ -125,8 +125,8 @@ public class ShadowManager {
         // Ne pas afficher le préfixe de couleur dans le nom
         deathMarkTeam.prefix(Component.empty());
         deathMarkTeam.suffix(Component.empty());
-        // Masquer les noms pour ne pas polluer l'affichage
-        deathMarkTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+        // Garder les noms visibles pour voir la vie des mobs
+        deathMarkTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
     }
 
     /**
