@@ -49,7 +49,7 @@ public enum BeastType {
 
     /**
      * Tier 2 - Ours
-     * Tank qui rugit pour aggro les monstres. Partage la vie du joueur.
+     * Tank robuste qui rugit pour aggro les monstres et les attaque.
      */
     BEAR(
         2, "Ours",
@@ -64,10 +64,12 @@ public enum BeastType {
             "",
             "§6CAPACITÉ - RUGISSEMENT:",
             "§7Toutes les §e8s§7, rugit pour",
-            "§7provoquer les mobs dans §e5 blocs§7.",
+            "§7provoquer les mobs dans §e20 blocs§7.",
+            "§7Attaque les ennemis à proximité!",
             "",
             "§e⚔ Dégâts: §f40% §7de vos dégâts",
-            "§c♥ PARTAGE VOTRE VIE",
+            "§c♥ Vie: §fx3 §7votre vie max",
+            "§9⛨ Armure naturelle renforcée",
             "§7Respawn: §e10s§7 après la mort"
         },
         Sound.ENTITY_POLAR_BEAR_WARNING,

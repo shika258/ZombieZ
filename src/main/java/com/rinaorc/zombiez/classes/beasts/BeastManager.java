@@ -294,10 +294,24 @@ public class BeastManager {
                 }
             }
             case BEAR -> {
-                // L'ours partage la vie du joueur - on le synchronisera dans updateAllBeasts
-                double maxHealth = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
-                beast.getAttribute(Attribute.MAX_HEALTH).setBaseValue(maxHealth);
-                beast.setHealth(owner.getHealth());
+                // L'ours est un tank robuste - beaucoup plus de vie que le joueur
+                double ownerMaxHealth = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
+                double bearMaxHealth = ownerMaxHealth * 3; // x3 la vie du joueur
+                beast.getAttribute(Attribute.MAX_HEALTH).setBaseValue(bearMaxHealth);
+                beast.setHealth(bearMaxHealth);
+
+                // Armure naturelle pour réduire les dégâts
+                if (beast.getAttribute(Attribute.ARMOR) != null) {
+                    beast.getAttribute(Attribute.ARMOR).setBaseValue(15); // 60% réduction environ
+                }
+                if (beast.getAttribute(Attribute.ARMOR_TOUGHNESS) != null) {
+                    beast.getAttribute(Attribute.ARMOR_TOUGHNESS).setBaseValue(8);
+                }
+
+                // Vitesse d'attaque et dégâts de l'ours
+                if (beast.getAttribute(Attribute.ATTACK_DAMAGE) != null) {
+                    beast.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(8); // Dégâts de base
+                }
             }
             case WOLF -> {
                 if (beast instanceof Wolf wolf) {
@@ -469,13 +483,7 @@ public class BeastManager {
             case BEE -> {} // Actif - géré par double-sneak
             case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
         }
-
-        // Synchroniser la vie de l'ours avec le joueur
-        if (type == BeastType.BEAR) {
-            double healthPercent = owner.getHealth() / owner.getAttribute(Attribute.MAX_HEALTH).getValue();
-            double bearMaxHealth = beast.getAttribute(Attribute.MAX_HEALTH).getValue();
-            beast.setHealth(Math.max(1, healthPercent * bearMaxHealth));
-        }
+        // L'ours a maintenant sa propre vie indépendante (x3 vie joueur + armure)
     }
 
     // === CAPACITÉS SPÉCIFIQUES ===
@@ -586,10 +594,13 @@ public class BeastManager {
             bear.getWorld().playSound(loc, Sound.ENTITY_POLAR_BEAR_WARNING, 2.0f, 0.8f);
             bear.getWorld().spawnParticle(Particle.SONIC_BOOM, loc.add(0, 1, 0), 1, 0, 0, 0, 0);
 
-            // Aggroer les monstres dans 5 blocs (limité à 10 cibles max)
+            // Aggroer les monstres dans 20 blocs (limité à 15 cibles max)
             int aggroCount = 0;
-            for (Entity nearby : bear.getNearbyEntities(5, 5, 5)) {
-                if (aggroCount >= 10) break; // Limite pour la perf
+            LivingEntity nearestTarget = null;
+            double nearestDistSq = Double.MAX_VALUE;
+
+            for (Entity nearby : bear.getNearbyEntities(20, 10, 20)) {
+                if (aggroCount >= 15) break; // Limite pour la perf
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     if (monster instanceof Mob mob) {
                         mob.setTarget(bear);
@@ -597,12 +608,58 @@ public class BeastManager {
                     // Effet visuel
                     nearby.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
                         nearby.getLocation().add(0, 1.5, 0), 3, 0.3, 0.3, 0.3, 0);
+
+                    // Tracker la cible la plus proche pour l'attaque
+                    double distSq = bear.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        nearestTarget = monster;
+                    }
                     aggroCount++;
                 }
             }
 
             // Pas de message spam - juste effet visuel/sonore
             setCooldown(owner.getUniqueId(), cooldownKey, now + rugissementCooldown);
+        }
+
+        // L'ours attaque en continu (hors cooldown du rugissement)
+        executeBearAttack(owner, bear, frenzyMultiplier);
+    }
+
+    /**
+     * Fait attaquer l'ours les mobs hostiles à proximité
+     */
+    private void executeBearAttack(Player owner, LivingEntity bear, double frenzyMultiplier) {
+        if (!(bear instanceof Mob bearMob)) return;
+
+        // Vérifier si l'ours a déjà une cible valide
+        LivingEntity currentTarget = bearMob.getTarget();
+        if (currentTarget != null && !currentTarget.isDead() &&
+            currentTarget.getLocation().distance(bear.getLocation()) < 15) {
+            // Cible valide, pathfinding actif vers elle
+            bearMob.getPathfinder().moveTo(currentTarget, 1.2);
+            return;
+        }
+
+        // Chercher une nouvelle cible à proximité (8 blocs pour l'attaque)
+        LivingEntity nearestEnemy = null;
+        double nearestDistSq = 64.0; // 8^2
+
+        for (Entity nearby : bear.getNearbyEntities(8, 4, 8)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                double distSq = bear.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestEnemy = monster;
+                    if (distSq < 9) break; // <3 blocs, on prend direct
+                }
+            }
+        }
+
+        if (nearestEnemy != null) {
+            bearMob.setTarget(nearestEnemy);
+            bearMob.getPathfinder().moveTo(nearestEnemy, 1.2);
         }
     }
 
