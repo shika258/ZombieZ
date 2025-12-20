@@ -258,15 +258,25 @@ public class ZombieZItem {
         lore.add("");
 
         // ═══════════════════════════════════════
-        // STATS DE BASE (sans affixes pour éviter la duplication)
+        // STATS DE BASE (filtrer pour n'afficher QUE les vraies stats de base)
+        // Cela corrige la duplication pour les anciens items qui avaient
+        // incorrectement stocké les stats d'affixes dans baseStats
         // ═══════════════════════════════════════
-        if (!baseStats.isEmpty()) {
+        // Filtrer pour ne garder que les vraies stats de base (isBaseStat == true)
+        Map<StatType, Double> filteredBaseStats = new LinkedHashMap<>();
+        for (var entry : baseStats.entrySet()) {
+            if (entry.getKey().isBaseStat()) {
+                filteredBaseStats.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        if (!filteredBaseStats.isEmpty()) {
             // Header "Stats de base"
             lore.add("§6✧ STATS DE BASE");
 
             // Grouper par catégorie pour un affichage organisé
             Map<StatType.StatCategory, List<Map.Entry<StatType, Double>>> statsByCategory = new LinkedHashMap<>();
-            for (var entry : baseStats.entrySet()) {
+            for (var entry : filteredBaseStats.entrySet()) {
                 statsByCategory.computeIfAbsent(entry.getKey().getCategory(), k -> new ArrayList<>()).add(entry);
             }
 
