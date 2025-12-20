@@ -135,16 +135,28 @@ public final class ChasseurTalents {
             .values(new double[]{0.40, 5, 3, 0.25}) // chance, max_stacks, necrosis_threshold, necrosis_bonus
             .build());
 
-        // 1.5 - FLECHES PERCANTES
+        // 1.5 - FLECHES PERCANTES (Voie de la Perforation)
         TALENTS.add(Talent.builder()
             .id("chasseur_piercing_arrows")
-            .name("Fleches Percantes")
-            .description("Projectiles traversent 1 ennemi")
+            .name("Flèches Perçantes")
+            .description("Traverse 2 ennemis, +25%/traversé")
             .loreLines(new String[]{
-                "§7Vos projectiles §atraversent§7",
-                "§7le premier ennemi touche.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats second: §c80%"
+                "§7Vos projectiles §atraversent§7",
+                "§7jusqu'à §e2 ennemis§7!",
+                "",
+                "§6MOMENTUM DE PERFORATION:",
+                "§8► Chaque ennemi traversé:",
+                "§8► §c+25%§8 dégâts au suivant!",
+                "",
+                "§6EXEMPLE:",
+                "§71er ennemi: §c100%§7 dégâts",
+                "§72ème ennemi: §c125%§7 dégâts",
+                "",
+                "§8Compteur affiché dans l'ActionBar",
+                "",
+                "§a§lPERCEZ VOS ENNEMIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -152,7 +164,7 @@ public final class ChasseurTalents {
             .icon(Material.SPECTRAL_ARROW)
             .iconColor("§a")
             .effectType(Talent.TalentEffectType.PIERCING_ARROWS)
-            .values(new double[]{1, 0.80}) // pierce_count, second_damage%
+            .values(new double[]{2, 0.25}) // pierce_count, bonus_damage_per_pierce%
             .build());
     }
 
@@ -283,26 +295,38 @@ public final class ChasseurTalents {
             .values(new double[]{0.50, 3000, 0.10}) // damage%, duration_ms, armor_reduction
             .build());
 
-        // 2.5 - RICOCHET
+        // 2.5 - CALIBRE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_ricochet")
-            .name("Ricochet")
-            .description("25% chance rebond sur ennemi proche")
+            .id("chasseur_caliber")
+            .name("Calibre")
+            .description("Charge 1-5, à 5 = TIR LOURD!")
             .loreLines(new String[]{
-                "§7Les projectiles ont §e25%§7 de",
-                "§7chance de rebondir sur un",
-                "§7ennemi proche.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats ricochet: §c70%",
-                "§8Portee: §e5§8 blocs"
+                "§7Système de §eCalibre§7 (1-5).",
+                "§7Chaque tir augmente le Calibre.",
+                "",
+                "§6CALIBRE CROISSANT:",
+                "§8► §e+1 Calibre§8 par tir",
+                "§8► §e+5%§8 dégâts par niveau",
+                "",
+                "§c§lÀ CALIBRE 5 - TIR LOURD:",
+                "§8► §c+100%§8 dégâts!",
+                "§8► §a+1§8 ennemi traversé",
+                "§8► Son de railgun satisfaisant",
+                "§8► Reset le Calibre à 0",
+                "",
+                "§8Calibre affiché: §e⬤⬤⬤⬤⬤",
+                "",
+                "§a§lMONTEZ EN PUISSANCE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(4)
-            .icon(Material.SLIME_BALL)
-            .iconColor("§a")
-            .effectType(Talent.TalentEffectType.RICOCHET)
-            .values(new double[]{0.25, 0.70, 5.0}) // chance, damage%, range
+            .icon(Material.IRON_NUGGET)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.CALIBER)
+            .values(new double[]{5, 0.05, 1.0, 1}) // max_caliber, damage_per_level%, heavy_shot_bonus, extra_pierce
             .build());
     }
 
@@ -420,24 +444,39 @@ public final class ChasseurTalents {
             .values(new double[]{0.25, 0.50, 0.30}) // crit_chance, crit_bonus, slow%
             .build());
 
-        // 3.5 - TIREUR D'ELITE
+        // 3.5 - TRAJECTOIRE FATALE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_sharpshooter")
-            .name("Tireur d'Elite")
-            .description("Immobile 1.5s = critique garanti")
+            .id("chasseur_fatal_trajectory")
+            .name("Trajectoire Fatale")
+            .description("Pierce 2+ = Ligne de Mort (+30% dégâts)")
             .loreLines(new String[]{
-                "§7Rester immobile §e1.5s§7 garantit",
-                "§7un §ecritique§7 sur le prochain tir!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Precision absolue"
+                "§7Traverser §e2+ ennemis§7 crée",
+                "§7une §c§lLIGNE DE MORT§7!",
+                "",
+                "§6LIGNE DE MORT:",
+                "§8► Zone linéaire de §e12 blocs",
+                "§8► Durée: §e3s",
+                "§8► Effet visuel subtil",
+                "",
+                "§c§lENNEMIS DANS LA LIGNE:",
+                "§8► Subissent §c+30%§8 de dégâts",
+                "§8► De toutes sources!",
+                "",
+                "§6SYNERGIE:",
+                "§7Parfait pour enchaîner les tirs",
+                "§7dans la même trajectoire!",
+                "",
+                "§a§lTRACEZ LEUR FIN"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(4)
-            .icon(Material.CROSSBOW)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.SHARPSHOOTER)
-            .values(new double[]{1500}) // still_time_ms
+            .icon(Material.END_ROD)
+            .iconColor("§a")
+            .effectType(Talent.TalentEffectType.FATAL_TRAJECTORY)
+            .values(new double[]{2, 12.0, 3000, 0.30}) // pierce_threshold, line_length, duration_ms, damage_bonus%
             .build());
     }
 
@@ -556,17 +595,31 @@ public final class ChasseurTalents {
             .values(new double[]{5.0, 2, 0.30, 3}) // range, stacks_applied, damage%, max_chains
             .build());
 
-        // 4.5 - SURCHAUFFE
+        // 4.5 - SURCHAUFFE (Voie de la Perforation - Amélioré)
         TALENTS.add(Talent.builder()
             .id("chasseur_overheat")
             .name("Surchauffe")
-            .description("+5% degats/tir (max +50%), recul")
+            .description("+10%/tir (max +100%), à max = EXPLOSION!")
             .loreLines(new String[]{
-                "§7Chaque tir augmente les degats",
-                "§7de §c+5%§7 mais aussi le recul.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Max: §c+50%",
-                "§8Reinitialisation apres 2s sans tirer"
+                "§7Vos tirs §csurchauffent§7 votre arme!",
+                "",
+                "§6ACCUMULATION:",
+                "§8► §c+10%§8 dégâts par tir",
+                "§8► Maximum: §c+100%§8 (10 tirs)",
+                "§8► Reset après §e2.5s§8 sans tirer",
+                "",
+                "§c§lÀ 100% - TIR EXPLOSIF:",
+                "§8► Le prochain tir §6EXPLOSE§8!",
+                "§8► Zone: §e4 blocs",
+                "§8► §c+50%§8 dégâts bonus",
+                "§8► Applique §9Lenteur§8 2s",
+                "§8► Reset la surchauffe",
+                "",
+                "§6JAUGE: §8████████████",
+                "",
+                "§6§lCHAUFFEZ À BLANC!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -574,7 +627,7 @@ public final class ChasseurTalents {
             .icon(Material.FIRE_CHARGE)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.OVERHEAT)
-            .values(new double[]{0.05, 0.50, 2000}) // stack%, max%, reset_ms
+            .values(new double[]{0.10, 1.0, 2500, 4.0, 0.50}) // stack%, max%, reset_ms, explosion_radius, explosion_bonus%
             .build());
     }
 
@@ -702,25 +755,40 @@ public final class ChasseurTalents {
             .values(new double[]{10, 2.0}) // threshold, damage_multiplier
             .build());
 
-        // 5.5 - ZONE DE MORT
+        // 5.5 - PERFORATION ABSOLUE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_kill_zone")
-            .name("Zone de Mort")
-            .description("+100% vitesse d'attaque autour de vous")
+            .id("chasseur_absolute_perforation")
+            .name("Perforation Absolue")
+            .description("-20% armure/pierce (max -80%), expose!")
             .loreLines(new String[]{
-                "§7Creez une zone ou votre",
-                "§7vitesse de tir est §c+100%§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Rayon: §e4§8 blocs",
-                "§8Zone suit votre position"
+                "§7Vos tirs §cdéchirent§7 les armures!",
+                "",
+                "§6RÉDUCTION D'ARMURE:",
+                "§8► §c-20%§8 armure par ennemi traversé",
+                "§8► Se cumule sur la même cible",
+                "§8► Maximum: §c-80%§8 armure",
+                "§8► Durée: §e5s§8 (refresh)",
+                "",
+                "§c§lÀ -80% - EXPOSÉ:",
+                "§8► Cible devient §e§lEXPOSÉE",
+                "§8► §cGlowing§8 (visible à travers murs)",
+                "§8► Subit §c+35%§8 dégâts de vous",
+                "",
+                "§6SYNERGIE:",
+                "§7Parfait avec Calibre et",
+                "§7Trajectoire Fatale!",
+                "",
+                "§a§lDÉTRUISEZ LEUR DÉFENSE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(4)
-            .icon(Material.RED_CARPET)
+            .icon(Material.NETHERITE_PICKAXE)
             .iconColor("§c")
-            .effectType(Talent.TalentEffectType.KILL_ZONE)
-            .values(new double[]{4.0, 1.0}) // radius, attack_speed_bonus%
+            .effectType(Talent.TalentEffectType.ABSOLUTE_PERFORATION)
+            .values(new double[]{0.20, 0.80, 5000, 0.35}) // reduction_per_pierce%, max_reduction%, duration_ms, exposed_bonus%
             .build());
     }
 
@@ -849,26 +917,41 @@ public final class ChasseurTalents {
             .values(new double[]{0.05, 8.0, 0.40, 0.08}) // as_per_stack, range, max_as_bonus, heal_on_explosion
             .build());
 
-        // 6.5 - DECHIQUETEUR D'ARMURE
+        // 6.5 - MOMENTUM DE CHASSEUR (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_armor_shred")
-            .name("Dechiqueteur d'Armure")
-            .description("Tirs percants: -10% armure ennemi (cumul)")
+            .id("chasseur_hunter_momentum")
+            .name("Momentum de Chasseur")
+            .description("Kill surchauffé = vitesse, 3 kills = FRÉNÉSIE!")
             .loreLines(new String[]{
-                "§7Les attaques qui traversent",
-                "§7reduisent l'armure de §c-10%§7.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Cumul max: §c-50%§8 armure",
-                "§8Duree: 5s par cumul",
-                "§8Synergie: Build perforation"
+                "§7Les kills pendant §cSurchauffe§7",
+                "§7vous propulsent vers l'avant!",
+                "",
+                "§6KILL SURCHAUFFÉ:",
+                "§8► §a+35%§8 vitesse de déplacement",
+                "§8► Durée: §e2s§8 (cumule)",
+                "§8► Chaque kill étend de §e+1s",
+                "",
+                "§c§l3 KILLS CONSÉCUTIFS - FRÉNÉSIE:",
+                "§8► §c+60%§8 Attack Speed!",
+                "§8► §a+50%§8 vitesse déplacement",
+                "§8► Durée: §e4s",
+                "§8► Tirs §6enflammés§8!",
+                "",
+                "§6ENCHAÎNEMENT PARFAIT:",
+                "§7Tuez vite pour maintenir",
+                "§7le momentum!",
+                "",
+                "§a§lNE VOUS ARRÊTEZ JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(4)
-            .icon(Material.SHEARS)
+            .icon(Material.SUGAR)
             .iconColor("§a")
-            .effectType(Talent.TalentEffectType.ARMOR_SHRED)
-            .values(new double[]{0.10, 0.50, 5000}) // reduction_per_stack, max_reduction, duration_ms
+            .effectType(Talent.TalentEffectType.HUNTER_MOMENTUM)
+            .values(new double[]{0.35, 2000, 1000, 3, 0.60, 0.50, 4000}) // speed%, base_duration_ms, extension_ms, frenzy_kills, frenzy_as%, frenzy_speed%, frenzy_duration_ms
             .build());
     }
 
@@ -1002,26 +1085,44 @@ public final class ChasseurTalents {
             .values(new double[]{0.75, 0.10, 4.0, 0.15, 3000}) // heal_reduction%, lifesteal%, cloud_radius, cloud_dps%, cloud_duration_ms
             .build());
 
-        // 6.5 - GATLING
+        // 7.5 - PERFORATION EN CHAÎNE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_gatling")
-            .name("Gatling")
-            .description("20 tirs = mode gatling 5s (+200% vitesse)")
+            .id("chasseur_chain_perforation")
+            .name("Perforation en Chaîne")
+            .description("Après dernier pierce, rebondit 3x!")
             .loreLines(new String[]{
-                "§7Apres §e20 tirs§7 consecutifs,",
-                "§7passez en §cmode mitrailleuse§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Duree: §a5s",
-                "§8Bonus: §c+200%§8 vitesse d'attaque",
-                "§8Tir automatique!"
+                "§7Après avoir traversé le dernier",
+                "§7ennemi, vos projectiles §brebondissent§7!",
+                "",
+                "§6REBONDS EN CHAÎNE:",
+                "§8► Jusqu'à §e3§8 rebonds",
+                "§8► Vers l'ennemi le plus proche",
+                "§8► Portée: §e10 blocs",
+                "",
+                "§6DÉGÂTS PAR REBOND:",
+                "§8► 1er rebond: §c75%",
+                "§8► 2ème rebond: §c50%",
+                "§8► 3ème rebond: §c25%",
+                "",
+                "§6BONUS CALIBRE:",
+                "§8► §e30%§8 chance de +1 Calibre",
+                "§8► Par rebond réussi!",
+                "",
+                "§6SYNERGIE:",
+                "§7Plus vous percez, plus vous",
+                "§7rebondissez de fois!",
+                "",
+                "§a§lILS NE PEUVENT PAS FUIR"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(4)
-            .icon(Material.DISPENSER)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.GATLING)
-            .values(new double[]{20, 5000, 2.0}) // shots_required, duration_ms, attack_speed_bonus%
+            .icon(Material.ECHO_SHARD)
+            .iconColor("§b")
+            .effectType(Talent.TalentEffectType.CHAIN_PERFORATION)
+            .values(new double[]{3, 10.0, 0.75, 0.50, 0.25, 0.30}) // max_bounces, range, dmg_bounce1%, dmg_bounce2%, dmg_bounce3%, caliber_chance
             .build());
     }
 
@@ -1153,26 +1254,43 @@ public final class ChasseurTalents {
             .values(new double[]{5.0, 1000, 3.0, 50, 0.25}) // aura_range, tick_ms, spread_range, combo_threshold, combo_bonus
             .build());
 
-        // 7.5 - ARSENAL VIVANT
+        // 8.5 - DÉVASTATION (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_living_arsenal")
-            .name("Arsenal Vivant")
-            .description("Tir auto toutes 0.5s (80% degats)")
+            .id("chasseur_devastation")
+            .name("Dévastation")
+            .description("Mode 8s: pierce infini, +60% dégâts, slow!")
             .loreLines(new String[]{
-                "§7Vous tirez §eautomatiquement§7",
-                "§7sur l'ennemi le plus proche",
-                "§7toutes les §a0.5s§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats: §c80%",
-                "§8Portee: §e10§8 blocs"
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Entrez en mode §c§lDÉVASTATION§7!",
+                "",
+                "§6MODE DÉVASTATION (8s):",
+                "§8► §aPierce INFINI§8!",
+                "§8► §c+60%§8 dégâts",
+                "§8► Tirs créent traînée visuelle",
+                "§8► Ennemis touchés: §9-40%§8 vitesse",
+                "",
+                "§6BONUS CALIBRE:",
+                "§8► Calibre monte §e2x§8 plus vite",
+                "§8► Tirs Lourds = §c+150%§8 dégâts!",
+                "",
+                "§6EFFET VISUEL:",
+                "§8► Vous brillez §avert§8",
+                "§8► Projectiles laissent des traînées",
+                "",
+                "§8► Cooldown: §c30s",
+                "",
+                "§a§l★ DÉVASTATION TOTALE ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.DISPENSER)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.LIVING_ARSENAL)
-            .values(new double[]{500, 0.80, 10.0}) // tick_ms, damage%, range
+            .icon(Material.NETHERITE_INGOT)
+            .iconColor("§a§l")
+            .effectType(Talent.TalentEffectType.DEVASTATION)
+            .values(new double[]{8000, 0.60, 0.40, 1.50, 30000}) // duration_ms, damage_bonus%, slow%, heavy_shot_bonus, cooldown_ms
+            .internalCooldownMs(30000)
             .build());
     }
 
@@ -1320,29 +1438,49 @@ public final class ChasseurTalents {
             .internalCooldownMs(60000)
             .build());
 
-        // 8.5 - TEMPS SUSPENDU
+        // 9.5 - JUGEMENT (Voie de la Perforation - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bullet_time")
-            .name("Temps Suspendu")
-            .description("Ralentit le temps a 25% pendant 5s")
+            .id("chasseur_judgment")
+            .name("Jugement")
+            .description("Rayon 50 blocs, 1000% dégâts, -100% armure!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§a§l★ TALENT LÉGENDAIRE ★",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§7Activation (S'accroupir + Sauter):",
-                "§7Ralentit le temps a §e25%§7!",
-                "§7Vous bougez normalement.",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7puis restez §eimmobile 1.5s§7...",
                 "",
-                "§8Duree: §a5s",
-                "§8Temps de recharge: 60s"
+                "§c§lTIR DU JUGEMENT:",
+                "§8► Tire un §cRAYON§8 de §e50 blocs",
+                "§8► Traverse §aTOUS§8 les ennemis",
+                "§8► Dégâts: §c§l1000%§8 de base!",
+                "",
+                "§6EFFETS SUR LES TOUCHÉS:",
+                "§8► §c-100%§8 armure pendant §e5s",
+                "§8► §6Enflammés§8 pendant §e3s",
+                "§8► §9Lenteur III§8 pendant §e3s",
+                "",
+                "§6TRAÎNÉE DE FEU:",
+                "§8► Le rayon laisse une traînée",
+                "§8► Zone de feu §e3s§8, brûle!",
+                "",
+                "§6EFFET VISUEL:",
+                "§8► Charge: particules convergent",
+                "§8► Tir: éclair §avert§8 massif",
+                "§8► Son: railgun épique",
+                "",
+                "§8► Cooldown: §c45s",
+                "",
+                "§a§l★ JUGEMENT FINAL ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(4)
-            .icon(Material.CLOCK)
-            .iconColor("§b§l")
-            .effectType(Talent.TalentEffectType.BULLET_TIME)
-            .values(new double[]{5000, 0.25, 60000}) // duration_ms, time_scale, cooldown_ms
-            .internalCooldownMs(60000)
+            .icon(Material.END_CRYSTAL)
+            .iconColor("§a§l")
+            .effectType(Talent.TalentEffectType.JUDGMENT)
+            .values(new double[]{1500, 50.0, 10.0, 1.0, 5000, 3000, 45000}) // charge_ms, range, damage_mult, armor_reduction%, armor_duration_ms, fire_duration_ms, cooldown_ms
+            .internalCooldownMs(45000)
             .build());
     }
 

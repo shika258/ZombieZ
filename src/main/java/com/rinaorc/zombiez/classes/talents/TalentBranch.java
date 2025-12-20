@@ -157,11 +157,11 @@ public enum TalentBranch {
         new String[]{
             "§a§lVOIE DE LA PERFORATION",
             "",
-            "§7Vos projectiles transpercent",
-            "§7tout sur leur passage.",
+            "§7Montez en puissance et percez",
+            "§7vos ennemis avec des tirs dévastateurs!",
             "",
-            "§8Spécialité: §aPénétration, Multi-hits",
-            "§8Style: §aTireur de ligne"
+            "§8Spécialité: §aCalibré, Surchauffe, Momentum",
+            "§8Style: §aRailgun vivant"
         }
     ),
 

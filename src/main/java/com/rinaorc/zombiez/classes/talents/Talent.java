@@ -195,6 +195,17 @@ public class Talent {
         // BLIGHT,               // T8: déjà défini, aura + propagation + combo boost
         PLAGUE_AVATAR,           // T9: Ultime 20s, max stacks instant, x2 explosions
 
+        // === CHASSEUR - BRANCHE PERFORATION (Refonte dynamique) ===
+        // PIERCING_ARROWS,      // T1: déjà défini, maintenant traverse 2 + bonus dégâts
+        CALIBER,                 // T2: Système de charge (1-5), 5 = Tir Lourd
+        FATAL_TRAJECTORY,        // T3: Pierce 2+ = Ligne de Mort (zone +30% dégâts)
+        // OVERHEAT,             // T4: déjà défini, +10%/tir, max = explosion
+        ABSOLUTE_PERFORATION,    // T5: -20% armure/pierce (max -80%), expose à -80%
+        HUNTER_MOMENTUM,         // T6: Kill surchauffé = vitesse, 3 kills = Frénésie
+        CHAIN_PERFORATION,       // T7: Après dernier pierce, rebondit 3x
+        DEVASTATION,             // T8: Mode 8s: pierce infini, +60% dégâts, slow
+        JUDGMENT,                // T9: Ultime - Rayon 50 blocs, 1000% dégâts
+
         // === Legacy (compatibilité - ne plus utiliser) ===
         SPECTRE,                 // (Legacy)
         SHADOW_MASTER,           // (Legacy)
@@ -214,6 +225,13 @@ public class Talent {
         VENOM,                   // (Legacy - remplacé par CORROSIVE_VENOM)
         PREY_WEAKNESS,           // (Legacy - remplacé par TOXIC_SYNERGY)
         TOXIC_APOCALYPSE,        // (Legacy - remplacé par PLAGUE_AVATAR)
+        RICOCHET,                // (Legacy - remplacé par CALIBER)
+        SHARPSHOOTER,            // (Legacy - remplacé par FATAL_TRAJECTORY)
+        KILL_ZONE,               // (Legacy - remplacé par ABSOLUTE_PERFORATION)
+        ARMOR_SHRED,             // (Legacy - remplacé par HUNTER_MOMENTUM)
+        GATLING,                 // (Legacy - remplacé par CHAIN_PERFORATION)
+        LIVING_ARSENAL,          // (Legacy - remplacé par DEVASTATION)
+        BULLET_TIME,             // (Legacy - remplacé par JUDGMENT)
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain
