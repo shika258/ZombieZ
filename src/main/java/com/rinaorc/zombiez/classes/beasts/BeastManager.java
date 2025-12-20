@@ -78,6 +78,10 @@ public class BeastManager {
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
+    // Tracking de l'exposition du joueur (ours mort -> joueur exposé au focus des mobs)
+    // Map: playerUUID -> timestamp jusqu'à quand le joueur est exposé
+    private final Map<UUID, Long> playerExposedUntil = new ConcurrentHashMap<>();
+
     // Axolotl - Système de vitesse d'attaque progressive
     private final Map<UUID, Double> axolotlAttackSpeedBonus = new ConcurrentHashMap<>(); // Bonus en % (0.0 à 1.5)
     private final Map<UUID, Long> axolotlLastAttackTime = new ConcurrentHashMap<>();
@@ -2250,12 +2254,50 @@ public class BeastManager {
 
         Player owner = Bukkit.getPlayer(ownerUuid);
 
-        // L'Ours respawn après 10 secondes
+        // L'Ours respawn après 10 secondes - le joueur est exposé pendant ce temps
         if (type == BeastType.BEAR && owner != null) {
-            owner.sendMessage("§c✦ L'Ours est tombé! Respawn dans 10 secondes...");
+            long respawnTime = System.currentTimeMillis() + BEAR_RESPAWN_DELAY;
+
+            // Exposer le joueur au focus des mobs pendant le respawn
+            playerExposedUntil.put(ownerUuid, respawnTime);
+
+            owner.sendMessage("§c✦ L'Ours est tombé! Vous êtes exposé pendant 10 secondes!");
+            owner.playSound(owner.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
+
             Map<BeastType, Long> respawns = pendingRespawn.computeIfAbsent(ownerUuid, k -> new ConcurrentHashMap<>());
-            respawns.put(type, System.currentTimeMillis() + BEAR_RESPAWN_DELAY);
+            respawns.put(type, respawnTime);
         }
+    }
+
+    /**
+     * Vérifie si le joueur est exposé (ours mort, pas encore respawn)
+     */
+    public boolean isPlayerExposed(UUID playerUuid) {
+        Long exposedUntil = playerExposedUntil.get(playerUuid);
+        if (exposedUntil == null) return false;
+
+        if (System.currentTimeMillis() >= exposedUntil) {
+            playerExposedUntil.remove(playerUuid);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Obtient l'ours du joueur s'il existe et est vivant
+     */
+    public LivingEntity getPlayerBear(UUID playerUuid) {
+        Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
+        if (beasts == null) return null;
+
+        UUID bearUuid = beasts.get(BeastType.BEAR);
+        if (bearUuid == null) return null;
+
+        Entity entity = Bukkit.getEntity(bearUuid);
+        if (entity instanceof LivingEntity living && !living.isDead()) {
+            return living;
+        }
+        return null;
     }
 
     /**

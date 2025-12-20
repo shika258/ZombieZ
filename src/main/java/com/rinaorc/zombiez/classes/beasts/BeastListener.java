@@ -39,7 +39,7 @@ public class BeastListener implements Listener {
 
     /**
      * Empêche les bêtes invincibles de prendre des dégâts.
-     * Synchronise la vie de l'Ours avec le joueur.
+     * L'ours est la seule bête qui peut prendre des dégâts (tank pour le joueur).
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBeastDamage(EntityDamageEvent event) {
@@ -54,23 +54,14 @@ public class BeastListener implements Listener {
             String typeStr = entity.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
             BeastType type = BeastType.valueOf(typeStr);
 
-            // Chauve-souris invincible
+            // Toutes les bêtes invincibles (toutes sauf l'ours)
             if (type.isInvincible()) {
                 event.setCancelled(true);
                 return;
             }
 
-            // L'Ours partage les dégâts avec le joueur
-            if (type == BeastType.BEAR) {
-                Player owner = Bukkit.getPlayer(ownerUuid);
-                if (owner != null && owner.isOnline()) {
-                    // Transférer les dégâts au joueur
-                    double damage = event.getFinalDamage();
-                    owner.damage(damage * 0.5); // 50% des dégâts au joueur
-                    // L'ours prend aussi des dégâts réduits
-                    event.setDamage(damage * 0.5);
-                }
-            }
+            // L'ours prend les dégâts normalement (tank pour protéger le joueur)
+            // Pas de partage de dégâts - l'ours absorbe tout
         }
     }
 
@@ -243,6 +234,44 @@ public class BeastListener implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    /**
+     * Empêche les mobs de cibler les bêtes invincibles.
+     * Les mobs ne peuvent cibler que l'ours (le tank).
+     * Si l'ours est mort, les mobs peuvent cibler le joueur.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onMobTargetBeast(EntityTargetEvent event) {
+        Entity target = event.getTarget();
+        if (target == null) return;
+
+        // On ne gère que le cas où un mob cible une bête
+        if (!beastManager.isBeast(target)) return;
+
+        // Vérifier si c'est un mob hostile qui cible
+        if (!(event.getEntity() instanceof org.bukkit.entity.Monster)) return;
+
+        // Obtenir le type de bête ciblée
+        if (!target.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
+        String typeStr = target.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
+        BeastType type = BeastType.valueOf(typeStr);
+
+        // Si la bête est invincible (toutes sauf l'ours), empêcher le ciblage
+        if (type.isInvincible()) {
+            event.setCancelled(true);
+
+            // Essayer de rediriger vers l'ours du propriétaire
+            UUID ownerUuid = beastManager.getBeastOwner(target);
+            if (ownerUuid != null) {
+                LivingEntity bear = beastManager.getPlayerBear(ownerUuid);
+                if (bear != null && event.getEntity() instanceof org.bukkit.entity.Mob mob) {
+                    // Rediriger vers l'ours
+                    Bukkit.getScheduler().runTask(plugin, () -> mob.setTarget(bear));
+                }
+            }
+        }
+        // L'ours peut être ciblé normalement (il est le tank)
     }
 
     // === GESTION DES CONNEXIONS/DÉCONNEXIONS ===
