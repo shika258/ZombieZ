@@ -17,6 +17,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 import java.util.Map;
@@ -103,30 +104,36 @@ public class ShadowListener implements Listener {
 
         // === T4: DEATH_MARK - Crits marquent ===
         Talent deathMark = getActiveTalent(player, Talent.TalentEffectType.DEATH_MARK);
-        if (deathMark != null) {
-            // Vérifier si c'est un crit (dégâts > base * 1.4)
-            double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-            if (damage > baseDamage * 1.4) { // Crit détecté
-                if (!shadowManager.isMarked(targetUuid)) {
-                    shadowManager.applyDeathMark(player, target);
-                }
+        if (deathMark != null && isMelee) {
+            // Détection de crit Minecraft: joueur en chute, pas au sol, pas dans l'eau, etc.
+            boolean isCrit = !player.isOnGround() &&
+                             player.getFallDistance() > 0 &&
+                             !player.isInWater() &&
+                             !player.isClimbing() &&
+                             player.getVehicle() == null &&
+                             !player.hasPotionEffect(PotionEffectType.BLINDNESS) &&
+                             !player.isSprinting(); // Sprint empêche les crits
+
+            if (isCrit && !shadowManager.isMarked(targetUuid)) {
+                shadowManager.applyDeathMark(player, target);
+                // Feedback visuel et sonore
+                player.sendMessage("§5§l[OMBRE] §7Cible §dmarquée§7 pendant §c8s§7!");
             }
         }
 
-        // === T5: EXECUTION - 5 Points sur marqué ===
+        // === T5: EXECUTION - 5 Points = gros dégâts (bonus si marqué) ===
         Talent execution = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
         if (execution != null && isMelee && shadowManager.hasEnoughPoints(uuid, 5)) {
-            if (shadowManager.isMarkedBy(targetUuid, uuid)) {
-                // Calculer si c'est un kill
-                double executionDamage = shadowManager.executeExecution(player, target);
-                if (executionDamage > 0) {
-                    event.setCancelled(true); // On gère les dégâts nous-mêmes
+            // Exécution fonctionne sur toute cible, bonus si marquée
+            boolean isMarked = shadowManager.isMarkedBy(targetUuid, uuid);
+            double executionDamage = shadowManager.executeExecution(player, target, isMarked);
+            if (executionDamage > 0) {
+                event.setCancelled(true); // On gère les dégâts nous-mêmes
 
-                    // === T8: SHADOW_STORM - Exécution kill = AoE ===
-                    Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
-                    if (shadowStorm != null && target.getHealth() <= 0) {
-                        shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
-                    }
+                // === T8: SHADOW_STORM - Exécution kill = AoE ===
+                Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
+                if (shadowStorm != null && target.getHealth() <= 0) {
+                    shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
                 }
             }
         }

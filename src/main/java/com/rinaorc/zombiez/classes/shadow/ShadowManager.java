@@ -488,18 +488,17 @@ public class ShadowManager {
     // ==================== EXÉCUTION ====================
 
     /**
-     * Exécute une Exécution sur une cible marquée
+     * Exécute une Exécution (5 Points d'Ombre)
+     * 250% dégâts de base, 400% si la cible est marquée
+     *
+     * @param player Le joueur
+     * @param target La cible
+     * @param isMarked Si la cible est marquée par le joueur
      * @return Les dégâts infligés (0 si échec)
      */
-    public double executeExecution(Player player, LivingEntity target) {
+    public double executeExecution(Player player, LivingEntity target, boolean isMarked) {
         UUID uuid = player.getUniqueId();
         UUID targetUuid = target.getUniqueId();
-
-        // Vérifier que la cible est marquée par ce joueur
-        if (!isMarkedBy(targetUuid, uuid)) {
-            player.sendMessage("§c§l[OMBRE] §7Cette cible n'est pas marquée!");
-            return 0;
-        }
 
         // Vérifier les points
         if (!hasEnoughPoints(uuid, MAX_SHADOW_POINTS)) {
@@ -511,33 +510,31 @@ public class ShadowManager {
         // Consommer les points
         consumeAllShadowPoints(uuid);
 
-        // Calculer les dégâts
+        // Calculer les dégâts selon le statut marqué
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double healthPercent = target.getHealth() / target.getAttribute(Attribute.MAX_HEALTH).getValue();
-
-        double multiplier = 2.5; // 250% de base (équilibré)
-        if (healthPercent < 0.30) {
-            multiplier = 4.0; // 400% si < 30% PV (équilibré)
-        }
+        double multiplier = isMarked ? 4.0 : 2.5; // 400% si marqué, 250% sinon
 
         double finalDamage = baseDamage * multiplier;
 
-        // Effets visuels AVANT les dégâts
+        // Effets visuels (plus intenses si marqué)
         Location loc = target.getLocation().add(0, 1, 0);
         target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
-        target.getWorld().spawnParticle(Particle.CRIT, loc, 30, 0.5, 0.5, 0.5, 0.3);
-        target.getWorld().spawnParticle(Particle.WITCH, loc, 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
-        target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.5f);
+        target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
         // Appliquer les dégâts
         target.damage(finalDamage, player);
 
-        // Retirer la marque
-        removeMark(targetUuid);
+        // Retirer la marque si présente
+        if (isMarked) {
+            removeMark(targetUuid);
+        }
 
-        // Message
-        player.sendMessage("§5§l[EXÉCUTION] §7Dégâts: §c" + String.format("%.0f", finalDamage) +
+        // Message avec info sur le bonus
+        String bonusInfo = isMarked ? "§d§l[MARQUÉ] " : "";
+        player.sendMessage("§5§l[EXÉCUTION] " + bonusInfo + "§7Dégâts: §c" + String.format("%.0f", finalDamage) +
             " §7(" + (int)(multiplier * 100) + "%)");
 
         return finalDamage;
