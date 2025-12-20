@@ -1731,22 +1731,39 @@ public class BeastManager {
 
     /**
      * Lance une bouse explosive vers la cible - trajectoire en arc
+     * Utilise un calcul physique correct pour atteindre la cible
      */
     private void launchExplosiveDung(Player owner, LivingEntity cow, LivingEntity target) {
         Location start = cow.getLocation().add(0, 1.2, 0);
-        Location targetLoc = target.getLocation();
+        Location targetGround = target.getLocation(); // Position au sol pour la détection d'impact
+        Location targetLoc = targetGround.clone().add(0, 1.0, 0); // Viser le centre du mob
 
-        // Calculer la trajectoire en arc (parabole)
-        Vector toTarget = targetLoc.toVector().subtract(start.toVector());
-        double distance = toTarget.length();
-        toTarget.normalize();
+        // Calcul de trajectoire parabolique précise
+        double dx = targetLoc.getX() - start.getX();
+        double dy = targetLoc.getY() - start.getY();
+        double dz = targetLoc.getZ() - start.getZ();
+        double horizontalDist = Math.sqrt(dx * dx + dz * dz);
 
-        // Vélocité initiale avec arc
-        double horizontalSpeed = Math.min(distance / 15.0, 1.2); // Ajuster selon distance
-        double verticalSpeed = 0.6 + (distance / 20.0); // Arc plus haut pour distances longues
+        // Gravité par tick (même que dans la boucle)
+        double gravity = 0.08;
 
-        Vector velocity = toTarget.multiply(horizontalSpeed);
-        velocity.setY(verticalSpeed);
+        // Calculer le temps de vol optimal basé sur la distance
+        // Plus la distance est grande, plus le temps de vol est long
+        double flightTime = Math.max(15, Math.min(45, horizontalDist * 0.8 + 10));
+
+        // Vélocité horizontale pour couvrir la distance en flightTime ticks
+        double horizontalSpeed = horizontalDist / flightTime;
+
+        // Vélocité verticale pour atteindre dy avec la gravité
+        // Formule: dy = vy*t - 0.5*g*t² => vy = (dy + 0.5*g*t²) / t
+        double verticalSpeed = (dy + 0.5 * gravity * flightTime * flightTime) / flightTime;
+
+        // Direction horizontale normalisée
+        Vector horizontal = new Vector(dx, 0, dz).normalize().multiply(horizontalSpeed);
+        Vector velocity = horizontal.setY(verticalSpeed);
+
+        // Hauteur du sol pour la détection d'impact
+        final double groundY = targetGround.getY();
 
         // Son de lancement
         cow.getWorld().playSound(start, Sound.ENTITY_COW_HURT, 1.5f, 0.6f);
@@ -1780,8 +1797,8 @@ public class BeastManager {
                 // Vérifier impact au sol ou avec entité
                 boolean shouldExplode = false;
 
-                // Impact avec le sol
-                if (current.getBlock().getType().isSolid() || current.getY() < targetLoc.getY()) {
+                // Impact avec le sol (utilise groundY pour la hauteur de la cible au sol)
+                if (current.getBlock().getType().isSolid() || current.getY() < groundY) {
                     shouldExplode = true;
                 }
 
