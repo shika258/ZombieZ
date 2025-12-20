@@ -195,6 +195,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.dopamine.AssistManager assistManager;
 
+    // Système ActionBar centralisé
+    @Getter
+    private com.rinaorc.zombiez.managers.ActionBarManager actionBarManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -527,6 +531,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Perforation Manager - Système de la branche Perforation du Chasseur (Calibre, Surchauffe, Jugement)
         perforationManager = new com.rinaorc.zombiez.classes.perforation.PerforationManager(this, talentManager);
 
+        // ActionBar Manager - Système centralisé d'ActionBar (gestion combat/hors-combat)
+        actionBarManager = new com.rinaorc.zombiez.managers.ActionBarManager(this);
+
         // ===== Système de Pets =====
 
         // Pet Manager - Système complet de pets avec caching et persistance
@@ -838,8 +845,8 @@ public class ZombieZPlugin extends JavaPlugin {
             }
         }, 10L, 10L); // 0.5 seconde
 
-        // ActionBar permanent pour tous les joueurs (Zone, Combo, Streak, Points)
-        new com.rinaorc.zombiez.listeners.ActionBarTask(this).start();
+        // ActionBar permanent - DÉSACTIVÉ: géré par ActionBarManager centralisé
+        // new com.rinaorc.zombiez.listeners.ActionBarTask(this).start();
 
         // Nettoyage périodique du cache des indicateurs de dégâts (toutes les 30 secondes)
         // Nettoie les deux systèmes pour compatibilité (fallback + ProtocolLib)

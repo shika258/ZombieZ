@@ -112,15 +112,34 @@ public class PerforationManager {
                     entry.getValue().removeIf(line -> now > line.expiryTime);
                 }
 
-                // Update ActionBar pour joueurs actifs
-                for (UUID uuid : activePerforationPlayers) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player != null && player.isOnline()) {
-                        updateActionBar(player);
-                    }
-                }
+                // Enregistrer les providers ActionBar pour les joueurs Perforation
+                registerActionBarProviders();
             }
         }.runTaskTimer(plugin, 4L, 4L);
+    }
+
+    /**
+     * Enregistre les providers d'ActionBar pour les joueurs Perforation auprès du ActionBarManager
+     */
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
+            if (isPerforationPlayer(player)) {
+                // Enregistrer le provider si pas déjà fait
+                if (!activePerforationPlayers.contains(uuid)) {
+                    activePerforationPlayers.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                // Retirer le provider si le joueur n'est plus Perforation
+                if (activePerforationPlayers.contains(uuid)) {
+                    activePerforationPlayers.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
+            }
+        }
     }
 
     // ==================== CALIBRE ====================
@@ -756,7 +775,11 @@ public class PerforationManager {
 
     // ==================== ACTIONBAR ====================
 
-    private void updateActionBar(Player player) {
+    /**
+     * Construit le contenu de l'ActionBar pour un joueur Perforation
+     * Appelé par ActionBarManager quand le joueur est en combat
+     */
+    public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
         StringBuilder sb = new StringBuilder();
 
@@ -794,9 +817,7 @@ public class PerforationManager {
             sb.append("§c§lFRÉNÉSIE §e").append(remaining).append("s ");
         }
 
-        if (sb.length() > 0) {
-            player.sendActionBar(sb.toString().trim());
-        }
+        return sb.toString().trim();
     }
 
     // ==================== UTILITAIRES ====================
@@ -834,6 +855,11 @@ public class PerforationManager {
         judgmentChargeStart.remove(uuid);
         fatalLines.remove(uuid);
         activePerforationPlayers.remove(uuid);
+
+        // Désenregistrer de l'ActionBarManager
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(uuid);
+        }
     }
 
     // ==================== CLASSES INTERNES ====================

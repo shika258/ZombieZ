@@ -59,6 +59,9 @@ public class PoisonManager {
     private final Map<UUID, Long> lastAvatarSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW = 400;
 
+    // Cache des joueurs Poison actifs pour l'ActionBar
+    private final Set<UUID> activePoisonPlayers = ConcurrentHashMap.newKeySet();
+
     public PoisonManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -107,13 +110,13 @@ public class PoisonManager {
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
 
-        // ActionBar pour les joueurs Poison (toutes les 4 ticks)
+        // Tâche d'enregistrement ActionBar (toutes les 20 ticks = 1s)
         new BukkitRunnable() {
             @Override
             public void run() {
-                updateAllActionBars();
+                registerActionBarProviders();
             }
-        }.runTaskTimer(plugin, 4L, 4L);
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
     // ==================== STACKS DE POISON ====================
@@ -598,20 +601,34 @@ public class PoisonManager {
     // ==================== ActionBar ====================
 
     /**
-     * Met à jour l'ActionBar pour tous les joueurs Poison
+     * Enregistre les providers d'ActionBar pour les joueurs Poison auprès du ActionBarManager
      */
-    private void updateAllActionBars() {
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
         for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
             if (isPoisonPlayer(player)) {
-                updateActionBar(player);
+                // Enregistrer le provider si pas déjà fait
+                if (!activePoisonPlayers.contains(uuid)) {
+                    activePoisonPlayers.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                // Retirer le provider si le joueur n'est plus Poison
+                if (activePoisonPlayers.contains(uuid)) {
+                    activePoisonPlayers.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
             }
         }
     }
 
     /**
-     * Construit et affiche l'ActionBar
+     * Construit le contenu de l'ActionBar pour un joueur Poison
+     * Appelé par ActionBarManager quand le joueur est en combat
      */
-    private void updateActionBar(Player player) {
+    public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
 
         StringBuilder bar = new StringBuilder();
@@ -644,7 +661,7 @@ public class PoisonManager {
             bar.append("  §2§lAVATAR §a").append(remaining).append("s");
         }
 
-        player.sendActionBar(Component.text(bar.toString()));
+        return bar.toString();
     }
 
     // ==================== UTILITAIRES ====================
@@ -715,5 +732,11 @@ public class PoisonManager {
         plagueAvatarCooldown.remove(playerUuid);
         lastAvatarSneakTime.remove(playerUuid);
         pandemicChainCount.remove(playerUuid);
+        activePoisonPlayers.remove(playerUuid);
+
+        // Désenregistrer de l'ActionBarManager
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+        }
     }
 }
