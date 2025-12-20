@@ -97,7 +97,7 @@ public class ShadowManager {
     private static final double CLONE_DAMAGE_MULTIPLIER = 0.40;
 
     // Portée de détection des cibles
-    private static final double CLONE_TARGET_RANGE = 12.0;
+    private static final double CLONE_TARGET_RANGE = 20.0; // Portée max des Tirs de l'Ombre
 
     // Portée de suivi du joueur (distance max avant de retourner vers le joueur)
     private static final double CLONE_FOLLOW_RANGE = 15.0;
@@ -1181,77 +1181,69 @@ public class ShadowManager {
     }
 
     /**
-     * Exécute l'attaque du clone sur une cible (animation de bond via téléportation)
+     * Exécute l'attaque du clone - Tir de l'Ombre à distance (20 blocs max)
      */
     private void executeShadowCloneAttack(Player owner, LivingEntity clone, LivingEntity target) {
-        Location cloneLoc = clone.getLocation();
-        Location targetLoc = target.getLocation();
+        Location cloneLoc = clone.getLocation().add(0, 1.5, 0); // Hauteur de tir
+        Location targetLoc = target.getLocation().add(0, target.getHeight() / 2, 0);
+
+        // Vérifier la portée (20 blocs max)
+        double distance = cloneLoc.distance(targetLoc);
+        if (distance > 20) {
+            return; // Trop loin
+        }
 
         // Orienter le clone vers la cible
-        orientCloneTowards(clone, targetLoc);
+        orientCloneTowards(clone, target.getLocation());
 
-        // Son de préparation
-        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_WITHER_SKELETON_STEP, 0.8f, 1.5f);
+        // === EFFETS VISUELS DU TIR ===
 
-        // Animation de bond via téléportation
+        // Son de tir
+        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_WITHER_SKELETON_HURT, 0.8f, 1.8f);
+        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.6f, 2.0f);
+
+        // Particules de traînée (du clone vers la cible)
+        Vector direction = targetLoc.toVector().subtract(cloneLoc.toVector()).normalize();
+
+        // Animation de la traînée de projectile
         new BukkitRunnable() {
-            int ticks = -3; // 3 ticks de préparation
-            boolean hasLeaped = false;
-            Location startLoc = cloneLoc.clone();
+            double traveled = 0;
+            Location currentPos = cloneLoc.clone();
 
             @Override
             public void run() {
-                if (clone.isDead() || !clone.isValid() || target.isDead() || !target.isValid()) {
+                if (target.isDead() || !target.isValid()) {
                     cancel();
                     return;
                 }
 
-                // Phase de préparation
-                if (ticks < 0) {
-                    orientCloneTowards(clone, target.getLocation());
-                    // Particules de concentration
-                    if (ticks == -2) {
-                        clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1.5, 0),
-                            3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 0.6f));
+                // Avancer le projectile de 2 blocs par tick
+                for (int i = 0; i < 4; i++) {
+                    if (traveled >= distance) {
+                        // Impact - appliquer les dégâts
+                        applyShadowCloneDamage(owner, clone, target);
+
+                        // Effets d'impact
+                        targetLoc.getWorld().spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.3, 0.3, 0.1);
+                        targetLoc.getWorld().spawnParticle(Particle.WITCH, targetLoc, 10, 0.2, 0.2, 0.2, 0);
+                        targetLoc.getWorld().playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.5f);
+
+                        cancel();
+                        return;
                     }
-                    ticks++;
-                    return;
+
+                    currentPos.add(direction.clone().multiply(0.5));
+                    traveled += 0.5;
+
+                    // Particules de traînée violette
+                    clone.getWorld().spawnParticle(Particle.DUST, currentPos, 1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.fromRGB(100, 0, 150), 0.8f));
+
+                    // Fumée occasionnelle
+                    if (traveled % 1.5 < 0.5) {
+                        clone.getWorld().spawnParticle(Particle.SMOKE, currentPos, 1, 0.05, 0.05, 0.05, 0);
+                    }
                 }
-
-                // Bond initial
-                if (!hasLeaped) {
-                    clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_WITHER_SKELETON_HURT, 0.6f, 1.8f);
-                    hasLeaped = true;
-                }
-
-                if (ticks >= 6) {
-                    // Impact - appliquer les dégâts
-                    applyShadowCloneDamage(owner, clone, target);
-                    cancel();
-                    return;
-                }
-
-                // Téléporter le clone vers la cible (interpolation avec arc)
-                Location currentTargetLoc = target.getLocation();
-                double progress = ticks / 6.0; // 0.0 à 1.0
-                double arcHeight = Math.sin(progress * Math.PI) * 1.5; // Arc parabolique
-
-                // Interpolation entre position de départ et cible
-                double x = startLoc.getX() + (currentTargetLoc.getX() - startLoc.getX()) * progress;
-                double y = startLoc.getY() + (currentTargetLoc.getY() - startLoc.getY()) * progress + arcHeight;
-                double z = startLoc.getZ() + (currentTargetLoc.getZ() - startLoc.getZ()) * progress;
-
-                Location newLoc = new Location(clone.getWorld(), x, y, z);
-                newLoc.setDirection(currentTargetLoc.toVector().subtract(newLoc.toVector()));
-                clone.teleport(newLoc);
-
-                // Particules de traînée
-                clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0),
-                    2, 0.1, 0.2, 0.1, 0, new Particle.DustOptions(Color.fromRGB(80, 0, 120), 0.8f));
-                clone.getWorld().spawnParticle(Particle.SMOKE, clone.getLocation().add(0, 0.5, 0),
-                    1, 0.1, 0.1, 0.1, 0.01);
-
-                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
