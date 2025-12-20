@@ -17,6 +17,7 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.UUID;
 
@@ -124,6 +125,7 @@ public class BeastListener implements Listener {
     /**
      * Applique les dégâts calculés et les effets spéciaux des attaques de bêtes.
      * Les dégâts sont basés sur les stats du joueur propriétaire.
+     * Utilise la même logique que les serviteurs de l'Occultiste pour l'affichage des dégâts.
      */
     private void applyBeastDamageAndEffects(EntityDamageByEntityEvent event, Entity beast, UUID ownerUuid, LivingEntity target) {
         if (!beast.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
@@ -138,6 +140,25 @@ public class BeastListener implements Listener {
 
         // Appliquer les dégâts calculés à l'événement
         event.setDamage(calculatedDamage);
+
+        // === METADATA POUR L'INDICATEUR DE DÉGÂTS (comme les serviteurs Occultiste) ===
+        // Configurer les metadata pour que CombatListener MONITOR affiche l'indicateur
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // === ATTRIBUTION DU LOOT AU PROPRIÉTAIRE ===
+        // Enregistrer le propriétaire pour que le loot lui revienne
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+            // Mettre à jour l'affichage de vie du zombie
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
 
         // Appliquer les effets spéciaux selon le type de bête
         switch (type) {
