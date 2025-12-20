@@ -62,6 +62,14 @@ public class BeastListener implements Listener {
 
             // L'ours prend les dégâts normalement (tank pour protéger le joueur)
             // Pas de partage de dégâts - l'ours absorbe tout
+            // Mettre à jour l'affichage des PV de l'ours après les dégâts
+            if (type == BeastType.BEAR) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (entity.isValid() && !entity.isDead()) {
+                        beastManager.updateBearHealthDisplay(entity);
+                    }
+                });
+            }
         }
     }
 

@@ -87,6 +87,10 @@ public class PlayerData {
     @Setter private int dailyStreak = 0;
     @Setter private Instant lastDailyReward = null;
 
+    // First Blood of the Day
+    @Setter private Instant lastFirstBlood = null;
+    private final AtomicInteger firstBloodStreak = new AtomicInteger(0);
+
     /**
      * Constructeur pour nouveau joueur
      */
@@ -390,6 +394,63 @@ public class PlayerData {
             case "ETERNEL" -> 0.20;
             default -> 0.0;
         };
+    }
+
+    // ==================== FIRST BLOOD OF THE DAY ====================
+
+    /**
+     * Vérifie si le joueur peut obtenir le First Blood du jour
+     * @return true si le joueur n'a pas encore tué de zombie aujourd'hui
+     */
+    public boolean canClaimFirstBlood() {
+        if (lastFirstBlood == null) return true;
+
+        // Comparer avec le début du jour actuel (minuit UTC)
+        java.time.LocalDate lastDate = lastFirstBlood.atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
+
+        return !lastDate.equals(today);
+    }
+
+    /**
+     * Réclame le First Blood du jour
+     * Met à jour le streak et renvoie le multiplicateur de bonus
+     * @return le multiplicateur de bonus (1.0 + streak bonus)
+     */
+    public double claimFirstBlood() {
+        if (!canClaimFirstBlood()) return 0;
+
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
+        java.time.LocalDate yesterday = today.minusDays(1);
+
+        // Vérifier si c'est un streak (First Blood hier aussi)
+        if (lastFirstBlood != null) {
+            java.time.LocalDate lastDate = lastFirstBlood.atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+            if (lastDate.equals(yesterday)) {
+                // Streak! Incrémenter
+                firstBloodStreak.incrementAndGet();
+            } else {
+                // Streak cassé, reset
+                firstBloodStreak.set(1);
+            }
+        } else {
+            // Premier First Blood ever
+            firstBloodStreak.set(1);
+        }
+
+        lastFirstBlood = Instant.now();
+        markDirty();
+
+        // Calcul du multiplicateur: base 1.0 + 0.1 par jour de streak (max 2.0)
+        int streak = firstBloodStreak.get();
+        return 1.0 + Math.min(streak * 0.1, 1.0);
+    }
+
+    /**
+     * Obtient le streak actuel de First Blood
+     */
+    public int getFirstBloodStreak() {
+        return firstBloodStreak.get();
     }
 
     // ==================== SESSION ====================

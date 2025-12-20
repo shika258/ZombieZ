@@ -80,6 +80,10 @@ public abstract class DynamicEvent {
     protected int baseXpReward;
     protected double lootMultiplier = 1.0;
 
+    // Système de countdown
+    protected Set<Integer> announcedCountdowns = ConcurrentHashMap.newKeySet();
+    protected static final int[] COUNTDOWN_THRESHOLDS = {30, 10, 5, 3, 2, 1};
+
     public DynamicEvent(ZombieZPlugin plugin, DynamicEventType type, Location location, Zone zone) {
         this.plugin = plugin;
         this.id = UUID.randomUUID().toString().substring(0, 8);
@@ -492,6 +496,102 @@ public abstract class DynamicEvent {
         long elapsed = System.currentTimeMillis() - startTime;
         long max = (maxDuration / 20) * 1000L;
         return Math.max(0, 1.0 - ((double) elapsed / max));
+    }
+
+    // ==================== SYSTÈME DE COUNTDOWN ====================
+
+    /**
+     * Vérifie et annonce les countdown (à appeler dans tick())
+     * Affiche des alertes visuelles et sonores aux dernières secondes
+     */
+    protected void checkCountdown() {
+        int remaining = getRemainingTimeSeconds();
+
+        for (int threshold : COUNTDOWN_THRESHOLDS) {
+            if (remaining == threshold && !announcedCountdowns.contains(threshold)) {
+                announcedCountdowns.add(threshold);
+                announceCountdown(threshold);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Annonce le countdown aux joueurs proches
+     */
+    private void announceCountdown(int secondsRemaining) {
+        // Mettre à jour le cache des joueurs proches
+        updateNearbyPlayersCache();
+
+        // Déterminer l'intensité de l'alerte
+        String color;
+        Sound sound;
+        float pitch;
+        boolean showTitle;
+
+        if (secondsRemaining <= 3) {
+            // Dernières secondes - URGENT!
+            color = "§c§l";
+            sound = Sound.BLOCK_NOTE_BLOCK_BELL;
+            pitch = 2.0f - (secondsRemaining * 0.3f); // Plus aigu à mesure qu'on approche de 0
+            showTitle = true;
+        } else if (secondsRemaining <= 10) {
+            // Alertes critiques
+            color = "§e§l";
+            sound = Sound.BLOCK_NOTE_BLOCK_PLING;
+            pitch = 1.5f;
+            showTitle = secondsRemaining == 10 || secondsRemaining == 5;
+        } else {
+            // Première alerte (30s)
+            color = "§6";
+            sound = Sound.BLOCK_NOTE_BLOCK_CHIME;
+            pitch = 1.2f;
+            showTitle = false;
+        }
+
+        // Mettre à jour la boss bar avec le countdown
+        if (bossBar != null) {
+            String countdownSuffix = color + "⏱ " + secondsRemaining + "s";
+            bossBar.setTitle(type.getColor() + "§l" + type.getDisplayName() + " " + countdownSuffix);
+
+            // Changer la couleur de la boss bar en fonction de l'urgence
+            if (secondsRemaining <= 5) {
+                bossBar.setColor(BarColor.RED);
+            } else if (secondsRemaining <= 10) {
+                bossBar.setColor(BarColor.YELLOW);
+            }
+        }
+
+        // Notifier chaque joueur proche
+        for (Player player : nearbyPlayersCache) {
+            // Son
+            player.playSound(player.getLocation(), sound, 1.0f, pitch);
+
+            // Titre pour les moments critiques
+            if (showTitle) {
+                String title;
+                String subtitle;
+
+                if (secondsRemaining <= 3) {
+                    title = color + "⏱ " + secondsRemaining;
+                    subtitle = "§7Dépêchez-vous!";
+                } else if (secondsRemaining == 5) {
+                    title = color + "⏱ 5 SECONDES!";
+                    subtitle = "§7" + type.getDisplayName() + " se termine bientôt!";
+                } else {
+                    title = color + "⏱ " + secondsRemaining + "s";
+                    subtitle = "§7Temps restant: " + type.getDisplayName();
+                }
+
+                player.sendTitle(title, subtitle, 0, 20, 5);
+            }
+
+            // Message dans le chat pour 30s et 10s
+            if (secondsRemaining == 30 || secondsRemaining == 10) {
+                player.sendMessage(type.getColor() + "§l" + type.getIcon() + " §7Événement §e" +
+                    type.getDisplayName() + " §7se termine dans " + color + secondsRemaining + " secondes!");
+            }
+        }
     }
 
     // ==================== SYSTÈME DE TÉLÉPORTATION ====================

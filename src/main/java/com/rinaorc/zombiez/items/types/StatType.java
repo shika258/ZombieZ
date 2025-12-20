@@ -544,6 +544,44 @@ public enum StatType {
         null,
         0, 150,
         "+{value}%"
+    ),
+
+    // ==================== NOUVELLES STATS DÉFENSIVES (PATCH) ====================
+
+    STUN_RESISTANCE(
+        "Résist. Étourdissement",
+        "◎",
+        "§7",
+        StatCategory.DEFENSIVE,
+        false,
+        true,
+        null,
+        0, 50,
+        "{value}%"
+    ),
+
+    LOW_HEALTH_DAMAGE_REDUCTION(
+        "Protection Critique",
+        "❤",
+        "§4",
+        StatCategory.DEFENSIVE,
+        false,
+        true,
+        null,
+        0, 40,
+        "-{value}% <30% PV"
+    ),
+
+    LOW_HEALTH_REGEN(
+        "Regen Critique",
+        "❤",
+        "§a",
+        StatCategory.DEFENSIVE,
+        false,
+        false,
+        null,
+        0, 5,
+        "+{value}/s <30% PV"
     );
 
     private final String displayName;

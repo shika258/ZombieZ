@@ -334,6 +334,11 @@ public class BeastManager {
         // Configurer selon le type
         configureBeast(beast, type, player);
 
+        // Pour l'ours, afficher les PV sous le nom
+        if (type == BeastType.BEAR) {
+            updateBearHealthDisplay(beast);
+        }
+
         // Stocker la référence
         Map<BeastType, UUID> beasts = playerBeasts.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
         beasts.put(type, beast.getUniqueId());
@@ -2298,6 +2303,64 @@ public class BeastManager {
             return living;
         }
         return null;
+    }
+
+    /**
+     * Met à jour l'affichage des points de vie de l'ours.
+     * Affiche le nom de l'ours avec une barre de vie colorée en dessous.
+     */
+    public void updateBearHealthDisplay(LivingEntity bear) {
+        if (bear == null || bear.isDead()) return;
+
+        // Vérifier que c'est bien un ours
+        if (!bear.hasMetadata(BEAST_TYPE_KEY)) return;
+        String typeStr = bear.getMetadata(BEAST_TYPE_KEY).get(0).asString();
+        if (!typeStr.equals(BeastType.BEAR.name())) return;
+
+        // Récupérer les infos du propriétaire
+        UUID ownerUuid = getBeastOwner(bear);
+        if (ownerUuid == null) return;
+        Player owner = Bukkit.getPlayer(ownerUuid);
+        String ownerName = owner != null ? owner.getName() : "???";
+
+        double health = bear.getHealth();
+        double maxHealth = bear.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double healthPercent = health / maxHealth;
+
+        // Créer la barre de vie
+        int totalBars = 10;
+        int filledBars = (int) Math.ceil(healthPercent * totalBars);
+
+        // Couleur selon le pourcentage de vie
+        NamedTextColor healthColor;
+        if (healthPercent > 0.5) {
+            healthColor = NamedTextColor.GREEN;
+        } else if (healthPercent > 0.25) {
+            healthColor = NamedTextColor.YELLOW;
+        } else {
+            healthColor = NamedTextColor.RED;
+        }
+
+        // Construire la barre de vie
+        StringBuilder healthBar = new StringBuilder();
+        for (int i = 0; i < totalBars; i++) {
+            if (i < filledBars) {
+                healthBar.append("█");
+            } else {
+                healthBar.append("░");
+            }
+        }
+
+        // Construire le nom avec le nom de l'ours et la barre de vie
+        Component displayName = Component.text()
+            .append(Component.text("Ours de " + ownerName, NamedTextColor.WHITE))
+            .append(Component.newline())
+            .append(Component.text(healthBar.toString(), healthColor))
+            .append(Component.text(" " + (int) health + "/" + (int) maxHealth, NamedTextColor.GRAY))
+            .build();
+
+        bear.customName(displayName);
+        bear.setCustomNameVisible(true);
     }
 
     /**

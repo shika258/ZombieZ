@@ -45,6 +45,18 @@ public class LootExplosionManager {
      * @param killer   Le joueur qui a tué le mob (peut être null)
      */
     public void triggerExplosion(Location location, Rarity rarity, Player killer) {
+        triggerExplosion(location, rarity, killer, null);
+    }
+
+    /**
+     * Déclenche une explosion de loot à une location donnée
+     *
+     * @param location Location du drop
+     * @param rarity   Rareté de l'item
+     * @param killer   Le joueur qui a tué le mob (peut être null)
+     * @param itemName Nom de l'item (pour le broadcast EXALTED)
+     */
+    public void triggerExplosion(Location location, Rarity rarity, Player killer, String itemName) {
         if (location.getWorld() == null) return;
 
         // Intensité basée sur la rareté
@@ -69,6 +81,11 @@ public class LootExplosionManager {
         // 5. Notification "LUCKY!" pour les drops très rares
         if (rarity.isAtLeast(Rarity.LEGENDARY) && killer != null) {
             showLuckyPopup(killer, rarity);
+        }
+
+        // 6. NOUVEAU: Broadcast global pour EXALTED/MYTHIC
+        if (rarity.isAtLeast(Rarity.MYTHIC) && killer != null) {
+            broadcastGlobalDrop(killer, rarity, itemName, location);
         }
     }
 
@@ -366,6 +383,126 @@ public class LootExplosionManager {
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 2L); // Optimisé: toutes les 2 ticks au lieu de 1
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BROADCAST GLOBAL - Drops EXALTED/MYTHIC
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Broadcast global pour les drops EXALTED/MYTHIC
+     * Fanfare à tout le serveur avec effets sonores
+     */
+    private void broadcastGlobalDrop(Player killer, Rarity rarity, String itemName, Location location) {
+        String displayName = itemName != null ? itemName : "Item " + rarity.getDisplayName();
+
+        // Message formaté selon la rareté
+        String header, message, footer;
+        Sound globalSound;
+        float pitch;
+
+        if (rarity == Rarity.EXALTED) {
+            header = "§c§l✦✦✦ §4§lDROP EXALTÉ §c§l✦✦✦";
+            message = "§6" + killer.getName() + " §7a obtenu §c§l" + displayName;
+            footer = "§8Zone: " + getZoneName(killer) + " §7| §8Probabilité: §c0.01%";
+            globalSound = Sound.ENTITY_ENDER_DRAGON_GROWL;
+            pitch = 0.5f;
+        } else {
+            header = "§d§l★★★ §5§lDROP MYTHIQUE §d§l★★★";
+            message = "§6" + killer.getName() + " §7a obtenu §d§l" + displayName;
+            footer = "§8Zone: " + getZoneName(killer) + " §7| §8Probabilité: §d0.1%";
+            globalSound = Sound.UI_TOAST_CHALLENGE_COMPLETE;
+            pitch = 0.8f;
+        }
+
+        // Broadcast à tous les joueurs
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            // Messages
+            player.sendMessage("");
+            player.sendMessage(header);
+            player.sendMessage(message);
+            player.sendMessage(footer);
+            player.sendMessage("");
+
+            // Son global
+            player.playSound(player.getLocation(), globalSound, 0.7f, pitch);
+
+            // Son additionnel pour l'emphase
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (player.isOnline()) {
+                        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.5f, 1.2f);
+                    }
+                }
+            }.runTaskLater(plugin, 10L);
+
+            // Title pour les joueurs proches (dans les 100 blocs)
+            if (player.getLocation().distance(location) <= 100) {
+                if (rarity == Rarity.EXALTED) {
+                    player.sendTitle("§c§l✦ EXALTED! ✦", "§7" + killer.getName() + " est béni des dieux!", 10, 60, 20);
+                } else {
+                    player.sendTitle("§d§l★ MYTHIQUE! ★", "§7" + killer.getName() + " a une chance incroyable!", 10, 50, 15);
+                }
+            }
+        }
+
+        // Particules visibles de loin pour EXALTED
+        if (rarity == Rarity.EXALTED) {
+            spawnGlobalBeacon(location);
+        }
+    }
+
+    /**
+     * Spawn un beacon de particules visible de très loin
+     */
+    private void spawnGlobalBeacon(Location location) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = 100; // 5 secondes
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || location.getWorld() == null) {
+                    cancel();
+                    return;
+                }
+
+                // Beam géant vers le ciel
+                for (double y = 0; y < 50; y += 0.5) {
+                    double wave = Math.sin(y * 0.5 + ticks * 0.2) * 0.3;
+                    location.getWorld().spawnParticle(
+                        Particle.END_ROD,
+                        location.clone().add(wave, y, wave),
+                        1, 0, 0, 0, 0
+                    );
+                }
+
+                // Anneau de particules au sol
+                if (ticks % 5 == 0) {
+                    double radius = 3.0;
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        location.getWorld().spawnParticle(
+                            Particle.FLAME,
+                            location.clone().add(x, 0.5, z),
+                            1, 0, 0.1, 0, 0
+                        );
+                    }
+                }
+
+                ticks += 2;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
+     * Obtient le nom de la zone du joueur
+     */
+    private String getZoneName(Player player) {
+        var zone = plugin.getZoneManager().getPlayerZone(player);
+        return zone != null ? zone.getDisplayName() : "Inconnue";
     }
 
     // ═══════════════════════════════════════════════════════════════════════

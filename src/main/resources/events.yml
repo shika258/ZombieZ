@@ -33,8 +33,9 @@ dynamic-events:
 
   # Intervalle entre les événements (en secondes)
   # Un événement sera spawné aléatoirement entre min et max
-  min-interval-seconds: 480      # 8 minutes minimum
-  max-interval-seconds: 900      # 15 minutes maximum
+  # PATCH: Réduit pour plus d'action et moins de sessions ennuyeuses
+  min-interval-seconds: 300      # 5 minutes minimum (réduit de 8)
+  max-interval-seconds: 600      # 10 minutes maximum (réduit de 15)
 
   # Nombre maximum d'événements actifs simultanément
   max-concurrent: 3

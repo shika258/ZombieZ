@@ -53,6 +53,10 @@ public abstract class MicroEvent {
     // Tache principale
     protected BukkitTask mainTask;
 
+    // Système de countdown
+    protected Set<Integer> announcedCountdowns = new HashSet<>();
+    protected static final int[] MICRO_COUNTDOWN_THRESHOLDS = {10, 5, 3, 2, 1};
+
     public MicroEvent(ZombieZPlugin plugin, MicroEventType type, Player player, Location location, Zone zone) {
         this.plugin = plugin;
         this.id = UUID.randomUUID().toString().substring(0, 8);
@@ -100,7 +104,75 @@ public abstract class MicroEvent {
 
             // Tick de l'evenement
             tick();
+
+            // Vérifier countdown (uniquement au début de chaque seconde)
+            if (elapsedTicks % 20 == 0) {
+                checkCountdown();
+            }
         }, 1L, 1L);
+    }
+
+    /**
+     * Vérifie et annonce les alertes countdown
+     */
+    protected void checkCountdown() {
+        int remaining = getRemainingTimeSeconds();
+
+        for (int threshold : MICRO_COUNTDOWN_THRESHOLDS) {
+            if (remaining == threshold && !announcedCountdowns.contains(threshold)) {
+                announcedCountdowns.add(threshold);
+                announceCountdown(threshold);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Annonce le countdown au joueur
+     */
+    private void announceCountdown(int secondsRemaining) {
+        String color;
+        Sound sound;
+        float pitch;
+
+        if (secondsRemaining <= 3) {
+            // Dernières secondes - URGENT!
+            color = "§c§l";
+            sound = Sound.BLOCK_NOTE_BLOCK_BELL;
+            pitch = 2.0f - (secondsRemaining * 0.3f);
+        } else if (secondsRemaining <= 5) {
+            // Critique
+            color = "§e§l";
+            sound = Sound.BLOCK_NOTE_BLOCK_PLING;
+            pitch = 1.5f;
+        } else {
+            // Première alerte (10s)
+            color = "§6";
+            sound = Sound.BLOCK_NOTE_BLOCK_CHIME;
+            pitch = 1.2f;
+        }
+
+        // Son
+        player.playSound(player.getLocation(), sound, 1.0f, pitch);
+
+        // Titre pour les dernières secondes
+        if (secondsRemaining <= 5) {
+            String title;
+            String subtitle;
+
+            if (secondsRemaining <= 3) {
+                title = color + "⏱ " + secondsRemaining;
+                subtitle = "§7Dépêchez-vous!";
+            } else {
+                title = color + "⏱ 5 SECONDES!";
+                subtitle = "§7" + type.getDisplayName() + " se termine!";
+            }
+
+            player.sendTitle(title, subtitle, 0, 20, 5);
+        }
+
+        // ActionBar pour toutes les alertes
+        sendActionBar(type.getColor() + type.getIcon() + " " + type.getDisplayName() + " " + color + "⏱ " + secondsRemaining + "s!");
     }
 
     /**

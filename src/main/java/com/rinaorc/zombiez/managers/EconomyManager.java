@@ -4,9 +4,16 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import lombok.Getter;
+import org.bukkit.Color;
+import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.text.DecimalFormat;
+import java.util.Random;
 import java.util.logging.Level;
 
 /**
@@ -67,6 +74,9 @@ public class EconomyManager {
         // Notification
         if (finalAmount > 0) {
             MessageUtils.sendActionBar(player, "§a+" + formatPoints(finalAmount) + " Points §7(" + reason + ")");
+
+            // Effet pluie de pièces si gros gain
+            spawnCoinRain(player, finalAmount);
         }
     }
 
@@ -230,9 +240,16 @@ public class EconomyManager {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
+        // ====== FIRST BLOOD OF THE DAY ======
+        if (data.canClaimFirstBlood()) {
+            double streakMultiplier = data.claimFirstBlood();
+            int fbStreak = data.getFirstBloodStreak();
+            triggerFirstBloodBonus(player, fbStreak, streakMultiplier);
+        }
+
         // Calculer les points de base selon le niveau du zombie
         long basePoints = baseKillPoints + (zombieLevel * 2L);
-        
+
         // Multiplicateur selon le type
         double typeMultiplier = switch (zombieType.toUpperCase()) {
             case "ELITE", "SPECIAL" -> eliteKillMultiplier;
@@ -266,6 +283,99 @@ public class EconomyManager {
     }
 
     /**
+     * Déclenche le bonus First Blood of the Day avec effets visuels
+     */
+    private void triggerFirstBloodBonus(Player player, int streak, double multiplier) {
+        // Calculer les récompenses de base (augmentent avec le streak)
+        int basePoints = 50;
+        int baseXp = 100;
+
+        long bonusPoints = Math.round(basePoints * multiplier);
+        long bonusXp = Math.round(baseXp * multiplier);
+
+        // Ajouter directement les récompenses (bypass multiplicateurs pour éviter doublon)
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data != null) {
+            data.addPoints(bonusPoints);
+            data.addXp(bonusXp);
+        }
+
+        // ====== EFFETS VISUELS ET SONORES ======
+
+        // Titre épique
+        String streakText = streak > 1 ? "§6" + streak + " jours d'affilée!" : "§7Premier kill du jour!";
+        MessageUtils.sendTitle(player,
+            "§c§l⚔ FIRST BLOOD! ⚔",
+            streakText,
+            10, 50, 20
+        );
+
+        // Message détaillé
+        player.sendMessage("");
+        player.sendMessage("§c§l⚔ ════════ FIRST BLOOD! ════════ ⚔");
+        player.sendMessage("");
+        player.sendMessage("  §fPremier kill du jour!");
+        if (streak > 1) {
+            player.sendMessage("  §6Streak: §e" + streak + " jours §7(x" + String.format("%.1f", multiplier) + " bonus)");
+        }
+        player.sendMessage("");
+        player.sendMessage("  §aRécompenses:");
+        player.sendMessage("    §e+" + bonusPoints + " Points");
+        player.sendMessage("    §b+" + bonusXp + " XP");
+        player.sendMessage("");
+        player.sendMessage("§c§l⚔ ══════════════════════════ ⚔");
+        player.sendMessage("");
+
+        // Sons épiques
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+
+        // Particules de sang autour du joueur
+        new BukkitRunnable() {
+            int tick = 0;
+
+            @Override
+            public void run() {
+                if (tick >= 20 || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                Location loc = player.getLocation().add(0, 1, 0);
+
+                // Particules rouges (sang)
+                player.getWorld().spawnParticle(
+                    Particle.DUST,
+                    loc,
+                    15,
+                    1.5, 1.5, 1.5,
+                    0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f) // Dark red
+                );
+
+                // Particules dorées si streak
+                if (streak > 1) {
+                    player.getWorld().spawnParticle(
+                        Particle.DUST,
+                        loc,
+                        8,
+                        1.2, 1.2, 1.2,
+                        0,
+                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f) // Gold
+                    );
+                }
+
+                // Flash effect
+                if (tick == 0) {
+                    player.getWorld().spawnParticle(Particle.FLASH, loc, 1);
+                }
+
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
      * Récompense un joueur pour avoir tué un boss
      */
     public void rewardBossKill(Player player, String bossName, int bossLevel) {
@@ -285,6 +395,97 @@ public class EconomyManager {
 
         // Annonce
         MessageUtils.broadcast("§6§l★ §e" + player.getName() + " §7a vaincu le boss §c" + bossName + "§7!");
+    }
+
+    // ==================== EFFETS VISUELS ====================
+
+    // Seuils pour les effets visuels
+    private static final long COIN_RAIN_THRESHOLD = 100;      // Pluie légère
+    private static final long COIN_SHOWER_THRESHOLD = 500;    // Pluie moyenne
+    private static final long COIN_STORM_THRESHOLD = 1000;    // Tempête de pièces!
+
+    private static final Random random = new Random();
+
+    /**
+     * Déclenche une pluie de pièces autour du joueur
+     * Intensité basée sur le montant gagné
+     */
+    private void spawnCoinRain(Player player, long amount) {
+        if (amount < COIN_RAIN_THRESHOLD) return;
+
+        // Déterminer l'intensité
+        int particles;
+        int duration;
+        float pitch;
+
+        if (amount >= COIN_STORM_THRESHOLD) {
+            // Tempête de pièces!
+            particles = 30;
+            duration = 20; // 1 seconde
+            pitch = 1.5f;
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, pitch);
+        } else if (amount >= COIN_SHOWER_THRESHOLD) {
+            // Pluie moyenne
+            particles = 15;
+            duration = 12;
+            pitch = 1.3f;
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, pitch);
+        } else {
+            // Pluie légère
+            particles = 8;
+            duration = 8;
+            pitch = 1.2f;
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, pitch);
+        }
+
+        final int finalParticles = particles;
+        final int finalDuration = duration;
+
+        // Animation asynchrone de pluie de pièces
+        new BukkitRunnable() {
+            int tick = 0;
+            final Location center = player.getLocation().add(0, 2.5, 0);
+
+            @Override
+            public void run() {
+                if (tick >= finalDuration || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Spawn des particules dorées qui tombent
+                for (int i = 0; i < finalParticles / 4; i++) {
+                    double offsetX = (random.nextDouble() - 0.5) * 3;
+                    double offsetZ = (random.nextDouble() - 0.5) * 3;
+                    double offsetY = random.nextDouble() * 0.5;
+
+                    Location particleLoc = center.clone().add(offsetX, offsetY - (tick * 0.15), offsetZ);
+
+                    // Particules dorées (pièces)
+                    player.getWorld().spawnParticle(
+                        Particle.DUST,
+                        particleLoc,
+                        1,
+                        0, -0.1, 0,
+                        0,
+                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f) // Gold color
+                    );
+
+                    // Quelques particules brillantes
+                    if (random.nextFloat() < 0.3f) {
+                        player.getWorld().spawnParticle(
+                            Particle.END_ROD,
+                            particleLoc,
+                            1,
+                            0.1, -0.05, 0.1,
+                            0.01
+                        );
+                    }
+                }
+
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
     }
 
     // ==================== FORMATAGE ====================
