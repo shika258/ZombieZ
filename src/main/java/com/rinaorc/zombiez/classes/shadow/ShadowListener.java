@@ -95,8 +95,17 @@ public class ShadowListener implements Listener {
         }
 
         // === T3: SHADOW_STEP - Shift+Attaque = téléportation ===
+        // Note: Ne pas déclencher si Execution peut être utilisée (priorité à Execution)
         Talent shadowStep = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STEP);
-        if (shadowStep != null && isMelee && player.isSneaking()) {
+        Talent executionCheck = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
+        boolean canExecute = false;
+        if (executionCheck != null) {
+            int preparedCost = shadowManager.getPreparedExecutionCost(uuid);
+            int requiredPoints = preparedCost > 0 ? preparedCost : 5;
+            canExecute = shadowManager.hasEnoughPoints(uuid, requiredPoints);
+        }
+
+        if (shadowStep != null && isMelee && player.isSneaking() && !canExecute) {
             double shadowStepDamage = shadowManager.executeShadowStep(player, target, shadowStep);
             if (shadowStepDamage > 0) {
                 // Annuler les dégâts de l'attaque normale (dégâts déjà appliqués dans executeShadowStep)
@@ -170,7 +179,13 @@ public class ShadowListener implements Listener {
 
         // Bonus dégâts sur cible marquée (+25%)
         if (shadowManager.isMarkedBy(targetUuid, uuid) && !event.isCancelled()) {
-            event.setDamage(event.getDamage() * 1.25);
+            double originalDamage = event.getDamage();
+            double markedDamage = originalDamage * 1.25;
+            event.setDamage(markedDamage);
+
+            // Feedback visuel pour le bonus de marque
+            target.getWorld().spawnParticle(Particle.WITCH,
+                target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0);
         }
 
         // Tracker l'attaque
@@ -193,13 +208,16 @@ public class ShadowListener implements Listener {
         // +1 Point d'Ombre par attaque
         shadowManager.addShadowPoints(uuid, 1);
 
-        // Bonus Attack Speed à 3+ Points
+        // Bonus Attack Speed + Speed 2 à 3+ Points
         int currentPoints = shadowManager.getShadowPoints(uuid);
         int threshold = (int) talent.getValue(1); // Index 1 = threshold (3)
         double attackSpeedBonus = talent.getValue(2); // Index 2 = attack_speed_bonus (0.30)
 
         if (currentPoints >= threshold) {
             applyAttackSpeedBonus(player, attackSpeedBonus);
+            // Appliquer Speed II (amplifier 1) pendant 3 secondes, refresh à chaque attaque
+            player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.SPEED, 60, 1, false, true, true));
         } else {
             removeAttackSpeedBonus(player);
         }
@@ -223,10 +241,16 @@ public class ShadowListener implements Listener {
         }
 
         // Récupérer les valeurs du talent
-        double procChance = talent.getValue(0);      // 0.15 (15%)
-        double damageMult = talent.getValue(1);      // 1.50 (150%)
-        double maxRange = talent.getValue(2);        // 20 blocs
-        long stunDuration = (long) talent.getValue(3); // 1000ms
+        double[] values = talent.getValues();
+        double procChance = values != null && values.length > 0 ? values[0] : 0.15;
+        double damageMult = values != null && values.length > 1 ? values[1] : 1.50;
+        double maxRange = values != null && values.length > 2 ? values[2] : 20.0;
+        long stunDuration = values != null && values.length > 3 ? (long) values[3] : 1000L;
+
+        // Fallback: s'assurer que le multiplicateur est au moins 1.50
+        if (damageMult < 1.0) {
+            damageMult = 1.50;
+        }
 
         // Roll de chance
         if (Math.random() > procChance) {

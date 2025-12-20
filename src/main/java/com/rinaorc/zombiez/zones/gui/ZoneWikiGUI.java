@@ -259,8 +259,8 @@ public class ZoneWikiGUI implements InventoryHolder {
             .name("§8")
             .build();
 
-        // Décorer les slots de navigation non utilisés
-        for (int slot : new int[]{47, 48, 50, 51, 52}) {
+        // Décorer les slots de navigation non utilisés (3 de chaque côté pour symétrie)
+        for (int slot : new int[]{46, 47, 48, 50, 51, 52}) {
             inventory.setItem(slot, navBorder);
         }
 

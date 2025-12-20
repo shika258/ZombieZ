@@ -55,13 +55,6 @@ public class BeastManager {
     // Cooldowns des capacités
     private final Map<UUID, Map<String, Long>> abilityCooldowns = new ConcurrentHashMap<>();
 
-    // Frénésie de la Ruche - actif jusqu'à timestamp
-    private final Map<UUID, Long> frenzyActiveUntil = new ConcurrentHashMap<>();
-
-    // Double-sneak tracking pour Frénésie
-    private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
-    private static final long DOUBLE_SNEAK_WINDOW = 400; // ms
-
     // Mines explosives actives (Vache) - thread-safe
     private final Map<UUID, List<Entity>> activeMines = new ConcurrentHashMap<>();
 
@@ -789,21 +782,18 @@ public class BeastManager {
      * Exécute la capacité spécifique d'une bête
      */
     private void executeBeastAbility(Player owner, LivingEntity beast, BeastType type, long now) {
-        UUID ownerUuid = owner.getUniqueId();
         String cooldownKey = type.name() + "_ability";
-        boolean hasFrenzy = frenzyActiveUntil.containsKey(ownerUuid) && now < frenzyActiveUntil.get(ownerUuid);
-        double frenzyMultiplier = hasFrenzy ? 1.5 : 1.0;
 
         switch (type) {
-            case BAT -> executeBatAbility(owner, beast, frenzyMultiplier);
-            case ENDERMITE -> executeEndermiteAbility(owner, beast, now, frenzyMultiplier);
-            case WOLF -> executeWolfAbility(owner, beast, frenzyMultiplier);
-            case AXOLOTL -> executeAxolotlAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
+            case BAT -> executeBatAbility(owner, beast, 1.0);
+            case ENDERMITE -> executeEndermiteAbility(owner, beast, now, 1.0);
+            case WOLF -> executeWolfAbility(owner, beast, 1.0);
+            case AXOLOTL -> executeAxolotlAbility(owner, beast, now, cooldownKey, 1.0);
             case COW -> executeCowAbility(owner, beast, now, cooldownKey);
-            case LLAMA -> executeLlamaAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
-            case FOX -> executeFoxAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
-            case BEE -> executeBeeAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
-            case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
+            case LLAMA -> executeLlamaAbility(owner, beast, now, cooldownKey, 1.0);
+            case FOX -> executeFoxAbility(owner, beast, now, cooldownKey, 1.0);
+            case BEE -> executeBeeAbility(owner, beast, now, cooldownKey, 1.0);
+            case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, 1.0);
         }
     }
 
@@ -2491,80 +2481,6 @@ public class BeastManager {
      */
     public void cleanupBeeStings(UUID targetUuid) {
         beeStingStacks.remove(targetUuid);
-    }
-
-    // === FRÉNÉSIE DE LA RUCHE ===
-
-    /**
-     * Gère le double-sneak pour activer la Frénésie de la Ruche.
-     * Double-sneak dans un délai de 400ms active un boost de 50% pendant 8 secondes.
-     */
-    public void handleSneak(Player player, boolean isSneaking) {
-        if (!isSneaking) return; // On ne compte que les activations
-
-        UUID uuid = player.getUniqueId();
-        long now = System.currentTimeMillis();
-
-        // Vérifier si déjà en Frénésie
-        if (frenzyActiveUntil.containsKey(uuid) && now < frenzyActiveUntil.get(uuid)) {
-            return; // Déjà actif
-        }
-
-        // Vérifier le double-sneak
-        Long lastSneak = lastSneakTime.get(uuid);
-        if (lastSneak != null && (now - lastSneak) <= DOUBLE_SNEAK_WINDOW) {
-            // Double-sneak détecté! Activer la Frénésie
-            activateFrenzy(player);
-            lastSneakTime.remove(uuid);
-        } else {
-            // Premier sneak, enregistrer le timestamp
-            lastSneakTime.put(uuid, now);
-        }
-    }
-
-    /**
-     * Active la Frénésie de la Ruche pour un joueur
-     */
-    private void activateFrenzy(Player player) {
-        UUID uuid = player.getUniqueId();
-        long duration = 8000; // 8 secondes
-        frenzyActiveUntil.put(uuid, System.currentTimeMillis() + duration);
-
-        // Effets visuels et sonores
-        Location loc = player.getLocation();
-        player.getWorld().playSound(loc, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 2.0f, 1.5f);
-        player.getWorld().playSound(loc, Sound.ENTITY_EVOKER_PREPARE_ATTACK, 1.0f, 1.8f);
-
-        // Particules autour du joueur
-        player.getWorld().spawnParticle(Particle.DUST, loc.add(0, 1, 0), 30, 1, 1, 1, 0,
-            new Particle.DustOptions(Color.YELLOW, 1.5f));
-        player.getWorld().spawnParticle(Particle.DUST, loc, 20, 0.8, 0.8, 0.8, 0,
-            new Particle.DustOptions(Color.ORANGE, 1.2f));
-
-        // Message court
-        player.sendMessage("§6✦ §eFrénésie de la Ruche activée! §7(+50% dégâts, 8s)");
-
-        // Particules continues pendant la durée
-        new BukkitRunnable() {
-            int ticks = 0;
-
-            @Override
-            public void run() {
-                if (ticks >= 160 || !player.isOnline()) { // 8 secondes
-                    cancel();
-                    return;
-                }
-
-                // Particules légères toutes les 10 ticks
-                if (ticks % 10 == 0) {
-                    player.getWorld().spawnParticle(Particle.DUST,
-                        player.getLocation().add(0, 1.5, 0), 5, 0.4, 0.3, 0.4, 0,
-                        new Particle.DustOptions(Color.YELLOW, 0.6f));
-                }
-
-                ticks++;
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     // === RENARD - TRAQUE & BOND ===
