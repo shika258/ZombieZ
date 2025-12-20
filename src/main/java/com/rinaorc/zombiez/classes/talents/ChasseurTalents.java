@@ -679,7 +679,7 @@ public final class ChasseurTalents {
                 "§7à l'impact avec dégâts AoE.",
                 "",
                 "§b~ Portée: §e12 blocs",
-                "§b~ Cadence: §e8s",
+                "§b~ Cadence: §e3s",
                 "§c✦ Dégâts de zone + Knockback"
             })
             .classType(ClassType.CHASSEUR)
@@ -688,7 +688,7 @@ public final class ChasseurTalents {
             .icon(Material.COW_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_COW)
-            .values(new double[]{8000, 1.00, 4.0}) // cooldown_ms, damage_percent (buffed 80→100%), explosion_radius
+            .values(new double[]{3000, 1.00, 4.0}) // cooldown_ms, damage_percent (buffed 80→100%), explosion_radius
             .build());
 
         // 5.3 - EXÉCUTION (Branche Ombre)
