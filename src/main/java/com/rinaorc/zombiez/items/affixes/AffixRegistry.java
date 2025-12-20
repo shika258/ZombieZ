@@ -562,6 +562,102 @@ public class AffixRegistry {
             .minZone(7)
             .build());
 
+        // ==================== NOUVEAUX AFFIXES DÉFENSIFS (PATCH) ====================
+        // Thème: Survie avancée / Protection spécialisée
+
+        registerAffix(Affix.builder()
+            .id("stalwart")
+            .displayName("Inébranlable")
+            .specialDescription("Résistance aux effets de contrôle")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(55)
+            .stats(Map.of(
+                StatType.KNOCKBACK_RESISTANCE, new double[]{15, 30},
+                StatType.STUN_RESISTANCE, new double[]{10, 20}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(3)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("shielded")
+            .displayName("Bouclier")
+            .specialDescription("Absorbe une partie des dégâts")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(40)
+            .stats(Map.of(
+                StatType.DAMAGE_REDUCTION, new double[]{4, 8},
+                StatType.ARMOR_PERCENT, new double[]{5, 10}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(5)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("adaptive")
+            .displayName("Adaptatif")
+            .specialDescription("Résistances multiples")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(20)
+            .stats(Map.of(
+                StatType.FIRE_RESISTANCE, new double[]{8, 15},
+                StatType.ICE_RESISTANCE, new double[]{8, 15},
+                StatType.POISON_RESISTANCE, new double[]{8, 15}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(6)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_guardian")
+            .displayName("du Gardien")
+            .specialDescription("Protection totale améliorée")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(35)
+            .stats(Map.of(
+                StatType.MAX_HEALTH, new double[]{3, 6},
+                StatType.DAMAGE_REDUCTION, new double[]{3, 6},
+                StatType.HEALTH_REGEN, new double[]{0.3, 0.8}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(4)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_resilience")
+            .displayName("de Résilience")
+            .specialDescription("Récupération après dégâts")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(18)
+            .stats(Map.of(
+                StatType.HEALTH_REGEN, new double[]{1.0, 2.0},
+                StatType.DAMAGE_REDUCTION, new double[]{4, 8}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(6)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_survivor")
+            .displayName("du Dernier Survivant")
+            .specialDescription("Bonus défensif quand PV bas")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_5)
+            .weight(6)
+            .stats(Map.of(
+                StatType.LOW_HEALTH_DAMAGE_REDUCTION, new double[]{15, 25},
+                StatType.LOW_HEALTH_REGEN, new double[]{2, 4},
+                StatType.CHEAT_DEATH_CHANCE, new double[]{1, 2}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(8)
+            .build());
+
         // ==================== AFFIXES MOMENTUM ====================
         // Thème: Rage / Frénésie de combat
 

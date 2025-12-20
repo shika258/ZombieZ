@@ -29,27 +29,35 @@ currencies:
     color: "&b"
 
 # ========================================
-# GAINS DE POINTS - SCALING EXPONENTIEL
-# Par zone pour une meilleure progression
+# GAINS DE POINTS - SCALING ÉQUILIBRÉ
+# Croissance réduite après zone 10 pour éviter l'inflation
 # ========================================
 points:
   # Formule: base * (1 + zone * zone_scaling) * level_bonus
   base-kill: 5
-  zone-scaling: 0.35  # +35% par zone (compound)
-  
-  # Gains par zone (calculés automatiquement si absent)
+  zone-scaling: 0.20  # Réduit de 0.35 à 0.20 (+20% par zone au lieu de 35%)
+
+  # Gains par zone (recalculés avec croissance maîtrisée)
+  # Zones 1-10: progression normale
+  # Zones 11+: croissance limitée à +15% par zone
   by-zone:
-    1: 5      # Zone 1: 5 points/kill
-    2: 8      # Zone 2: 8 points/kill
-    3: 13     # Zone 3: 13 points/kill
-    4: 20     # Zone 4: 20 points/kill
-    5: 32     # Zone 5: 32 points/kill
-    6: 50     # Zone 6: 50 points/kill (PvP)
-    7: 45     # Zone 7: 45 points/kill
-    8: 65     # Zone 8: 65 points/kill
-    9: 95     # Zone 9: 95 points/kill
-    10: 140   # Zone 10: 140 points/kill
-    11: 200   # Zone 11: 200 points/kill
+    1: 6       # Zone 1: 6 points/kill (augmenté)
+    2: 10      # Zone 2: 10 points/kill
+    3: 15      # Zone 3: 15 points/kill
+    4: 22      # Zone 4: 22 points/kill
+    5: 32      # Zone 5: 32 points/kill
+    6: 45      # Zone 6: 45 points/kill
+    7: 55      # Zone 7: 55 points/kill
+    8: 70      # Zone 8: 70 points/kill
+    9: 90      # Zone 9: 90 points/kill
+    10: 115    # Zone 10: 115 points/kill
+    # Zone 11+: croissance limitée à +15% par zone (anti-inflation)
+    11: 132    # +15% de zone 10
+    12: 152    # +15%
+    13: 175    # +15%
+    14: 201    # +15%
+    15: 231    # +15%
+    # Zones 16-50: formule auto avec scaling réduit
   
   # Multiplicateurs
   elite-multiplier: 2.5

@@ -63,6 +63,7 @@ zones:
   # ========================================
 
   # Zone 1: Bastion du Reveil (Spawn - Chateau medieval)
+  # PATCH: Difficulté augmentée pour un meilleur challenge initial
   zone_1:
     id: 1
     name: bastion_du_reveil
@@ -77,10 +78,10 @@ zones:
     multipliers:
       xp: 1.0
       loot: 1.0
-      spawn-rate: 0.8
-      zombie-health: 1.0
-      zombie-damage: 1.0
-      zombie-speed: 1.0
+      spawn-rate: 1.0       # Augmenté de 0.8 à 1.0
+      zombie-health: 1.1    # Augmenté de 1.0 à 1.1
+      zombie-damage: 1.1    # Augmenté de 1.0 à 1.1
+      zombie-speed: 1.02    # Augmenté de 1.0 à 1.02
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -98,6 +99,7 @@ zones:
     color: "§a"
 
   # Zone 2: Faubourgs Oublies
+  # PATCH: Difficulté augmentée
   zone_2:
     id: 2
     name: faubourgs_oublies
@@ -112,10 +114,10 @@ zones:
     multipliers:
       xp: 1.05
       loot: 1.05
-      spawn-rate: 0.9
-      zombie-health: 1.05
-      zombie-damage: 1.05
-      zombie-speed: 1.01
+      spawn-rate: 1.0       # Augmenté de 0.9 à 1.0
+      zombie-health: 1.15   # Augmenté de 1.05 à 1.15
+      zombie-damage: 1.12   # Augmenté de 1.05 à 1.12
+      zombie-speed: 1.03    # Augmenté de 1.01 à 1.03
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -134,6 +136,7 @@ zones:
     color: "§a"
 
   # Zone 3: Champs du Silence
+  # PATCH: Difficulté augmentée
   zone_3:
     id: 3
     name: champs_du_silence
@@ -141,17 +144,17 @@ zones:
     description: "Des terres agricoles desormais silencieuses"
     min-z: 9400
     max-z: 9600
-    difficulty: 1
+    difficulty: 2
     stars: 1
     biome: PLAINS
     theme: silent_fields
     multipliers:
       xp: 1.1
       loot: 1.1
-      spawn-rate: 1.0
-      zombie-health: 1.1
-      zombie-damage: 1.1
-      zombie-speed: 1.02
+      spawn-rate: 1.1       # Augmenté de 1.0 à 1.1
+      zombie-health: 1.22   # Augmenté de 1.1 à 1.22
+      zombie-damage: 1.18   # Augmenté de 1.1 à 1.18
+      zombie-speed: 1.04    # Augmenté de 1.02 à 1.04
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -170,6 +173,7 @@ zones:
     color: "§a"
 
   # Zone 4: Verger des Pendus
+  # PATCH: Difficulté augmentée
   zone_4:
     id: 4
     name: verger_des_pendus
@@ -184,10 +188,10 @@ zones:
     multipliers:
       xp: 1.15
       loot: 1.15
-      spawn-rate: 1.0
-      zombie-health: 1.15
-      zombie-damage: 1.15
-      zombie-speed: 1.03
+      spawn-rate: 1.1       # Augmenté de 1.0 à 1.1
+      zombie-health: 1.28   # Augmenté de 1.15 à 1.28
+      zombie-damage: 1.22   # Augmenté de 1.15 à 1.22
+      zombie-speed: 1.05    # Augmenté de 1.03 à 1.05
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
@@ -206,6 +210,7 @@ zones:
     color: "§a"
 
   # Zone 5: Route des Fuyards
+  # PATCH: Difficulté augmentée - Premier vrai challenge
   zone_5:
     id: 5
     name: route_des_fuyards
@@ -214,16 +219,16 @@ zones:
     min-z: 9000
     max-z: 9200
     difficulty: 2
-    stars: 1
+    stars: 2
     biome: PLAINS
     theme: refugee_road
     multipliers:
       xp: 1.2
       loot: 1.2
-      spawn-rate: 1.1
-      zombie-health: 1.2
-      zombie-damage: 1.2
-      zombie-speed: 1.04
+      spawn-rate: 1.15      # Augmenté de 1.1 à 1.15
+      zombie-health: 1.35   # Augmenté de 1.2 à 1.35
+      zombie-damage: 1.28   # Augmenté de 1.2 à 1.28
+      zombie-speed: 1.06    # Augmenté de 1.04 à 1.06
     pvp-enabled: false
     safe-zone: false
     boss-zone: false
