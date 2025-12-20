@@ -215,19 +215,12 @@ public class Talent {
         BOUNTY_HUNTER,           // (Legacy)
         BOUNTY_EXECUTIONER,      // (Legacy)
         LEGENDARY_HUNTER,        // (Legacy)
-        GHOST,                   // (Legacy)
-        TRACKER,                 // (Legacy)
-        DEATH_SENTENCE,          // (Legacy)
+        // Note: GHOST, TRACKER, DEATH_SENTENCE, AGILE_HUNTER, HUNTER_MARK, VENOM,
+        // RICOCHET, SHARPSHOOTER, KILL_ZONE sont déjà définis dans les tiers actifs
         SHADOW_STRIKE,           // (Legacy)
         DEATH_NOTE,              // (Legacy)
-        AGILE_HUNTER,            // (Legacy)
-        HUNTER_MARK,             // (Legacy - remplacé par VENOMOUS_STRIKE)
-        VENOM,                   // (Legacy - remplacé par CORROSIVE_VENOM)
         PREY_WEAKNESS,           // (Legacy - remplacé par TOXIC_SYNERGY)
         TOXIC_APOCALYPSE,        // (Legacy - remplacé par PLAGUE_AVATAR)
-        RICOCHET,                // (Legacy - remplacé par CALIBER)
-        SHARPSHOOTER,            // (Legacy - remplacé par FATAL_TRAJECTORY)
-        KILL_ZONE,               // (Legacy - remplacé par ABSOLUTE_PERFORATION)
         ARMOR_SHRED,             // (Legacy - remplacé par HUNTER_MOMENTUM)
         GATLING,                 // (Legacy - remplacé par CHAIN_PERFORATION)
         LIVING_ARSENAL,          // (Legacy - remplacé par DEVASTATION)
@@ -236,26 +229,24 @@ public class Talent {
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain
         BEAST_LLAMA,             // Summon llama - spits on 3 targets, applies slowness
-        PREY_WEAKNESS,           // Marked enemies take more crit damage
-        ARMOR_SHRED,             // Piercing attacks reduce enemy armor
+        // Note: PREY_WEAKNESS et ARMOR_SHRED définis dans Legacy section
 
         // === CHASSEUR - Tier 7 ===
         CYCLONE_EYE,             // Arrow rain creates vortex that pulls + explodes
         BEAST_FOX,               // Summon fox - treasure hunter, gives stat buffs on kill
         BLACK_PLAGUE,            // Poison anti-heal + self heal
-        GATLING,                 // Full auto mode
+        // Note: GATLING défini dans Legacy section
 
         // === CHASSEUR - Tier 8 ===
         DEVASTATING_SWARM,       // Doubles all rain radius + arrows fragment on impact
         BEAST_BEE,               // Summon bee - double-sneak frenzy, +50% attack speed for all beasts
         BLIGHT,                  // Passive contagion
-        LIVING_ARSENAL,          // Auto-targeting shots
+        // Note: LIVING_ARSENAL défini dans Legacy section
 
         // === CHASSEUR - Tier 9 (Legendary) ===
         ORBITAL_STRIKE,          // Nuke from orbit
         BEAST_IRON_GOLEM,        // Summon iron golem - shockwave vortex + explosion
-        TOXIC_APOCALYPSE,        // Passive poison aura
-        BULLET_TIME,             // Time slow
+        // Note: TOXIC_APOCALYPSE et BULLET_TIME définis dans Legacy section
 
         // === OCCULTISTE - Tier 1 ===
         IGNITE,                  // Fire DoT on attack
