@@ -451,6 +451,13 @@ public class ShadowManager {
         destination.getWorld().spawnParticle(Particle.WITCH, destination, 15, 0.3, 0.3, 0.3, 0);
         destination.getWorld().playSound(destination, Sound.ENTITY_PHANTOM_BITE, 1.0f, 1.2f);
 
+        // Mettre en cooldown AVANT d'infliger les dégâts pour éviter la boucle infinie
+        // (target.damage() déclenche un nouveau EntityDamageByEntityEvent)
+        shadowStepCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
+
+        // Ajouter Points d'Ombre
+        addShadowPoints(uuid, pointsGained);
+
         // Appliquer le buff de vitesse (+50% pendant 3s)
         // Speed amplifier 1 = +40%, amplifier 2 = +60%, on prend amplifier 1 (proche de 50%)
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedBuffTicks, 1, false, true));
@@ -466,12 +473,6 @@ public class ShadowManager {
         target.getWorld().spawnParticle(Particle.CRIT,
             target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.2);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
-
-        // Ajouter Points d'Ombre
-        addShadowPoints(uuid, pointsGained);
-
-        // Mettre en cooldown
-        shadowStepCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
         return finalDamage;
     }
