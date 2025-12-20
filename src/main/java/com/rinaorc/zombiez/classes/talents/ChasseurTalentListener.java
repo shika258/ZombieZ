@@ -1789,23 +1789,32 @@ public class ChasseurTalentListener implements Listener {
     }
 
     /**
-     * Applique l'effet de flèche chercheuse à une flèche en vol.
-     * La flèche ajuste sa trajectoire vers la TÊTE de l'ennemi le plus proche.
-     * Algorithme optimisé pour éviter les flèches qui vont dans le sol.
+     * Applique un comportement de flèche chercheuse amélioré à une flèche.
+     * Système de homing v2: adaptatif à la vitesse avec réduction progressive
+     * pour permettre des virages serrés même à haute vélocité.
      *
      * @param arrow La flèche à rendre chercheuse
      * @param player Le joueur propriétaire
-     * @param homingStrength Force d'attraction (0.2-0.4 recommandé)
+     * @param homingStrength Force d'attraction de base (0.2-0.4 recommandé)
      * @param homingRadius Rayon de détection des cibles
      */
     private void applyHomingBehavior(Arrow arrow, Player player, double homingStrength, double homingRadius) {
+        // Vitesse optimale pour le tracking (permet des virages fluides)
+        final double optimalTrackingSpeed = 1.8;
+        // Vitesse minimale pour maintenir les dégâts et l'immersion
+        final double minSpeed = 1.2;
+
         new BukkitRunnable() {
             int ticks = 0;
-            LivingEntity lockedTarget = null; // Verrouillage de cible pour cohérence
+            LivingEntity lockedTarget = null;
+            // Phase de "grace period": laisser la flèche s'éloigner avant d'activer le homing
+            final int gracePeriodTicks = 3;
+            // Compteur de ticks depuis le verrouillage (pour accélérer progressivement le tracking)
+            int lockTicks = 0;
 
             @Override
             public void run() {
-                if (arrow.isDead() || arrow.isOnGround() || ticks > 80) {
+                if (arrow.isDead() || arrow.isOnGround() || ticks > 100) {
                     homingArrows.remove(arrow.getUniqueId());
                     this.cancel();
                     return;
@@ -1815,92 +1824,187 @@ public class ChasseurTalentListener implements Listener {
                 Vector currentVelocity = arrow.getVelocity();
                 double speed = currentVelocity.length();
 
-                // Si la flèche est presque à l'arrêt, ne pas appliquer le homing
+                // Si la flèche est presque à l'arrêt, arrêter le homing
                 if (speed < 0.3) {
                     ticks++;
                     return;
                 }
 
+                // Grace period: ne pas activer le homing immédiatement
+                // Permet à la flèche de s'éloigner du joueur avant de chercher une cible
+                if (ticks < gracePeriodTicks) {
+                    ticks++;
+                    return;
+                }
+
                 // Vérifier si la cible verrouillée est toujours valide
-                if (lockedTarget != null && (lockedTarget.isDead() ||
-                    arrowLoc.distance(lockedTarget.getLocation()) > homingRadius * 1.5)) {
-                    lockedTarget = null;
+                if (lockedTarget != null) {
+                    if (lockedTarget.isDead() ||
+                        arrowLoc.distance(lockedTarget.getLocation()) > homingRadius * 2.0 ||
+                        !lockedTarget.getWorld().equals(arrow.getWorld())) {
+                        lockedTarget = null;
+                        lockTicks = 0;
+                    }
                 }
 
                 // Trouver la meilleure cible si pas de verrouillage
                 if (lockedTarget == null) {
                     lockedTarget = findBestHomingTarget(arrow, player, homingRadius, currentVelocity);
+                    lockTicks = 0;
                 }
 
                 // Ajuster la trajectoire vers la cible
                 if (lockedTarget != null) {
-                    // Cibler la TÊTE (85% de la hauteur de l'entité)
-                    Location headLoc = lockedTarget.getLocation().add(0, lockedTarget.getHeight() * 0.85, 0);
+                    lockTicks++;
 
-                    // Prédiction simple: ajuster légèrement vers où la cible va être
+                    // === SYSTÈME DE RÉDUCTION DE VITESSE PROGRESSIVE ===
+                    // Les flèches trop rapides ne peuvent pas tourner efficacement
+                    // On réduit progressivement la vitesse vers l'optimal
+                    double targetSpeed = speed;
+                    if (speed > optimalTrackingSpeed) {
+                        // Réduction progressive: 5% par tick jusqu'à la vitesse optimale
+                        double reductionFactor = 0.95;
+                        targetSpeed = Math.max(optimalTrackingSpeed, speed * reductionFactor);
+                        // Ne jamais descendre en dessous de minSpeed
+                        targetSpeed = Math.max(minSpeed, targetSpeed);
+                    }
+
+                    // === CALCUL DE LA POSITION CIBLE AVEC PRÉDICTION AVANCÉE ===
+                    // Cibler le centre de masse (70% de la hauteur pour plus de tolérance)
+                    Location targetLoc = lockedTarget.getLocation().add(0, lockedTarget.getHeight() * 0.70, 0);
+
+                    // Prédiction "pursuit curve" - anticipe où la cible sera
                     if (lockedTarget.getVelocity().lengthSquared() > 0.001) {
                         Vector targetVel = lockedTarget.getVelocity();
-                        double timeToHit = arrowLoc.distance(headLoc) / speed;
-                        // Prédire la position future (limité à 0.5s)
-                        timeToHit = Math.min(timeToHit, 0.5);
-                        headLoc.add(targetVel.clone().multiply(timeToHit * 20)); // 20 ticks/sec
+                        double distToTarget = arrowLoc.distance(targetLoc);
+                        // Temps estimé pour atteindre la cible (basé sur vitesse actuelle)
+                        double timeToHit = distToTarget / targetSpeed;
+                        // Limiter la prédiction (plus longue pour les cibles lointaines)
+                        double maxPrediction = Math.min(1.0, distToTarget / 10.0);
+                        timeToHit = Math.min(timeToHit, maxPrediction);
+                        // Appliquer la prédiction
+                        targetLoc.add(targetVel.clone().multiply(timeToHit * 20));
                     }
 
-                    Vector toTarget = headLoc.toVector().subtract(arrowLoc.toVector());
+                    Vector toTarget = targetLoc.toVector().subtract(arrowLoc.toVector());
                     double distanceToTarget = toTarget.length();
+
+                    // Éviter division par zéro
+                    if (distanceToTarget < 0.1) {
+                        ticks++;
+                        return;
+                    }
                     toTarget.normalize();
 
-                    // Force de tracking adaptative:
-                    // - Plus forte quand on est loin (pour corriger la trajectoire)
-                    // - Plus légère quand on est proche (pour ne pas sur-corriger)
-                    double adaptiveStrength = homingStrength;
-                    if (distanceToTarget < 3.0) {
-                        adaptiveStrength *= 0.5; // Réduire près de la cible
-                    } else if (distanceToTarget > 8.0) {
-                        adaptiveStrength *= 1.3; // Augmenter quand loin
+                    // === FORCE DE HOMING DYNAMIQUE ===
+                    // La force dépend de plusieurs facteurs:
+                    // 1. Distance à la cible
+                    // 2. Vitesse de la flèche (plus rapide = plus de force nécessaire)
+                    // 3. Angle entre trajectoire actuelle et cible
+                    // 4. Temps depuis le verrouillage (monte progressivement)
+
+                    Vector arrowDir = currentVelocity.clone().normalize();
+                    double dotProduct = arrowDir.dot(toTarget);
+                    // Angle en radians (0 = parfaitement aligné, PI = opposé)
+                    double angleToTarget = Math.acos(Math.max(-1.0, Math.min(1.0, dotProduct)));
+
+                    // Force de base
+                    double effectiveStrength = homingStrength;
+
+                    // 1. Scaling basé sur la vitesse: plus la flèche va vite, plus on force
+                    // Une flèche à 3.0 de vitesse a besoin de 50% plus de force qu'à 2.0
+                    double speedMultiplier = 1.0 + (speed - 1.5) * 0.3;
+                    speedMultiplier = Math.max(0.8, Math.min(2.0, speedMultiplier));
+                    effectiveStrength *= speedMultiplier;
+
+                    // 2. Scaling basé sur l'angle: virage serré = force maximale
+                    // Si l'angle > 45°, on augmente significativement la force
+                    if (angleToTarget > Math.PI / 4) { // > 45°
+                        double angleMultiplier = 1.0 + (angleToTarget - Math.PI / 4) * 1.5;
+                        angleMultiplier = Math.min(2.5, angleMultiplier);
+                        effectiveStrength *= angleMultiplier;
                     }
 
-                    // COMPENSATION GRAVITÉ: ajouter un léger boost vertical
-                    // La gravité dans MC est ~0.05 par tick sur les flèches
-                    double gravityCompensation = 0.03 + (distanceToTarget * 0.005);
-                    gravityCompensation = Math.min(gravityCompensation, 0.08); // Cap
+                    // 3. Scaling basé sur la distance
+                    if (distanceToTarget < 2.0) {
+                        // Très proche: réduire pour éviter oscillations
+                        effectiveStrength *= 0.6;
+                    } else if (distanceToTarget < 4.0) {
+                        // Proche: force normale
+                        effectiveStrength *= 0.9;
+                    } else if (distanceToTarget > 10.0) {
+                        // Loin: augmenter pour corriger la trajectoire
+                        effectiveStrength *= 1.4;
+                    }
 
-                    // Calculer la nouvelle vélocité
+                    // 4. Montée progressive après verrouillage (évite les virages brusques)
+                    double lockProgress = Math.min(1.0, lockTicks / 5.0);
+                    effectiveStrength *= (0.5 + 0.5 * lockProgress);
+
+                    // Cap final de la force (jamais plus de 70% de correction par tick)
+                    effectiveStrength = Math.min(0.70, effectiveStrength);
+
+                    // === COMPENSATION GRAVITÉ AMÉLIORÉE ===
+                    // La gravité MC est ~0.05 Y par tick
+                    // On compense en fonction de la distance et de l'angle vertical
+                    double heightDiff = targetLoc.getY() - arrowLoc.getY();
+                    double gravityCompensation = 0.0;
+                    if (heightDiff >= -1.0) {
+                        // Compensation de base + extra si la cible est au-dessus
+                        gravityCompensation = 0.04 + Math.max(0, heightDiff * 0.015);
+                        // Plus de compensation si la cible est loin
+                        gravityCompensation += distanceToTarget * 0.003;
+                        gravityCompensation = Math.min(gravityCompensation, 0.12);
+                    }
+
+                    // === INTERPOLATION DE DIRECTION ===
                     Vector normalizedCurrent = currentVelocity.clone().normalize();
-                    Vector newDirection = normalizedCurrent
-                        .multiply(1 - adaptiveStrength)
-                        .add(toTarget.multiply(adaptiveStrength))
-                        .normalize();
 
-                    // Ajouter compensation gravité (uniquement si la cible n'est pas en-dessous)
-                    if (headLoc.getY() >= arrowLoc.getY() - 1.0) {
+                    // Calculer la nouvelle direction avec interpolation
+                    Vector newDirection = normalizedCurrent
+                        .multiply(1 - effectiveStrength)
+                        .add(toTarget.multiply(effectiveStrength));
+
+                    // Ajouter compensation gravité avant normalisation
+                    if (gravityCompensation > 0) {
                         newDirection.setY(newDirection.getY() + gravityCompensation);
-                        newDirection.normalize();
                     }
 
-                    // Appliquer la nouvelle vélocité en conservant la vitesse
-                    Vector newVelocity = newDirection.multiply(speed);
+                    newDirection.normalize();
+
+                    // === APPLIQUER LA NOUVELLE VÉLOCITÉ ===
+                    Vector newVelocity = newDirection.multiply(targetSpeed);
                     arrow.setVelocity(newVelocity);
 
-                    // Particule de traque distinctive
+                    // === PARTICULES VISUELLES ===
+                    // Couleur varie selon la proximité (rouge -> orange quand proche)
                     if (ticks % 2 == 0) {
+                        int red = 255;
+                        int green = (int) Math.min(150, 50 + (7.0 - distanceToTarget) * 20);
                         arrow.getWorld().spawnParticle(Particle.DUST, arrowLoc, 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(255, 50, 50), 0.6f));
+                            new Particle.DustOptions(Color.fromRGB(red, Math.max(0, green), 0), 0.6f));
                     }
+                } else {
+                    // Pas de cible: réinitialiser le compteur de lock
+                    lockTicks = 0;
                 }
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 1L, 1L); // Commence immédiatement, chaque tick
+        }.runTaskTimer(plugin, 1L, 1L);
     }
 
     /**
-     * Trouve la meilleure cible pour le homing.
-     * Privilégie les cibles dans la trajectoire de la flèche et évite celles trop en-dessous.
+     * Trouve la meilleure cible pour le homing (v2).
+     * Système de scoring amélioré qui prend en compte:
+     * - L'interceptabilité (angle de virage requis vs distance)
+     * - La prédiction de mouvement de la cible
+     * - La visibilité (line of sight approximative)
      */
     private LivingEntity findBestHomingTarget(Arrow arrow, Player player, double homingRadius, Vector arrowVelocity) {
         Location arrowLoc = arrow.getLocation();
         Vector arrowDir = arrowVelocity.clone().normalize();
+        double arrowSpeed = arrowVelocity.length();
 
         LivingEntity bestTarget = null;
         double bestScore = Double.MAX_VALUE;
@@ -1910,37 +2014,87 @@ public class ChasseurTalentListener implements Listener {
                 continue;
             }
 
-            // Position de la tête de la cible
-            Location headLoc = target.getLocation().add(0, target.getHeight() * 0.85, 0);
-            double distance = arrowLoc.distance(headLoc);
+            // Position du centre de masse (70% de la hauteur - plus de tolérance)
+            Location targetLoc = target.getLocation().add(0, target.getHeight() * 0.70, 0);
+            double distance = arrowLoc.distance(targetLoc);
 
-            // FILTRE: Ignorer les cibles trop en-dessous de la flèche (évite plongée dans le sol)
-            double heightDiff = headLoc.getY() - arrowLoc.getY();
-            if (heightDiff < -3.0) {
-                // La cible est plus de 3 blocs en-dessous, ignorer
+            // Éviter les cibles trop proches (risque de collision immédiate)
+            if (distance < 0.5) {
                 continue;
             }
 
-            // Calculer l'angle entre la direction de la flèche et la direction vers la cible
-            Vector toTarget = headLoc.toVector().subtract(arrowLoc.toVector()).normalize();
+            // FILTRE: Ignorer les cibles trop en-dessous de la flèche
+            double heightDiff = targetLoc.getY() - arrowLoc.getY();
+            if (heightDiff < -4.0) {
+                continue;
+            }
+
+            // Calculer l'angle entre la trajectoire actuelle et la cible
+            Vector toTarget = targetLoc.toVector().subtract(arrowLoc.toVector()).normalize();
             double dotProduct = arrowDir.dot(toTarget);
 
-            // FILTRE: Ignorer les cibles derrière la flèche
-            if (dotProduct < 0.2) {
+            // FILTRE: Ignorer les cibles trop hors trajectoire
+            // Plus de tolérance pour les cibles proches (on peut tourner)
+            double minDotProduct = distance < 3.0 ? 0.0 : 0.1;
+            if (dotProduct < minDotProduct) {
                 continue;
             }
 
-            // Score: combiner distance et alignement
-            // Plus le score est bas, meilleure est la cible
-            // - Distance faible = bon
-            // - dotProduct élevé (bien aligné) = bon
-            double alignmentBonus = (1.0 - dotProduct) * 5.0; // 0 si parfaitement aligné, jusqu'à 4 sinon
-            double score = distance + alignmentBonus;
+            // === CALCUL DU SCORE D'INTERCEPTION ===
+            // Un bon score = cible facile à atteindre
 
-            // Bonus si la cible est légèrement au-dessus (trajectoire naturelle de flèche)
-            if (heightDiff > 0 && heightDiff < 2.0) {
-                score -= 1.0;
+            // 1. Score de base: distance (plus proche = meilleur)
+            double distanceScore = distance;
+
+            // 2. Score d'alignement: pénalité si mal aligné
+            // Mais RÉDUIT pour les cibles proches (on peut tourner facilement)
+            double angleRad = Math.acos(Math.max(-1.0, Math.min(1.0, dotProduct)));
+            double anglePenalty;
+            if (distance < 3.0) {
+                // Proche: faible pénalité d'angle (on peut tourner)
+                anglePenalty = angleRad * 1.5;
+            } else if (distance < 6.0) {
+                // Moyen: pénalité modérée
+                anglePenalty = angleRad * 3.0;
+            } else {
+                // Loin: forte pénalité (difficile de tourner à temps)
+                anglePenalty = angleRad * 5.0;
             }
+
+            // 3. Score d'interceptabilité: peut-on atteindre la cible avant qu'elle s'échappe?
+            // Si la cible bouge, calculer le point d'interception
+            double interceptScore = 0;
+            if (target.getVelocity().lengthSquared() > 0.001) {
+                Vector targetVel = target.getVelocity();
+                // Temps estimé pour atteindre la cible
+                double timeToReach = distance / arrowSpeed;
+                // Position future de la cible
+                Location futurePos = targetLoc.clone().add(targetVel.clone().multiply(timeToReach * 20));
+                // Distance au point d'interception
+                double interceptDistance = arrowLoc.distance(futurePos);
+                // Si le point d'interception est plus loin que la position actuelle, pénalité
+                if (interceptDistance > distance * 1.5) {
+                    interceptScore = (interceptDistance - distance) * 0.5;
+                }
+            }
+
+            // 4. Bonus de hauteur: privilégier les cibles légèrement au-dessus
+            // (trajectoire naturelle de flèche, moins de risque d'aller dans le sol)
+            double heightBonus = 0;
+            if (heightDiff > 0 && heightDiff < 3.0) {
+                heightBonus = -1.5; // Bonus
+            } else if (heightDiff < -2.0) {
+                heightBonus = 2.0; // Pénalité pour cibles en-dessous
+            }
+
+            // 5. Bonus de "priorité hostile": privilégier les mobs hostiles
+            double hostileBonus = 0;
+            if (target instanceof Monster) {
+                hostileBonus = -2.0; // Les monstres sont prioritaires
+            }
+
+            // Score final
+            double score = distanceScore + anglePenalty + interceptScore + heightBonus + hostileBonus;
 
             if (score < bestScore) {
                 bestScore = score;
