@@ -14,25 +14,29 @@ import org.bukkit.entity.EntityType;
 public enum BeastType {
 
     /**
-     * Tier 1 - Chauve-souris (Vex pour supporter setTarget)
-     * Attaque la cible focus du joueur. Invincible.
+     * Tier 1 - Chauve-souris
+     * Émet des ultrasons qui transpercent les ennemis en ligne.
      */
     BAT(
         1, "Chauve-souris",
-        EntityType.VEX, // Utilise VEX car BAT (Ambient) ne supporte pas setTarget()
+        EntityType.BAT,
         Material.BAT_SPAWN_EGG,
         "§8",
         new String[]{
             "§8§lCHAUVE-SOURIS",
             "",
-            "§7Une chauve-souris fidèle qui",
-            "§7attaque vos ennemis focalisés.",
+            "§7Une chauve-souris qui émet",
+            "§7des ultrasons dévastateurs.",
             "",
-            "§6CAPACITÉ:",
-            "§7Attaque automatiquement la cible",
-            "§7que vous frappez.",
+            "§6CAPACITÉ - ULTRASON:",
+            "§7Émet une onde sonore vers",
+            "§7l'ennemi le plus proche.",
+            "§cTransperce §7tous les ennemis",
+            "§7sur sa trajectoire!",
             "",
             "§e⚔ Dégâts: §f25% §7de vos dégâts",
+            "§b~ Portée: §e12 blocs",
+            "§b~ Cadence: §e1.5s",
             "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_BAT_AMBIENT,

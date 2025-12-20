@@ -59,17 +59,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_bat")
             .name("Chauve-souris")
-            .description("Invoque une chauve-souris qui attaque votre cible")
+            .description("Invoque une chauve-souris a ultrasons")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
-                "§7Invoque une §8chauve-souris§7 fidèle",
-                "§7qui attaque vos ennemis focalisés.",
+                "§7Invoque une §8chauve-souris§7 qui",
+                "§7emet des ultrasons devastateurs.",
                 "",
-                "§6CAPACITÉ:",
-                "§7Attaque automatiquement la cible",
-                "§7que vous frappez.",
+                "§6CAPACITE - ULTRASON:",
+                "§7Tire une onde sonore vers",
+                "§7l'ennemi le plus proche.",
+                "§cTransperce §7tous les ennemis",
+                "§7sur sa trajectoire!",
                 "",
+                "§b~ Portee: §e12 blocs",
+                "§b~ Cadence: §e1.5s",
                 "§a✦ INVINCIBLE"
             })
             .classType(ClassType.CHASSEUR)

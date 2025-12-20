@@ -227,14 +227,10 @@ public class BeastManager {
         // Configuration spécifique par type
         switch (type) {
             case BAT -> {
-                // Utilise un Vex pour le pathfinding/targeting, stylisé comme chauve-souris
-                if (beast instanceof org.bukkit.entity.Vex vex) {
-                    vex.setCharging(false);
-                    vex.setSilent(true); // Sons custom
-                    // Petite taille visuelle via attribut
-                    if (vex.getAttribute(Attribute.SCALE) != null) {
-                        vex.getAttribute(Attribute.SCALE).setBaseValue(0.6);
-                    }
+                // Chauve-souris avec ultrasons - pas de pathfinding nécessaire
+                if (beast instanceof Bat bat) {
+                    bat.setAwake(true);
+                    bat.setSilent(true); // Sons custom pour l'ultrason
                 }
             }
             case BEAR -> {
@@ -425,28 +421,98 @@ public class BeastManager {
     // === CAPACITÉS SPÉCIFIQUES ===
 
     private void executeBatAbility(Player owner, LivingEntity bat, double frenzyMultiplier) {
-        UUID focusTarget = playerFocusTarget.get(owner.getUniqueId());
-        if (focusTarget == null) return;
+        // L'ultrason est géré par un cooldown séparé dans updateAllBeasts
+        // Cette méthode est appelée chaque seconde, on utilise un cooldown pour la cadence
+        long now = System.currentTimeMillis();
+        String cooldownKey = "bat_ultrasound";
+        long shootCooldown = (long) (1500 / frenzyMultiplier); // 1.5s base
 
-        Entity target = Bukkit.getEntity(focusTarget);
-        if (target == null || target.isDead() || !(target instanceof LivingEntity living)) {
-            playerFocusTarget.remove(owner.getUniqueId());
+        if (isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
             return;
         }
 
-        // Vérifier la distance
-        if (bat.getLocation().distance(target.getLocation()) > 15) return;
+        // Trouver l'ennemi le plus proche dans 12 blocs
+        LivingEntity nearestEnemy = null;
+        double nearestDistSq = 144.0; // 12^2
 
-        // Attaquer la cible
-        if (bat instanceof Mob mob) {
-            mob.setTarget(living);
+        for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestEnemy = monster;
+                    if (distSq < 9) break; // <3 blocs, on prend direct
+                }
+            }
         }
 
-        // Appliquer des dégâts directs (% des dégâts du joueur)
-        if (bat.getLocation().distance(target.getLocation()) < 2) {
-            living.damage(calculateBeastDamage(owner, BeastType.BAT, frenzyMultiplier), owner);
-            bat.getWorld().playSound(bat.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 0.5f, 1.5f);
+        if (nearestEnemy != null) {
+            shootUltrasound(owner, bat, nearestEnemy, frenzyMultiplier);
+            setCooldown(owner.getUniqueId(), cooldownKey, now + shootCooldown);
         }
+    }
+
+    /**
+     * Tire un ultrason en ligne droite qui transperce tous les ennemis
+     */
+    private void shootUltrasound(Player owner, LivingEntity bat, LivingEntity target, double frenzyMultiplier) {
+        Location start = bat.getLocation().add(0, 0.3, 0);
+        Location targetLoc = target.getLocation().add(0, target.getHeight() * 0.5, 0);
+        Vector direction = targetLoc.subtract(start).toVector().normalize();
+        double damage = calculateBeastDamage(owner, BeastType.BAT, frenzyMultiplier);
+
+        // Son d'ultrason
+        bat.getWorld().playSound(start, Sound.ENTITY_BAT_TAKEOFF, 1.5f, 2.0f);
+        bat.getWorld().playSound(start, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 2.0f);
+
+        // Set pour tracker les entités déjà touchées
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // Tracer le rayon sur 12 blocs
+        new BukkitRunnable() {
+            Location current = start.clone();
+            int steps = 0;
+            final int maxSteps = 24; // 12 blocs (0.5 par step)
+
+            @Override
+            public void run() {
+                if (steps >= maxSteps) {
+                    cancel();
+                    return;
+                }
+
+                // Avancer de 0.5 bloc
+                current.add(direction.clone().multiply(0.5));
+
+                // Particules d'onde sonore (sans couleur - juste effet sonore visuel)
+                current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
+
+                // Vérifier les collisions avec les ennemis
+                for (Entity entity : current.getWorld().getNearbyEntities(current, 0.8, 0.8, 0.8)) {
+                    if (entity instanceof LivingEntity living &&
+                        entity instanceof Monster &&
+                        !isBeast(entity) &&
+                        entity != owner &&
+                        !hitEntities.contains(entity.getUniqueId())) {
+
+                        // Touché! Appliquer les dégâts
+                        hitEntities.add(entity.getUniqueId());
+                        living.damage(damage, owner);
+
+                        // Effet d'impact sonore (sans particules visuelles)
+                        living.getWorld().playSound(living.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 1.5f);
+                    }
+                }
+
+                // Arrêter si on touche un bloc solide
+                if (current.getBlock().getType().isSolid()) {
+                    cancel();
+                    return;
+                }
+
+                steps++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void executeBearAbility(Player owner, LivingEntity bear, long now, String cooldownKey, double frenzyMultiplier) {
