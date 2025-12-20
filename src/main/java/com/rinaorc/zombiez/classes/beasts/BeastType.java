@@ -216,6 +216,7 @@ public enum BeastType {
     /**
      * Tier 7 - Renard
      * Prédateur agile qui bondit et marque ses proies.
+     * Les cibles marquées sont en glowing.
      */
     FOX(
         7, "Renard",
@@ -232,11 +233,13 @@ public enum BeastType {
             "§7Bondit sur les ennemis blessés",
             "§7et les §cmarque§7 pendant §e5s§7.",
             "",
-            "§c✦ MARQUE: §f+30% §7dégâts subis!",
+            "§c✦ MARQUE:",
+            "§7• §f+30% §7dégâts subis",
+            "§7• §eGlowing §7- visible à travers les murs!",
             "",
             "§e⚔ Dégâts bond: §f20% §7de vos dégâts",
             "§b~ Portée: §e10 blocs",
-            "§b~ Cadence: §e4s"
+            "§b~ Cadence: §e3s"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,

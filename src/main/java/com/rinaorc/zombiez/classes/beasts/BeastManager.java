@@ -1891,8 +1891,8 @@ public class BeastManager {
      * Capacité du renard: bondit sur les ennemis et les marque
      */
     private void executeFoxAbility(Player owner, LivingEntity fox, long now, String cooldownKey, double frenzyMultiplier) {
-        // Bond toutes les 4 secondes
-        long pounceCooldown = (long) (4000 / frenzyMultiplier);
+        // Bond toutes les 3 secondes
+        long pounceCooldown = (long) (3000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
             // Trouver la meilleure cible (priorité aux blessés)
@@ -2018,7 +2018,8 @@ public class BeastManager {
     }
 
     /**
-     * Applique la marque du renard sur la cible
+     * Applique la marque du renard sur la cible.
+     * La cible marquée devient visible à travers les murs (glowing) et subit +30% de dégâts.
      */
     private void applyFoxMark(Player owner, LivingEntity fox, LivingEntity target) {
         if (target.isDead()) return;
@@ -2030,6 +2031,9 @@ public class BeastManager {
         // Marquer la cible (5 secondes)
         foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
 
+        // Appliquer l'effet GLOWING pour voir la cible à travers les murs
+        target.setGlowing(true);
+
         // Effets visuels de marque
         target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.5, 0),
             15, 0.3, 0.3, 0.3, 0.1);
@@ -2040,13 +2044,18 @@ public class BeastManager {
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_FOX_BITE, 1.5f, 1.0f);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.5f);
 
-        // Particules continues sur la cible marquée
+        // Particules continues sur la cible marquée + gestion du glowing
         new BukkitRunnable() {
             int ticks = 0;
 
             @Override
             public void run() {
+                // Vérifier si la marque a expiré
                 if (ticks >= 100 || target.isDead() || !foxMarkedEntities.containsKey(target.getUniqueId())) {
+                    // Retirer l'effet glowing quand la marque expire
+                    if (!target.isDead()) {
+                        target.setGlowing(false);
+                    }
                     cancel();
                     return;
                 }
