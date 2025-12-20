@@ -134,19 +134,19 @@ public enum TalentBranch {
             "§8Style: §bAssassin agile"
         }
     ),
-    CHASSEUR_TRAQUE(
+    CHASSEUR_POISON(
         ClassType.CHASSEUR, 3,
-        "Traque",
-        "§c",
-        Material.TARGET,
+        "Poison",
+        "§2",
+        Material.SPIDER_EYE,
         new String[]{
-            "§c§lVOIE DE LA TRAQUE",
+            "§2§lVOIE DU POISON",
             "",
-            "§7Marquez et traquez vos proies",
-            "§7jusqu'à leur élimination.",
+            "§7Infectez vos ennemis avec des",
+            "§7toxines dévastatrices qui explosent!",
             "",
-            "§8Spécialité: §cMarques, Amplification",
-            "§8Style: §cChasseur de primes"
+            "§8Spécialité: §2Stacks, Explosions, Nécrose",
+            "§8Style: §2Maître de la Peste"
         }
     ),
     CHASSEUR_PERFORATION(

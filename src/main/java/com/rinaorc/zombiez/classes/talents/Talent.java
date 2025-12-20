@@ -184,6 +184,17 @@ public class Talent {
         SHADOW_STORM,            // T8: Exécution kill = AoE + marque tous
         SHADOW_AVATAR,           // T9: Ultime 15s, 2 clones, +1 Point/s
 
+        // === CHASSEUR - BRANCHE POISON (Refonte dynamique) ===
+        VENOMOUS_STRIKE,         // T1: 40% chance poison, 3+ stacks = Nécrose (+25%)
+        CORROSIVE_VENOM,         // T2: 50% DoT + -10% armure ennemi
+        // DEADLY_TOXINS,        // T3: déjà défini, poison crit + slow
+        // PANDEMIC,             // T4: déjà défini, explosion chaîne à la mort
+        // EPIDEMIC,             // T5: déjà défini, stacks infinis + explosion auto
+        TOXIC_SYNERGY,           // T6: +5% AS par stack proche (max +40%), heal explosion
+        // BLACK_PLAGUE,         // T7: déjà défini, anti-heal + lifesteal + nuages
+        // BLIGHT,               // T8: déjà défini, aura + propagation + combo boost
+        PLAGUE_AVATAR,           // T9: Ultime 20s, max stacks instant, x2 explosions
+
         // === Legacy (compatibilité - ne plus utiliser) ===
         SPECTRE,                 // (Legacy)
         SHADOW_MASTER,           // (Legacy)
@@ -199,6 +210,10 @@ public class Talent {
         SHADOW_STRIKE,           // (Legacy)
         DEATH_NOTE,              // (Legacy)
         AGILE_HUNTER,            // (Legacy)
+        HUNTER_MARK,             // (Legacy - remplacé par VENOMOUS_STRIKE)
+        VENOM,                   // (Legacy - remplacé par CORROSIVE_VENOM)
+        PREY_WEAKNESS,           // (Legacy - remplacé par TOXIC_SYNERGY)
+        TOXIC_APOCALYPSE,        // (Legacy - remplacé par PLAGUE_AVATAR)
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain

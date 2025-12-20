@@ -108,25 +108,31 @@ public final class ChasseurTalents {
             .values(new double[]{1, 3, 0.30}) // points_per_hit, threshold, attack_speed_bonus
             .build());
 
-        // 1.4 - MARQUE DU CHASSEUR
+        // 1.4 - FRAPPE VENIMEUSE (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_hunter_mark")
-            .name("Marque du Chasseur")
-            .description("Marquez les ennemis: +15% degats")
+            .id("chasseur_venomous_strike")
+            .name("Frappe Venimeuse")
+            .description("40% chance poison, 3+ = Nécrose")
             .loreLines(new String[]{
-                "§7Vos attaques §emarquent§7 les ennemis.",
-                "§7Les ennemis marques prennent",
-                "§7§c+15%§7 de degats de toutes sources.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Duree: 5s"
+                "§7Vos attaques ont §a40%§7 de chance",
+                "§7d'appliquer §2Venin§7 (stack x5).",
+                "",
+                "§6À 3+ STACKS - NÉCROSE:",
+                "§8► Le poison devient §cNécrose",
+                "§8► §c+25%§8 dégâts de poison",
+                "§8► Effet visuel de corruption",
+                "",
+                "§2§lINFECTEZ VOS PROIES"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(3)
-            .icon(Material.TARGET)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.HUNTER_MARK)
-            .values(new double[]{5000, 0.15}) // duration_ms, damage_amp
+            .icon(Material.SPIDER_EYE)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.VENOMOUS_STRIKE)
+            .values(new double[]{0.40, 5, 3, 0.25}) // chance, max_stacks, necrosis_threshold, necrosis_bonus
             .build());
 
         // 1.5 - FLECHES PERCANTES
@@ -248,25 +254,33 @@ public final class ChasseurTalents {
             .values(new double[]{3000, 5}) // duration_ms, max_stacks
             .build());
 
-        // 2.4 - VENIN
+        // 2.4 - VENIN CORROSIF (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_venom")
-            .name("Venin")
-            .description("Poison: 40% degats sur 3s")
+            .id("chasseur_corrosive_venom")
+            .name("Venin Corrosif")
+            .description("Poison 50%/3s + -10% armure ennemi")
             .loreLines(new String[]{
-                "§7Vos attaques §2empoisonnent§7,",
-                "§7infligeant §c40%§7 degats bonus",
-                "§7sur §a3s§7.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Cumulable!"
+                "§7Votre poison devient §2corrosif§7!",
+                "",
+                "§6DÉGÂTS POISON:",
+                "§8► §c50%§8 de vos dégâts sur §e3s",
+                "§8► Se cumule avec les stacks",
+                "",
+                "§6CORROSION:",
+                "§8► Empoisonnés: §c-10%§8 armure",
+                "§8► Synergie avec Nécrose!",
+                "",
+                "§2§lRONGEZ LEUR DÉFENSE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(3)
-            .icon(Material.SPIDER_EYE)
+            .icon(Material.FERMENTED_SPIDER_EYE)
             .iconColor("§2")
-            .effectType(Talent.TalentEffectType.VENOM)
-            .values(new double[]{0.40, 3000}) // damage%, duration_ms
+            .effectType(Talent.TalentEffectType.CORROSIVE_VENOM)
+            .values(new double[]{0.50, 3000, 0.10}) // damage%, duration_ms, armor_reduction
             .build());
 
         // 2.5 - RICOCHET
@@ -374,17 +388,28 @@ public final class ChasseurTalents {
             .values(new double[]{5000, 2}) // cooldown_ms, points_gained
             .build());
 
-        // 3.4 - TOXINES MORTELLES
+        // 3.4 - TOXINES MORTELLES (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_deadly_toxins")
             .name("Toxines Mortelles")
-            .description("Poison peut faire des critiques + ralentit -30%")
+            .description("Poison CRIT +50%, Slow -30%, burst possible")
             .loreLines(new String[]{
-                "§7Le poison peut §ecritiquer§7!",
-                "§7Les ennemis empoisonnes ont",
-                "§7§c-30%§7 vitesse.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Controle total"
+                "§7Votre poison devient §cléthal§7!",
+                "",
+                "§6CRITIQUES TOXIQUES:",
+                "§8► §e25%§8 chance de crit poison",
+                "§8► Crits: §c+50%§8 dégâts DoT",
+                "",
+                "§6PARALYSIE:",
+                "§8► Empoisonnés: §9-30%§8 vitesse",
+                "§8► Facilite les combo!",
+                "",
+                "§6BURST (5 stacks):",
+                "§8► Crit sur 5 stacks = explosion!",
+                "",
+                "§2§lLA MORT LENTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -392,7 +417,7 @@ public final class ChasseurTalents {
             .icon(Material.POISONOUS_POTATO)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.DEADLY_TOXINS)
-            .values(new double[]{0.30}) // slow%
+            .values(new double[]{0.25, 0.50, 0.30}) // crit_chance, crit_bonus, slow%
             .build());
 
         // 3.5 - TIREUR D'ELITE
@@ -500,17 +525,27 @@ public final class ChasseurTalents {
             .values(new double[]{8000, 0.25}) // duration_ms, damage_bonus
             .build());
 
-        // 4.4 - PANDEMIE
+        // 4.4 - PANDEMIE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_pandemic")
-            .name("Pandemie")
-            .description("Poison se propage a la mort")
+            .name("Pandémie")
+            .description("Kill empoisonné = EXPLOSION toxique 5 blocs!")
             .loreLines(new String[]{
-                "§7Quand un ennemi empoisonne meurt,",
-                "§7le poison se §apropage§7 aux",
-                "§7ennemis proches!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Portee: §e4§8 blocs"
+                "§7Tuer un ennemi §2empoisonné§7",
+                "§7déclenche une §c§lEXPLOSION§7!",
+                "",
+                "§6EXPLOSION TOXIQUE:",
+                "§8► Zone: §e5§8 blocs",
+                "§8► Applique §22 stacks§8 poison",
+                "§8► §c30%§8 dégâts de l'ennemi tué",
+                "",
+                "§6RÉACTION EN CHAÎNE:",
+                "§7Si l'explosion tue, nouvelle",
+                "§7explosion! (max 3 chaînes)",
+                "",
+                "§2§lPROPAGEZ LA PESTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -518,7 +553,7 @@ public final class ChasseurTalents {
             .icon(Material.DRAGON_BREATH)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.PANDEMIC)
-            .values(new double[]{4.0}) // spread_range
+            .values(new double[]{5.0, 2, 0.30, 3}) // range, stacks_applied, damage%, max_chains
             .build());
 
         // 4.5 - SURCHAUFFE
@@ -634,17 +669,29 @@ public final class ChasseurTalents {
             .values(new double[]{5, 2.5, 4.0, 2}) // points_needed, dmg_normal (250%), dmg_marked (400%), points_on_kill
             .build());
 
-        // 5.4 - EPIDEMIE
+        // 5.4 - EPIDEMIE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_epidemic")
-            .name("Epidemie")
-            .description("Poison cumul infini, 10+ = x2 degats")
+            .name("Épidémie")
+            .description("Stacks infinis, 10+ = SUPER EXPLOSION auto!")
             .loreLines(new String[]{
-                "§7Le poison se cumule §eindefiniment§7!",
-                "§7A §e10+ cumuls§7, les degats de",
-                "§7poison sont §cx2§7!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Infection mortelle"
+                "§7Le poison §2se cumule à l'infini§7!",
+                "",
+                "§6STACKS INFINIS:",
+                "§8► Plus de limite de 5 stacks",
+                "§8► Chaque stack = +10% dégâts DoT",
+                "",
+                "§c§lÀ 10 STACKS - SUPER EXPLOSION:",
+                "§8► §cTous les stacks explosent!",
+                "§8► §e200%§8 dégâts par stack",
+                "§8► Zone: §e4§8 blocs",
+                "§8► Reset les stacks à 0",
+                "",
+                "§6SATISFACTION GARANTIE!",
+                "",
+                "§2§lACCUMULEZ, EXPLOSEZ"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -769,26 +816,37 @@ public final class ChasseurTalents {
             .values(new double[]{2000, 3000, 1}) // invis_duration_ms, speed_duration_ms, points_gained
             .build());
 
-        // 6.4 - FAIBLESSE DE LA PROIE
+        // 6.4 - SYNERGIE TOXIQUE (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_prey_weakness")
-            .name("Faiblesse de la Proie")
-            .description("Marques: +40% degats critiques subis")
+            .id("chasseur_toxic_synergy")
+            .name("Synergie Toxique")
+            .description("+5% AS par stack proche, heal sur explosion")
             .loreLines(new String[]{
-                "§7Les ennemis marques prennent",
-                "§7§c+40%§7 de degats critiques.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8S'applique en plus de l'amplification",
-                "§8de base des marques",
-                "§8Synergie: Build traqueur"
+                "§7Votre poison vous §arenforce§7!",
+                "",
+                "§6FRÉNÉSIE TOXIQUE:",
+                "§8► §a+5%§8 Attack Speed par stack",
+                "§8► Compte tous ennemis à §e8§8 blocs",
+                "§8► Maximum: §a+40%§8 AS",
+                "",
+                "§6DRAIN VITAL:",
+                "§8► Explosions de poison: §c+8%§8 heal",
+                "§8► Applique aux explosions Épidémie",
+                "",
+                "§6PLUS ILS SOUFFRENT...",
+                "§7...plus vous êtes fort!",
+                "",
+                "§2§lLE POISON VOUS NOURRIT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(3)
-            .icon(Material.CROSSBOW)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.PREY_WEAKNESS)
-            .values(new double[]{0.40}) // crit_damage_amp
+            .icon(Material.BREWING_STAND)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.TOXIC_SYNERGY)
+            .values(new double[]{0.05, 8.0, 0.40, 0.08}) // as_per_stack, range, max_as_bonus, heal_on_explosion
             .build());
 
         // 6.5 - DECHIQUETEUR D'ARMURE
@@ -911,18 +969,29 @@ public final class ChasseurTalents {
             .values(new double[]{5, 10000, 0.40}) // points_trigger, duration_ms, damage_percent (40%)
             .build());
 
-        // 6.4 - PESTE NOIRE
+        // 7.4 - PESTE NOIRE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_black_plague")
             .name("Peste Noire")
-            .description("Poison: -75% soins ennemis, +5% auto-soin")
+            .description("Anti-heal, 10% lifesteal DoT, morts = nuages")
             .loreLines(new String[]{
-                "§7Le poison reduit les soins",
-                "§7recus par l'ennemi de §c-75%§7",
-                "§7et vous soigne de §a5%§7 des",
-                "§7degats de poison!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Peste devorante"
+                "§7Votre poison devient §0§lmortel§r§7!",
+                "",
+                "§6ANTI-SOIN:",
+                "§8► Empoisonnés: §c-75%§8 soins reçus",
+                "§8► Bloque régénération naturelle",
+                "",
+                "§6DRAIN DE VIE:",
+                "§8► Dégâts poison: §a+10%§8 lifesteal",
+                "§8► Vous soigne passivement!",
+                "",
+                "§6NUAGE MORTEL:",
+                "§8► Morts par poison = nuage 3s",
+                "§8► Nuage: §24§8 blocs, 15% dégâts/s",
+                "",
+                "§0§lLA MORT INCARNÉE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -930,7 +999,7 @@ public final class ChasseurTalents {
             .icon(Material.WITHER_ROSE)
             .iconColor("§0")
             .effectType(Talent.TalentEffectType.BLACK_PLAGUE)
-            .values(new double[]{0.75, 0.05}) // heal_reduction%, self_heal%
+            .values(new double[]{0.75, 0.10, 4.0, 0.15, 3000}) // heal_reduction%, lifesteal%, cloud_radius, cloud_dps%, cloud_duration_ms
             .build());
 
         // 6.5 - GATLING
@@ -1050,26 +1119,38 @@ public final class ChasseurTalents {
             .values(new double[]{6.0, 1.50, 1}) // radius, damage_mult, points_per_enemy
             .build());
 
-        // 7.4 - FLEAU
+        // 8.4 - FLEAU (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_blight")
-            .name("Fleau")
-            .description("Poison se propage passivement")
+            .name("Fléau")
+            .description("Aura poison 5 blocs, propagation auto, combo boost")
             .loreLines(new String[]{
-                "§7Le poison peut se propager",
-                "§7meme aux ennemis a §epleine vie§7",
-                "§7proches d'un infecte!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Portee: §e3§8 blocs",
-                "§8Verification: toutes les 2s"
+                "§7Vous §2irradiez§7 le poison!",
+                "",
+                "§6AURA TOXIQUE:",
+                "§8► §e5 blocs§8 autour de vous",
+                "§8► §21 stack§8/seconde aux ennemis",
+                "§8► Passive et permanente",
+                "",
+                "§6PROPAGATION AUTO:",
+                "§8► Ennemis 3+ stacks infectent",
+                "§8► les autres à §e3 blocs§8",
+                "",
+                "§6BOOST COMBO:",
+                "§8► À 50+ stacks totaux proches:",
+                "§8► §c+25%§8 tous vos dégâts!",
+                "",
+                "§2§lVOUS ÊTES LA PESTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(3)
             .icon(Material.MYCELIUM)
-            .iconColor("§5")
+            .iconColor("§2")
             .effectType(Talent.TalentEffectType.BLIGHT)
-            .values(new double[]{3.0, 2000}) // range, tick_ms
+            .values(new double[]{5.0, 1000, 3.0, 50, 0.25}) // aura_range, tick_ms, spread_range, combo_threshold, combo_bonus
             .build());
 
         // 7.5 - ARSENAL VIVANT
@@ -1202,28 +1283,41 @@ public final class ChasseurTalents {
             .internalCooldownMs(45000)
             .build());
 
-        // 8.4 - APOCALYPSE TOXIQUE
+        // 9.4 - AVATAR DE LA PESTE (Voie du Poison - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_toxic_apocalypse")
-            .name("Apocalypse Toxique")
-            .description("Aura de poison permanente")
+            .id("chasseur_plague_avatar")
+            .name("Avatar de la Peste")
+            .description("Ultime 20s: Max stacks instant, x2 explosions, immunité!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§2§l★ TALENT LÉGENDAIRE ★",
+                "§2§lVOIE DU POISON",
                 "",
-                "§7Vous emettez constamment un",
-                "§7nuage de poison autour de vous.",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Devenez l'§2§lAVATAR DE LA PESTE§7!",
                 "",
-                "§8Rayon: §e5§8 blocs",
-                "§8Degats: §c20%§8/s",
-                "§8Tous vos bonus poison s'appliquent"
+                "§6TRANSFORMATION (20s):",
+                "§8► Attaques = §2max stacks§8 instant!",
+                "§8► Explosions poison: §cx2§8 rayon",
+                "§8► §aImmunité§8 poison/wither",
+                "§8► Aura 8 blocs (3 stacks/s)",
+                "",
+                "§6PESTE FINALE:",
+                "§8► À la fin: §cMÉGA EXPLOSION",
+                "§8► 10 blocs, 500% dégâts poison",
+                "§8► Tous les ennemis = max stacks",
+                "",
+                "§8► Cooldown: §c60s",
+                "",
+                "§2§l★ MAÎTRE DE LA PESTE ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(3)
-            .icon(Material.DRAGON_BREATH)
+            .icon(Material.DRAGON_HEAD)
             .iconColor("§2§l")
-            .effectType(Talent.TalentEffectType.TOXIC_APOCALYPSE)
-            .values(new double[]{5.0, 0.20}) // radius, damage%_per_second
+            .effectType(Talent.TalentEffectType.PLAGUE_AVATAR)
+            .values(new double[]{20000, 8.0, 3, 10.0, 5.0, 60000}) // duration_ms, aura_range, stacks_per_sec, final_radius, final_damage_mult, cooldown_ms
+            .internalCooldownMs(60000)
             .build());
 
         // 8.5 - TEMPS SUSPENDU

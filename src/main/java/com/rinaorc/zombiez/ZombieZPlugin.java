@@ -162,6 +162,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.classes.beasts.BeastManager beastManager;
     @Getter
     private com.rinaorc.zombiez.classes.shadow.ShadowManager shadowManager;
+    @Getter
+    private com.rinaorc.zombiez.classes.poison.PoisonManager poisonManager;
 
     // Système de Pets
     @Getter
@@ -517,6 +519,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Shadow Manager - Système de la branche Ombre du Chasseur (Points d'Ombre, Marques, Clones)
         shadowManager = new com.rinaorc.zombiez.classes.shadow.ShadowManager(this, talentManager);
 
+        // Poison Manager - Système de la branche Poison du Chasseur (Stacks, Explosions, Avatar)
+        poisonManager = new com.rinaorc.zombiez.classes.poison.PoisonManager(this, talentManager);
+
         // ===== Système de Pets =====
 
         // Pet Manager - Système complet de pets avec caching et persistance
@@ -739,6 +744,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système branche Ombre (Chasseur)
         if (shadowManager != null && talentManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.shadow.ShadowListener(this, talentManager, shadowManager), this);
+        }
+
+        // Listener système branche Poison (Chasseur)
+        if (poisonManager != null && talentManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.classes.poison.PoisonListener(this, talentManager, poisonManager), this);
         }
 
         // Listeners système de pets
