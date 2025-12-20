@@ -79,6 +79,26 @@ public class BeastManager {
     }
 
     /**
+     * Calcule les dégâts d'une bête basés sur les stats du joueur propriétaire.
+     * Fonctionne comme les minions de l'Occultiste - % des dégâts du joueur.
+     *
+     * @param owner Le joueur propriétaire de la bête
+     * @param type  Le type de bête
+     * @return Les dégâts calculés
+     */
+    public double calculateBeastDamage(Player owner, BeastType type) {
+        double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        return baseDamage * type.getDamagePercent();
+    }
+
+    /**
+     * Calcule les dégâts avec multiplicateur de frénésie
+     */
+    public double calculateBeastDamage(Player owner, BeastType type, double frenzyMultiplier) {
+        return calculateBeastDamage(owner, type) * frenzyMultiplier;
+    }
+
+    /**
      * Démarre les tâches périodiques pour les bêtes
      */
     private void startBeastTasks() {
@@ -422,9 +442,9 @@ public class BeastManager {
             mob.setTarget(living);
         }
 
-        // Appliquer des dégâts directs
+        // Appliquer des dégâts directs (% des dégâts du joueur)
         if (bat.getLocation().distance(target.getLocation()) < 2) {
-            living.damage(BeastType.BAT.getBaseDamage() * frenzyMultiplier, owner);
+            living.damage(calculateBeastDamage(owner, BeastType.BAT, frenzyMultiplier), owner);
             bat.getWorld().playSound(bat.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 0.5f, 1.5f);
         }
     }
@@ -515,7 +535,9 @@ public class BeastManager {
                     return;
                 }
 
-                target.damage(1.5, owner);
+                // DoT = 15% des dégâts du joueur par tick (5 ticks = 75% total)
+                double bleedDamage = calculateBeastDamage(owner, BeastType.WOLF) * 0.5; // 15% = 30% * 0.5
+                target.damage(bleedDamage, owner);
                 target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 1, 0),
                     5, 0.2, 0.3, 0.2, Material.REDSTONE_BLOCK.createBlockData());
                 // Son uniquement toutes les 2 ticks pour réduire le spam
@@ -584,7 +606,7 @@ public class BeastManager {
                 // Vérifier l'impact
                 for (Entity entity : current.getWorld().getNearbyEntities(current, 0.5, 0.5, 0.5)) {
                     if (entity instanceof LivingEntity living && entity != axolotl && !isBeast(entity) && entity != owner) {
-                        living.damage(BeastType.AXOLOTL.getBaseDamage(), owner);
+                        living.damage(calculateBeastDamage(owner, BeastType.AXOLOTL), owner);
                         current.getWorld().playSound(current, Sound.ENTITY_PLAYER_SPLASH, 1.0f, 1.5f);
                         current.getWorld().spawnParticle(Particle.SPLASH, current, 20, 0.3, 0.3, 0.3, 0);
                         cancel();
@@ -647,10 +669,11 @@ public class BeastManager {
                         explosionLoc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, explosionLoc, 1);
                         explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 1.0f);
 
-                        // Dégâts et knockback
+                        // Dégâts et knockback (80% des dégâts du joueur)
+                        double mineDamage = calculateBeastDamage(owner, BeastType.COW);
                         for (Entity damaged : explosionLoc.getWorld().getNearbyEntities(explosionLoc, 3, 3, 3)) {
                             if (damaged instanceof LivingEntity living && !isBeast(damaged) && damaged != owner) {
-                                living.damage(8.0, owner);
+                                living.damage(mineDamage, owner);
                                 Vector knockback = living.getLocation().subtract(explosionLoc).toVector().normalize().multiply(1.5);
                                 knockback.setY(0.5);
                                 living.setVelocity(knockback);
@@ -717,7 +740,7 @@ public class BeastManager {
      * Applique l'effet du crachat du lama (appelé par le listener)
      */
     public void applyLlamaSpit(Player owner, LivingEntity target) {
-        target.damage(BeastType.LLAMA.getBaseDamage(), owner);
+        target.damage(calculateBeastDamage(owner, BeastType.LLAMA), owner);
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // Lenteur II, 3s
         target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0);
     }
@@ -800,8 +823,8 @@ public class BeastManager {
         for (Entity nearby : center.getWorld().getNearbyEntities(center, 5, 3, 5)) {
             if (damaged >= 20) break;
             if (nearby instanceof LivingEntity living && nearby != golem && !isBeast(nearby) && nearby != owner) {
-                // Dégâts massifs
-                living.damage(BeastType.IRON_GOLEM.getBaseDamage(), owner);
+                // Dégâts massifs (50% des dégâts du joueur)
+                living.damage(calculateBeastDamage(owner, BeastType.IRON_GOLEM), owner);
 
                 // Projection en l'air
                 Vector knockback = living.getLocation().subtract(center).toVector().normalize().multiply(2.0);

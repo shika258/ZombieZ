@@ -8,6 +8,7 @@ import org.bukkit.entity.EntityType;
 /**
  * Types de bêtes invocables par la Voie des Bêtes du Chasseur.
  * Chaque bête possède une capacité unique et un comportement distinct.
+ * Les dégâts sont calculés en % des dégâts du joueur (comme les minions Occultiste).
  */
 @Getter
 public enum BeastType {
@@ -31,11 +32,12 @@ public enum BeastType {
             "§7Attaque automatiquement la cible",
             "§7que vous frappez.",
             "",
+            "§e⚔ Dégâts: §f25% §7de vos dégâts",
             "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_BAT_AMBIENT,
         Sound.ENTITY_BAT_HURT,
-        2.5, // Dégâts de base (augmenté de 1.5)
+        0.25, // 25% des dégâts du joueur
         true, // Invincible
         0.0, // Offset angle (en degrés)
         2.0 // Distance du joueur
@@ -60,12 +62,13 @@ public enum BeastType {
             "§7Toutes les §e8s§7, rugit pour",
             "§7provoquer les mobs dans §e5 blocs§7.",
             "",
+            "§e⚔ Dégâts: §f40% §7de vos dégâts",
             "§c♥ PARTAGE VOTRE VIE",
             "§7Respawn: §e10s§7 après la mort"
         },
         Sound.ENTITY_POLAR_BEAR_WARNING,
         Sound.ENTITY_POLAR_BEAR_HURT,
-        4.0,
+        0.40, // 40% des dégâts du joueur
         false,
         45.0,
         3.0
@@ -88,13 +91,14 @@ public enum BeastType {
             "",
             "§6CAPACITÉ - SAIGNEMENT:",
             "§7Ses morsures infligent un §cDoT§7",
-            "§7pendant §e5s§7 (dégâts/seconde).",
+            "§7de §e15%§7 pendant §e5s§7.",
             "",
+            "§e⚔ Dégâts: §f30% §7de vos dégâts",
             "§8Traque les ennemis blessés"
         },
         Sound.ENTITY_WOLF_GROWL,
         Sound.ENTITY_WOLF_HURT,
-        3.0,
+        0.30, // 30% des dégâts du joueur
         false,
         90.0,
         2.5
@@ -119,12 +123,13 @@ public enum BeastType {
             "§7Tire des projectiles aquatiques",
             "§7sur les ennemis proches.",
             "",
+            "§e⚔ Dégâts: §f25% §7de vos dégâts",
             "§b~ Portée: §e8 blocs",
             "§b~ Cadence: §e1.5s"
         },
         Sound.ENTITY_AXOLOTL_SPLASH,
         Sound.ENTITY_AXOLOTL_HURT,
-        2.5,
+        0.25, // 25% des dégâts du joueur
         false,
         135.0,
         2.5
@@ -149,12 +154,12 @@ public enum BeastType {
             "§7Toutes les §e15s§7, dépose une",
             "§7mine qui explose au contact.",
             "",
-            "§c✦ Dégâts de zone",
-            "§c✦ Knockback"
+            "§e⚔ Dégâts mine: §f80% §7de vos dégâts",
+            "§c✦ Knockback de zone"
         },
         Sound.ENTITY_COW_AMBIENT,
         Sound.ENTITY_COW_HURT,
-        0.0, // Pas de dégâts directs
+        0.80, // 80% des dégâts du joueur (mines)
         false,
         180.0,
         3.0
@@ -179,12 +184,13 @@ public enum BeastType {
             "§7Crache sur §e3 cibles§7 simultanément.",
             "§7Inflige des dégâts + §9Lenteur II§7.",
             "",
+            "§e⚔ Dégâts: §f30% §7de vos dégâts",
             "§b~ Portée: §e6 blocs",
             "§b~ Durée lenteur: §e3s"
         },
         Sound.ENTITY_LLAMA_SPIT,
         Sound.ENTITY_LLAMA_HURT,
-        3.5,
+        0.30, // 30% des dégâts du joueur
         false,
         225.0,
         3.5
@@ -210,11 +216,12 @@ public enum BeastType {
             "§e20%§7 de chance de vous donner",
             "§7un bonus §cForce§7 ou §bVitesse§7!",
             "",
+            "§e⚔ Dégâts: §f20% §7de vos dégâts",
             "§a✦ Durée bonus: §e10s"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,
-        2.0,
+        0.20, // 20% des dégâts du joueur
         false,
         270.0,
         2.0
@@ -240,11 +247,12 @@ public enum BeastType {
             "§7+50%§7 vitesse d'attaque pour",
             "§7TOUTES les bêtes pendant §e10s§7.",
             "",
+            "§e⚔ Dégâts: §f10% §7de vos dégâts",
             "§c⚡ Cooldown: §e20s"
         },
         Sound.ENTITY_BEE_LOOP_AGGRESSIVE,
         Sound.ENTITY_BEE_HURT,
-        1.0,
+        0.10, // 10% des dégâts du joueur (support, pas DPS)
         false,
         315.0,
         1.5
@@ -272,11 +280,12 @@ public enum BeastType {
             "§c2. §7Les projette en l'air",
             "§c3. §7Dégâts massifs!",
             "",
+            "§e⚔ Dégâts: §f50% §7de vos dégâts",
             "§6§l★ TALENT LÉGENDAIRE ★"
         },
         Sound.ENTITY_IRON_GOLEM_ATTACK,
         Sound.ENTITY_IRON_GOLEM_HURT,
-        6.0, // Réduit de 8.0 - équilibrage (effets compensent)
+        0.50, // 50% des dégâts du joueur (AoE compense)
         false,
         0.0,
         4.0
@@ -290,14 +299,14 @@ public enum BeastType {
     private final String[] lore;
     private final Sound ambientSound;
     private final Sound hurtSound;
-    private final double baseDamage;
+    private final double damagePercent; // % des dégâts du joueur (0.25 = 25%)
     private final boolean invincible;
     private final double offsetAngle; // Position dans la formation (degrés)
     private final double distanceFromPlayer; // Distance du joueur
 
     BeastType(int tier, String displayName, EntityType entityType, Material icon,
               String color, String[] lore, Sound ambientSound, Sound hurtSound,
-              double baseDamage, boolean invincible, double offsetAngle, double distanceFromPlayer) {
+              double damagePercent, boolean invincible, double offsetAngle, double distanceFromPlayer) {
         this.tier = tier;
         this.displayName = displayName;
         this.entityType = entityType;
@@ -306,7 +315,7 @@ public enum BeastType {
         this.lore = lore;
         this.ambientSound = ambientSound;
         this.hurtSound = hurtSound;
-        this.baseDamage = baseDamage;
+        this.damagePercent = damagePercent;
         this.invincible = invincible;
         this.offsetAngle = offsetAngle;
         this.distanceFromPlayer = distanceFromPlayer;
