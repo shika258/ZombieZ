@@ -274,7 +274,7 @@ public enum BeastType {
 
     /**
      * Tier 9 - Golem de Fer
-     * Onde de choc - attire puis projette les ennemis.
+     * Frappe Titanesque - charge + onde de choc linéaire avec synergies.
      */
     IRON_GOLEM(
         9, "Golem de Fer",
@@ -284,15 +284,20 @@ public enum BeastType {
         new String[]{
             "§7§l★ GOLEM DE FER ★",
             "",
-            "§7Un gardien de fer qui",
-            "§7écrase vos ennemis.",
+            "§7Un colosse de fer qui",
+            "§7écrase tout sur son passage!",
             "",
-            "§6CAPACITÉ - ONDE DE CHOC:",
-            "§7Toutes les §e12s§7, frappe le sol!",
+            "§6CAPACITÉ - FRAPPE TITANESQUE:",
+            "§7Toutes les §e10s§7, charge vers",
+            "§7un ennemi et frappe le sol!",
             "",
-            "§c1. §7Attire les ennemis (vortex)",
-            "§c2. §7Les projette en l'air",
-            "§c3. §7Dégâts massifs!",
+            "§c1. §7Charge: écrase les ennemis",
+            "§c2. §7Onde de choc §e8 blocs§7 devant",
+            "§c3. §7§eStun 1.5s§7 sur tous les touchés!",
+            "",
+            "§6✦ SYNERGIE:",
+            "§c• §7Cibles §cmarquées§7 = §ex2 dégâts",
+            "§c• §73+ stacks abeille = §ex2 dégâts",
             "",
             "§e⚔ Dégâts: §f50% §7de vos dégâts",
             "§6§l★ TALENT LÉGENDAIRE ★"

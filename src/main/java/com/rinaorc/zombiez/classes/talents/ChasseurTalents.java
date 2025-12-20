@@ -1066,20 +1066,25 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_iron_golem")
             .name("Golem de Fer")
-            .description("Invoque un golem devastateur avec onde de choc")
+            .description("Invoque un golem devastateur avec frappe titanesque")
             .loreLines(new String[]{
                 "§6§l★ TALENT LÉGENDAIRE ★",
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque un §7Golem de Fer§7",
-                "§7gardien qui écrase vos ennemis.",
+                "§7colosse qui écrase tout!",
                 "",
-                "§6CAPACITÉ - ONDE DE CHOC:",
-                "§7Toutes les §e12s§7, frappe le sol!",
+                "§6CAPACITÉ - FRAPPE TITANESQUE:",
+                "§7Toutes les §e10s§7, charge vers",
+                "§7un ennemi et frappe le sol!",
                 "",
-                "§c1. §7Attire les ennemis (vortex)",
-                "§c2. §7Les projette en l'air",
-                "§c3. §7Dégâts massifs!",
+                "§c1. §7Charge: écrase les ennemis",
+                "§c2. §7Onde de choc §e8 blocs§7 devant",
+                "§c3. §7§eStun 1.5s§7 sur tous les touchés!",
+                "",
+                "§6✦ SYNERGIE:",
+                "§c• §7Cibles §cmarquées§7 = §ex2 dégâts",
+                "§c• §73+ stacks abeille = §ex2 dégâts",
                 "",
                 "§6§l★ PUISSANCE ULTIME ★"
             })
@@ -1089,7 +1094,7 @@ public final class ChasseurTalents {
             .icon(Material.IRON_BLOCK)
             .iconColor("§7§l")
             .effectType(Talent.TalentEffectType.BEAST_IRON_GOLEM)
-            .values(new double[]{12000, 8.0, 5.0}) // shockwave_cooldown_ms, damage, radius
+            .values(new double[]{10000, 8.0, 5.0}) // slam_cooldown_ms, damage, radius
             .build());
 
         // 8.3 - CARNET DE LA MORT

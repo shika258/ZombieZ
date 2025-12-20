@@ -1022,60 +1022,123 @@ public class BeastManager {
     }
 
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
-        // Onde de choc toutes les 12 secondes
-        long shockwaveCooldown = (long) (12000 / frenzyMultiplier);
+        // Frappe Titanesque toutes les 10 secondes
+        long slamCooldown = (long) (10000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            executeShockwave(owner, golem);
-            setCooldown(owner.getUniqueId(), cooldownKey, now + shockwaveCooldown);
+            // Trouver la meilleure cible (priorité aux marqués/empilés)
+            LivingEntity target = findGolemTarget(golem);
+            if (target != null) {
+                executeGolemCharge(owner, golem, target);
+                setCooldown(owner.getUniqueId(), cooldownKey, now + slamCooldown);
+            }
         }
     }
 
-    private void executeShockwave(Player owner, LivingEntity golem) {
-        Location center = golem.getLocation();
-        // Pas de message - effet visuel/sonore suffit
+    /**
+     * Trouve la meilleure cible pour le Golem (priorité aux cibles marquées/empilées)
+     */
+    private LivingEntity findGolemTarget(LivingEntity golem) {
+        LivingEntity bestTarget = null;
+        double bestScore = 0;
 
-        // Animation de préparation
-        golem.getWorld().playSound(center, Sound.ENTITY_IRON_GOLEM_ATTACK, 1.5f, 0.5f);
+        for (Entity nearby : golem.getNearbyEntities(12, 6, 12)) {
+            if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
 
-        // Phase 1: Vortex (1.5 secondes)
+            double score = 1.0;
+
+            // Bonus si marqué par le renard (+30)
+            if (isMarkedByFox(nearby.getUniqueId())) {
+                score += 30;
+            }
+
+            // Bonus selon les stacks d'abeille (+5 par stack)
+            int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
+            score += beeStacks * 5;
+
+            // Bonus proximité
+            double dist = golem.getLocation().distanceSquared(nearby.getLocation());
+            if (dist < 36) score += 5; // < 6 blocs
+
+            // Bonus si groupe d'ennemis autour
+            int nearbyCount = 0;
+            for (Entity around : nearby.getNearbyEntities(3, 2, 3)) {
+                if (around instanceof Monster && !isBeast(around)) nearbyCount++;
+            }
+            score += nearbyCount * 3;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = monster;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    /**
+     * Le Golem charge vers la cible avec animation
+     */
+    private void executeGolemCharge(Player owner, LivingEntity golem, LivingEntity target) {
+        Location startLoc = golem.getLocation().clone();
+        Location targetLoc = target.getLocation().clone();
+        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
+        double distance = startLoc.distance(targetLoc);
+
+        // Son de charge
+        golem.getWorld().playSound(startLoc, Sound.ENTITY_IRON_GOLEM_ATTACK, 2.0f, 0.6f);
+        golem.getWorld().playSound(startLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
+
+        // Animation de charge
         new BukkitRunnable() {
             int ticks = 0;
+            final int maxTicks = (int) Math.min(distance * 2, 20); // Max 1 seconde
+            Location current = startLoc.clone();
+            Set<UUID> hitDuringCharge = new HashSet<>();
 
             @Override
             public void run() {
-                if (ticks >= 30) { // 1.5 secondes
-                    // Phase 2: EXPLOSION!
-                    executeShockwaveExplosion(owner, golem, center);
+                if (ticks >= maxTicks || golem.isDead()) {
+                    // IMPACT - Frappe Titanesque!
+                    executeGolemSlam(owner, golem, current, direction, hitDuringCharge);
                     cancel();
                     return;
                 }
 
-                // Attirer les ennemis (limité à 15 pour perf)
-                int pulled = 0;
-                for (Entity nearby : center.getWorld().getNearbyEntities(center, 6, 3, 6)) {
-                    if (pulled >= 15) break;
-                    if (nearby instanceof LivingEntity living && nearby != golem && !isBeast(nearby) && nearby != owner) {
-                        Vector pull = center.toVector().subtract(nearby.getLocation().toVector()).normalize().multiply(0.15);
-                        nearby.setVelocity(nearby.getVelocity().add(pull));
-                        pulled++;
+                // Déplacer le golem
+                Vector step = direction.clone().multiply(distance / maxTicks);
+                current.add(step);
+
+                if (golem instanceof Mob mob) {
+                    mob.getPathfinder().moveTo(current, 2.5);
+                }
+
+                // Particules de charge (traînée de poussière)
+                golem.getWorld().spawnParticle(Particle.BLOCK, golem.getLocation(), 8, 0.5, 0.1, 0.5, 0,
+                    Material.IRON_BLOCK.createBlockData());
+                golem.getWorld().spawnParticle(Particle.DUST, golem.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(150, 150, 150), 2.0f));
+
+                // Dégâts aux ennemis sur le chemin
+                for (Entity nearby : golem.getWorld().getNearbyEntities(golem.getLocation(), 1.5, 1.5, 1.5)) {
+                    if (nearby instanceof LivingEntity living &&
+                        nearby instanceof Monster &&
+                        !isBeast(nearby) &&
+                        !hitDuringCharge.contains(nearby.getUniqueId())) {
+
+                        // Dégâts de charge (25% des dégâts)
+                        double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
+                        living.damage(chargeDamage, owner);
+                        hitDuringCharge.add(nearby.getUniqueId());
+
+                        // Effet d'impact
+                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.2, 0.2, 0.1);
                     }
                 }
 
-                // Particules de vortex
-                double angle = ticks * 0.3;
-                for (int i = 0; i < 8; i++) {
-                    double a = angle + (i * Math.PI / 4);
-                    double r = 4.0 * (1.0 - ticks / 30.0);
-                    double x = Math.cos(a) * r;
-                    double z = Math.sin(a) * r;
-                    center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 2, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.fromRGB(150, 150, 150), 1.5f));
-                }
-
-                // Son du vortex
-                if (ticks % 5 == 0) {
-                    center.getWorld().playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.5f, 1.5f);
+                // Son de pas lourds
+                if (ticks % 4 == 0) {
+                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
                 }
 
                 ticks++;
@@ -1083,36 +1146,114 @@ public class BeastManager {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    private void executeShockwaveExplosion(Player owner, LivingEntity golem, Location center) {
-        // Son d'explosion
-        center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.8f);
-        center.getWorld().playSound(center, Sound.ENTITY_IRON_GOLEM_HURT, 1.5f, 0.5f);
+    /**
+     * Impact de la Frappe Titanesque - onde de choc linéaire
+     */
+    private void executeGolemSlam(Player owner, LivingEntity golem, Location impactLoc, Vector direction, Set<UUID> alreadyHit) {
+        // Sons d'impact
+        golem.getWorld().playSound(impactLoc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 2.0f, 0.5f);
+        golem.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+        golem.getWorld().playSound(impactLoc, Sound.BLOCK_ANVIL_LAND, 1.5f, 0.5f);
 
-        // Particules d'explosion
-        center.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 2, 0, 0, 0, 0);
-        center.getWorld().spawnParticle(Particle.SWEEP_ATTACK, center, 30, 3, 1, 3, 0);
-        center.getWorld().spawnParticle(Particle.DUST, center, 100, 4, 2, 4, 0,
-            new Particle.DustOptions(Color.fromRGB(100, 100, 100), 2.0f));
+        // Particules d'impact central
+        golem.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, impactLoc, 1);
+        golem.getWorld().spawnParticle(Particle.BLOCK, impactLoc, 80, 2, 0.5, 2, 0.1,
+            Material.IRON_BLOCK.createBlockData());
 
-        // Dégâts et projection (limité à 20 cibles pour perf)
-        int damaged = 0;
-        for (Entity nearby : center.getWorld().getNearbyEntities(center, 5, 3, 5)) {
-            if (damaged >= 20) break;
-            if (nearby instanceof LivingEntity living && nearby != golem && !isBeast(nearby) && nearby != owner) {
-                // Dégâts massifs (50% des dégâts du joueur)
-                living.damage(calculateBeastDamage(owner, BeastType.IRON_GOLEM), owner);
+        // Onde de choc linéaire (dans la direction de la charge)
+        new BukkitRunnable() {
+            int wave = 0;
+            final int maxWaves = 8; // 8 blocs de portée
+            Location wavePos = impactLoc.clone();
 
-                // Projection en l'air
-                Vector knockback = living.getLocation().subtract(center).toVector().normalize().multiply(2.0);
-                knockback.setY(1.2);
-                living.setVelocity(knockback);
+            @Override
+            public void run() {
+                if (wave >= maxWaves || golem.isDead()) {
+                    cancel();
+                    return;
+                }
 
-                // Effets visuels sur la cible
-                living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3, 0.2);
-                damaged++;
+                // Avancer l'onde de choc
+                wavePos.add(direction.clone().multiply(1.0));
+
+                // Particules de l'onde (ligne perpendiculaire)
+                Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
+                for (double offset = -2.5; offset <= 2.5; offset += 0.5) {
+                    Location particleLoc = wavePos.clone().add(perpendicular.clone().multiply(offset));
+                    particleLoc.getWorld().spawnParticle(Particle.DUST, particleLoc.add(0, 0.2, 0), 2, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(80, 80, 80), 1.5f));
+                    particleLoc.getWorld().spawnParticle(Particle.BLOCK, particleLoc, 1, 0.1, 0.1, 0.1, 0,
+                        Material.GRAVEL.createBlockData());
+                }
+
+                // Effet de fissure au sol
+                wavePos.getWorld().spawnParticle(Particle.SWEEP_ATTACK, wavePos.clone().add(0, 0.5, 0), 3, 1, 0, 1, 0);
+
+                // Dégâts aux ennemis dans l'onde (largeur 5 blocs, perpendiculaire)
+                for (Entity nearby : wavePos.getWorld().getNearbyEntities(wavePos, 2.5, 2, 2.5)) {
+                    if (!(nearby instanceof LivingEntity living) ||
+                        !(nearby instanceof Monster) ||
+                        isBeast(nearby) ||
+                        alreadyHit.contains(nearby.getUniqueId())) {
+                        continue;
+                    }
+
+                    alreadyHit.add(nearby.getUniqueId());
+
+                    // Calcul des dégâts avec synergies
+                    double baseDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM);
+                    double damageMultiplier = 1.0;
+                    boolean hasSynergyBonus = false;
+
+                    // Bonus double dégâts si marqué par le renard
+                    if (isMarkedByFox(nearby.getUniqueId())) {
+                        damageMultiplier = 2.0;
+                        hasSynergyBonus = true;
+                    }
+
+                    // Bonus si stacks d'abeille (double aussi à 3+ stacks)
+                    int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
+                    if (beeStacks >= 3) {
+                        damageMultiplier = Math.max(damageMultiplier, 2.0);
+                        hasSynergyBonus = true;
+                    }
+
+                    // Appliquer les dégâts
+                    double finalDamage = baseDamage * damageMultiplier;
+                    living.damage(finalDamage, owner);
+
+                    // Stun (1.5s = 30 ticks de Slowness V + Jump Boost négatif)
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 4, false, false, false)); // 1.5s
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 30, 128, false, false, false)); // Bloque les sauts
+
+                    // Projection légère
+                    Vector knockback = direction.clone().multiply(0.8);
+                    knockback.setY(0.4);
+                    living.setVelocity(knockback);
+
+                    // Effets visuels
+                    if (hasSynergyBonus) {
+                        // Effets spéciaux pour synergie
+                        living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0,
+                            new Particle.DustOptions(Color.ORANGE, 1.5f));
+                        living.getWorld().spawnParticle(Particle.ENCHANT, living.getLocation().add(0, 1.5, 0), 15, 0.3, 0.3, 0.3, 0.5);
+                        living.getWorld().playSound(living.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.8f, 1.5f);
+                    } else {
+                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.2);
+                    }
+
+                    // Effet visuel de stun
+                    living.getWorld().spawnParticle(Particle.FLASH, living.getLocation().add(0, 1.5, 0), 1);
+                }
+
+                // Son de l'onde
+                if (wave % 2 == 0) {
+                    wavePos.getWorld().playSound(wavePos, Sound.BLOCK_GRAVEL_BREAK, 1.0f, 0.5f);
+                }
+
+                wave++;
             }
-        }
-        // Pas de message - effets visuels suffisent
+        }.runTaskTimer(plugin, 0L, 2L); // Une onde tous les 2 ticks
     }
 
     // === ABEILLE - ESSAIM VENIMEUX ===
