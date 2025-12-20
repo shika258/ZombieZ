@@ -171,7 +171,7 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts: §f80% §7de vos dégâts",
             "§b~ Portée: §e12 blocs",
-            "§b~ Cadence: §e8s",
+            "§b~ Cadence: §e5s",
             "§c✦ Knockback de zone"
         },
         Sound.ENTITY_COW_AMBIENT,

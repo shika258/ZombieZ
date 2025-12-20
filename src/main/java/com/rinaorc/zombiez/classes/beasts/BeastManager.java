@@ -1165,13 +1165,13 @@ public class BeastManager {
     }
 
     private void executeCowAbility(Player owner, LivingEntity cow, long now, String cooldownKey) {
-        // Lancer une bouse explosive toutes les 8 secondes
+        // Lancer une bouse explosive toutes les 5 secondes
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
             // Trouver la meilleure cible (groupe d'ennemis ou ennemi proche)
             LivingEntity target = findBestCowTarget(cow);
             if (target != null) {
                 launchExplosiveDung(owner, cow, target);
-                setCooldown(owner.getUniqueId(), cooldownKey, now + 8000); // 8 secondes
+                setCooldown(owner.getUniqueId(), cooldownKey, now + 5000); // 5 secondes
             }
         }
     }
