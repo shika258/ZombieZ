@@ -6,6 +6,7 @@ import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
+import com.rinaorc.zombiez.items.types.StatType;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -109,7 +110,11 @@ public class BeastManager {
      */
     public double calculateBeastDamage(Player owner, BeastType type) {
         double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        return baseDamage * type.getDamagePercent();
+
+        // Ajouter les dégâts de l'arme ZombieZ
+        double weaponDamage = plugin.getItemManager().getPlayerStat(owner, StatType.DAMAGE);
+
+        return (baseDamage + weaponDamage) * type.getDamagePercent();
     }
 
     /**
