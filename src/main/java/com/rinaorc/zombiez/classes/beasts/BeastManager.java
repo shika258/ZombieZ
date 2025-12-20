@@ -1211,18 +1211,11 @@ public class BeastManager {
         int newPercent = (int) Math.round(newBonus * 100);
         int oldPercent = (int) Math.round(currentBonus * 100);
 
-        // Son de montée en puissance (pitch croissant)
+        // Son de montée en puissance (pitch croissant) - feedback principal
         float pitch = 0.8f + (float) (newBonus / AXOLOTL_SPEED_MAX_BONUS) * 1.2f;
         owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.4f, pitch);
 
-        // ActionBar pour afficher chaque incrément de 10%
-        String color = newPercent < 50 ? "§a" : (newPercent < 100 ? "§e" : (newPercent < 150 ? "§6" : "§c"));
-        String barFill = generateProgressBar(newPercent, 150, 15);
-        owner.sendActionBar(net.kyori.adventure.text.Component.text(
-            "§d✦ Axolotl " + color + "+" + newPercent + "% §7vitesse " + barFill
-        ));
-
-        // Message chat aux paliers importants
+        // Message chat aux paliers importants uniquement
         if (newPercent >= 50 && oldPercent < 50) {
             owner.sendMessage("§d✦ Axolotl: §e+50% §7vitesse d'attaque!");
         } else if (newPercent >= 100 && oldPercent < 100) {
@@ -1231,23 +1224,6 @@ public class BeastManager {
             owner.sendMessage("§d✦ Axolotl: §c+150% §7vitesse MAX!");
             owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
         }
-    }
-
-    /**
-     * Génère une barre de progression visuelle
-     */
-    private String generateProgressBar(int current, int max, int length) {
-        int filled = (int) Math.round((double) current / max * length);
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 0; i < length; i++) {
-            if (i < filled) {
-                bar.append("§d|");
-            } else {
-                bar.append("§7|");
-            }
-        }
-        bar.append("§8]");
-        return bar.toString();
     }
 
     private void shootWaterBubble(Player owner, LivingEntity axolotl, LivingEntity target) {
