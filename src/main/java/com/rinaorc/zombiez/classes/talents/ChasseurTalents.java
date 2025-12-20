@@ -1040,33 +1040,37 @@ public final class ChasseurTalents {
             .build());
 
         // 7.3 - CLONE D'OMBRE (Branche Ombre)
+        // Wither Skeleton avec IA similaire au Renard (recherche de cibles, bond, attaque)
         TALENTS.add(Talent.builder()
             .id("chasseur_shadow_clone")
             .name("Clone d'Ombre")
-            .description("5 Points = clone 10s (40% dégâts)")
+            .description("5 Points = Wither Skeleton spectral 10s")
             .loreLines(new String[]{
                 "§8§lBRANCHE OMBRE",
                 "",
                 "§7Quand vous atteignez §55 Points§7,",
-                "§7invoquez automatiquement un",
-                "§5§lClone d'Ombre§7!",
+                "§7invoquez un §5§lWither Skeleton spectral§7!",
                 "",
                 "§6CLONE D'OMBRE:",
                 "§8► Durée: §e10s",
-                "§8► Dégâts: §c40%§8 de vos dégâts",
-                "§8► §7Attaque votre cible",
+                "§8► Dégâts: §c40%§8 de vos stats",
+                "§8► §5Glowing§8 violet (aura spectrale)",
                 "§8► §5Invulnérable§8 (ombre pure)",
                 "",
-                "§6SYNERGIE:",
-                "§7Le clone peut déclencher vos",
-                "§7effets de talents!",
+                "§d► I.A. PRÉDATEUR:",
+                "§7Traque les ennemis blessés et marqués",
+                "§7Bond toutes les §e2.5s§7 (comme Renard)",
                 "",
-                "§5§lVOTRE OMBRE COMBAT"
+                "§6SYNERGIE MARQUE:",
+                "§7Priorité cibles §c§lMARQUÉES §7(+30% dégâts)",
+                "§725% chance de §5marquer§7 les victimes",
+                "",
+                "§5§lL'OMBRE VOUS PROTÈGE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.ARMOR_STAND)
+            .icon(Material.WITHER_SKELETON_SPAWN_EGG)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_CLONE)
             .values(new double[]{5, 10000, 0.40}) // points_trigger, duration_ms, damage_percent (40%)

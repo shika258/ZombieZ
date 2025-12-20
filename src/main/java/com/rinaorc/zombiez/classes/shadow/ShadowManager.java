@@ -5,6 +5,8 @@ import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -82,6 +84,23 @@ public class ShadowManager {
 
     // Cache des joueurs Ombre actifs
     private final Set<UUID> activeShadowPlayers = ConcurrentHashMap.newKeySet();
+
+    // === SHADOW CLONE AI SYSTEM ===
+    // Metadata key pour identifier les clones
+    public static final String SHADOW_CLONE_OWNER_KEY = "shadow_clone_owner";
+
+    // Cooldown des attaques des clones (owner UUID -> dernier timestamp d'attaque)
+    private final Map<UUID, Long> cloneAttackCooldown = new ConcurrentHashMap<>();
+    private static final long CLONE_ATTACK_COOLDOWN_MS = 2500; // 2.5s entre chaque attaque
+
+    // Multiplicateur de dégâts des clones (40% des dégâts du joueur)
+    private static final double CLONE_DAMAGE_MULTIPLIER = 0.40;
+
+    // Portée de détection des cibles
+    private static final double CLONE_TARGET_RANGE = 12.0;
+
+    // Portée de suivi du joueur (distance max avant de retourner vers le joueur)
+    private static final double CLONE_FOLLOW_RANGE = 15.0;
 
     public ShadowManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -920,7 +939,8 @@ public class ShadowManager {
     // ==================== CLONE D'OMBRE ====================
 
     /**
-     * Invoque un Clone d'Ombre
+     * Invoque un Clone d'Ombre sous forme de Wither Skeleton
+     * avec une IA similaire au Renard (recherche de cible, bond, attaque)
      */
     public void summonShadowClone(Player owner) {
         UUID ownerUuid = owner.getUniqueId();
@@ -938,29 +958,50 @@ public class ShadowManager {
             }
         }
 
-        // Créer le clone (ArmorStand invisible avec particules)
+        // Créer le clone (Wither Skeleton avec IA personnalisée)
         Location spawnLoc = owner.getLocation().add(
             (Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2);
 
-        ArmorStand clone = owner.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setInvulnerable(true);
-            stand.setMarker(true);
-            stand.setMetadata("shadow_clone_owner", new FixedMetadataValue(plugin, ownerUuid.toString()));
-            stand.customName(Component.text("Clone de " + owner.getName(), NamedTextColor.DARK_PURPLE));
-            stand.setCustomNameVisible(false);
+        WitherSkeleton clone = owner.getWorld().spawn(spawnLoc, WitherSkeleton.class, skeleton -> {
+            // Configuration de base
+            skeleton.setMetadata(SHADOW_CLONE_OWNER_KEY, new FixedMetadataValue(plugin, ownerUuid.toString()));
+            skeleton.customName(Component.text("§5Clone de " + owner.getName(), NamedTextColor.DARK_PURPLE));
+            skeleton.setCustomNameVisible(false);
+
+            // Invincible et silencieux
+            skeleton.setInvulnerable(true);
+            skeleton.setSilent(true);
+
+            // Pas de loot ni d'XP
+            skeleton.setRemoveWhenFarAway(false);
+
+            // Retirer l'IA d'attaque par défaut
+            skeleton.setTarget(null);
+
+            // Apparence: mains vides (pas d'épée)
+            skeleton.getEquipment().clear();
+
+            // Effet visuel de glowing violet
+            skeleton.setGlowing(true);
+            if (deathMarkTeam != null) {
+                deathMarkTeam.addEntity(skeleton);
+            }
+
+            // Ajouter un effet visuel d'aura d'ombre
+            skeleton.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
         });
 
         clones.add(clone.getUniqueId());
         activeClones.put(ownerUuid, clones);
 
         // Effets d'apparition
-        spawnLoc.getWorld().spawnParticle(Particle.LARGE_SMOKE, spawnLoc.add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.05);
+        spawnLoc.getWorld().spawnParticle(Particle.LARGE_SMOKE, spawnLoc.add(0, 1, 0), 40, 0.4, 0.6, 0.4, 0.08);
+        spawnLoc.getWorld().spawnParticle(Particle.WITCH, spawnLoc, 20, 0.3, 0.5, 0.3, 0.05);
+        spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 1.2f, 0.6f);
         spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.5f);
 
-        // Particules continues pour le clone
-        startCloneParticles(clone.getUniqueId(), ownerUuid);
+        // Particules continues d'aura d'ombre
+        startCloneAuraParticles(clone.getUniqueId());
 
         // Auto-destruction après CLONE_DURATION
         new BukkitRunnable() {
@@ -976,9 +1017,9 @@ public class ShadowManager {
     }
 
     /**
-     * Particules continues pour un clone
+     * Particules d'aura d'ombre autour du clone
      */
-    private void startCloneParticles(UUID cloneUuid, UUID ownerUuid) {
+    private void startCloneAuraParticles(UUID cloneUuid) {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -988,78 +1029,281 @@ public class ShadowManager {
                     return;
                 }
 
-                // Forme humanoïde en particules
+                // Aura d'ombre autour du wither skeleton
                 Location loc = clone.getLocation();
-                // Corps
-                for (double y = 0; y < 1.8; y += 0.3) {
-                    loc.getWorld().spawnParticle(Particle.DUST,
-                        loc.clone().add(0, y, 0), 1, 0.15, 0.05, 0.15, 0,
-                        new Particle.DustOptions(Color.fromRGB(30, 0, 50), 1.2f));
+                loc.getWorld().spawnParticle(Particle.DUST,
+                    loc.clone().add(0, 1.5, 0), 3, 0.3, 0.5, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(60, 0, 80), 1.0f));
+
+                // Particules de fumée occasionnelles
+                if (Math.random() < 0.3) {
+                    loc.getWorld().spawnParticle(Particle.SMOKE, loc.clone().add(0, 0.5, 0), 2, 0.2, 0.3, 0.2, 0.01);
                 }
-                // Yeux
-                loc.getWorld().spawnParticle(Particle.DUST,
-                    loc.clone().add(0.1, 1.5, 0.2), 1, 0, 0, 0, 0,
-                    new Particle.DustOptions(Color.fromRGB(150, 0, 200), 0.5f));
-                loc.getWorld().spawnParticle(Particle.DUST,
-                    loc.clone().add(-0.1, 1.5, 0.2), 1, 0, 0, 0, 0,
-                    new Particle.DustOptions(Color.fromRGB(150, 0, 200), 0.5f));
             }
-        }.runTaskTimer(plugin, 0L, 2L);
+        }.runTaskTimer(plugin, 0L, 4L);
     }
 
     /**
-     * Fait attaquer les clones la cible
+     * Trouve la meilleure cible pour un clone (priorité aux blessés et marqués)
+     * Inspiré de l'IA du Renard
      */
-    public void clonesAttack(Player owner, LivingEntity target, double ownerDamage) {
-        UUID ownerUuid = owner.getUniqueId();
-        List<UUID> clones = activeClones.get(ownerUuid);
-        if (clones == null || clones.isEmpty()) return;
+    private LivingEntity findShadowCloneTarget(LivingEntity clone, Player owner) {
+        LivingEntity bestTarget = null;
+        double bestScore = 0;
 
-        double cloneDamage = ownerDamage * 0.4; // 40% des dégâts (équilibré)
+        for (Entity nearby : clone.getNearbyEntities(CLONE_TARGET_RANGE, 5, CLONE_TARGET_RANGE)) {
+            if (!(nearby instanceof LivingEntity living)) continue;
+            if (!(nearby instanceof Monster)) continue;
+            if (nearby.hasMetadata(SHADOW_CLONE_OWNER_KEY)) continue; // Pas les autres clones
 
-        for (UUID cloneUuid : clones) {
-            Entity clone = Bukkit.getEntity(cloneUuid);
-            if (clone == null) continue;
+            double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double currentHealth = living.getHealth();
+            double healthPercent = currentHealth / maxHealth;
 
-            // Téléporter le clone vers la cible
-            Location cloneLoc = clone.getLocation();
-            Location targetLoc = target.getLocation();
-            Vector dir = targetLoc.toVector().subtract(cloneLoc.toVector()).normalize();
+            // Score: préfère les cibles blessées et proches
+            double score = (1.0 - healthPercent) * 3; // Bonus pour blessés
+            double dist = clone.getLocation().distanceSquared(nearby.getLocation());
+            score += Math.max(0, (144 - dist) / 20); // Bonus proximité (144 = 12²)
 
-            // Animation d'attaque
-            new BukkitRunnable() {
-                int step = 0;
-                @Override
-                public void run() {
-                    if (step >= 5 || target.isDead()) {
-                        cancel();
-                        return;
-                    }
+            // Bonus si la cible est marquée par le joueur (synergie Death Mark)
+            if (isMarked(nearby.getUniqueId())) {
+                score += 4; // Priorité haute aux cibles marquées
+            }
 
-                    // Déplacer vers la cible
-                    Location newLoc = clone.getLocation().add(dir.clone().multiply(0.5));
-                    clone.teleport(newLoc);
-
-                    if (step == 3) {
-                        // Impact
-                        target.damage(cloneDamage, owner);
-                        target.getWorld().spawnParticle(Particle.CRIT,
-                            target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
-                        target.getWorld().playSound(target.getLocation(),
-                            Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
-
-                        // Le clone peut marquer (Tier 7)
-                        if (hasTalent(owner, Talent.TalentEffectType.SHADOW_CLONE) && !isMarked(target.getUniqueId())) {
-                            if (Math.random() < 0.25) { // 25% chance
-                                applyDeathMark(owner, target);
-                            }
-                        }
-                    }
-
-                    step++;
-                }
-            }.runTaskTimer(plugin, 0L, 2L);
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = living;
+            }
         }
+
+        return bestTarget;
+    }
+
+    /**
+     * Exécute l'attaque du clone sur une cible (animation de bond comme le Renard)
+     */
+    private void executeShadowCloneAttack(Player owner, LivingEntity clone, LivingEntity target) {
+        Location cloneLoc = clone.getLocation();
+        Location targetLoc = target.getLocation();
+
+        // Orienter le clone vers la cible
+        orientCloneTowards(clone, targetLoc);
+
+        // Son de préparation
+        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_WITHER_SKELETON_STEP, 0.8f, 1.5f);
+
+        // Direction du bond
+        Vector direction = targetLoc.toVector().subtract(cloneLoc.toVector()).normalize();
+        direction.setY(0.3); // Arc léger
+        direction.multiply(1.2);
+
+        // Animation de bond
+        new BukkitRunnable() {
+            int ticks = -3; // 3 ticks de préparation
+            boolean hasLeaped = false;
+
+            @Override
+            public void run() {
+                if (clone.isDead() || !clone.isValid() || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                // Phase de préparation
+                if (ticks < 0) {
+                    orientCloneTowards(clone, target.getLocation());
+                    // Particules de concentration
+                    if (ticks == -2) {
+                        clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1.5, 0),
+                            3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 0.6f));
+                    }
+                    ticks++;
+                    return;
+                }
+
+                // Bond initial
+                if (!hasLeaped) {
+                    clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_WITHER_SKELETON_HURT, 0.6f, 1.8f);
+                    hasLeaped = true;
+                }
+
+                if (ticks >= 6) {
+                    // Impact - appliquer les dégâts
+                    applyShadowCloneDamage(owner, clone, target);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le clone vers la cible
+                if (clone instanceof Mob mob) {
+                    Location current = clone.getLocation();
+                    Location newLoc = current.add(direction.clone().multiply(0.4));
+                    newLoc.setY(newLoc.getY() + (ticks < 3 ? 0.12 : -0.12)); // Arc
+                    mob.getPathfinder().moveTo(newLoc, 2.5);
+                }
+
+                // Particules de traînée
+                clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0),
+                    2, 0.1, 0.2, 0.1, 0, new Particle.DustOptions(Color.fromRGB(80, 0, 120), 0.8f));
+                clone.getWorld().spawnParticle(Particle.SMOKE, clone.getLocation().add(0, 0.5, 0),
+                    1, 0.1, 0.1, 0.1, 0.01);
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Oriente le clone vers une location
+     */
+    private void orientCloneTowards(LivingEntity clone, Location target) {
+        Location cloneLoc = clone.getLocation();
+        Vector dir = target.toVector().subtract(cloneLoc.toVector());
+        cloneLoc.setDirection(dir);
+        clone.teleport(cloneLoc);
+    }
+
+    /**
+     * Applique les dégâts du clone avec le calcul complet des stats du joueur
+     * (comme le système des Bêtes)
+     */
+    private void applyShadowCloneDamage(Player owner, LivingEntity clone, LivingEntity target) {
+        if (target.isDead()) return;
+
+        // ============ CALCUL DES DÉGÂTS AVEC STATS DU JOUEUR ============
+
+        // 1. Dégâts de base du joueur
+        double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        baseDamage *= CLONE_DAMAGE_MULTIPLIER; // 40% des dégâts
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
+
+        // 2. Stats d'équipement ZombieZ
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(owner);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus * CLONE_DAMAGE_MULTIPLIER;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // 3. Skill Tree bonuses
+        var skillManager = plugin.getSkillTreeManager();
+
+        double skillDamageBonus = skillManager.getSkillBonus(owner, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // 4. Système de critique
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(owner, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (Math.random() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0;
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(owner, SkillBonus.CRIT_DAMAGE);
+
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // 5. Momentum System
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(owner);
+        finalDamage *= momentumMultiplier;
+
+        // 6. Execute Damage (<20% HP cible)
+        double mobHealthPercent = target.getHealth() / target.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(owner, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // 7. Bonus si cible marquée (+30%)
+        if (isMarked(target.getUniqueId())) {
+            finalDamage *= 1.30;
+        }
+
+        // 8. Lifesteal
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(owner, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        double lifestealAmount = 0;
+
+        if (totalLifesteal > 0) {
+            lifestealAmount = finalDamage * (totalLifesteal / 100.0);
+        }
+
+        // ============ APPLICATION DES DÉGÂTS ============
+
+        // Configurer les metadata pour l'indicateur de dégâts
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        final double damage = Math.max(1.0, finalDamage);
+        target.damage(damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
+        // ============ EFFETS VISUELS ET SONORES ============
+
+        // Son et particules d'impact
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_SKELETON_HURT, 0.8f, 1.4f);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
+
+        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 12, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+            8, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.0f));
+
+        // Effet visuel critique
+        if (isCritical) {
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+            target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.5);
+        }
+
+        // Lifesteal pour le propriétaire
+        if (lifestealAmount > 0) {
+            double newHealth = Math.min(owner.getHealth() + lifestealAmount, owner.getMaxHealth());
+            owner.setHealth(newHealth);
+            if (lifestealAmount > 1) {
+                owner.getWorld().spawnParticle(Particle.HEART, owner.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
+            }
+        }
+
+        // 25% de chance de marquer la cible
+        if (!isMarked(target.getUniqueId()) && Math.random() < 0.25) {
+            applyDeathMark(owner, target);
+        }
+    }
+
+    /**
+     * Fait attaquer les clones la cible (appelé quand le joueur attaque)
+     * @deprecated Utiliser l'IA automatique via updateClones() à la place
+     */
+    @Deprecated
+    public void clonesAttack(Player owner, LivingEntity target, double ownerDamage) {
+        // Les clones attaquent maintenant automatiquement via leur IA
+        // Cette méthode est conservée pour compatibilité mais n'est plus utilisée
     }
 
     /**
@@ -1068,8 +1312,16 @@ public class ShadowManager {
     private void removeClone(UUID ownerUuid, UUID cloneUuid) {
         Entity clone = Bukkit.getEntity(cloneUuid);
         if (clone != null) {
+            // Retirer de la team violet avant suppression
+            if (deathMarkTeam != null && clone instanceof LivingEntity living) {
+                deathMarkTeam.removeEntity(living);
+            }
+
             clone.getWorld().spawnParticle(Particle.LARGE_SMOKE,
-                clone.getLocation().add(0, 1, 0), 15, 0.2, 0.4, 0.2, 0.02);
+                clone.getLocation().add(0, 1, 0), 25, 0.3, 0.5, 0.3, 0.05);
+            clone.getWorld().spawnParticle(Particle.WITCH,
+                clone.getLocation().add(0, 1, 0), 15, 0.2, 0.3, 0.2, 0.02);
+            clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_WITHER_SKELETON_DEATH, 0.6f, 1.5f);
             clone.remove();
         }
 
@@ -1077,6 +1329,9 @@ public class ShadowManager {
         if (clones != null) {
             clones.remove(cloneUuid);
         }
+
+        // Nettoyer le cooldown d'attaque
+        cloneAttackCooldown.remove(ownerUuid);
     }
 
     /**
@@ -1087,41 +1342,80 @@ public class ShadowManager {
         if (clones != null) {
             for (UUID cloneUuid : clones) {
                 Entity clone = Bukkit.getEntity(cloneUuid);
-                if (clone != null) clone.remove();
+                if (clone != null) {
+                    // Retirer de la team violet
+                    if (deathMarkTeam != null && clone instanceof LivingEntity living) {
+                        deathMarkTeam.removeEntity(living);
+                    }
+                    clone.remove();
+                }
             }
         }
+        cloneAttackCooldown.remove(ownerUuid);
     }
 
     /**
-     * Met à jour les clones (les fait suivre le joueur)
+     * Met à jour les clones avec l'IA de combat (comme le Renard)
+     * - Cherche des cibles à attaquer
+     * - Bondit sur les ennemis
+     * - Suit le joueur si pas de cible
      */
     private void updateClones() {
+        long now = System.currentTimeMillis();
+
         for (Map.Entry<UUID, List<UUID>> entry : activeClones.entrySet()) {
-            Player owner = Bukkit.getPlayer(entry.getKey());
+            UUID ownerUuid = entry.getKey();
+            Player owner = Bukkit.getPlayer(ownerUuid);
             if (owner == null) continue;
 
             Location ownerLoc = owner.getLocation();
-            int index = 0;
+
             for (UUID cloneUuid : entry.getValue()) {
-                Entity clone = Bukkit.getEntity(cloneUuid);
-                if (clone == null) continue;
+                Entity cloneEntity = Bukkit.getEntity(cloneUuid);
+                if (cloneEntity == null || !(cloneEntity instanceof LivingEntity clone)) continue;
 
-                // Positionner en cercle autour du joueur
-                double angle = (index * 180) + (System.currentTimeMillis() / 50.0 % 360);
-                double rad = Math.toRadians(angle);
-                double x = Math.cos(rad) * 2;
-                double z = Math.sin(rad) * 2;
+                // Vérifier si le clone est trop loin du joueur
+                double distanceToOwner = clone.getLocation().distance(ownerLoc);
+                if (distanceToOwner > CLONE_FOLLOW_RANGE) {
+                    // Téléporter près du joueur
+                    Location newLoc = ownerLoc.clone().add(
+                        (Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3);
+                    clone.teleport(newLoc);
+                    continue;
+                }
 
-                Location targetLoc = ownerLoc.clone().add(x, 0, z);
-                targetLoc.setYaw(ownerLoc.getYaw());
+                // Vérifier le cooldown d'attaque
+                Long lastAttack = cloneAttackCooldown.get(ownerUuid);
+                boolean canAttack = lastAttack == null || (now - lastAttack) >= CLONE_ATTACK_COOLDOWN_MS;
 
-                // Mouvement fluide
-                Location cloneLoc = clone.getLocation();
-                double dx = (targetLoc.getX() - cloneLoc.getX()) * 0.2;
-                double dz = (targetLoc.getZ() - cloneLoc.getZ()) * 0.2;
-                clone.teleport(cloneLoc.add(dx, 0, dz));
+                if (canAttack) {
+                    // Chercher une cible
+                    LivingEntity target = findShadowCloneTarget(clone, owner);
 
-                index++;
+                    if (target != null) {
+                        // Attaquer la cible
+                        cloneAttackCooldown.put(ownerUuid, now);
+                        executeShadowCloneAttack(owner, clone, target);
+                        continue;
+                    }
+                }
+
+                // Pas de cible ou en cooldown: suivre le joueur
+                if (clone instanceof Mob mob) {
+                    // Position en cercle autour du joueur
+                    int index = entry.getValue().indexOf(cloneUuid);
+                    double angle = (index * 180) + (now / 80.0 % 360);
+                    double rad = Math.toRadians(angle);
+                    double x = Math.cos(rad) * 2.5;
+                    double z = Math.sin(rad) * 2.5;
+
+                    Location targetLoc = ownerLoc.clone().add(x, 0, z);
+
+                    // Utiliser le pathfinder pour suivre
+                    if (clone.getLocation().distanceSquared(targetLoc) > 4) {
+                        mob.getPathfinder().moveTo(targetLoc, 1.0);
+                    }
+                }
             }
         }
     }
