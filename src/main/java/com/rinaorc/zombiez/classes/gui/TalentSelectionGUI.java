@@ -316,6 +316,10 @@ public class TalentSelectionGUI implements Listener {
                     player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.8f);
                     player.sendMessage("§c✗ Talent §f" + talent.getName() + " §cdésactivé.");
                 }
+                // Synchroniser les bêtes si c'est un talent de bête
+                if (talent.getId().contains("beast_") && plugin.getBeastManager() != null) {
+                    plugin.getBeastManager().syncBeastsWithTalents(player);
+                }
                 // Rafraîchir le GUI
                 open(player);
             } else {

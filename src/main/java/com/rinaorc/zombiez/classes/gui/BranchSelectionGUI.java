@@ -207,6 +207,11 @@ public class BranchSelectionGUI implements Listener {
                 player.sendMessage("");
             }
 
+            // Synchroniser les bêtes (despawn si changement de branche hors bêtes)
+            if (plugin.getBeastManager() != null) {
+                plugin.getBeastManager().syncBeastsWithTalents(player);
+            }
+
             // Ouvrir le menu des talents
             player.closeInventory();
             plugin.getTalentSelectionGUI().open(player);

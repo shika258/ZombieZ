@@ -177,6 +177,66 @@ public class BeastManager {
     }
 
     /**
+     * Synchronise les bêtes d'un joueur avec ses talents actifs.
+     * Despawn les bêtes dont le talent n'est plus actif.
+     * Invoque les bêtes manquantes dont le talent est actif.
+     */
+    public void syncBeastsWithTalents(Player player) {
+        UUID uuid = player.getUniqueId();
+        ClassData data = plugin.getClassManager().getClassData(player);
+
+        // Si le joueur n'est pas Chasseur ou n'a pas la branche Bêtes, despawn toutes les bêtes
+        if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) {
+            despawnAllBeasts(player);
+            return;
+        }
+
+        String branchId = data.getSelectedBranchId();
+        if (branchId == null || !branchId.contains("betes")) {
+            despawnAllBeasts(player);
+            return;
+        }
+
+        // Vérifier chaque bête existante
+        Map<BeastType, UUID> beasts = playerBeasts.get(uuid);
+        if (beasts != null) {
+            // Copie pour éviter ConcurrentModificationException
+            Map<BeastType, UUID> beastsCopy = new HashMap<>(beasts);
+            for (Map.Entry<BeastType, UUID> entry : beastsCopy.entrySet()) {
+                BeastType type = entry.getKey();
+                UUID beastUuid = entry.getValue();
+
+                // Vérifier si le talent correspondant est toujours actif
+                boolean talentActive = false;
+                for (TalentTier tier : TalentTier.values()) {
+                    Talent talent = talentManager.getActiveTalentForTier(player, tier);
+                    if (talent != null && getBeastTypeFromTalent(talent) == type) {
+                        talentActive = true;
+                        break;
+                    }
+                }
+
+                // Si le talent n'est plus actif, despawn la bête
+                if (!talentActive) {
+                    Entity entity = Bukkit.getEntity(beastUuid);
+                    if (entity != null) {
+                        entity.remove();
+                    }
+                    beasts.remove(type);
+                    // Retirer aussi du pending respawn
+                    Map<BeastType, Long> respawns = pendingRespawn.get(uuid);
+                    if (respawns != null) {
+                        respawns.remove(type);
+                    }
+                }
+            }
+        }
+
+        // Invoquer les bêtes manquantes
+        summonBeastsForPlayer(player);
+    }
+
+    /**
      * Invoque une bête spécifique pour un joueur
      */
     public void spawnBeast(Player player, BeastType type) {
