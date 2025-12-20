@@ -5,6 +5,8 @@ import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import org.bukkit.*;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -102,17 +104,19 @@ public class ShadowListener implements Listener {
             }
         }
 
-        // === T4: DEATH_MARK - Crits marquent ===
+        // === T4: DEATH_MARK - Crits ZombieZ marquent ===
         Talent deathMark = getActiveTalent(player, Talent.TalentEffectType.DEATH_MARK);
         if (deathMark != null && isMelee) {
-            // Détection de crit Minecraft: joueur en chute, pas au sol, pas dans l'eau, etc.
-            boolean isCrit = !player.isOnGround() &&
-                             player.getFallDistance() > 0 &&
-                             !player.isInWater() &&
-                             !player.isClimbing() &&
-                             player.getVehicle() == null &&
-                             !player.hasPotionEffect(PotionEffectType.BLINDNESS) &&
-                             !player.isSprinting(); // Sprint empêche les crits
+            // Utiliser le système de crit ZombieZ (CRIT_CHANCE stat + skill bonus)
+            var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+            var skillManager = plugin.getSkillTreeManager();
+
+            double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+            double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+            double totalCritChance = baseCritChance + skillCritChance;
+
+            // Roll de crit (même formule que CombatListener)
+            boolean isCrit = Math.random() * 100 < totalCritChance;
 
             if (isCrit && !shadowManager.isMarked(targetUuid)) {
                 shadowManager.applyDeathMark(player, target);
