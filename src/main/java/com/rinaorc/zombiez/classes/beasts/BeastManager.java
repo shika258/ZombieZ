@@ -380,7 +380,14 @@ public class BeastManager {
 
         Location targetLoc = new Location(playerLoc.getWorld(), x, playerLoc.getY(), z);
 
-        // Trouver le sol
+        // Comportement spécial pour les bêtes volantes
+        if (type == BeastType.BAT || type == BeastType.BEE) {
+            // Flotter au-dessus du joueur (entre 1.5 et 2.5 blocs)
+            targetLoc.setY(playerLoc.getY() + 1.5 + Math.sin(System.currentTimeMillis() / 500.0) * 0.5);
+            return targetLoc;
+        }
+
+        // Trouver le sol pour les autres bêtes
         targetLoc = findSafeLocation(targetLoc);
 
         return targetLoc;
@@ -424,28 +431,148 @@ public class BeastManager {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || !player.isOnline()) continue;
 
+            // Trouver la cible focus commune (ennemi le plus proche du joueur)
+            LivingEntity focusTarget = findNearestEnemy(player, 15);
+
             for (Map.Entry<BeastType, UUID> beastEntry : entry.getValue().entrySet()) {
                 Entity entity = Bukkit.getEntity(beastEntry.getValue());
                 if (entity == null || entity.isDead() || !(entity instanceof LivingEntity beast)) {
                     continue;
                 }
 
-                // Calculer la position cible
-                Location targetLoc = calculatePackPosition(player, beastEntry.getKey());
-                double distanceToTarget = beast.getLocation().distance(targetLoc);
+                BeastType type = beastEntry.getKey();
+                Location beastLoc = beast.getLocation();
+                Location targetLoc = calculatePackPosition(player, type);
+                double distanceToTarget = beastLoc.distance(targetLoc);
 
-                // Si trop loin, téléporter (mais pas bêtement sur le joueur)
-                if (distanceToTarget > 20) {
-                    beast.teleport(targetLoc);
-                    continue;
-                }
-
-                // Sinon, déplacer avec le pathfinding
-                if (distanceToTarget > 2 && beast instanceof Mob mob) {
-                    mob.getPathfinder().moveTo(targetLoc, 1.0 + (distanceToTarget / 10.0));
+                // Comportement spécifique selon le type de bête
+                if (type == BeastType.BAT || type == BeastType.BEE) {
+                    // Bêtes volantes: mouvement fluide par vélocité
+                    updateFlyingBeast(beast, targetLoc, focusTarget);
+                } else if (type == BeastType.BEAR && beast instanceof Mob bearMob) {
+                    // L'ours garde sa cible de combat si elle est proche
+                    LivingEntity bearTarget = bearMob.getTarget();
+                    if (bearTarget != null && !bearTarget.isDead() &&
+                        bearTarget.getLocation().distance(beastLoc) < 10) {
+                        // L'ours poursuit sa cible
+                        orientBeastTowards(beast, bearTarget.getLocation());
+                        continue;
+                    }
+                    // Sinon, suivre la formation
+                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
+                } else {
+                    // Autres bêtes terrestres
+                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
                 }
             }
         }
+    }
+
+    /**
+     * Met à jour une bête volante (chauve-souris, abeille)
+     */
+    private void updateFlyingBeast(LivingEntity beast, Location targetLoc, LivingEntity focusTarget) {
+        Location beastLoc = beast.getLocation();
+        double distanceToTarget = beastLoc.distance(targetLoc);
+
+        // Si trop loin, téléporter
+        if (distanceToTarget > 25) {
+            beast.teleport(targetLoc);
+            return;
+        }
+
+        // Mouvement fluide par vélocité
+        if (distanceToTarget > 0.5) {
+            Vector direction = targetLoc.toVector().subtract(beastLoc.toVector());
+            double speed = Math.min(distanceToTarget / 5.0, 0.6); // Vitesse proportionnelle
+            direction.normalize().multiply(speed);
+
+            // Limiter la vélocité verticale pour éviter les mouvements brusques
+            direction.setY(Math.max(-0.3, Math.min(0.3, direction.getY())));
+
+            beast.setVelocity(direction);
+        }
+
+        // Orienter vers la cible ennemie si présente, sinon vers le joueur
+        if (focusTarget != null) {
+            orientBeastTowards(beast, focusTarget.getLocation().add(0, focusTarget.getHeight() / 2, 0));
+        } else {
+            orientBeastTowards(beast, targetLoc.clone().add(targetLoc.getDirection().multiply(5)));
+        }
+    }
+
+    /**
+     * Met à jour une bête terrestre
+     */
+    private void updateGroundBeast(LivingEntity beast, Location targetLoc, double distanceToTarget, LivingEntity focusTarget) {
+        // Si trop loin, téléporter
+        if (distanceToTarget > 20) {
+            beast.teleport(targetLoc);
+            return;
+        }
+
+        // Si bloqué (même position depuis trop longtemps), téléporter
+        if (distanceToTarget > 8 && beast instanceof Mob mob) {
+            // Vérifier si le pathfinding est bloqué
+            if (!mob.getPathfinder().hasPath() || mob.getPathfinder().getCurrentPath() == null) {
+                // Essayer de trouver une position alternative
+                Location altLoc = findSafeLocation(targetLoc.clone().add(
+                    (Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4));
+                mob.getPathfinder().moveTo(altLoc, 1.5);
+            }
+        }
+
+        // Déplacer avec le pathfinding
+        if (distanceToTarget > 2 && beast instanceof Mob mob) {
+            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0); // Plus rapide si loin
+            mob.getPathfinder().moveTo(targetLoc, speed);
+        }
+
+        // Orienter vers la cible ennemie si au repos
+        if (distanceToTarget <= 2 && focusTarget != null) {
+            orientBeastTowards(beast, focusTarget.getLocation());
+        }
+    }
+
+    /**
+     * Oriente une bête vers une position (fait regarder)
+     */
+    private void orientBeastTowards(LivingEntity beast, Location target) {
+        Location beastLoc = beast.getLocation();
+        Vector direction = target.toVector().subtract(beastLoc.toVector());
+
+        if (direction.lengthSquared() < 0.01) return;
+
+        // Calculer le yaw et pitch
+        direction.normalize();
+        float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
+        float pitch = (float) Math.toDegrees(-Math.asin(direction.getY()));
+
+        // Appliquer la rotation de manière fluide
+        beastLoc.setYaw(yaw);
+        beastLoc.setPitch(pitch);
+
+        // Téléportation légère pour appliquer la rotation (sans déplacer)
+        beast.teleport(beastLoc);
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche du joueur
+     */
+    private LivingEntity findNearestEnemy(Player player, double range) {
+        LivingEntity nearest = null;
+        double nearestDistSq = range * range;
+
+        for (Entity nearby : player.getNearbyEntities(range, range / 2, range)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                double distSq = player.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = monster;
+                }
+            }
+        }
+        return nearest;
     }
 
     /**
@@ -1082,23 +1209,52 @@ public class BeastManager {
     private void executeGolemCharge(Player owner, LivingEntity golem, LivingEntity target) {
         Location startLoc = golem.getLocation().clone();
         Location targetLoc = target.getLocation().clone();
+
+        // Phase 1: Préparation - le Golem se tourne vers sa cible
+        orientBeastTowards(golem, targetLoc);
+
         Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
         double distance = startLoc.distance(targetLoc);
 
-        // Son de charge
-        golem.getWorld().playSound(startLoc, Sound.ENTITY_IRON_GOLEM_ATTACK, 2.0f, 0.6f);
-        golem.getWorld().playSound(startLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
-
-        // Animation de charge
+        // Animation avec phase de préparation
         new BukkitRunnable() {
-            int ticks = 0;
+            int ticks = -8; // 8 ticks (0.4s) de préparation
             final int maxTicks = (int) Math.min(distance * 2, 20); // Max 1 seconde
             Location current = startLoc.clone();
             Set<UUID> hitDuringCharge = new HashSet<>();
+            boolean hasCharged = false;
 
             @Override
             public void run() {
-                if (ticks >= maxTicks || golem.isDead()) {
+                if (golem.isDead() || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                // Phase de préparation: le Golem lève son bras
+                if (ticks < 0) {
+                    orientBeastTowards(golem, target.getLocation());
+
+                    // Particules de préparation + son
+                    if (ticks == -8) {
+                        golem.getWorld().playSound(startLoc, Sound.ENTITY_IRON_GOLEM_ATTACK, 2.0f, 0.6f);
+                    }
+                    if (ticks == -4) {
+                        golem.getWorld().playSound(startLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
+                        golem.getWorld().spawnParticle(Particle.DUST, golem.getLocation().add(0, 2, 0),
+                            10, 0.5, 0.3, 0.5, 0, new Particle.DustOptions(Color.fromRGB(200, 50, 50), 1.5f));
+                    }
+                    ticks++;
+                    return;
+                }
+
+                // Début de la charge
+                if (!hasCharged) {
+                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
+                    hasCharged = true;
+                }
+
+                if (ticks >= maxTicks) {
                     // IMPACT - Frappe Titanesque!
                     executeGolemSlam(owner, golem, current, direction, hitDuringCharge);
                     cancel();
@@ -1137,7 +1293,7 @@ public class BeastManager {
                 }
 
                 // Son de pas lourds
-                if (ticks % 4 == 0) {
+                if (ticks % 3 == 0) {
                     golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
                 }
 
@@ -1493,19 +1649,50 @@ public class BeastManager {
         Location foxLoc = fox.getLocation();
         Location targetLoc = target.getLocation();
 
-        // Animation de bond
+        // Phase 1: Préparation - le renard regarde sa cible et se met en position
+        orientBeastTowards(fox, targetLoc);
+
+        // Son de préparation au bond
+        fox.getWorld().playSound(foxLoc, Sound.ENTITY_FOX_SNIFF, 1.0f, 1.5f);
+
+        // Animation de bond avec delay de préparation
         Vector direction = targetLoc.toVector().subtract(foxLoc.toVector()).normalize();
         direction.setY(0.5); // Arc de bond
         direction.multiply(1.5);
 
-        // Téléporter/déplacer le renard vers la cible avec animation
+        // Phase 2: Bond après 5 ticks de préparation
         new BukkitRunnable() {
-            int ticks = 0;
+            int ticks = -5; // 5 ticks de préparation
             Location current = foxLoc.clone();
+            boolean hasLeaped = false;
 
             @Override
             public void run() {
-                if (ticks >= 8 || fox.isDead()) {
+                if (fox.isDead() || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                // Phase de préparation (accroupi)
+                if (ticks < 0) {
+                    // Regarder la cible
+                    orientBeastTowards(fox, target.getLocation());
+                    // Particules de concentration
+                    if (ticks == -3) {
+                        fox.getWorld().spawnParticle(Particle.DUST, fox.getLocation().add(0, 0.3, 0),
+                            3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.ORANGE, 0.5f));
+                    }
+                    ticks++;
+                    return;
+                }
+
+                // Saut initial
+                if (!hasLeaped) {
+                    fox.getWorld().playSound(fox.getLocation(), Sound.ENTITY_FOX_AGGRO, 1.5f, 1.2f);
+                    hasLeaped = true;
+                }
+
+                if (ticks >= 8) {
                     // Arrivée - infliger dégâts et marquer
                     applyFoxMark(owner, fox, target);
                     cancel();
