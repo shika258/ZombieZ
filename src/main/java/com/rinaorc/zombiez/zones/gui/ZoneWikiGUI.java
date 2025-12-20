@@ -33,9 +33,9 @@ public class ZoneWikiGUI implements InventoryHolder {
     private static final int ZONES_PER_PAGE = 28; // 7x4 grid
 
     // Slots de navigation
-    private static final int SLOT_PREV = 45;
+    private static final int SLOT_PREV = 46;
     private static final int SLOT_INFO = 49;
-    private static final int SLOT_CLOSE = 47;
+    private static final int SLOT_CLOSE = 45;
     private static final int SLOT_NEXT = 53;
 
     // Zone d'affichage des zones: slots pour une grille 7x4
@@ -56,7 +56,7 @@ public class ZoneWikiGUI implements InventoryHolder {
 
     // Filtres par acte (ligne du haut)
     private static final int SLOT_FILTER_ALL = 0;
-    private static final int[] SLOT_FILTERS = {1, 2, 3, 4, 5}; // 5 actes
+    private static final int[] SLOT_FILTERS = {2, 3, 4, 5, 6}; // 5 actes
 
     private final ZombieZPlugin plugin;
     private final Player player;
@@ -107,11 +107,11 @@ public class ZoneWikiGUI implements InventoryHolder {
             inventory.setItem(row * 9 + 8, border);
         }
 
-        // Slot 6 et 7 - Séparateurs entre filtres et légende
+        // Slot 1 et 7 - Séparateurs entre filtres et légende
         ItemStack separator = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
             .name("§8")
             .build();
-        inventory.setItem(6, separator);
+        inventory.setItem(1, separator);
         inventory.setItem(7, separator);
 
         // Filtres par acte
@@ -260,7 +260,7 @@ public class ZoneWikiGUI implements InventoryHolder {
             .build();
 
         // Décorer les slots de navigation non utilisés
-        for (int slot : new int[]{46, 48, 50, 51, 52}) {
+        for (int slot : new int[]{47, 48, 50, 51, 52}) {
             inventory.setItem(slot, navBorder);
         }
 
