@@ -748,9 +748,22 @@ public class ShadowManager {
             playerEntity.playSound(playerEntity.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.6f, 1.2f);
         }
 
-        // Calculer les dégâts selon le statut marqué
+        // Calculer les dégâts avec les stats ZombieZ complètes
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
         double multiplier = isMarked ? 4.0 : 2.5; // 400% si marqué, 250% sinon
+
+        // Récupérer les stats ZombieZ du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        var skillManager = plugin.getSkillTreeManager();
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        baseDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        baseDamage *= (1 + (damagePercent + skillDamageBonus) / 100.0);
 
         double finalDamage = baseDamage * multiplier;
 
@@ -856,9 +869,9 @@ public class ShadowManager {
         // === FRÉNÉSIE D'OMBRE - Buffs de vitesse ===
         int frenzyTicks = (int) (frenzyDurationMs / 50);
 
-        // +80% vitesse de déplacement (Speed IV approximativement)
-        // Speed I = +20%, II = +40%, III = +60%, IV = +80%
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, frenzyTicks, 3, false, true, true));
+        // Speed III (+60% vitesse de déplacement)
+        // Speed I = +20%, II = +40%, III = +60%
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, frenzyTicks, 2, false, true, true));
 
         // +30% attack speed via AttributeModifier
         applyDanseAttackSpeedBonus(player, attackSpeedBonus);
