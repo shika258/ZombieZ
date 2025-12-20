@@ -728,11 +728,12 @@ public class ChasseurTalentListener implements Listener {
     /**
      * Tirs Multiples - Tire 2 flèches bonus horizontales (3 au total avec l'originale)
      * Pattern: I I I (horizontalement espacées)
+     * Les flèches bonus ont exactement la même vélocité et les mêmes effets que la flèche originale.
      */
     private void procMultiShot(Player player, AbstractArrow originalArrow) {
         Location spawnLoc = originalArrow.getLocation();
-        Vector dir = originalArrow.getVelocity().normalize();
-        double speed = originalArrow.getVelocity().length();
+        Vector originalVelocity = originalArrow.getVelocity().clone();
+        Vector dir = originalVelocity.clone().normalize();
 
         // Calculer le vecteur perpendiculaire horizontal (pour le décalage côte à côte)
         Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
@@ -743,10 +744,10 @@ public class ChasseurTalentListener implements Listener {
         // Sons distinctifs de tir multiple
         player.getWorld().playSound(spawnLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.5f);
 
-        // Particules d'effet
+        // Particules d'effet au moment du tir
         player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, spawnLoc, 8, 0.2, 0.2, 0.2, 0.05);
 
-        // Rafale - Flèches chercheuses
+        // Rafale - Flèches chercheuses (même comportement que la flèche originale)
         Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
         boolean hasHoming = burstShot != null;
         double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
@@ -757,38 +758,32 @@ public class ChasseurTalentListener implements Listener {
             double offset = (i == 0 ? -1 : 1) * spacing;
             Location arrowSpawnLoc = spawnLoc.clone().add(horizontal.clone().multiply(offset));
 
-            // Créer une flèche avec les mêmes propriétés que l'originale
-            Arrow bonusArrow = player.getWorld().spawnArrow(arrowSpawnLoc, dir.clone(), (float) speed, 0);
+            // Créer une flèche avec une direction initiale (vélocité sera définie après)
+            Arrow bonusArrow = player.getWorld().spawnArrow(arrowSpawnLoc, dir.clone(), 0.1f, 0);
             bonusArrow.setShooter(player);
             bonusArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-            bonusArrow.setDamage(originalArrow.getDamage()); // 100% dégâts
+
+            // === APPLIQUER EXACTEMENT LA MÊME VÉLOCITÉ QUE LA FLÈCHE ORIGINALE ===
+            bonusArrow.setVelocity(originalVelocity.clone());
+
+            // Copier toutes les propriétés de la flèche originale
+            bonusArrow.setDamage(originalArrow.getDamage());
             bonusArrow.setGravity(originalArrow.hasGravity());
             bonusArrow.setCritical(originalArrow.isCritical());
             bonusArrow.setFireTicks(originalArrow.getFireTicks());
+            bonusArrow.setKnockbackStrength(originalArrow.getKnockbackStrength());
+            bonusArrow.setPierceLevel(originalArrow.getPierceLevel());
 
             // Marquer comme flèche bonus pour éviter la récursion
             bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
 
-            // === RAFALE - Flèches chercheuses ===
+            // === RAFALE - Appliquer le même homing que la flèche originale ===
+            // Les effets visuels (particules) sont gérés par applyHomingBehavior
             if (hasHoming) {
                 applyHomingBehavior(bonusArrow, player, homingStrength, homingRadius);
             }
-
-            // Particules de traînée pour distinguer les flèches bonus
-            final Arrow finalArrow = bonusArrow;
-            new BukkitRunnable() {
-                int ticks = 0;
-                @Override
-                public void run() {
-                    if (finalArrow.isDead() || finalArrow.isOnGround() || ticks > 60) {
-                        this.cancel();
-                        return;
-                    }
-                    finalArrow.getWorld().spawnParticle(Particle.DUST, finalArrow.getLocation(), 1, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 255, 255), 0.6f));
-                    ticks++;
-                }
-            }.runTaskTimer(plugin, 0L, 2L);
+            // Pas de traînée supplémentaire - les flèches se comportent exactement
+            // comme les flèches normales (traînée gérée par le homing si actif)
         }
     }
 
