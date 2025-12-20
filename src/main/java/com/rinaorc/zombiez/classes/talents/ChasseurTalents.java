@@ -808,19 +808,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_fox")
             .name("Renard")
-            .description("Invoque un renard chasseur de tresors")
+            .description("Invoque un renard qui traque et marque les proies")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque un §6renard rusé§7 qui",
-                "§7déniche des trésors cachés.",
+                "§7traque et marque ses proies.",
                 "",
-                "§6CAPACITÉ - CHASSEUR DE TRÉSORS:",
-                "§7Quand un mob meurt près de lui,",
-                "§e20%§7 de chance de vous donner",
-                "§7un bonus §cForce§7 ou §bVitesse§7!",
+                "§6CAPACITÉ - TRAQUE & BOND:",
+                "§7Bondit sur les ennemis blessés",
+                "§7et les §cmarque§7 pendant §e5s§7.",
                 "",
-                "§a✦ Durée bonus: §e10s"
+                "§c✦ MARQUE: §f+30% §7dégâts subis!",
+                "",
+                "§b~ Portée: §e10 blocs",
+                "§b~ Cadence: §e4s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -828,7 +830,7 @@ public final class ChasseurTalents {
             .icon(Material.FOX_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_FOX)
-            .values(new double[]{0.20, 10000, 10.0}) // treasure_chance, buff_duration_ms, detection_range
+            .values(new double[]{4000, 5000, 0.30}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus
             .build());
 
         // 6.3 - EXECUTEUR DE PRIMES

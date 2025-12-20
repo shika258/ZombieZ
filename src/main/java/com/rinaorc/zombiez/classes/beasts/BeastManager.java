@@ -66,6 +66,10 @@ public class BeastManager {
     // Tracking des bleeds actifs pour éviter le stacking
     private final Set<UUID> activeBleedTargets = ConcurrentHashMap.newKeySet();
 
+    // Entités marquées par le renard (UUID entité -> timestamp expiration)
+    private final Map<UUID, Long> foxMarkedEntities = new ConcurrentHashMap<>();
+    private static final double FOX_MARK_DAMAGE_BONUS = 0.30; // +30% dégâts
+
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
@@ -479,7 +483,7 @@ public class BeastManager {
             case AXOLOTL -> executeAxolotlAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case COW -> executeCowAbility(owner, beast, now, cooldownKey);
             case LLAMA -> executeLlamaAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
-            case FOX -> {} // Passif - géré dans le listener de mort d'entité
+            case FOX -> executeFoxAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case BEE -> {} // Actif - géré par double-sneak
             case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
         }
@@ -1161,36 +1165,169 @@ public class BeastManager {
         }
     }
 
-    // === RENARD - CHASSEUR DE TRÉSORS ===
+    // === RENARD - TRAQUE & BOND ===
 
     /**
-     * Vérifie si le renard trouve un trésor (appelé à la mort d'un mob)
+     * Capacité du renard: bondit sur les ennemis et les marque
      */
-    public void checkFoxTreasure(Player owner, Location deathLoc) {
-        UUID uuid = owner.getUniqueId();
-        Map<BeastType, UUID> beasts = playerBeasts.get(uuid);
-        if (beasts == null || !beasts.containsKey(BeastType.FOX)) return;
+    private void executeFoxAbility(Player owner, LivingEntity fox, long now, String cooldownKey, double frenzyMultiplier) {
+        // Bond toutes les 4 secondes
+        long pounceCooldown = (long) (4000 / frenzyMultiplier);
 
-        Entity fox = Bukkit.getEntity(beasts.get(BeastType.FOX));
-        if (fox == null || fox.getLocation().distance(deathLoc) > 10) return;
-
-        // 20% de chance
-        if (Math.random() > 0.20) return;
-
-        // Choisir Force ou Vitesse
-        boolean isStrength = Math.random() > 0.5;
-
-        if (isStrength) {
-            owner.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 200, 0)); // Force I, 10s
-            owner.sendMessage("§6✦ Le Renard déterre: §c+Force§6 pour 10s!");
-        } else {
-            owner.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 0)); // Vitesse I, 10s
-            owner.sendMessage("§6✦ Le Renard déterre: §b+Vitesse§6 pour 10s!");
+        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+            // Trouver la meilleure cible (priorité aux blessés)
+            LivingEntity target = findFoxTarget(fox);
+            if (target != null) {
+                executeFoxPounce(owner, fox, target);
+                setCooldown(owner.getUniqueId(), cooldownKey, now + pounceCooldown);
+            }
         }
 
-        // Effets
-        fox.getWorld().playSound(fox.getLocation(), Sound.ENTITY_FOX_SCREECH, 1.0f, 1.2f);
-        fox.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, fox.getLocation().add(0, 0.5, 0), 20, 0.3, 0.3, 0.3, 0);
+        // Nettoyer les marques expirées
+        foxMarkedEntities.entrySet().removeIf(entry -> now > entry.getValue());
+    }
+
+    /**
+     * Trouve la meilleure cible pour le renard (priorité aux blessés)
+     */
+    private LivingEntity findFoxTarget(LivingEntity fox) {
+        LivingEntity bestTarget = null;
+        double bestScore = 0;
+
+        for (Entity nearby : fox.getNearbyEntities(10, 5, 10)) {
+            if (!(nearby instanceof LivingEntity living) || !(nearby instanceof Monster) || isBeast(nearby)) continue;
+
+            double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double currentHealth = living.getHealth();
+            double healthPercent = currentHealth / maxHealth;
+
+            // Score: préfère les cibles blessées et proches
+            double score = (1.0 - healthPercent) * 3; // Bonus pour blessés
+            double dist = fox.getLocation().distanceSquared(nearby.getLocation());
+            score += Math.max(0, (100 - dist) / 20); // Bonus proximité
+
+            // Bonus si pas déjà marqué
+            if (!foxMarkedEntities.containsKey(nearby.getUniqueId())) {
+                score += 2;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = living;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    /**
+     * Le renard bondit sur la cible et la marque
+     */
+    private void executeFoxPounce(Player owner, LivingEntity fox, LivingEntity target) {
+        Location foxLoc = fox.getLocation();
+        Location targetLoc = target.getLocation();
+
+        // Animation de bond
+        Vector direction = targetLoc.toVector().subtract(foxLoc.toVector()).normalize();
+        direction.setY(0.5); // Arc de bond
+        direction.multiply(1.5);
+
+        // Téléporter/déplacer le renard vers la cible avec animation
+        new BukkitRunnable() {
+            int ticks = 0;
+            Location current = foxLoc.clone();
+
+            @Override
+            public void run() {
+                if (ticks >= 8 || fox.isDead()) {
+                    // Arrivée - infliger dégâts et marquer
+                    applyFoxMark(owner, fox, target);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le renard
+                current.add(direction.clone().multiply(0.3));
+                current.setY(current.getY() + (ticks < 4 ? 0.15 : -0.15)); // Arc
+
+                if (fox instanceof Mob mob) {
+                    mob.getPathfinder().moveTo(current, 2.0);
+                }
+
+                // Particules de traînée
+                fox.getWorld().spawnParticle(Particle.DUST, fox.getLocation().add(0, 0.5, 0),
+                    3, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.ORANGE, 0.8f));
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Son de bond
+        fox.getWorld().playSound(foxLoc, Sound.ENTITY_FOX_AGGRO, 1.5f, 1.2f);
+    }
+
+    /**
+     * Applique la marque du renard sur la cible
+     */
+    private void applyFoxMark(Player owner, LivingEntity fox, LivingEntity target) {
+        if (target.isDead()) return;
+
+        // Dégâts initiaux (20% des dégâts du joueur)
+        double pounceDamage = calculateBeastDamage(owner, BeastType.FOX);
+        target.damage(pounceDamage, owner);
+
+        // Marquer la cible (5 secondes)
+        foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
+
+        // Effets visuels de marque
+        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.5, 0),
+            15, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 2, 0),
+            10, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.RED, 1.2f));
+
+        // Son
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_FOX_BITE, 1.5f, 1.0f);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.5f);
+
+        // Particules continues sur la cible marquée
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 100 || target.isDead() || !foxMarkedEntities.containsKey(target.getUniqueId())) {
+                    cancel();
+                    return;
+                }
+
+                // Particule de marque toutes les 10 ticks
+                if (ticks % 10 == 0) {
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 2.2, 0),
+                        3, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.RED, 0.6f));
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 5L, 1L);
+    }
+
+    /**
+     * Vérifie si une entité est marquée par le renard
+     * @return Le bonus de dégâts (0.0 si non marquée, FOX_MARK_DAMAGE_BONUS si marquée)
+     */
+    public double getFoxMarkBonus(UUID targetUuid) {
+        Long expiration = foxMarkedEntities.get(targetUuid);
+        if (expiration == null || System.currentTimeMillis() > expiration) {
+            return 0.0;
+        }
+        return FOX_MARK_DAMAGE_BONUS;
+    }
+
+    /**
+     * Vérifie si une entité est marquée par le renard (boolean)
+     */
+    public boolean isMarkedByFox(UUID targetUuid) {
+        return getFoxMarkBonus(targetUuid) > 0;
     }
 
     // === GESTION DE LA MORT ET RESPAWN ===

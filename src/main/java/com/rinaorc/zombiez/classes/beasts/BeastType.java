@@ -207,7 +207,7 @@ public enum BeastType {
 
     /**
      * Tier 7 - Renard
-     * Chasseur de trésors - bonus de stats sur kill proxy.
+     * Prédateur agile qui bondit et marque ses proies.
      */
     FOX(
         7, "Renard",
@@ -217,16 +217,18 @@ public enum BeastType {
         new String[]{
             "§6§lRENARD",
             "",
-            "§7Un renard rusé qui déniche",
-            "§7des trésors cachés.",
+            "§7Un renard rusé qui traque",
+            "§7et marque ses proies.",
             "",
-            "§6CAPACITÉ - CHASSEUR DE TRÉSORS:",
-            "§7Quand un mob meurt près de lui,",
-            "§e20%§7 de chance de vous donner",
-            "§7un bonus §cForce§7 ou §bVitesse§7!",
+            "§6CAPACITÉ - TRAQUE & BOND:",
+            "§7Bondit sur les ennemis blessés",
+            "§7et les §cmarque§7 pendant §e5s§7.",
             "",
-            "§e⚔ Dégâts: §f20% §7de vos dégâts",
-            "§a✦ Durée bonus: §e10s"
+            "§c✦ MARQUE: §f+30% §7dégâts subis!",
+            "",
+            "§e⚔ Dégâts bond: §f20% §7de vos dégâts",
+            "§b~ Portée: §e10 blocs",
+            "§b~ Cadence: §e4s"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,
