@@ -1,0 +1,304 @@
+package com.rinaorc.zombiez.classes.shadow;
+
+import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.classes.ClassData;
+import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentManager;
+import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Listener pour la branche Ombre du Chasseur.
+ * Gère tous les événements liés aux talents Ombre.
+ *
+ * Talents gérés:
+ * - T1: SHADOW_BLADE (Points d'Ombre sur attaque)
+ * - T2: INSIDIOUS_POISON (Poison stack sur attaque)
+ * - T3: SHADOW_STEP (Téléportation derrière + 2 Points)
+ * - T4: DEATH_MARK (Crits marquent la cible)
+ * - T5: EXECUTION (5 Points = dégâts massifs sur marqué)
+ * - T6: DANSE_MACABRE (Kill marqué = invis + reset + speed)
+ * - T7: SHADOW_CLONE (5 Points = clone invoqué)
+ * - T8: SHADOW_STORM (Exécution kill = AoE + marque tous)
+ * - T9: SHADOW_AVATAR (Ultime transformation)
+ */
+public class ShadowListener implements Listener {
+
+    private final ZombieZPlugin plugin;
+    private final TalentManager talentManager;
+    private final ShadowManager shadowManager;
+
+    // Double-sneak pour Avatar activation
+    private final Map<UUID, Long> lastAvatarSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW = 400; // 400ms
+
+    // Tracking attaque (Shift+Attaque pour Shadow Step)
+    private final Map<UUID, Long> lastAttackTime = new ConcurrentHashMap<>();
+    private static final long SHIFT_ATTACK_WINDOW = 200; // 200ms
+
+    // Cooldown interne ICD
+    private final Map<UUID, Long> shadowBladeCooldown = new ConcurrentHashMap<>();
+    private static final long SHADOW_BLADE_ICD = 300; // 300ms
+
+    public ShadowListener(ZombieZPlugin plugin, TalentManager talentManager, ShadowManager shadowManager) {
+        this.plugin = plugin;
+        this.talentManager = talentManager;
+        this.shadowManager = shadowManager;
+    }
+
+    // ==================== ATTAQUE ====================
+
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onDamageDealt(EntityDamageByEntityEvent event) {
+        Player player = getPlayerFromDamager(event.getDamager());
+        if (player == null) return;
+        if (!(event.getEntity() instanceof LivingEntity target)) return;
+        if (target instanceof Player) return; // Pas de PvP
+
+        // Vérifier que c'est un joueur Ombre
+        if (!shadowManager.isShadowPlayer(player)) return;
+
+        UUID uuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+        double damage = event.getDamage();
+        boolean isMelee = !(event.getDamager() instanceof Projectile);
+
+        // === T1: SHADOW_BLADE - Points d'Ombre sur attaque ===
+        Talent shadowBlade = getActiveTalent(player, Talent.TalentEffectType.SHADOW_BLADE);
+        if (shadowBlade != null && isMelee) {
+            processShadowBlade(player, shadowBlade);
+        }
+
+        // === T2: INSIDIOUS_POISON - Poison stack sur attaque ===
+        Talent insidiousPoison = getActiveTalent(player, Talent.TalentEffectType.INSIDIOUS_POISON);
+        if (insidiousPoison != null) {
+            shadowManager.applyPoisonStack(player, target);
+        }
+
+        // === T3: SHADOW_STEP - Shift+Attaque = téléportation ===
+        Talent shadowStep = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STEP);
+        if (shadowStep != null && isMelee && player.isSneaking()) {
+            boolean success = shadowManager.executeShadowStep(player, target);
+            if (success) {
+                // Bonus de dégâts après téléportation
+                event.setDamage(damage * 1.25); // +25% dégâts
+            }
+        }
+
+        // === T4: DEATH_MARK - Crits marquent ===
+        Talent deathMark = getActiveTalent(player, Talent.TalentEffectType.DEATH_MARK);
+        if (deathMark != null) {
+            // Vérifier si c'est un crit (dégâts > base * 1.4)
+            double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+            if (damage > baseDamage * 1.4) { // Crit détecté
+                if (!shadowManager.isMarked(targetUuid)) {
+                    shadowManager.applyDeathMark(player, target);
+                }
+            }
+        }
+
+        // === T5: EXECUTION - 5 Points sur marqué ===
+        Talent execution = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
+        if (execution != null && isMelee && shadowManager.hasEnoughPoints(uuid, 5)) {
+            if (shadowManager.isMarkedBy(targetUuid, uuid)) {
+                // Calculer si c'est un kill
+                double executionDamage = shadowManager.executeExecution(player, target);
+                if (executionDamage > 0) {
+                    event.setCancelled(true); // On gère les dégâts nous-mêmes
+
+                    // === T8: SHADOW_STORM - Exécution kill = AoE ===
+                    Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
+                    if (shadowStorm != null && target.getHealth() <= 0) {
+                        shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
+                    }
+                }
+            }
+        }
+
+        // === T7: SHADOW_CLONE - Faire attaquer les clones ===
+        Talent shadowClone = getActiveTalent(player, Talent.TalentEffectType.SHADOW_CLONE);
+        if (shadowClone != null && isMelee) {
+            shadowManager.clonesAttack(player, target, damage);
+        }
+
+        // === Bonus dégâts Avatar actif (+40% équilibré) ===
+        if (shadowManager.isAvatarActive(uuid)) {
+            event.setDamage(event.getDamage() * 1.4); // 40% bonus
+        }
+
+        // Bonus dégâts sur cible marquée (+25%)
+        if (shadowManager.isMarkedBy(targetUuid, uuid)) {
+            event.setDamage(event.getDamage() * 1.25);
+        }
+
+        // Tracker l'attaque
+        lastAttackTime.put(uuid, System.currentTimeMillis());
+    }
+
+    /**
+     * Traite le talent Shadow Blade (T1)
+     */
+    private void processShadowBlade(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+
+        // ICD check
+        Long lastProc = shadowBladeCooldown.get(uuid);
+        if (lastProc != null && System.currentTimeMillis() - lastProc < SHADOW_BLADE_ICD) {
+            return;
+        }
+        shadowBladeCooldown.put(uuid, System.currentTimeMillis());
+
+        // +1 Point d'Ombre par attaque
+        shadowManager.addShadowPoints(uuid, 1);
+
+        // Bonus Attack Speed à 3+ Points
+        if (shadowManager.getShadowPoints(uuid) >= 3) {
+            // Le bonus AS est géré visuellement via AttributeModifier temporaire
+            applyAttackSpeedBonus(player, (int) (talent.getValue(0) * 100)); // 30%
+        }
+    }
+
+    /**
+     * Applique un bonus de vitesse d'attaque temporaire
+     */
+    private void applyAttackSpeedBonus(Player player, int percentBonus) {
+        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            double baseSpeed = attackSpeed.getBaseValue();
+            double bonusSpeed = baseSpeed * (percentBonus / 100.0);
+
+            // Modifier temporaire (via effets existants ou PDC)
+            // Pour simplifier, on utilise les effets Haste natifs
+            player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.HASTE, 40, 0, false, false, false));
+        }
+    }
+
+    // ==================== MORT D'ENTITE ====================
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity victim = event.getEntity();
+        Player killer = victim.getKiller();
+        if (killer == null) return;
+
+        // Vérifier que c'est un joueur Ombre
+        if (!shadowManager.isShadowPlayer(killer)) return;
+
+        UUID killerUuid = killer.getUniqueId();
+        UUID victimUuid = victim.getUniqueId();
+
+        // === T5: EXECUTION - +2 Points si kill ===
+        Talent execution = getActiveTalent(killer, Talent.TalentEffectType.EXECUTION);
+        if (execution != null) {
+            // Vérifié si c'était une exécution (détecté via metadata)
+            if (victim.hasMetadata("shadow_executed")) {
+                shadowManager.addShadowPoints(killerUuid, 2);
+                victim.removeMetadata("shadow_executed", plugin);
+            }
+        }
+
+        // === T6: DANSE_MACABRE - Kill marqué = bonus ===
+        Talent danseMacabre = getActiveTalent(killer, Talent.TalentEffectType.DANSE_MACABRE);
+        if (danseMacabre != null && shadowManager.isMarkedBy(victimUuid, killerUuid)) {
+            shadowManager.activateDanseMacabre(killer);
+            shadowManager.addShadowPoints(killerUuid, 1);
+        }
+
+        // Nettoyer la marque
+        shadowManager.removeMark(victimUuid);
+
+        // === T7: SHADOW_CLONE - Invoquer clone à 5 Points ===
+        Talent shadowClone = getActiveTalent(killer, Talent.TalentEffectType.SHADOW_CLONE);
+        if (shadowClone != null && shadowManager.getShadowPoints(killerUuid) >= 5) {
+            shadowManager.summonShadowClone(killer);
+            // Note: les points ne sont pas consommés, le clone apparaît comme bonus
+        }
+    }
+
+    // ==================== SNEAK (AVATAR ACTIVATION) ====================
+
+    @EventHandler
+    public void onPlayerSneak(PlayerToggleSneakEvent event) {
+        if (!event.isSneaking()) return;
+
+        Player player = event.getPlayer();
+        if (!shadowManager.isShadowPlayer(player)) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // === T9: SHADOW_AVATAR - Double sneak pour activer ===
+        Talent shadowAvatar = getActiveTalent(player, Talent.TalentEffectType.SHADOW_AVATAR);
+        if (shadowAvatar != null) {
+            long now = System.currentTimeMillis();
+            Long lastSneak = lastAvatarSneakTime.get(uuid);
+
+            if (lastSneak != null && now - lastSneak < DOUBLE_SNEAK_WINDOW) {
+                // Double sneak détecté!
+                shadowManager.activateAvatar(player);
+                lastAvatarSneakTime.remove(uuid);
+            } else {
+                lastAvatarSneakTime.put(uuid, now);
+            }
+        }
+    }
+
+    // ==================== DECONNEXION ====================
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+
+        // Nettoyer toutes les données
+        shadowManager.cleanupPlayer(uuid);
+        lastAvatarSneakTime.remove(uuid);
+        lastAttackTime.remove(uuid);
+        shadowBladeCooldown.remove(uuid);
+    }
+
+    // ==================== UTILITAIRES ====================
+
+    /**
+     * Récupère le joueur depuis un damager (direct ou projectile)
+     */
+    private Player getPlayerFromDamager(Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile) {
+            if (projectile.getShooter() instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Récupère un talent actif par son type d'effet
+     */
+    private Talent getActiveTalent(Player player, Talent.TalentEffectType effectType) {
+        return talentManager.getActiveTalentByEffect(player, effectType);
+    }
+
+    /**
+     * Vérifie si le joueur est un Chasseur
+     */
+    private boolean isChasseur(Player player) {
+        ClassData data = plugin.getClassManager().getClassData(player);
+        return data.hasClass() && data.getSelectedClass() == ClassType.CHASSEUR;
+    }
+}

@@ -127,6 +127,16 @@ public class BeastManager {
     }
 
     /**
+     * Applique les dégâts d'une attaque native de bête avec le système complet.
+     * Utilisé par le listener quand une bête attaque via son IA.
+     * Inclut critiques, lifesteal, et dégâts élémentaires.
+     */
+    public void applyNativeBeastDamage(Player owner, LivingEntity target, BeastType type) {
+        // Utiliser le système de dégâts complet (comme le Loup)
+        applyBeastDamageWithFullStats(owner, target, type, 1.0);
+    }
+
+    /**
      * Démarre les tâches périodiques pour les bêtes
      */
     private void startBeastTasks() {
@@ -877,11 +887,11 @@ public class BeastManager {
         // Set pour tracker les entités déjà touchées
         Set<UUID> hitEntities = new HashSet<>();
 
-        // Tracer le rayon sur 12 blocs
+        // Tracer le rayon sur 32 blocs (portée complète)
         new BukkitRunnable() {
             Location current = start.clone();
             int steps = 0;
-            final int maxSteps = 24; // 12 blocs (0.5 par step)
+            final int maxSteps = 32; // 32 blocs (1.0 par step pour plus de vitesse)
 
             @Override
             public void run() {
@@ -890,14 +900,14 @@ public class BeastManager {
                     return;
                 }
 
-                // Avancer de 0.5 bloc
-                current.add(direction.clone().multiply(0.5));
+                // Avancer de 1 bloc par tick (projectile rapide)
+                current.add(direction.clone().multiply(1.0));
 
-                // Particules réduites: SONIC_BOOM seulement toutes les 6 étapes (3 blocs)
+                // Particules réduites: SONIC_BOOM toutes les 4 blocs
                 // + petites particules de note entre-temps pour le traçage visuel
-                if (steps % 6 == 0) {
+                if (steps % 4 == 0) {
                     current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
-                } else if (steps % 2 == 0) {
+                } else {
                     // Particules légères entre les SONIC_BOOM
                     current.getWorld().spawnParticle(Particle.NOTE, current, 1, 0.1, 0.1, 0.1, 0);
                 }
@@ -1640,19 +1650,20 @@ public class BeastManager {
         Vector direction = target.getLocation().add(0, 1, 0).subtract(start).toVector().normalize();
 
         // Créer un projectile visuel avec des particules
+        // Vitesse: 1.6 blocs/tick, durée max: 40 ticks = 64 blocs de portée
         new BukkitRunnable() {
             Location current = start.clone();
             int ticks = 0;
 
             @Override
             public void run() {
-                if (ticks > 20) {
+                if (ticks > 40) {
                     cancel();
                     return;
                 }
 
-                // Déplacer la bulle
-                current.add(direction.clone().multiply(0.8));
+                // Déplacer la bulle (1.6 blocs/tick pour atteindre les cibles à 32 blocs)
+                current.add(direction.clone().multiply(1.6));
 
                 // Particules de bulle
                 current.getWorld().spawnParticle(Particle.BUBBLE_POP, current, 5, 0.1, 0.1, 0.1, 0);
@@ -1730,22 +1741,39 @@ public class BeastManager {
 
     /**
      * Lance une bouse explosive vers la cible - trajectoire en arc
+     * Utilise un calcul physique correct pour atteindre la cible
      */
     private void launchExplosiveDung(Player owner, LivingEntity cow, LivingEntity target) {
         Location start = cow.getLocation().add(0, 1.2, 0);
-        Location targetLoc = target.getLocation();
+        Location targetGround = target.getLocation(); // Position au sol pour la détection d'impact
+        Location targetLoc = targetGround.clone().add(0, 1.0, 0); // Viser le centre du mob
 
-        // Calculer la trajectoire en arc (parabole)
-        Vector toTarget = targetLoc.toVector().subtract(start.toVector());
-        double distance = toTarget.length();
-        toTarget.normalize();
+        // Calcul de trajectoire parabolique précise
+        double dx = targetLoc.getX() - start.getX();
+        double dy = targetLoc.getY() - start.getY();
+        double dz = targetLoc.getZ() - start.getZ();
+        double horizontalDist = Math.sqrt(dx * dx + dz * dz);
 
-        // Vélocité initiale avec arc
-        double horizontalSpeed = Math.min(distance / 15.0, 1.2); // Ajuster selon distance
-        double verticalSpeed = 0.6 + (distance / 20.0); // Arc plus haut pour distances longues
+        // Gravité par tick (même que dans la boucle)
+        double gravity = 0.08;
 
-        Vector velocity = toTarget.multiply(horizontalSpeed);
-        velocity.setY(verticalSpeed);
+        // Calculer le temps de vol optimal basé sur la distance
+        // Plus la distance est grande, plus le temps de vol est long
+        double flightTime = Math.max(15, Math.min(45, horizontalDist * 0.8 + 10));
+
+        // Vélocité horizontale pour couvrir la distance en flightTime ticks
+        double horizontalSpeed = horizontalDist / flightTime;
+
+        // Vélocité verticale pour atteindre dy avec la gravité
+        // Formule: dy = vy*t - 0.5*g*t² => vy = (dy + 0.5*g*t²) / t
+        double verticalSpeed = (dy + 0.5 * gravity * flightTime * flightTime) / flightTime;
+
+        // Direction horizontale normalisée
+        Vector horizontal = new Vector(dx, 0, dz).normalize().multiply(horizontalSpeed);
+        Vector velocity = horizontal.setY(verticalSpeed);
+
+        // Hauteur du sol pour la détection d'impact
+        final double groundY = targetGround.getY();
 
         // Son de lancement
         cow.getWorld().playSound(start, Sound.ENTITY_COW_HURT, 1.5f, 0.6f);
@@ -1779,8 +1807,8 @@ public class BeastManager {
                 // Vérifier impact au sol ou avec entité
                 boolean shouldExplode = false;
 
-                // Impact avec le sol
-                if (current.getBlock().getType().isSolid() || current.getY() < targetLoc.getY()) {
+                // Impact avec le sol (utilise groundY pour la hauteur de la cible au sol)
+                if (current.getBlock().getType().isSolid() || current.getY() < groundY) {
                     shouldExplode = true;
                 }
 
@@ -1844,16 +1872,16 @@ public class BeastManager {
     }
 
     private void executeLlamaAbility(Player owner, LivingEntity llama, long now, String cooldownKey, double frenzyMultiplier) {
-        // Cracher toutes les 3 secondes
-        long spitCooldown = (long) (3000 / frenzyMultiplier);
+        // Cracher toutes les 2.5 secondes (amélioré pour Tier 6)
+        long spitCooldown = (long) (2500 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver jusqu'à 3 cibles - portée 32 blocs
-            List<LivingEntity> targets = new ArrayList<>(3);
+            // Trouver jusqu'à 5 cibles - portée 32 blocs
+            List<LivingEntity> targets = new ArrayList<>(5);
             for (Entity nearby : llama.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     targets.add(monster);
-                    if (targets.size() >= 3) break; // Limite atteinte
+                    if (targets.size() >= 5) break; // Limite atteinte
                 }
             }
 
@@ -1882,16 +1910,64 @@ public class BeastManager {
     }
 
     /**
-     * Applique l'effet du crachat du lama (appelé par le listener)
+     * Applique l'effet du crachat corrosif du lama (appelé par le listener)
+     * Tier 6 - Dégâts augmentés + Lenteur III 5s + DoT Acide 15%/s pendant 4s
      */
     public void applyLlamaSpit(Player owner, LivingEntity target) {
         double damage = calculateBeastDamage(owner, BeastType.LLAMA);
 
-        // Appliquer les dégâts avec metadata
+        // Appliquer les dégâts d'impact avec metadata
         applyBeastDamageWithMetadata(owner, target, damage);
 
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // Lenteur II, 3s
-        target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0);
+        // Lenteur III pendant 5 secondes (100 ticks)
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 2)); // Lenteur III, 5s
+
+        // Particules d'acide à l'impact
+        target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0);
+        target.getWorld().spawnParticle(Particle.FALLING_SPORE_BLOSSOM, target.getLocation().add(0, 1.5, 0), 10, 0.4, 0.4, 0.4, 0);
+        target.getWorld().playSound(target.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 1.5f);
+
+        // DoT Acide: 15% des dégâts du joueur par seconde pendant 4 secondes
+        double acidDamagePerTick = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 0.15;
+        applyAcidDoT(owner, target, acidDamagePerTick, 4);
+    }
+
+    /**
+     * Applique un DoT d'acide corrosif sur la cible
+     * @param owner Le propriétaire du lama
+     * @param target La cible
+     * @param damagePerSecond Dégâts par seconde
+     * @param durationSeconds Durée en secondes
+     */
+    private void applyAcidDoT(Player owner, LivingEntity target, double damagePerSecond, int durationSeconds) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = durationSeconds * 20; // 4 secondes = 80 ticks
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || target.isDead() || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Appliquer les dégâts toutes les secondes (20 ticks)
+                if (ticks % 20 == 0) {
+                    applyBeastDamageWithMetadata(owner, target, damagePerSecond);
+
+                    // Particules d'acide qui ronge
+                    target.getWorld().spawnParticle(Particle.FALLING_SPORE_BLOSSOM,
+                        target.getLocation().add(0, 1, 0), 8, 0.3, 0.5, 0.3, 0);
+                    target.getWorld().spawnParticle(Particle.SMOKE,
+                        target.getLocation().add(0, 0.5, 0), 5, 0.2, 0.2, 0.2, 0.01);
+
+                    // Son d'acide qui grésille
+                    target.getWorld().playSound(target.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.3f, 2.0f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {

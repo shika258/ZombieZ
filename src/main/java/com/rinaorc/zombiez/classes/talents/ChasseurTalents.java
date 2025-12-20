@@ -35,12 +35,12 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_multi_shot")
             .name("Tirs Multiples")
-            .description("25% chance de tirer 3 fleches")
+            .description("30% chance de tirer 3 fleches")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
                 "§7Vos tirs a l'arc ou l'arbalete",
-                "§7ont §e25%§7 de chance de tirer",
+                "§7ont §e30%§7 de chance de tirer",
                 "§e3 fleches§7 horizontales!",
                 "",
                 "§8► Pattern: §fI I I",
@@ -52,7 +52,7 @@ public final class ChasseurTalents {
             .icon(Material.ARROW)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.MULTI_SHOT)
-            .values(new double[]{0.25, 2}) // chance, extra_projectiles (2 bonus = 3 total)
+            .values(new double[]{0.30, 2}) // chance (buffed 25→30%), extra_projectiles (2 bonus = 3 total)
             .build());
 
         // 1.2 - CHAUVE-SOURIS (Voie des Bêtes)
@@ -85,59 +85,78 @@ public final class ChasseurTalents {
             .values(new double[]{1.5}) // base_damage
             .build());
 
-        // 1.3 - CHASSEUR AGILE
+        // 1.3 - LAME D'OMBRE (Branche Ombre - Refonte)
         TALENTS.add(Talent.builder()
-            .id("chasseur_agile_hunter")
-            .name("Chasseur Agile")
-            .description("Esquive = invisible 1s + 50% degats")
+            .id("chasseur_shadow_blade")
+            .name("Lame d'Ombre")
+            .description("Attaques = Points d'Ombre")
             .loreLines(new String[]{
-                "§7Esquiver (double appui direction)",
-                "§7vous rend §binvisible 1s§7 et augmente",
-                "§7les degats suivants de §c+50%§7.",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8Temps de recharge: 3s"
+                "§6► LAME D'OMBRE",
+                "§7Attaques génèrent §d+1 Point d'Ombre",
+                "§7À §f3+ Points§7: §a+30%§7 vitesse d'attaque",
+                "",
+                "§8Points max: 5 (affichés dans l'ActionBar)"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(2)
-            .icon(Material.FEATHER)
-            .iconColor("§b")
-            .effectType(Talent.TalentEffectType.AGILE_HUNTER)
-            .values(new double[]{3000, 1000, 0.50}) // dodge_cooldown_ms, invis_duration_ms, damage_boost
-            .internalCooldownMs(3000)
+            .icon(Material.NETHERITE_SWORD)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_BLADE)
+            .values(new double[]{1, 3, 0.30}) // points_per_hit, threshold, attack_speed_bonus
             .build());
 
-        // 1.4 - MARQUE DU CHASSEUR
+        // 1.4 - FRAPPE VENIMEUSE (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_hunter_mark")
-            .name("Marque du Chasseur")
-            .description("Marquez les ennemis: +15% degats")
+            .id("chasseur_venomous_strike")
+            .name("Frappe Venimeuse")
+            .description("40% chance poison, 3+ = Nécrose")
             .loreLines(new String[]{
-                "§7Vos attaques §emarquent§7 les ennemis.",
-                "§7Les ennemis marques prennent",
-                "§7§c+15%§7 de degats de toutes sources.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Duree: 5s"
+                "§7Vos attaques ont §a40%§7 de chance",
+                "§7d'appliquer §2Venin§7 (stack x5).",
+                "",
+                "§6À 3+ STACKS - NÉCROSE:",
+                "§8► Le poison devient §cNécrose",
+                "§8► §c+20%§8 dégâts de poison",
+                "§8► Effet visuel de corruption",
+                "",
+                "§2§lINFECTEZ VOS PROIES"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(3)
-            .icon(Material.TARGET)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.HUNTER_MARK)
-            .values(new double[]{5000, 0.15}) // duration_ms, damage_amp
+            .icon(Material.SPIDER_EYE)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.VENOMOUS_STRIKE)
+            .values(new double[]{0.40, 5, 3, 0.20}) // chance, max_stacks, necrosis_threshold, necrosis_bonus (nerfed 25→20%)
             .build());
 
-        // 1.5 - FLECHES PERCANTES
+        // 1.5 - FLECHES PERCANTES (Voie de la Perforation)
         TALENTS.add(Talent.builder()
             .id("chasseur_piercing_arrows")
-            .name("Fleches Percantes")
-            .description("Projectiles traversent 1 ennemi")
+            .name("Flèches Perçantes")
+            .description("Traverse 2 ennemis, +25%/traversé")
             .loreLines(new String[]{
-                "§7Vos projectiles §atraversent§7",
-                "§7le premier ennemi touche.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats second: §c80%"
+                "§7Vos projectiles §atraversent§7",
+                "§7jusqu'à §e2 ennemis§7!",
+                "",
+                "§6MOMENTUM DE PERFORATION:",
+                "§8► Chaque ennemi traversé:",
+                "§8► §c+25%§8 dégâts au suivant!",
+                "",
+                "§6EXEMPLE:",
+                "§71er ennemi: §c100%§7 dégâts",
+                "§72ème ennemi: §c125%§7 dégâts",
+                "",
+                "§8Compteur affiché dans l'ActionBar",
+                "",
+                "§a§lPERCEZ VOS ENNEMIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -145,7 +164,7 @@ public final class ChasseurTalents {
             .icon(Material.SPECTRAL_ARROW)
             .iconColor("§a")
             .effectType(Talent.TalentEffectType.PIERCING_ARROWS)
-            .values(new double[]{1, 0.80}) // pierce_count, second_damage%
+            .values(new double[]{2, 0.25}) // pierce_count, bonus_damage_per_pierce%
             .build());
     }
 
@@ -224,68 +243,90 @@ public final class ChasseurTalents {
             .values(new double[]{3000, 0.25, 0.50, 4.0}) // infestation_duration_ms, corruption_bonus, explosion_damage, aoe_radius
             .build());
 
-        // 2.3 - FANTOME
+        // 2.3 - POISON INSIDIEUX (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_ghost")
-            .name("Fantome")
-            .description("3s+ invisible: +100% degats critiques")
+            .id("chasseur_insidious_poison")
+            .name("Poison Insidieux")
+            .description("Attaques empoisonnent (stack x5)")
             .loreLines(new String[]{
-                "§7Rester invisible §e3s+§7 confere",
-                "§7§c+100%§7 degats critique sur",
-                "§7la premiere attaque!",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8Assassin furtif"
+                "§6► POISON INSIDIEUX",
+                "§7Attaques appliquent §2Poison§7 3s",
+                "§7Se cumule jusqu'à §cx5§7 stacks",
+                "",
+                "§8Synergie: DoT continu"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(2)
-            .icon(Material.PHANTOM_MEMBRANE)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.GHOST)
-            .values(new double[]{3000, 1.0}) // invis_time_required_ms, crit_damage_bonus
+            .icon(Material.SPIDER_EYE)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.INSIDIOUS_POISON)
+            .values(new double[]{3000, 5}) // duration_ms, max_stacks
             .build());
 
-        // 2.4 - VENIN
+        // 2.4 - VENIN CORROSIF (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_venom")
-            .name("Venin")
-            .description("Poison: 40% degats sur 3s")
+            .id("chasseur_corrosive_venom")
+            .name("Venin Corrosif")
+            .description("Poison 50%/3s + -10% armure ennemi")
             .loreLines(new String[]{
-                "§7Vos attaques §2empoisonnent§7,",
-                "§7infligeant §c40%§7 degats bonus",
-                "§7sur §a3s§7.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Cumulable!"
+                "§7Votre poison devient §2corrosif§7!",
+                "",
+                "§6DÉGÂTS POISON:",
+                "§8► §c50%§8 de vos dégâts sur §e3s",
+                "§8► Se cumule avec les stacks",
+                "",
+                "§6CORROSION:",
+                "§8► Empoisonnés: §c-10%§8 armure",
+                "§8► Synergie avec Nécrose!",
+                "",
+                "§2§lRONGEZ LEUR DÉFENSE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(3)
-            .icon(Material.SPIDER_EYE)
+            .icon(Material.FERMENTED_SPIDER_EYE)
             .iconColor("§2")
-            .effectType(Talent.TalentEffectType.VENOM)
-            .values(new double[]{0.40, 3000}) // damage%, duration_ms
+            .effectType(Talent.TalentEffectType.CORROSIVE_VENOM)
+            .values(new double[]{0.50, 3000, 0.10}) // damage%, duration_ms, armor_reduction
             .build());
 
-        // 2.5 - RICOCHET
+        // 2.5 - CALIBRE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_ricochet")
-            .name("Ricochet")
-            .description("25% chance rebond sur ennemi proche")
+            .id("chasseur_caliber")
+            .name("Calibre")
+            .description("Charge 1-5, à 5 = TIR LOURD!")
             .loreLines(new String[]{
-                "§7Les projectiles ont §e25%§7 de",
-                "§7chance de rebondir sur un",
-                "§7ennemi proche.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats ricochet: §c70%",
-                "§8Portee: §e5§8 blocs"
+                "§7Système de §eCalibre§7 (1-5).",
+                "§7Chaque tir augmente le Calibre.",
+                "",
+                "§6CALIBRE CROISSANT:",
+                "§8► §e+1 Calibre§8 par tir",
+                "§8► §e+5%§8 dégâts par niveau",
+                "",
+                "§c§lÀ CALIBRE 5 - TIR LOURD:",
+                "§8► §c+100%§8 dégâts!",
+                "§8► §a+1§8 ennemi traversé",
+                "§8► Son de railgun satisfaisant",
+                "§8► Reset le Calibre à 0",
+                "",
+                "§8Calibre affiché: §e⬤⬤⬤⬤⬤",
+                "",
+                "§a§lMONTEZ EN PUISSANCE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(4)
-            .icon(Material.SLIME_BALL)
-            .iconColor("§a")
-            .effectType(Talent.TalentEffectType.RICOCHET)
-            .values(new double[]{0.25, 0.70, 5.0}) // chance, damage%, range
+            .icon(Material.IRON_NUGGET)
+            .iconColor("§e")
+            .effectType(Talent.TalentEffectType.CALIBER)
+            .values(new double[]{5, 0.05, 1.0, 1}) // max_caliber, damage_per_level%, heavy_shot_bonus, extra_pierce
             .build());
     }
 
@@ -347,38 +388,52 @@ public final class ChasseurTalents {
             .values(new double[]{3.0, 5000, 1.5}) // base_damage, bleed_duration_ms, bleed_damage_per_tick
             .build());
 
-        // 3.3 - TRAQUEUR
+        // 3.3 - PAS DE L'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_tracker")
-            .name("Traqueur")
-            .description("Marques: +25% degats, vision murs")
+            .id("chasseur_shadow_step")
+            .name("Pas de l'Ombre")
+            .description("Shift+Attaque = téléport derrière")
             .loreLines(new String[]{
-                "§7Les ennemis marques sont",
-                "§7visibles a travers les murs",
-                "§7et prennent §c+25%§7 degats.",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8(au lieu de +15%)"
+                "§6► PAS DE L'OMBRE",
+                "§7§eShift + Attaque§7 = téléport derrière",
+                "§7la cible + §d+2 Points d'Ombre",
+                "",
+                "§b⚡ §f5s§7 cooldown",
+                "§8Mobilité d'assassin"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(2)
-            .icon(Material.RECOVERY_COMPASS)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.TRACKER)
-            .values(new double[]{0.25}) // damage_amp (replaces base 15%)
+            .icon(Material.ENDER_EYE)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_STEP)
+            .values(new double[]{5000, 2}) // cooldown_ms, points_gained
             .build());
 
-        // 3.4 - TOXINES MORTELLES
+        // 3.4 - TOXINES MORTELLES (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_deadly_toxins")
             .name("Toxines Mortelles")
-            .description("Poison peut faire des critiques + ralentit -30%")
+            .description("Poison CRIT +50%, Slow -30%, burst possible")
             .loreLines(new String[]{
-                "§7Le poison peut §ecritiquer§7!",
-                "§7Les ennemis empoisonnes ont",
-                "§7§c-30%§7 vitesse.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Controle total"
+                "§7Votre poison devient §cléthal§7!",
+                "",
+                "§6CRITIQUES TOXIQUES:",
+                "§8► §e25%§8 chance de crit poison",
+                "§8► Crits: §c+50%§8 dégâts DoT",
+                "",
+                "§6PARALYSIE:",
+                "§8► Empoisonnés: §9-30%§8 vitesse",
+                "§8► Facilite les combo!",
+                "",
+                "§6BURST (5 stacks):",
+                "§8► Crit sur 5 stacks = explosion!",
+                "",
+                "§2§lLA MORT LENTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -386,27 +441,42 @@ public final class ChasseurTalents {
             .icon(Material.POISONOUS_POTATO)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.DEADLY_TOXINS)
-            .values(new double[]{0.30}) // slow%
+            .values(new double[]{0.25, 0.50, 0.30}) // crit_chance, crit_bonus, slow%
             .build());
 
-        // 3.5 - TIREUR D'ELITE
+        // 3.5 - TRAJECTOIRE FATALE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_sharpshooter")
-            .name("Tireur d'Elite")
-            .description("Immobile 1.5s = critique garanti")
+            .id("chasseur_fatal_trajectory")
+            .name("Trajectoire Fatale")
+            .description("Pierce 2+ = Ligne de Mort (+30% dégâts)")
             .loreLines(new String[]{
-                "§7Rester immobile §e1.5s§7 garantit",
-                "§7un §ecritique§7 sur le prochain tir!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Precision absolue"
+                "§7Traverser §e2+ ennemis§7 crée",
+                "§7une §c§lLIGNE DE MORT§7!",
+                "",
+                "§6LIGNE DE MORT:",
+                "§8► Zone linéaire de §e12 blocs",
+                "§8► Durée: §e3s",
+                "§8► Effet visuel subtil",
+                "",
+                "§c§lENNEMIS DANS LA LIGNE:",
+                "§8► Subissent §c+30%§8 de dégâts",
+                "§8► De toutes sources!",
+                "",
+                "§6SYNERGIE:",
+                "§7Parfait pour enchaîner les tirs",
+                "§7dans la même trajectoire!",
+                "",
+                "§a§lTRACEZ LEUR FIN"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(4)
-            .icon(Material.CROSSBOW)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.SHARPSHOOTER)
-            .values(new double[]{1500}) // still_time_ms
+            .icon(Material.END_ROD)
+            .iconColor("§a")
+            .effectType(Talent.TalentEffectType.FATAL_TRAJECTORY)
+            .values(new double[]{2, 12.0, 3000, 0.30}) // pierce_threshold, line_length, duration_ms, damage_bonus%
             .build());
     }
 
@@ -464,41 +534,57 @@ public final class ChasseurTalents {
             .icon(Material.AXOLOTL_BUCKET)
             .iconColor("§d")
             .effectType(Talent.TalentEffectType.BEAST_AXOLOTL)
-            .values(new double[]{2.5, 8.0, 1500}) // base_damage, range, cooldown_ms
+            .values(new double[]{3.5, 8.0, 1500}) // base_damage (buffed 2.5→3.5), range, cooldown_ms
             .build());
 
-        // 4.3 - SENTENCE DE MORT
+        // 4.3 - MARQUE DE MORT (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_death_sentence")
-            .name("Sentence de Mort")
-            .description("Marque explose a la mort (zone)")
+            .id("chasseur_death_mark")
+            .name("Marque de Mort")
+            .description("Crits marquent 8s (+25% dégâts)")
             .loreLines(new String[]{
-                "§7Les ennemis marques qui meurent",
-                "§7font §cexploser§7 leur marque!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Degats: §c100%§8 du coup fatal",
-                "§8Rayon: §e3§8 blocs"
+                "§7Vos §ecoups critiques§7 marquent",
+                "§7l'ennemi pendant §c8s§7!",
+                "",
+                "§6MARQUE DE MORT:",
+                "§8► §c+25%§8 dégâts subis",
+                "§8► §eGlowing§8 (visible à travers murs)",
+                "§8► §5Synergie§8 avec Exécution",
+                "",
+                "§5§lDÉVOILEZ VOS PROIES"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
             .slotIndex(2)
-            .icon(Material.TNT_MINECART)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.DEATH_SENTENCE)
-            .values(new double[]{1.0, 3.0}) // damage%, radius
+            .icon(Material.WITHER_SKELETON_SKULL)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.DEATH_MARK)
+            .values(new double[]{8000, 0.25}) // duration_ms, damage_bonus
             .build());
 
-        // 4.4 - PANDEMIE
+        // 4.4 - PANDEMIE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_pandemic")
-            .name("Pandemie")
-            .description("Poison se propage a la mort")
+            .name("Pandémie")
+            .description("Kill empoisonné = EXPLOSION toxique 5 blocs!")
             .loreLines(new String[]{
-                "§7Quand un ennemi empoisonne meurt,",
-                "§7le poison se §apropage§7 aux",
-                "§7ennemis proches!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Portee: §e4§8 blocs"
+                "§7Tuer un ennemi §2empoisonné§7",
+                "§7déclenche une §c§lEXPLOSION§7!",
+                "",
+                "§6EXPLOSION TOXIQUE:",
+                "§8► Zone: §e5§8 blocs",
+                "§8► Applique §22 stacks§8 poison",
+                "§8► §c30%§8 dégâts de l'ennemi tué",
+                "",
+                "§6RÉACTION EN CHAÎNE:",
+                "§7Si l'explosion tue, nouvelle",
+                "§7explosion! (max 3 chaînes)",
+                "",
+                "§2§lPROPAGEZ LA PESTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -506,20 +592,34 @@ public final class ChasseurTalents {
             .icon(Material.DRAGON_BREATH)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.PANDEMIC)
-            .values(new double[]{4.0}) // spread_range
+            .values(new double[]{5.0, 2, 0.30, 3}) // range, stacks_applied, damage%, max_chains
             .build());
 
-        // 4.5 - SURCHAUFFE
+        // 4.5 - SURCHAUFFE (Voie de la Perforation - Amélioré)
         TALENTS.add(Talent.builder()
             .id("chasseur_overheat")
             .name("Surchauffe")
-            .description("+5% degats/tir (max +50%), recul")
+            .description("+10%/tir (max +100%), à max = EXPLOSION!")
             .loreLines(new String[]{
-                "§7Chaque tir augmente les degats",
-                "§7de §c+5%§7 mais aussi le recul.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Max: §c+50%",
-                "§8Reinitialisation apres 2s sans tirer"
+                "§7Vos tirs §csurchauffent§7 votre arme!",
+                "",
+                "§6ACCUMULATION:",
+                "§8► §c+10%§8 dégâts par tir",
+                "§8► Maximum: §c+100%§8 (10 tirs)",
+                "§8► Reset après §e2.5s§8 sans tirer",
+                "",
+                "§c§lÀ 100% - TIR EXPLOSIF:",
+                "§8► Le prochain tir §6EXPLOSE§8!",
+                "§8► Zone: §e4 blocs",
+                "§8► §c+50%§8 dégâts bonus",
+                "§8► Applique §9Lenteur§8 2s",
+                "§8► Reset la surchauffe",
+                "",
+                "§6JAUGE: §8████████████",
+                "",
+                "§6§lCHAUFFEZ À BLANC!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -527,7 +627,7 @@ public final class ChasseurTalents {
             .icon(Material.FIRE_CHARGE)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.OVERHEAT)
-            .values(new double[]{0.05, 0.50, 2000}) // stack%, max%, reset_ms
+            .values(new double[]{0.10, 1.0, 2500, 4.0, 0.50}) // stack%, max%, reset_ms, explosion_radius, explosion_bonus%
             .build());
     }
 
@@ -558,7 +658,7 @@ public final class ChasseurTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.STEEL_STORM)
-            .values(new double[]{15000, 0.50, 20, 8.0}) // cooldown_ms, damage_per_arrow%, arrows, radius
+            .values(new double[]{15000, 0.60, 20, 8.0}) // cooldown_ms, damage_per_arrow% (buffed 50→60%), arrows, radius
             .internalCooldownMs(15000)
             .build());
 
@@ -588,41 +688,63 @@ public final class ChasseurTalents {
             .icon(Material.COW_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_COW)
-            .values(new double[]{8000, 0.80, 4.0}) // cooldown_ms, damage_percent, explosion_radius
+            .values(new double[]{8000, 1.00, 4.0}) // cooldown_ms, damage_percent (buffed 80→100%), explosion_radius
             .build());
 
-        // 5.3 - CHASSEUR DE PRIMES
+        // 5.3 - EXÉCUTION (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bounty_hunter")
-            .name("Chasseur de Primes")
-            .description("Tuer marque: +10% PV, +20% degats 5s")
+            .id("chasseur_execution")
+            .name("Exécution")
+            .description("5 Points sur marqué = 250%/400% dégâts")
             .loreLines(new String[]{
-                "§7Tuer un ennemi marque vous",
-                "§7soigne de §c10%§7 PV et donne",
-                "§7§c+20%§7 degats pendant §a5s§7.",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Prime collectee!"
+                "§7À §55 Points d'Ombre§7, attaquez",
+                "§7une cible §cmarquée§7 pour déclencher",
+                "§7une §c§lEXÉCUTION§7!",
+                "",
+                "§6DÉGÂTS:",
+                "§8► Cible normale: §c250%§8 dégâts",
+                "§8► Cible marquée: §c§l400%§8 dégâts!",
+                "",
+                "§6EFFET:",
+                "§8► Consomme §55 Points§8",
+                "§8► Génère +2 Points si kill",
+                "",
+                "§5§lLE MOMENT DE VÉRITÉ"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(2)
-            .icon(Material.GOLD_INGOT)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.BOUNTY_HUNTER)
-            .values(new double[]{0.10, 0.20, 5000}) // heal%, damage_bonus%, buff_duration_ms
+            .icon(Material.NETHERITE_SWORD)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.EXECUTION)
+            .values(new double[]{5, 2.5, 4.0, 2}) // points_needed, dmg_normal (250%), dmg_marked (400%), points_on_kill
             .build());
 
-        // 5.4 - EPIDEMIE
+        // 5.4 - EPIDEMIE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_epidemic")
-            .name("Epidemie")
-            .description("Poison cumul infini, 10+ = x2 degats")
+            .name("Épidémie")
+            .description("Stacks infinis, 10+ = SUPER EXPLOSION auto!")
             .loreLines(new String[]{
-                "§7Le poison se cumule §eindefiniment§7!",
-                "§7A §e10+ cumuls§7, les degats de",
-                "§7poison sont §cx2§7!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Infection mortelle"
+                "§7Le poison §2se cumule à l'infini§7!",
+                "",
+                "§6STACKS INFINIS:",
+                "§8► Plus de limite de 5 stacks",
+                "§8► Chaque stack = +10% dégâts DoT",
+                "",
+                "§c§lÀ 10 STACKS - SUPER EXPLOSION:",
+                "§8► §cTous les stacks explosent!",
+                "§8► §e150%§8 dégâts par stack",
+                "§8► Zone: §e4§8 blocs",
+                "§8► Reset les stacks à 0",
+                "",
+                "§6SATISFACTION GARANTIE!",
+                "",
+                "§2§lACCUMULEZ, EXPLOSEZ"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -630,28 +752,43 @@ public final class ChasseurTalents {
             .icon(Material.SLIME_BLOCK)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.EPIDEMIC)
-            .values(new double[]{10, 2.0}) // threshold, damage_multiplier
+            .values(new double[]{10, 1.5}) // threshold, damage_multiplier (nerfed 200→150%)
             .build());
 
-        // 5.5 - ZONE DE MORT
+        // 5.5 - PERFORATION ABSOLUE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_kill_zone")
-            .name("Zone de Mort")
-            .description("+100% vitesse d'attaque autour de vous")
+            .id("chasseur_absolute_perforation")
+            .name("Perforation Absolue")
+            .description("-20% armure/pierce (max -80%), expose!")
             .loreLines(new String[]{
-                "§7Creez une zone ou votre",
-                "§7vitesse de tir est §c+100%§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Rayon: §e4§8 blocs",
-                "§8Zone suit votre position"
+                "§7Vos tirs §cdéchirent§7 les armures!",
+                "",
+                "§6RÉDUCTION D'ARMURE:",
+                "§8► §c-20%§8 armure par ennemi traversé",
+                "§8► Se cumule sur la même cible",
+                "§8► Maximum: §c-80%§8 armure",
+                "§8► Durée: §e5s§8 (refresh)",
+                "",
+                "§c§lÀ -80% - EXPOSÉ:",
+                "§8► Cible devient §e§lEXPOSÉE",
+                "§8► §cGlowing§8 (visible à travers murs)",
+                "§8► Subit §c+35%§8 dégâts de vous",
+                "",
+                "§6SYNERGIE:",
+                "§7Parfait avec Calibre et",
+                "§7Trajectoire Fatale!",
+                "",
+                "§a§lDÉTRUISEZ LEUR DÉFENSE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(4)
-            .icon(Material.RED_CARPET)
+            .icon(Material.NETHERITE_PICKAXE)
             .iconColor("§c")
-            .effectType(Talent.TalentEffectType.KILL_ZONE)
-            .values(new double[]{4.0, 1.0}) // radius, attack_speed_bonus%
+            .effectType(Talent.TalentEffectType.ABSOLUTE_PERFORATION)
+            .values(new double[]{0.20, 0.80, 5000, 0.35}) // reduction_per_pierce%, max_reduction%, duration_ms, exposed_bonus%
             .build());
     }
 
@@ -715,70 +852,106 @@ public final class ChasseurTalents {
             .values(new double[]{3.5, 6.0, 3, 3000}) // base_damage, range, max_targets, slow_duration_ms
             .build());
 
-        // 6.3 - FRAPPE DES OMBRES
+        // 6.3 - DANSE MACABRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_shadow_strike")
-            .name("Frappe des Ombres")
-            .description("Attaque depuis l'ombre: +75% degats")
+            .id("chasseur_danse_macabre")
+            .name("Danse Macabre")
+            .description("Kill marqué = 2s invis + reset Pas + vitesse")
             .loreLines(new String[]{
-                "§7Vos attaques depuis l'invisibilite",
-                "§7infligent §c+75%§7 de degats bonus.",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8S'applique uniquement a la",
-                "§8premiere attaque",
-                "§8Synergie: Build assassin"
+                "§7Tuer une cible §cmarquée§7 déclenche",
+                "§7la §5§lDanse Macabre§7!",
+                "",
+                "§6EFFETS DU KILL:",
+                "§8► §7Invisibilité§8 §e2s",
+                "§8► §bReset§8 cooldown Pas d'Ombre",
+                "§8► §aVitesse II§8 pendant §e3s",
+                "§8► §5+1 Point§8 d'Ombre",
+                "",
+                "§6ENCHAÎNEMENT:",
+                "§7Parfait pour tuer plusieurs",
+                "§7cibles à la suite!",
+                "",
+                "§5§lL'OMBRE NE S'ARRÊTE JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(2)
-            .icon(Material.BLACK_DYE)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.SHADOW_STRIKE)
-            .values(new double[]{0.75}) // damage_bonus
+            .icon(Material.PHANTOM_MEMBRANE)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.DANSE_MACABRE)
+            .values(new double[]{2000, 3000, 1}) // invis_duration_ms, speed_duration_ms, points_gained
             .build());
 
-        // 6.4 - FAIBLESSE DE LA PROIE
+        // 6.4 - SYNERGIE TOXIQUE (Voie du Poison)
         TALENTS.add(Talent.builder()
-            .id("chasseur_prey_weakness")
-            .name("Faiblesse de la Proie")
-            .description("Marques: +40% degats critiques subis")
+            .id("chasseur_toxic_synergy")
+            .name("Synergie Toxique")
+            .description("+5% AS par stack proche, heal sur explosion")
             .loreLines(new String[]{
-                "§7Les ennemis marques prennent",
-                "§7§c+40%§7 de degats critiques.",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8S'applique en plus de l'amplification",
-                "§8de base des marques",
-                "§8Synergie: Build traqueur"
+                "§7Votre poison vous §arenforce§7!",
+                "",
+                "§6FRÉNÉSIE TOXIQUE:",
+                "§8► §a+5%§8 Attack Speed par stack",
+                "§8► Compte tous ennemis à §e8§8 blocs",
+                "§8► Maximum: §a+30%§8 AS",
+                "",
+                "§6DRAIN VITAL:",
+                "§8► Explosions de poison: §c+8%§8 heal",
+                "§8► Applique aux explosions Épidémie",
+                "",
+                "§6PLUS ILS SOUFFRENT...",
+                "§7...plus vous êtes fort!",
+                "",
+                "§2§lLE POISON VOUS NOURRIT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(3)
-            .icon(Material.CROSSBOW)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.PREY_WEAKNESS)
-            .values(new double[]{0.40}) // crit_damage_amp
+            .icon(Material.BREWING_STAND)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.TOXIC_SYNERGY)
+            .values(new double[]{0.05, 8.0, 0.30, 0.08}) // as_per_stack, range, max_as_bonus (nerfed 40→30%), heal_on_explosion
             .build());
 
-        // 6.5 - DECHIQUETEUR D'ARMURE
+        // 6.5 - MOMENTUM DE CHASSEUR (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_armor_shred")
-            .name("Dechiqueteur d'Armure")
-            .description("Tirs percants: -10% armure ennemi (cumul)")
+            .id("chasseur_hunter_momentum")
+            .name("Momentum de Chasseur")
+            .description("Kill surchauffé = vitesse, 3 kills = FRÉNÉSIE!")
             .loreLines(new String[]{
-                "§7Les attaques qui traversent",
-                "§7reduisent l'armure de §c-10%§7.",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Cumul max: §c-50%§8 armure",
-                "§8Duree: 5s par cumul",
-                "§8Synergie: Build perforation"
+                "§7Les kills pendant §cSurchauffe§7",
+                "§7vous propulsent vers l'avant!",
+                "",
+                "§6KILL SURCHAUFFÉ:",
+                "§8► §a+35%§8 vitesse de déplacement",
+                "§8► Durée: §e2s§8 (cumule)",
+                "§8► Chaque kill étend de §e+1s",
+                "",
+                "§c§l3 KILLS CONSÉCUTIFS - FRÉNÉSIE:",
+                "§8► §c+60%§8 Attack Speed!",
+                "§8► §a+50%§8 vitesse déplacement",
+                "§8► Durée: §e4s",
+                "§8► Tirs §6enflammés§8!",
+                "",
+                "§6ENCHAÎNEMENT PARFAIT:",
+                "§7Tuez vite pour maintenir",
+                "§7le momentum!",
+                "",
+                "§a§lNE VOUS ARRÊTEZ JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(4)
-            .icon(Material.SHEARS)
+            .icon(Material.SUGAR)
             .iconColor("§a")
-            .effectType(Talent.TalentEffectType.ARMOR_SHRED)
-            .values(new double[]{0.10, 0.50, 5000}) // reduction_per_stack, max_reduction, duration_ms
+            .effectType(Talent.TalentEffectType.HUNTER_MOMENTUM)
+            .values(new double[]{0.35, 2000, 1000, 3, 0.60, 0.50, 4000}) // speed%, base_duration_ms, extension_ms, frenzy_kills, frenzy_as%, frenzy_speed%, frenzy_duration_ms
             .build());
     }
 
@@ -843,41 +1016,65 @@ public final class ChasseurTalents {
             .icon(Material.FOX_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_FOX)
-            .values(new double[]{4000, 5000, 0.30}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus
+            .values(new double[]{4000, 5000, 0.35}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus (buffed 30→35%)
             .build());
 
-        // 6.3 - EXECUTEUR DE PRIMES
+        // 7.3 - CLONE D'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bounty_executioner")
-            .name("Executeur de Primes")
-            .description("Marques sous 20% PV = mort instantanee")
+            .id("chasseur_shadow_clone")
+            .name("Clone d'Ombre")
+            .description("5 Points = clone 10s (40% dégâts)")
             .loreLines(new String[]{
-                "§7Les ennemis marques sous",
-                "§7§c20%§7 PV meurent §cinstantanement§7!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Contrat rempli"
+                "§7Quand vous atteignez §55 Points§7,",
+                "§7invoquez automatiquement un",
+                "§5§lClone d'Ombre§7!",
+                "",
+                "§6CLONE D'OMBRE:",
+                "§8► Durée: §e10s",
+                "§8► Dégâts: §c40%§8 de vos dégâts",
+                "§8► §7Attaque votre cible",
+                "§8► §5Invulnérable§8 (ombre pure)",
+                "",
+                "§6SYNERGIE:",
+                "§7Le clone peut déclencher vos",
+                "§7effets de talents!",
+                "",
+                "§5§lVOTRE OMBRE COMBAT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.DIAMOND_SWORD)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.BOUNTY_EXECUTIONER)
-            .values(new double[]{0.20}) // threshold
+            .icon(Material.ARMOR_STAND)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_CLONE)
+            .values(new double[]{5, 10000, 0.40}) // points_trigger, duration_ms, damage_percent (40%)
             .build());
 
-        // 6.4 - PESTE NOIRE
+        // 7.4 - PESTE NOIRE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_black_plague")
             .name("Peste Noire")
-            .description("Poison: -75% soins ennemis, +5% auto-soin")
+            .description("Anti-heal, 10% lifesteal DoT, morts = nuages")
             .loreLines(new String[]{
-                "§7Le poison reduit les soins",
-                "§7recus par l'ennemi de §c-75%§7",
-                "§7et vous soigne de §a5%§7 des",
-                "§7degats de poison!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Peste devorante"
+                "§7Votre poison devient §0§lmortel§r§7!",
+                "",
+                "§6ANTI-SOIN:",
+                "§8► Empoisonnés: §c-75%§8 soins reçus",
+                "§8► Bloque régénération naturelle",
+                "",
+                "§6DRAIN DE VIE:",
+                "§8► Dégâts poison: §a+10%§8 lifesteal",
+                "§8► Vous soigne passivement!",
+                "",
+                "§6NUAGE MORTEL:",
+                "§8► Morts par poison = nuage 3s",
+                "§8► Nuage: §24§8 blocs, 15% dégâts/s",
+                "",
+                "§0§lLA MORT INCARNÉE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -885,29 +1082,47 @@ public final class ChasseurTalents {
             .icon(Material.WITHER_ROSE)
             .iconColor("§0")
             .effectType(Talent.TalentEffectType.BLACK_PLAGUE)
-            .values(new double[]{0.75, 0.05}) // heal_reduction%, self_heal%
+            .values(new double[]{0.75, 0.10, 4.0, 0.15, 3000}) // heal_reduction%, lifesteal%, cloud_radius, cloud_dps%, cloud_duration_ms
             .build());
 
-        // 6.5 - GATLING
+        // 7.5 - PERFORATION EN CHAÎNE (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_gatling")
-            .name("Gatling")
-            .description("20 tirs = mode gatling 5s (+200% vitesse)")
+            .id("chasseur_chain_perforation")
+            .name("Perforation en Chaîne")
+            .description("Après dernier pierce, rebondit 3x!")
             .loreLines(new String[]{
-                "§7Apres §e20 tirs§7 consecutifs,",
-                "§7passez en §cmode mitrailleuse§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Duree: §a5s",
-                "§8Bonus: §c+200%§8 vitesse d'attaque",
-                "§8Tir automatique!"
+                "§7Après avoir traversé le dernier",
+                "§7ennemi, vos projectiles §brebondissent§7!",
+                "",
+                "§6REBONDS EN CHAÎNE:",
+                "§8► Jusqu'à §e3§8 rebonds",
+                "§8► Vers l'ennemi le plus proche",
+                "§8► Portée: §e10 blocs",
+                "",
+                "§6DÉGÂTS PAR REBOND:",
+                "§8► 1er rebond: §c75%",
+                "§8► 2ème rebond: §c50%",
+                "§8► 3ème rebond: §c25%",
+                "",
+                "§6BONUS CALIBRE:",
+                "§8► §e30%§8 chance de +1 Calibre",
+                "§8► Par rebond réussi!",
+                "",
+                "§6SYNERGIE:",
+                "§7Plus vous percez, plus vous",
+                "§7rebondissez de fois!",
+                "",
+                "§a§lILS NE PEUVENT PAS FUIR"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(4)
-            .icon(Material.DISPENSER)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.GATLING)
-            .values(new double[]{20, 5000, 2.0}) // shots_required, duration_ms, attack_speed_bonus%
+            .icon(Material.ECHO_SHARD)
+            .iconColor("§b")
+            .effectType(Talent.TalentEffectType.CHAIN_PERFORATION)
+            .values(new double[]{3, 10.0, 0.75, 0.50, 0.25, 0.30}) // max_bounces, range, dmg_bounce1%, dmg_bounce2%, dmg_bounce3%, caliber_chance
             .build());
     }
 
@@ -941,7 +1156,7 @@ public final class ChasseurTalents {
             .icon(Material.FIREWORK_STAR)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.DEVASTATING_SWARM)
-            .values(new double[]{2.0, 3, 0.40, 2.0}) // radius_mult, fragment_count, fragment_damage%, fragment_radius
+            .values(new double[]{2.0, 3, 0.50, 2.0}) // radius_mult, fragment_count, fragment_damage% (buffed 40→50%), fragment_radius
             .build());
 
         // 8.2 - ABEILLE (Voie des Bêtes)
@@ -973,69 +1188,109 @@ public final class ChasseurTalents {
             .values(new double[]{2000, 5, 1.5}) // sting_cooldown_ms, max_stacks, explosion_damage_mult
             .build());
 
-        // 7.3 - CHASSEUR LEGENDAIRE
+        // 8.3 - TEMPÊTE D'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_legendary_hunter")
-            .name("Chasseur Legendaire")
-            .description("5 marques simultanees, duree infinie")
+            .id("chasseur_shadow_storm")
+            .name("Tempête d'Ombre")
+            .description("Exécution kill = AoE + marque tous")
             .loreLines(new String[]{
-                "§7Vous pouvez marquer §e5§7 ennemis",
-                "§7simultanement et les marques",
-                "§7durent §eindefiniment§7!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Chasseur supreme"
+                "§7Quand une §cExécution§7 tue une",
+                "§7cible, déclenchez une",
+                "§5§lTEMPÊTE D'OMBRE§7!",
+                "",
+                "§6TEMPÊTE:",
+                "§8► Zone: §e6§8 blocs",
+                "§8► Dégâts: §c150%§8 de l'Exécution",
+                "§8► §cMarque§8 tous les touchés",
+                "§8► §5+1 Point§8 par ennemi touché",
+                "",
+                "§6RÉACTION EN CHAÎNE:",
+                "§7Parfait pour nettoyer les groupes!",
+                "",
+                "§5§lL'OMBRE CONSUME TOUT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(2)
-            .icon(Material.BEACON)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.LEGENDARY_HUNTER)
-            .values(new double[]{5}) // max_marks
+            .icon(Material.WITHER_ROSE)
+            .iconColor("§5§l")
+            .effectType(Talent.TalentEffectType.SHADOW_STORM)
+            .values(new double[]{6.0, 1.50, 1}) // radius, damage_mult, points_per_enemy
             .build());
 
-        // 7.4 - FLEAU
+        // 8.4 - FLEAU (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_blight")
-            .name("Fleau")
-            .description("Poison se propage passivement")
+            .name("Fléau")
+            .description("Aura poison 5 blocs, propagation auto, combo boost")
             .loreLines(new String[]{
-                "§7Le poison peut se propager",
-                "§7meme aux ennemis a §epleine vie§7",
-                "§7proches d'un infecte!",
+                "§2§lVOIE DU POISON",
                 "",
-                "§8Portee: §e3§8 blocs",
-                "§8Verification: toutes les 2s"
+                "§7Vous §2irradiez§7 le poison!",
+                "",
+                "§6AURA TOXIQUE:",
+                "§8► §e5 blocs§8 autour de vous",
+                "§8► §21 stack§8/seconde aux ennemis",
+                "§8► Passive et permanente",
+                "",
+                "§6PROPAGATION AUTO:",
+                "§8► Ennemis 3+ stacks infectent",
+                "§8► les autres à §e3 blocs§8",
+                "",
+                "§6BOOST COMBO:",
+                "§8► À 50+ stacks totaux proches:",
+                "§8► §c+25%§8 tous vos dégâts!",
+                "",
+                "§2§lVOUS ÊTES LA PESTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(3)
             .icon(Material.MYCELIUM)
-            .iconColor("§5")
+            .iconColor("§2")
             .effectType(Talent.TalentEffectType.BLIGHT)
-            .values(new double[]{3.0, 2000}) // range, tick_ms
+            .values(new double[]{5.0, 1000, 3.0, 50, 0.25}) // aura_range, tick_ms, spread_range, combo_threshold, combo_bonus
             .build());
 
-        // 7.5 - ARSENAL VIVANT
+        // 8.5 - DÉVASTATION (Voie de la Perforation)
         TALENTS.add(Talent.builder()
-            .id("chasseur_living_arsenal")
-            .name("Arsenal Vivant")
-            .description("Tir auto toutes 0.5s (80% degats)")
+            .id("chasseur_devastation")
+            .name("Dévastation")
+            .description("Mode 8s: pierce infini, +60% dégâts, slow!")
             .loreLines(new String[]{
-                "§7Vous tirez §eautomatiquement§7",
-                "§7sur l'ennemi le plus proche",
-                "§7toutes les §a0.5s§7!",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§8Degats: §c80%",
-                "§8Portee: §e10§8 blocs"
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Entrez en mode §c§lDÉVASTATION§7!",
+                "",
+                "§6MODE DÉVASTATION (8s):",
+                "§8► §aPierce INFINI§8!",
+                "§8► §c+60%§8 dégâts",
+                "§8► Tirs créent traînée visuelle",
+                "§8► Ennemis touchés: §9-40%§8 vitesse",
+                "",
+                "§6BONUS CALIBRE:",
+                "§8► Calibre monte §e2x§8 plus vite",
+                "§8► Tirs Lourds = §c+150%§8 dégâts!",
+                "",
+                "§6EFFET VISUEL:",
+                "§8► Vous brillez §avert§8",
+                "§8► Projectiles laissent des traînées",
+                "",
+                "§8► Cooldown: §c30s",
+                "",
+                "§a§l★ DÉVASTATION TOTALE ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.DISPENSER)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.LIVING_ARSENAL)
-            .values(new double[]{500, 0.80, 10.0}) // tick_ms, damage%, range
+            .icon(Material.NETHERITE_INGOT)
+            .iconColor("§a§l")
+            .effectType(Talent.TalentEffectType.DEVASTATION)
+            .values(new double[]{8000, 0.60, 0.40, 1.50, 30000}) // duration_ms, damage_bonus%, slow%, heavy_shot_bonus, cooldown_ms
+            .internalCooldownMs(30000)
             .build());
     }
 
@@ -1107,80 +1362,125 @@ public final class ChasseurTalents {
             .icon(Material.IRON_BLOCK)
             .iconColor("§7§l")
             .effectType(Talent.TalentEffectType.BEAST_IRON_GOLEM)
-            .values(new double[]{10000, 8.0, 5.0}) // slam_cooldown_ms, damage, radius
+            .values(new double[]{10000, 12.0, 6.0}) // slam_cooldown_ms, damage (buffed 8→12), radius (buffed 5→6)
             .build());
 
-        // 8.3 - CARNET DE LA MORT
+        // 9.3 - AVATAR D'OMBRE (Branche Ombre - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_death_note")
-            .name("Carnet de la Mort")
-            .description("Marquer = mort apres 10s")
+            .id("chasseur_shadow_avatar")
+            .name("Avatar d'Ombre")
+            .description("Ultime 15s: 2 clones, +1 Point/s, +40% dégâts")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§5§l★ TALENT LÉGENDAIRE ★",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§7Marquer un ennemi le tue",
-                "§7apres §e10s§7, peu importe ses PV!",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Transformez-vous en §5§lAVATAR D'OMBRE§7!",
                 "",
-                "§8Boss: §c-50%§8 PV direct",
-                "§8Temps de recharge: 60s"
+                "§6TRANSFORMATION (15s):",
+                "§8► §52 Clones§8 permanents",
+                "§8► §5+1 Point/s§8 automatique",
+                "§8► §c+40%§8 dégâts toutes sources",
+                "§8► §7Semi-transparent§8 (ombre)",
+                "",
+                "§6SYNERGIE ULTIME:",
+                "§7Les Exécutions des clones",
+                "§7peuvent déclencher Tempête!",
+                "",
+                "§8► Cooldown: §c45s",
+                "",
+                "§5§l★ MAÎTRE DES OMBRES ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(2)
-            .icon(Material.WRITTEN_BOOK)
-            .iconColor("§0§l")
-            .effectType(Talent.TalentEffectType.DEATH_NOTE)
-            .values(new double[]{10000, 0.50, 60000}) // delay_ms, boss_damage%, cooldown_ms
-            .internalCooldownMs(60000)
+            .icon(Material.DRAGON_HEAD)
+            .iconColor("§5§l")
+            .effectType(Talent.TalentEffectType.SHADOW_AVATAR)
+            .values(new double[]{15000, 2, 1000, 0.40, 45000}) // duration_ms, clone_count, point_interval_ms, damage_bonus (40%), cooldown_ms
+            .internalCooldownMs(45000)
             .build());
 
-        // 8.4 - APOCALYPSE TOXIQUE
+        // 9.4 - AVATAR DE LA PESTE (Voie du Poison - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_toxic_apocalypse")
-            .name("Apocalypse Toxique")
-            .description("Aura de poison permanente")
+            .id("chasseur_plague_avatar")
+            .name("Avatar de la Peste")
+            .description("Ultime 20s: Max stacks instant, x2 explosions, immunité!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§2§l★ TALENT LÉGENDAIRE ★",
+                "§2§lVOIE DU POISON",
                 "",
-                "§7Vous emettez constamment un",
-                "§7nuage de poison autour de vous.",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Devenez l'§2§lAVATAR DE LA PESTE§7!",
                 "",
-                "§8Rayon: §e5§8 blocs",
-                "§8Degats: §c20%§8/s",
-                "§8Tous vos bonus poison s'appliquent"
+                "§6TRANSFORMATION (20s):",
+                "§8► Attaques = §2max stacks§8 instant!",
+                "§8► Explosions poison: §cx2§8 rayon",
+                "§8► §aImmunité§8 poison/wither",
+                "§8► Aura 8 blocs (3 stacks/s)",
+                "",
+                "§6PESTE FINALE:",
+                "§8► À la fin: §cMÉGA EXPLOSION",
+                "§8► 10 blocs, 500% dégâts poison",
+                "§8► Tous les ennemis = max stacks",
+                "",
+                "§8► Cooldown: §c60s",
+                "",
+                "§2§l★ MAÎTRE DE LA PESTE ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(3)
-            .icon(Material.DRAGON_BREATH)
+            .icon(Material.DRAGON_HEAD)
             .iconColor("§2§l")
-            .effectType(Talent.TalentEffectType.TOXIC_APOCALYPSE)
-            .values(new double[]{5.0, 0.20}) // radius, damage%_per_second
+            .effectType(Talent.TalentEffectType.PLAGUE_AVATAR)
+            .values(new double[]{20000, 8.0, 3, 10.0, 5.0, 60000}) // duration_ms, aura_range, stacks_per_sec, final_radius, final_damage_mult, cooldown_ms
+            .internalCooldownMs(60000)
             .build());
 
-        // 8.5 - TEMPS SUSPENDU
+        // 9.5 - JUGEMENT (Voie de la Perforation - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bullet_time")
-            .name("Temps Suspendu")
-            .description("Ralentit le temps a 25% pendant 5s")
+            .id("chasseur_judgment")
+            .name("Jugement")
+            .description("Rayon 50 blocs, 1000% dégâts, -100% armure!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§a§l★ TALENT LÉGENDAIRE ★",
+                "§a§lVOIE DE LA PERFORATION",
                 "",
-                "§7Activation (S'accroupir + Sauter):",
-                "§7Ralentit le temps a §e25%§7!",
-                "§7Vous bougez normalement.",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7puis restez §eimmobile 1.5s§7...",
                 "",
-                "§8Duree: §a5s",
-                "§8Temps de recharge: 60s"
+                "§c§lTIR DU JUGEMENT:",
+                "§8► Tire un §cRAYON§8 de §e50 blocs",
+                "§8► Traverse §aTOUS§8 les ennemis",
+                "§8► Dégâts: §c§l1000%§8 de base!",
+                "",
+                "§6EFFETS SUR LES TOUCHÉS:",
+                "§8► §c-100%§8 armure pendant §e5s",
+                "§8► §6Enflammés§8 pendant §e3s",
+                "§8► §9Lenteur III§8 pendant §e3s",
+                "",
+                "§6TRAÎNÉE DE FEU:",
+                "§8► Le rayon laisse une traînée",
+                "§8► Zone de feu §e3s§8, brûle!",
+                "",
+                "§6EFFET VISUEL:",
+                "§8► Charge: particules convergent",
+                "§8► Tir: éclair §avert§8 massif",
+                "§8► Son: railgun épique",
+                "",
+                "§8► Cooldown: §c45s",
+                "",
+                "§a§l★ JUGEMENT FINAL ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(4)
-            .icon(Material.CLOCK)
-            .iconColor("§b§l")
-            .effectType(Talent.TalentEffectType.BULLET_TIME)
-            .values(new double[]{5000, 0.25, 60000}) // duration_ms, time_scale, cooldown_ms
-            .internalCooldownMs(60000)
+            .icon(Material.END_CRYSTAL)
+            .iconColor("§a§l")
+            .effectType(Talent.TalentEffectType.JUDGMENT)
+            .values(new double[]{1500, 50.0, 10.0, 1.0, 5000, 3000, 45000}) // charge_ms, range, damage_mult, armor_reduction%, armor_duration_ms, fire_duration_ms, cooldown_ms
+            .internalCooldownMs(45000)
             .build());
     }
 
