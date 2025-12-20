@@ -147,26 +147,29 @@ public class ShadowListener implements Listener {
 
                     // === T8: SHADOW_STORM - Exécution kill = AoE ===
                     Talent shadowStorm = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STORM);
-                    if (shadowStorm != null && target.getHealth() <= 0) {
-                        shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage);
+                    if (shadowStorm != null && target.isDead()) {
+                        // Utiliser les valeurs du talent: radius, damage_mult, points_per_enemy
+                        double[] stormValues = shadowStorm.getValues();
+                        double radius = stormValues.length > 0 ? stormValues[0] : 6.0;
+                        double damageMult = stormValues.length > 1 ? stormValues[1] : 1.50;
+                        shadowManager.triggerShadowStorm(player, target.getLocation(), executionDamage, radius, damageMult);
                     }
                 }
             }
         }
 
-        // === T7: SHADOW_CLONE - Faire attaquer les clones ===
-        Talent shadowClone = getActiveTalent(player, Talent.TalentEffectType.SHADOW_CLONE);
-        if (shadowClone != null && isMelee) {
-            shadowManager.clonesAttack(player, target, damage);
-        }
+        // === T7: SHADOW_CLONE - Les clones attaquent automatiquement via leur IA ===
+        // (Pas besoin d'appeler manuellement, updateClones() gère l'IA)
 
         // === Bonus dégâts Avatar actif (+40% équilibré) ===
-        if (shadowManager.isAvatarActive(uuid)) {
+        // Note: Ce bonus ne s'applique pas aux Exécutions (event annulé plus haut)
+        // Les Exécutions ont leur propre système de dégâts
+        if (shadowManager.isAvatarActive(uuid) && !event.isCancelled()) {
             event.setDamage(event.getDamage() * 1.4); // 40% bonus
         }
 
         // Bonus dégâts sur cible marquée (+25%)
-        if (shadowManager.isMarkedBy(targetUuid, uuid)) {
+        if (shadowManager.isMarkedBy(targetUuid, uuid) && !event.isCancelled()) {
             event.setDamage(event.getDamage() * 1.25);
         }
 
@@ -397,7 +400,7 @@ public class ShadowListener implements Listener {
 
             if (lastSneak != null && now - lastSneak < DOUBLE_SNEAK_WINDOW) {
                 // Double sneak détecté!
-                shadowManager.activateAvatar(player);
+                shadowManager.activateAvatar(player, shadowAvatar);
                 lastAvatarSneakTime.remove(uuid);
             } else {
                 lastAvatarSneakTime.put(uuid, now);

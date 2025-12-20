@@ -202,6 +202,13 @@ public class ShadowManager {
                         removeAllClones(entry.getKey());
                         Player player = Bukkit.getPlayer(entry.getKey());
                         if (player != null) {
+                            // Retirer le glowing violet et l'invisibilité
+                            player.setGlowing(false);
+                            if (deathMarkTeam != null) {
+                                deathMarkTeam.removeEntity(player);
+                            }
+                            player.removePotionEffect(PotionEffectType.INVISIBILITY);
+
                             player.sendMessage("§8§l[OMBRE] §7Avatar des Ombres §cterminé§7.");
                             player.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.0f, 0.8f);
                         }
@@ -1290,9 +1297,20 @@ public class ShadowManager {
             }
         }
 
-        // 25% de chance de marquer la cible
-        if (!isMarked(target.getUniqueId()) && Math.random() < 0.25) {
+        // 25% de chance de marquer la cible (si vivante)
+        if (!target.isDead() && !isMarked(target.getUniqueId()) && Math.random() < 0.25) {
             applyDeathMark(owner, target);
+        }
+
+        // === SYNERGIE AVATAR: Clone kill peut déclencher Shadow Storm ===
+        // Vérifier si la cible est morte et si le joueur a Shadow Storm
+        if (target.isDead() && hasTalent(owner, Talent.TalentEffectType.SHADOW_STORM)) {
+            // Déclencher Tempête d'Ombre au niveau de la cible
+            Location killLocation = target.getLocation();
+            triggerShadowStorm(owner, killLocation, damage);
+
+            // Message de synergie
+            owner.sendMessage("§5§l[CLONE] §7Kill déclenche §d§lTempête d'Ombre§7!");
         }
     }
 
@@ -1424,21 +1442,42 @@ public class ShadowManager {
 
     /**
      * Déclenche l'explosion AoE de Tempête d'Ombres
+     * @param owner Le joueur propriétaire
+     * @param center Le centre de l'explosion
+     * @param baseDamage Les dégâts de base (de l'Exécution)
+     * @param radius Le rayon de l'explosion (valeur du talent)
+     * @param damageMult Le multiplicateur de dégâts (valeur du talent, ex: 1.50 = 150%)
      */
-    public void triggerShadowStorm(Player owner, Location center, double baseDamage) {
-        // Explosion visuelle
+    public void triggerShadowStorm(Player owner, Location center, double baseDamage, double radius, double damageMult) {
+        // Explosion visuelle (proportionnelle au rayon)
         center.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, 50, 2, 1, 2, 0.1);
-        center.getWorld().spawnParticle(Particle.WITCH, center, 40, 2, 1, 2, 0.05);
+        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, (int)(50 * radius / 5), radius, 1, radius, 0.1);
+        center.getWorld().spawnParticle(Particle.WITCH, center, (int)(40 * radius / 5), radius, 1, radius, 0.05);
         center.getWorld().playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.5f, 1.0f);
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
 
-        // Dégâts AoE
-        double aoeDamage = baseDamage; // 100% des dégâts de base
+        // Cercle de particules montrant la zone
+        for (double angle = 0; angle < 360; angle += 20) {
+            double rad = Math.toRadians(angle);
+            double x = Math.cos(rad) * radius;
+            double z = Math.sin(rad) * radius;
+            center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 2, 0, 0, 0, 0,
+                new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.2f));
+        }
+
+        // Dégâts AoE avec multiplicateur
+        double aoeDamage = baseDamage * damageMult;
         int enemiesHit = 0;
 
-        for (Entity entity : center.getWorld().getNearbyEntities(center, 5, 3, 5)) {
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius / 2, radius)) {
+            // Ne pas affecter les clones d'ombre
+            if (entity.hasMetadata(SHADOW_CLONE_OWNER_KEY)) continue;
+
             if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                // Metadata pour l'indicateur de dégâts
+                monster.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                monster.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
                 monster.damage(aoeDamage, owner);
                 applyDeathMark(owner, monster); // Marquer tous
                 enemiesHit++;
@@ -1448,6 +1487,9 @@ public class ShadowManager {
                     .subtract(center.toVector()).normalize().multiply(0.8);
                 knockback.setY(0.4);
                 monster.setVelocity(knockback);
+
+                // Particule d'impact sur chaque ennemi
+                monster.getWorld().spawnParticle(Particle.CRIT, monster.getLocation().add(0, 1, 0), 8, 0.2, 0.2, 0.2, 0.1);
             }
         }
 
@@ -1456,17 +1498,34 @@ public class ShadowManager {
 
         if (enemiesHit > 0) {
             owner.sendMessage("§5§l[TEMPÊTE] §7" + enemiesHit + " ennemis touchés! §d+" +
-                enemiesHit + " Points d'Ombre");
+                enemiesHit + " Points d'Ombre §7(§c" + String.format("%.0f", aoeDamage) + " dmg§7)");
         }
+    }
+
+    /**
+     * Version simplifiée pour les appels internes (clone kills)
+     */
+    public void triggerShadowStorm(Player owner, Location center, double baseDamage) {
+        triggerShadowStorm(owner, center, baseDamage, 6.0, 1.50);
     }
 
     // ==================== AVATAR DES OMBRES ====================
 
     /**
      * Active l'Avatar des Ombres (ultime)
+     * @param player Le joueur
+     * @param talent Le talent pour récupérer les valeurs (optionnel)
      */
-    public boolean activateAvatar(Player player) {
+    public boolean activateAvatar(Player player, Talent talent) {
         UUID uuid = player.getUniqueId();
+
+        // Récupérer les valeurs du talent
+        // values: duration_ms, clone_count, point_interval_ms, damage_bonus, cooldown_ms
+        double[] values = talent != null ? talent.getValues() : new double[]{15000, 2, 1000, 0.40, 45000};
+        long durationMs = (long) values[0];     // 15000ms
+        int cloneCount = (int) values[1];       // 2 clones
+        double damageBonus = values[3];         // 0.40 (+40%)
+        long cooldownMs = values.length > 4 ? (long) values[4] : 45000L; // 45s
 
         // Vérifier cooldown
         if (isOnCooldown(avatarCooldown, uuid)) {
@@ -1476,16 +1535,27 @@ public class ShadowManager {
             return false;
         }
 
-        // Activer l'Avatar
-        avatarActive.put(uuid, System.currentTimeMillis() + AVATAR_DURATION);
-        avatarCooldown.put(uuid, System.currentTimeMillis() + AVATAR_COOLDOWN);
+        // Activer l'Avatar avec durée du talent
+        avatarActive.put(uuid, System.currentTimeMillis() + durationMs);
+        avatarCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
-        // Invoquer 2 clones
-        summonShadowClone(player);
-        summonShadowClone(player);
+        // Invoquer les clones selon le talent
+        for (int i = 0; i < cloneCount; i++) {
+            summonShadowClone(player);
+        }
 
         // Remplir les Points d'Ombre
         shadowPoints.put(uuid, MAX_SHADOW_POINTS);
+
+        // Effet semi-transparent (invisibilité partielle)
+        int durationTicks = (int) (durationMs / 50);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, durationTicks, 0, false, false, true));
+
+        // Ajouter glowing violet pour être visible malgré l'invisibilité
+        player.setGlowing(true);
+        if (deathMarkTeam != null) {
+            deathMarkTeam.addEntity(player);
+        }
 
         // Effets visuels épiques
         Location loc = player.getLocation();
@@ -1496,21 +1566,39 @@ public class ShadowManager {
         loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.8f);
 
         // Aura continue pendant l'Avatar
-        startAvatarAura(uuid);
+        startAvatarAura(uuid, durationTicks);
 
-        player.sendMessage("§5§l[AVATAR DES OMBRES] §dActivé! §715s de puissance absolue!");
+        player.sendMessage("§5§l[AVATAR DES OMBRES] §dActivé! §7" + (durationMs / 1000) + "s de puissance absolue! §c+" +
+            (int)(damageBonus * 100) + "% dégâts");
 
         return true;
     }
 
     /**
+     * Version sans talent (utilise valeurs par défaut)
+     */
+    public boolean activateAvatar(Player player) {
+        return activateAvatar(player, null);
+    }
+
+    /**
      * Aura visuelle pendant l'Avatar
      */
-    private void startAvatarAura(UUID playerUuid) {
+    private void startAvatarAura(UUID playerUuid, int durationTicks) {
         new BukkitRunnable() {
+            int ticks = 0;
+
             @Override
             public void run() {
-                if (!avatarActive.containsKey(playerUuid)) {
+                if (ticks >= durationTicks || !avatarActive.containsKey(playerUuid)) {
+                    // Fin de l'Avatar - retirer les effets visuels
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (player != null) {
+                        player.setGlowing(false);
+                        if (deathMarkTeam != null) {
+                            deathMarkTeam.removeEntity(player);
+                        }
+                    }
                     cancel();
                     return;
                 }
@@ -1534,6 +1622,13 @@ public class ShadowManager {
                         loc.clone().add(x, 0.1, z), 1, 0, 0, 0, 0,
                         new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.0f));
                 }
+
+                // Particules d'ombre sur le joueur
+                if (ticks % 10 == 0) {
+                    loc.getWorld().spawnParticle(Particle.SMOKE, loc.add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0.01);
+                }
+
+                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 2L);
     }
@@ -1577,11 +1672,21 @@ public class ShadowManager {
         removeAllClones(playerUuid);
         activeShadowPlayers.remove(playerUuid);
 
-        // Retirer les modifiers d'attributs
+        // Retirer les modifiers d'attributs et effets visuels
         Player player = Bukkit.getPlayer(playerUuid);
         if (player != null) {
             removeDanseAttackSpeedBonus(player);
+
+            // Retirer les effets de l'Avatar
+            player.setGlowing(false);
+            if (deathMarkTeam != null) {
+                deathMarkTeam.removeEntity(player);
+            }
+            player.removePotionEffect(PotionEffectType.INVISIBILITY);
         }
+
+        // Nettoyer le cooldown des clones
+        cloneAttackCooldown.remove(playerUuid);
 
         // Désenregistrer de l'ActionBarManager
         if (plugin.getActionBarManager() != null) {
