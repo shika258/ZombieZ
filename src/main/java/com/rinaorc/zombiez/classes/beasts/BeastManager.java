@@ -1640,19 +1640,20 @@ public class BeastManager {
         Vector direction = target.getLocation().add(0, 1, 0).subtract(start).toVector().normalize();
 
         // Créer un projectile visuel avec des particules
+        // Vitesse: 1.6 blocs/tick, durée max: 40 ticks = 64 blocs de portée
         new BukkitRunnable() {
             Location current = start.clone();
             int ticks = 0;
 
             @Override
             public void run() {
-                if (ticks > 20) {
+                if (ticks > 40) {
                     cancel();
                     return;
                 }
 
-                // Déplacer la bulle
-                current.add(direction.clone().multiply(0.8));
+                // Déplacer la bulle (1.6 blocs/tick pour atteindre les cibles à 32 blocs)
+                current.add(direction.clone().multiply(1.6));
 
                 // Particules de bulle
                 current.getWorld().spawnParticle(Particle.BUBBLE_POP, current, 5, 0.1, 0.1, 0.1, 0);
