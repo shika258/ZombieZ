@@ -423,16 +423,30 @@ public class BeastManager {
                !loc.clone().subtract(0, 1, 0).getBlock().isPassable();
     }
 
+    // Constantes pour le comportement des bêtes
+    private static final double BEAST_COMBAT_RANGE = 20.0;      // Rayon max de combat autour du joueur
+    private static final double BEAST_LEASH_RANGE = 25.0;       // Distance max avant téléportation
+    private static final double BEAST_FOLLOW_RANGE = 8.0;       // Distance pour commencer à suivre (pas de combat)
+
     /**
-     * Met à jour la formation de la meute
+     * Met à jour la formation de la meute.
+     * Système de priorité:
+     * 1. Cible focus du joueur (celle qu'il attaque)
+     * 2. Ennemi le plus proche du joueur (dans 20 blocs)
+     * 3. Suivre le joueur si aucun ennemi
      */
     private void updatePackFormation() {
         for (Map.Entry<UUID, Map<BeastType, UUID>> entry : playerBeasts.entrySet()) {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || !player.isOnline()) continue;
 
-            // Trouver la cible focus commune (ennemi le plus proche du joueur)
-            LivingEntity focusTarget = findNearestEnemy(player, 15);
+            // PRIORITÉ 1: Récupérer la cible focus du joueur (celle qu'il attaque)
+            LivingEntity focusTarget = getPlayerFocusTarget(player);
+
+            // PRIORITÉ 2: Si pas de focus, chercher l'ennemi le plus proche du joueur
+            if (focusTarget == null) {
+                focusTarget = findNearestEnemy(player, BEAST_COMBAT_RANGE);
+            }
 
             for (Map.Entry<BeastType, UUID> beastEntry : entry.getValue().entrySet()) {
                 Entity entity = Bukkit.getEntity(beastEntry.getValue());
@@ -442,95 +456,159 @@ public class BeastManager {
 
                 BeastType type = beastEntry.getKey();
                 Location beastLoc = beast.getLocation();
-                Location targetLoc = calculatePackPosition(player, type);
-                double distanceToTarget = beastLoc.distance(targetLoc);
+                Location playerLoc = player.getLocation();
+                double distanceToPlayer = beastLoc.distance(playerLoc);
+
+                // Si trop loin du joueur (>25 blocs), téléporter près du joueur
+                if (distanceToPlayer > BEAST_LEASH_RANGE) {
+                    Location safeLoc = calculatePackPosition(player, type);
+                    beast.teleport(safeLoc);
+                    continue;
+                }
 
                 // Comportement spécifique selon le type de bête
                 if (type == BeastType.BAT || type == BeastType.BEE) {
-                    // Bêtes volantes: mouvement fluide par vélocité
-                    updateFlyingBeast(beast, targetLoc, focusTarget);
-                } else if (type == BeastType.BEAR && beast instanceof Mob bearMob) {
-                    // L'ours garde sa cible de combat si elle est proche
-                    LivingEntity bearTarget = bearMob.getTarget();
-                    if (bearTarget != null && !bearTarget.isDead() &&
-                        bearTarget.getLocation().distance(beastLoc) < 10) {
-                        // L'ours poursuit sa cible
-                        orientBeastTowards(beast, bearTarget.getLocation());
-                        continue;
-                    }
-                    // Sinon, suivre la formation
-                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
+                    // Bêtes volantes: comportement spécial
+                    updateFlyingBeastCombat(player, beast, focusTarget, type);
                 } else {
-                    // Autres bêtes terrestres
-                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
+                    // Bêtes terrestres: mode combat ou suivi
+                    updateGroundBeastCombat(player, beast, focusTarget, type);
                 }
             }
         }
     }
 
     /**
-     * Met à jour une bête volante (chauve-souris, abeille)
+     * Récupère la cible focus du joueur (celle qu'il attaque)
      */
-    private void updateFlyingBeast(LivingEntity beast, Location targetLoc, LivingEntity focusTarget) {
-        Location beastLoc = beast.getLocation();
-        double distanceToTarget = beastLoc.distance(targetLoc);
+    private LivingEntity getPlayerFocusTarget(Player player) {
+        UUID focusUuid = playerFocusTarget.get(player.getUniqueId());
+        if (focusUuid == null) return null;
 
-        // Si trop loin, téléporter
-        if (distanceToTarget > 25) {
-            beast.teleport(targetLoc);
-            return;
+        Entity focusEntity = Bukkit.getEntity(focusUuid);
+        if (focusEntity instanceof LivingEntity living && !living.isDead()) {
+            // Vérifier que la cible est dans le rayon de combat
+            if (living.getLocation().distanceSquared(player.getLocation()) <= BEAST_COMBAT_RANGE * BEAST_COMBAT_RANGE) {
+                return living;
+            }
         }
 
-        // Mouvement fluide par vélocité
+        // Focus invalide, nettoyer
+        playerFocusTarget.remove(player.getUniqueId());
+        return null;
+    }
+
+    /**
+     * Met à jour une bête volante en mode combat
+     */
+    private void updateFlyingBeastCombat(Player player, LivingEntity beast, LivingEntity combatTarget, BeastType type) {
+        Location beastLoc = beast.getLocation();
+        Location playerLoc = player.getLocation();
+
+        // Déterminer la destination
+        Location targetLoc;
+
+        if (combatTarget != null) {
+            // MODE COMBAT: Voler près de la cible pour attaquer
+            Location combatLoc = combatTarget.getLocation().add(0, combatTarget.getHeight() + 1.5, 0);
+            double distToCombat = beastLoc.distance(combatLoc);
+
+            // Rester à portée d'attaque (2-4 blocs au-dessus de la cible)
+            if (distToCombat > 5) {
+                targetLoc = combatLoc;
+            } else {
+                // Orbiter légèrement autour de la cible
+                double angle = System.currentTimeMillis() / 1000.0 * 2;
+                double orbitRadius = 2.0;
+                targetLoc = combatLoc.clone().add(
+                    Math.cos(angle) * orbitRadius,
+                    Math.sin(System.currentTimeMillis() / 500.0) * 0.5,
+                    Math.sin(angle) * orbitRadius
+                );
+            }
+        } else {
+            // MODE SUIVI: Suivre le joueur
+            targetLoc = calculatePackPosition(player, type);
+        }
+
+        // Mouvement fluide
+        double distanceToTarget = beastLoc.distance(targetLoc);
         if (distanceToTarget > 0.5) {
             Vector direction = targetLoc.toVector().subtract(beastLoc.toVector());
-            double speed = Math.min(distanceToTarget / 5.0, 0.6); // Vitesse proportionnelle
+            double speed = Math.min(distanceToTarget / 4.0, 0.8);
             direction.normalize().multiply(speed);
-
-            // Limiter la vélocité verticale pour éviter les mouvements brusques
-            direction.setY(Math.max(-0.3, Math.min(0.3, direction.getY())));
-
+            direction.setY(Math.max(-0.4, Math.min(0.4, direction.getY())));
             beast.setVelocity(direction);
         }
 
-        // Orienter vers la cible ennemie si présente, sinon vers le joueur
-        if (focusTarget != null) {
-            orientBeastTowards(beast, focusTarget.getLocation().add(0, focusTarget.getHeight() / 2, 0));
-        } else {
-            orientBeastTowards(beast, targetLoc.clone().add(targetLoc.getDirection().multiply(5)));
+        // Orienter vers la cible de combat ou le joueur
+        if (combatTarget != null) {
+            orientBeastTowards(beast, combatTarget.getLocation().add(0, combatTarget.getHeight() / 2, 0));
         }
     }
 
     /**
-     * Met à jour une bête terrestre
+     * Met à jour une bête terrestre en mode combat
      */
-    private void updateGroundBeast(LivingEntity beast, Location targetLoc, double distanceToTarget, LivingEntity focusTarget) {
-        // Si trop loin, téléporter
-        if (distanceToTarget > 20) {
-            beast.teleport(targetLoc);
+    private void updateGroundBeastCombat(Player player, LivingEntity beast, LivingEntity combatTarget, BeastType type) {
+        if (!(beast instanceof Mob mob)) return;
+
+        Location beastLoc = beast.getLocation();
+        Location playerLoc = player.getLocation();
+        double distanceToPlayer = beastLoc.distance(playerLoc);
+
+        // MODE COMBAT: Une cible existe
+        if (combatTarget != null) {
+            double distToCombatTarget = beastLoc.distance(combatTarget.getLocation());
+
+            // Définir la cible de la bête
+            if (mob.getTarget() != combatTarget) {
+                mob.setTarget(combatTarget);
+            }
+
+            // Si la bête est loin de la cible, la faire se déplacer vers elle
+            if (distToCombatTarget > 2) {
+                double speed = 1.2 + Math.min(distToCombatTarget / 10.0, 0.8);
+                mob.getPathfinder().moveTo(combatTarget.getLocation(), speed);
+            }
+
+            // Orienter vers la cible
+            orientBeastTowards(beast, combatTarget.getLocation());
             return;
         }
 
-        // Si bloqué (même position depuis trop longtemps), téléporter
-        if (distanceToTarget > 8 && beast instanceof Mob mob) {
-            // Vérifier si le pathfinding est bloqué
-            if (!mob.getPathfinder().hasPath() || mob.getPathfinder().getCurrentPath() == null) {
-                // Essayer de trouver une position alternative
-                Location altLoc = findSafeLocation(targetLoc.clone().add(
-                    (Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4));
-                mob.getPathfinder().moveTo(altLoc, 1.5);
+        // MODE SUIVI: Pas de cible, suivre le joueur
+        Location targetLoc = calculatePackPosition(player, type);
+        double distanceToTarget = beastLoc.distance(targetLoc);
+
+        // L'ours peut garder sa cible même sans focus joueur
+        if (type == BeastType.BEAR) {
+            LivingEntity bearTarget = mob.getTarget();
+            if (bearTarget != null && !bearTarget.isDead() &&
+                bearTarget.getLocation().distanceSquared(playerLoc) <= BEAST_COMBAT_RANGE * BEAST_COMBAT_RANGE) {
+                // L'ours garde sa cible actuelle
+                orientBeastTowards(beast, bearTarget.getLocation());
+                return;
             }
         }
 
-        // Déplacer avec le pathfinding
-        if (distanceToTarget > 2 && beast instanceof Mob mob) {
-            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0); // Plus rapide si loin
+        // Téléporter si bloqué et trop loin
+        if (distanceToTarget > 15) {
+            if (!mob.getPathfinder().hasPath()) {
+                beast.teleport(targetLoc);
+                return;
+            }
+        }
+
+        // Se déplacer vers la position de formation
+        if (distanceToTarget > 3) {
+            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0);
             mob.getPathfinder().moveTo(targetLoc, speed);
         }
 
-        // Orienter vers la cible ennemie si au repos
-        if (distanceToTarget <= 2 && focusTarget != null) {
-            orientBeastTowards(beast, focusTarget.getLocation());
+        // Nettoyer la cible quand on suit le joueur
+        if (mob.getTarget() != null) {
+            mob.setTarget(null);
         }
     }
 
