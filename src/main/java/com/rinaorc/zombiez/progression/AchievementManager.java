@@ -1574,15 +1574,31 @@ public class AchievementManager {
             .toList();
     }
 
+    // Cache pour les comptages par tier (ne change jamais)
+    private Map<AchievementTier, Integer> tierCountsCache;
+
     /**
-     * Obtient le nombre total d'achievements par tier
+     * Obtient le nombre total d'achievements par tier (cached)
      */
     public Map<AchievementTier, Integer> getTierCounts() {
-        Map<AchievementTier, Integer> counts = new EnumMap<>(AchievementTier.class);
-        for (AchievementTier tier : AchievementTier.values()) {
-            counts.put(tier, byTier.get(tier).size());
+        if (tierCountsCache == null) {
+            tierCountsCache = new EnumMap<>(AchievementTier.class);
+            for (AchievementTier tier : AchievementTier.values()) {
+                tierCountsCache.put(tier, byTier.get(tier).size());
+            }
         }
-        return counts;
+        return tierCountsCache;
+    }
+
+    /**
+     * Obtient le nombre d'achievements débloqués par tier pour un joueur
+     */
+    public int getUnlockedCountByTier(Player player, AchievementTier tier) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return 0;
+        return (int) byTier.get(tier).stream()
+            .filter(a -> data.hasAchievement(a.id()))
+            .count();
     }
 
     /**
