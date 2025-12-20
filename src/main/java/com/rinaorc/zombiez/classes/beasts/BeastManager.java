@@ -1441,8 +1441,8 @@ public class BeastManager {
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
         if (!(golem instanceof Mob golemMob)) return;
 
-        // Frappe Titanesque toutes les 10 secondes
-        long slamCooldown = (long) (10000 / frenzyMultiplier);
+        // Frappe Titanesque toutes les 5 secondes
+        long slamCooldown = (long) (5000 / frenzyMultiplier);
 
         // PRIORITÉ 1: Cible focus du joueur
         LivingEntity target = getPlayerFocusTarget(owner);
@@ -1476,8 +1476,8 @@ public class BeastManager {
                 golemMob.getPathfinder().moveTo(target.getLocation(), 1.3);
             }
 
-            // Frappe Titanesque si cooldown prêt et cible à bonne distance
-            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget >= 4 && distToTarget <= 15) {
+            // Frappe Titanesque si cooldown prêt et cible à portée (distance réduite pour plus de fiabilité)
+            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget <= 20) {
                 executeGolemCharge(owner, golem, target);
                 setCooldown(owner.getUniqueId(), cooldownKey, now + slamCooldown);
             }
