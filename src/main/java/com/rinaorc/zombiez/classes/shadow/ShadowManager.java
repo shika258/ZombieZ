@@ -228,13 +228,13 @@ public class ShadowManager {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche clones (toutes les 20 ticks = 1s)
+        // Tâche clones (toutes les 10 ticks = 0.5s pour une IA plus réactive)
         new BukkitRunnable() {
             @Override
             public void run() {
                 updateClones();
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 10L, 10L);
     }
 
     // ==================== POINTS D'OMBRE ====================
@@ -1067,7 +1067,7 @@ public class ShadowManager {
             // Configuration de base
             skeleton.setMetadata(SHADOW_CLONE_OWNER_KEY, new FixedMetadataValue(plugin, ownerUuid.toString()));
             skeleton.customName(Component.text("§5Clone de " + owner.getName(), NamedTextColor.DARK_PURPLE));
-            skeleton.setCustomNameVisible(false);
+            skeleton.setCustomNameVisible(true);
 
             // Invincible et silencieux
             skeleton.setInvulnerable(true);
@@ -1076,8 +1076,8 @@ public class ShadowManager {
             // Pas de loot ni d'XP
             skeleton.setRemoveWhenFarAway(false);
 
-            // Retirer l'IA d'attaque par défaut
-            skeleton.setTarget(null);
+            // Désactiver l'IA vanilla pour utiliser notre IA personnalisée
+            skeleton.setAI(false);
 
             // Apparence: mains vides (pas d'épée)
             skeleton.getEquipment().clear();
@@ -1088,8 +1088,8 @@ public class ShadowManager {
                 deathMarkTeam.addEntity(skeleton);
             }
 
-            // Ajouter un effet visuel d'aura d'ombre
-            skeleton.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
+            // Effet visuel d'ombre (particules, pas d'invisibilité pour permettre le mouvement)
+            skeleton.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
         });
 
         clones.add(clone.getUniqueId());
@@ -1181,7 +1181,7 @@ public class ShadowManager {
     }
 
     /**
-     * Exécute l'attaque du clone sur une cible (animation de bond comme le Renard)
+     * Exécute l'attaque du clone sur une cible (animation de bond via téléportation)
      */
     private void executeShadowCloneAttack(Player owner, LivingEntity clone, LivingEntity target) {
         Location cloneLoc = clone.getLocation();
@@ -1193,19 +1193,15 @@ public class ShadowManager {
         // Son de préparation
         clone.getWorld().playSound(cloneLoc, Sound.ENTITY_WITHER_SKELETON_STEP, 0.8f, 1.5f);
 
-        // Direction du bond
-        Vector direction = targetLoc.toVector().subtract(cloneLoc.toVector()).normalize();
-        direction.setY(0.3); // Arc léger
-        direction.multiply(1.2);
-
-        // Animation de bond
+        // Animation de bond via téléportation
         new BukkitRunnable() {
             int ticks = -3; // 3 ticks de préparation
             boolean hasLeaped = false;
+            Location startLoc = cloneLoc.clone();
 
             @Override
             public void run() {
-                if (clone.isDead() || !clone.isValid() || target.isDead()) {
+                if (clone.isDead() || !clone.isValid() || target.isDead() || !target.isValid()) {
                     cancel();
                     return;
                 }
@@ -1235,13 +1231,19 @@ public class ShadowManager {
                     return;
                 }
 
-                // Déplacer le clone vers la cible
-                if (clone instanceof Mob mob) {
-                    Location current = clone.getLocation();
-                    Location newLoc = current.add(direction.clone().multiply(0.4));
-                    newLoc.setY(newLoc.getY() + (ticks < 3 ? 0.12 : -0.12)); // Arc
-                    mob.getPathfinder().moveTo(newLoc, 2.5);
-                }
+                // Téléporter le clone vers la cible (interpolation avec arc)
+                Location currentTargetLoc = target.getLocation();
+                double progress = ticks / 6.0; // 0.0 à 1.0
+                double arcHeight = Math.sin(progress * Math.PI) * 1.5; // Arc parabolique
+
+                // Interpolation entre position de départ et cible
+                double x = startLoc.getX() + (currentTargetLoc.getX() - startLoc.getX()) * progress;
+                double y = startLoc.getY() + (currentTargetLoc.getY() - startLoc.getY()) * progress + arcHeight;
+                double z = startLoc.getZ() + (currentTargetLoc.getZ() - startLoc.getZ()) * progress;
+
+                Location newLoc = new Location(clone.getWorld(), x, y, z);
+                newLoc.setDirection(currentTargetLoc.toVector().subtract(newLoc.toVector()));
+                clone.teleport(newLoc);
 
                 // Particules de traînée
                 clone.getWorld().spawnParticle(Particle.DUST, clone.getLocation().add(0, 1, 0),
@@ -1467,9 +1469,9 @@ public class ShadowManager {
     }
 
     /**
-     * Met à jour les clones avec l'IA de combat (comme le Renard)
+     * Met à jour les clones avec l'IA de combat personnalisée
      * - Cherche des cibles à attaquer
-     * - Bondit sur les ennemis
+     * - Bondit sur les ennemis via téléportation
      * - Suit le joueur si pas de cible
      */
     private void updateClones() {
@@ -1485,6 +1487,7 @@ public class ShadowManager {
             for (UUID cloneUuid : entry.getValue()) {
                 Entity cloneEntity = Bukkit.getEntity(cloneUuid);
                 if (cloneEntity == null || !(cloneEntity instanceof LivingEntity clone)) continue;
+                if (!clone.isValid()) continue;
 
                 // Vérifier si le clone est trop loin du joueur
                 double distanceToOwner = clone.getLocation().distance(ownerLoc);
@@ -1512,21 +1515,29 @@ public class ShadowManager {
                     }
                 }
 
-                // Pas de cible ou en cooldown: suivre le joueur
-                if (clone instanceof Mob mob) {
-                    // Position en cercle autour du joueur
-                    int index = entry.getValue().indexOf(cloneUuid);
-                    double angle = (index * 180) + (now / 80.0 % 360);
-                    double rad = Math.toRadians(angle);
-                    double x = Math.cos(rad) * 2.5;
-                    double z = Math.sin(rad) * 2.5;
+                // Pas de cible ou en cooldown: suivre le joueur via téléportation fluide
+                // Position en cercle autour du joueur
+                int index = entry.getValue().indexOf(cloneUuid);
+                double angle = (index * 180) + (now / 80.0 % 360);
+                double rad = Math.toRadians(angle);
+                double x = Math.cos(rad) * 2.5;
+                double z = Math.sin(rad) * 2.5;
 
-                    Location targetLoc = ownerLoc.clone().add(x, 0, z);
+                Location targetLoc = ownerLoc.clone().add(x, 0, z);
 
-                    // Utiliser le pathfinder pour suivre
-                    if (clone.getLocation().distanceSquared(targetLoc) > 4) {
-                        mob.getPathfinder().moveTo(targetLoc, 1.0);
+                // Téléportation fluide vers la position cible (interpolation)
+                if (clone.getLocation().distanceSquared(targetLoc) > 4) {
+                    Location currentLoc = clone.getLocation();
+                    Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+
+                    // Se déplacer de 0.5 bloc max par tick vers la cible
+                    if (direction.lengthSquared() > 0.25) {
+                        direction.normalize().multiply(0.5);
                     }
+
+                    Location newLoc = currentLoc.add(direction);
+                    newLoc.setDirection(ownerLoc.toVector().subtract(newLoc.toVector())); // Regarder vers le joueur
+                    clone.teleport(newLoc);
                 }
             }
         }
