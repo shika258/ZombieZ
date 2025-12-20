@@ -78,6 +78,14 @@ public class BeastManager {
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
+    // Axolotl - Système de vitesse d'attaque progressive
+    private final Map<UUID, Double> axolotlAttackSpeedBonus = new ConcurrentHashMap<>(); // Bonus en % (0.0 à 1.5)
+    private final Map<UUID, Long> axolotlLastAttackTime = new ConcurrentHashMap<>();
+    private static final double AXOLOTL_SPEED_INCREMENT = 0.10;    // +10% par attaque
+    private static final double AXOLOTL_SPEED_MAX_BONUS = 1.50;    // +150% max
+    private static final long AXOLOTL_SPEED_DECAY_DELAY = 10000;   // 10 secondes avant décroissance
+    private static final double AXOLOTL_SPEED_DECAY_RATE = 0.10;   // -10% par seconde
+
     public BeastManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -134,6 +142,61 @@ public class BeastManager {
                 checkPendingRespawns();
             }
         }.runTaskTimer(plugin, 20L, 20L);
+
+        // Tâche de décroissance de la vitesse d'attaque de l'Axolotl (20 ticks = 1 seconde)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                updateAxolotlSpeedDecay();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la décroissance de la vitesse d'attaque de l'Axolotl.
+     * Si le joueur n'a pas attaqué depuis 10 secondes, réduit le bonus de 10% par seconde.
+     */
+    private void updateAxolotlSpeedDecay() {
+        long now = System.currentTimeMillis();
+
+        // Itérer sur tous les joueurs avec un bonus d'axolotl
+        axolotlAttackSpeedBonus.entrySet().removeIf(entry -> {
+            UUID playerUuid = entry.getKey();
+            double currentBonus = entry.getValue();
+
+            // Si le bonus est déjà à 0, nettoyer
+            if (currentBonus <= 0) return true;
+
+            // Vérifier si le joueur a un axolotl actif
+            Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
+            if (beasts == null || !beasts.containsKey(BeastType.AXOLOTL)) {
+                return true; // Nettoyer si pas d'axolotl
+            }
+
+            // Vérifier le temps depuis la dernière attaque
+            Long lastAttack = axolotlLastAttackTime.get(playerUuid);
+            if (lastAttack == null || now - lastAttack >= AXOLOTL_SPEED_DECAY_DELAY) {
+                // Décroître le bonus
+                double newBonus = currentBonus - AXOLOTL_SPEED_DECAY_RATE;
+
+                if (newBonus <= 0) {
+                    axolotlLastAttackTime.remove(playerUuid);
+                    return true; // Supprimer l'entrée
+                } else {
+                    entry.setValue(newBonus);
+
+                    // Feedback visuel si le bonus diminue significativement
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (player != null && newBonus < currentBonus) {
+                        // Son subtil de décroissance (seulement toutes les 0.5 de perte)
+                        if ((int)(currentBonus * 10) != (int)(newBonus * 10) && (int)(newBonus * 10) % 5 == 0) {
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f);
+                        }
+                    }
+                }
+            }
+            return false;
+        });
     }
 
     /**
@@ -423,16 +486,30 @@ public class BeastManager {
                !loc.clone().subtract(0, 1, 0).getBlock().isPassable();
     }
 
+    // Constantes pour le comportement des bêtes
+    private static final double BEAST_COMBAT_RANGE = 20.0;      // Rayon max de combat autour du joueur
+    private static final double BEAST_LEASH_RANGE = 25.0;       // Distance max avant téléportation
+    private static final double BEAST_FOLLOW_RANGE = 8.0;       // Distance pour commencer à suivre (pas de combat)
+
     /**
-     * Met à jour la formation de la meute
+     * Met à jour la formation de la meute.
+     * Système de priorité:
+     * 1. Cible focus du joueur (celle qu'il attaque)
+     * 2. Ennemi le plus proche du joueur (dans 20 blocs)
+     * 3. Suivre le joueur si aucun ennemi
      */
     private void updatePackFormation() {
         for (Map.Entry<UUID, Map<BeastType, UUID>> entry : playerBeasts.entrySet()) {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || !player.isOnline()) continue;
 
-            // Trouver la cible focus commune (ennemi le plus proche du joueur)
-            LivingEntity focusTarget = findNearestEnemy(player, 15);
+            // PRIORITÉ 1: Récupérer la cible focus du joueur (celle qu'il attaque)
+            LivingEntity focusTarget = getPlayerFocusTarget(player);
+
+            // PRIORITÉ 2: Si pas de focus, chercher l'ennemi le plus proche du joueur
+            if (focusTarget == null) {
+                focusTarget = findNearestEnemy(player, BEAST_COMBAT_RANGE);
+            }
 
             for (Map.Entry<BeastType, UUID> beastEntry : entry.getValue().entrySet()) {
                 Entity entity = Bukkit.getEntity(beastEntry.getValue());
@@ -442,95 +519,159 @@ public class BeastManager {
 
                 BeastType type = beastEntry.getKey();
                 Location beastLoc = beast.getLocation();
-                Location targetLoc = calculatePackPosition(player, type);
-                double distanceToTarget = beastLoc.distance(targetLoc);
+                Location playerLoc = player.getLocation();
+                double distanceToPlayer = beastLoc.distance(playerLoc);
+
+                // Si trop loin du joueur (>25 blocs), téléporter près du joueur
+                if (distanceToPlayer > BEAST_LEASH_RANGE) {
+                    Location safeLoc = calculatePackPosition(player, type);
+                    beast.teleport(safeLoc);
+                    continue;
+                }
 
                 // Comportement spécifique selon le type de bête
                 if (type == BeastType.BAT || type == BeastType.BEE) {
-                    // Bêtes volantes: mouvement fluide par vélocité
-                    updateFlyingBeast(beast, targetLoc, focusTarget);
-                } else if (type == BeastType.BEAR && beast instanceof Mob bearMob) {
-                    // L'ours garde sa cible de combat si elle est proche
-                    LivingEntity bearTarget = bearMob.getTarget();
-                    if (bearTarget != null && !bearTarget.isDead() &&
-                        bearTarget.getLocation().distance(beastLoc) < 10) {
-                        // L'ours poursuit sa cible
-                        orientBeastTowards(beast, bearTarget.getLocation());
-                        continue;
-                    }
-                    // Sinon, suivre la formation
-                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
+                    // Bêtes volantes: comportement spécial
+                    updateFlyingBeastCombat(player, beast, focusTarget, type);
                 } else {
-                    // Autres bêtes terrestres
-                    updateGroundBeast(beast, targetLoc, distanceToTarget, focusTarget);
+                    // Bêtes terrestres: mode combat ou suivi
+                    updateGroundBeastCombat(player, beast, focusTarget, type);
                 }
             }
         }
     }
 
     /**
-     * Met à jour une bête volante (chauve-souris, abeille)
+     * Récupère la cible focus du joueur (celle qu'il attaque)
      */
-    private void updateFlyingBeast(LivingEntity beast, Location targetLoc, LivingEntity focusTarget) {
-        Location beastLoc = beast.getLocation();
-        double distanceToTarget = beastLoc.distance(targetLoc);
+    private LivingEntity getPlayerFocusTarget(Player player) {
+        UUID focusUuid = playerFocusTarget.get(player.getUniqueId());
+        if (focusUuid == null) return null;
 
-        // Si trop loin, téléporter
-        if (distanceToTarget > 25) {
-            beast.teleport(targetLoc);
-            return;
+        Entity focusEntity = Bukkit.getEntity(focusUuid);
+        if (focusEntity instanceof LivingEntity living && !living.isDead()) {
+            // Vérifier que la cible est dans le rayon de combat
+            if (living.getLocation().distanceSquared(player.getLocation()) <= BEAST_COMBAT_RANGE * BEAST_COMBAT_RANGE) {
+                return living;
+            }
         }
 
-        // Mouvement fluide par vélocité
+        // Focus invalide, nettoyer
+        playerFocusTarget.remove(player.getUniqueId());
+        return null;
+    }
+
+    /**
+     * Met à jour une bête volante en mode combat
+     */
+    private void updateFlyingBeastCombat(Player player, LivingEntity beast, LivingEntity combatTarget, BeastType type) {
+        Location beastLoc = beast.getLocation();
+        Location playerLoc = player.getLocation();
+
+        // Déterminer la destination
+        Location targetLoc;
+
+        if (combatTarget != null) {
+            // MODE COMBAT: Voler près de la cible pour attaquer
+            Location combatLoc = combatTarget.getLocation().add(0, combatTarget.getHeight() + 1.5, 0);
+            double distToCombat = beastLoc.distance(combatLoc);
+
+            // Rester à portée d'attaque (2-4 blocs au-dessus de la cible)
+            if (distToCombat > 5) {
+                targetLoc = combatLoc;
+            } else {
+                // Orbiter légèrement autour de la cible
+                double angle = System.currentTimeMillis() / 1000.0 * 2;
+                double orbitRadius = 2.0;
+                targetLoc = combatLoc.clone().add(
+                    Math.cos(angle) * orbitRadius,
+                    Math.sin(System.currentTimeMillis() / 500.0) * 0.5,
+                    Math.sin(angle) * orbitRadius
+                );
+            }
+        } else {
+            // MODE SUIVI: Suivre le joueur
+            targetLoc = calculatePackPosition(player, type);
+        }
+
+        // Mouvement fluide
+        double distanceToTarget = beastLoc.distance(targetLoc);
         if (distanceToTarget > 0.5) {
             Vector direction = targetLoc.toVector().subtract(beastLoc.toVector());
-            double speed = Math.min(distanceToTarget / 5.0, 0.6); // Vitesse proportionnelle
+            double speed = Math.min(distanceToTarget / 4.0, 0.8);
             direction.normalize().multiply(speed);
-
-            // Limiter la vélocité verticale pour éviter les mouvements brusques
-            direction.setY(Math.max(-0.3, Math.min(0.3, direction.getY())));
-
+            direction.setY(Math.max(-0.4, Math.min(0.4, direction.getY())));
             beast.setVelocity(direction);
         }
 
-        // Orienter vers la cible ennemie si présente, sinon vers le joueur
-        if (focusTarget != null) {
-            orientBeastTowards(beast, focusTarget.getLocation().add(0, focusTarget.getHeight() / 2, 0));
-        } else {
-            orientBeastTowards(beast, targetLoc.clone().add(targetLoc.getDirection().multiply(5)));
+        // Orienter vers la cible de combat ou le joueur
+        if (combatTarget != null) {
+            orientBeastTowards(beast, combatTarget.getLocation().add(0, combatTarget.getHeight() / 2, 0));
         }
     }
 
     /**
-     * Met à jour une bête terrestre
+     * Met à jour une bête terrestre en mode combat
      */
-    private void updateGroundBeast(LivingEntity beast, Location targetLoc, double distanceToTarget, LivingEntity focusTarget) {
-        // Si trop loin, téléporter
-        if (distanceToTarget > 20) {
-            beast.teleport(targetLoc);
+    private void updateGroundBeastCombat(Player player, LivingEntity beast, LivingEntity combatTarget, BeastType type) {
+        if (!(beast instanceof Mob mob)) return;
+
+        Location beastLoc = beast.getLocation();
+        Location playerLoc = player.getLocation();
+        double distanceToPlayer = beastLoc.distance(playerLoc);
+
+        // MODE COMBAT: Une cible existe
+        if (combatTarget != null) {
+            double distToCombatTarget = beastLoc.distance(combatTarget.getLocation());
+
+            // Définir la cible de la bête
+            if (mob.getTarget() != combatTarget) {
+                mob.setTarget(combatTarget);
+            }
+
+            // Si la bête est loin de la cible, la faire se déplacer vers elle
+            if (distToCombatTarget > 2) {
+                double speed = 1.2 + Math.min(distToCombatTarget / 10.0, 0.8);
+                mob.getPathfinder().moveTo(combatTarget.getLocation(), speed);
+            }
+
+            // Orienter vers la cible
+            orientBeastTowards(beast, combatTarget.getLocation());
             return;
         }
 
-        // Si bloqué (même position depuis trop longtemps), téléporter
-        if (distanceToTarget > 8 && beast instanceof Mob mob) {
-            // Vérifier si le pathfinding est bloqué
-            if (!mob.getPathfinder().hasPath() || mob.getPathfinder().getCurrentPath() == null) {
-                // Essayer de trouver une position alternative
-                Location altLoc = findSafeLocation(targetLoc.clone().add(
-                    (Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4));
-                mob.getPathfinder().moveTo(altLoc, 1.5);
+        // MODE SUIVI: Pas de cible, suivre le joueur
+        Location targetLoc = calculatePackPosition(player, type);
+        double distanceToTarget = beastLoc.distance(targetLoc);
+
+        // L'ours peut garder sa cible même sans focus joueur
+        if (type == BeastType.BEAR) {
+            LivingEntity bearTarget = mob.getTarget();
+            if (bearTarget != null && !bearTarget.isDead() &&
+                bearTarget.getLocation().distanceSquared(playerLoc) <= BEAST_COMBAT_RANGE * BEAST_COMBAT_RANGE) {
+                // L'ours garde sa cible actuelle
+                orientBeastTowards(beast, bearTarget.getLocation());
+                return;
             }
         }
 
-        // Déplacer avec le pathfinding
-        if (distanceToTarget > 2 && beast instanceof Mob mob) {
-            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0); // Plus rapide si loin
+        // Téléporter si bloqué et trop loin
+        if (distanceToTarget > 15) {
+            if (!mob.getPathfinder().hasPath()) {
+                beast.teleport(targetLoc);
+                return;
+            }
+        }
+
+        // Se déplacer vers la position de formation
+        if (distanceToTarget > 3) {
+            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0);
             mob.getPathfinder().moveTo(targetLoc, speed);
         }
 
-        // Orienter vers la cible ennemie si au repos
-        if (distanceToTarget <= 2 && focusTarget != null) {
-            orientBeastTowards(beast, focusTarget.getLocation());
+        // Nettoyer la cible quand on suit le joueur
+        if (mob.getTarget() != null) {
+            mob.setTarget(null);
         }
     }
 
@@ -635,29 +776,59 @@ public class BeastManager {
             return;
         }
 
-        // Trouver l'ennemi le plus proche dans 12 blocs
-        LivingEntity nearestEnemy = null;
-        double nearestDistSq = 144.0; // 12^2
+        // PRIORITÉ 1: Cible focus du joueur (celle qu'il attaque)
+        LivingEntity target = null;
+        UUID focusUuid = playerFocusTarget.get(owner.getUniqueId());
+        if (focusUuid != null) {
+            Entity focusEntity = Bukkit.getEntity(focusUuid);
+            if (focusEntity instanceof LivingEntity living && !living.isDead() &&
+                living.getLocation().distanceSquared(bat.getLocation()) < 256) { // 16 blocs
+                target = living;
+            } else {
+                // Focus invalide, nettoyer
+                playerFocusTarget.remove(owner.getUniqueId());
+            }
+        }
 
-        for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
-            if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
-                if (distSq < nearestDistSq) {
-                    nearestDistSq = distSq;
-                    nearestEnemy = monster;
-                    if (distSq < 9) break; // <3 blocs, on prend direct
+        // PRIORITÉ 2: Ennemi le plus proche du joueur (pas de la chauve-souris)
+        if (target == null) {
+            double nearestDistSq = 225.0; // 15^2
+
+            for (Entity nearby : owner.getNearbyEntities(15, 8, 15)) {
+                if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                    double distSq = owner.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        target = monster;
+                    }
                 }
             }
         }
 
-        if (nearestEnemy != null) {
-            shootUltrasound(owner, bat, nearestEnemy, frenzyMultiplier);
+        // PRIORITÉ 3: Ennemi le plus proche de la chauve-souris
+        if (target == null) {
+            double nearestDistSq = 144.0; // 12^2
+
+            for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
+                if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                    double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        target = monster;
+                    }
+                }
+            }
+        }
+
+        if (target != null) {
+            shootUltrasound(owner, bat, target, frenzyMultiplier);
             setCooldown(owner.getUniqueId(), cooldownKey, now + shootCooldown);
         }
     }
 
     /**
-     * Tire un ultrason en ligne droite qui transperce tous les ennemis
+     * Tire un ultrason en ligne droite qui transperce tous les ennemis.
+     * Particules optimisées pour réduire le lag.
      */
     private void shootUltrasound(Player owner, LivingEntity bat, LivingEntity target, double frenzyMultiplier) {
         Location start = bat.getLocation().add(0, 0.3, 0);
@@ -688,8 +859,14 @@ public class BeastManager {
                 // Avancer de 0.5 bloc
                 current.add(direction.clone().multiply(0.5));
 
-                // Particules d'onde sonore (sans couleur - juste effet sonore visuel)
-                current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
+                // Particules réduites: SONIC_BOOM seulement toutes les 6 étapes (3 blocs)
+                // + petites particules de note entre-temps pour le traçage visuel
+                if (steps % 6 == 0) {
+                    current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
+                } else if (steps % 2 == 0) {
+                    // Particules légères entre les SONIC_BOOM
+                    current.getWorld().spawnParticle(Particle.NOTE, current, 1, 0.1, 0.1, 0.1, 0);
+                }
 
                 // Vérifier les collisions avec les ennemis
                 for (Entity entity : current.getWorld().getNearbyEntities(current, 0.8, 0.8, 0.8)) {
@@ -703,7 +880,7 @@ public class BeastManager {
                         hitEntities.add(entity.getUniqueId());
                         living.damage(damage, owner);
 
-                        // Effet d'impact sonore (sans particules visuelles)
+                        // Effet d'impact sonore
                         living.getWorld().playSound(living.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 1.5f);
                     }
                 }
@@ -872,10 +1049,20 @@ public class BeastManager {
     }
 
     private void executeAxolotlAbility(Player owner, LivingEntity axolotl, long now, String cooldownKey, double frenzyMultiplier) {
-        // Tirer des bulles toutes les 1.5 secondes
-        long shootCooldown = (long) (1500 / frenzyMultiplier);
+        UUID ownerUuid = owner.getUniqueId();
 
-        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+        // Calculer le bonus de vitesse d'attaque actuel (0.0 à 1.5 = 0% à 150%)
+        double speedBonus = axolotlAttackSpeedBonus.getOrDefault(ownerUuid, 0.0);
+
+        // Vitesse totale = (1 + bonus) * frenzy
+        // Cooldown de base: 1.5s, réduit par la vitesse
+        double totalSpeedMultiplier = (1.0 + speedBonus) * frenzyMultiplier;
+        long shootCooldown = (long) (1500 / totalSpeedMultiplier);
+
+        // Minimum cooldown de 300ms pour éviter le spam
+        shootCooldown = Math.max(300, shootCooldown);
+
+        if (!isOnCooldown(ownerUuid, cooldownKey, now)) {
             // Trouver la cible la plus proche (avec early-exit)
             LivingEntity nearestEnemy = null;
             double nearestDistSq = 64.0; // 8^2
@@ -894,8 +1081,41 @@ public class BeastManager {
             if (nearestEnemy != null) {
                 // Tirer une bulle d'eau
                 shootWaterBubble(owner, axolotl, nearestEnemy);
-                setCooldown(owner.getUniqueId(), cooldownKey, now + shootCooldown);
+                setCooldown(ownerUuid, cooldownKey, now + shootCooldown);
             }
+        }
+    }
+
+    /**
+     * Incrémente le bonus de vitesse d'attaque de l'Axolotl après un hit.
+     * +10% par attaque, max +150%
+     */
+    private void incrementAxolotlAttackSpeed(Player owner) {
+        UUID ownerUuid = owner.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        double currentBonus = axolotlAttackSpeedBonus.getOrDefault(ownerUuid, 0.0);
+        double newBonus = Math.min(currentBonus + AXOLOTL_SPEED_INCREMENT, AXOLOTL_SPEED_MAX_BONUS);
+
+        axolotlAttackSpeedBonus.put(ownerUuid, newBonus);
+        axolotlLastAttackTime.put(ownerUuid, now);
+
+        // Feedback au joueur quand le bonus atteint des paliers significatifs
+        int newPercent = (int) (newBonus * 100);
+        int oldPercent = (int) (currentBonus * 100);
+
+        // Son de montée en puissance (pitch croissant)
+        float pitch = 0.8f + (float) (newBonus / AXOLOTL_SPEED_MAX_BONUS) * 1.2f;
+        owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.4f, pitch);
+
+        // Message aux paliers de 50%
+        if (newPercent >= 50 && oldPercent < 50) {
+            owner.sendMessage("§d✦ Axolotl: §e+50% §7vitesse d'attaque!");
+        } else if (newPercent >= 100 && oldPercent < 100) {
+            owner.sendMessage("§d✦ Axolotl: §6+100% §7vitesse d'attaque!");
+        } else if (newPercent >= 150 && oldPercent < 150) {
+            owner.sendMessage("§d✦ Axolotl: §c+150% §7vitesse MAX!");
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
         }
     }
 
@@ -928,6 +1148,10 @@ public class BeastManager {
                         living.damage(calculateBeastDamage(owner, BeastType.AXOLOTL), owner);
                         current.getWorld().playSound(current, Sound.ENTITY_PLAYER_SPLASH, 1.0f, 1.5f);
                         current.getWorld().spawnParticle(Particle.SPLASH, current, 20, 0.3, 0.3, 0.3, 0);
+
+                        // Incrémenter le bonus de vitesse d'attaque
+                        incrementAxolotlAttackSpeed(owner);
+
                         cancel();
                         return;
                     }
@@ -941,13 +1165,13 @@ public class BeastManager {
     }
 
     private void executeCowAbility(Player owner, LivingEntity cow, long now, String cooldownKey) {
-        // Lancer une bouse explosive toutes les 8 secondes
+        // Lancer une bouse explosive toutes les 5 secondes
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
             // Trouver la meilleure cible (groupe d'ennemis ou ennemi proche)
             LivingEntity target = findBestCowTarget(cow);
             if (target != null) {
                 launchExplosiveDung(owner, cow, target);
-                setCooldown(owner.getUniqueId(), cooldownKey, now + 8000); // 8 secondes
+                setCooldown(owner.getUniqueId(), cooldownKey, now + 5000); // 5 secondes
             }
         }
     }
@@ -1149,13 +1373,45 @@ public class BeastManager {
     }
 
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
+        if (!(golem instanceof Mob golemMob)) return;
+
         // Frappe Titanesque toutes les 10 secondes
         long slamCooldown = (long) (10000 / frenzyMultiplier);
 
-        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver la meilleure cible (priorité aux marqués/empilés)
-            LivingEntity target = findGolemTarget(golem);
-            if (target != null) {
+        // PRIORITÉ 1: Cible focus du joueur
+        LivingEntity target = getPlayerFocusTarget(owner);
+
+        // PRIORITÉ 2: Cible avec synergies (marquée ou stacks abeille)
+        if (target == null) {
+            target = findGolemSynergyTarget(golem);
+        }
+
+        // PRIORITÉ 3: Cible la plus proche du joueur
+        if (target == null) {
+            target = findNearestEnemy(owner, BEAST_COMBAT_RANGE);
+        }
+
+        // PRIORITÉ 4: Cible la plus proche du golem
+        if (target == null) {
+            target = findNearestEnemyFromBeast(golem, 15);
+        }
+
+        // Toujours définir la cible du Golem pour l'IA de base
+        if (target != null && !target.isDead()) {
+            if (golemMob.getTarget() != target) {
+                golemMob.setTarget(target);
+            }
+
+            double distToTarget = golem.getLocation().distance(target.getLocation());
+
+            // Si proche, attaquer en continu (l'IronGolem a une attaque de base)
+            if (distToTarget > 3 && distToTarget < 20) {
+                // Se déplacer vers la cible
+                golemMob.getPathfinder().moveTo(target.getLocation(), 1.3);
+            }
+
+            // Frappe Titanesque si cooldown prêt et cible à bonne distance
+            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget >= 4 && distToTarget <= 15) {
                 executeGolemCharge(owner, golem, target);
                 setCooldown(owner.getUniqueId(), cooldownKey, now + slamCooldown);
             }
@@ -1163,40 +1419,65 @@ public class BeastManager {
     }
 
     /**
-     * Trouve la meilleure cible pour le Golem (priorité aux cibles marquées/empilées)
+     * Trouve un ennemi proche d'une bête
      */
-    private LivingEntity findGolemTarget(LivingEntity golem) {
+    private LivingEntity findNearestEnemyFromBeast(LivingEntity beast, double range) {
+        LivingEntity nearest = null;
+        double nearestDistSq = range * range;
+
+        for (Entity nearby : beast.getNearbyEntities(range, range / 2, range)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                double distSq = beast.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = monster;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * Trouve une cible avec synergies pour le Golem (marquée par renard ou stacks abeille)
+     */
+    private LivingEntity findGolemSynergyTarget(LivingEntity golem) {
         LivingEntity bestTarget = null;
         double bestScore = 0;
 
-        for (Entity nearby : golem.getNearbyEntities(12, 6, 12)) {
-            if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
+        for (Entity nearby : golem.getNearbyEntities(15, 8, 15)) {
+            if (!(nearby instanceof Monster monster) || isBeast(nearby) || monster.isDead()) continue;
 
-            double score = 1.0;
+            double score = 0;
 
-            // Bonus si marqué par le renard (+30)
+            // Bonus si marqué par le renard (+50 - priorité haute)
             if (isMarkedByFox(nearby.getUniqueId())) {
-                score += 30;
+                score += 50;
             }
 
-            // Bonus selon les stacks d'abeille (+5 par stack)
+            // Bonus selon les stacks d'abeille (+10 par stack, +30 bonus à 3+)
             int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
-            score += beeStacks * 5;
-
-            // Bonus proximité
-            double dist = golem.getLocation().distanceSquared(nearby.getLocation());
-            if (dist < 36) score += 5; // < 6 blocs
-
-            // Bonus si groupe d'ennemis autour
-            int nearbyCount = 0;
-            for (Entity around : nearby.getNearbyEntities(3, 2, 3)) {
-                if (around instanceof Monster && !isBeast(around)) nearbyCount++;
+            score += beeStacks * 10;
+            if (beeStacks >= 3) {
+                score += 30; // Bonus car dégâts x2
             }
-            score += nearbyCount * 3;
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestTarget = monster;
+            // Seulement considérer si a une synergie
+            if (score > 0) {
+                // Bonus proximité (préférer les cibles plus proches)
+                double dist = golem.getLocation().distanceSquared(nearby.getLocation());
+                score += Math.max(0, (225 - dist) / 20); // Bonus jusqu'à 15 blocs
+
+                // Bonus si groupe d'ennemis autour (pour l'onde de choc)
+                int nearbyCount = 0;
+                for (Entity around : nearby.getNearbyEntities(4, 2, 4)) {
+                    if (around instanceof Monster && !isBeast(around)) nearbyCount++;
+                }
+                score += nearbyCount * 5;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = monster;
+                }
             }
         }
 
@@ -1204,36 +1485,39 @@ public class BeastManager {
     }
 
     /**
-     * Le Golem charge vers la cible avec animation
+     * Le Golem charge vers la cible avec animation fluide
      */
     private void executeGolemCharge(Player owner, LivingEntity golem, LivingEntity target) {
+        if (!(golem instanceof Mob golemMob)) return;
+
         Location startLoc = golem.getLocation().clone();
         Location targetLoc = target.getLocation().clone();
 
         // Phase 1: Préparation - le Golem se tourne vers sa cible
         orientBeastTowards(golem, targetLoc);
 
-        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
-        double distance = startLoc.distance(targetLoc);
+        // Désactiver temporairement l'IA du golem pendant la charge
+        golemMob.setTarget(null);
 
         // Animation avec phase de préparation
         new BukkitRunnable() {
             int ticks = -8; // 8 ticks (0.4s) de préparation
-            final int maxTicks = (int) Math.min(distance * 2, 20); // Max 1 seconde
-            Location current = startLoc.clone();
             Set<UUID> hitDuringCharge = new HashSet<>();
             boolean hasCharged = false;
 
             @Override
             public void run() {
-                if (golem.isDead() || target.isDead()) {
+                if (golem.isDead()) {
                     cancel();
                     return;
                 }
 
                 // Phase de préparation: le Golem lève son bras
                 if (ticks < 0) {
-                    orientBeastTowards(golem, target.getLocation());
+                    // Recalculer la direction vers la cible (qui peut bouger)
+                    if (!target.isDead()) {
+                        orientBeastTowards(golem, target.getLocation());
+                    }
 
                     // Particules de préparation + son
                     if (ticks == -8) {
@@ -1248,53 +1532,74 @@ public class BeastManager {
                     return;
                 }
 
-                // Début de la charge
-                if (!hasCharged) {
-                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
-                    hasCharged = true;
-                }
+                // Calculer direction et distance au moment de la charge
+                Location currentGolemLoc = golem.getLocation();
+                Location currentTargetLoc = target.isDead() ? targetLoc : target.getLocation();
+                Vector direction = currentTargetLoc.toVector().subtract(currentGolemLoc.toVector());
+                double distance = direction.length();
 
-                if (ticks >= maxTicks) {
-                    // IMPACT - Frappe Titanesque!
-                    executeGolemSlam(owner, golem, current, direction, hitDuringCharge);
+                // Si la cible est très proche ou morte, slam directement
+                if (distance < 2 || target.isDead()) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction.normalize(), hitDuringCharge);
                     cancel();
                     return;
                 }
 
-                // Déplacer le golem
-                Vector step = direction.clone().multiply(distance / maxTicks);
-                current.add(step);
+                direction.normalize();
 
-                if (golem instanceof Mob mob) {
-                    mob.getPathfinder().moveTo(current, 2.5);
+                // Début de la charge
+                if (!hasCharged) {
+                    golem.getWorld().playSound(currentGolemLoc, Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
+                    hasCharged = true;
                 }
 
+                // Limite de temps de charge (max 1.5s = 30 ticks)
+                if (ticks >= 30) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction, hitDuringCharge);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le golem avec vélocité (plus fluide que pathfinder)
+                double chargeSpeed = 0.8;
+                Vector velocity = direction.clone().multiply(chargeSpeed);
+                velocity.setY(-0.1); // Légère gravité pour rester au sol
+                golem.setVelocity(velocity);
+
                 // Particules de charge (traînée de poussière)
-                golem.getWorld().spawnParticle(Particle.BLOCK, golem.getLocation(), 8, 0.5, 0.1, 0.5, 0,
+                golem.getWorld().spawnParticle(Particle.BLOCK, currentGolemLoc, 8, 0.5, 0.1, 0.5, 0,
                     Material.IRON_BLOCK.createBlockData());
-                golem.getWorld().spawnParticle(Particle.DUST, golem.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
+                golem.getWorld().spawnParticle(Particle.DUST, currentGolemLoc.add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
                     new Particle.DustOptions(Color.fromRGB(150, 150, 150), 2.0f));
 
                 // Dégâts aux ennemis sur le chemin
-                for (Entity nearby : golem.getWorld().getNearbyEntities(golem.getLocation(), 1.5, 1.5, 1.5)) {
+                for (Entity nearby : golem.getWorld().getNearbyEntities(currentGolemLoc, 1.8, 2, 1.8)) {
                     if (nearby instanceof LivingEntity living &&
                         nearby instanceof Monster &&
                         !isBeast(nearby) &&
                         !hitDuringCharge.contains(nearby.getUniqueId())) {
 
-                        // Dégâts de charge (25% des dégâts)
+                        // Dégâts de charge (50% des dégâts)
                         double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
                         living.damage(chargeDamage, owner);
                         hitDuringCharge.add(nearby.getUniqueId());
 
                         // Effet d'impact
                         living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.2, 0.2, 0.1);
+                        living.getWorld().playSound(living.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
                     }
+                }
+
+                // Si on atteint la cible, slam!
+                if (distance < 3) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction, hitDuringCharge);
+                    cancel();
+                    return;
                 }
 
                 // Son de pas lourds
                 if (ticks % 3 == 0) {
-                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
+                    golem.getWorld().playSound(currentGolemLoc, Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
                 }
 
                 ticks++;
@@ -1667,8 +1972,8 @@ public class BeastManager {
      * Capacité du renard: bondit sur les ennemis et les marque
      */
     private void executeFoxAbility(Player owner, LivingEntity fox, long now, String cooldownKey, double frenzyMultiplier) {
-        // Bond toutes les 4 secondes
-        long pounceCooldown = (long) (4000 / frenzyMultiplier);
+        // Bond toutes les 3 secondes
+        long pounceCooldown = (long) (3000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
             // Trouver la meilleure cible (priorité aux blessés)
@@ -1794,7 +2099,8 @@ public class BeastManager {
     }
 
     /**
-     * Applique la marque du renard sur la cible
+     * Applique la marque du renard sur la cible.
+     * La cible marquée devient visible à travers les murs (glowing) et subit +30% de dégâts.
      */
     private void applyFoxMark(Player owner, LivingEntity fox, LivingEntity target) {
         if (target.isDead()) return;
@@ -1806,6 +2112,9 @@ public class BeastManager {
         // Marquer la cible (5 secondes)
         foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
 
+        // Appliquer l'effet GLOWING pour voir la cible à travers les murs
+        target.setGlowing(true);
+
         // Effets visuels de marque
         target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.5, 0),
             15, 0.3, 0.3, 0.3, 0.1);
@@ -1816,13 +2125,18 @@ public class BeastManager {
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_FOX_BITE, 1.5f, 1.0f);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.5f);
 
-        // Particules continues sur la cible marquée
+        // Particules continues sur la cible marquée + gestion du glowing
         new BukkitRunnable() {
             int ticks = 0;
 
             @Override
             public void run() {
+                // Vérifier si la marque a expiré
                 if (ticks >= 100 || target.isDead() || !foxMarkedEntities.containsKey(target.getUniqueId())) {
+                    // Retirer l'effet glowing quand la marque expire
+                    if (!target.isDead()) {
+                        target.setGlowing(false);
+                    }
                     cancel();
                     return;
                 }

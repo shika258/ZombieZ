@@ -1788,62 +1788,90 @@ public class ChasseurTalentListener implements Listener {
 
     /**
      * Déclenche la salve en éventail de Rafale.
-     * Tire plusieurs flèches bonus dans un arc devant le joueur.
+     * Tire 3 salves de flèches en éventail avec 0.4s d'intervalle.
+     * Utilise la même vélocité et les mêmes effets de particules que Tirs Multiples.
      */
     private void procRafaleSalve(Player player, Arrow originalArrow, Talent burstShot) {
         int bonusArrows = (int) burstShot.getValue(1);
         double damagePercent = burstShot.getValue(2);
 
-        Location spawnLoc = originalArrow.getLocation();
+        // Capturer les propriétés de la flèche originale avant qu'elle ne disparaisse
+        Location spawnLoc = player.getEyeLocation();
         Vector originalVelocity = originalArrow.getVelocity().clone();
-        Vector dir = originalVelocity.clone().normalize();
-        double speed = originalVelocity.length();
-
-        // Calculer le vecteur perpendiculaire horizontal
-        Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
-
-        // Angle total de l'éventail (60 degrés)
-        double totalAngle = Math.toRadians(60);
-        double angleStep = totalAngle / (bonusArrows - 1);
-        double startAngle = -totalAngle / 2;
-
-        // Son épique de salve
-        player.getWorld().playSound(spawnLoc, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.8f);
-        player.getWorld().playSound(spawnLoc, Sound.ITEM_CROSSBOW_SHOOT, 1.2f, 1.2f);
+        double originalDamage = originalArrow.getDamage();
+        boolean hasGravity = originalArrow.hasGravity();
+        boolean isCritical = originalArrow.isCritical();
+        int fireTicks = originalArrow.getFireTicks();
+        int knockback = originalArrow.getKnockbackStrength();
+        int pierceLevel = originalArrow.getPierceLevel();
 
         // Message de confirmation
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c✦ RAFALE! §e" + bonusArrows + " flèches!");
+            player.sendMessage("§c✦ RAFALE! §e3x" + bonusArrows + " flèches!");
         }
 
-        // Tirer les flèches en éventail
-        for (int i = 0; i < bonusArrows; i++) {
-            double angle = startAngle + (i * angleStep);
+        // Tirer 3 salves avec 0.4s (8 ticks) d'intervalle
+        final int totalSalves = 3;
+        final long intervalTicks = 8L; // 0.4 secondes
 
-            // Calculer la direction avec rotation horizontale
-            Vector rotatedDir = dir.clone()
-                .add(horizontal.clone().multiply(Math.sin(angle) * 0.8))
-                .normalize();
+        for (int salve = 0; salve < totalSalves; salve++) {
+            final int salveIndex = salve;
 
-            // Créer la flèche bonus
-            Arrow bonusArrow = player.getWorld().spawnArrow(spawnLoc.clone(), rotatedDir, 0.1f, 0);
-            bonusArrow.setShooter(player);
-            bonusArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-            bonusArrow.setVelocity(rotatedDir.multiply(speed));
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    // Vérifier que le joueur est toujours en ligne
+                    if (!player.isOnline()) return;
 
-            // Copier les propriétés de la flèche originale
-            bonusArrow.setDamage(originalArrow.getDamage() * damagePercent);
-            bonusArrow.setGravity(originalArrow.hasGravity());
-            bonusArrow.setCritical(originalArrow.isCritical());
-            bonusArrow.setFireTicks(originalArrow.getFireTicks());
-            bonusArrow.setKnockbackStrength(originalArrow.getKnockbackStrength());
-            bonusArrow.setPierceLevel(originalArrow.getPierceLevel());
+                    Location currentSpawnLoc = player.getEyeLocation();
+                    Vector dir = player.getLocation().getDirection().normalize();
 
-            // Marquer comme flèche bonus pour éviter la récursion
-            bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
+                    // Calculer le vecteur perpendiculaire horizontal
+                    Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
 
-            // Traînée de particules
-            applyArrowTrail(bonusArrow);
+                    // Angle total de l'éventail (60 degrés)
+                    double totalAngle = Math.toRadians(60);
+                    double angleStep = totalAngle / (bonusArrows - 1);
+                    double startAngle = -totalAngle / 2;
+
+                    // Son de salve (pitch croissant pour chaque salve)
+                    float pitch = 0.8f + (salveIndex * 0.3f);
+                    player.getWorld().playSound(currentSpawnLoc, Sound.ENTITY_ARROW_SHOOT, 1.5f, pitch);
+                    player.getWorld().playSound(currentSpawnLoc, Sound.ITEM_CROSSBOW_SHOOT, 1.2f, pitch + 0.2f);
+
+                    // Tirer les flèches en éventail
+                    for (int i = 0; i < bonusArrows; i++) {
+                        double angle = startAngle + (i * angleStep);
+
+                        // Calculer la direction avec rotation horizontale
+                        Vector rotatedDir = dir.clone()
+                            .add(horizontal.clone().multiply(Math.sin(angle) * 0.8))
+                            .normalize();
+
+                        // Créer la flèche bonus
+                        Arrow bonusArrow = player.getWorld().spawnArrow(currentSpawnLoc.clone(), rotatedDir, 0.1f, 0);
+                        bonusArrow.setShooter(player);
+                        bonusArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+
+                        // === APPLIQUER EXACTEMENT LA MÊME VÉLOCITÉ QUE LA FLÈCHE ORIGINALE ===
+                        bonusArrow.setVelocity(rotatedDir.multiply(originalVelocity.length()));
+
+                        // Copier les propriétés de la flèche originale
+                        bonusArrow.setDamage(originalDamage * damagePercent);
+                        bonusArrow.setGravity(hasGravity);
+                        bonusArrow.setCritical(isCritical);
+                        bonusArrow.setFireTicks(fireTicks);
+                        bonusArrow.setKnockbackStrength(knockback);
+                        bonusArrow.setPierceLevel(pierceLevel);
+
+                        // Marquer comme flèche bonus pour éviter la récursion
+                        bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
+
+                        // Traînée de particules CRIT (même effet que Tirs Multiples)
+                        applyArrowTrail(bonusArrow);
+                    }
+                }
+            }.runTaskLater(plugin, salve * intervalTicks);
         }
     }
 }

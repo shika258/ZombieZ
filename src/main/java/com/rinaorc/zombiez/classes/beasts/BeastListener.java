@@ -76,6 +76,7 @@ public class BeastListener implements Listener {
     /**
      * Empêche les bêtes d'attaquer leur propriétaire.
      * Empêche les bêtes du même propriétaire de s'attaquer entre elles.
+     * Applique les dégâts calculés basés sur les stats du joueur.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBeastAttack(EntityDamageByEntityEvent event) {
@@ -102,13 +103,13 @@ public class BeastListener implements Listener {
                 }
             }
 
-            // Appliquer les effets de la bête
+            // Appliquer les dégâts et effets de la bête
             if (damager instanceof LivingEntity && target instanceof LivingEntity livingTarget) {
-                applyBeastAttackEffects(damager, ownerUuid, livingTarget);
+                applyBeastDamageAndEffects(event, damager, ownerUuid, livingTarget);
             }
         }
 
-        // Cas 2: Un joueur attaque une cible - mettre à jour le focus pour la chauve-souris
+        // Cas 2: Un joueur attaque une cible - mettre à jour le focus pour les bêtes
         if (damager instanceof Player player && target instanceof LivingEntity living && !beastManager.isBeast(target)) {
             ClassData data = plugin.getClassManager().getClassData(player);
             if (data.hasClass() && data.getSelectedClass() == ClassType.CHASSEUR) {
@@ -121,9 +122,10 @@ public class BeastListener implements Listener {
     }
 
     /**
-     * Applique les effets spéciaux des attaques de bêtes
+     * Applique les dégâts calculés et les effets spéciaux des attaques de bêtes.
+     * Les dégâts sont basés sur les stats du joueur propriétaire.
      */
-    private void applyBeastAttackEffects(Entity beast, UUID ownerUuid, LivingEntity target) {
+    private void applyBeastDamageAndEffects(EntityDamageByEntityEvent event, Entity beast, UUID ownerUuid, LivingEntity target) {
         if (!beast.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
         String typeStr = beast.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
         BeastType type = BeastType.valueOf(typeStr);
@@ -131,9 +133,24 @@ public class BeastListener implements Listener {
         Player owner = Bukkit.getPlayer(ownerUuid);
         if (owner == null) return;
 
+        // Calculer les dégâts basés sur les stats du joueur
+        double calculatedDamage = beastManager.calculateBeastDamage(owner, type);
+
+        // Appliquer les dégâts calculés à l'événement
+        event.setDamage(calculatedDamage);
+
+        // Appliquer les effets spéciaux selon le type de bête
         switch (type) {
             case WOLF -> beastManager.applyWolfBleed(owner, target);
-            // Autres effets gérés dans BeastManager
+            case BEAR -> {
+                // L'ours inflige des dégâts lourds + knockback
+                target.setVelocity(target.getLocation().toVector()
+                    .subtract(beast.getLocation().toVector())
+                    .normalize()
+                    .multiply(0.5)
+                    .setY(0.3));
+            }
+            // Autres effets gérés dans BeastManager (lama crachat, abeille piqûre, etc.)
         }
     }
 

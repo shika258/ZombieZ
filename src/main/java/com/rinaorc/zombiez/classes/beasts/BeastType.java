@@ -113,6 +113,7 @@ public enum BeastType {
     /**
      * Tier 4 - Axolotl
      * Attaque à distance avec des bulles d'eau.
+     * Vitesse d'attaque progressive: +10% par hit, max +150%
      */
     AXOLOTL(
         4, "Axolotl",
@@ -129,9 +130,16 @@ public enum BeastType {
             "§7Tire des projectiles aquatiques",
             "§7sur les ennemis proches.",
             "",
+            "§6FRÉNÉSIE AQUATIQUE:",
+            "§7Chaque hit augmente sa vitesse",
+            "§7d'attaque de §e+10%§7!",
+            "§7Max: §c+150%§7 (cadence x2.5)",
+            "",
+            "§8► Décroît après 10s sans attaque",
+            "",
             "§e⚔ Dégâts: §f25% §7de vos dégâts",
             "§b~ Portée: §e8 blocs",
-            "§b~ Cadence: §e1.5s"
+            "§b~ Cadence: §e1.5s §7→ §e0.6s"
         },
         Sound.ENTITY_AXOLOTL_SPLASH,
         Sound.ENTITY_AXOLOTL_HURT,
@@ -163,7 +171,7 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts: §f80% §7de vos dégâts",
             "§b~ Portée: §e12 blocs",
-            "§b~ Cadence: §e8s",
+            "§b~ Cadence: §e5s",
             "§c✦ Knockback de zone"
         },
         Sound.ENTITY_COW_AMBIENT,
@@ -208,6 +216,7 @@ public enum BeastType {
     /**
      * Tier 7 - Renard
      * Prédateur agile qui bondit et marque ses proies.
+     * Les cibles marquées sont en glowing.
      */
     FOX(
         7, "Renard",
@@ -224,11 +233,13 @@ public enum BeastType {
             "§7Bondit sur les ennemis blessés",
             "§7et les §cmarque§7 pendant §e5s§7.",
             "",
-            "§c✦ MARQUE: §f+30% §7dégâts subis!",
+            "§c✦ MARQUE:",
+            "§7• §f+30% §7dégâts subis",
+            "§7• §eGlowing §7- visible à travers les murs!",
             "",
             "§e⚔ Dégâts bond: §f20% §7de vos dégâts",
             "§b~ Portée: §e10 blocs",
-            "§b~ Cadence: §e4s"
+            "§b~ Cadence: §e3s"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,

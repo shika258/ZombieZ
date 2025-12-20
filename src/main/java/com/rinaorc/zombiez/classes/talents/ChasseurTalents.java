@@ -156,7 +156,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("Accumule des charges, declenche une salve!")
+            .description("Accumule des charges, declenche 3 salves!")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
@@ -164,13 +164,18 @@ public final class ChasseurTalents {
                 "§7Chaque fleche qui touche",
                 "§7accumule §e1 charge§7 de Rafale.",
                 "",
-                "§6SALVE EN EVENTAIL:",
+                "§6RAFALE EN EVENTAIL:",
                 "§7A §e8 charges§7, votre prochain",
-                "§7tir libere §c5 fleches bonus§7",
-                "§7en eventail devastateur!",
+                "§7tir libere §c3 salves§7 de",
+                "§c5 fleches§7 en eventail!",
+                "",
+                "§6CADENCE DE FEU:",
+                "§7Intervalle: §e0.4s§7 entre salves",
+                "§7Total: §c15 fleches§7 devastatrices!",
                 "",
                 "§8► Charges max: §f8",
-                "§8► Fleches bonus: §c5",
+                "§8► Salves: §c3",
+                "§8► Fleches/salve: §c5",
                 "§8► Degats/fleche: §c100%",
                 "",
                 "§d§lSYNERGIE: Tirs Multiples!"
