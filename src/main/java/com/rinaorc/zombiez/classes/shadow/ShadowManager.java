@@ -228,13 +228,13 @@ public class ShadowManager {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche clones (toutes les 10 ticks = 0.5s pour une IA plus réactive)
+        // Tâche clones (toutes les 2 ticks = 100ms pour un mouvement fluide)
         new BukkitRunnable() {
             @Override
             public void run() {
                 updateClones();
             }
-        }.runTaskTimer(plugin, 10L, 10L);
+        }.runTaskTimer(plugin, 2L, 2L);
     }
 
     // ==================== POINTS D'OMBRE ====================
@@ -1067,7 +1067,7 @@ public class ShadowManager {
         WitherSkeleton clone = owner.getWorld().spawn(spawnLoc, WitherSkeleton.class, skeleton -> {
             // Configuration de base
             skeleton.setMetadata(SHADOW_CLONE_OWNER_KEY, new FixedMetadataValue(plugin, ownerUuid.toString()));
-            skeleton.customName(Component.text("§5Clone de " + owner.getName(), NamedTextColor.DARK_PURPLE));
+            skeleton.customName(Component.text("§5Clone d'ombre de " + owner.getName(), NamedTextColor.DARK_PURPLE));
             skeleton.setCustomNameVisible(true);
 
             // Invincible et silencieux
@@ -1508,29 +1508,39 @@ public class ShadowManager {
                     }
                 }
 
-                // Pas de cible ou en cooldown: suivre le joueur via téléportation fluide
-                // Position en cercle autour du joueur
+                // Pas de cible ou en cooldown: suivre le joueur avec mouvement fluide
+                // Position en cercle autour du joueur (orbite lente)
                 int index = entry.getValue().indexOf(cloneUuid);
-                double angle = (index * 180) + (now / 80.0 % 360);
+                double angle = (index * 180) + (now / 150.0 % 360); // Orbite plus lente
                 double rad = Math.toRadians(angle);
                 double x = Math.cos(rad) * 2.5;
                 double z = Math.sin(rad) * 2.5;
 
                 Location targetLoc = ownerLoc.clone().add(x, 0, z);
+                Location currentLoc = clone.getLocation();
+                double distSq = currentLoc.distanceSquared(targetLoc);
 
-                // Téléportation fluide vers la position cible (interpolation)
-                if (clone.getLocation().distanceSquared(targetLoc) > 4) {
-                    Location currentLoc = clone.getLocation();
-                    Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+                // Mouvement fluide via vélocité (pas de téléportation pour éviter les saccades)
+                Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+                double dist = Math.sqrt(distSq);
 
-                    // Se déplacer de 0.5 bloc max par tick vers la cible
-                    if (direction.lengthSquared() > 0.25) {
-                        direction.normalize().multiply(0.5);
+                if (dist > 0.3) {
+                    // Vitesse proportionnelle à la distance (plus rapide si loin, max 0.35)
+                    double speed = Math.min(0.35, dist * 0.12);
+                    direction.normalize().multiply(speed);
+
+                    // Légère gravité pour rester au sol
+                    if (!clone.isOnGround()) {
+                        direction.setY(-0.08);
+                    } else {
+                        direction.setY(0);
                     }
 
-                    Location newLoc = currentLoc.add(direction);
-                    newLoc.setDirection(ownerLoc.toVector().subtract(newLoc.toVector())); // Regarder vers le joueur
-                    clone.teleport(newLoc);
+                    // Appliquer la vélocité pour un mouvement fluide
+                    clone.setVelocity(direction);
+                } else {
+                    // Proche de la cible: ralentir doucement
+                    clone.setVelocity(clone.getVelocity().multiply(0.5));
                 }
             }
         }
