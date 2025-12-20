@@ -41,6 +41,21 @@ public class CombatListener implements Listener {
     }
 
     /**
+     * Extrait le joueur depuis un damager (direct ou projectile)
+     */
+    private Player getPlayerFromDamager(Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile) {
+            if (projectile.getShooter() instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Gère tous les types de dégâts sur les mobs ZombieZ (feu, chute, etc.)
      * pour mettre à jour leur affichage de vie
      */
@@ -110,6 +125,17 @@ public class CombatListener implements Listener {
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
         Entity victim = event.getEntity();
+
+        // === MARQUER LE COMBAT POUR L'ACTIONBAR ===
+        // Joueur qui attaque = en combat
+        Player attackingPlayer = getPlayerFromDamager(damager);
+        if (attackingPlayer != null && plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().markInCombat(attackingPlayer.getUniqueId());
+        }
+        // Joueur qui reçoit des dégâts = en combat
+        if (victim instanceof Player victimPlayer && plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().markInCombat(victimPlayer.getUniqueId());
+        }
 
         // PvP
         if (damager instanceof Player attacker && victim instanceof Player target) {

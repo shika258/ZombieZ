@@ -136,13 +136,14 @@ public class ShadowManager {
             }
         }.runTaskTimer(plugin, 5L, 5L);
 
-        // Tâche ActionBar (toutes les 4 ticks pour fluidité)
+        // Tâche d'enregistrement ActionBar (toutes les 20 ticks = 1s)
+        // Enregistre les providers pour les nouveaux joueurs Ombre
         new BukkitRunnable() {
             @Override
             public void run() {
-                updateAllActionBars();
+                registerActionBarProviders();
             }
-        }.runTaskTimer(plugin, 4L, 4L);
+        }.runTaskTimer(plugin, 20L, 20L);
 
         // Tâche clones (toutes les 20 ticks = 1s)
         new BukkitRunnable() {
@@ -215,12 +216,25 @@ public class ShadowManager {
     // ==================== ActionBar ====================
 
     /**
-     * Met à jour l'ActionBar pour tous les joueurs Ombre actifs
+     * Enregistre les providers d'ActionBar pour les joueurs Ombre auprès du ActionBarManager
      */
-    private void updateAllActionBars() {
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
         for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
             if (isShadowPlayer(player)) {
-                updateActionBar(player);
+                // Enregistrer le provider si pas déjà fait
+                if (!activeShadowPlayers.contains(uuid)) {
+                    activeShadowPlayers.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                // Retirer le provider si le joueur n'est plus Ombre
+                if (activeShadowPlayers.contains(uuid)) {
+                    activeShadowPlayers.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
             }
         }
     }
@@ -237,9 +251,10 @@ public class ShadowManager {
     }
 
     /**
-     * Construit et affiche l'ActionBar
+     * Construit le contenu de l'ActionBar pour un joueur Ombre
+     * Appelé par ActionBarManager quand le joueur est en combat
      */
-    private void updateActionBar(Player player) {
+    public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
         int points = getShadowPoints(uuid);
 
@@ -280,7 +295,7 @@ public class ShadowManager {
             }
         }
 
-        player.sendActionBar(Component.text(bar.toString()));
+        return bar.toString();
     }
 
     // ==================== PAS DE L'OMBRE ====================
@@ -894,5 +909,10 @@ public class ShadowManager {
         danceMacabreEnd.remove(playerUuid);
         removeAllClones(playerUuid);
         activeShadowPlayers.remove(playerUuid);
+
+        // Désenregistrer de l'ActionBarManager
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+        }
     }
 }
