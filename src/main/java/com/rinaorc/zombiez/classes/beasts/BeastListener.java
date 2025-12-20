@@ -111,8 +111,8 @@ public class BeastListener implements Listener {
 
     /**
      * Applique les dégâts calculés et les effets spéciaux des attaques de bêtes.
-     * Les dégâts sont basés sur les stats du joueur propriétaire.
-     * Utilise la même logique que les serviteurs de l'Occultiste pour l'affichage des dégâts.
+     * Utilise le système de dégâts complet (comme le Loup) pour toutes les bêtes.
+     * Inclut critiques, lifesteal, et dégâts élémentaires.
      */
     private void applyBeastDamageAndEffects(EntityDamageByEntityEvent event, Entity beast, UUID ownerUuid, LivingEntity target) {
         if (!beast.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
@@ -122,35 +122,20 @@ public class BeastListener implements Listener {
         Player owner = Bukkit.getPlayer(ownerUuid);
         if (owner == null) return;
 
-        // Calculer les dégâts basés sur les stats du joueur
-        double calculatedDamage = beastManager.calculateBeastDamage(owner, type);
+        // Pour les bêtes de mêlée (WOLF, IRON_GOLEM, FOX), annuler les dégâts natifs
+        // car leurs abilities gèrent les dégâts avec le système complet
+        if (type == BeastType.WOLF || type == BeastType.IRON_GOLEM || type == BeastType.FOX) {
+            // Annuler les dégâts de l'événement - les abilities appliquent les vrais dégâts
+            event.setCancelled(true);
 
-        // Appliquer les dégâts calculés à l'événement
-        event.setDamage(calculatedDamage);
-
-        // === METADATA POUR L'INDICATEUR DE DÉGÂTS (comme les serviteurs Occultiste) ===
-        // Configurer les metadata pour que CombatListener MONITOR affiche l'indicateur
-        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
-        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
-        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
-
-        // === ATTRIBUTION DU LOOT AU PROPRIÉTAIRE ===
-        // Enregistrer le propriétaire pour que le loot lui revienne
-        if (plugin.getZombieManager().isZombieZMob(target)) {
-            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
-
-            // Mettre à jour l'affichage de vie du zombie
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (target.isValid()) {
-                    plugin.getZombieManager().updateZombieHealthDisplay(target);
-                }
-            });
+            // Forcer l'application des dégâts via le système complet du BeastManager
+            beastManager.applyNativeBeastDamage(owner, target, type);
+            return;
         }
 
-        // Appliquer les effets spéciaux selon le type de bête
-        // Note: Les effets sont principalement gérés dans BeastManager
-        // Le loup gère ses dégâts et bleed via applyWolfBite dans executeWolfAbility
-        // L'endermite gère sa corruption du vide via executeEndermiteAbility
+        // Pour les autres bêtes, utiliser le système complet également
+        event.setCancelled(true);
+        beastManager.applyNativeBeastDamage(owner, target, type);
     }
 
     // === GESTION DES MORTS ===

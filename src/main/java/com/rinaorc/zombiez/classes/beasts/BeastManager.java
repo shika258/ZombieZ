@@ -127,6 +127,16 @@ public class BeastManager {
     }
 
     /**
+     * Applique les dégâts d'une attaque native de bête avec le système complet.
+     * Utilisé par le listener quand une bête attaque via son IA.
+     * Inclut critiques, lifesteal, et dégâts élémentaires.
+     */
+    public void applyNativeBeastDamage(Player owner, LivingEntity target, BeastType type) {
+        // Utiliser le système de dégâts complet (comme le Loup)
+        applyBeastDamageWithFullStats(owner, target, type, 1.0);
+    }
+
+    /**
      * Démarre les tâches périodiques pour les bêtes
      */
     private void startBeastTasks() {
@@ -877,11 +887,11 @@ public class BeastManager {
         // Set pour tracker les entités déjà touchées
         Set<UUID> hitEntities = new HashSet<>();
 
-        // Tracer le rayon sur 12 blocs
+        // Tracer le rayon sur 32 blocs (portée complète)
         new BukkitRunnable() {
             Location current = start.clone();
             int steps = 0;
-            final int maxSteps = 24; // 12 blocs (0.5 par step)
+            final int maxSteps = 32; // 32 blocs (1.0 par step pour plus de vitesse)
 
             @Override
             public void run() {
@@ -890,14 +900,14 @@ public class BeastManager {
                     return;
                 }
 
-                // Avancer de 0.5 bloc
-                current.add(direction.clone().multiply(0.5));
+                // Avancer de 1 bloc par tick (projectile rapide)
+                current.add(direction.clone().multiply(1.0));
 
-                // Particules réduites: SONIC_BOOM seulement toutes les 6 étapes (3 blocs)
+                // Particules réduites: SONIC_BOOM toutes les 4 blocs
                 // + petites particules de note entre-temps pour le traçage visuel
-                if (steps % 6 == 0) {
+                if (steps % 4 == 0) {
                     current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
-                } else if (steps % 2 == 0) {
+                } else {
                     // Particules légères entre les SONIC_BOOM
                     current.getWorld().spawnParticle(Particle.NOTE, current, 1, 0.1, 0.1, 0.1, 0);
                 }
