@@ -780,6 +780,8 @@ public class PlayerData {
     public void unlockAchievement(String achievementId) { unlockedAchievements.add(achievementId); markDirty(); }
     public int getAchievementProgress(String achievementId) { return achievementProgress.getOrDefault(achievementId, 0); }
     public void setAchievementProgress(String achievementId, int progress) { achievementProgress.put(achievementId, progress); markDirty(); }
+    public Set<String> getUnlockedAchievements() { return Set.copyOf(unlockedAchievements); }
+    public Map<String, Integer> getAchievementProgressMap() { return Map.copyOf(achievementProgress); }
     
     // Cosmetics (alias)
     public Set<String> getCosmetics() { return getUnlockedCosmetics(); }
