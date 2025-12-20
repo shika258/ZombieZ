@@ -94,9 +94,9 @@ public class ZoneChangeListener implements Listener {
         // Points bonus pour découverte
         int zoneId = zone.getId();
         long bonus = zoneId * 100L;
-        
+
         plugin.getEconomyManager().addPoints(player, bonus, "Découverte " + zone.getDisplayName());
-        
+
         // XP bonus
         long xpBonus = zoneId * 50L;
         plugin.getEconomyManager().addXp(player, xpBonus, "Exploration");
@@ -108,6 +108,26 @@ public class ZoneChangeListener implements Listener {
 
         // Statistique
         data.incrementStat("zones_discovered");
+
+        // ============ ACHIEVEMENTS D'EXPLORATION ============
+        var achievementManager = plugin.getAchievementManager();
+        int zonesDiscovered = (int) data.getStat("zones_discovered");
+
+        // Premier pas - première zone découverte
+        achievementManager.incrementProgress(player, "first_steps", 1);
+
+        // Explorateur I/II - nombre de zones visitées (3, 7)
+        achievementManager.checkAndUnlock(player, "explorer_1", zonesDiscovered);
+        achievementManager.checkAndUnlock(player, "explorer_2", zonesDiscovered);
+
+        // Globe-trotter - toutes les zones (11)
+        achievementManager.checkAndUnlock(player, "world_traveler", zonesDiscovered);
+
+        // Zone dangereuse - atteindre certaines zones spécifiques
+        int maxZone = data.getMaxZoneReached();
+        achievementManager.checkAndUnlock(player, "danger_zone_1", maxZone); // Zone 5
+        achievementManager.checkAndUnlock(player, "danger_zone_2", maxZone); // Zone 8
+        achievementManager.checkAndUnlock(player, "hell_walker", maxZone);   // Zone 11
     }
 
     /**
