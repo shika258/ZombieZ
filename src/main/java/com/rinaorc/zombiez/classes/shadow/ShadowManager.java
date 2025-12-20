@@ -91,7 +91,7 @@ public class ShadowManager {
 
     // Cooldown des attaques des clones (owner UUID -> dernier timestamp d'attaque)
     private final Map<UUID, Long> cloneAttackCooldown = new ConcurrentHashMap<>();
-    private static final long CLONE_ATTACK_COOLDOWN_MS = 2500; // 2.5s entre chaque attaque
+    private static final long CLONE_ATTACK_COOLDOWN_MS = 1250; // 1.25s entre chaque attaque (2x plus rapide)
 
     // Multiplicateur de dégâts des clones (40% des dégâts du joueur)
     private static final double CLONE_DAMAGE_MULTIPLIER = 0.40;
