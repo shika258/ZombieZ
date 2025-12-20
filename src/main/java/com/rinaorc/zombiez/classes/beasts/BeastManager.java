@@ -966,11 +966,9 @@ public class BeastManager {
                     double dotDamage = calculateBeastDamage(owner, BeastType.ENDERMITE) * frenzyMultiplier;
                     applyBeastDamageWithMetadata(owner, target, dotDamage);
 
-                    // Particules de corruption
+                    // Particules de corruption (réduites)
                     target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0, 1, 0),
-                        8, 0.3, 0.5, 0.3, 0.02);
-                    target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1.5, 0),
-                        5, 0.2, 0.3, 0.2, 0.5);
+                        4, 0.3, 0.5, 0.3, 0.02);
                 }
 
                 // Fin d'infestation -> EXPLOSION DU VIDE
@@ -1048,22 +1046,18 @@ public class BeastManager {
         endermite.getWorld().playSound(from, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.8f);
         endermite.getWorld().playSound(to, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 2.0f);
 
-        // Particules de départ
+        // Particules de départ (réduites)
         endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, from.add(0, 0.5, 0),
-            25, 0.3, 0.3, 0.3, 0.1);
-        endermite.getWorld().spawnParticle(Particle.PORTAL, from,
-            15, 0.5, 0.5, 0.5, 1.0);
+            10, 0.3, 0.3, 0.3, 0.1);
 
         // Téléportation
         endermite.teleport(to);
 
-        // Particules d'arrivée (explosion de particules!)
+        // Particules d'arrivée (réduites)
         endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, to,
-            40, 0.5, 0.5, 0.5, 0.15);
+            15, 0.5, 0.5, 0.5, 0.15);
         endermite.getWorld().spawnParticle(Particle.PORTAL, to,
-            30, 0.3, 0.3, 0.3, 2.0);
-        endermite.getWorld().spawnParticle(Particle.WITCH, to,
-            10, 0.3, 0.3, 0.3, 0.1);
+            10, 0.3, 0.3, 0.3, 2.0);
 
         // Son d'accrochage
         endermite.getWorld().playSound(to, Sound.ENTITY_ENDERMITE_AMBIENT, 2.0f, 1.5f);
@@ -1081,16 +1075,14 @@ public class BeastManager {
         endermite.getWorld().playSound(explosionLoc, Sound.ENTITY_ENDERMITE_DEATH, 1.5f, 0.8f);
         endermite.getWorld().playSound(explosionLoc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.0f, 1.2f);
 
-        // EXPLOSION DE PARTICULES (très satisfaisant!)
+        // EXPLOSION DE PARTICULES (réduites pour performance)
         endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, explosionLoc,
-            80, 1.5, 1.5, 1.5, 0.3);
+            25, 1.5, 1.5, 1.5, 0.3);
         endermite.getWorld().spawnParticle(Particle.PORTAL, explosionLoc,
-            60, 2.0, 2.0, 2.0, 3.0);
-        endermite.getWorld().spawnParticle(Particle.WITCH, explosionLoc,
-            30, 1.0, 1.0, 1.0, 0.2);
+            20, 2.0, 2.0, 2.0, 3.0);
         endermite.getWorld().spawnParticle(Particle.DRAGON_BREATH, explosionLoc,
-            20, 1.0, 0.5, 1.0, 0.05);
-        endermite.getWorld().spawnParticle(Particle.FLASH, explosionLoc, 2);
+            8, 1.0, 0.5, 1.0, 0.05);
+        endermite.getWorld().spawnParticle(Particle.FLASH, explosionLoc, 1);
 
         // Dégâts AoE
         double explosionDamage = calculateBeastDamage(owner, BeastType.ENDERMITE) * (ENDERMITE_EXPLOSION_DAMAGE / ENDERMITE_DOT_DAMAGE) * frenzyMultiplier;
@@ -1655,16 +1647,15 @@ public class BeastManager {
                 // Déplacer la bulle (1.6 blocs/tick pour atteindre les cibles à 24 blocs)
                 current.add(direction.clone().multiply(1.6));
 
-                // Particules de bulle
-                current.getWorld().spawnParticle(Particle.BUBBLE_POP, current, 5, 0.1, 0.1, 0.1, 0);
-                current.getWorld().spawnParticle(Particle.DRIPPING_WATER, current, 3, 0.1, 0.1, 0.1, 0);
+                // Particules de bulle (réduites)
+                current.getWorld().spawnParticle(Particle.BUBBLE_POP, current, 2, 0.1, 0.1, 0.1, 0);
 
                 // Vérifier l'impact
                 for (Entity entity : current.getWorld().getNearbyEntities(current, 0.5, 0.5, 0.5)) {
                     if (entity instanceof LivingEntity living && entity != axolotl && !isBeast(entity) && entity != owner) {
                         living.damage(calculateBeastDamage(owner, BeastType.AXOLOTL), owner);
                         current.getWorld().playSound(current, Sound.ENTITY_PLAYER_SPLASH, 1.0f, 1.5f);
-                        current.getWorld().spawnParticle(Particle.SPLASH, current, 20, 0.3, 0.3, 0.3, 0);
+                        current.getWorld().spawnParticle(Particle.SPLASH, current, 8, 0.3, 0.3, 0.3, 0);
 
                         // Incrémenter le bonus de vitesse d'attaque
                         incrementAxolotlAttackSpeed(owner);
@@ -1789,10 +1780,11 @@ public class BeastManager {
                 // Déplacer le projectile
                 current.add(vel);
 
-                // Particules de bouse volante
-                current.getWorld().spawnParticle(Particle.BLOCK, current, 3, 0.15, 0.15, 0.15, 0,
-                    Material.BROWN_TERRACOTTA.createBlockData());
-                current.getWorld().spawnParticle(Particle.SMOKE, current, 1, 0.1, 0.1, 0.1, 0);
+                // Particules de bouse volante (réduites)
+                if (ticks % 2 == 0) {
+                    current.getWorld().spawnParticle(Particle.BLOCK, current, 1, 0.1, 0.1, 0.1, 0,
+                        Material.BROWN_TERRACOTTA.createBlockData());
+                }
 
                 // Vérifier impact au sol ou avec entité
                 boolean shouldExplode = false;
@@ -1826,11 +1818,11 @@ public class BeastManager {
      * Explosion de la bouse - dégâts AoE + knockback
      */
     private void explodeDung(Player owner, Location explosionLoc) {
-        // Effets visuels
+        // Effets visuels (réduits)
         explosionLoc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, explosionLoc, 1);
-        explosionLoc.getWorld().spawnParticle(Particle.BLOCK, explosionLoc, 50, 2, 1, 2, 0.1,
+        explosionLoc.getWorld().spawnParticle(Particle.BLOCK, explosionLoc, 20, 2, 1, 2, 0.1,
             Material.BROWN_TERRACOTTA.createBlockData());
-        explosionLoc.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, explosionLoc, 15, 1.5, 0.5, 1.5, 0.02);
+        explosionLoc.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, explosionLoc, 6, 1.5, 0.5, 1.5, 0.02);
 
         // Sons
         explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 1.2f);
@@ -2119,7 +2111,7 @@ public class BeastManager {
                     if (ticks == -4) {
                         golem.getWorld().playSound(startLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
                         golem.getWorld().spawnParticle(Particle.DUST, golem.getLocation().add(0, 2, 0),
-                            10, 0.5, 0.3, 0.5, 0, new Particle.DustOptions(Color.fromRGB(200, 50, 50), 1.5f));
+                            5, 0.5, 0.3, 0.5, 0, new Particle.DustOptions(Color.fromRGB(200, 50, 50), 1.5f));
                     }
                     ticks++;
                     return;
@@ -2159,11 +2151,11 @@ public class BeastManager {
                 velocity.setY(-0.1); // Légère gravité pour rester au sol
                 golem.setVelocity(velocity);
 
-                // Particules de charge (traînée de poussière)
-                golem.getWorld().spawnParticle(Particle.BLOCK, currentGolemLoc, 8, 0.5, 0.1, 0.5, 0,
-                    Material.IRON_BLOCK.createBlockData());
-                golem.getWorld().spawnParticle(Particle.DUST, currentGolemLoc.add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
-                    new Particle.DustOptions(Color.fromRGB(150, 150, 150), 2.0f));
+                // Particules de charge (réduites)
+                if (ticks % 2 == 0) {
+                    golem.getWorld().spawnParticle(Particle.BLOCK, currentGolemLoc, 3, 0.5, 0.1, 0.5, 0,
+                        Material.IRON_BLOCK.createBlockData());
+                }
 
                 // Dégâts aux ennemis sur le chemin
                 for (Entity nearby : golem.getWorld().getNearbyEntities(currentGolemLoc, 1.8, 2, 1.8)) {
@@ -2176,8 +2168,8 @@ public class BeastManager {
                         applyBeastDamageWithFullStats(owner, living, BeastType.IRON_GOLEM, 0.5);
                         hitDuringCharge.add(nearby.getUniqueId());
 
-                        // Effet d'impact
-                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.2, 0.2, 0.1);
+                        // Effet d'impact (réduit)
+                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.1);
                         living.getWorld().playSound(living.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
                     }
                 }
@@ -2208,9 +2200,9 @@ public class BeastManager {
         golem.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
         golem.getWorld().playSound(impactLoc, Sound.BLOCK_ANVIL_LAND, 1.5f, 0.5f);
 
-        // Particules d'impact central
+        // Particules d'impact central (réduites)
         golem.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, impactLoc, 1);
-        golem.getWorld().spawnParticle(Particle.BLOCK, impactLoc, 80, 2, 0.5, 2, 0.1,
+        golem.getWorld().spawnParticle(Particle.BLOCK, impactLoc, 30, 2, 0.5, 2, 0.1,
             Material.IRON_BLOCK.createBlockData());
 
         // Onde de choc linéaire (dans la direction de la charge)
@@ -2229,18 +2221,16 @@ public class BeastManager {
                 // Avancer l'onde de choc
                 wavePos.add(direction.clone().multiply(1.0));
 
-                // Particules de l'onde (ligne perpendiculaire)
+                // Particules de l'onde (réduites - moins de positions)
                 Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
-                for (double offset = -2.5; offset <= 2.5; offset += 0.5) {
+                for (double offset = -2.0; offset <= 2.0; offset += 1.0) {
                     Location particleLoc = wavePos.clone().add(perpendicular.clone().multiply(offset));
-                    particleLoc.getWorld().spawnParticle(Particle.DUST, particleLoc.add(0, 0.2, 0), 2, 0.1, 0.1, 0.1, 0,
+                    particleLoc.getWorld().spawnParticle(Particle.DUST, particleLoc.add(0, 0.2, 0), 1, 0.1, 0.1, 0.1, 0,
                         new Particle.DustOptions(Color.fromRGB(80, 80, 80), 1.5f));
-                    particleLoc.getWorld().spawnParticle(Particle.BLOCK, particleLoc, 1, 0.1, 0.1, 0.1, 0,
-                        Material.GRAVEL.createBlockData());
                 }
 
-                // Effet de fissure au sol
-                wavePos.getWorld().spawnParticle(Particle.SWEEP_ATTACK, wavePos.clone().add(0, 0.5, 0), 3, 1, 0, 1, 0);
+                // Effet de fissure au sol (réduit)
+                wavePos.getWorld().spawnParticle(Particle.SWEEP_ATTACK, wavePos.clone().add(0, 0.5, 0), 1, 1, 0, 1, 0);
 
                 // Dégâts aux ennemis dans l'onde (largeur 5 blocs, perpendiculaire)
                 for (Entity nearby : wavePos.getWorld().getNearbyEntities(wavePos, 2.5, 2, 2.5)) {
@@ -2282,19 +2272,15 @@ public class BeastManager {
                     knockback.setY(0.4);
                     living.setVelocity(knockback);
 
-                    // Effets visuels
+                    // Effets visuels (réduits)
                     if (hasSynergyBonus) {
                         // Effets spéciaux pour synergie
-                        living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0,
+                        living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0), 8, 0.3, 0.5, 0.3, 0,
                             new Particle.DustOptions(Color.ORANGE, 1.5f));
-                        living.getWorld().spawnParticle(Particle.ENCHANT, living.getLocation().add(0, 1.5, 0), 15, 0.3, 0.3, 0.3, 0.5);
                         living.getWorld().playSound(living.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.8f, 1.5f);
                     } else {
-                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.2);
+                        living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 6, 0.3, 0.3, 0.3, 0.2);
                     }
-
-                    // Effet visuel de stun
-                    living.getWorld().spawnParticle(Particle.FLASH, living.getLocation().add(0, 1.5, 0), 1);
                 }
 
                 // Son de l'onde
@@ -2400,11 +2386,11 @@ public class BeastManager {
                 // Déplacer le projectile
                 current.add(direction);
 
-                // Particules d'abeille
-                current.getWorld().spawnParticle(Particle.DUST, current, 2, 0.1, 0.1, 0.1, 0,
-                    new Particle.DustOptions(Color.YELLOW, 0.6f));
-                current.getWorld().spawnParticle(Particle.DUST, current, 1, 0.05, 0.05, 0.05, 0,
-                    new Particle.DustOptions(Color.BLACK, 0.3f));
+                // Particules d'abeille (réduites)
+                if (ticks % 2 == 0) {
+                    current.getWorld().spawnParticle(Particle.DUST, current, 1, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.YELLOW, 0.6f));
+                }
 
                 ticks++;
             }
@@ -2425,9 +2411,9 @@ public class BeastManager {
         int currentStacks = beeStingStacks.getOrDefault(targetUuid, 0);
         int newStacks = currentStacks + 1;
 
-        // Effets visuels de piqûre
+        // Effets visuels de piqûre (réduits)
         target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.2, 0),
-            5, 0.2, 0.2, 0.2, 0.05);
+            3, 0.2, 0.2, 0.2, 0.05);
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_BEE_STING, 1.0f, 1.2f);
 
         if (newStacks >= BEE_MAX_STACKS) {
@@ -2437,16 +2423,11 @@ public class BeastManager {
         } else {
             beeStingStacks.put(targetUuid, newStacks);
 
-            // Particules de stack (plus intense avec les stacks)
-            for (int i = 0; i < newStacks; i++) {
-                double angle = (2 * Math.PI * i) / newStacks;
-                double x = Math.cos(angle) * 0.5;
-                double z = Math.sin(angle) * 0.5;
-                target.getWorld().spawnParticle(Particle.DUST,
-                    target.getLocation().add(x, 2.0 + (i * 0.1), z),
-                    1, 0, 0, 0, 0,
-                    new Particle.DustOptions(Color.ORANGE, 0.5f));
-            }
+            // Particule de stack simple (réduit)
+            target.getWorld().spawnParticle(Particle.DUST,
+                target.getLocation().add(0, 2.0, 0),
+                1, 0.2, 0.1, 0.2, 0,
+                new Particle.DustOptions(Color.ORANGE, 0.5f));
         }
     }
 
@@ -2463,12 +2444,12 @@ public class BeastManager {
         // Poison
         target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 1)); // Poison II, 3s
 
-        // Effets visuels spectaculaires
-        target.getWorld().spawnParticle(Particle.DUST, loc, 30, 0.5, 0.5, 0.5, 0.1,
+        // Effets visuels (réduits)
+        target.getWorld().spawnParticle(Particle.DUST, loc, 12, 0.5, 0.5, 0.5, 0.1,
             new Particle.DustOptions(Color.YELLOW, 1.5f));
-        target.getWorld().spawnParticle(Particle.DUST, loc, 20, 0.4, 0.4, 0.4, 0.1,
-            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 1.2f)); // Vert poison
-        target.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, loc, 5, 0.3, 0.3, 0.3, 0);
+        target.getWorld().spawnParticle(Particle.DUST, loc, 8, 0.4, 0.4, 0.4, 0.1,
+            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 1.2f));
+        target.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, loc, 2, 0.3, 0.3, 0.3, 0);
 
         // Sons
         target.getWorld().playSound(loc, Sound.ENTITY_BEE_DEATH, 2.0f, 0.5f);
@@ -2573,11 +2554,6 @@ public class BeastManager {
                 if (ticks < 0) {
                     // Regarder la cible
                     orientBeastTowards(fox, target.getLocation());
-                    // Particules de concentration
-                    if (ticks == -3) {
-                        fox.getWorld().spawnParticle(Particle.DUST, fox.getLocation().add(0, 0.3, 0),
-                            3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.ORANGE, 0.5f));
-                    }
                     ticks++;
                     return;
                 }
@@ -2603,9 +2579,11 @@ public class BeastManager {
                     mob.getPathfinder().moveTo(current, 2.0);
                 }
 
-                // Particules de traînée
-                fox.getWorld().spawnParticle(Particle.DUST, fox.getLocation().add(0, 0.5, 0),
-                    3, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.ORANGE, 0.8f));
+                // Particules de traînée (réduites)
+                if (ticks % 3 == 0) {
+                    fox.getWorld().spawnParticle(Particle.DUST, fox.getLocation().add(0, 0.5, 0),
+                        1, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.ORANGE, 0.8f));
+                }
 
                 ticks++;
             }
@@ -2632,11 +2610,11 @@ public class BeastManager {
         // Appliquer l'effet GLOWING pour voir la cible à travers les murs
         target.setGlowing(true);
 
-        // Effets visuels de marque
+        // Effets visuels de marque (réduits)
         target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1.5, 0),
-            15, 0.3, 0.3, 0.3, 0.1);
+            6, 0.3, 0.3, 0.3, 0.1);
         target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 2, 0),
-            10, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.RED, 1.2f));
+            4, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.RED, 1.2f));
 
         // Son
         target.getWorld().playSound(target.getLocation(), Sound.ENTITY_FOX_BITE, 1.5f, 1.0f);
@@ -2658,10 +2636,10 @@ public class BeastManager {
                     return;
                 }
 
-                // Particule de marque toutes les 10 ticks
-                if (ticks % 10 == 0) {
+                // Particule de marque toutes les 20 ticks (réduit)
+                if (ticks % 20 == 0) {
                     target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 2.2, 0),
-                        3, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.RED, 0.6f));
+                        1, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.RED, 0.6f));
                 }
 
                 ticks++;
@@ -2808,8 +2786,8 @@ public class BeastManager {
     }
 
     private void spawnBeastEffects(Location loc, BeastType type) {
-        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 30, 0.5, 1, 0.5, 0);
-        loc.getWorld().spawnParticle(Particle.DUST, loc, 20, 0.5, 1, 0.5, 0,
+        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 10, 0.5, 1, 0.5, 0);
+        loc.getWorld().spawnParticle(Particle.DUST, loc, 8, 0.5, 1, 0.5, 0,
             new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.5f));
         loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
     }
