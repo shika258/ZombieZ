@@ -14,25 +14,29 @@ import org.bukkit.entity.EntityType;
 public enum BeastType {
 
     /**
-     * Tier 1 - Chauve-souris (Vex pour supporter setTarget)
-     * Attaque la cible focus du joueur. Invincible.
+     * Tier 1 - Chauve-souris
+     * Émet des ultrasons qui transpercent les ennemis en ligne.
      */
     BAT(
         1, "Chauve-souris",
-        EntityType.VEX, // Utilise VEX car BAT (Ambient) ne supporte pas setTarget()
+        EntityType.BAT,
         Material.BAT_SPAWN_EGG,
         "§8",
         new String[]{
             "§8§lCHAUVE-SOURIS",
             "",
-            "§7Une chauve-souris fidèle qui",
-            "§7attaque vos ennemis focalisés.",
+            "§7Une chauve-souris qui émet",
+            "§7des ultrasons dévastateurs.",
             "",
-            "§6CAPACITÉ:",
-            "§7Attaque automatiquement la cible",
-            "§7que vous frappez.",
+            "§6CAPACITÉ - ULTRASON:",
+            "§7Émet une onde sonore vers",
+            "§7l'ennemi le plus proche.",
+            "§cTransperce §7tous les ennemis",
+            "§7sur sa trajectoire!",
             "",
             "§e⚔ Dégâts: §f25% §7de vos dégâts",
+            "§b~ Portée: §e12 blocs",
+            "§b~ Cadence: §e1.5s",
             "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_BAT_AMBIENT,
@@ -45,7 +49,7 @@ public enum BeastType {
 
     /**
      * Tier 2 - Ours
-     * Tank qui rugit pour aggro les monstres. Partage la vie du joueur.
+     * Tank robuste qui rugit pour aggro les monstres et les attaque.
      */
     BEAR(
         2, "Ours",
@@ -60,10 +64,12 @@ public enum BeastType {
             "",
             "§6CAPACITÉ - RUGISSEMENT:",
             "§7Toutes les §e8s§7, rugit pour",
-            "§7provoquer les mobs dans §e5 blocs§7.",
+            "§7provoquer les mobs dans §e20 blocs§7.",
+            "§7Attaque les ennemis à proximité!",
             "",
             "§e⚔ Dégâts: §f40% §7de vos dégâts",
-            "§c♥ PARTAGE VOTRE VIE",
+            "§c♥ Vie: §fx3 §7votre vie max",
+            "§9⛨ Armure naturelle renforcée",
             "§7Respawn: §e10s§7 après la mort"
         },
         Sound.ENTITY_POLAR_BEAR_WARNING,
@@ -137,7 +143,7 @@ public enum BeastType {
 
     /**
      * Tier 5 - Vache
-     * Lâche des mines explosives au sol.
+     * Lance des bouses explosives sur les groupes d'ennemis.
      */
     COW(
         5, "Vache",
@@ -150,11 +156,14 @@ public enum BeastType {
             "§7Une vache... explosive.",
             "§7Ne posez pas de questions.",
             "",
-            "§6CAPACITÉ - BOUSE EXPLOSIVE:",
-            "§7Toutes les §e15s§7, dépose une",
-            "§7mine qui explose au contact.",
+            "§6CAPACITÉ - BOUSE PROPULSÉE:",
+            "§7Lance une bouse explosive vers",
+            "§7les groupes d'ennemis! Explose",
+            "§7à l'impact avec dégâts AoE.",
             "",
-            "§e⚔ Dégâts mine: §f80% §7de vos dégâts",
+            "§e⚔ Dégâts: §f80% §7de vos dégâts",
+            "§b~ Portée: §e12 blocs",
+            "§b~ Cadence: §e8s",
             "§c✦ Knockback de zone"
         },
         Sound.ENTITY_COW_AMBIENT,
@@ -198,7 +207,7 @@ public enum BeastType {
 
     /**
      * Tier 7 - Renard
-     * Chasseur de trésors - bonus de stats sur kill proxy.
+     * Prédateur agile qui bondit et marque ses proies.
      */
     FOX(
         7, "Renard",
@@ -208,16 +217,18 @@ public enum BeastType {
         new String[]{
             "§6§lRENARD",
             "",
-            "§7Un renard rusé qui déniche",
-            "§7des trésors cachés.",
+            "§7Un renard rusé qui traque",
+            "§7et marque ses proies.",
             "",
-            "§6CAPACITÉ - CHASSEUR DE TRÉSORS:",
-            "§7Quand un mob meurt près de lui,",
-            "§e20%§7 de chance de vous donner",
-            "§7un bonus §cForce§7 ou §bVitesse§7!",
+            "§6CAPACITÉ - TRAQUE & BOND:",
+            "§7Bondit sur les ennemis blessés",
+            "§7et les §cmarque§7 pendant §e5s§7.",
             "",
-            "§e⚔ Dégâts: §f20% §7de vos dégâts",
-            "§a✦ Durée bonus: §e10s"
+            "§c✦ MARQUE: §f+30% §7dégâts subis!",
+            "",
+            "§e⚔ Dégâts bond: §f20% §7de vos dégâts",
+            "§b~ Portée: §e10 blocs",
+            "§b~ Cadence: §e4s"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,
@@ -229,7 +240,7 @@ public enum BeastType {
 
     /**
      * Tier 8 - Abeille
-     * Frénésie de la Ruche - active par double-sneak.
+     * Essaim venimeux - attaque en groupe avec piqûres empilables.
      */
     BEE(
         8, "Abeille",
@@ -240,15 +251,18 @@ public enum BeastType {
             "§e§lABEILLE",
             "",
             "§7Une abeille guerrière qui",
-            "§7galvanise la meute.",
+            "§7déchaîne son essaim.",
             "",
-            "§6CAPACITÉ - FRÉNÉSIE DE LA RUCHE:",
-            "§7§eDouble-Sneak§7 pour activer!",
-            "§7+50%§7 vitesse d'attaque pour",
-            "§7TOUTES les bêtes pendant §e10s§7.",
+            "§6CAPACITÉ - ESSAIM VENIMEUX:",
+            "§7Lance des piqûres sur §e3 cibles§7.",
+            "§7Chaque piqûre ajoute §c1 stack§7.",
             "",
-            "§e⚔ Dégâts: §f10% §7de vos dégâts",
-            "§c⚡ Cooldown: §e20s"
+            "§c✦ À 5 STACKS: §fEXPLOSION DE VENIN!",
+            "§7Dégâts massifs + Poison II",
+            "",
+            "§e⚔ Dégâts/piqûre: §f10%",
+            "§e⚔ Explosion: §f150%",
+            "§b~ Cadence: §e2s"
         },
         Sound.ENTITY_BEE_LOOP_AGGRESSIVE,
         Sound.ENTITY_BEE_HURT,
@@ -260,7 +274,7 @@ public enum BeastType {
 
     /**
      * Tier 9 - Golem de Fer
-     * Onde de choc - attire puis projette les ennemis.
+     * Frappe Titanesque - charge + onde de choc linéaire avec synergies.
      */
     IRON_GOLEM(
         9, "Golem de Fer",
@@ -270,15 +284,20 @@ public enum BeastType {
         new String[]{
             "§7§l★ GOLEM DE FER ★",
             "",
-            "§7Un gardien de fer qui",
-            "§7écrase vos ennemis.",
+            "§7Un colosse de fer qui",
+            "§7écrase tout sur son passage!",
             "",
-            "§6CAPACITÉ - ONDE DE CHOC:",
-            "§7Toutes les §e12s§7, frappe le sol!",
+            "§6CAPACITÉ - FRAPPE TITANESQUE:",
+            "§7Toutes les §e10s§7, charge vers",
+            "§7un ennemi et frappe le sol!",
             "",
-            "§c1. §7Attire les ennemis (vortex)",
-            "§c2. §7Les projette en l'air",
-            "§c3. §7Dégâts massifs!",
+            "§c1. §7Charge: écrase les ennemis",
+            "§c2. §7Onde de choc §e8 blocs§7 devant",
+            "§c3. §7§eStun 1.5s§7 sur tous les touchés!",
+            "",
+            "§6✦ SYNERGIE:",
+            "§c• §7Cibles §cmarquées§7 = §ex2 dégâts",
+            "§c• §73+ stacks abeille = §ex2 dégâts",
             "",
             "§e⚔ Dégâts: §f50% §7de vos dégâts",
             "§6§l★ TALENT LÉGENDAIRE ★"

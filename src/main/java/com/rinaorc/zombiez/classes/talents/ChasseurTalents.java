@@ -59,17 +59,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_bat")
             .name("Chauve-souris")
-            .description("Invoque une chauve-souris qui attaque votre cible")
+            .description("Invoque une chauve-souris a ultrasons")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
-                "§7Invoque une §8chauve-souris§7 fidèle",
-                "§7qui attaque vos ennemis focalisés.",
+                "§7Invoque une §8chauve-souris§7 qui",
+                "§7emet des ultrasons devastateurs.",
                 "",
-                "§6CAPACITÉ:",
-                "§7Attaque automatiquement la cible",
-                "§7que vous frappez.",
+                "§6CAPACITE - ULTRASON:",
+                "§7Tire une onde sonore vers",
+                "§7l'ennemi le plus proche.",
+                "§cTransperce §7tous les ennemis",
+                "§7sur sa trajectoire!",
                 "",
+                "§b~ Portee: §e12 blocs",
+                "§b~ Cadence: §e1.5s",
                 "§a✦ INVINCIBLE"
             })
             .classType(ClassType.CHASSEUR)
@@ -148,25 +152,28 @@ public final class ChasseurTalents {
     // ==================== PALIER 2 - NIVEAU 5 (Amplification) ====================
 
     private static void registerTier2Talents() {
-        // 2.1 - RAFALE (Flèches Traqueuses + Combo)
+        // 2.1 - RAFALE (Salve en Éventail)
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("Fleches chercheuses de tete + combo x2")
+            .description("Accumule des charges, declenche une salve!")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§6FLECHES CHERCHEUSES:",
-                "§7Vos fleches §etraquent§7 la §ctête§7",
-                "§7des ennemis proches!",
+                "§6ACCUMULATION:",
+                "§7Chaque fleche qui touche",
+                "§7accumule §e1 charge§7 de Rafale.",
                 "",
-                "§6COMBO §c(x2 DEGATS!)§6:",
-                "§7Toucher §e3x§7 la meme cible →",
-                "§7Le 4eme tir fait §c+100%§7 degats!",
+                "§6SALVE EN EVENTAIL:",
+                "§7A §e8 charges§7, votre prochain",
+                "§7tir libere §c5 fleches bonus§7",
+                "§7en eventail devastateur!",
                 "",
-                "§8► Rayon de traque: §f7 blocs",
-                "§8► Verrouillage de cible intelligent",
-                "§8► S'applique aux pluies de fleches!"
+                "§8► Charges max: §f8",
+                "§8► Fleches bonus: §c5",
+                "§8► Degats/fleche: §c100%",
+                "",
+                "§d§lSYNERGIE: Tirs Multiples!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -174,7 +181,7 @@ public final class ChasseurTalents {
             .icon(Material.TIPPED_ARROW)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BURST_SHOT)
-            .values(new double[]{3, 1.0, 0.30, 7.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
+            .values(new double[]{8, 5, 1.0}) // charges_needed, bonus_arrows, damage_percent
             .build());
 
         // 2.2 - OURS (Voie des Bêtes)
@@ -546,19 +553,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_cow")
             .name("Vache")
-            .description("Invoque une vache qui pose des mines explosives")
+            .description("Invoque une vache qui lance des bouses explosives")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque une §6vache§7... explosive.",
                 "§7Ne posez pas de questions.",
                 "",
-                "§6CAPACITÉ - BOUSE EXPLOSIVE:",
-                "§7Toutes les §e15s§7, dépose une",
-                "§7mine qui explose au contact.",
+                "§6CAPACITÉ - BOUSE PROPULSÉE:",
+                "§7Lance une bouse explosive vers",
+                "§7les groupes d'ennemis! Explose",
+                "§7à l'impact avec dégâts AoE.",
                 "",
-                "§c✦ Dégâts de zone",
-                "§c✦ Knockback"
+                "§b~ Portée: §e12 blocs",
+                "§b~ Cadence: §e8s",
+                "§c✦ Dégâts de zone + Knockback"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -566,7 +575,7 @@ public final class ChasseurTalents {
             .icon(Material.COW_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_COW)
-            .values(new double[]{15000, 8.0, 3.0}) // mine_cooldown_ms, mine_damage, explosion_radius
+            .values(new double[]{8000, 0.80, 4.0}) // cooldown_ms, damage_percent, explosion_radius
             .build());
 
         // 5.3 - CHASSEUR DE PRIMES
@@ -799,19 +808,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_fox")
             .name("Renard")
-            .description("Invoque un renard chasseur de tresors")
+            .description("Invoque un renard qui traque et marque les proies")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque un §6renard rusé§7 qui",
-                "§7déniche des trésors cachés.",
+                "§7traque et marque ses proies.",
                 "",
-                "§6CAPACITÉ - CHASSEUR DE TRÉSORS:",
-                "§7Quand un mob meurt près de lui,",
-                "§e20%§7 de chance de vous donner",
-                "§7un bonus §cForce§7 ou §bVitesse§7!",
+                "§6CAPACITÉ - TRAQUE & BOND:",
+                "§7Bondit sur les ennemis blessés",
+                "§7et les §cmarque§7 pendant §e5s§7.",
                 "",
-                "§a✦ Durée bonus: §e10s"
+                "§c✦ MARQUE: §f+30% §7dégâts subis!",
+                "",
+                "§b~ Portée: §e10 blocs",
+                "§b~ Cadence: §e4s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -819,7 +830,7 @@ public final class ChasseurTalents {
             .icon(Material.FOX_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_FOX)
-            .values(new double[]{0.20, 10000, 10.0}) // treasure_chance, buff_duration_ms, detection_range
+            .values(new double[]{4000, 5000, 0.30}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus
             .build());
 
         // 6.3 - EXECUTEUR DE PRIMES
@@ -924,19 +935,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_bee")
             .name("Abeille")
-            .description("Invoque une abeille qui galvanise la meute")
+            .description("Invoque une abeille avec essaim venimeux")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque une §eabeille guerrière§7",
-                "§7qui galvanise la meute.",
+                "§7qui déchaîne son essaim.",
                 "",
-                "§6CAPACITÉ - FRÉNÉSIE DE LA RUCHE:",
-                "§7§eDouble-Sneak§7 pour activer!",
-                "§c+50%§7 vitesse d'attaque pour",
-                "§7TOUTES les bêtes pendant §e10s§7.",
+                "§6CAPACITÉ - ESSAIM VENIMEUX:",
+                "§7Lance des piqûres sur §e3 cibles§7.",
+                "§7Chaque piqûre ajoute §c1 stack§7.",
                 "",
-                "§c⚡ Cooldown: §e20s"
+                "§c✦ À 5 STACKS: EXPLOSION DE VENIN!",
+                "§7Dégâts massifs + §2Poison II",
+                "",
+                "§b~ Cadence: §e2s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -944,7 +957,7 @@ public final class ChasseurTalents {
             .icon(Material.BEE_SPAWN_EGG)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.BEAST_BEE)
-            .values(new double[]{10000, 0.50, 20000}) // frenzy_duration_ms, attack_speed_bonus, cooldown_ms
+            .values(new double[]{2000, 5, 1.5}) // sting_cooldown_ms, max_stacks, explosion_damage_mult
             .build());
 
         // 7.3 - CHASSEUR LEGENDAIRE
@@ -1053,20 +1066,25 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_iron_golem")
             .name("Golem de Fer")
-            .description("Invoque un golem devastateur avec onde de choc")
+            .description("Invoque un golem devastateur avec frappe titanesque")
             .loreLines(new String[]{
                 "§6§l★ TALENT LÉGENDAIRE ★",
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque un §7Golem de Fer§7",
-                "§7gardien qui écrase vos ennemis.",
+                "§7colosse qui écrase tout!",
                 "",
-                "§6CAPACITÉ - ONDE DE CHOC:",
-                "§7Toutes les §e12s§7, frappe le sol!",
+                "§6CAPACITÉ - FRAPPE TITANESQUE:",
+                "§7Toutes les §e10s§7, charge vers",
+                "§7un ennemi et frappe le sol!",
                 "",
-                "§c1. §7Attire les ennemis (vortex)",
-                "§c2. §7Les projette en l'air",
-                "§c3. §7Dégâts massifs!",
+                "§c1. §7Charge: écrase les ennemis",
+                "§c2. §7Onde de choc §e8 blocs§7 devant",
+                "§c3. §7§eStun 1.5s§7 sur tous les touchés!",
+                "",
+                "§6✦ SYNERGIE:",
+                "§c• §7Cibles §cmarquées§7 = §ex2 dégâts",
+                "§c• §73+ stacks abeille = §ex2 dégâts",
                 "",
                 "§6§l★ PUISSANCE ULTIME ★"
             })
@@ -1076,7 +1094,7 @@ public final class ChasseurTalents {
             .icon(Material.IRON_BLOCK)
             .iconColor("§7§l")
             .effectType(Talent.TalentEffectType.BEAST_IRON_GOLEM)
-            .values(new double[]{12000, 8.0, 5.0}) // shockwave_cooldown_ms, damage, radius
+            .values(new double[]{10000, 8.0, 5.0}) // slam_cooldown_ms, damage, radius
             .build());
 
         // 8.3 - CARNET DE LA MORT
