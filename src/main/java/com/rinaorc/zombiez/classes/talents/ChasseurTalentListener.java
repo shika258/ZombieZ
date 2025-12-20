@@ -781,10 +781,37 @@ public class ChasseurTalentListener implements Listener {
             // Les effets visuels (particules) sont gérés par applyHomingBehavior
             if (hasHoming) {
                 applyHomingBehavior(bonusArrow, player, homingStrength, homingRadius);
+            } else {
+                // Appliquer une traînée de particules standard (même effet que flèches normales)
+                applyArrowTrail(bonusArrow);
             }
-            // Pas de traînée supplémentaire - les flèches se comportent exactement
-            // comme les flèches normales (traînée gérée par le homing si actif)
         }
+    }
+
+    /**
+     * Applique une traînée de particules standard à une flèche.
+     * Effet identique aux flèches tirées par défaut avec un arc ou une arbalète.
+     */
+    private void applyArrowTrail(Arrow arrow) {
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                // Arrêter si la flèche est morte, au sol, ou après 5 secondes max
+                if (arrow.isDead() || arrow.isOnGround() || ticks > 100) {
+                    this.cancel();
+                    return;
+                }
+
+                // Particules CRIT toutes les 2 ticks (même effet que flèches vanilla critiques)
+                if (ticks % 2 == 0) {
+                    arrow.getWorld().spawnParticle(Particle.CRIT, arrow.getLocation(), 1, 0, 0, 0, 0);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void procPiercing(Player player, LivingEntity target, double damage) {
