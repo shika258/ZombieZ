@@ -280,7 +280,7 @@ public class ZoneWikiGUI implements InventoryHolder {
                 )
                 .build());
         } else {
-            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
+            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.CYAN_STAINED_GLASS_PANE)
                 .name("§8◄ Debut de liste")
                 .lore("", "§7Vous etes a la premiere page")
                 .build());
