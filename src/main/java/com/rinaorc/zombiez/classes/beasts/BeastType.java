@@ -100,12 +100,13 @@ public enum BeastType {
             "§7de §e15%§7 pendant §e5s§7.",
             "",
             "§e⚔ Dégâts: §f30% §7de vos dégâts",
-            "§8Traque les ennemis blessés"
+            "§8Traque les ennemis blessés",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_WOLF_GROWL,
         Sound.ENTITY_WOLF_HURT,
         0.30, // 30% des dégâts du joueur
-        false,
+        true, // Invincible
         90.0,
         2.5
     ),
@@ -139,12 +140,13 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts: §f25% §7de vos dégâts",
             "§b~ Portée: §e8 blocs",
-            "§b~ Cadence: §e1.5s §7→ §e0.6s"
+            "§b~ Cadence: §e1.5s §7→ §e0.6s",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_AXOLOTL_SPLASH,
         Sound.ENTITY_AXOLOTL_HURT,
         0.25, // 25% des dégâts du joueur
-        false,
+        true, // Invincible
         135.0,
         2.5
     ),
@@ -172,12 +174,13 @@ public enum BeastType {
             "§e⚔ Dégâts: §f80% §7de vos dégâts",
             "§b~ Portée: §e12 blocs",
             "§b~ Cadence: §e5s",
-            "§c✦ Knockback de zone"
+            "§c✦ Knockback de zone",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_COW_AMBIENT,
         Sound.ENTITY_COW_HURT,
         0.80, // 80% des dégâts du joueur (mines)
-        false,
+        true, // Invincible
         180.0,
         3.0
     ),
@@ -203,12 +206,13 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts: §f30% §7de vos dégâts",
             "§b~ Portée: §e6 blocs",
-            "§b~ Durée lenteur: §e3s"
+            "§b~ Durée lenteur: §e3s",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_LLAMA_SPIT,
         Sound.ENTITY_LLAMA_HURT,
         0.30, // 30% des dégâts du joueur
-        false,
+        true, // Invincible
         225.0,
         3.5
     ),
@@ -239,12 +243,13 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts bond: §f20% §7de vos dégâts",
             "§b~ Portée: §e10 blocs",
-            "§b~ Cadence: §e3s"
+            "§b~ Cadence: §e3s",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_FOX_AMBIENT,
         Sound.ENTITY_FOX_HURT,
         0.20, // 20% des dégâts du joueur
-        false,
+        true, // Invincible
         270.0,
         2.0
     ),
@@ -273,12 +278,13 @@ public enum BeastType {
             "",
             "§e⚔ Dégâts/piqûre: §f10%",
             "§e⚔ Explosion: §f150%",
-            "§b~ Cadence: §e2s"
+            "§b~ Cadence: §e2s",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_BEE_LOOP_AGGRESSIVE,
         Sound.ENTITY_BEE_HURT,
         0.10, // 10% des dégâts du joueur (support, pas DPS)
-        false,
+        true, // Invincible
         315.0,
         1.5
     ),
@@ -311,12 +317,13 @@ public enum BeastType {
             "§c• §73+ stacks abeille = §ex2 dégâts",
             "",
             "§e⚔ Dégâts: §f50% §7de vos dégâts",
-            "§6§l★ TALENT LÉGENDAIRE ★"
+            "§6§l★ TALENT LÉGENDAIRE ★",
+            "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_IRON_GOLEM_ATTACK,
         Sound.ENTITY_IRON_GOLEM_HURT,
         0.50, // 50% des dégâts du joueur (AoE compense)
-        false,
+        true, // Invincible
         0.0,
         4.0
     );

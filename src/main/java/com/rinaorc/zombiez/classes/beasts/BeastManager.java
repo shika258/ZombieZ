@@ -78,6 +78,10 @@ public class BeastManager {
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
+    // Tracking de l'exposition du joueur (ours mort -> joueur exposé au focus des mobs)
+    // Map: playerUUID -> timestamp jusqu'à quand le joueur est exposé
+    private final Map<UUID, Long> playerExposedUntil = new ConcurrentHashMap<>();
+
     // Axolotl - Système de vitesse d'attaque progressive
     private final Map<UUID, Double> axolotlAttackSpeedBonus = new ConcurrentHashMap<>(); // Bonus en % (0.0 à 1.5)
     private final Map<UUID, Long> axolotlLastAttackTime = new ConcurrentHashMap<>();
@@ -876,9 +880,9 @@ public class BeastManager {
                         entity != owner &&
                         !hitEntities.contains(entity.getUniqueId())) {
 
-                        // Touché! Appliquer les dégâts
+                        // Touché! Appliquer les dégâts avec metadata
                         hitEntities.add(entity.getUniqueId());
-                        living.damage(damage, owner);
+                        applyBeastDamageWithMetadata(owner, living, damage);
 
                         // Effet d'impact sonore
                         living.getWorld().playSound(living.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 1.5f);
@@ -979,31 +983,84 @@ public class BeastManager {
     private void executeWolfAbility(Player owner, LivingEntity wolf, double frenzyMultiplier) {
         if (!(wolf instanceof Wolf w)) return;
 
-        // Le loup cible automatiquement l'ennemi le plus proche
-        LivingEntity currentTarget = w.getTarget();
+        long now = System.currentTimeMillis();
+        String cooldownKey = "wolf_bite";
+        long biteCooldown = (long) (1000 / frenzyMultiplier); // 1s entre chaque morsure
 
-        // Ne recalcule que si pas de cible ou cible morte
-        if (currentTarget != null && !currentTarget.isDead() && currentTarget.getLocation().distance(wolf.getLocation()) < 10) {
-            return;
-        }
-
-        // Chercher le plus proche (early exit dès qu'on trouve)
-        Entity nearestEnemy = null;
-        double nearestDistance = 8.0;
+        // Chercher la cible la plus proche (priorité aux cibles à portée de mêlée)
+        LivingEntity nearestEnemy = null;
+        double nearestDistSq = 64.0; // 8^2
 
         for (Entity nearby : wolf.getNearbyEntities(8, 4, 8)) {
-            if (nearby instanceof Monster && !isBeast(nearby)) {
-                double dist = wolf.getLocation().distanceSquared(nearby.getLocation()); // Squared = plus rapide
-                if (dist < nearestDistance * nearestDistance) {
-                    nearestDistance = Math.sqrt(dist);
-                    nearestEnemy = nearby;
-                    if (nearestDistance < 3) break; // Assez proche, on prend
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                double distSq = wolf.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestEnemy = monster;
+                    if (distSq < 4) break; // <2 blocs, on prend direct (portée mêlée)
                 }
             }
         }
 
-        if (nearestEnemy instanceof LivingEntity target) {
-            w.setTarget(target);
+        if (nearestEnemy == null) return;
+
+        // Définir la cible pour le pathfinding
+        w.setTarget(nearestEnemy);
+
+        // Si à portée de mêlée (< 2.5 blocs) et pas en cooldown, infliger les dégâts
+        double distance = Math.sqrt(nearestDistSq);
+        if (distance <= 2.5 && !isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+            // Infliger les dégâts manuellement (comme les serviteurs Occultiste)
+            applyWolfBite(owner, nearestEnemy, frenzyMultiplier);
+            setCooldown(owner.getUniqueId(), cooldownKey, now + biteCooldown);
+        }
+    }
+
+    /**
+     * Applique une morsure du loup avec dégâts et saignement.
+     */
+    private void applyWolfBite(Player owner, LivingEntity target, double frenzyMultiplier) {
+        double damage = calculateBeastDamage(owner, BeastType.WOLF) * frenzyMultiplier;
+
+        // Appliquer les dégâts avec metadata
+        applyBeastDamageWithMetadata(owner, target, damage);
+
+        // Appliquer le saignement
+        applyWolfBleed(owner, target);
+
+        // Effet sonore de morsure
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WOLF_GROWL, 0.8f, 1.2f);
+    }
+
+    /**
+     * Applique des dégâts d'une bête avec les metadata nécessaires pour l'indicateur et le loot.
+     * Méthode helper réutilisable par toutes les bêtes.
+     *
+     * @param owner  Le joueur propriétaire de la bête
+     * @param target La cible des dégâts
+     * @param damage Les dégâts à infliger
+     */
+    private void applyBeastDamageWithMetadata(Player owner, LivingEntity target, double damage) {
+        // Configurer les metadata pour l'indicateur de dégâts (comme les serviteurs Occultiste)
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        target.damage(damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
         }
     }
 
@@ -1033,7 +1090,7 @@ public class BeastManager {
 
                 // DoT = 15% des dégâts du joueur par tick (5 ticks = 75% total)
                 double bleedDamage = calculateBeastDamage(owner, BeastType.WOLF) * 0.5; // 15% = 30% * 0.5
-                target.damage(bleedDamage, owner);
+                applyBeastDamageWithMetadata(owner, target, bleedDamage);
                 target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 1, 0),
                     5, 0.2, 0.3, 0.2, Material.REDSTONE_BLOCK.createBlockData());
                 // Son uniquement toutes les 2 ticks pour réduire le spam
@@ -1310,7 +1367,7 @@ public class BeastManager {
                 double dist = living.getLocation().distance(explosionLoc);
                 double damageMultiplier = Math.max(0.5, 1.0 - (dist / 6.0));
 
-                living.damage(dungDamage * damageMultiplier, owner);
+                applyBeastDamageWithMetadata(owner, living, dungDamage * damageMultiplier);
 
                 // Knockback puissant
                 Vector knockback = living.getLocation().subtract(explosionLoc).toVector();
@@ -1367,7 +1424,11 @@ public class BeastManager {
      * Applique l'effet du crachat du lama (appelé par le listener)
      */
     public void applyLlamaSpit(Player owner, LivingEntity target) {
-        target.damage(calculateBeastDamage(owner, BeastType.LLAMA), owner);
+        double damage = calculateBeastDamage(owner, BeastType.LLAMA);
+
+        // Appliquer les dégâts avec metadata
+        applyBeastDamageWithMetadata(owner, target, damage);
+
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // Lenteur II, 3s
         target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0);
     }
@@ -1579,9 +1640,9 @@ public class BeastManager {
                         !isBeast(nearby) &&
                         !hitDuringCharge.contains(nearby.getUniqueId())) {
 
-                        // Dégâts de charge (50% des dégâts)
+                        // Dégâts de charge (50% des dégâts) avec metadata
                         double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
-                        living.damage(chargeDamage, owner);
+                        applyBeastDamageWithMetadata(owner, living, chargeDamage);
                         hitDuringCharge.add(nearby.getUniqueId());
 
                         // Effet d'impact
@@ -1679,9 +1740,9 @@ public class BeastManager {
                         hasSynergyBonus = true;
                     }
 
-                    // Appliquer les dégâts
+                    // Appliquer les dégâts avec metadata
                     double finalDamage = baseDamage * damageMultiplier;
-                    living.damage(finalDamage, owner);
+                    applyBeastDamageWithMetadata(owner, living, finalDamage);
 
                     // Stun (1.5s = 30 ticks de Slowness V + Jump Boost négatif)
                     living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 4, false, false, false)); // 1.5s
@@ -1828,7 +1889,7 @@ public class BeastManager {
 
         // Dégâts de base (10% des dégâts du joueur)
         double stingDamage = calculateBeastDamage(owner, BeastType.BEE);
-        target.damage(stingDamage, owner);
+        applyBeastDamageWithMetadata(owner, target, stingDamage);
 
         // Ajouter un stack
         int currentStacks = beeStingStacks.getOrDefault(targetUuid, 0);
@@ -1867,7 +1928,7 @@ public class BeastManager {
 
         // Dégâts massifs (150% des dégâts du joueur)
         double explosionDamage = calculateBeastDamage(owner, BeastType.BEE) * BEE_VENOM_EXPLOSION_DAMAGE * 10; // x10 car 10% de base
-        target.damage(explosionDamage, owner);
+        applyBeastDamageWithMetadata(owner, target, explosionDamage);
 
         // Poison
         target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 1)); // Poison II, 3s
@@ -2107,7 +2168,7 @@ public class BeastManager {
 
         // Dégâts initiaux (20% des dégâts du joueur)
         double pounceDamage = calculateBeastDamage(owner, BeastType.FOX);
-        target.damage(pounceDamage, owner);
+        applyBeastDamageWithMetadata(owner, target, pounceDamage);
 
         // Marquer la cible (5 secondes)
         foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
@@ -2193,12 +2254,50 @@ public class BeastManager {
 
         Player owner = Bukkit.getPlayer(ownerUuid);
 
-        // L'Ours respawn après 10 secondes
+        // L'Ours respawn après 10 secondes - le joueur est exposé pendant ce temps
         if (type == BeastType.BEAR && owner != null) {
-            owner.sendMessage("§c✦ L'Ours est tombé! Respawn dans 10 secondes...");
+            long respawnTime = System.currentTimeMillis() + BEAR_RESPAWN_DELAY;
+
+            // Exposer le joueur au focus des mobs pendant le respawn
+            playerExposedUntil.put(ownerUuid, respawnTime);
+
+            owner.sendMessage("§c✦ L'Ours est tombé! Vous êtes exposé pendant 10 secondes!");
+            owner.playSound(owner.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
+
             Map<BeastType, Long> respawns = pendingRespawn.computeIfAbsent(ownerUuid, k -> new ConcurrentHashMap<>());
-            respawns.put(type, System.currentTimeMillis() + BEAR_RESPAWN_DELAY);
+            respawns.put(type, respawnTime);
         }
+    }
+
+    /**
+     * Vérifie si le joueur est exposé (ours mort, pas encore respawn)
+     */
+    public boolean isPlayerExposed(UUID playerUuid) {
+        Long exposedUntil = playerExposedUntil.get(playerUuid);
+        if (exposedUntil == null) return false;
+
+        if (System.currentTimeMillis() >= exposedUntil) {
+            playerExposedUntil.remove(playerUuid);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Obtient l'ours du joueur s'il existe et est vivant
+     */
+    public LivingEntity getPlayerBear(UUID playerUuid) {
+        Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
+        if (beasts == null) return null;
+
+        UUID bearUuid = beasts.get(BeastType.BEAR);
+        if (bearUuid == null) return null;
+
+        Entity entity = Bukkit.getEntity(bearUuid);
+        if (entity instanceof LivingEntity living && !living.isDead()) {
+            return living;
+        }
+        return null;
     }
 
     /**

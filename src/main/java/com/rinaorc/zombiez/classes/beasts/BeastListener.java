@@ -17,6 +17,7 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.UUID;
 
@@ -38,7 +39,7 @@ public class BeastListener implements Listener {
 
     /**
      * Empêche les bêtes invincibles de prendre des dégâts.
-     * Synchronise la vie de l'Ours avec le joueur.
+     * L'ours est la seule bête qui peut prendre des dégâts (tank pour le joueur).
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBeastDamage(EntityDamageEvent event) {
@@ -53,23 +54,14 @@ public class BeastListener implements Listener {
             String typeStr = entity.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
             BeastType type = BeastType.valueOf(typeStr);
 
-            // Chauve-souris invincible
+            // Toutes les bêtes invincibles (toutes sauf l'ours)
             if (type.isInvincible()) {
                 event.setCancelled(true);
                 return;
             }
 
-            // L'Ours partage les dégâts avec le joueur
-            if (type == BeastType.BEAR) {
-                Player owner = Bukkit.getPlayer(ownerUuid);
-                if (owner != null && owner.isOnline()) {
-                    // Transférer les dégâts au joueur
-                    double damage = event.getFinalDamage();
-                    owner.damage(damage * 0.5); // 50% des dégâts au joueur
-                    // L'ours prend aussi des dégâts réduits
-                    event.setDamage(damage * 0.5);
-                }
-            }
+            // L'ours prend les dégâts normalement (tank pour protéger le joueur)
+            // Pas de partage de dégâts - l'ours absorbe tout
         }
     }
 
@@ -124,6 +116,7 @@ public class BeastListener implements Listener {
     /**
      * Applique les dégâts calculés et les effets spéciaux des attaques de bêtes.
      * Les dégâts sont basés sur les stats du joueur propriétaire.
+     * Utilise la même logique que les serviteurs de l'Occultiste pour l'affichage des dégâts.
      */
     private void applyBeastDamageAndEffects(EntityDamageByEntityEvent event, Entity beast, UUID ownerUuid, LivingEntity target) {
         if (!beast.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
@@ -139,9 +132,28 @@ public class BeastListener implements Listener {
         // Appliquer les dégâts calculés à l'événement
         event.setDamage(calculatedDamage);
 
+        // === METADATA POUR L'INDICATEUR DE DÉGÂTS (comme les serviteurs Occultiste) ===
+        // Configurer les metadata pour que CombatListener MONITOR affiche l'indicateur
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // === ATTRIBUTION DU LOOT AU PROPRIÉTAIRE ===
+        // Enregistrer le propriétaire pour que le loot lui revienne
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+            // Mettre à jour l'affichage de vie du zombie
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
         // Appliquer les effets spéciaux selon le type de bête
+        // Note: Le loup gère ses dégâts et bleed via applyWolfBite dans executeWolfAbility
         switch (type) {
-            case WOLF -> beastManager.applyWolfBleed(owner, target);
             case BEAR -> {
                 // L'ours inflige des dégâts lourds + knockback
                 target.setVelocity(target.getLocation().toVector()
@@ -222,6 +234,44 @@ public class BeastListener implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    /**
+     * Empêche les mobs de cibler les bêtes invincibles.
+     * Les mobs ne peuvent cibler que l'ours (le tank).
+     * Si l'ours est mort, les mobs peuvent cibler le joueur.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onMobTargetBeast(EntityTargetEvent event) {
+        Entity target = event.getTarget();
+        if (target == null) return;
+
+        // On ne gère que le cas où un mob cible une bête
+        if (!beastManager.isBeast(target)) return;
+
+        // Vérifier si c'est un mob hostile qui cible
+        if (!(event.getEntity() instanceof org.bukkit.entity.Monster)) return;
+
+        // Obtenir le type de bête ciblée
+        if (!target.hasMetadata(BeastManager.BEAST_TYPE_KEY)) return;
+        String typeStr = target.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
+        BeastType type = BeastType.valueOf(typeStr);
+
+        // Si la bête est invincible (toutes sauf l'ours), empêcher le ciblage
+        if (type.isInvincible()) {
+            event.setCancelled(true);
+
+            // Essayer de rediriger vers l'ours du propriétaire
+            UUID ownerUuid = beastManager.getBeastOwner(target);
+            if (ownerUuid != null) {
+                LivingEntity bear = beastManager.getPlayerBear(ownerUuid);
+                if (bear != null && event.getEntity() instanceof org.bukkit.entity.Mob mob) {
+                    // Rediriger vers l'ours
+                    Bukkit.getScheduler().runTask(plugin, () -> mob.setTarget(bear));
+                }
+            }
+        }
+        // L'ours peut être ciblé normalement (il est le tank)
     }
 
     // === GESTION DES CONNEXIONS/DÉCONNEXIONS ===
