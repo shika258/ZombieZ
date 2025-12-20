@@ -170,40 +170,57 @@ public class Talent {
         // === CHASSEUR - Tier 5 ===
         STEEL_STORM,             // Auto arrow storm
         BEAST_COW,               // Summon cow - drops explosive mines
-        BOUNTY_HUNTER,           // Mark kill rewards
         EPIDEMIC,                // Infinite poison stacking
         KILL_ZONE,               // Personal attack speed zone
-        SPECTRE,                 // Stealth attacks don't break invis
-        SHADOW_MASTER,           // Enhanced stealth mechanics
-        STEALTH_REAPER,          // Stealth kill bonuses
-        VOID_WALKER,             // DR while moving
-        SUPREME_PREDATOR,        // Extend stealth on kill
+
+        // === CHASSEUR - BRANCHE OMBRE (Refonte Diablo-style) ===
+        SHADOW_BLADE,            // T1: Attaques = +1 Point d'Ombre, 3+ = +30% AS
+        INSIDIOUS_POISON,        // T2: Attaques empoisonnent (stack x5)
+        SHADOW_STEP,             // T3: Shift+Attaque = téléport derrière + 2 Points
+        DEATH_MARK,              // T4: Crits marquent 8s (+25% dégâts, Glowing)
+        EXECUTION,               // T5: 5 Points sur marqué = 300%/500% dégâts
+        DANSE_MACABRE,           // T6: Kill marqué = 2s invis + reset Pas + vitesse
+        SHADOW_CLONE,            // T7: 5 Points = clone 10s (50% dégâts)
+        SHADOW_STORM,            // T8: Exécution kill = AoE + marque tous
+        SHADOW_AVATAR,           // T9: Ultime 15s, 2 clones, +1 Point/s
+
+        // === Legacy (compatibilité - ne plus utiliser) ===
+        SPECTRE,                 // (Legacy)
+        SHADOW_MASTER,           // (Legacy)
+        STEALTH_REAPER,          // (Legacy)
+        VOID_WALKER,             // (Legacy)
+        SUPREME_PREDATOR,        // (Legacy)
+        BOUNTY_HUNTER,           // (Legacy)
+        BOUNTY_EXECUTIONER,      // (Legacy)
+        LEGENDARY_HUNTER,        // (Legacy)
+        GHOST,                   // (Legacy)
+        TRACKER,                 // (Legacy)
+        DEATH_SENTENCE,          // (Legacy)
+        SHADOW_STRIKE,           // (Legacy)
+        DEATH_NOTE,              // (Legacy)
+        AGILE_HUNTER,            // (Legacy)
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain
         BEAST_LLAMA,             // Summon llama - spits on 3 targets, applies slowness
-        SHADOW_STRIKE,           // Backstab bonus from stealth
         PREY_WEAKNESS,           // Marked enemies take more crit damage
         ARMOR_SHRED,             // Piercing attacks reduce enemy armor
 
         // === CHASSEUR - Tier 7 ===
         CYCLONE_EYE,             // Arrow rain creates vortex that pulls + explodes
         BEAST_FOX,               // Summon fox - treasure hunter, gives stat buffs on kill
-        BOUNTY_EXECUTIONER,      // Mark execute threshold
         BLACK_PLAGUE,            // Poison anti-heal + self heal
         GATLING,                 // Full auto mode
 
         // === CHASSEUR - Tier 8 ===
         DEVASTATING_SWARM,       // Doubles all rain radius + arrows fragment on impact
         BEAST_BEE,               // Summon bee - double-sneak frenzy, +50% attack speed for all beasts
-        LEGENDARY_HUNTER,        // Multi-mark permanent
         BLIGHT,                  // Passive contagion
         LIVING_ARSENAL,          // Auto-targeting shots
 
         // === CHASSEUR - Tier 9 (Legendary) ===
         ORBITAL_STRIKE,          // Nuke from orbit
         BEAST_IRON_GOLEM,        // Summon iron golem - shockwave vortex + explosion
-        DEATH_NOTE,              // Delayed instakill
         TOXIC_APOCALYPSE,        // Passive poison aura
         BULLET_TIME,             // Time slow
 

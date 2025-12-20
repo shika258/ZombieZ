@@ -85,26 +85,27 @@ public final class ChasseurTalents {
             .values(new double[]{1.5}) // base_damage
             .build());
 
-        // 1.3 - CHASSEUR AGILE
+        // 1.3 - LAME D'OMBRE (Branche Ombre - Refonte)
         TALENTS.add(Talent.builder()
-            .id("chasseur_agile_hunter")
-            .name("Chasseur Agile")
-            .description("Esquive = invisible 1s + 50% degats")
+            .id("chasseur_shadow_blade")
+            .name("Lame d'Ombre")
+            .description("Attaques = Points d'Ombre")
             .loreLines(new String[]{
-                "§7Esquiver (double appui direction)",
-                "§7vous rend §binvisible 1s§7 et augmente",
-                "§7les degats suivants de §c+50%§7.",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8Temps de recharge: 3s"
+                "§6► LAME D'OMBRE",
+                "§7Attaques génèrent §d+1 Point d'Ombre",
+                "§7À §f3+ Points§7: §a+30%§7 vitesse d'attaque",
+                "",
+                "§8Points max: 5 (affichés dans l'ActionBar)"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(2)
-            .icon(Material.FEATHER)
-            .iconColor("§b")
-            .effectType(Talent.TalentEffectType.AGILE_HUNTER)
-            .values(new double[]{3000, 1000, 0.50}) // dodge_cooldown_ms, invis_duration_ms, damage_boost
-            .internalCooldownMs(3000)
+            .icon(Material.NETHERITE_SWORD)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_BLADE)
+            .values(new double[]{1, 3, 0.30}) // points_per_hit, threshold, attack_speed_bonus
             .build());
 
         // 1.4 - MARQUE DU CHASSEUR
@@ -224,25 +225,27 @@ public final class ChasseurTalents {
             .values(new double[]{3000, 0.25, 0.50, 4.0}) // infestation_duration_ms, corruption_bonus, explosion_damage, aoe_radius
             .build());
 
-        // 2.3 - FANTOME
+        // 2.3 - POISON INSIDIEUX (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_ghost")
-            .name("Fantome")
-            .description("3s+ invisible: +100% degats critiques")
+            .id("chasseur_insidious_poison")
+            .name("Poison Insidieux")
+            .description("Attaques empoisonnent (stack x5)")
             .loreLines(new String[]{
-                "§7Rester invisible §e3s+§7 confere",
-                "§7§c+100%§7 degats critique sur",
-                "§7la premiere attaque!",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8Assassin furtif"
+                "§6► POISON INSIDIEUX",
+                "§7Attaques appliquent §2Poison§7 3s",
+                "§7Se cumule jusqu'à §cx5§7 stacks",
+                "",
+                "§8Synergie: DoT continu"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(2)
-            .icon(Material.PHANTOM_MEMBRANE)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.GHOST)
-            .values(new double[]{3000, 1.0}) // invis_time_required_ms, crit_damage_bonus
+            .icon(Material.SPIDER_EYE)
+            .iconColor("§2")
+            .effectType(Talent.TalentEffectType.INSIDIOUS_POISON)
+            .values(new double[]{3000, 5}) // duration_ms, max_stacks
             .build());
 
         // 2.4 - VENIN
@@ -347,25 +350,28 @@ public final class ChasseurTalents {
             .values(new double[]{3.0, 5000, 1.5}) // base_damage, bleed_duration_ms, bleed_damage_per_tick
             .build());
 
-        // 3.3 - TRAQUEUR
+        // 3.3 - PAS DE L'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_tracker")
-            .name("Traqueur")
-            .description("Marques: +25% degats, vision murs")
+            .id("chasseur_shadow_step")
+            .name("Pas de l'Ombre")
+            .description("Shift+Attaque = téléport derrière")
             .loreLines(new String[]{
-                "§7Les ennemis marques sont",
-                "§7visibles a travers les murs",
-                "§7et prennent §c+25%§7 degats.",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§8(au lieu de +15%)"
+                "§6► PAS DE L'OMBRE",
+                "§7§eShift + Attaque§7 = téléport derrière",
+                "§7la cible + §d+2 Points d'Ombre",
+                "",
+                "§b⚡ §f5s§7 cooldown",
+                "§8Mobilité d'assassin"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(2)
-            .icon(Material.RECOVERY_COMPASS)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.TRACKER)
-            .values(new double[]{0.25}) // damage_amp (replaces base 15%)
+            .icon(Material.ENDER_EYE)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_STEP)
+            .values(new double[]{5000, 2}) // cooldown_ms, points_gained
             .build());
 
         // 3.4 - TOXINES MORTELLES
@@ -467,25 +473,31 @@ public final class ChasseurTalents {
             .values(new double[]{2.5, 8.0, 1500}) // base_damage, range, cooldown_ms
             .build());
 
-        // 4.3 - SENTENCE DE MORT
+        // 4.3 - MARQUE DE MORT (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_death_sentence")
-            .name("Sentence de Mort")
-            .description("Marque explose a la mort (zone)")
+            .id("chasseur_death_mark")
+            .name("Marque de Mort")
+            .description("Crits marquent 8s (+25% dégâts)")
             .loreLines(new String[]{
-                "§7Les ennemis marques qui meurent",
-                "§7font §cexploser§7 leur marque!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Degats: §c100%§8 du coup fatal",
-                "§8Rayon: §e3§8 blocs"
+                "§7Vos §ecoups critiques§7 marquent",
+                "§7l'ennemi pendant §c8s§7!",
+                "",
+                "§6MARQUE DE MORT:",
+                "§8► §c+25%§8 dégâts subis",
+                "§8► §eGlowing§8 (visible à travers murs)",
+                "§8► §5Synergie§8 avec Exécution",
+                "",
+                "§5§lDÉVOILEZ VOS PROIES"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
             .slotIndex(2)
-            .icon(Material.TNT_MINECART)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.DEATH_SENTENCE)
-            .values(new double[]{1.0, 3.0}) // damage%, radius
+            .icon(Material.WITHER_SKELETON_SKULL)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.DEATH_MARK)
+            .values(new double[]{8000, 0.25}) // duration_ms, damage_bonus
             .build());
 
         // 4.4 - PANDEMIE
@@ -591,25 +603,35 @@ public final class ChasseurTalents {
             .values(new double[]{8000, 0.80, 4.0}) // cooldown_ms, damage_percent, explosion_radius
             .build());
 
-        // 5.3 - CHASSEUR DE PRIMES
+        // 5.3 - EXÉCUTION (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bounty_hunter")
-            .name("Chasseur de Primes")
-            .description("Tuer marque: +10% PV, +20% degats 5s")
+            .id("chasseur_execution")
+            .name("Exécution")
+            .description("5 Points sur marqué = 250%/400% dégâts")
             .loreLines(new String[]{
-                "§7Tuer un ennemi marque vous",
-                "§7soigne de §c10%§7 PV et donne",
-                "§7§c+20%§7 degats pendant §a5s§7.",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Prime collectee!"
+                "§7À §55 Points d'Ombre§7, attaquez",
+                "§7une cible §cmarquée§7 pour déclencher",
+                "§7une §c§lEXÉCUTION§7!",
+                "",
+                "§6DÉGÂTS:",
+                "§8► Cible normale: §c250%§8 dégâts",
+                "§8► Cible marquée: §c§l400%§8 dégâts!",
+                "",
+                "§6EFFET:",
+                "§8► Consomme §55 Points§8",
+                "§8► Génère +2 Points si kill",
+                "",
+                "§5§lLE MOMENT DE VÉRITÉ"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(2)
-            .icon(Material.GOLD_INGOT)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.BOUNTY_HUNTER)
-            .values(new double[]{0.10, 0.20, 5000}) // heal%, damage_bonus%, buff_duration_ms
+            .icon(Material.NETHERITE_SWORD)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.EXECUTION)
+            .values(new double[]{5, 2.5, 4.0, 2}) // points_needed, dmg_normal (250%), dmg_marked (400%), points_on_kill
             .build());
 
         // 5.4 - EPIDEMIE
@@ -715,26 +737,36 @@ public final class ChasseurTalents {
             .values(new double[]{3.5, 6.0, 3, 3000}) // base_damage, range, max_targets, slow_duration_ms
             .build());
 
-        // 6.3 - FRAPPE DES OMBRES
+        // 6.3 - DANSE MACABRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_shadow_strike")
-            .name("Frappe des Ombres")
-            .description("Attaque depuis l'ombre: +75% degats")
+            .id("chasseur_danse_macabre")
+            .name("Danse Macabre")
+            .description("Kill marqué = 2s invis + reset Pas + vitesse")
             .loreLines(new String[]{
-                "§7Vos attaques depuis l'invisibilite",
-                "§7infligent §c+75%§7 de degats bonus.",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8S'applique uniquement a la",
-                "§8premiere attaque",
-                "§8Synergie: Build assassin"
+                "§7Tuer une cible §cmarquée§7 déclenche",
+                "§7la §5§lDanse Macabre§7!",
+                "",
+                "§6EFFETS DU KILL:",
+                "§8► §7Invisibilité§8 §e2s",
+                "§8► §bReset§8 cooldown Pas d'Ombre",
+                "§8► §aVitesse II§8 pendant §e3s",
+                "§8► §5+1 Point§8 d'Ombre",
+                "",
+                "§6ENCHAÎNEMENT:",
+                "§7Parfait pour tuer plusieurs",
+                "§7cibles à la suite!",
+                "",
+                "§5§lL'OMBRE NE S'ARRÊTE JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(2)
-            .icon(Material.BLACK_DYE)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.SHADOW_STRIKE)
-            .values(new double[]{0.75}) // damage_bonus
+            .icon(Material.PHANTOM_MEMBRANE)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.DANSE_MACABRE)
+            .values(new double[]{2000, 3000, 1}) // invis_duration_ms, speed_duration_ms, points_gained
             .build());
 
         // 6.4 - FAIBLESSE DE LA PROIE
@@ -846,24 +878,37 @@ public final class ChasseurTalents {
             .values(new double[]{4000, 5000, 0.30}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus
             .build());
 
-        // 6.3 - EXECUTEUR DE PRIMES
+        // 7.3 - CLONE D'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_bounty_executioner")
-            .name("Executeur de Primes")
-            .description("Marques sous 20% PV = mort instantanee")
+            .id("chasseur_shadow_clone")
+            .name("Clone d'Ombre")
+            .description("5 Points = clone 10s (40% dégâts)")
             .loreLines(new String[]{
-                "§7Les ennemis marques sous",
-                "§7§c20%§7 PV meurent §cinstantanement§7!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Contrat rempli"
+                "§7Quand vous atteignez §55 Points§7,",
+                "§7invoquez automatiquement un",
+                "§5§lClone d'Ombre§7!",
+                "",
+                "§6CLONE D'OMBRE:",
+                "§8► Durée: §e10s",
+                "§8► Dégâts: §c40%§8 de vos dégâts",
+                "§8► §7Attaque votre cible",
+                "§8► §5Invulnérable§8 (ombre pure)",
+                "",
+                "§6SYNERGIE:",
+                "§7Le clone peut déclencher vos",
+                "§7effets de talents!",
+                "",
+                "§5§lVOTRE OMBRE COMBAT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.DIAMOND_SWORD)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.BOUNTY_EXECUTIONER)
-            .values(new double[]{0.20}) // threshold
+            .icon(Material.ARMOR_STAND)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_CLONE)
+            .values(new double[]{5, 10000, 0.40}) // points_trigger, duration_ms, damage_percent (40%)
             .build());
 
         // 6.4 - PESTE NOIRE
@@ -973,25 +1018,36 @@ public final class ChasseurTalents {
             .values(new double[]{2000, 5, 1.5}) // sting_cooldown_ms, max_stacks, explosion_damage_mult
             .build());
 
-        // 7.3 - CHASSEUR LEGENDAIRE
+        // 8.3 - TEMPÊTE D'OMBRE (Branche Ombre)
         TALENTS.add(Talent.builder()
-            .id("chasseur_legendary_hunter")
-            .name("Chasseur Legendaire")
-            .description("5 marques simultanees, duree infinie")
+            .id("chasseur_shadow_storm")
+            .name("Tempête d'Ombre")
+            .description("Exécution kill = AoE + marque tous")
             .loreLines(new String[]{
-                "§7Vous pouvez marquer §e5§7 ennemis",
-                "§7simultanement et les marques",
-                "§7durent §eindefiniment§7!",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§8Chasseur supreme"
+                "§7Quand une §cExécution§7 tue une",
+                "§7cible, déclenchez une",
+                "§5§lTEMPÊTE D'OMBRE§7!",
+                "",
+                "§6TEMPÊTE:",
+                "§8► Zone: §e6§8 blocs",
+                "§8► Dégâts: §c150%§8 de l'Exécution",
+                "§8► §cMarque§8 tous les touchés",
+                "§8► §5+1 Point§8 par ennemi touché",
+                "",
+                "§6RÉACTION EN CHAÎNE:",
+                "§7Parfait pour nettoyer les groupes!",
+                "",
+                "§5§lL'OMBRE CONSUME TOUT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(2)
-            .icon(Material.BEACON)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.LEGENDARY_HUNTER)
-            .values(new double[]{5}) // max_marks
+            .icon(Material.WITHER_ROSE)
+            .iconColor("§5§l")
+            .effectType(Talent.TalentEffectType.SHADOW_STORM)
+            .values(new double[]{6.0, 1.50, 1}) // radius, damage_mult, points_per_enemy
             .build());
 
         // 7.4 - FLEAU
@@ -1110,28 +1166,40 @@ public final class ChasseurTalents {
             .values(new double[]{10000, 8.0, 5.0}) // slam_cooldown_ms, damage, radius
             .build());
 
-        // 8.3 - CARNET DE LA MORT
+        // 9.3 - AVATAR D'OMBRE (Branche Ombre - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
-            .id("chasseur_death_note")
-            .name("Carnet de la Mort")
-            .description("Marquer = mort apres 10s")
+            .id("chasseur_shadow_avatar")
+            .name("Avatar d'Ombre")
+            .description("Ultime 15s: 2 clones, +1 Point/s, +40% dégâts")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§5§l★ TALENT LÉGENDAIRE ★",
+                "§8§lBRANCHE OMBRE",
                 "",
-                "§7Marquer un ennemi le tue",
-                "§7apres §e10s§7, peu importe ses PV!",
+                "§7Activation: §e2x SNEAK§7 rapidement",
+                "§7Transformez-vous en §5§lAVATAR D'OMBRE§7!",
                 "",
-                "§8Boss: §c-50%§8 PV direct",
-                "§8Temps de recharge: 60s"
+                "§6TRANSFORMATION (15s):",
+                "§8► §52 Clones§8 permanents",
+                "§8► §5+1 Point/s§8 automatique",
+                "§8► §c+40%§8 dégâts toutes sources",
+                "§8► §7Semi-transparent§8 (ombre)",
+                "",
+                "§6SYNERGIE ULTIME:",
+                "§7Les Exécutions des clones",
+                "§7peuvent déclencher Tempête!",
+                "",
+                "§8► Cooldown: §c45s",
+                "",
+                "§5§l★ MAÎTRE DES OMBRES ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(2)
-            .icon(Material.WRITTEN_BOOK)
-            .iconColor("§0§l")
-            .effectType(Talent.TalentEffectType.DEATH_NOTE)
-            .values(new double[]{10000, 0.50, 60000}) // delay_ms, boss_damage%, cooldown_ms
-            .internalCooldownMs(60000)
+            .icon(Material.DRAGON_HEAD)
+            .iconColor("§5§l")
+            .effectType(Talent.TalentEffectType.SHADOW_AVATAR)
+            .values(new double[]{15000, 2, 1000, 0.40, 45000}) // duration_ms, clone_count, point_interval_ms, damage_bonus (40%), cooldown_ms
+            .internalCooldownMs(45000)
             .build());
 
         // 8.4 - APOCALYPSE TOXIQUE
