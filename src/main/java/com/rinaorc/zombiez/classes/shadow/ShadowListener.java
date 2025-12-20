@@ -95,8 +95,17 @@ public class ShadowListener implements Listener {
         }
 
         // === T3: SHADOW_STEP - Shift+Attaque = téléportation ===
+        // Note: Ne pas déclencher si Execution peut être utilisée (priorité à Execution)
         Talent shadowStep = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STEP);
-        if (shadowStep != null && isMelee && player.isSneaking()) {
+        Talent executionCheck = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
+        boolean canExecute = false;
+        if (executionCheck != null) {
+            int preparedCost = shadowManager.getPreparedExecutionCost(uuid);
+            int requiredPoints = preparedCost > 0 ? preparedCost : 5;
+            canExecute = shadowManager.hasEnoughPoints(uuid, requiredPoints);
+        }
+
+        if (shadowStep != null && isMelee && player.isSneaking() && !canExecute) {
             double shadowStepDamage = shadowManager.executeShadowStep(player, target, shadowStep);
             if (shadowStepDamage > 0) {
                 // Annuler les dégâts de l'attaque normale (dégâts déjà appliqués dans executeShadowStep)

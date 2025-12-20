@@ -425,21 +425,23 @@ public class ShadowManager {
         Vector direction = targetLoc.getDirection().normalize().multiply(-1.5); // Derrière
         Location destination = targetLoc.clone().add(direction);
         destination.setY(targetLoc.getY());
-        destination.setYaw(targetLoc.getYaw() + 180); // Face à la cible
-        destination.setPitch(0);
 
-        // Vérifier que la destination est safe
-        if (!destination.getBlock().isPassable()) {
-            destination = targetLoc.clone().add(0, 0.5, 0);
-        }
+        // Calculer le yaw pour faire face VERS la cible depuis la destination
+        Vector toTarget = targetLoc.toVector().subtract(destination.toVector());
+        destination.setDirection(toTarget);
+        destination.setPitch(0); // Garder le regard horizontal
+
+        // Vérifier que la destination est safe (pieds + tête passables, sol solide)
+        destination = findSafeDestination(destination, targetLoc, target);
 
         // Effets visuels au départ (trainée d'ombre)
-        Location start = player.getLocation();
-        start.getWorld().spawnParticle(Particle.LARGE_SMOKE, start.add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
+        Location start = player.getLocation().clone();
+        Location startParticle = start.clone().add(0, 1, 0);
+        start.getWorld().spawnParticle(Particle.LARGE_SMOKE, startParticle, 20, 0.3, 0.5, 0.3, 0.05);
         start.getWorld().playSound(start, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.5f);
 
         // Trainée de particules entre départ et arrivée
-        createShadowTrail(start, destination);
+        createShadowTrail(start.clone().add(0, 1, 0), destination.clone().add(0, 1, 0));
 
         // Téléportation
         player.teleport(destination);
@@ -487,6 +489,85 @@ public class ShadowManager {
             point.getWorld().spawnParticle(Particle.DUST, point, 2, 0.1, 0.1, 0.1, 0,
                 new Particle.DustOptions(Color.fromRGB(40, 0, 60), 1.0f));
         }
+    }
+
+    /**
+     * Trouve une destination safe pour la téléportation Shadow Step.
+     * Vérifie: pieds passables, tête passable, sol solide sous les pieds.
+     * Teste plusieurs positions alternatives si la première n'est pas valide.
+     */
+    private Location findSafeDestination(Location preferred, Location targetLoc, LivingEntity target) {
+        // Tester la destination préférée (derrière la cible)
+        if (isLocationSafe(preferred)) {
+            return preferred;
+        }
+
+        // Tester les côtés de la cible (gauche, droite, devant)
+        Vector targetDirection = targetLoc.getDirection().normalize();
+        Vector[] offsets = {
+            rotateVectorY(targetDirection, 90).multiply(1.5),   // Côté gauche
+            rotateVectorY(targetDirection, -90).multiply(1.5),  // Côté droit
+            targetDirection.clone().multiply(1.5)               // Devant
+        };
+
+        for (Vector offset : offsets) {
+            Location alt = targetLoc.clone().add(offset);
+            alt.setY(targetLoc.getY());
+
+            // Calculer le yaw vers la cible
+            Vector toTarget = targetLoc.toVector().subtract(alt.toVector());
+            alt.setDirection(toTarget);
+            alt.setPitch(0);
+
+            if (isLocationSafe(alt)) {
+                return alt;
+            }
+        }
+
+        // Dernier recours: à côté de la cible avec décalage Y
+        Location fallback = targetLoc.clone().add(
+            (Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2
+        );
+        // S'assurer qu'on est au sol
+        while (!fallback.getBlock().getType().isSolid() && fallback.getY() > targetLoc.getY() - 5) {
+            fallback.subtract(0, 1, 0);
+        }
+        fallback.add(0, 1, 0); // Remonter d'un bloc pour être sur le sol
+
+        Vector toTarget = targetLoc.toVector().subtract(fallback.toVector());
+        fallback.setDirection(toTarget);
+        fallback.setPitch(0);
+
+        return fallback;
+    }
+
+    /**
+     * Vérifie si une location est safe pour téléporter un joueur.
+     */
+    private boolean isLocationSafe(Location loc) {
+        // Bloc des pieds doit être passable
+        if (!loc.getBlock().isPassable()) {
+            return false;
+        }
+        // Bloc de la tête doit être passable
+        if (!loc.clone().add(0, 1, 0).getBlock().isPassable()) {
+            return false;
+        }
+        // Bloc sous les pieds doit être solide (ou au moins pas de l'air/vide)
+        Location below = loc.clone().subtract(0, 1, 0);
+        return below.getBlock().getType().isSolid() || !below.getBlock().isPassable();
+    }
+
+    /**
+     * Fait pivoter un vecteur autour de l'axe Y.
+     */
+    private Vector rotateVectorY(Vector v, double angleDegrees) {
+        double angleRad = Math.toRadians(angleDegrees);
+        double cos = Math.cos(angleRad);
+        double sin = Math.sin(angleRad);
+        double x = v.getX() * cos - v.getZ() * sin;
+        double z = v.getX() * sin + v.getZ() * cos;
+        return new Vector(x, v.getY(), z);
     }
 
     /**
