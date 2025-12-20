@@ -78,6 +78,14 @@ public class BeastManager {
     // Respawn delay en ms pour l'Ours
     private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
 
+    // Axolotl - Système de vitesse d'attaque progressive
+    private final Map<UUID, Double> axolotlAttackSpeedBonus = new ConcurrentHashMap<>(); // Bonus en % (0.0 à 1.5)
+    private final Map<UUID, Long> axolotlLastAttackTime = new ConcurrentHashMap<>();
+    private static final double AXOLOTL_SPEED_INCREMENT = 0.10;    // +10% par attaque
+    private static final double AXOLOTL_SPEED_MAX_BONUS = 1.50;    // +150% max
+    private static final long AXOLOTL_SPEED_DECAY_DELAY = 10000;   // 10 secondes avant décroissance
+    private static final double AXOLOTL_SPEED_DECAY_RATE = 0.10;   // -10% par seconde
+
     public BeastManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -134,6 +142,61 @@ public class BeastManager {
                 checkPendingRespawns();
             }
         }.runTaskTimer(plugin, 20L, 20L);
+
+        // Tâche de décroissance de la vitesse d'attaque de l'Axolotl (20 ticks = 1 seconde)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                updateAxolotlSpeedDecay();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la décroissance de la vitesse d'attaque de l'Axolotl.
+     * Si le joueur n'a pas attaqué depuis 10 secondes, réduit le bonus de 10% par seconde.
+     */
+    private void updateAxolotlSpeedDecay() {
+        long now = System.currentTimeMillis();
+
+        // Itérer sur tous les joueurs avec un bonus d'axolotl
+        axolotlAttackSpeedBonus.entrySet().removeIf(entry -> {
+            UUID playerUuid = entry.getKey();
+            double currentBonus = entry.getValue();
+
+            // Si le bonus est déjà à 0, nettoyer
+            if (currentBonus <= 0) return true;
+
+            // Vérifier si le joueur a un axolotl actif
+            Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
+            if (beasts == null || !beasts.containsKey(BeastType.AXOLOTL)) {
+                return true; // Nettoyer si pas d'axolotl
+            }
+
+            // Vérifier le temps depuis la dernière attaque
+            Long lastAttack = axolotlLastAttackTime.get(playerUuid);
+            if (lastAttack == null || now - lastAttack >= AXOLOTL_SPEED_DECAY_DELAY) {
+                // Décroître le bonus
+                double newBonus = currentBonus - AXOLOTL_SPEED_DECAY_RATE;
+
+                if (newBonus <= 0) {
+                    axolotlLastAttackTime.remove(playerUuid);
+                    return true; // Supprimer l'entrée
+                } else {
+                    entry.setValue(newBonus);
+
+                    // Feedback visuel si le bonus diminue significativement
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (player != null && newBonus < currentBonus) {
+                        // Son subtil de décroissance (seulement toutes les 0.5 de perte)
+                        if ((int)(currentBonus * 10) != (int)(newBonus * 10) && (int)(newBonus * 10) % 5 == 0) {
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f);
+                        }
+                    }
+                }
+            }
+            return false;
+        });
     }
 
     /**
@@ -986,10 +1049,20 @@ public class BeastManager {
     }
 
     private void executeAxolotlAbility(Player owner, LivingEntity axolotl, long now, String cooldownKey, double frenzyMultiplier) {
-        // Tirer des bulles toutes les 1.5 secondes
-        long shootCooldown = (long) (1500 / frenzyMultiplier);
+        UUID ownerUuid = owner.getUniqueId();
 
-        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
+        // Calculer le bonus de vitesse d'attaque actuel (0.0 à 1.5 = 0% à 150%)
+        double speedBonus = axolotlAttackSpeedBonus.getOrDefault(ownerUuid, 0.0);
+
+        // Vitesse totale = (1 + bonus) * frenzy
+        // Cooldown de base: 1.5s, réduit par la vitesse
+        double totalSpeedMultiplier = (1.0 + speedBonus) * frenzyMultiplier;
+        long shootCooldown = (long) (1500 / totalSpeedMultiplier);
+
+        // Minimum cooldown de 300ms pour éviter le spam
+        shootCooldown = Math.max(300, shootCooldown);
+
+        if (!isOnCooldown(ownerUuid, cooldownKey, now)) {
             // Trouver la cible la plus proche (avec early-exit)
             LivingEntity nearestEnemy = null;
             double nearestDistSq = 64.0; // 8^2
@@ -1008,8 +1081,41 @@ public class BeastManager {
             if (nearestEnemy != null) {
                 // Tirer une bulle d'eau
                 shootWaterBubble(owner, axolotl, nearestEnemy);
-                setCooldown(owner.getUniqueId(), cooldownKey, now + shootCooldown);
+                setCooldown(ownerUuid, cooldownKey, now + shootCooldown);
             }
+        }
+    }
+
+    /**
+     * Incrémente le bonus de vitesse d'attaque de l'Axolotl après un hit.
+     * +10% par attaque, max +150%
+     */
+    private void incrementAxolotlAttackSpeed(Player owner) {
+        UUID ownerUuid = owner.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        double currentBonus = axolotlAttackSpeedBonus.getOrDefault(ownerUuid, 0.0);
+        double newBonus = Math.min(currentBonus + AXOLOTL_SPEED_INCREMENT, AXOLOTL_SPEED_MAX_BONUS);
+
+        axolotlAttackSpeedBonus.put(ownerUuid, newBonus);
+        axolotlLastAttackTime.put(ownerUuid, now);
+
+        // Feedback au joueur quand le bonus atteint des paliers significatifs
+        int newPercent = (int) (newBonus * 100);
+        int oldPercent = (int) (currentBonus * 100);
+
+        // Son de montée en puissance (pitch croissant)
+        float pitch = 0.8f + (float) (newBonus / AXOLOTL_SPEED_MAX_BONUS) * 1.2f;
+        owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.4f, pitch);
+
+        // Message aux paliers de 50%
+        if (newPercent >= 50 && oldPercent < 50) {
+            owner.sendMessage("§d✦ Axolotl: §e+50% §7vitesse d'attaque!");
+        } else if (newPercent >= 100 && oldPercent < 100) {
+            owner.sendMessage("§d✦ Axolotl: §6+100% §7vitesse d'attaque!");
+        } else if (newPercent >= 150 && oldPercent < 150) {
+            owner.sendMessage("§d✦ Axolotl: §c+150% §7vitesse MAX!");
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
         }
     }
 
@@ -1042,6 +1148,10 @@ public class BeastManager {
                         living.damage(calculateBeastDamage(owner, BeastType.AXOLOTL), owner);
                         current.getWorld().playSound(current, Sound.ENTITY_PLAYER_SPLASH, 1.0f, 1.5f);
                         current.getWorld().spawnParticle(Particle.SPLASH, current, 20, 0.3, 0.3, 0.3, 0);
+
+                        // Incrémenter le bonus de vitesse d'attaque
+                        incrementAxolotlAttackSpeed(owner);
+
                         cancel();
                         return;
                     }

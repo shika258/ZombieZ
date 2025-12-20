@@ -113,6 +113,7 @@ public enum BeastType {
     /**
      * Tier 4 - Axolotl
      * Attaque à distance avec des bulles d'eau.
+     * Vitesse d'attaque progressive: +10% par hit, max +150%
      */
     AXOLOTL(
         4, "Axolotl",
@@ -129,9 +130,16 @@ public enum BeastType {
             "§7Tire des projectiles aquatiques",
             "§7sur les ennemis proches.",
             "",
+            "§6FRÉNÉSIE AQUATIQUE:",
+            "§7Chaque hit augmente sa vitesse",
+            "§7d'attaque de §e+10%§7!",
+            "§7Max: §c+150%§7 (cadence x2.5)",
+            "",
+            "§8► Décroît après 10s sans attaque",
+            "",
             "§e⚔ Dégâts: §f25% §7de vos dégâts",
             "§b~ Portée: §e8 blocs",
-            "§b~ Cadence: §e1.5s"
+            "§b~ Cadence: §e1.5s §7→ §e0.6s"
         },
         Sound.ENTITY_AXOLOTL_SPLASH,
         Sound.ENTITY_AXOLOTL_HURT,
