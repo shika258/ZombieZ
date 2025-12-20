@@ -39,7 +39,7 @@ public class BeastListener implements Listener {
 
     /**
      * Empêche les bêtes invincibles de prendre des dégâts.
-     * L'ours est la seule bête qui peut prendre des dégâts (tank pour le joueur).
+     * Toutes les bêtes de la Voie des Bêtes sont invincibles.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBeastDamage(EntityDamageEvent event) {
@@ -54,21 +54,9 @@ public class BeastListener implements Listener {
             String typeStr = entity.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
             BeastType type = BeastType.valueOf(typeStr);
 
-            // Toutes les bêtes invincibles (toutes sauf l'ours)
+            // Toutes les bêtes sont invincibles
             if (type.isInvincible()) {
                 event.setCancelled(true);
-                return;
-            }
-
-            // L'ours prend les dégâts normalement (tank pour protéger le joueur)
-            // Pas de partage de dégâts - l'ours absorbe tout
-            // Mettre à jour l'affichage des PV de l'ours après les dégâts
-            if (type == BeastType.BEAR) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (entity.isValid() && !entity.isDead()) {
-                        beastManager.updateBearHealthDisplay(entity);
-                    }
-                });
             }
         }
     }
@@ -160,18 +148,9 @@ public class BeastListener implements Listener {
         }
 
         // Appliquer les effets spéciaux selon le type de bête
-        // Note: Le loup gère ses dégâts et bleed via applyWolfBite dans executeWolfAbility
-        switch (type) {
-            case BEAR -> {
-                // L'ours inflige des dégâts lourds + knockback
-                target.setVelocity(target.getLocation().toVector()
-                    .subtract(beast.getLocation().toVector())
-                    .normalize()
-                    .multiply(0.5)
-                    .setY(0.3));
-            }
-            // Autres effets gérés dans BeastManager (lama crachat, abeille piqûre, etc.)
-        }
+        // Note: Les effets sont principalement gérés dans BeastManager
+        // Le loup gère ses dégâts et bleed via applyWolfBite dans executeWolfAbility
+        // L'endermite gère sa corruption du vide via executeEndermiteAbility
     }
 
     // === GESTION DES MORTS ===
@@ -265,21 +244,19 @@ public class BeastListener implements Listener {
         String typeStr = target.getMetadata(BeastManager.BEAST_TYPE_KEY).get(0).asString();
         BeastType type = BeastType.valueOf(typeStr);
 
-        // Si la bête est invincible (toutes sauf l'ours), empêcher le ciblage
+        // Toutes les bêtes sont invincibles, empêcher le ciblage
         if (type.isInvincible()) {
             event.setCancelled(true);
 
-            // Essayer de rediriger vers l'ours du propriétaire
+            // Rediriger vers le joueur propriétaire
             UUID ownerUuid = beastManager.getBeastOwner(target);
             if (ownerUuid != null) {
-                LivingEntity bear = beastManager.getPlayerBear(ownerUuid);
-                if (bear != null && event.getEntity() instanceof org.bukkit.entity.Mob mob) {
-                    // Rediriger vers l'ours
-                    Bukkit.getScheduler().runTask(plugin, () -> mob.setTarget(bear));
+                Player owner = Bukkit.getPlayer(ownerUuid);
+                if (owner != null && event.getEntity() instanceof org.bukkit.entity.Mob mob) {
+                    Bukkit.getScheduler().runTask(plugin, () -> mob.setTarget(owner));
                 }
             }
         }
-        // L'ours peut être ciblé normalement (il est le tank)
     }
 
     // === GESTION DES CONNEXIONS/DÉCONNEXIONS ===
