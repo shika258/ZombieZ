@@ -1373,13 +1373,45 @@ public class BeastManager {
     }
 
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
+        if (!(golem instanceof Mob golemMob)) return;
+
         // Frappe Titanesque toutes les 10 secondes
         long slamCooldown = (long) (10000 / frenzyMultiplier);
 
-        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver la meilleure cible (priorité aux marqués/empilés)
-            LivingEntity target = findGolemTarget(golem);
-            if (target != null) {
+        // PRIORITÉ 1: Cible focus du joueur
+        LivingEntity target = getPlayerFocusTarget(owner);
+
+        // PRIORITÉ 2: Cible avec synergies (marquée ou stacks abeille)
+        if (target == null) {
+            target = findGolemSynergyTarget(golem);
+        }
+
+        // PRIORITÉ 3: Cible la plus proche du joueur
+        if (target == null) {
+            target = findNearestEnemy(owner, BEAST_COMBAT_RANGE);
+        }
+
+        // PRIORITÉ 4: Cible la plus proche du golem
+        if (target == null) {
+            target = findNearestEnemyFromBeast(golem, 15);
+        }
+
+        // Toujours définir la cible du Golem pour l'IA de base
+        if (target != null && !target.isDead()) {
+            if (golemMob.getTarget() != target) {
+                golemMob.setTarget(target);
+            }
+
+            double distToTarget = golem.getLocation().distance(target.getLocation());
+
+            // Si proche, attaquer en continu (l'IronGolem a une attaque de base)
+            if (distToTarget > 3 && distToTarget < 20) {
+                // Se déplacer vers la cible
+                golemMob.getPathfinder().moveTo(target.getLocation(), 1.3);
+            }
+
+            // Frappe Titanesque si cooldown prêt et cible à bonne distance
+            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget >= 4 && distToTarget <= 15) {
                 executeGolemCharge(owner, golem, target);
                 setCooldown(owner.getUniqueId(), cooldownKey, now + slamCooldown);
             }
@@ -1387,40 +1419,65 @@ public class BeastManager {
     }
 
     /**
-     * Trouve la meilleure cible pour le Golem (priorité aux cibles marquées/empilées)
+     * Trouve un ennemi proche d'une bête
      */
-    private LivingEntity findGolemTarget(LivingEntity golem) {
+    private LivingEntity findNearestEnemyFromBeast(LivingEntity beast, double range) {
+        LivingEntity nearest = null;
+        double nearestDistSq = range * range;
+
+        for (Entity nearby : beast.getNearbyEntities(range, range / 2, range)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                double distSq = beast.getLocation().distanceSquared(nearby.getLocation());
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = monster;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * Trouve une cible avec synergies pour le Golem (marquée par renard ou stacks abeille)
+     */
+    private LivingEntity findGolemSynergyTarget(LivingEntity golem) {
         LivingEntity bestTarget = null;
         double bestScore = 0;
 
-        for (Entity nearby : golem.getNearbyEntities(12, 6, 12)) {
-            if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
+        for (Entity nearby : golem.getNearbyEntities(15, 8, 15)) {
+            if (!(nearby instanceof Monster monster) || isBeast(nearby) || monster.isDead()) continue;
 
-            double score = 1.0;
+            double score = 0;
 
-            // Bonus si marqué par le renard (+30)
+            // Bonus si marqué par le renard (+50 - priorité haute)
             if (isMarkedByFox(nearby.getUniqueId())) {
-                score += 30;
+                score += 50;
             }
 
-            // Bonus selon les stacks d'abeille (+5 par stack)
+            // Bonus selon les stacks d'abeille (+10 par stack, +30 bonus à 3+)
             int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
-            score += beeStacks * 5;
-
-            // Bonus proximité
-            double dist = golem.getLocation().distanceSquared(nearby.getLocation());
-            if (dist < 36) score += 5; // < 6 blocs
-
-            // Bonus si groupe d'ennemis autour
-            int nearbyCount = 0;
-            for (Entity around : nearby.getNearbyEntities(3, 2, 3)) {
-                if (around instanceof Monster && !isBeast(around)) nearbyCount++;
+            score += beeStacks * 10;
+            if (beeStacks >= 3) {
+                score += 30; // Bonus car dégâts x2
             }
-            score += nearbyCount * 3;
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestTarget = monster;
+            // Seulement considérer si a une synergie
+            if (score > 0) {
+                // Bonus proximité (préférer les cibles plus proches)
+                double dist = golem.getLocation().distanceSquared(nearby.getLocation());
+                score += Math.max(0, (225 - dist) / 20); // Bonus jusqu'à 15 blocs
+
+                // Bonus si groupe d'ennemis autour (pour l'onde de choc)
+                int nearbyCount = 0;
+                for (Entity around : nearby.getNearbyEntities(4, 2, 4)) {
+                    if (around instanceof Monster && !isBeast(around)) nearbyCount++;
+                }
+                score += nearbyCount * 5;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = monster;
+                }
             }
         }
 
@@ -1428,36 +1485,39 @@ public class BeastManager {
     }
 
     /**
-     * Le Golem charge vers la cible avec animation
+     * Le Golem charge vers la cible avec animation fluide
      */
     private void executeGolemCharge(Player owner, LivingEntity golem, LivingEntity target) {
+        if (!(golem instanceof Mob golemMob)) return;
+
         Location startLoc = golem.getLocation().clone();
         Location targetLoc = target.getLocation().clone();
 
         // Phase 1: Préparation - le Golem se tourne vers sa cible
         orientBeastTowards(golem, targetLoc);
 
-        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
-        double distance = startLoc.distance(targetLoc);
+        // Désactiver temporairement l'IA du golem pendant la charge
+        golemMob.setTarget(null);
 
         // Animation avec phase de préparation
         new BukkitRunnable() {
             int ticks = -8; // 8 ticks (0.4s) de préparation
-            final int maxTicks = (int) Math.min(distance * 2, 20); // Max 1 seconde
-            Location current = startLoc.clone();
             Set<UUID> hitDuringCharge = new HashSet<>();
             boolean hasCharged = false;
 
             @Override
             public void run() {
-                if (golem.isDead() || target.isDead()) {
+                if (golem.isDead()) {
                     cancel();
                     return;
                 }
 
                 // Phase de préparation: le Golem lève son bras
                 if (ticks < 0) {
-                    orientBeastTowards(golem, target.getLocation());
+                    // Recalculer la direction vers la cible (qui peut bouger)
+                    if (!target.isDead()) {
+                        orientBeastTowards(golem, target.getLocation());
+                    }
 
                     // Particules de préparation + son
                     if (ticks == -8) {
@@ -1472,53 +1532,74 @@ public class BeastManager {
                     return;
                 }
 
-                // Début de la charge
-                if (!hasCharged) {
-                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
-                    hasCharged = true;
-                }
+                // Calculer direction et distance au moment de la charge
+                Location currentGolemLoc = golem.getLocation();
+                Location currentTargetLoc = target.isDead() ? targetLoc : target.getLocation();
+                Vector direction = currentTargetLoc.toVector().subtract(currentGolemLoc.toVector());
+                double distance = direction.length();
 
-                if (ticks >= maxTicks) {
-                    // IMPACT - Frappe Titanesque!
-                    executeGolemSlam(owner, golem, current, direction, hitDuringCharge);
+                // Si la cible est très proche ou morte, slam directement
+                if (distance < 2 || target.isDead()) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction.normalize(), hitDuringCharge);
                     cancel();
                     return;
                 }
 
-                // Déplacer le golem
-                Vector step = direction.clone().multiply(distance / maxTicks);
-                current.add(step);
+                direction.normalize();
 
-                if (golem instanceof Mob mob) {
-                    mob.getPathfinder().moveTo(current, 2.5);
+                // Début de la charge
+                if (!hasCharged) {
+                    golem.getWorld().playSound(currentGolemLoc, Sound.ENTITY_RAVAGER_STEP, 2.0f, 0.5f);
+                    hasCharged = true;
                 }
 
+                // Limite de temps de charge (max 1.5s = 30 ticks)
+                if (ticks >= 30) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction, hitDuringCharge);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le golem avec vélocité (plus fluide que pathfinder)
+                double chargeSpeed = 0.8;
+                Vector velocity = direction.clone().multiply(chargeSpeed);
+                velocity.setY(-0.1); // Légère gravité pour rester au sol
+                golem.setVelocity(velocity);
+
                 // Particules de charge (traînée de poussière)
-                golem.getWorld().spawnParticle(Particle.BLOCK, golem.getLocation(), 8, 0.5, 0.1, 0.5, 0,
+                golem.getWorld().spawnParticle(Particle.BLOCK, currentGolemLoc, 8, 0.5, 0.1, 0.5, 0,
                     Material.IRON_BLOCK.createBlockData());
-                golem.getWorld().spawnParticle(Particle.DUST, golem.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
+                golem.getWorld().spawnParticle(Particle.DUST, currentGolemLoc.add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0,
                     new Particle.DustOptions(Color.fromRGB(150, 150, 150), 2.0f));
 
                 // Dégâts aux ennemis sur le chemin
-                for (Entity nearby : golem.getWorld().getNearbyEntities(golem.getLocation(), 1.5, 1.5, 1.5)) {
+                for (Entity nearby : golem.getWorld().getNearbyEntities(currentGolemLoc, 1.8, 2, 1.8)) {
                     if (nearby instanceof LivingEntity living &&
                         nearby instanceof Monster &&
                         !isBeast(nearby) &&
                         !hitDuringCharge.contains(nearby.getUniqueId())) {
 
-                        // Dégâts de charge (25% des dégâts)
+                        // Dégâts de charge (50% des dégâts)
                         double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
                         living.damage(chargeDamage, owner);
                         hitDuringCharge.add(nearby.getUniqueId());
 
                         // Effet d'impact
                         living.getWorld().spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.2, 0.2, 0.1);
+                        living.getWorld().playSound(living.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
                     }
+                }
+
+                // Si on atteint la cible, slam!
+                if (distance < 3) {
+                    executeGolemSlam(owner, golem, currentGolemLoc, direction, hitDuringCharge);
+                    cancel();
+                    return;
                 }
 
                 // Son de pas lourds
                 if (ticks % 3 == 0) {
-                    golem.getWorld().playSound(golem.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
+                    golem.getWorld().playSound(currentGolemLoc, Sound.ENTITY_IRON_GOLEM_STEP, 1.5f, 0.7f);
                 }
 
                 ticks++;
