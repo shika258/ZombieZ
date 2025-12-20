@@ -138,63 +138,63 @@ public class Talent {
 
         // === CHASSEUR - Tier 1 ===
         MULTI_SHOT,              // Chance extra projectiles
-        LYNX_EYE,                // Crit chance + crit damage
+        BEAST_BAT,               // Summon bat - attacks focus target, invincible
         AGILE_HUNTER,            // Dodge gives invis + damage boost
         HUNTER_MARK,             // Mark enemies for extra damage
         PIERCING_ARROWS,         // Projectiles pierce enemies
 
         // === CHASSEUR - Tier 2 ===
         BURST_SHOT,              // Combo shot bonus
-        SNIPER,                  // Distance = damage
+        BEAST_BEAR,              // Summon bear - tank, roar aggro, shares player HP
         GHOST,                   // Invis bonus crit damage
         VENOM,                   // Poison DoT
         RICOCHET,                // Bouncing projectiles
 
         // === CHASSEUR - Tier 3 ===
         ARROW_RAIN,              // AoE arrow rain proc
-        PREDATOR_EYE,            // Crit resets dodge cooldown
+        BEAST_WOLF,              // Summon wolf - bleed DoT on bite
         TRACKER,                 // Enhanced mark
         DEADLY_TOXINS,           // Poison can crit + slow
         SHARPSHOOTER,            // Stand still = guaranteed crit
 
         // === CHASSEUR - Tier 4 ===
         DELUGE,                  // Arrow rain upgrade
-        SUPREME_PREDATOR,        // Stealth chain kills
+        BEAST_AXOLOTL,           // Summon axolotl - ranged water bubble attacks
         DEATH_SENTENCE,          // Mark explosion on death
         PANDEMIC,                // Poison spreads on death
         OVERHEAT,                // Ramping damage
 
         // === CHASSEUR - Tier 5 ===
         STEEL_STORM,             // Auto arrow storm
-        SPECTRE,                 // Attack from stealth
+        BEAST_COW,               // Summon cow - drops explosive mines
         BOUNTY_HUNTER,           // Mark kill rewards
         EPIDEMIC,                // Infinite poison stacking
         KILL_ZONE,               // Personal attack speed zone
 
         // === CHASSEUR - Tier 6 (Niveau 25 - Ascension) ===
         BARRAGE_FURY,            // Arrow rain kills charge meter -> SUPER rain
-        EAGLE_SIGHT,             // Crit damage scales with distance
+        BEAST_LLAMA,             // Summon llama - spits on 3 targets, applies slowness
         SHADOW_STRIKE,           // Backstab bonus from stealth
         PREY_WEAKNESS,           // Marked enemies take more crit damage
         ARMOR_SHRED,             // Piercing attacks reduce enemy armor
 
         // === CHASSEUR - Tier 7 ===
         CYCLONE_EYE,             // Arrow rain creates vortex that pulls + explodes
-        SHADOW_MASTER,           // Permanent stealth
+        BEAST_FOX,               // Summon fox - treasure hunter, gives stat buffs on kill
         BOUNTY_EXECUTIONER,      // Mark execute threshold
         BLACK_PLAGUE,            // Poison anti-heal + self heal
         GATLING,                 // Full auto mode
 
         // === CHASSEUR - Tier 8 ===
         DEVASTATING_SWARM,       // Doubles all rain radius + arrows fragment on impact
-        STEALTH_REAPER,          // Stealth execute
+        BEAST_BEE,               // Summon bee - double-sneak frenzy, +50% attack speed for all beasts
         LEGENDARY_HUNTER,        // Multi-mark permanent
         BLIGHT,                  // Passive contagion
         LIVING_ARSENAL,          // Auto-targeting shots
 
-        // === CHASSEUR - Tier 8 ===
+        // === CHASSEUR - Tier 9 (Legendary) ===
         ORBITAL_STRIKE,          // Nuke from orbit
-        VOID_WALKER,             // Moving = invincible (EQUILIBRE: -60% DR instead)
+        BEAST_IRON_GOLEM,        // Summon iron golem - shockwave vortex + explosion
         DEATH_NOTE,              // Delayed instakill
         TOXIC_APOCALYPSE,        // Passive poison aura
         BULLET_TIME,             // Time slow

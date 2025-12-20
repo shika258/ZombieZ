@@ -104,19 +104,19 @@ public enum TalentBranch {
             "§8Style: §fSuppression de zone"
         }
     ),
-    CHASSEUR_PRECISION(
+    CHASSEUR_BETES(
         ClassType.CHASSEUR, 1,
-        "Précision",
-        "§e",
-        Material.ENDER_EYE,
+        "Bêtes",
+        "§6",
+        Material.WOLF_SPAWN_EGG,
         new String[]{
-            "§e§lVOIE DE LA PRÉCISION",
+            "§6§lVOIE DES BÊTES",
             "",
-            "§7Chaque tir compte avec des",
-            "§7critiques dévastateurs.",
+            "§7Invoquez une meute de créatures",
+            "§7fidèles pour combattre à vos côtés.",
             "",
-            "§8Spécialité: §eCritiques, Dégâts purs",
-            "§8Style: §eSniper"
+            "§8Spécialité: §6Invocations, Meute",
+            "§8Style: §6Maître des Bêtes"
         }
     ),
     CHASSEUR_OMBRE(
