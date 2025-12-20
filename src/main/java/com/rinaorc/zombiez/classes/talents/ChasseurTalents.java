@@ -35,12 +35,12 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_multi_shot")
             .name("Tirs Multiples")
-            .description("25% chance de tirer 3 fleches")
+            .description("30% chance de tirer 3 fleches")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
                 "§7Vos tirs a l'arc ou l'arbalete",
-                "§7ont §e25%§7 de chance de tirer",
+                "§7ont §e30%§7 de chance de tirer",
                 "§e3 fleches§7 horizontales!",
                 "",
                 "§8► Pattern: §fI I I",
@@ -52,7 +52,7 @@ public final class ChasseurTalents {
             .icon(Material.ARROW)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.MULTI_SHOT)
-            .values(new double[]{0.25, 2}) // chance, extra_projectiles (2 bonus = 3 total)
+            .values(new double[]{0.30, 2}) // chance (buffed 25→30%), extra_projectiles (2 bonus = 3 total)
             .build());
 
         // 1.2 - CHAUVE-SOURIS (Voie des Bêtes)
@@ -121,7 +121,7 @@ public final class ChasseurTalents {
                 "",
                 "§6À 3+ STACKS - NÉCROSE:",
                 "§8► Le poison devient §cNécrose",
-                "§8► §c+25%§8 dégâts de poison",
+                "§8► §c+20%§8 dégâts de poison",
                 "§8► Effet visuel de corruption",
                 "",
                 "§2§lINFECTEZ VOS PROIES"
@@ -132,7 +132,7 @@ public final class ChasseurTalents {
             .icon(Material.SPIDER_EYE)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.VENOMOUS_STRIKE)
-            .values(new double[]{0.40, 5, 3, 0.25}) // chance, max_stacks, necrosis_threshold, necrosis_bonus
+            .values(new double[]{0.40, 5, 3, 0.20}) // chance, max_stacks, necrosis_threshold, necrosis_bonus (nerfed 25→20%)
             .build());
 
         // 1.5 - FLECHES PERCANTES (Voie de la Perforation)
@@ -534,7 +534,7 @@ public final class ChasseurTalents {
             .icon(Material.AXOLOTL_BUCKET)
             .iconColor("§d")
             .effectType(Talent.TalentEffectType.BEAST_AXOLOTL)
-            .values(new double[]{2.5, 8.0, 1500}) // base_damage, range, cooldown_ms
+            .values(new double[]{3.5, 8.0, 1500}) // base_damage (buffed 2.5→3.5), range, cooldown_ms
             .build());
 
         // 4.3 - MARQUE DE MORT (Branche Ombre)
@@ -658,7 +658,7 @@ public final class ChasseurTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.STEEL_STORM)
-            .values(new double[]{15000, 0.50, 20, 8.0}) // cooldown_ms, damage_per_arrow%, arrows, radius
+            .values(new double[]{15000, 0.60, 20, 8.0}) // cooldown_ms, damage_per_arrow% (buffed 50→60%), arrows, radius
             .internalCooldownMs(15000)
             .build());
 
@@ -688,7 +688,7 @@ public final class ChasseurTalents {
             .icon(Material.COW_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_COW)
-            .values(new double[]{8000, 0.80, 4.0}) // cooldown_ms, damage_percent, explosion_radius
+            .values(new double[]{8000, 1.00, 4.0}) // cooldown_ms, damage_percent (buffed 80→100%), explosion_radius
             .build());
 
         // 5.3 - EXÉCUTION (Branche Ombre)
@@ -738,7 +738,7 @@ public final class ChasseurTalents {
                 "",
                 "§c§lÀ 10 STACKS - SUPER EXPLOSION:",
                 "§8► §cTous les stacks explosent!",
-                "§8► §e200%§8 dégâts par stack",
+                "§8► §e150%§8 dégâts par stack",
                 "§8► Zone: §e4§8 blocs",
                 "§8► Reset les stacks à 0",
                 "",
@@ -752,7 +752,7 @@ public final class ChasseurTalents {
             .icon(Material.SLIME_BLOCK)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.EPIDEMIC)
-            .values(new double[]{10, 2.0}) // threshold, damage_multiplier
+            .values(new double[]{10, 1.5}) // threshold, damage_multiplier (nerfed 200→150%)
             .build());
 
         // 5.5 - PERFORATION ABSOLUE (Voie de la Perforation)
@@ -897,7 +897,7 @@ public final class ChasseurTalents {
                 "§6FRÉNÉSIE TOXIQUE:",
                 "§8► §a+5%§8 Attack Speed par stack",
                 "§8► Compte tous ennemis à §e8§8 blocs",
-                "§8► Maximum: §a+40%§8 AS",
+                "§8► Maximum: §a+30%§8 AS",
                 "",
                 "§6DRAIN VITAL:",
                 "§8► Explosions de poison: §c+8%§8 heal",
@@ -914,7 +914,7 @@ public final class ChasseurTalents {
             .icon(Material.BREWING_STAND)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.TOXIC_SYNERGY)
-            .values(new double[]{0.05, 8.0, 0.40, 0.08}) // as_per_stack, range, max_as_bonus, heal_on_explosion
+            .values(new double[]{0.05, 8.0, 0.30, 0.08}) // as_per_stack, range, max_as_bonus (nerfed 40→30%), heal_on_explosion
             .build());
 
         // 6.5 - MOMENTUM DE CHASSEUR (Voie de la Perforation)
@@ -1016,7 +1016,7 @@ public final class ChasseurTalents {
             .icon(Material.FOX_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_FOX)
-            .values(new double[]{4000, 5000, 0.30}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus
+            .values(new double[]{4000, 5000, 0.35}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus (buffed 30→35%)
             .build());
 
         // 7.3 - CLONE D'OMBRE (Branche Ombre)
@@ -1156,7 +1156,7 @@ public final class ChasseurTalents {
             .icon(Material.FIREWORK_STAR)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.DEVASTATING_SWARM)
-            .values(new double[]{2.0, 3, 0.40, 2.0}) // radius_mult, fragment_count, fragment_damage%, fragment_radius
+            .values(new double[]{2.0, 3, 0.50, 2.0}) // radius_mult, fragment_count, fragment_damage% (buffed 40→50%), fragment_radius
             .build());
 
         // 8.2 - ABEILLE (Voie des Bêtes)
@@ -1362,7 +1362,7 @@ public final class ChasseurTalents {
             .icon(Material.IRON_BLOCK)
             .iconColor("§7§l")
             .effectType(Talent.TalentEffectType.BEAST_IRON_GOLEM)
-            .values(new double[]{10000, 8.0, 5.0}) // slam_cooldown_ms, damage, radius
+            .values(new double[]{10000, 12.0, 6.0}) // slam_cooldown_ms, damage (buffed 8→12), radius (buffed 5→6)
             .build());
 
         // 9.3 - AVATAR D'OMBRE (Branche Ombre - LÉGENDAIRE)
