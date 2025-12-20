@@ -281,7 +281,7 @@ public class ProgressionGUI implements Listener {
         for (Achievement achievement : categoryAchievements) {
             boolean unlocked = data.hasAchievement(achievement.id());
             int progress = data.getAchievementProgress(achievement.id());
-            int required = achievement.requirements()[0];
+            int required = achievement.requirement();
             
             List<String> lore = new ArrayList<>();
             lore.add("§7" + achievement.description());
@@ -299,8 +299,8 @@ public class ProgressionGUI implements Listener {
             
             lore.add("");
             lore.add("§7Récompenses:");
-            lore.add("  §e+" + achievement.pointReward()[0] + " Points");
-            lore.add("  §d+" + achievement.gemReward()[0] + " Gemmes");
+            lore.add("  §e+" + achievement.pointReward() + " Points");
+            lore.add("  §d+" + achievement.gemReward() + " Gemmes");
             
             inv.setItem(slot, new ItemBuilder(unlocked ? achievement.icon() : Material.GRAY_DYE)
                 .name((unlocked ? achievement.tier().getColor() : "§8") + achievement.name())

@@ -146,6 +146,13 @@ public class TalentManager {
     }
 
     /**
+     * Alias pour getActiveTalentWithEffect (compatibilité)
+     */
+    public Talent getActiveTalentByEffect(Player player, Talent.TalentEffectType effectType) {
+        return getActiveTalentWithEffect(player, effectType);
+    }
+
+    /**
      * Vérifie si un joueur peut sélectionner un talent
      */
     public boolean canSelectTalent(Player player, Talent talent) {
