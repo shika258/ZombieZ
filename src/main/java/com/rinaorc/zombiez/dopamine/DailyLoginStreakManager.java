@@ -187,8 +187,6 @@ public class DailyLoginStreakManager implements Listener {
                     player.sendMessage("§e§l☀ Récompense Quotidienne §8— §7Jour §a" + streak);
                 }
 
-                player.sendMessage("§8" + "─".repeat(40));
-
                 // Récompenses sur une ligne compacte avec icônes
                 StringBuilder rewardsLine = new StringBuilder("§f  ");
                 rewardsLine.append("§a+").append(points).append(" §2Points  ");
