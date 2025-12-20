@@ -305,7 +305,7 @@ public enum BeastType {
             "§7écrase tout sur son passage!",
             "",
             "§6CAPACITÉ - FRAPPE TITANESQUE:",
-            "§7Toutes les §e10s§7, charge vers",
+            "§7Toutes les §e5s§7, charge vers",
             "§7un ennemi et frappe le sol!",
             "",
             "§c1. §7Charge: écrase les ennemis",

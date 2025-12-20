@@ -542,8 +542,11 @@ public class BeastManager {
                 if (type == BeastType.BAT || type == BeastType.BEE) {
                     // Bêtes volantes: comportement spécial
                     updateFlyingBeastCombat(player, beast, focusTarget, type);
+                } else if (type == BeastType.LLAMA || type == BeastType.AXOLOTL) {
+                    // Bêtes à distance: restent près du joueur et attaquent de loin
+                    updateRangedBeastBehavior(player, beast, focusTarget, type);
                 } else {
-                    // Bêtes terrestres: mode combat ou suivi
+                    // Bêtes terrestres de mêlée: mode combat ou suivi
                     updateGroundBeastCombat(player, beast, focusTarget, type);
                 }
             }
@@ -673,6 +676,49 @@ public class BeastManager {
         }
 
         // Se déplacer vers la position de formation
+        if (distanceToTarget > 3) {
+            double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0);
+            mob.getPathfinder().moveTo(targetLoc, speed);
+        }
+
+        // Nettoyer la cible quand on suit le joueur
+        if (mob.getTarget() != null) {
+            mob.setTarget(null);
+        }
+    }
+
+    /**
+     * Met à jour une bête à distance (Llama, Axolotl) - reste près du joueur et attaque de loin
+     */
+    private void updateRangedBeastBehavior(Player player, LivingEntity beast, LivingEntity combatTarget, BeastType type) {
+        if (!(beast instanceof Mob mob)) return;
+
+        Location beastLoc = beast.getLocation();
+        Location playerLoc = player.getLocation();
+        double distanceToPlayer = beastLoc.distance(playerLoc);
+
+        // Distance idéale: rester proche du joueur (2-4 blocs)
+        double idealDistance = type.getDistanceFromPlayer();
+        Location targetLoc = calculatePackPosition(player, type);
+        double distanceToTarget = beastLoc.distance(targetLoc);
+
+        // Si en combat, orienter vers la cible mais rester près du joueur
+        if (combatTarget != null) {
+            // Orienter vers la cible pour attaquer
+            orientBeastTowards(beast, combatTarget.getLocation());
+
+            // Si trop loin du joueur, revenir vers lui
+            if (distanceToPlayer > idealDistance + 3) {
+                double speed = 1.0 + Math.min(distanceToPlayer / 8.0, 1.0);
+                mob.getPathfinder().moveTo(targetLoc, speed);
+            } else if (distanceToTarget > 2) {
+                // Ajuster légèrement la position pour rester en formation
+                mob.getPathfinder().moveTo(targetLoc, 0.8);
+            }
+            return;
+        }
+
+        // MODE SUIVI: Pas de cible, suivre le joueur
         if (distanceToTarget > 3) {
             double speed = 1.0 + Math.min(distanceToTarget / 8.0, 1.0);
             mob.getPathfinder().moveTo(targetLoc, speed);
@@ -1162,15 +1208,14 @@ public class BeastManager {
         axolotlAttackSpeedBonus.put(ownerUuid, newBonus);
         axolotlLastAttackTime.put(ownerUuid, now);
 
-        // Feedback au joueur quand le bonus atteint des paliers significatifs
-        int newPercent = (int) (newBonus * 100);
-        int oldPercent = (int) (currentBonus * 100);
+        int newPercent = (int) Math.round(newBonus * 100);
+        int oldPercent = (int) Math.round(currentBonus * 100);
 
-        // Son de montée en puissance (pitch croissant)
+        // Son de montée en puissance (pitch croissant) - feedback principal
         float pitch = 0.8f + (float) (newBonus / AXOLOTL_SPEED_MAX_BONUS) * 1.2f;
         owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.4f, pitch);
 
-        // Message aux paliers de 50%
+        // Message chat aux paliers importants uniquement
         if (newPercent >= 50 && oldPercent < 50) {
             owner.sendMessage("§d✦ Axolotl: §e+50% §7vitesse d'attaque!");
         } else if (newPercent >= 100 && oldPercent < 100) {
@@ -1441,8 +1486,8 @@ public class BeastManager {
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
         if (!(golem instanceof Mob golemMob)) return;
 
-        // Frappe Titanesque toutes les 10 secondes
-        long slamCooldown = (long) (10000 / frenzyMultiplier);
+        // Frappe Titanesque toutes les 5 secondes
+        long slamCooldown = (long) (5000 / frenzyMultiplier);
 
         // PRIORITÉ 1: Cible focus du joueur
         LivingEntity target = getPlayerFocusTarget(owner);
@@ -1476,8 +1521,8 @@ public class BeastManager {
                 golemMob.getPathfinder().moveTo(target.getLocation(), 1.3);
             }
 
-            // Frappe Titanesque si cooldown prêt et cible à bonne distance
-            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget >= 4 && distToTarget <= 15) {
+            // Frappe Titanesque si cooldown prêt et cible à portée (distance réduite pour plus de fiabilité)
+            if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now) && distToTarget <= 20) {
                 executeGolemCharge(owner, golem, target);
                 setCooldown(owner.getUniqueId(), cooldownKey, now + slamCooldown);
             }
