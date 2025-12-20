@@ -243,27 +243,32 @@ public final class ChasseurTalents {
             .values(new double[]{3000, 0.25, 0.50, 4.0}) // infestation_duration_ms, corruption_bonus, explosion_damage, aoe_radius
             .build());
 
-        // 2.3 - POISON INSIDIEUX (Branche Ombre)
+        // 2.3 - TIR D'OMBRE (Branche Ombre) - Refonte
         TALENTS.add(Talent.builder()
-            .id("chasseur_insidious_poison")
-            .name("Poison Insidieux")
-            .description("Attaques empoisonnent (stack x5)")
+            .id("chasseur_shadow_shot")
+            .name("Tir d'Ombre")
+            .description("15% chance: tir de pistolet + stun")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§6► POISON INSIDIEUX",
-                "§7Attaques appliquent §2Poison§7 3s",
-                "§7Se cumule jusqu'à §cx5§7 stacks",
+                "§6► TIR D'OMBRE",
+                "§7Vos attaques ont §e15%§7 de chance",
+                "§7de déclencher un §5tir de pistolet§7!",
                 "",
-                "§8Synergie: DoT continu"
+                "§6EFFET DU TIR:",
+                "§8► §c150%§8 des dégâts du joueur",
+                "§8► §9Étourdit§8 la cible §e1s",
+                "§8► Portée max: §b20 blocs",
+                "",
+                "§5§lFRAPPEZ DEPUIS LES OMBRES"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(2)
-            .icon(Material.SPIDER_EYE)
-            .iconColor("§2")
-            .effectType(Talent.TalentEffectType.INSIDIOUS_POISON)
-            .values(new double[]{3000, 5}) // duration_ms, max_stacks
+            .icon(Material.ECHO_SHARD)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.SHADOW_SHOT)
+            .values(new double[]{0.15, 1.50, 20, 1000}) // proc_chance, damage_mult, range, stun_duration_ms
             .build());
 
         // 2.4 - VENIN CORROSIF (Voie du Poison)

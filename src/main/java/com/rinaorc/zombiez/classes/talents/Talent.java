@@ -175,7 +175,7 @@ public class Talent {
 
         // === CHASSEUR - BRANCHE OMBRE (Refonte Diablo-style) ===
         SHADOW_BLADE,            // T1: Attaques = +1 Point d'Ombre, 3+ = +30% AS
-        INSIDIOUS_POISON,        // T2: Attaques empoisonnent (stack x5)
+        SHADOW_SHOT,             // T2: 15% chance tir de pistolet (150% dégâts + stun 1s)
         SHADOW_STEP,             // T3: Shift+Attaque = téléport derrière + 2 Points
         DEATH_MARK,              // T4: Crits marquent 8s (+25% dégâts, Glowing)
         EXECUTION,               // T5: 5 Points sur marqué = 300%/500% dégâts
