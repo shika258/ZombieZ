@@ -89,6 +89,8 @@ public class BeastManager {
     private static final double AXOLOTL_SPEED_MAX_BONUS = 1.50;    // +150% max
     private static final long AXOLOTL_SPEED_DECAY_DELAY = 10000;   // 10 secondes avant décroissance
     private static final double AXOLOTL_SPEED_DECAY_RATE = 0.10;   // -10% par seconde
+    private static final long AXOLOTL_TICK_RATE = 500;              // Tick rate des bêtes (10 ticks = 500ms)
+    private final Map<UUID, Long> axolotlLastShotTime = new ConcurrentHashMap<>(); // Dernier tir effectif
 
     public BeastManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -174,6 +176,7 @@ public class BeastManager {
             // Vérifier si le joueur a un axolotl actif
             Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
             if (beasts == null || !beasts.containsKey(BeastType.AXOLOTL)) {
+                axolotlLastShotTime.remove(playerUuid); // Nettoyer le timestamp de tir aussi
                 return true; // Nettoyer si pas d'axolotl
             }
 
@@ -185,6 +188,7 @@ public class BeastManager {
 
                 if (newBonus <= 0) {
                     axolotlLastAttackTime.remove(playerUuid);
+                    axolotlLastShotTime.remove(playerUuid); // Nettoyer aussi
                     return true; // Supprimer l'entrée
                 } else {
                     entry.setValue(newBonus);
@@ -1167,31 +1171,61 @@ public class BeastManager {
         double totalSpeedMultiplier = (1.0 + speedBonus) * frenzyMultiplier;
         long shootCooldown = (long) (1500 / totalSpeedMultiplier);
 
-        // Minimum cooldown de 300ms pour éviter le spam
-        shootCooldown = Math.max(300, shootCooldown);
+        // Minimum cooldown de 200ms pour éviter le spam extrême
+        shootCooldown = Math.max(200, shootCooldown);
 
-        if (!isOnCooldown(ownerUuid, cooldownKey, now)) {
-            // Trouver la cible la plus proche (avec early-exit)
-            LivingEntity nearestEnemy = null;
-            double nearestDistSq = 64.0; // 8^2
+        // Système basé sur le temps réel pour gérer les hautes cadences
+        // On calcule combien de tirs on peut faire depuis le dernier tir effectif
+        long lastShot = axolotlLastShotTime.getOrDefault(ownerUuid, 0L);
+        long timeSinceLastShot = now - lastShot;
 
-            for (Entity nearby : axolotl.getNearbyEntities(8, 4, 8)) {
-                if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                    double distSq = axolotl.getLocation().distanceSquared(nearby.getLocation());
-                    if (distSq < nearestDistSq) {
-                        nearestDistSq = distSq;
-                        nearestEnemy = monster;
-                        if (distSq < 9) break; // <3 blocs, on prend direct
-                    }
-                }
-            }
+        // Calculer le nombre de tirs possibles (max 3 par tick pour éviter le spam visuel)
+        int shotsToFire = (int) Math.min(3, timeSinceLastShot / shootCooldown);
 
-            if (nearestEnemy != null) {
-                // Tirer une bulle d'eau
-                shootWaterBubble(owner, axolotl, nearestEnemy);
-                setCooldown(ownerUuid, cooldownKey, now + shootCooldown);
+        if (shotsToFire <= 0) {
+            return; // Pas encore le temps de tirer
+        }
+
+        // Trouver les cibles proches (on en a besoin pour les tirs multiples)
+        List<LivingEntity> nearbyEnemies = new ArrayList<>();
+        for (Entity nearby : axolotl.getNearbyEntities(8, 4, 8)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                nearbyEnemies.add(monster);
             }
         }
+
+        if (nearbyEnemies.isEmpty()) {
+            return; // Pas de cible
+        }
+
+        // Trier par distance
+        Location axolotlLoc = axolotl.getLocation();
+        nearbyEnemies.sort(Comparator.comparingDouble(e -> e.getLocation().distanceSquared(axolotlLoc)));
+
+        // Tirer les bulles avec un léger délai entre chaque pour l'effet visuel
+        for (int i = 0; i < shotsToFire; i++) {
+            // Alterner entre les cibles si plusieurs tirs
+            LivingEntity target = nearbyEnemies.get(i % nearbyEnemies.size());
+            final int delay = i * 3; // 3 ticks = 150ms entre chaque bulle
+
+            if (delay == 0) {
+                shootWaterBubble(owner, axolotl, target);
+            } else {
+                LivingEntity finalTarget = target;
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (axolotl.isValid() && !axolotl.isDead() && finalTarget.isValid() && !finalTarget.isDead()) {
+                            shootWaterBubble(owner, axolotl, finalTarget);
+                        }
+                    }
+                }.runTaskLater(plugin, delay);
+            }
+        }
+
+        // Mettre à jour le timestamp du dernier tir
+        // On avance le timestamp de (shotsToFire * shootCooldown) pour synchroniser correctement
+        axolotlLastShotTime.put(ownerUuid, lastShot + (shotsToFire * shootCooldown));
     }
 
     /**
