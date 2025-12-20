@@ -2343,8 +2343,8 @@ public class BeastManager {
         List<LivingEntity> targets = new ArrayList<>();
         List<LivingEntity> candidates = new ArrayList<>();
 
-        // Portée de 32 blocs pour les bêtes à distance
-        for (Entity nearby : bee.getNearbyEntities(32, 16, 32)) {
+        // Portée de 24 blocs pour les bêtes à distance
+        for (Entity nearby : bee.getNearbyEntities(24, 16, 24)) {
             if (nearby instanceof Monster monster && !isBeast(nearby)) {
                 candidates.add(monster);
             }
