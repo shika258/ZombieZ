@@ -6,6 +6,7 @@ import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import org.bukkit.*;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -166,25 +167,59 @@ public class ShadowListener implements Listener {
         shadowManager.addShadowPoints(uuid, 1);
 
         // Bonus Attack Speed à 3+ Points
-        if (shadowManager.getShadowPoints(uuid) >= 3) {
-            // Le bonus AS est géré visuellement via AttributeModifier temporaire
-            applyAttackSpeedBonus(player, (int) (talent.getValue(0) * 100)); // 30%
+        int currentPoints = shadowManager.getShadowPoints(uuid);
+        int threshold = (int) talent.getValue(1); // Index 1 = threshold (3)
+        double attackSpeedBonus = talent.getValue(2); // Index 2 = attack_speed_bonus (0.30)
+
+        if (currentPoints >= threshold) {
+            applyAttackSpeedBonus(player, attackSpeedBonus);
+        } else {
+            removeAttackSpeedBonus(player);
         }
     }
 
-    /**
-     * Applique un bonus de vitesse d'attaque temporaire
-     */
-    private void applyAttackSpeedBonus(Player player, int percentBonus) {
-        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
-        if (attackSpeed != null) {
-            double baseSpeed = attackSpeed.getBaseValue();
-            double bonusSpeed = baseSpeed * (percentBonus / 100.0);
+    // Clé pour l'AttributeModifier de vitesse d'attaque Shadow
+    private static final NamespacedKey SHADOW_ATTACK_SPEED_KEY =
+        NamespacedKey.fromString("zombiez:shadow_attack_speed");
 
-            // Modifier temporaire (via effets existants ou PDC)
-            // Pour simplifier, on utilise les effets Haste natifs
-            player.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                org.bukkit.potion.PotionEffectType.HASTE, 40, 0, false, false, false));
+    /**
+     * Applique un bonus de vitesse d'attaque via AttributeModifier
+     * Cela fonctionne avec le nouveau système de cooldown vanilla
+     */
+    private void applyAttackSpeedBonus(Player player, double bonus) {
+        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed == null) return;
+
+        // Supprimer l'ancien modifier s'il existe
+        for (var modifier : attackSpeed.getModifiers()) {
+            if (modifier.getKey().equals(SHADOW_ATTACK_SPEED_KEY)) {
+                attackSpeed.removeModifier(modifier);
+                break;
+            }
+        }
+
+        // Ajouter le nouveau modifier (+30% = multiplier par 0.30)
+        // ADD_SCALAR ajoute un pourcentage à la valeur finale
+        org.bukkit.attribute.AttributeModifier modifier = new org.bukkit.attribute.AttributeModifier(
+            SHADOW_ATTACK_SPEED_KEY,
+            bonus, // 0.30 = +30%
+            org.bukkit.attribute.AttributeModifier.Operation.ADD_SCALAR
+        );
+        attackSpeed.addModifier(modifier);
+    }
+
+    /**
+     * Retire le bonus de vitesse d'attaque
+     */
+    private void removeAttackSpeedBonus(Player player) {
+        var attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed == null) return;
+
+        for (var modifier : attackSpeed.getModifiers()) {
+            if (modifier.getKey().equals(SHADOW_ATTACK_SPEED_KEY)) {
+                attackSpeed.removeModifier(modifier);
+                break;
+            }
         }
     }
 
@@ -261,13 +296,17 @@ public class ShadowListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
 
         // Nettoyer toutes les données
         shadowManager.cleanupPlayer(uuid);
         lastAvatarSneakTime.remove(uuid);
         lastAttackTime.remove(uuid);
         shadowBladeCooldown.remove(uuid);
+
+        // Retirer le bonus de vitesse d'attaque
+        removeAttackSpeedBonus(player);
     }
 
     // ==================== UTILITAIRES ====================
