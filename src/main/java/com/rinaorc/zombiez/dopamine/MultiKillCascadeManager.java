@@ -101,11 +101,8 @@ public class MultiKillCascadeManager implements Listener {
             spawnChainEffect(data.getLastTwoPositions());
         }
 
-        // Feedback subtitle pour les chaînes (SEULEMENT si pas de tier atteint)
-        // Note: ActionBar est écrasé par ActionBarTask, donc on utilise subtitle
-        if (tier == null && data.currentChainCount >= 2) {
-            showChainSubtitle(player, data.currentChainCount);
-        }
+        // Note: On n'affiche plus le compteur de chaîne entre les tiers
+        // Seuls les noms de kills (Triple Kill, Hexa Kill, etc.) sont affichés
 
         return bonusMultiplier;
     }
@@ -156,12 +153,12 @@ public class MultiKillCascadeManager implements Listener {
         Location playerLoc = player.getLocation();
 
         // ═══════════════════════════════════════════════════════════════════
-        // 1. AFFICHAGE DU MULTI-KILL (en subtitle pour ne pas encombrer l'écran)
+        // 1. AFFICHAGE DU MULTI-KILL (subtitle uniquement)
         // ═══════════════════════════════════════════════════════════════════
         String killName = tier.color + "§l" + tier.name + "!";
-        String chainInfo = "§7" + tier.killCount + " kills en chaîne!";
 
-        player.sendTitle(chainInfo, killName, 5, 25, 10);
+        // Affiche uniquement le nom du kill en subtitle (pas de title)
+        player.sendTitle("", killName, 5, 25, 10);
 
         // ═══════════════════════════════════════════════════════════════════
         // 2. SONS PROGRESSIFS

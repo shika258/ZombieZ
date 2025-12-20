@@ -192,6 +192,14 @@ public class TalentManager {
 
             // Effet sonore
             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+
+            // === BRANCHE BÊTE: Invoquer les bêtes si talent de bête sélectionné ===
+            if (talent.getId().contains("beast_") && plugin.getBeastManager() != null) {
+                // Délai de 2 ticks pour laisser le temps à la BD de se mettre à jour
+                org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    plugin.getBeastManager().summonBeastsForPlayer(player);
+                }, 2L);
+            }
         }
 
         return success;
