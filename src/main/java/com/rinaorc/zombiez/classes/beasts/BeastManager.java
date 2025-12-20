@@ -2325,38 +2325,10 @@ public class BeastManager {
 
         double health = bear.getHealth();
         double maxHealth = bear.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double healthPercent = health / maxHealth;
 
-        // Créer la barre de vie
-        int totalBars = 10;
-        int filledBars = (int) Math.ceil(healthPercent * totalBars);
-
-        // Couleur selon le pourcentage de vie
-        NamedTextColor healthColor;
-        if (healthPercent > 0.5) {
-            healthColor = NamedTextColor.GREEN;
-        } else if (healthPercent > 0.25) {
-            healthColor = NamedTextColor.YELLOW;
-        } else {
-            healthColor = NamedTextColor.RED;
-        }
-
-        // Construire la barre de vie
-        StringBuilder healthBar = new StringBuilder();
-        for (int i = 0; i < totalBars; i++) {
-            if (i < filledBars) {
-                healthBar.append("█");
-            } else {
-                healthBar.append("░");
-            }
-        }
-
-        // Construire le nom avec le nom de l'ours et la barre de vie
+        // Construire le nom avec le format: "Bête de [player] 60/60 ❤️"
         Component displayName = Component.text()
-            .append(Component.text("Ours de " + ownerName, NamedTextColor.WHITE))
-            .append(Component.newline())
-            .append(Component.text(healthBar.toString(), healthColor))
-            .append(Component.text(" " + (int) health + "/" + (int) maxHealth, NamedTextColor.GRAY))
+            .append(Component.text("Bête de " + ownerName + " " + (int) health + "/" + (int) maxHealth + " ❤", NamedTextColor.GOLD))
             .build();
 
         bear.customName(displayName);
