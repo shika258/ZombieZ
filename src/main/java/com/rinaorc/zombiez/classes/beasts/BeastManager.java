@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -1073,12 +1075,11 @@ public class BeastManager {
 
     /**
      * Applique une morsure du loup avec dégâts et saignement.
+     * Utilise le système de dégâts complet (comme serviteurs Occultiste).
      */
     private void applyWolfBite(Player owner, LivingEntity target, double frenzyMultiplier) {
-        double damage = calculateBeastDamage(owner, BeastType.WOLF) * frenzyMultiplier;
-
-        // Appliquer les dégâts avec metadata
-        applyBeastDamageWithMetadata(owner, target, damage);
+        // Appliquer les dégâts avec le calcul complet des stats du joueur
+        applyBeastDamageWithFullStats(owner, target, BeastType.WOLF, frenzyMultiplier);
 
         // Appliquer le saignement
         applyWolfBleed(owner, target);
@@ -1116,6 +1117,229 @@ public class BeastManager {
                     plugin.getZombieManager().updateZombieHealthDisplay(target);
                 }
             });
+        }
+    }
+
+    // ==================== SYSTÈME DE DÉGÂTS COMPLET (COMME SERVITEURS OCCULTISTE) ====================
+
+    /**
+     * Résultat du calcul de dégâts d'une bête.
+     * Inclut les dégâts finaux, critique, lifesteal et dégâts élémentaires.
+     */
+    private static class BeastDamageResult {
+        final double damage;
+        final boolean isCritical;
+        final double lifestealAmount;
+        final double fireDamage;
+        final double iceDamage;
+        final double lightningDamage;
+        final boolean lightningProc;
+
+        BeastDamageResult(double damage, boolean isCritical, double lifestealAmount,
+                double fireDamage, double iceDamage, double lightningDamage, boolean lightningProc) {
+            this.damage = damage;
+            this.isCritical = isCritical;
+            this.lifestealAmount = lifestealAmount;
+            this.fireDamage = fireDamage;
+            this.iceDamage = iceDamage;
+            this.lightningDamage = lightningDamage;
+            this.lightningProc = lightningProc;
+        }
+    }
+
+    /**
+     * Calcule les dégâts complets d'une bête avec TOUTES les stats du joueur.
+     * Réplique exactement la logique des serviteurs Occultiste.
+     *
+     * @param player Le propriétaire de la bête
+     * @param target La cible de l'attaque
+     * @param beastType Le type de bête (pour le multiplicateur de base)
+     * @param damageMultiplier Multiplicateur additionnel (ex: synergies, frénésie)
+     * @return Les dégâts calculés avec infos critique/lifesteal
+     */
+    private BeastDamageResult calculateBeastDamageWithFullStats(Player player, LivingEntity target,
+            BeastType beastType, double damageMultiplier) {
+
+        // ============ 1. DÉGÂTS DE BASE DU JOUEUR ============
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        // Appliquer le multiplicateur de la bête (ex: WOLF = 30%, FOX = 20%)
+        baseDamage *= beastType.getDamagePercent();
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
+
+        // ============ 2. STATS D'ÉQUIPEMENT ZOMBIEZ ============
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de dégâts flat (ex: +10 dégâts)
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage (ex: +15% dégâts)
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ 3. SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+
+        // Bonus dégâts passifs (Puissance I/II/III)
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ 4. SYSTÈME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (Math.random() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0; // 150% de base
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // ============ 5. MOMENTUM SYSTEM ============
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(player);
+        finalDamage *= momentumMultiplier;
+
+        // ============ 6. EXECUTE DAMAGE (<20% HP cible) ============
+        double mobHealthPercent = target.getHealth() / target.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // ============ 7. BERSERKER (<30% HP joueur) ============
+        double playerHealthPercent = player.getHealth() / player.getMaxHealth() * 100;
+        if (playerHealthPercent <= 30) {
+            double berserkerBonus = skillManager.getSkillBonus(player, SkillBonus.BERSERKER);
+            if (berserkerBonus > 0) {
+                finalDamage *= (1 + berserkerBonus / 100.0);
+            }
+        }
+
+        // ============ 8. DÉGÂTS ÉLÉMENTAIRES ============
+        double fireDamage = playerStats.getOrDefault(StatType.FIRE_DAMAGE, 0.0);
+        double iceDamage = playerStats.getOrDefault(StatType.ICE_DAMAGE, 0.0);
+        double lightningDamage = playerStats.getOrDefault(StatType.LIGHTNING_DAMAGE, 0.0);
+        boolean lightningProc = false;
+
+        if (fireDamage > 0) {
+            finalDamage += fireDamage * 0.5;
+        }
+        if (iceDamage > 0) {
+            finalDamage += iceDamage * 0.5;
+        }
+        if (lightningDamage > 0 && Math.random() < 0.15) {
+            lightningProc = true;
+            finalDamage += lightningDamage * 2;
+        }
+
+        // ============ 9. MULTIPLICATEUR ADDITIONNEL (synergies, frénésie, etc.) ============
+        finalDamage *= damageMultiplier;
+
+        // ============ 10. MULTIPLICATEUR BÊTE (équilibrage: 80% comme serviteurs) ============
+        finalDamage *= 0.8;
+
+        // ============ 11. LIFESTEAL ============
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        double lifestealAmount = 0;
+
+        if (totalLifesteal > 0) {
+            lifestealAmount = finalDamage * (totalLifesteal / 100.0);
+        }
+
+        return new BeastDamageResult(
+                Math.max(1.0, finalDamage),
+                isCritical,
+                lifestealAmount,
+                fireDamage,
+                iceDamage,
+                lightningDamage,
+                lightningProc);
+    }
+
+    /**
+     * Applique les dégâts d'une bête avec le calcul COMPLET des stats du joueur.
+     * Utilisé par LOUP, RENARD et IRON_GOLEM.
+     *
+     * @param owner Le joueur propriétaire
+     * @param target La cible des dégâts
+     * @param beastType Le type de bête
+     * @param damageMultiplier Multiplicateur additionnel
+     */
+    private void applyBeastDamageWithFullStats(Player owner, LivingEntity target,
+            BeastType beastType, double damageMultiplier) {
+
+        BeastDamageResult result = calculateBeastDamageWithFullStats(owner, target, beastType, damageMultiplier);
+
+        // Configurer les metadata pour l'indicateur de dégâts
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, result.isCritical));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        target.damage(result.damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
+        // Effet visuel critique
+        if (result.isCritical) {
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Appliquer les effets élémentaires
+        applyBeastElementalEffects(target, result);
+
+        // Lifesteal pour le propriétaire
+        if (result.lifestealAmount > 0) {
+            double newHealth = Math.min(owner.getHealth() + result.lifestealAmount, owner.getMaxHealth());
+            owner.setHealth(newHealth);
+            if (result.lifestealAmount > 1) {
+                owner.getWorld().spawnParticle(Particle.HEART, owner.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
+            }
+        }
+    }
+
+    /**
+     * Applique les effets élémentaires du stuff du joueur via sa bête
+     */
+    private void applyBeastElementalEffects(LivingEntity target, BeastDamageResult result) {
+        // Feu - Enflamme la cible
+        if (result.fireDamage > 0) {
+            target.setFireTicks((int) (result.fireDamage * 20));
+        }
+
+        // Glace - Gèle la cible
+        if (result.iceDamage > 0) {
+            target.setFreezeTicks((int) (result.iceDamage * 20));
+        }
+
+        // Foudre - Effet visuel et sonore (15% chance, déjà calculée)
+        if (result.lightningProc) {
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.1);
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.6f, 1.5f);
         }
     }
 
@@ -1724,9 +1948,8 @@ public class BeastManager {
                         !isBeast(nearby) &&
                         !hitDuringCharge.contains(nearby.getUniqueId())) {
 
-                        // Dégâts de charge (50% des dégâts) avec metadata
-                        double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
-                        applyBeastDamageWithMetadata(owner, living, chargeDamage);
+                        // Dégâts de charge (50% des dégâts) avec système complet
+                        applyBeastDamageWithFullStats(owner, living, BeastType.IRON_GOLEM, 0.5);
                         hitDuringCharge.add(nearby.getUniqueId());
 
                         // Effet d'impact
@@ -1806,8 +2029,7 @@ public class BeastManager {
 
                     alreadyHit.add(nearby.getUniqueId());
 
-                    // Calcul des dégâts avec synergies
-                    double baseDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM);
+                    // Calcul du multiplicateur avec synergies
                     double damageMultiplier = 1.0;
                     boolean hasSynergyBonus = false;
 
@@ -1824,9 +2046,8 @@ public class BeastManager {
                         hasSynergyBonus = true;
                     }
 
-                    // Appliquer les dégâts avec metadata
-                    double finalDamage = baseDamage * damageMultiplier;
-                    applyBeastDamageWithMetadata(owner, living, finalDamage);
+                    // Appliquer les dégâts avec le système complet (comme serviteurs Occultiste)
+                    applyBeastDamageWithFullStats(owner, living, BeastType.IRON_GOLEM, damageMultiplier);
 
                     // Stun (1.5s = 30 ticks de Slowness V + Jump Boost négatif)
                     living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 4, false, false, false)); // 1.5s
@@ -2246,13 +2467,13 @@ public class BeastManager {
     /**
      * Applique la marque du renard sur la cible.
      * La cible marquée devient visible à travers les murs (glowing) et subit +30% de dégâts.
+     * Utilise le système de dégâts complet (comme serviteurs Occultiste).
      */
     private void applyFoxMark(Player owner, LivingEntity fox, LivingEntity target) {
         if (target.isDead()) return;
 
-        // Dégâts initiaux (20% des dégâts du joueur)
-        double pounceDamage = calculateBeastDamage(owner, BeastType.FOX);
-        applyBeastDamageWithMetadata(owner, target, pounceDamage);
+        // Dégâts initiaux avec le calcul complet des stats du joueur
+        applyBeastDamageWithFullStats(owner, target, BeastType.FOX, 1.0);
 
         // Marquer la cible (5 secondes)
         foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
