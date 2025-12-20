@@ -154,26 +154,6 @@ public class BeastListener implements Listener {
         event.setDroppedExp(0);
     }
 
-    /**
-     * Gère la mort d'un mob proche du Renard (chasseur de trésors)
-     */
-    @EventHandler
-    public void onMobDeath(EntityDeathEvent event) {
-        LivingEntity entity = event.getEntity();
-        if (beastManager.isBeast(entity)) return;
-        if (!(entity instanceof Monster)) return;
-
-        // Vérifier si un joueur avec le renard est à proximité
-        for (Player player : entity.getLocation().getNearbyPlayers(15)) {
-            ClassData data = plugin.getClassManager().getClassData(player);
-            if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) continue;
-
-            String branchId = data.getSelectedBranchId();
-            if (branchId == null || !branchId.contains("betes")) continue;
-
-            beastManager.checkFoxTreasure(player, entity.getLocation());
-        }
-    }
 
     // === GESTION DES PROJECTILES (Lama) ===
 
