@@ -15,6 +15,8 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -30,6 +32,10 @@ public class ShadowManager {
 
     private final ZombieZPlugin plugin;
     private final TalentManager talentManager;
+
+    // Team pour le glowing violet
+    private static final String DEATH_MARK_TEAM_NAME = "death_mark_purple";
+    private Team deathMarkTeam;
 
     // === CONSTANTES ===
     public static final int MAX_SHADOW_POINTS = 5;
@@ -73,7 +79,28 @@ public class ShadowManager {
     public ShadowManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
+        initDeathMarkTeam();
         startTasks();
+    }
+
+    /**
+     * Initialise la team pour le glowing violet des marques mortelles
+     */
+    private void initDeathMarkTeam() {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        deathMarkTeam = scoreboard.getTeam(DEATH_MARK_TEAM_NAME);
+
+        if (deathMarkTeam == null) {
+            deathMarkTeam = scoreboard.registerNewTeam(DEATH_MARK_TEAM_NAME);
+        }
+
+        // Couleur violette pour le glowing
+        deathMarkTeam.color(NamedTextColor.DARK_PURPLE);
+        // Ne pas afficher le préfixe de couleur dans le nom
+        deathMarkTeam.prefix(Component.empty());
+        deathMarkTeam.suffix(Component.empty());
+        // Masquer les noms pour ne pas polluer l'affichage
+        deathMarkTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
     }
 
     /**
@@ -93,6 +120,10 @@ public class ShadowManager {
                         Entity entity = Bukkit.getEntity(targetUuid);
                         if (entity instanceof LivingEntity living) {
                             living.setGlowing(false);
+                            // Retirer de la team violet
+                            if (deathMarkTeam != null) {
+                                deathMarkTeam.removeEntity(living);
+                            }
                         }
                         markOwners.remove(targetUuid);
                         return true;
@@ -411,7 +442,7 @@ public class ShadowManager {
     // ==================== MARQUE MORTELLE ====================
 
     /**
-     * Marque une cible
+     * Marque une cible avec effet de glowing violet
      */
     public void applyDeathMark(Player owner, LivingEntity target) {
         UUID targetUuid = target.getUniqueId();
@@ -421,7 +452,12 @@ public class ShadowManager {
         deathMarks.put(targetUuid, System.currentTimeMillis() + MARK_DURATION);
         markOwners.put(targetUuid, ownerUuid);
 
-        // Effet Glowing
+        // Ajouter à la team violet pour le glowing coloré
+        if (deathMarkTeam != null) {
+            deathMarkTeam.addEntity(target);
+        }
+
+        // Effet Glowing (sera violet grâce à la team)
         target.setGlowing(true);
 
         // Effets visuels
@@ -482,6 +518,10 @@ public class ShadowManager {
         Entity entity = Bukkit.getEntity(targetUuid);
         if (entity instanceof LivingEntity living) {
             living.setGlowing(false);
+            // Retirer de la team violet
+            if (deathMarkTeam != null) {
+                deathMarkTeam.removeEntity(living);
+            }
         }
     }
 
