@@ -94,10 +94,10 @@ public class ShadowListener implements Listener {
         // === T3: SHADOW_STEP - Shift+Attaque = téléportation ===
         Talent shadowStep = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STEP);
         if (shadowStep != null && isMelee && player.isSneaking()) {
-            boolean success = shadowManager.executeShadowStep(player, target);
-            if (success) {
-                // Bonus de dégâts après téléportation
-                event.setDamage(damage * 1.25); // +25% dégâts
+            double shadowStepDamage = shadowManager.executeShadowStep(player, target, shadowStep);
+            if (shadowStepDamage > 0) {
+                // Annuler les dégâts de l'attaque normale (dégâts déjà appliqués dans executeShadowStep)
+                event.setCancelled(true);
             }
         }
 

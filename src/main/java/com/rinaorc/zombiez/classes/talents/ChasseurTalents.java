@@ -397,16 +397,22 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_shadow_step")
             .name("Pas de l'Ombre")
-            .description("Shift+Attaque = téléport derrière")
+            .description("Shift+Attaque = téléport derrière (20 blocs)")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
                 "§6► PAS DE L'OMBRE",
                 "§7§eShift + Attaque§7 = téléport derrière",
-                "§7la cible + §d+2 Points d'Ombre",
+                "§7la cible (portée §e20 blocs§7)",
                 "",
-                "§b⚡ §f5s§7 cooldown",
-                "§8Mobilité d'assassin"
+                "§6FRAPPE D'OMBRE:",
+                "§8► Inflige §c125%§8 dégâts à l'arrivée",
+                "",
+                "§6ÉLAN SPECTRAL:",
+                "§8► §b+50% vitesse§8 pendant §f3s",
+                "",
+                "§7+ §d+2 Points d'Ombre",
+                "§b⚡ §f5s§7 cooldown"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -414,7 +420,7 @@ public final class ChasseurTalents {
             .icon(Material.ENDER_EYE)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_STEP)
-            .values(new double[]{5000, 2}) // cooldown_ms, points_gained
+            .values(new double[]{5000, 2, 20, 60, 1.25}) // cooldown_ms, points_gained, range, speed_buff_ticks, damage_mult
             .build());
 
         // 3.4 - TOXINES MORTELLES (Voie du Poison)

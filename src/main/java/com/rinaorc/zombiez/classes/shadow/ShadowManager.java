@@ -302,19 +302,40 @@ public class ShadowManager {
 
     /**
      * Exécute le Pas de l'Ombre (téléportation derrière la cible)
+     * Avec améliorations: portée 20 blocs, +50% vitesse pendant 3s, 125% dégâts
+     *
+     * @param player Le joueur
+     * @param target La cible
+     * @param talent Le talent (pour récupérer les valeurs)
+     * @return Les dégâts infligés (0 si échec)
      */
-    public boolean executeShadowStep(Player player, LivingEntity target) {
+    public double executeShadowStep(Player player, LivingEntity target, Talent talent) {
         UUID uuid = player.getUniqueId();
+
+        // Récupérer les valeurs du talent
+        double[] values = talent != null ? talent.getValues() : new double[]{5000, 2, 20, 60, 1.25};
+        long cooldownMs = (long) values[0];
+        int pointsGained = values.length > 1 ? (int) values[1] : 2;
+        double range = values.length > 2 ? values[2] : 20.0;
+        int speedBuffTicks = values.length > 3 ? (int) values[3] : 60;
+        double damageMult = values.length > 4 ? values[4] : 1.25;
 
         // Vérifier cooldown
         if (isOnCooldown(shadowStepCooldown, uuid)) {
-            return false;
+            return 0;
+        }
+
+        // Vérifier la portée (20 blocs max)
+        double distance = player.getLocation().distance(target.getLocation());
+        if (distance > range) {
+            player.sendMessage("§c§l[OMBRE] §7Cible trop éloignée! (max §e" + (int) range + "§7 blocs)");
+            return 0;
         }
 
         // Calculer position derrière la cible
         Location targetLoc = target.getLocation();
         Vector direction = targetLoc.getDirection().normalize().multiply(-1.5); // Derrière
-        Location destination = targetLoc.add(direction);
+        Location destination = targetLoc.clone().add(direction);
         destination.setY(targetLoc.getY());
         destination.setYaw(targetLoc.getYaw() + 180); // Face à la cible
         destination.setPitch(0);
@@ -324,26 +345,60 @@ public class ShadowManager {
             destination = targetLoc.clone().add(0, 0.5, 0);
         }
 
-        // Effets visuels au départ
+        // Effets visuels au départ (trainée d'ombre)
         Location start = player.getLocation();
         start.getWorld().spawnParticle(Particle.LARGE_SMOKE, start.add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
         start.getWorld().playSound(start, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.5f);
+
+        // Trainée de particules entre départ et arrivée
+        createShadowTrail(start, destination);
 
         // Téléportation
         player.teleport(destination);
 
         // Effets visuels à l'arrivée
-        destination.getWorld().spawnParticle(Particle.LARGE_SMOKE, destination.add(0, 1, 0), 25, 0.4, 0.5, 0.4, 0.05);
+        destination.getWorld().spawnParticle(Particle.LARGE_SMOKE, destination.clone().add(0, 1, 0), 25, 0.4, 0.5, 0.4, 0.05);
         destination.getWorld().spawnParticle(Particle.WITCH, destination, 15, 0.3, 0.3, 0.3, 0);
         destination.getWorld().playSound(destination, Sound.ENTITY_PHANTOM_BITE, 1.0f, 1.2f);
 
-        // Ajouter 2 Points d'Ombre
-        addShadowPoints(uuid, 2);
+        // Appliquer le buff de vitesse (+50% pendant 3s)
+        // Speed amplifier 1 = +40%, amplifier 2 = +60%, on prend amplifier 1 (proche de 50%)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedBuffTicks, 1, false, true));
+
+        // Calculer et infliger les dégâts (125%)
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double finalDamage = baseDamage * damageMult;
+        target.damage(finalDamage, player);
+
+        // Effets de frappe
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
+            target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0);
+        target.getWorld().spawnParticle(Particle.CRIT,
+            target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.2);
+        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+
+        // Ajouter Points d'Ombre
+        addShadowPoints(uuid, pointsGained);
 
         // Mettre en cooldown
-        shadowStepCooldown.put(uuid, System.currentTimeMillis() + SHADOW_STEP_COOLDOWN);
+        shadowStepCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
-        return true;
+        return finalDamage;
+    }
+
+    /**
+     * Crée une trainée d'ombre entre deux points
+     */
+    private void createShadowTrail(Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double length = direction.length();
+        direction.normalize();
+
+        for (double i = 0; i < length; i += 0.5) {
+            Location point = from.clone().add(direction.clone().multiply(i));
+            point.getWorld().spawnParticle(Particle.DUST, point, 2, 0.1, 0.1, 0.1, 0,
+                new Particle.DustOptions(Color.fromRGB(40, 0, 60), 1.0f));
+        }
     }
 
     /**
