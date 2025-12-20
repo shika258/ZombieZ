@@ -548,8 +548,8 @@ public class BeastManager {
                 if (type == BeastType.BAT || type == BeastType.BEE) {
                     // Bêtes volantes: comportement spécial
                     updateFlyingBeastCombat(player, beast, focusTarget, type);
-                } else if (type == BeastType.LLAMA || type == BeastType.AXOLOTL) {
-                    // Bêtes à distance: restent près du joueur et attaquent de loin
+                } else if (type == BeastType.LLAMA || type == BeastType.AXOLOTL || type == BeastType.COW) {
+                    // Bêtes à distance: restent près du joueur et attaquent de loin (inclut la vache)
                     updateRangedBeastBehavior(player, beast, focusTarget, type);
                 } else {
                     // Bêtes terrestres de mêlée: mode combat ou suivi
@@ -843,7 +843,7 @@ public class BeastManager {
         if (focusUuid != null) {
             Entity focusEntity = Bukkit.getEntity(focusUuid);
             if (focusEntity instanceof LivingEntity living && !living.isDead() &&
-                living.getLocation().distanceSquared(bat.getLocation()) < 256) { // 16 blocs
+                living.getLocation().distanceSquared(bat.getLocation()) < 1024) { // 32 blocs
                 target = living;
             } else {
                 // Focus invalide, nettoyer
@@ -853,9 +853,9 @@ public class BeastManager {
 
         // PRIORITÉ 2: Ennemi le plus proche du joueur (pas de la chauve-souris)
         if (target == null) {
-            double nearestDistSq = 225.0; // 15^2
+            double nearestDistSq = 1024.0; // 32^2
 
-            for (Entity nearby : owner.getNearbyEntities(15, 8, 15)) {
+            for (Entity nearby : owner.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
                     double distSq = owner.getLocation().distanceSquared(nearby.getLocation());
                     if (distSq < nearestDistSq) {
@@ -868,9 +868,9 @@ public class BeastManager {
 
         // PRIORITÉ 3: Ennemi le plus proche de la chauve-souris
         if (target == null) {
-            double nearestDistSq = 144.0; // 12^2
+            double nearestDistSq = 1024.0; // 32^2
 
-            for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
+            for (Entity nearby : bat.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
                     double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
                     if (distSq < nearestDistSq) {
@@ -1410,9 +1410,9 @@ public class BeastManager {
             return; // Pas encore le temps de tirer
         }
 
-        // Trouver les cibles proches (on en a besoin pour les tirs multiples)
+        // Trouver les cibles proches (on en a besoin pour les tirs multiples) - portée 32 blocs
         List<LivingEntity> nearbyEnemies = new ArrayList<>();
-        for (Entity nearby : axolotl.getNearbyEntities(8, 4, 8)) {
+        for (Entity nearby : axolotl.getNearbyEntities(32, 16, 32)) {
             if (nearby instanceof Monster monster && !isBeast(nearby)) {
                 nearbyEnemies.add(monster);
             }
@@ -1543,12 +1543,14 @@ public class BeastManager {
 
     /**
      * Trouve la meilleure cible pour la bouse (préfère les groupes d'ennemis)
+     * Portée: 32 blocs
      */
     private LivingEntity findBestCowTarget(LivingEntity cow) {
         LivingEntity bestTarget = null;
         int bestScore = 0;
 
-        for (Entity nearby : cow.getNearbyEntities(12, 6, 12)) {
+        // Portée de 32 blocs pour les bêtes à distance
+        for (Entity nearby : cow.getNearbyEntities(32, 16, 32)) {
             if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
 
             // Score basé sur le nombre d'ennemis autour de cette cible
@@ -1695,9 +1697,9 @@ public class BeastManager {
         long spitCooldown = (long) (3000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver jusqu'à 3 cibles (déjà limité naturellement)
+            // Trouver jusqu'à 3 cibles - portée 32 blocs
             List<LivingEntity> targets = new ArrayList<>(3);
-            for (Entity nearby : llama.getNearbyEntities(6, 4, 6)) {
+            for (Entity nearby : llama.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     targets.add(monster);
                     if (targets.size() >= 3) break; // Limite atteinte
@@ -2109,7 +2111,8 @@ public class BeastManager {
         List<LivingEntity> targets = new ArrayList<>();
         List<LivingEntity> candidates = new ArrayList<>();
 
-        for (Entity nearby : bee.getNearbyEntities(8, 4, 8)) {
+        // Portée de 32 blocs pour les bêtes à distance
+        for (Entity nearby : bee.getNearbyEntities(32, 16, 32)) {
             if (nearby instanceof Monster monster && !isBeast(nearby)) {
                 candidates.add(monster);
             }
