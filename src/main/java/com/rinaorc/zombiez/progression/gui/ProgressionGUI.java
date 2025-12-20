@@ -435,7 +435,7 @@ public class ProgressionGUI implements Listener {
         if (title.equals(MAIN_TITLE)) {
             switch (slot) {
                 case 20 -> openSkillsMenu(player, SkillTree.COMBAT);
-                case 22 -> openAchievementsMenu(player, AchievementCategory.COMBAT);
+                case 22 -> new AchievementGUI(plugin).open(player); // Nouveau menu achievements
                 case 24 -> openLeaderboardMenu(player, LeaderboardType.KILLS);
                 case 40 -> {
                     // Prestige

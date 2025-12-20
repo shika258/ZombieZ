@@ -116,7 +116,13 @@ commands:
     description: Système de progression complet
     usage: /<command> [achievements|skills|missions|battlepass|cosmetics|leaderboard|stats]
     permission: zombiez.progression
-    aliases: [prog, ach, bp]
+    aliases: [prog, bp]
+
+  achievements:
+    description: Menu des achievements complet
+    usage: /<command>
+    permission: zombiez.progression
+    aliases: [ach, succes, achievement]
 
   # Commandes Classes
   class:

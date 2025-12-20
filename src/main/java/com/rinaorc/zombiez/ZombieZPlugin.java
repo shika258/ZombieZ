@@ -628,6 +628,9 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("progression").setExecutor(progressionCmd);
         getCommand("progression").setTabCompleter(progressionCmd);
 
+        // Commande Joueur - Achievements
+        getCommand("achievements").setExecutor(new com.rinaorc.zombiez.commands.player.AchievementCommand(this));
+
         // Commandes Joueur - Classes
         ClassCommand classCmd = new ClassCommand(this);
         getCommand("class").setExecutor(classCmd);
@@ -726,6 +729,7 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système de progression
         pm.registerEvents(new MissionGUI.MissionGUIListener(this), this);
         pm.registerEvents(new BattlePassGUI.BattlePassGUIListener(this), this);
+        pm.registerEvents(new com.rinaorc.zombiez.progression.gui.AchievementGUI(this), this);
 
         // Listener système de classes
         if (classManager != null) {
