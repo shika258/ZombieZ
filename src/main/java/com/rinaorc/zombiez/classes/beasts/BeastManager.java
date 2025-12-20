@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -75,12 +77,15 @@ public class BeastManager {
     private static final int BEE_MAX_STACKS = 5;
     private static final double BEE_VENOM_EXPLOSION_DAMAGE = 1.5; // 150% des dégâts de base
 
-    // Respawn delay en ms pour l'Ours
-    private static final long BEAR_RESPAWN_DELAY = 10000; // 10 secondes
-
-    // Tracking de l'exposition du joueur (ours mort -> joueur exposé au focus des mobs)
-    // Map: playerUUID -> timestamp jusqu'à quand le joueur est exposé
-    private final Map<UUID, Long> playerExposedUntil = new ConcurrentHashMap<>();
+    // Endermite - Système d'infestation et corruption du Vide
+    private static final long ENDERMITE_INFESTATION_DURATION = 3000; // 3 secondes
+    private static final double ENDERMITE_CORRUPTION_BONUS = 0.25;   // +25% dégâts reçus
+    private static final double ENDERMITE_EXPLOSION_DAMAGE = 0.50;   // 50% dégâts du joueur
+    private static final double ENDERMITE_DOT_DAMAGE = 0.15;         // 15% dégâts/tick
+    private static final double ENDERMITE_AOE_RADIUS = 4.0;          // Rayon explosion
+    private final Map<UUID, Long> voidCorruptedEntities = new ConcurrentHashMap<>(); // entityUUID -> expiry timestamp
+    private final Map<UUID, UUID> endermiteCurrentTarget = new ConcurrentHashMap<>(); // ownerUUID -> currentTargetUUID
+    private final Map<UUID, Long> endermiteInfestationStart = new ConcurrentHashMap<>(); // ownerUUID -> start timestamp
 
     // Axolotl - Système de vitesse d'attaque progressive
     private final Map<UUID, Double> axolotlAttackSpeedBonus = new ConcurrentHashMap<>(); // Bonus en % (0.0 à 1.5)
@@ -89,6 +94,8 @@ public class BeastManager {
     private static final double AXOLOTL_SPEED_MAX_BONUS = 1.50;    // +150% max
     private static final long AXOLOTL_SPEED_DECAY_DELAY = 10000;   // 10 secondes avant décroissance
     private static final double AXOLOTL_SPEED_DECAY_RATE = 0.10;   // -10% par seconde
+    private static final long AXOLOTL_TICK_RATE = 500;              // Tick rate des bêtes (10 ticks = 500ms)
+    private final Map<UUID, Long> axolotlLastShotTime = new ConcurrentHashMap<>(); // Dernier tir effectif
 
     public BeastManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -174,6 +181,7 @@ public class BeastManager {
             // Vérifier si le joueur a un axolotl actif
             Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
             if (beasts == null || !beasts.containsKey(BeastType.AXOLOTL)) {
+                axolotlLastShotTime.remove(playerUuid); // Nettoyer le timestamp de tir aussi
                 return true; // Nettoyer si pas d'axolotl
             }
 
@@ -185,6 +193,7 @@ public class BeastManager {
 
                 if (newBonus <= 0) {
                     axolotlLastAttackTime.remove(playerUuid);
+                    axolotlLastShotTime.remove(playerUuid); // Nettoyer aussi
                     return true; // Supprimer l'entrée
                 } else {
                     entry.setValue(newBonus);
@@ -334,11 +343,6 @@ public class BeastManager {
         // Configurer selon le type
         configureBeast(beast, type, player);
 
-        // Pour l'ours, afficher les PV sous le nom
-        if (type == BeastType.BEAR) {
-            updateBearHealthDisplay(beast);
-        }
-
         // Stocker la référence
         Map<BeastType, UUID> beasts = playerBeasts.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
         beasts.put(type, beast.getUniqueId());
@@ -374,24 +378,11 @@ public class BeastManager {
                     bat.setSilent(true); // Sons custom pour l'ultrason
                 }
             }
-            case BEAR -> {
-                // L'ours est un tank robuste - beaucoup plus de vie que le joueur
-                double ownerMaxHealth = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
-                double bearMaxHealth = ownerMaxHealth * 3; // x3 la vie du joueur
-                beast.getAttribute(Attribute.MAX_HEALTH).setBaseValue(bearMaxHealth);
-                beast.setHealth(bearMaxHealth);
-
-                // Armure naturelle pour réduire les dégâts
-                if (beast.getAttribute(Attribute.ARMOR) != null) {
-                    beast.getAttribute(Attribute.ARMOR).setBaseValue(15); // 60% réduction environ
-                }
-                if (beast.getAttribute(Attribute.ARMOR_TOUGHNESS) != null) {
-                    beast.getAttribute(Attribute.ARMOR_TOUGHNESS).setBaseValue(8);
-                }
-
-                // Vitesse d'attaque et dégâts de l'ours
-                if (beast.getAttribute(Attribute.ATTACK_DAMAGE) != null) {
-                    beast.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(8); // Dégâts de base
+            case ENDERMITE -> {
+                // L'Endermite est un petit parasite du Vide - invincible et discret
+                if (beast instanceof org.bukkit.entity.Endermite endermite) {
+                    // Empêcher le despawn naturel
+                    endermite.setPersistent(true);
                 }
             }
             case WOLF -> {
@@ -542,7 +533,7 @@ public class BeastManager {
                 if (type == BeastType.BAT || type == BeastType.BEE) {
                     // Bêtes volantes: comportement spécial
                     updateFlyingBeastCombat(player, beast, focusTarget, type);
-                } else if (type == BeastType.LLAMA || type == BeastType.AXOLOTL) {
+                } else if (type == BeastType.LLAMA || type == BeastType.AXOLOTL || type == BeastType.COW || type == BeastType.ENDERMITE) {
                     // Bêtes à distance: restent près du joueur et attaquent de loin
                     updateRangedBeastBehavior(player, beast, focusTarget, type);
                 } else {
@@ -655,17 +646,6 @@ public class BeastManager {
         // MODE SUIVI: Pas de cible, suivre le joueur
         Location targetLoc = calculatePackPosition(player, type);
         double distanceToTarget = beastLoc.distance(targetLoc);
-
-        // L'ours peut garder sa cible même sans focus joueur
-        if (type == BeastType.BEAR) {
-            LivingEntity bearTarget = mob.getTarget();
-            if (bearTarget != null && !bearTarget.isDead() &&
-                bearTarget.getLocation().distanceSquared(playerLoc) <= BEAST_COMBAT_RANGE * BEAST_COMBAT_RANGE) {
-                // L'ours garde sa cible actuelle
-                orientBeastTowards(beast, bearTarget.getLocation());
-                return;
-            }
-        }
 
         // Téléporter si bloqué et trop loin
         if (distanceToTarget > 15) {
@@ -806,7 +786,7 @@ public class BeastManager {
 
         switch (type) {
             case BAT -> executeBatAbility(owner, beast, frenzyMultiplier);
-            case BEAR -> executeBearAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
+            case ENDERMITE -> executeEndermiteAbility(owner, beast, now, frenzyMultiplier);
             case WOLF -> executeWolfAbility(owner, beast, frenzyMultiplier);
             case AXOLOTL -> executeAxolotlAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case COW -> executeCowAbility(owner, beast, now, cooldownKey);
@@ -815,7 +795,6 @@ public class BeastManager {
             case BEE -> executeBeeAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
             case IRON_GOLEM -> executeIronGolemAbility(owner, beast, now, cooldownKey, frenzyMultiplier);
         }
-        // L'ours a maintenant sa propre vie indépendante (x3 vie joueur + armure)
     }
 
     // === CAPACITÉS SPÉCIFIQUES ===
@@ -837,7 +816,7 @@ public class BeastManager {
         if (focusUuid != null) {
             Entity focusEntity = Bukkit.getEntity(focusUuid);
             if (focusEntity instanceof LivingEntity living && !living.isDead() &&
-                living.getLocation().distanceSquared(bat.getLocation()) < 256) { // 16 blocs
+                living.getLocation().distanceSquared(bat.getLocation()) < 1024) { // 32 blocs
                 target = living;
             } else {
                 // Focus invalide, nettoyer
@@ -847,9 +826,9 @@ public class BeastManager {
 
         // PRIORITÉ 2: Ennemi le plus proche du joueur (pas de la chauve-souris)
         if (target == null) {
-            double nearestDistSq = 225.0; // 15^2
+            double nearestDistSq = 1024.0; // 32^2
 
-            for (Entity nearby : owner.getNearbyEntities(15, 8, 15)) {
+            for (Entity nearby : owner.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
                     double distSq = owner.getLocation().distanceSquared(nearby.getLocation());
                     if (distSq < nearestDistSq) {
@@ -862,9 +841,9 @@ public class BeastManager {
 
         // PRIORITÉ 3: Ennemi le plus proche de la chauve-souris
         if (target == null) {
-            double nearestDistSq = 144.0; // 12^2
+            double nearestDistSq = 1024.0; // 32^2
 
-            for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
+            for (Entity nearby : bat.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
                     double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
                     if (distSq < nearestDistSq) {
@@ -951,84 +930,255 @@ public class BeastManager {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    private void executeBearAbility(Player owner, LivingEntity bear, long now, String cooldownKey, double frenzyMultiplier) {
-        // Rugissement toutes les 8 secondes
-        long rugissementCooldown = (long) (8000 / frenzyMultiplier);
+    // === ENDERMITE - PARASITE DU VIDE ===
 
-        if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            Location loc = bear.getLocation();
+    /**
+     * Capacité de l'Endermite: cycle d'infestation du Vide
+     * 1. Se téléporte sur un ennemi
+     * 2. S'accroche et inflige des DoT pendant 3s
+     * 3. Applique "Corruption du Vide" (+25% dégâts reçus)
+     * 4. Explose et se téléporte vers une nouvelle cible
+     */
+    private void executeEndermiteAbility(Player owner, LivingEntity endermite, long now, double frenzyMultiplier) {
+        UUID ownerUuid = owner.getUniqueId();
 
-            // Effet de rugissement
-            bear.getWorld().playSound(loc, Sound.ENTITY_POLAR_BEAR_WARNING, 2.0f, 0.8f);
-            bear.getWorld().spawnParticle(Particle.SONIC_BOOM, loc.add(0, 1, 0), 1, 0, 0, 0, 0);
+        // Vérifier si l'Endermite est en train d'infester une cible
+        UUID currentTargetUuid = endermiteCurrentTarget.get(ownerUuid);
+        Long infestationStart = endermiteInfestationStart.get(ownerUuid);
 
-            // Aggroer les monstres dans 20 blocs (limité à 15 cibles max)
-            int aggroCount = 0;
-            LivingEntity nearestTarget = null;
-            double nearestDistSq = Double.MAX_VALUE;
+        if (currentTargetUuid != null && infestationStart != null) {
+            // Récupérer la cible actuelle
+            Entity targetEntity = Bukkit.getEntity(currentTargetUuid);
 
-            for (Entity nearby : bear.getNearbyEntities(20, 10, 20)) {
-                if (aggroCount >= 15) break; // Limite pour la perf
-                if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                    if (monster instanceof Mob mob) {
-                        mob.setTarget(bear);
-                    }
-                    // Effet visuel
-                    nearby.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
-                        nearby.getLocation().add(0, 1.5, 0), 3, 0.3, 0.3, 0.3, 0);
+            if (targetEntity instanceof LivingEntity target && !target.isDead()) {
+                long elapsed = now - infestationStart;
+                long duration = (long) (ENDERMITE_INFESTATION_DURATION / frenzyMultiplier);
 
-                    // Tracker la cible la plus proche pour l'attaque
-                    double distSq = bear.getLocation().distanceSquared(nearby.getLocation());
-                    if (distSq < nearestDistSq) {
-                        nearestDistSq = distSq;
-                        nearestTarget = monster;
-                    }
-                    aggroCount++;
+                // Téléporter l'endermite SUR la cible (effet parasite)
+                Location targetLoc = target.getLocation().add(0, target.getHeight(), 0);
+                endermite.teleport(targetLoc);
+
+                // Appliquer la Corruption du Vide
+                applyVoidCorruption(target);
+
+                // Appliquer DoT chaque seconde (tick rate ~500ms, donc 2 ticks = 1s)
+                if (elapsed % 1000 < 600) { // Approximativement toutes les secondes
+                    double dotDamage = calculateBeastDamage(owner, BeastType.ENDERMITE) * frenzyMultiplier;
+                    applyBeastDamageWithMetadata(owner, target, dotDamage);
+
+                    // Particules de corruption
+                    target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0, 1, 0),
+                        8, 0.3, 0.5, 0.3, 0.02);
+                    target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1.5, 0),
+                        5, 0.2, 0.3, 0.2, 0.5);
                 }
-            }
 
-            // Pas de message spam - juste effet visuel/sonore
-            setCooldown(owner.getUniqueId(), cooldownKey, now + rugissementCooldown);
+                // Fin d'infestation -> EXPLOSION DU VIDE
+                if (elapsed >= duration) {
+                    executeVoidExplosion(owner, endermite, target, frenzyMultiplier);
+                    endermiteCurrentTarget.remove(ownerUuid);
+                    endermiteInfestationStart.remove(ownerUuid);
+                }
+                return;
+            } else {
+                // Cible morte ou invalide - chercher nouvelle cible immédiatement
+                endermiteCurrentTarget.remove(ownerUuid);
+                endermiteInfestationStart.remove(ownerUuid);
+            }
         }
 
-        // L'ours attaque en continu (hors cooldown du rugissement)
-        executeBearAttack(owner, bear, frenzyMultiplier);
+        // Pas de cible actuelle - chercher une nouvelle cible et téléporter
+        LivingEntity newTarget = findEndermiteTarget(owner, endermite);
+        if (newTarget != null) {
+            teleportToTarget(owner, endermite, newTarget);
+            endermiteCurrentTarget.put(ownerUuid, newTarget.getUniqueId());
+            endermiteInfestationStart.put(ownerUuid, now);
+        }
     }
 
     /**
-     * Fait attaquer l'ours les mobs hostiles à proximité
+     * Trouve la meilleure cible pour l'Endermite
+     * Priorité: cibles marquées (renard) > cibles saignantes (loup) > cibles avec stacks abeille > plus proche
      */
-    private void executeBearAttack(Player owner, LivingEntity bear, double frenzyMultiplier) {
-        if (!(bear instanceof Mob bearMob)) return;
+    private LivingEntity findEndermiteTarget(Player owner, LivingEntity endermite) {
+        LivingEntity bestTarget = null;
+        double bestScore = 0;
 
-        // Vérifier si l'ours a déjà une cible valide
-        LivingEntity currentTarget = bearMob.getTarget();
-        if (currentTarget != null && !currentTarget.isDead() &&
-            currentTarget.getLocation().distance(bear.getLocation()) < 15) {
-            // Cible valide, pathfinding actif vers elle
-            bearMob.getPathfinder().moveTo(currentTarget, 1.2);
-            return;
+        // Portée de 32 blocs
+        for (Entity nearby : owner.getNearbyEntities(32, 16, 32)) {
+            if (!(nearby instanceof Monster monster) || isBeast(nearby) || monster.isDead()) continue;
+
+            double score = 1.0;
+
+            // Bonus si marqué par le renard (+50 - haute priorité)
+            if (isMarkedByFox(nearby.getUniqueId())) {
+                score += 50;
+            }
+
+            // Bonus si saignant (loup) (+30)
+            if (activeBleedTargets.contains(nearby.getUniqueId())) {
+                score += 30;
+            }
+
+            // Bonus selon les stacks d'abeille (+10 par stack)
+            int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
+            score += beeStacks * 10;
+
+            // Bonus proximité du joueur (préférer les menaces proches)
+            double dist = owner.getLocation().distanceSquared(nearby.getLocation());
+            score += Math.max(0, (1024 - dist) / 50); // Bonus jusqu'à 32 blocs
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = monster;
+            }
         }
 
-        // Chercher une nouvelle cible à proximité (8 blocs pour l'attaque)
-        LivingEntity nearestEnemy = null;
-        double nearestDistSq = 64.0; // 8^2
+        return bestTarget;
+    }
 
-        for (Entity nearby : bear.getNearbyEntities(8, 4, 8)) {
-            if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                double distSq = bear.getLocation().distanceSquared(nearby.getLocation());
-                if (distSq < nearestDistSq) {
-                    nearestDistSq = distSq;
-                    nearestEnemy = monster;
-                    if (distSq < 9) break; // <3 blocs, on prend direct
+    /**
+     * Téléporte l'Endermite vers sa cible avec effets satisfaisants
+     */
+    private void teleportToTarget(Player owner, LivingEntity endermite, LivingEntity target) {
+        Location from = endermite.getLocation();
+        Location to = target.getLocation().add(0, target.getHeight(), 0);
+
+        // SON DE TÉLÉPORTATION (très satisfaisant!)
+        endermite.getWorld().playSound(from, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.8f);
+        endermite.getWorld().playSound(to, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 2.0f);
+
+        // Particules de départ
+        endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, from.add(0, 0.5, 0),
+            25, 0.3, 0.3, 0.3, 0.1);
+        endermite.getWorld().spawnParticle(Particle.PORTAL, from,
+            15, 0.5, 0.5, 0.5, 1.0);
+
+        // Téléportation
+        endermite.teleport(to);
+
+        // Particules d'arrivée (explosion de particules!)
+        endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, to,
+            40, 0.5, 0.5, 0.5, 0.15);
+        endermite.getWorld().spawnParticle(Particle.PORTAL, to,
+            30, 0.3, 0.3, 0.3, 2.0);
+        endermite.getWorld().spawnParticle(Particle.WITCH, to,
+            10, 0.3, 0.3, 0.3, 0.1);
+
+        // Son d'accrochage
+        endermite.getWorld().playSound(to, Sound.ENTITY_ENDERMITE_AMBIENT, 2.0f, 1.5f);
+    }
+
+    /**
+     * Explosion du Vide - fin de cycle d'infestation
+     */
+    private void executeVoidExplosion(Player owner, LivingEntity endermite, LivingEntity target, double frenzyMultiplier) {
+        Location explosionLoc = target.getLocation().add(0, 1, 0);
+
+        // SONS D'EXPLOSION (satisfaisant!)
+        endermite.getWorld().playSound(explosionLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 2.0f, 0.5f);
+        endermite.getWorld().playSound(explosionLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.5f);
+        endermite.getWorld().playSound(explosionLoc, Sound.ENTITY_ENDERMITE_DEATH, 1.5f, 0.8f);
+        endermite.getWorld().playSound(explosionLoc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.0f, 1.2f);
+
+        // EXPLOSION DE PARTICULES (très satisfaisant!)
+        endermite.getWorld().spawnParticle(Particle.REVERSE_PORTAL, explosionLoc,
+            80, 1.5, 1.5, 1.5, 0.3);
+        endermite.getWorld().spawnParticle(Particle.PORTAL, explosionLoc,
+            60, 2.0, 2.0, 2.0, 3.0);
+        endermite.getWorld().spawnParticle(Particle.WITCH, explosionLoc,
+            30, 1.0, 1.0, 1.0, 0.2);
+        endermite.getWorld().spawnParticle(Particle.DRAGON_BREATH, explosionLoc,
+            20, 1.0, 0.5, 1.0, 0.05);
+        endermite.getWorld().spawnParticle(Particle.FLASH, explosionLoc, 2);
+
+        // Dégâts AoE
+        double explosionDamage = calculateBeastDamage(owner, BeastType.ENDERMITE) * (ENDERMITE_EXPLOSION_DAMAGE / ENDERMITE_DOT_DAMAGE) * frenzyMultiplier;
+
+        for (Entity nearby : explosionLoc.getWorld().getNearbyEntities(explosionLoc, ENDERMITE_AOE_RADIUS, ENDERMITE_AOE_RADIUS, ENDERMITE_AOE_RADIUS)) {
+            if (nearby instanceof LivingEntity living && nearby instanceof Monster && !isBeast(nearby)) {
+                // Dégâts réduits selon la distance
+                double distance = nearby.getLocation().distance(explosionLoc);
+                double damageMult = Math.max(0.5, 1.0 - (distance / ENDERMITE_AOE_RADIUS));
+
+                applyBeastDamageWithMetadata(owner, living, explosionDamage * damageMult);
+
+                // Appliquer la corruption aux cibles touchées par l'explosion
+                applyVoidCorruption(living);
+
+                // SYNERGIE: Si la cible a 3+ stacks d'abeille, déclencher l'explosion de venin!
+                int beeStacks = beeStingStacks.getOrDefault(nearby.getUniqueId(), 0);
+                if (beeStacks >= 3) {
+                    triggerBeeVenomExplosion(owner, living);
                 }
             }
         }
 
-        if (nearestEnemy != null) {
-            bearMob.setTarget(nearestEnemy);
-            bearMob.getPathfinder().moveTo(nearestEnemy, 1.2);
+        // Retour de l'endermite près du joueur avant de chercher une nouvelle cible
+        Location ownerLoc = owner.getLocation();
+        Location returnLoc = ownerLoc.clone().add(
+            Math.cos(Math.toRadians(BeastType.ENDERMITE.getOffsetAngle())) * 2,
+            0.5,
+            Math.sin(Math.toRadians(BeastType.ENDERMITE.getOffsetAngle())) * 2
+        );
+        endermite.teleport(returnLoc);
+    }
+
+    /**
+     * Applique la Corruption du Vide à une cible
+     * +25% de dégâts reçus pendant 5 secondes
+     */
+    private void applyVoidCorruption(LivingEntity target) {
+        voidCorruptedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
+
+        // Effet visuel de corruption
+        target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.getLocation().add(0, 1, 0),
+            10, 0.3, 0.5, 0.3, 0.02);
+    }
+
+    /**
+     * Vérifie si une entité est corrompue par le Vide
+     */
+    public boolean isVoidCorrupted(UUID entityUuid) {
+        Long expiry = voidCorruptedEntities.get(entityUuid);
+        if (expiry == null) return false;
+        if (System.currentTimeMillis() > expiry) {
+            voidCorruptedEntities.remove(entityUuid);
+            return false;
         }
+        return true;
+    }
+
+    /**
+     * Obtient le bonus de dégâts de la Corruption du Vide
+     */
+    public double getVoidCorruptionBonus(UUID entityUuid) {
+        return isVoidCorrupted(entityUuid) ? ENDERMITE_CORRUPTION_BONUS : 0.0;
+    }
+
+    /**
+     * Déclenche l'explosion de venin d'abeille (synergie avec Endermite)
+     */
+    private void triggerBeeVenomExplosion(Player owner, LivingEntity target) {
+        // Reset les stacks
+        beeStingStacks.remove(target.getUniqueId());
+
+        // Dégâts d'explosion
+        double explosionDamage = calculateBeastDamage(owner, BeastType.BEE) * BEE_VENOM_EXPLOSION_DAMAGE * 10;
+        applyBeastDamageWithMetadata(owner, target, explosionDamage);
+
+        // Effets visuels
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.DUST, loc, 30, 0.5, 0.5, 0.5, 0,
+            new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.5f));
+        target.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, loc, 5, 0.3, 0.3, 0.3, 0);
+
+        // Sons
+        target.getWorld().playSound(loc, Sound.ENTITY_BEE_DEATH, 1.5f, 0.5f);
+        target.getWorld().playSound(loc, Sound.BLOCK_HONEY_BLOCK_BREAK, 1.0f, 0.8f);
+
+        // Poison II pendant 5 secondes
+        target.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1, false, true, true));
     }
 
     private void executeWolfAbility(Player owner, LivingEntity wolf, double frenzyMultiplier) {
@@ -1069,12 +1219,11 @@ public class BeastManager {
 
     /**
      * Applique une morsure du loup avec dégâts et saignement.
+     * Utilise le système de dégâts complet (comme serviteurs Occultiste).
      */
     private void applyWolfBite(Player owner, LivingEntity target, double frenzyMultiplier) {
-        double damage = calculateBeastDamage(owner, BeastType.WOLF) * frenzyMultiplier;
-
-        // Appliquer les dégâts avec metadata
-        applyBeastDamageWithMetadata(owner, target, damage);
+        // Appliquer les dégâts avec le calcul complet des stats du joueur
+        applyBeastDamageWithFullStats(owner, target, BeastType.WOLF, frenzyMultiplier);
 
         // Appliquer le saignement
         applyWolfBleed(owner, target);
@@ -1112,6 +1261,236 @@ public class BeastManager {
                     plugin.getZombieManager().updateZombieHealthDisplay(target);
                 }
             });
+        }
+    }
+
+    // ==================== SYSTÈME DE DÉGÂTS COMPLET (COMME SERVITEURS OCCULTISTE) ====================
+
+    /**
+     * Résultat du calcul de dégâts d'une bête.
+     * Inclut les dégâts finaux, critique, lifesteal et dégâts élémentaires.
+     */
+    private static class BeastDamageResult {
+        final double damage;
+        final boolean isCritical;
+        final double lifestealAmount;
+        final double fireDamage;
+        final double iceDamage;
+        final double lightningDamage;
+        final boolean lightningProc;
+
+        BeastDamageResult(double damage, boolean isCritical, double lifestealAmount,
+                double fireDamage, double iceDamage, double lightningDamage, boolean lightningProc) {
+            this.damage = damage;
+            this.isCritical = isCritical;
+            this.lifestealAmount = lifestealAmount;
+            this.fireDamage = fireDamage;
+            this.iceDamage = iceDamage;
+            this.lightningDamage = lightningDamage;
+            this.lightningProc = lightningProc;
+        }
+    }
+
+    /**
+     * Calcule les dégâts complets d'une bête avec TOUTES les stats du joueur.
+     * Réplique exactement la logique des serviteurs Occultiste.
+     *
+     * @param player Le propriétaire de la bête
+     * @param target La cible de l'attaque
+     * @param beastType Le type de bête (pour le multiplicateur de base)
+     * @param damageMultiplier Multiplicateur additionnel (ex: synergies, frénésie)
+     * @return Les dégâts calculés avec infos critique/lifesteal
+     */
+    private BeastDamageResult calculateBeastDamageWithFullStats(Player player, LivingEntity target,
+            BeastType beastType, double damageMultiplier) {
+
+        // ============ 1. DÉGÂTS DE BASE DU JOUEUR ============
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        // Appliquer le multiplicateur de la bête (ex: WOLF = 30%, FOX = 20%)
+        baseDamage *= beastType.getDamagePercent();
+        double finalDamage = baseDamage;
+        boolean isCritical = false;
+
+        // ============ 2. STATS D'ÉQUIPEMENT ZOMBIEZ ============
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de dégâts flat (ex: +10 dégâts)
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage (ex: +15% dégâts)
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // ============ 3. SKILL TREE BONUSES ============
+        var skillManager = plugin.getSkillTreeManager();
+
+        // Bonus dégâts passifs (Puissance I/II/III)
+        double skillDamageBonus = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // ============ 4. SYSTÈME DE CRITIQUE ============
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (Math.random() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0; // 150% de base
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(player, SkillBonus.CRIT_DAMAGE);
+
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // ============ 5. MOMENTUM SYSTEM ============
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(player);
+        finalDamage *= momentumMultiplier;
+
+        // ============ 6. EXECUTE DAMAGE (<20% HP cible) ============
+        double mobHealthPercent = target.getHealth() / target.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // ============ 7. BERSERKER (<30% HP joueur) ============
+        double playerHealthPercent = player.getHealth() / player.getMaxHealth() * 100;
+        if (playerHealthPercent <= 30) {
+            double berserkerBonus = skillManager.getSkillBonus(player, SkillBonus.BERSERKER);
+            if (berserkerBonus > 0) {
+                finalDamage *= (1 + berserkerBonus / 100.0);
+            }
+        }
+
+        // ============ 8. DÉGÂTS ÉLÉMENTAIRES ============
+        double fireDamage = playerStats.getOrDefault(StatType.FIRE_DAMAGE, 0.0);
+        double iceDamage = playerStats.getOrDefault(StatType.ICE_DAMAGE, 0.0);
+        double lightningDamage = playerStats.getOrDefault(StatType.LIGHTNING_DAMAGE, 0.0);
+        boolean lightningProc = false;
+
+        if (fireDamage > 0) {
+            finalDamage += fireDamage * 0.5;
+        }
+        if (iceDamage > 0) {
+            finalDamage += iceDamage * 0.5;
+        }
+        if (lightningDamage > 0 && Math.random() < 0.15) {
+            lightningProc = true;
+            finalDamage += lightningDamage * 2;
+        }
+
+        // ============ 9. MULTIPLICATEUR ADDITIONNEL (synergies, frénésie, etc.) ============
+        finalDamage *= damageMultiplier;
+
+        // ============ 10. CORRUPTION DU VIDE (Endermite synergy) ============
+        // Les cibles corrompues par l'Endermite subissent +25% de dégâts de TOUTES les sources
+        double voidCorruptionBonus = getVoidCorruptionBonus(target.getUniqueId());
+        if (voidCorruptionBonus > 0) {
+            finalDamage *= (1 + voidCorruptionBonus);
+        }
+
+        // ============ 11. MULTIPLICATEUR BÊTE (équilibrage: 80% comme serviteurs) ============
+        finalDamage *= 0.8;
+
+        // ============ 12. LIFESTEAL ============
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        double lifestealAmount = 0;
+
+        if (totalLifesteal > 0) {
+            lifestealAmount = finalDamage * (totalLifesteal / 100.0);
+        }
+
+        return new BeastDamageResult(
+                Math.max(1.0, finalDamage),
+                isCritical,
+                lifestealAmount,
+                fireDamage,
+                iceDamage,
+                lightningDamage,
+                lightningProc);
+    }
+
+    /**
+     * Applique les dégâts d'une bête avec le calcul COMPLET des stats du joueur.
+     * Utilisé par LOUP, RENARD et IRON_GOLEM.
+     *
+     * @param owner Le joueur propriétaire
+     * @param target La cible des dégâts
+     * @param beastType Le type de bête
+     * @param damageMultiplier Multiplicateur additionnel
+     */
+    private void applyBeastDamageWithFullStats(Player owner, LivingEntity target,
+            BeastType beastType, double damageMultiplier) {
+
+        BeastDamageResult result = calculateBeastDamageWithFullStats(owner, target, beastType, damageMultiplier);
+
+        // Configurer les metadata pour l'indicateur de dégâts
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, result.isCritical));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+
+        // Attribution du loot au propriétaire
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        }
+
+        // Appliquer les dégâts
+        target.damage(result.damage, owner);
+
+        // Mettre à jour l'affichage de vie du zombie
+        if (plugin.getZombieManager().isZombieZMob(target)) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (target.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(target);
+                }
+            });
+        }
+
+        // Effet visuel critique
+        if (result.isCritical) {
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+            target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Appliquer les effets élémentaires
+        applyBeastElementalEffects(target, result);
+
+        // Lifesteal pour le propriétaire
+        if (result.lifestealAmount > 0) {
+            double newHealth = Math.min(owner.getHealth() + result.lifestealAmount, owner.getMaxHealth());
+            owner.setHealth(newHealth);
+            if (result.lifestealAmount > 1) {
+                owner.getWorld().spawnParticle(Particle.HEART, owner.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
+            }
+        }
+    }
+
+    /**
+     * Applique les effets élémentaires du stuff du joueur via sa bête
+     */
+    private void applyBeastElementalEffects(LivingEntity target, BeastDamageResult result) {
+        // Feu - Enflamme la cible
+        if (result.fireDamage > 0) {
+            target.setFireTicks((int) (result.fireDamage * 20));
+        }
+
+        // Glace - Gèle la cible
+        if (result.iceDamage > 0) {
+            target.setFreezeTicks((int) (result.iceDamage * 20));
+        }
+
+        // Foudre - Effet visuel et sonore (15% chance, déjà calculée)
+        if (result.lightningProc) {
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.1);
+            target.getWorld().playSound(target.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.6f, 1.5f);
         }
     }
 
@@ -1167,31 +1546,61 @@ public class BeastManager {
         double totalSpeedMultiplier = (1.0 + speedBonus) * frenzyMultiplier;
         long shootCooldown = (long) (1500 / totalSpeedMultiplier);
 
-        // Minimum cooldown de 300ms pour éviter le spam
-        shootCooldown = Math.max(300, shootCooldown);
+        // Minimum cooldown de 200ms pour éviter le spam extrême
+        shootCooldown = Math.max(200, shootCooldown);
 
-        if (!isOnCooldown(ownerUuid, cooldownKey, now)) {
-            // Trouver la cible la plus proche (avec early-exit)
-            LivingEntity nearestEnemy = null;
-            double nearestDistSq = 64.0; // 8^2
+        // Système basé sur le temps réel pour gérer les hautes cadences
+        // On calcule combien de tirs on peut faire depuis le dernier tir effectif
+        long lastShot = axolotlLastShotTime.getOrDefault(ownerUuid, 0L);
+        long timeSinceLastShot = now - lastShot;
 
-            for (Entity nearby : axolotl.getNearbyEntities(8, 4, 8)) {
-                if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                    double distSq = axolotl.getLocation().distanceSquared(nearby.getLocation());
-                    if (distSq < nearestDistSq) {
-                        nearestDistSq = distSq;
-                        nearestEnemy = monster;
-                        if (distSq < 9) break; // <3 blocs, on prend direct
-                    }
-                }
-            }
+        // Calculer le nombre de tirs possibles (max 3 par tick pour éviter le spam visuel)
+        int shotsToFire = (int) Math.min(3, timeSinceLastShot / shootCooldown);
 
-            if (nearestEnemy != null) {
-                // Tirer une bulle d'eau
-                shootWaterBubble(owner, axolotl, nearestEnemy);
-                setCooldown(ownerUuid, cooldownKey, now + shootCooldown);
+        if (shotsToFire <= 0) {
+            return; // Pas encore le temps de tirer
+        }
+
+        // Trouver les cibles proches (on en a besoin pour les tirs multiples) - portée 32 blocs
+        List<LivingEntity> nearbyEnemies = new ArrayList<>();
+        for (Entity nearby : axolotl.getNearbyEntities(32, 16, 32)) {
+            if (nearby instanceof Monster monster && !isBeast(nearby)) {
+                nearbyEnemies.add(monster);
             }
         }
+
+        if (nearbyEnemies.isEmpty()) {
+            return; // Pas de cible
+        }
+
+        // Trier par distance
+        Location axolotlLoc = axolotl.getLocation();
+        nearbyEnemies.sort(Comparator.comparingDouble(e -> e.getLocation().distanceSquared(axolotlLoc)));
+
+        // Tirer les bulles avec un léger délai entre chaque pour l'effet visuel
+        for (int i = 0; i < shotsToFire; i++) {
+            // Alterner entre les cibles si plusieurs tirs
+            LivingEntity target = nearbyEnemies.get(i % nearbyEnemies.size());
+            final int delay = i * 3; // 3 ticks = 150ms entre chaque bulle
+
+            if (delay == 0) {
+                shootWaterBubble(owner, axolotl, target);
+            } else {
+                LivingEntity finalTarget = target;
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (axolotl.isValid() && !axolotl.isDead() && finalTarget.isValid() && !finalTarget.isDead()) {
+                            shootWaterBubble(owner, axolotl, finalTarget);
+                        }
+                    }
+                }.runTaskLater(plugin, delay);
+            }
+        }
+
+        // Mettre à jour le timestamp du dernier tir
+        // On avance le timestamp de (shotsToFire * shootCooldown) pour synchroniser correctement
+        axolotlLastShotTime.put(ownerUuid, lastShot + (shotsToFire * shootCooldown));
     }
 
     /**
@@ -1285,12 +1694,14 @@ public class BeastManager {
 
     /**
      * Trouve la meilleure cible pour la bouse (préfère les groupes d'ennemis)
+     * Portée: 32 blocs
      */
     private LivingEntity findBestCowTarget(LivingEntity cow) {
         LivingEntity bestTarget = null;
         int bestScore = 0;
 
-        for (Entity nearby : cow.getNearbyEntities(12, 6, 12)) {
+        // Portée de 32 blocs pour les bêtes à distance
+        for (Entity nearby : cow.getNearbyEntities(32, 16, 32)) {
             if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
 
             // Score basé sur le nombre d'ennemis autour de cette cible
@@ -1437,9 +1848,9 @@ public class BeastManager {
         long spitCooldown = (long) (3000 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver jusqu'à 3 cibles (déjà limité naturellement)
+            // Trouver jusqu'à 3 cibles - portée 32 blocs
             List<LivingEntity> targets = new ArrayList<>(3);
-            for (Entity nearby : llama.getNearbyEntities(6, 4, 6)) {
+            for (Entity nearby : llama.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     targets.add(monster);
                     if (targets.size() >= 3) break; // Limite atteinte
@@ -1549,7 +1960,7 @@ public class BeastManager {
     }
 
     /**
-     * Trouve une cible avec synergies pour le Golem (marquée par renard ou stacks abeille)
+     * Trouve une cible avec synergies pour le Golem (marquée par renard, stacks abeille, ou corruption du vide)
      */
     private LivingEntity findGolemSynergyTarget(LivingEntity golem) {
         LivingEntity bestTarget = null;
@@ -1570,6 +1981,11 @@ public class BeastManager {
             score += beeStacks * 10;
             if (beeStacks >= 3) {
                 score += 30; // Bonus car dégâts x2
+            }
+
+            // Bonus si corrompu par l'Endermite (+40 - priorité haute)
+            if (isVoidCorrupted(nearby.getUniqueId())) {
+                score += 40;
             }
 
             // Seulement considérer si a une synergie
@@ -1690,9 +2106,8 @@ public class BeastManager {
                         !isBeast(nearby) &&
                         !hitDuringCharge.contains(nearby.getUniqueId())) {
 
-                        // Dégâts de charge (50% des dégâts) avec metadata
-                        double chargeDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM) * 0.5;
-                        applyBeastDamageWithMetadata(owner, living, chargeDamage);
+                        // Dégâts de charge (50% des dégâts) avec système complet
+                        applyBeastDamageWithFullStats(owner, living, BeastType.IRON_GOLEM, 0.5);
                         hitDuringCharge.add(nearby.getUniqueId());
 
                         // Effet d'impact
@@ -1772,8 +2187,7 @@ public class BeastManager {
 
                     alreadyHit.add(nearby.getUniqueId());
 
-                    // Calcul des dégâts avec synergies
-                    double baseDamage = calculateBeastDamage(owner, BeastType.IRON_GOLEM);
+                    // Calcul du multiplicateur avec synergies
                     double damageMultiplier = 1.0;
                     boolean hasSynergyBonus = false;
 
@@ -1790,9 +2204,8 @@ public class BeastManager {
                         hasSynergyBonus = true;
                     }
 
-                    // Appliquer les dégâts avec metadata
-                    double finalDamage = baseDamage * damageMultiplier;
-                    applyBeastDamageWithMetadata(owner, living, finalDamage);
+                    // Appliquer les dégâts avec le système complet (comme serviteurs Occultiste)
+                    applyBeastDamageWithFullStats(owner, living, BeastType.IRON_GOLEM, damageMultiplier);
 
                     // Stun (1.5s = 30 ticks de Slowness V + Jump Boost négatif)
                     living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 4, false, false, false)); // 1.5s
@@ -1854,7 +2267,8 @@ public class BeastManager {
         List<LivingEntity> targets = new ArrayList<>();
         List<LivingEntity> candidates = new ArrayList<>();
 
-        for (Entity nearby : bee.getNearbyEntities(8, 4, 8)) {
+        // Portée de 32 blocs pour les bêtes à distance
+        for (Entity nearby : bee.getNearbyEntities(32, 16, 32)) {
             if (nearby instanceof Monster monster && !isBeast(nearby)) {
                 candidates.add(monster);
             }
@@ -2212,13 +2626,13 @@ public class BeastManager {
     /**
      * Applique la marque du renard sur la cible.
      * La cible marquée devient visible à travers les murs (glowing) et subit +30% de dégâts.
+     * Utilise le système de dégâts complet (comme serviteurs Occultiste).
      */
     private void applyFoxMark(Player owner, LivingEntity fox, LivingEntity target) {
         if (target.isDead()) return;
 
-        // Dégâts initiaux (20% des dégâts du joueur)
-        double pounceDamage = calculateBeastDamage(owner, BeastType.FOX);
-        applyBeastDamageWithMetadata(owner, target, pounceDamage);
+        // Dégâts initiaux avec le calcul complet des stats du joueur
+        applyBeastDamageWithFullStats(owner, target, BeastType.FOX, 1.0);
 
         // Marquer la cible (5 secondes)
         foxMarkedEntities.put(target.getUniqueId(), System.currentTimeMillis() + 5000);
@@ -2303,109 +2717,7 @@ public class BeastManager {
         }
 
         Player owner = Bukkit.getPlayer(ownerUuid);
-
-        // L'Ours respawn après 10 secondes - le joueur est exposé pendant ce temps
-        if (type == BeastType.BEAR && owner != null) {
-            long respawnTime = System.currentTimeMillis() + BEAR_RESPAWN_DELAY;
-
-            // Exposer le joueur au focus des mobs pendant le respawn
-            playerExposedUntil.put(ownerUuid, respawnTime);
-
-            owner.sendMessage("§c✦ L'Ours est tombé! Vous êtes exposé pendant 10 secondes!");
-            owner.playSound(owner.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
-
-            Map<BeastType, Long> respawns = pendingRespawn.computeIfAbsent(ownerUuid, k -> new ConcurrentHashMap<>());
-            respawns.put(type, respawnTime);
-        }
-    }
-
-    /**
-     * Vérifie si le joueur est exposé (ours mort, pas encore respawn)
-     */
-    public boolean isPlayerExposed(UUID playerUuid) {
-        Long exposedUntil = playerExposedUntil.get(playerUuid);
-        if (exposedUntil == null) return false;
-
-        if (System.currentTimeMillis() >= exposedUntil) {
-            playerExposedUntil.remove(playerUuid);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Obtient l'ours du joueur s'il existe et est vivant
-     */
-    public LivingEntity getPlayerBear(UUID playerUuid) {
-        Map<BeastType, UUID> beasts = playerBeasts.get(playerUuid);
-        if (beasts == null) return null;
-
-        UUID bearUuid = beasts.get(BeastType.BEAR);
-        if (bearUuid == null) return null;
-
-        Entity entity = Bukkit.getEntity(bearUuid);
-        if (entity instanceof LivingEntity living && !living.isDead()) {
-            return living;
-        }
-        return null;
-    }
-
-    /**
-     * Met à jour l'affichage des points de vie de l'ours.
-     * Affiche le nom de l'ours avec une barre de vie colorée en dessous.
-     */
-    public void updateBearHealthDisplay(LivingEntity bear) {
-        if (bear == null || bear.isDead()) return;
-
-        // Vérifier que c'est bien un ours
-        if (!bear.hasMetadata(BEAST_TYPE_KEY)) return;
-        String typeStr = bear.getMetadata(BEAST_TYPE_KEY).get(0).asString();
-        if (!typeStr.equals(BeastType.BEAR.name())) return;
-
-        // Récupérer les infos du propriétaire
-        UUID ownerUuid = getBeastOwner(bear);
-        if (ownerUuid == null) return;
-        Player owner = Bukkit.getPlayer(ownerUuid);
-        String ownerName = owner != null ? owner.getName() : "???";
-
-        double health = bear.getHealth();
-        double maxHealth = bear.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double healthPercent = health / maxHealth;
-
-        // Créer la barre de vie
-        int totalBars = 10;
-        int filledBars = (int) Math.ceil(healthPercent * totalBars);
-
-        // Couleur selon le pourcentage de vie
-        NamedTextColor healthColor;
-        if (healthPercent > 0.5) {
-            healthColor = NamedTextColor.GREEN;
-        } else if (healthPercent > 0.25) {
-            healthColor = NamedTextColor.YELLOW;
-        } else {
-            healthColor = NamedTextColor.RED;
-        }
-
-        // Construire la barre de vie
-        StringBuilder healthBar = new StringBuilder();
-        for (int i = 0; i < totalBars; i++) {
-            if (i < filledBars) {
-                healthBar.append("█");
-            } else {
-                healthBar.append("░");
-            }
-        }
-
-        // Construire le nom avec le nom de l'ours et la barre de vie
-        Component displayName = Component.text()
-            .append(Component.text("Ours de " + ownerName, NamedTextColor.WHITE))
-            .append(Component.newline())
-            .append(Component.text(healthBar.toString(), healthColor))
-            .append(Component.text(" " + (int) health + "/" + (int) maxHealth, NamedTextColor.GRAY))
-            .build();
-
-        bear.customName(displayName);
-        bear.setCustomNameVisible(true);
+        // Note: Toutes les bêtes sont invincibles, pas de respawn nécessaire
     }
 
     /**
@@ -2491,7 +2803,7 @@ public class BeastManager {
         String id = talent.getId();
 
         if (id.contains("beast_bat")) return BeastType.BAT;
-        if (id.contains("beast_bear")) return BeastType.BEAR;
+        if (id.contains("beast_endermite")) return BeastType.ENDERMITE;
         if (id.contains("beast_wolf")) return BeastType.WOLF;
         if (id.contains("beast_axolotl")) return BeastType.AXOLOTL;
         if (id.contains("beast_cow")) return BeastType.COW;

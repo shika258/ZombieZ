@@ -147,7 +147,7 @@ public class Talent {
 
         // === CHASSEUR - Tier 2 ===
         BURST_SHOT,              // Combo shot bonus
-        BEAST_BEAR,              // Summon bear - tank, roar aggro, shares player HP
+        BEAST_ENDERMITE,         // Summon endermite - void parasite, corruption, teleport explosion
         GHOST,                   // Invis bonus crit damage
         VENOM,                   // Poison DoT
         RICOCHET,                // Bouncing projectiles

@@ -189,31 +189,39 @@ public final class ChasseurTalents {
             .values(new double[]{8, 5, 1.0}) // charges_needed, bonus_arrows, damage_percent
             .build());
 
-        // 2.2 - OURS (Voie des Bêtes)
+        // 2.2 - ENDERMITE (Voie des Bêtes)
         TALENTS.add(Talent.builder()
-            .id("chasseur_beast_bear")
-            .name("Ours")
-            .description("Invoque un ours tank qui protege la meute")
+            .id("chasseur_beast_endermite")
+            .name("Endermite")
+            .description("Invoque un parasite du Vide qui corrompt les ennemis!")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§5§lVOIE DES BÊTES",
                 "",
-                "§7Invoque un §fours puissant§7 qui",
-                "§7protège la meute avec férocité.",
+                "§7Invoque un §5endermite§7 qui",
+                "§7parasite et corrompt ses proies.",
                 "",
-                "§6CAPACITÉ - RUGISSEMENT:",
-                "§7Toutes les §e8s§7, rugit pour",
-                "§7provoquer les mobs dans §e5 blocs§7.",
+                "§6CAPACITÉ - INFESTATION DU VIDE:",
+                "§7Se §5téléporte§7 sur un ennemi,",
+                "§7s'accroche §e3s§7 et applique:",
                 "",
-                "§c♥ PARTAGE VOTRE VIE",
-                "§7Respawn: §e10s§7 après la mort"
+                "§5✦ CORRUPTION DU VIDE:",
+                "§7Cible subit §c+25%§7 de dégâts!",
+                "",
+                "§c✦ EXPLOSION DU VIDE:",
+                "§7Après 3s: dégâts AoE + téléport",
+                "§7vers une §enouvelle cible§7!",
+                "",
+                "§d§lSYNERGIE:",
+                "§7+Marque Renard = §c+55%§7 dégâts!",
+                "§7Priorise cibles §csaignantes§7/§6marquées§7"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(1)
-            .icon(Material.POLAR_BEAR_SPAWN_EGG)
-            .iconColor("§f")
-            .effectType(Talent.TalentEffectType.BEAST_BEAR)
-            .values(new double[]{8000, 5.0, 10000}) // roar_cooldown_ms, roar_radius, respawn_delay_ms
+            .icon(Material.ENDER_PEARL)
+            .iconColor("§5")
+            .effectType(Talent.TalentEffectType.BEAST_ENDERMITE)
+            .values(new double[]{3000, 0.25, 0.50, 4.0}) // infestation_duration_ms, corruption_bonus, explosion_damage, aoe_radius
             .build());
 
         // 2.3 - FANTOME

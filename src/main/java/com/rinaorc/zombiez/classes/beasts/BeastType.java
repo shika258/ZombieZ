@@ -48,36 +48,47 @@ public enum BeastType {
     ),
 
     /**
-     * Tier 2 - Ours
-     * Tank robuste qui rugit pour aggro les monstres et les attaque.
+     * Tier 2 - Endermite
+     * Parasite du Vide - se téléporte sur les ennemis et les corrompt.
+     * Cycle: Téléportation → Corruption → Explosion → Nouvelle cible
      */
-    BEAR(
-        2, "Ours",
-        EntityType.POLAR_BEAR,
-        Material.POLAR_BEAR_SPAWN_EGG,
-        "§f",
+    ENDERMITE(
+        2, "Endermite",
+        EntityType.ENDERMITE,
+        Material.ENDER_PEARL,
+        "§5",
         new String[]{
-            "§f§lOURS",
+            "§5§lENDERMITE",
             "",
-            "§7Un ours puissant qui protège",
-            "§7sa meute avec férocité.",
+            "§7Un parasite du Vide qui",
+            "§7infeste et corrompt ses proies.",
             "",
-            "§6CAPACITÉ - RUGISSEMENT:",
-            "§7Toutes les §e8s§7, rugit pour",
-            "§7provoquer les mobs dans §e20 blocs§7.",
-            "§7Attaque les ennemis à proximité!",
+            "§6CAPACITÉ - INFESTATION DU VIDE:",
+            "§7Se §5téléporte§7 sur un ennemi",
+            "§7et s'y accroche pendant §e3s§7.",
             "",
-            "§e⚔ Dégâts: §f40% §7de vos dégâts",
-            "§c♥ Vie: §fx3 §7votre vie max",
-            "§9⛨ Armure naturelle renforcée",
-            "§7Respawn: §e10s§7 après la mort"
+            "§5✦ CORRUPTION DU VIDE:",
+            "§7La cible subit §c+25%§7 de dégâts",
+            "§7de §etoutes les sources§7!",
+            "",
+            "§c✦ EXPLOSION DU VIDE:",
+            "§7Après 3s, explose en particules",
+            "§7d'ender! Dégâts AoE + téléport",
+            "§7vers une §enouvelle cible§7.",
+            "",
+            "§e⚔ DoT: §f15% §7/s pendant 3s",
+            "§e⚔ Explosion: §f50% §7AoE",
+            "§b~ Portée: §e32 blocs",
+            "§a✦ INVINCIBLE",
+            "",
+            "§d§lSYNERGIE: §7+Marque Renard = §c+55%§7!"
         },
-        Sound.ENTITY_POLAR_BEAR_WARNING,
-        Sound.ENTITY_POLAR_BEAR_HURT,
-        0.40, // 40% des dégâts du joueur
-        false,
+        Sound.ENTITY_ENDERMAN_TELEPORT,
+        Sound.ENTITY_ENDERMITE_HURT,
+        0.15, // 15% des dégâts du joueur (DoT)
+        true, // Invincible
         45.0,
-        3.0
+        2.0
     ),
 
     /**
