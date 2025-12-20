@@ -148,25 +148,28 @@ public final class ChasseurTalents {
     // ==================== PALIER 2 - NIVEAU 5 (Amplification) ====================
 
     private static void registerTier2Talents() {
-        // 2.1 - RAFALE (Flèches Traqueuses + Combo)
+        // 2.1 - RAFALE (Salve en Éventail)
         TALENTS.add(Talent.builder()
             .id("chasseur_burst_shot")
             .name("Rafale")
-            .description("Fleches chercheuses de tete + combo x2")
+            .description("Accumule des charges, declenche une salve!")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§6FLECHES CHERCHEUSES:",
-                "§7Vos fleches §etraquent§7 la §ctête§7",
-                "§7des ennemis proches!",
+                "§6ACCUMULATION:",
+                "§7Chaque fleche qui touche",
+                "§7accumule §e1 charge§7 de Rafale.",
                 "",
-                "§6COMBO §c(x2 DEGATS!)§6:",
-                "§7Toucher §e3x§7 la meme cible →",
-                "§7Le 4eme tir fait §c+100%§7 degats!",
+                "§6SALVE EN EVENTAIL:",
+                "§7A §e8 charges§7, votre prochain",
+                "§7tir libere §c5 fleches bonus§7",
+                "§7en eventail devastateur!",
                 "",
-                "§8► Rayon de traque: §f7 blocs",
-                "§8► Verrouillage de cible intelligent",
-                "§8► S'applique aux pluies de fleches!"
+                "§8► Charges max: §f8",
+                "§8► Fleches bonus: §c5",
+                "§8► Degats/fleche: §c100%",
+                "",
+                "§d§lSYNERGIE: Tirs Multiples!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -174,7 +177,7 @@ public final class ChasseurTalents {
             .icon(Material.TIPPED_ARROW)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.BURST_SHOT)
-            .values(new double[]{3, 1.0, 0.30, 7.0}) // hits_needed, bonus_damage%, homing_strength, homing_radius
+            .values(new double[]{8, 5, 1.0}) // charges_needed, bonus_arrows, damage_percent
             .build());
 
         // 2.2 - OURS (Voie des Bêtes)

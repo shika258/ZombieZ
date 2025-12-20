@@ -42,9 +42,8 @@ public class ChasseurTalentListener implements Listener {
     private final Map<UUID, Set<UUID>> markedEnemies = new ConcurrentHashMap<>();
     private final Map<UUID, Long> markExpiry = new ConcurrentHashMap<>();
 
-    // Rafale - combo tracking
-    private final Map<UUID, UUID> lastTargetHit = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> comboCounter = new ConcurrentHashMap<>();
+    // Rafale - charges pour salve en éventail
+    private final Map<UUID, Integer> rafaleCharges = new ConcurrentHashMap<>();
 
     // Chasseur Agile - dodge tracking
     private final Map<UUID, Long> lastDodgeTime = new ConcurrentHashMap<>();
@@ -89,9 +88,6 @@ public class ChasseurTalentListener implements Listener {
     // Frappe Orbitale - double sneak tracking
     private final Map<UUID, Long> lastOrbitalSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW = 400; // 400ms pour double sneak
-
-    // Rafale - flèches chercheuses tracking (arrow UUID -> player UUID)
-    private final Map<UUID, UUID> homingArrows = new ConcurrentHashMap<>();
 
     // Cache des joueurs Chasseurs actifs
     private final Set<UUID> activeChasseurs = ConcurrentHashMap.newKeySet();
@@ -206,10 +202,10 @@ public class ChasseurTalentListener implements Listener {
 
         // === TIER 2 ===
 
-        // Rafale - combo + flèches chercheuses (homing géré dans ProjectileLaunchEvent)
+        // Rafale - accumulation de charges (salve déclenchée au tir)
         Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        if (burstShot != null && incrementRafaleCombo(player, target)) {
-            damage *= (1 + burstShot.getValue(1)); // +100% sur le 4ème hit
+        if (burstShot != null && isRanged) {
+            incrementRafaleCharge(player, burstShot);
         }
 
         // Sniper - distance bonus
@@ -456,13 +452,16 @@ public class ChasseurTalentListener implements Listener {
             procMultiShot(player, arrow);
         }
 
-        // Rafale - Appliquer homing aux flèches tirées par le joueur
+        // Rafale - Déclencher la salve en éventail si charges pleines
         if (arrow instanceof Arrow) {
             Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
             if (burstShot != null) {
-                double homingStrength = burstShot.getValue(2);
-                double homingRadius = burstShot.getValue(3);
-                applyHomingBehavior((Arrow) arrow, player, homingStrength, homingRadius);
+                int chargesNeeded = (int) burstShot.getValue(0);
+                int currentCharges = rafaleCharges.getOrDefault(uuid, 0);
+                if (currentCharges >= chargesNeeded) {
+                    procRafaleSalve(player, (Arrow) arrow, burstShot);
+                    rafaleCharges.put(uuid, 0); // Reset charges
+                }
             }
         }
     }
@@ -744,15 +743,6 @@ public class ChasseurTalentListener implements Listener {
         // Sons distinctifs de tir multiple
         player.getWorld().playSound(spawnLoc, Sound.ENTITY_ARROW_SHOOT, 0.8f, 1.5f);
 
-        // Particules d'effet au moment du tir
-        player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, spawnLoc, 8, 0.2, 0.2, 0.2, 0.05);
-
-        // Rafale - Flèches chercheuses (même comportement que la flèche originale)
-        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        boolean hasHoming = burstShot != null;
-        double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
-        double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
-
         // Tirer 2 flèches bonus sur les côtés (gauche et droite)
         for (int i = 0; i < 2; i++) {
             double offset = (i == 0 ? -1 : 1) * spacing;
@@ -777,14 +767,8 @@ public class ChasseurTalentListener implements Listener {
             // Marquer comme flèche bonus pour éviter la récursion
             bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
 
-            // === RAFALE - Appliquer le même homing que la flèche originale ===
-            // Les effets visuels (particules) sont gérés par applyHomingBehavior
-            if (hasHoming) {
-                applyHomingBehavior(bonusArrow, player, homingStrength, homingRadius);
-            } else {
-                // Appliquer une traînée de particules standard (même effet que flèches normales)
-                applyArrowTrail(bonusArrow);
-            }
+            // Appliquer une traînée de particules standard
+            applyArrowTrail(bonusArrow);
         }
     }
 
@@ -921,13 +905,6 @@ public class ChasseurTalentListener implements Listener {
         final boolean finalHasCyclone = hasCyclone;
         final boolean finalHasSwarm = hasSwarm;
         final Talent finalSwarmTalent = devastatingSwarm;
-
-        // Rafale - Flèches chercheuses
-        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        final boolean hasHoming = burstShot != null;
-        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
-        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
-        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
 
         // === CYCLONE EYE - Créer le vortex ===
         if (hasCyclone) {
@@ -1091,11 +1068,6 @@ public class ChasseurTalentListener implements Listener {
                             arrow.setFireTicks(200);
                         }
 
-                        // === RAFALE - Flèches chercheuses ===
-                        if (hasHoming) {
-                            applyHomingBehavior(arrow, player, homingStrength, homingRadius);
-                        }
-
                         // Particules de traînée
                         new BukkitRunnable() {
                             int ticks = 0;
@@ -1134,11 +1106,6 @@ public class ChasseurTalentListener implements Listener {
                                                     loc.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0,
                                                         new Particle.DustOptions(Color.fromRGB(0, 200, 255), 1.0f));
                                                 }
-                                            }
-
-                                            // === RAFALE - Combo bonus ===
-                                            if (hasHoming && incrementRafaleCombo(player, target)) {
-                                                finalDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
                                             }
 
                                             // Track health before damage for kill detection
@@ -1279,13 +1246,6 @@ public class ChasseurTalentListener implements Listener {
         final boolean finalHasSwarm = hasSwarm;
         final Talent finalSwarmTalent = devastatingSwarm;
 
-        // Rafale - Flèches chercheuses
-        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        final boolean hasHoming = burstShot != null;
-        final double homingStrength = hasHoming ? burstShot.getValue(2) : 0;
-        final double homingRadius = hasHoming ? burstShot.getValue(3) : 0;
-        final double comboBonusDamage = hasHoming ? burstShot.getValue(1) : 0;
-
         // Spawner les flèches de feu qui tombent du ciel
         for (int i = 0; i < arrows; i++) {
             // Position de chute aléatoire dans le rayon
@@ -1308,11 +1268,6 @@ public class ChasseurTalentListener implements Listener {
                 arrow.setGravity(true);
                 arrow.setFireTicks(200); // Flèche en feu
 
-                // === RAFALE - Flèches chercheuses ===
-                if (hasHoming) {
-                    applyHomingBehavior(arrow, player, homingStrength, homingRadius);
-                }
-
                 // Particules de traînée de feu
                 new BukkitRunnable() {
                     int ticks = 0;
@@ -1328,21 +1283,14 @@ public class ChasseurTalentListener implements Listener {
                             // Appliquer les dégâts + DOT de feu aux entités proches
                             for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.5, 1.5, 1.5)) {
                                 if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand)) {
-                                    double actualDamage = finalDamage;
-
-                                    // === RAFALE - Combo bonus ===
-                                    if (hasHoming && incrementRafaleCombo(player, target)) {
-                                        actualDamage *= (1 + comboBonusDamage); // +100% sur le 4ème hit
-                                    }
-
                                     // Dégâts initiaux
-                                    target.damage(actualDamage, player);
+                                    target.damage(finalDamage, player);
 
                                     // DOT de feu pendant 3 secondes (60 ticks)
                                     target.setFireTicks(60);
 
                                     // Appliquer le DOT custom (dégâts supplémentaires sur la durée)
-                                    applyFireDot(player, target, actualDamage * 0.5, 3000);
+                                    applyFireDot(player, target, finalDamage * 0.5, 3000);
 
                                     // === NUÉE DÉVASTATRICE - Fragmentation enflammée ===
                                     if (finalHasSwarm && finalSwarmTalent != null) {
@@ -1811,350 +1759,91 @@ public class ChasseurTalentListener implements Listener {
     }
 
     /**
-     * Applique un comportement de flèche chercheuse amélioré à une flèche.
-     * Système de homing v2: adaptatif à la vitesse avec réduction progressive
-     * pour permettre des virages serrés même à haute vélocité.
-     *
-     * @param arrow La flèche à rendre chercheuse
-     * @param player Le joueur propriétaire
-     * @param homingStrength Force d'attraction de base (0.2-0.4 recommandé)
-     * @param homingRadius Rayon de détection des cibles
+     * Incrémente les charges de Rafale quand une flèche touche un ennemi.
+     * Notifie le joueur de sa progression vers la salve.
      */
-    private void applyHomingBehavior(Arrow arrow, Player player, double homingStrength, double homingRadius) {
-        // Vitesse optimale pour le tracking (permet des virages fluides)
-        final double optimalTrackingSpeed = 1.8;
-        // Vitesse minimale pour maintenir les dégâts et l'immersion
-        final double minSpeed = 1.2;
-
-        new BukkitRunnable() {
-            int ticks = 0;
-            LivingEntity lockedTarget = null;
-            // Phase de "grace period": laisser la flèche s'éloigner avant d'activer le homing
-            final int gracePeriodTicks = 3;
-            // Compteur de ticks depuis le verrouillage (pour accélérer progressivement le tracking)
-            int lockTicks = 0;
-
-            @Override
-            public void run() {
-                if (arrow.isDead() || arrow.isOnGround() || ticks > 100) {
-                    homingArrows.remove(arrow.getUniqueId());
-                    this.cancel();
-                    return;
-                }
-
-                Location arrowLoc = arrow.getLocation();
-                Vector currentVelocity = arrow.getVelocity();
-                double speed = currentVelocity.length();
-
-                // Si la flèche est presque à l'arrêt, arrêter le homing
-                if (speed < 0.3) {
-                    ticks++;
-                    return;
-                }
-
-                // Grace period: ne pas activer le homing immédiatement
-                // Permet à la flèche de s'éloigner du joueur avant de chercher une cible
-                if (ticks < gracePeriodTicks) {
-                    ticks++;
-                    return;
-                }
-
-                // Vérifier si la cible verrouillée est toujours valide
-                if (lockedTarget != null) {
-                    if (lockedTarget.isDead() ||
-                        arrowLoc.distance(lockedTarget.getLocation()) > homingRadius * 2.0 ||
-                        !lockedTarget.getWorld().equals(arrow.getWorld())) {
-                        lockedTarget = null;
-                        lockTicks = 0;
-                    }
-                }
-
-                // Trouver la meilleure cible si pas de verrouillage
-                if (lockedTarget == null) {
-                    lockedTarget = findBestHomingTarget(arrow, player, homingRadius, currentVelocity);
-                    lockTicks = 0;
-                }
-
-                // Ajuster la trajectoire vers la cible
-                if (lockedTarget != null) {
-                    lockTicks++;
-
-                    // === SYSTÈME DE RÉDUCTION DE VITESSE PROGRESSIVE ===
-                    // Les flèches trop rapides ne peuvent pas tourner efficacement
-                    // On réduit progressivement la vitesse vers l'optimal
-                    double targetSpeed = speed;
-                    if (speed > optimalTrackingSpeed) {
-                        // Réduction progressive: 5% par tick jusqu'à la vitesse optimale
-                        double reductionFactor = 0.95;
-                        targetSpeed = Math.max(optimalTrackingSpeed, speed * reductionFactor);
-                        // Ne jamais descendre en dessous de minSpeed
-                        targetSpeed = Math.max(minSpeed, targetSpeed);
-                    }
-
-                    // === CALCUL DE LA POSITION CIBLE AVEC PRÉDICTION AVANCÉE ===
-                    // Cibler le centre de masse (70% de la hauteur pour plus de tolérance)
-                    Location targetLoc = lockedTarget.getLocation().add(0, lockedTarget.getHeight() * 0.70, 0);
-
-                    // Prédiction "pursuit curve" - anticipe où la cible sera
-                    if (lockedTarget.getVelocity().lengthSquared() > 0.001) {
-                        Vector targetVel = lockedTarget.getVelocity();
-                        double distToTarget = arrowLoc.distance(targetLoc);
-                        // Temps estimé pour atteindre la cible (basé sur vitesse actuelle)
-                        double timeToHit = distToTarget / targetSpeed;
-                        // Limiter la prédiction (plus longue pour les cibles lointaines)
-                        double maxPrediction = Math.min(1.0, distToTarget / 10.0);
-                        timeToHit = Math.min(timeToHit, maxPrediction);
-                        // Appliquer la prédiction
-                        targetLoc.add(targetVel.clone().multiply(timeToHit * 20));
-                    }
-
-                    Vector toTarget = targetLoc.toVector().subtract(arrowLoc.toVector());
-                    double distanceToTarget = toTarget.length();
-
-                    // Éviter division par zéro
-                    if (distanceToTarget < 0.1) {
-                        ticks++;
-                        return;
-                    }
-                    toTarget.normalize();
-
-                    // === FORCE DE HOMING DYNAMIQUE ===
-                    // La force dépend de plusieurs facteurs:
-                    // 1. Distance à la cible
-                    // 2. Vitesse de la flèche (plus rapide = plus de force nécessaire)
-                    // 3. Angle entre trajectoire actuelle et cible
-                    // 4. Temps depuis le verrouillage (monte progressivement)
-
-                    Vector arrowDir = currentVelocity.clone().normalize();
-                    double dotProduct = arrowDir.dot(toTarget);
-                    // Angle en radians (0 = parfaitement aligné, PI = opposé)
-                    double angleToTarget = Math.acos(Math.max(-1.0, Math.min(1.0, dotProduct)));
-
-                    // Force de base
-                    double effectiveStrength = homingStrength;
-
-                    // 1. Scaling basé sur la vitesse: plus la flèche va vite, plus on force
-                    // Une flèche à 3.0 de vitesse a besoin de 50% plus de force qu'à 2.0
-                    double speedMultiplier = 1.0 + (speed - 1.5) * 0.3;
-                    speedMultiplier = Math.max(0.8, Math.min(2.0, speedMultiplier));
-                    effectiveStrength *= speedMultiplier;
-
-                    // 2. Scaling basé sur l'angle: virage serré = force maximale
-                    // Si l'angle > 45°, on augmente significativement la force
-                    if (angleToTarget > Math.PI / 4) { // > 45°
-                        double angleMultiplier = 1.0 + (angleToTarget - Math.PI / 4) * 1.5;
-                        angleMultiplier = Math.min(2.5, angleMultiplier);
-                        effectiveStrength *= angleMultiplier;
-                    }
-
-                    // 3. Scaling basé sur la distance
-                    if (distanceToTarget < 2.0) {
-                        // Très proche: réduire pour éviter oscillations
-                        effectiveStrength *= 0.6;
-                    } else if (distanceToTarget < 4.0) {
-                        // Proche: force normale
-                        effectiveStrength *= 0.9;
-                    } else if (distanceToTarget > 10.0) {
-                        // Loin: augmenter pour corriger la trajectoire
-                        effectiveStrength *= 1.4;
-                    }
-
-                    // 4. Montée progressive après verrouillage (évite les virages brusques)
-                    double lockProgress = Math.min(1.0, lockTicks / 5.0);
-                    effectiveStrength *= (0.5 + 0.5 * lockProgress);
-
-                    // Cap final de la force (jamais plus de 70% de correction par tick)
-                    effectiveStrength = Math.min(0.70, effectiveStrength);
-
-                    // === COMPENSATION GRAVITÉ AMÉLIORÉE ===
-                    // La gravité MC est ~0.05 Y par tick
-                    // On compense en fonction de la distance et de l'angle vertical
-                    double heightDiff = targetLoc.getY() - arrowLoc.getY();
-                    double gravityCompensation = 0.0;
-                    if (heightDiff >= -1.0) {
-                        // Compensation de base + extra si la cible est au-dessus
-                        gravityCompensation = 0.04 + Math.max(0, heightDiff * 0.015);
-                        // Plus de compensation si la cible est loin
-                        gravityCompensation += distanceToTarget * 0.003;
-                        gravityCompensation = Math.min(gravityCompensation, 0.12);
-                    }
-
-                    // === INTERPOLATION DE DIRECTION ===
-                    Vector normalizedCurrent = currentVelocity.clone().normalize();
-
-                    // Calculer la nouvelle direction avec interpolation
-                    Vector newDirection = normalizedCurrent
-                        .multiply(1 - effectiveStrength)
-                        .add(toTarget.multiply(effectiveStrength));
-
-                    // Ajouter compensation gravité avant normalisation
-                    if (gravityCompensation > 0) {
-                        newDirection.setY(newDirection.getY() + gravityCompensation);
-                    }
-
-                    newDirection.normalize();
-
-                    // === APPLIQUER LA NOUVELLE VÉLOCITÉ ===
-                    Vector newVelocity = newDirection.multiply(targetSpeed);
-                    arrow.setVelocity(newVelocity);
-
-                    // === PARTICULES VISUELLES ===
-                    // Couleur varie selon la proximité (rouge -> orange quand proche)
-                    if (ticks % 2 == 0) {
-                        int red = 255;
-                        int green = (int) Math.min(150, 50 + (7.0 - distanceToTarget) * 20);
-                        arrow.getWorld().spawnParticle(Particle.DUST, arrowLoc, 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(red, Math.max(0, green), 0), 0.6f));
-                    }
-                } else {
-                    // Pas de cible: réinitialiser le compteur de lock
-                    lockTicks = 0;
-                }
-
-                ticks++;
-            }
-        }.runTaskTimer(plugin, 1L, 1L);
-    }
-
-    /**
-     * Trouve la meilleure cible pour le homing (v2).
-     * Système de scoring amélioré qui prend en compte:
-     * - L'interceptabilité (angle de virage requis vs distance)
-     * - La prédiction de mouvement de la cible
-     * - La visibilité (line of sight approximative)
-     */
-    private LivingEntity findBestHomingTarget(Arrow arrow, Player player, double homingRadius, Vector arrowVelocity) {
-        Location arrowLoc = arrow.getLocation();
-        Vector arrowDir = arrowVelocity.clone().normalize();
-        double arrowSpeed = arrowVelocity.length();
-
-        LivingEntity bestTarget = null;
-        double bestScore = Double.MAX_VALUE;
-
-        for (Entity entity : arrow.getNearbyEntities(homingRadius, homingRadius, homingRadius)) {
-            if (!(entity instanceof LivingEntity target) || entity == player || entity instanceof ArmorStand) {
-                continue;
-            }
-
-            // Position du centre de masse (70% de la hauteur - plus de tolérance)
-            Location targetLoc = target.getLocation().add(0, target.getHeight() * 0.70, 0);
-            double distance = arrowLoc.distance(targetLoc);
-
-            // Éviter les cibles trop proches (risque de collision immédiate)
-            if (distance < 0.5) {
-                continue;
-            }
-
-            // FILTRE: Ignorer les cibles trop en-dessous de la flèche
-            double heightDiff = targetLoc.getY() - arrowLoc.getY();
-            if (heightDiff < -4.0) {
-                continue;
-            }
-
-            // Calculer l'angle entre la trajectoire actuelle et la cible
-            Vector toTarget = targetLoc.toVector().subtract(arrowLoc.toVector()).normalize();
-            double dotProduct = arrowDir.dot(toTarget);
-
-            // FILTRE: Ignorer les cibles trop hors trajectoire
-            // Plus de tolérance pour les cibles proches (on peut tourner)
-            double minDotProduct = distance < 3.0 ? 0.0 : 0.1;
-            if (dotProduct < minDotProduct) {
-                continue;
-            }
-
-            // === CALCUL DU SCORE D'INTERCEPTION ===
-            // Un bon score = cible facile à atteindre
-
-            // 1. Score de base: distance (plus proche = meilleur)
-            double distanceScore = distance;
-
-            // 2. Score d'alignement: pénalité si mal aligné
-            // Mais RÉDUIT pour les cibles proches (on peut tourner facilement)
-            double angleRad = Math.acos(Math.max(-1.0, Math.min(1.0, dotProduct)));
-            double anglePenalty;
-            if (distance < 3.0) {
-                // Proche: faible pénalité d'angle (on peut tourner)
-                anglePenalty = angleRad * 1.5;
-            } else if (distance < 6.0) {
-                // Moyen: pénalité modérée
-                anglePenalty = angleRad * 3.0;
-            } else {
-                // Loin: forte pénalité (difficile de tourner à temps)
-                anglePenalty = angleRad * 5.0;
-            }
-
-            // 3. Score d'interceptabilité: peut-on atteindre la cible avant qu'elle s'échappe?
-            // Si la cible bouge, calculer le point d'interception
-            double interceptScore = 0;
-            if (target.getVelocity().lengthSquared() > 0.001) {
-                Vector targetVel = target.getVelocity();
-                // Temps estimé pour atteindre la cible
-                double timeToReach = distance / arrowSpeed;
-                // Position future de la cible
-                Location futurePos = targetLoc.clone().add(targetVel.clone().multiply(timeToReach * 20));
-                // Distance au point d'interception
-                double interceptDistance = arrowLoc.distance(futurePos);
-                // Si le point d'interception est plus loin que la position actuelle, pénalité
-                if (interceptDistance > distance * 1.5) {
-                    interceptScore = (interceptDistance - distance) * 0.5;
-                }
-            }
-
-            // 4. Bonus de hauteur: privilégier les cibles légèrement au-dessus
-            // (trajectoire naturelle de flèche, moins de risque d'aller dans le sol)
-            double heightBonus = 0;
-            if (heightDiff > 0 && heightDiff < 3.0) {
-                heightBonus = -1.5; // Bonus
-            } else if (heightDiff < -2.0) {
-                heightBonus = 2.0; // Pénalité pour cibles en-dessous
-            }
-
-            // 5. Bonus de "priorité hostile": privilégier les mobs hostiles
-            double hostileBonus = 0;
-            if (target instanceof Monster) {
-                hostileBonus = -2.0; // Les monstres sont prioritaires
-            }
-
-            // Score final
-            double score = distanceScore + anglePenalty + interceptScore + heightBonus + hostileBonus;
-
-            if (score < bestScore) {
-                bestScore = score;
-                bestTarget = target;
-            }
-        }
-
-        return bestTarget;
-    }
-
-    /**
-     * Incrémente le compteur de combo Rafale pour un joueur sur une cible.
-     * Retourne true si le 4ème hit est atteint (bonus de dégâts).
-     */
-    private boolean incrementRafaleCombo(Player player, LivingEntity target) {
+    private void incrementRafaleCharge(Player player, Talent burstShot) {
         UUID uuid = player.getUniqueId();
-        UUID targetUuid = target.getUniqueId();
+        int chargesNeeded = (int) burstShot.getValue(0);
+        int newCharges = rafaleCharges.merge(uuid, 1, Integer::sum);
 
-        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
-        if (burstShot == null) return false;
-
-        UUID lastTarget = lastTargetHit.get(uuid);
-        if (lastTarget != null && lastTarget.equals(targetUuid)) {
-            int combo = comboCounter.merge(uuid, 1, Integer::sum);
-            if (combo >= burstShot.getValue(0)) {
-                comboCounter.put(uuid, 0);
-                // Effet visuel et sonore du combo
-                player.getWorld().playSound(target.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1.0f, 1.5f);
-                target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
-                if (shouldSendTalentMessage(player)) {
-                    player.sendMessage("§c✦ RAFALE! x" + (int)((1 + burstShot.getValue(1)) * 100) + "% dégâts!");
-                }
-                return true;
-            }
-        } else {
-            comboCounter.put(uuid, 1);
+        // Cap les charges au maximum
+        if (newCharges > chargesNeeded) {
+            newCharges = chargesNeeded;
+            rafaleCharges.put(uuid, newCharges);
         }
-        lastTargetHit.put(uuid, targetUuid);
-        return false;
+
+        // Notification sonore de progression
+        if (newCharges == chargesNeeded) {
+            // Charges pleines - prêt à tirer!
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§c§l✦ RAFALE PRÊTE! §7Tirez pour déclencher la salve!");
+            }
+        } else if (newCharges % 2 == 0) {
+            // Feedback de progression tous les 2 charges
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 0.8f + (newCharges * 0.15f));
+        }
+    }
+
+    /**
+     * Déclenche la salve en éventail de Rafale.
+     * Tire plusieurs flèches bonus dans un arc devant le joueur.
+     */
+    private void procRafaleSalve(Player player, Arrow originalArrow, Talent burstShot) {
+        int bonusArrows = (int) burstShot.getValue(1);
+        double damagePercent = burstShot.getValue(2);
+
+        Location spawnLoc = originalArrow.getLocation();
+        Vector originalVelocity = originalArrow.getVelocity().clone();
+        Vector dir = originalVelocity.clone().normalize();
+        double speed = originalVelocity.length();
+
+        // Calculer le vecteur perpendiculaire horizontal
+        Vector horizontal = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
+
+        // Angle total de l'éventail (60 degrés)
+        double totalAngle = Math.toRadians(60);
+        double angleStep = totalAngle / (bonusArrows - 1);
+        double startAngle = -totalAngle / 2;
+
+        // Son épique de salve
+        player.getWorld().playSound(spawnLoc, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.8f);
+        player.getWorld().playSound(spawnLoc, Sound.ITEM_CROSSBOW_SHOOT, 1.2f, 1.2f);
+
+        // Message de confirmation
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c✦ RAFALE! §e" + bonusArrows + " flèches!");
+        }
+
+        // Tirer les flèches en éventail
+        for (int i = 0; i < bonusArrows; i++) {
+            double angle = startAngle + (i * angleStep);
+
+            // Calculer la direction avec rotation horizontale
+            Vector rotatedDir = dir.clone()
+                .add(horizontal.clone().multiply(Math.sin(angle) * 0.8))
+                .normalize();
+
+            // Créer la flèche bonus
+            Arrow bonusArrow = player.getWorld().spawnArrow(spawnLoc.clone(), rotatedDir, 0.1f, 0);
+            bonusArrow.setShooter(player);
+            bonusArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+            bonusArrow.setVelocity(rotatedDir.multiply(speed));
+
+            // Copier les propriétés de la flèche originale
+            bonusArrow.setDamage(originalArrow.getDamage() * damagePercent);
+            bonusArrow.setGravity(originalArrow.hasGravity());
+            bonusArrow.setCritical(originalArrow.isCritical());
+            bonusArrow.setFireTicks(originalArrow.getFireTicks());
+            bonusArrow.setKnockbackStrength(originalArrow.getKnockbackStrength());
+            bonusArrow.setPierceLevel(originalArrow.getPierceLevel());
+
+            // Marquer comme flèche bonus pour éviter la récursion
+            bonusArrow.setMetadata("multishot_bonus", new FixedMetadataValue(plugin, true));
+
+            // Traînée de particules
+            applyArrowTrail(bonusArrow);
+        }
     }
 }
