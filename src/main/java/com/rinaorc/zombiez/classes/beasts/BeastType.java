@@ -143,7 +143,7 @@ public enum BeastType {
 
     /**
      * Tier 5 - Vache
-     * Lâche des mines explosives au sol.
+     * Lance des bouses explosives sur les groupes d'ennemis.
      */
     COW(
         5, "Vache",
@@ -156,11 +156,14 @@ public enum BeastType {
             "§7Une vache... explosive.",
             "§7Ne posez pas de questions.",
             "",
-            "§6CAPACITÉ - BOUSE EXPLOSIVE:",
-            "§7Toutes les §e15s§7, dépose une",
-            "§7mine qui explose au contact.",
+            "§6CAPACITÉ - BOUSE PROPULSÉE:",
+            "§7Lance une bouse explosive vers",
+            "§7les groupes d'ennemis! Explose",
+            "§7à l'impact avec dégâts AoE.",
             "",
-            "§e⚔ Dégâts mine: §f80% §7de vos dégâts",
+            "§e⚔ Dégâts: §f80% §7de vos dégâts",
+            "§b~ Portée: §e12 blocs",
+            "§b~ Cadence: §e8s",
             "§c✦ Knockback de zone"
         },
         Sound.ENTITY_COW_AMBIENT,

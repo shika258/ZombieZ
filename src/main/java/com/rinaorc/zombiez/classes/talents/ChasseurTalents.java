@@ -553,19 +553,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_beast_cow")
             .name("Vache")
-            .description("Invoque une vache qui pose des mines explosives")
+            .description("Invoque une vache qui lance des bouses explosives")
             .loreLines(new String[]{
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque une §6vache§7... explosive.",
                 "§7Ne posez pas de questions.",
                 "",
-                "§6CAPACITÉ - BOUSE EXPLOSIVE:",
-                "§7Toutes les §e15s§7, dépose une",
-                "§7mine qui explose au contact.",
+                "§6CAPACITÉ - BOUSE PROPULSÉE:",
+                "§7Lance une bouse explosive vers",
+                "§7les groupes d'ennemis! Explose",
+                "§7à l'impact avec dégâts AoE.",
                 "",
-                "§c✦ Dégâts de zone",
-                "§c✦ Knockback"
+                "§b~ Portée: §e12 blocs",
+                "§b~ Cadence: §e8s",
+                "§c✦ Dégâts de zone + Knockback"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -573,7 +575,7 @@ public final class ChasseurTalents {
             .icon(Material.COW_SPAWN_EGG)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BEAST_COW)
-            .values(new double[]{15000, 8.0, 3.0}) // mine_cooldown_ms, mine_damage, explosion_radius
+            .values(new double[]{8000, 0.80, 4.0}) // cooldown_ms, damage_percent, explosion_radius
             .build());
 
         // 5.3 - CHASSEUR DE PRIMES

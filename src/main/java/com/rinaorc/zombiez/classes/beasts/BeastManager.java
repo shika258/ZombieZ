@@ -805,80 +805,164 @@ public class BeastManager {
     }
 
     private void executeCowAbility(Player owner, LivingEntity cow, long now, String cooldownKey) {
-        // Poser une mine toutes les 15 secondes
+        // Lancer une bouse explosive toutes les 8 secondes
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            spawnExplosiveMine(owner, cow);
-            setCooldown(owner.getUniqueId(), cooldownKey, now + 15000);
+            // Trouver la meilleure cible (groupe d'ennemis ou ennemi proche)
+            LivingEntity target = findBestCowTarget(cow);
+            if (target != null) {
+                launchExplosiveDung(owner, cow, target);
+                setCooldown(owner.getUniqueId(), cooldownKey, now + 8000); // 8 secondes
+            }
         }
     }
 
-    private void spawnExplosiveMine(Player owner, LivingEntity cow) {
-        Location mineLoc = cow.getLocation();
+    /**
+     * Trouve la meilleure cible pour la bouse (préfère les groupes d'ennemis)
+     */
+    private LivingEntity findBestCowTarget(LivingEntity cow) {
+        LivingEntity bestTarget = null;
+        int bestScore = 0;
 
-        // Créer un item au sol comme "mine"
-        Item mineItem = cow.getWorld().dropItem(mineLoc, new org.bukkit.inventory.ItemStack(Material.BROWN_DYE));
-        mineItem.setPickupDelay(Integer.MAX_VALUE);
-        mineItem.setCustomNameVisible(true);
-        mineItem.customName(Component.text("💣 Mine", NamedTextColor.DARK_RED));
-        mineItem.setGlowing(true);
-        mineItem.setVelocity(new Vector(0, 0, 0));
+        for (Entity nearby : cow.getNearbyEntities(12, 6, 12)) {
+            if (!(nearby instanceof Monster monster) || isBeast(nearby)) continue;
 
-        UUID ownerUuid = owner.getUniqueId();
-        List<Entity> mines = activeMines.computeIfAbsent(ownerUuid, k -> new CopyOnWriteArrayList<>());
-        mines.add(mineItem);
+            // Score basé sur le nombre d'ennemis autour de cette cible
+            int nearbyEnemies = 0;
+            for (Entity around : nearby.getNearbyEntities(3, 2, 3)) {
+                if (around instanceof Monster && !isBeast(around)) {
+                    nearbyEnemies++;
+                }
+            }
 
-        // Son de placement (pas de message pour réduire le spam)
-        cow.getWorld().playSound(mineLoc, Sound.BLOCK_SLIME_BLOCK_PLACE, 1.0f, 0.5f);
+            // +1 pour la cible elle-même, bonus si groupe
+            int score = 1 + nearbyEnemies * 2;
 
-        // Vérifier les contacts
+            // Préférer les cibles plus proches (bonus distance)
+            double dist = cow.getLocation().distanceSquared(nearby.getLocation());
+            if (dist < 36) score += 3; // < 6 blocs
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = monster;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    /**
+     * Lance une bouse explosive vers la cible - trajectoire en arc
+     */
+    private void launchExplosiveDung(Player owner, LivingEntity cow, LivingEntity target) {
+        Location start = cow.getLocation().add(0, 1.2, 0);
+        Location targetLoc = target.getLocation();
+
+        // Calculer la trajectoire en arc (parabole)
+        Vector toTarget = targetLoc.toVector().subtract(start.toVector());
+        double distance = toTarget.length();
+        toTarget.normalize();
+
+        // Vélocité initiale avec arc
+        double horizontalSpeed = Math.min(distance / 15.0, 1.2); // Ajuster selon distance
+        double verticalSpeed = 0.6 + (distance / 20.0); // Arc plus haut pour distances longues
+
+        Vector velocity = toTarget.multiply(horizontalSpeed);
+        velocity.setY(verticalSpeed);
+
+        // Son de lancement
+        cow.getWorld().playSound(start, Sound.ENTITY_COW_HURT, 1.5f, 0.6f);
+        cow.getWorld().playSound(start, Sound.BLOCK_SLIME_BLOCK_BREAK, 1.0f, 0.8f);
+
+        // Projectile de bouse avec particules
         new BukkitRunnable() {
+            Location current = start.clone();
+            Vector vel = velocity.clone();
             int ticks = 0;
+            boolean hasExploded = false;
 
             @Override
             public void run() {
-                if (mineItem.isDead() || ticks > 600) { // 30 secondes max
-                    mineItem.remove();
-                    mines.remove(mineItem);
+                if (hasExploded || ticks > 60) { // Max 3 secondes
                     cancel();
                     return;
                 }
 
-                // Vérifier si un ennemi marche dessus
-                for (Entity nearby : mineItem.getNearbyEntities(1.5, 1, 1.5)) {
-                    if (nearby instanceof Monster && !isBeast(nearby)) {
-                        // EXPLOSION!
-                        Location explosionLoc = mineItem.getLocation();
-                        explosionLoc.getWorld().createExplosion(explosionLoc, 0, false, false); // Effet visuel
-                        explosionLoc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, explosionLoc, 1);
-                        explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 1.0f);
+                // Appliquer la gravité
+                vel.setY(vel.getY() - 0.08);
 
-                        // Dégâts et knockback (80% des dégâts du joueur)
-                        double mineDamage = calculateBeastDamage(owner, BeastType.COW);
-                        for (Entity damaged : explosionLoc.getWorld().getNearbyEntities(explosionLoc, 3, 3, 3)) {
-                            if (damaged instanceof LivingEntity living && !isBeast(damaged) && damaged != owner) {
-                                living.damage(mineDamage, owner);
-                                Vector knockback = living.getLocation().subtract(explosionLoc).toVector().normalize().multiply(1.5);
-                                knockback.setY(0.5);
-                                living.setVelocity(knockback);
-                            }
-                        }
+                // Déplacer le projectile
+                current.add(vel);
 
-                        mineItem.remove();
-                        mines.remove(mineItem);
-                        // Pas de message - l'effet visuel suffit
-                        cancel();
-                        return;
+                // Particules de bouse volante
+                current.getWorld().spawnParticle(Particle.BLOCK, current, 3, 0.15, 0.15, 0.15, 0,
+                    Material.BROWN_TERRACOTTA.createBlockData());
+                current.getWorld().spawnParticle(Particle.SMOKE, current, 1, 0.1, 0.1, 0.1, 0);
+
+                // Vérifier impact au sol ou avec entité
+                boolean shouldExplode = false;
+
+                // Impact avec le sol
+                if (current.getBlock().getType().isSolid() || current.getY() < targetLoc.getY()) {
+                    shouldExplode = true;
+                }
+
+                // Impact avec une entité
+                for (Entity entity : current.getWorld().getNearbyEntities(current, 1.0, 1.0, 1.0)) {
+                    if (entity instanceof Monster && !isBeast(entity)) {
+                        shouldExplode = true;
+                        break;
                     }
                 }
 
-                // Particules d'avertissement
-                if (ticks % 10 == 0) {
-                    mineItem.getWorld().spawnParticle(Particle.SMOKE, mineItem.getLocation().add(0, 0.3, 0), 3, 0.1, 0.1, 0.1, 0);
+                if (shouldExplode) {
+                    explodeDung(owner, current);
+                    hasExploded = true;
+                    cancel();
+                    return;
                 }
 
                 ticks++;
             }
-        }.runTaskTimer(plugin, 20L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Explosion de la bouse - dégâts AoE + knockback
+     */
+    private void explodeDung(Player owner, Location explosionLoc) {
+        // Effets visuels
+        explosionLoc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, explosionLoc, 1);
+        explosionLoc.getWorld().spawnParticle(Particle.BLOCK, explosionLoc, 50, 2, 1, 2, 0.1,
+            Material.BROWN_TERRACOTTA.createBlockData());
+        explosionLoc.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, explosionLoc, 15, 1.5, 0.5, 1.5, 0.02);
+
+        // Sons
+        explosionLoc.getWorld().playSound(explosionLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 1.2f);
+        explosionLoc.getWorld().playSound(explosionLoc, Sound.BLOCK_SLIME_BLOCK_BREAK, 2.0f, 0.5f);
+
+        // Dégâts et knockback (80% des dégâts du joueur)
+        double dungDamage = calculateBeastDamage(owner, BeastType.COW);
+        int hitCount = 0;
+
+        for (Entity entity : explosionLoc.getWorld().getNearbyEntities(explosionLoc, 4, 3, 4)) {
+            if (entity instanceof LivingEntity living && !isBeast(entity) && entity != owner) {
+                // Dégâts décroissants selon la distance
+                double dist = living.getLocation().distance(explosionLoc);
+                double damageMultiplier = Math.max(0.5, 1.0 - (dist / 6.0));
+
+                living.damage(dungDamage * damageMultiplier, owner);
+
+                // Knockback puissant
+                Vector knockback = living.getLocation().subtract(explosionLoc).toVector();
+                if (knockback.lengthSquared() > 0) {
+                    knockback.normalize().multiply(1.8);
+                }
+                knockback.setY(0.7);
+                living.setVelocity(knockback);
+
+                hitCount++;
+            }
+        }
     }
 
     private void executeLlamaAbility(Player owner, LivingEntity llama, long now, String cooldownKey, double frenzyMultiplier) {
