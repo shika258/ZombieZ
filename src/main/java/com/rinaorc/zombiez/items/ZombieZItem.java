@@ -11,6 +11,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -190,11 +193,39 @@ public class ZombieZItem {
             }
         }
 
+        // Appliquer ATTACK_SPEED pour les armes de mêlée (cooldown vanilla)
+        if (itemType.isMeleeWeapon()) {
+            // Récupérer la vitesse d'attaque de l'item (ou valeur par défaut)
+            Map<StatType, Double> totalStats = getTotalStats();
+            double attackSpeedStat = totalStats.getOrDefault(StatType.ATTACK_SPEED, 0.0);
+
+            // Vitesse d'attaque de base selon le type d'arme
+            // Minecraft base = 4.0, les armes appliquent des malus
+            // Épée: -2.4 (1.6 coups/s), Hache: -3.0 (1.0 coups/s), Masse: -3.5 (0.5 coups/s)
+            double baseAttackSpeed = getBaseAttackSpeedModifier();
+            double finalAttackSpeed = baseAttackSpeed + attackSpeedStat;
+
+            builder.attackSpeed(finalAttackSpeed);
+        }
+
         // Stocker les données dans le PDC
         ItemStack item = builder.build();
         storeData(item);
 
         return item;
+    }
+
+    /**
+     * Retourne le modificateur de vitesse d'attaque de base selon le type d'arme
+     * Ces valeurs sont des malus appliqués à la vitesse de base de 4.0
+     */
+    private double getBaseAttackSpeedModifier() {
+        return switch (itemType) {
+            case SWORD -> -2.4;      // 1.6 coups/s (rapide)
+            case AXE -> -3.0;        // 1.0 coups/s (lent mais puissant)
+            case MACE -> -3.2;       // 0.8 coups/s (très lent, très puissant)
+            default -> -2.4;         // Par défaut comme une épée
+        };
     }
 
     /**

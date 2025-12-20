@@ -265,6 +265,13 @@ public enum ItemType {
     }
 
     /**
+     * Vérifie si ce type est une arme de mêlée (épée, hache, masse)
+     */
+    public boolean isMeleeWeapon() {
+        return this == SWORD || this == AXE || this == MACE;
+    }
+
+    /**
      * Vérifie si ce type est une armure
      */
     public boolean isArmor() {
