@@ -198,7 +198,8 @@ public enum BeastType {
 
     /**
      * Tier 6 - Lama
-     * Crache sur plusieurs cibles avec effet de lenteur.
+     * Crache de l'acide corrosif sur plusieurs cibles.
+     * Applique Lenteur III + DoT Acide.
      */
     LLAMA(
         6, "Lama",
@@ -208,21 +209,26 @@ public enum BeastType {
         new String[]{
             "§e§lLAMA",
             "",
-            "§7Un lama hautain qui méprise",
-            "§7tous vos ennemis.",
+            "§7Un lama hautain qui crache",
+            "§7un acide corrosif dévastateur.",
             "",
-            "§6CAPACITÉ - CRACHAT ACIDE:",
-            "§7Crache sur §e3 cibles§7 simultanément.",
-            "§7Inflige des dégâts + §9Lenteur II§7.",
+            "§6CAPACITÉ - CRACHAT CORROSIF:",
+            "§7Crache sur §e5 cibles§7 simultanément.",
             "",
-            "§e⚔ Dégâts: §f30% §7de vos dégâts",
-            "§b~ Portée: §e6 blocs",
-            "§b~ Durée lenteur: §e3s",
+            "§c✦ ACIDE CORROSIF:",
+            "§7• §9Lenteur III§7 pendant §e5s",
+            "§7• §2DoT Acide§7: §f15%§7/s pendant §e4s",
+            "§7• Les cibles §cfondent§7 lentement!",
+            "",
+            "§e⚔ Dégâts impact: §f55% §7de vos dégâts",
+            "§e⚔ DoT total: §f60% §7sur 4s",
+            "§b~ Portée: §e16 blocs",
+            "§b~ Cadence: §e2.5s",
             "§a✦ INVINCIBLE"
         },
         Sound.ENTITY_LLAMA_SPIT,
         Sound.ENTITY_LLAMA_HURT,
-        0.30, // 30% des dégâts du joueur
+        0.55, // 55% des dégâts du joueur (impact)
         true, // Invincible
         225.0,
         3.5

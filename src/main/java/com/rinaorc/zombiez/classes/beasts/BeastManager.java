@@ -1862,16 +1862,16 @@ public class BeastManager {
     }
 
     private void executeLlamaAbility(Player owner, LivingEntity llama, long now, String cooldownKey, double frenzyMultiplier) {
-        // Cracher toutes les 3 secondes
-        long spitCooldown = (long) (3000 / frenzyMultiplier);
+        // Cracher toutes les 2.5 secondes (amélioré pour Tier 6)
+        long spitCooldown = (long) (2500 / frenzyMultiplier);
 
         if (!isOnCooldown(owner.getUniqueId(), cooldownKey, now)) {
-            // Trouver jusqu'à 3 cibles - portée 32 blocs
-            List<LivingEntity> targets = new ArrayList<>(3);
+            // Trouver jusqu'à 5 cibles - portée 32 blocs
+            List<LivingEntity> targets = new ArrayList<>(5);
             for (Entity nearby : llama.getNearbyEntities(32, 16, 32)) {
                 if (nearby instanceof Monster monster && !isBeast(nearby)) {
                     targets.add(monster);
-                    if (targets.size() >= 3) break; // Limite atteinte
+                    if (targets.size() >= 5) break; // Limite atteinte
                 }
             }
 
@@ -1900,16 +1900,64 @@ public class BeastManager {
     }
 
     /**
-     * Applique l'effet du crachat du lama (appelé par le listener)
+     * Applique l'effet du crachat corrosif du lama (appelé par le listener)
+     * Tier 6 - Dégâts augmentés + Lenteur III 5s + DoT Acide 15%/s pendant 4s
      */
     public void applyLlamaSpit(Player owner, LivingEntity target) {
         double damage = calculateBeastDamage(owner, BeastType.LLAMA);
 
-        // Appliquer les dégâts avec metadata
+        // Appliquer les dégâts d'impact avec metadata
         applyBeastDamageWithMetadata(owner, target, damage);
 
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // Lenteur II, 3s
-        target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0);
+        // Lenteur III pendant 5 secondes (100 ticks)
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 2)); // Lenteur III, 5s
+
+        // Particules d'acide à l'impact
+        target.getWorld().spawnParticle(Particle.SPIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0);
+        target.getWorld().spawnParticle(Particle.FALLING_SPORE_BLOSSOM, target.getLocation().add(0, 1.5, 0), 10, 0.4, 0.4, 0.4, 0);
+        target.getWorld().playSound(target.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 1.5f);
+
+        // DoT Acide: 15% des dégâts du joueur par seconde pendant 4 secondes
+        double acidDamagePerTick = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 0.15;
+        applyAcidDoT(owner, target, acidDamagePerTick, 4);
+    }
+
+    /**
+     * Applique un DoT d'acide corrosif sur la cible
+     * @param owner Le propriétaire du lama
+     * @param target La cible
+     * @param damagePerSecond Dégâts par seconde
+     * @param durationSeconds Durée en secondes
+     */
+    private void applyAcidDoT(Player owner, LivingEntity target, double damagePerSecond, int durationSeconds) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = durationSeconds * 20; // 4 secondes = 80 ticks
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || target.isDead() || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Appliquer les dégâts toutes les secondes (20 ticks)
+                if (ticks % 20 == 0) {
+                    applyBeastDamageWithMetadata(owner, target, damagePerSecond);
+
+                    // Particules d'acide qui ronge
+                    target.getWorld().spawnParticle(Particle.FALLING_SPORE_BLOSSOM,
+                        target.getLocation().add(0, 1, 0), 8, 0.3, 0.5, 0.3, 0);
+                    target.getWorld().spawnParticle(Particle.SMOKE,
+                        target.getLocation().add(0, 0.5, 0), 5, 0.2, 0.2, 0.2, 0.01);
+
+                    // Son d'acide qui grésille
+                    target.getWorld().playSound(target.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 0.3f, 2.0f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void executeIronGolemAbility(Player owner, LivingEntity golem, long now, String cooldownKey, double frenzyMultiplier) {
