@@ -61,7 +61,7 @@ public class EconomyManager {
 
         // Appliquer les multiplicateurs
         double multiplier = data.getPointsMultiplier();
-        
+
         // Multiplicateur de zone
         var zone = plugin.getZoneManager().getPlayerZone(player);
         if (zone != null) {
@@ -70,6 +70,24 @@ public class EconomyManager {
 
         long finalAmount = Math.round(amount * multiplier);
         data.addPoints(finalAmount);
+
+        // Tracker le total des points gagnés
+        data.addTotalPointsEarned(finalAmount);
+
+        // ============ ACHIEVEMENTS DE POINTS ============
+        var achievementManager = plugin.getAchievementManager();
+        long totalEarned = data.getTotalPointsEarned().get();
+        long currentPoints = data.getPoints().get();
+
+        // Gains cumulés (earning_1/2/3, millionaire, billionaire)
+        achievementManager.checkAndUnlock(player, "earning_1", (int) Math.min(totalEarned, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "earning_2", (int) Math.min(totalEarned, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "earning_3", (int) Math.min(totalEarned, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "millionaire", (int) Math.min(totalEarned, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "billionaire", (int) Math.min(totalEarned, Integer.MAX_VALUE));
+
+        // Richesse simultanée (wealthy - avoir 10M en même temps)
+        achievementManager.checkAndUnlock(player, "wealthy", (int) Math.min(currentPoints, Integer.MAX_VALUE));
 
         // Notification
         if (finalAmount > 0) {
@@ -174,7 +192,7 @@ public class EconomyManager {
 
         // Appliquer les multiplicateurs
         double multiplier = data.getXpMultiplier();
-        
+
         // Multiplicateur de zone
         var zone = plugin.getZoneManager().getPlayerZone(player);
         if (zone != null) {
@@ -183,6 +201,16 @@ public class EconomyManager {
 
         long finalAmount = Math.round(amount * multiplier);
         boolean levelUp = data.addXp(finalAmount);
+
+        // Tracker le total d'XP gagné
+        data.addTotalXp(finalAmount);
+
+        // ============ ACHIEVEMENTS D'XP ============
+        var achievementManager = plugin.getAchievementManager();
+        long totalXp = data.getTotalXp().get();
+        achievementManager.checkAndUnlock(player, "xp_grinder_1", (int) Math.min(totalXp, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "xp_grinder_2", (int) Math.min(totalXp, Integer.MAX_VALUE));
+        achievementManager.checkAndUnlock(player, "xp_master", (int) Math.min(totalXp, Integer.MAX_VALUE));
 
         // Notifier le système de Boss Bar Dynamique
         if (plugin.getDynamicBossBarManager() != null) {
@@ -213,7 +241,15 @@ public class EconomyManager {
 
         // Son
         player.playSound(player.getLocation(), "entity.player.levelup", 1f, 1f);
-        
+
+        // ============ ACHIEVEMENTS DE NIVEAU ============
+        var achievementManager = plugin.getAchievementManager();
+        achievementManager.checkAndUnlock(player, "level_10", newLevel);
+        achievementManager.checkAndUnlock(player, "level_25", newLevel);
+        achievementManager.checkAndUnlock(player, "level_50", newLevel);
+        achievementManager.checkAndUnlock(player, "level_75", newLevel);
+        achievementManager.checkAndUnlock(player, "level_100", newLevel);
+
         // Récompenses par niveau
         if (newLevel % 5 == 0) {
             // Récompense tous les 5 niveaux
@@ -221,7 +257,7 @@ public class EconomyManager {
             data.addPoints(pointsReward);
             MessageUtils.send(player, "§6§l★ §eRécompense de niveau: §6" + formatPoints(pointsReward) + " Points!");
         }
-        
+
         if (newLevel % 10 == 0) {
             // Coffre tous les 10 niveaux
             MessageUtils.send(player, "§6§l★ §eVous avez débloqué un §6Coffre Rare§e!");

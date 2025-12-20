@@ -596,17 +596,54 @@ public class CombatListener implements Listener {
         // ============ ACHIEVEMENTS ============
         PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);
         if (data != null) {
+            var achievementManager = plugin.getAchievementManager();
             int totalKills = (int) data.getTotalKills() + 1;
-            plugin.getAchievementManager().incrementProgress(killer, "first_blood", 1);
-            plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_1", totalKills);
-            plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_2", totalKills);
-            plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_3", totalKills);
-            plugin.getAchievementManager().checkAndUnlock(killer, "zombie_slayer_4", totalKills);
 
-            // Streak achievements
+            // Premier kill
+            achievementManager.incrementProgress(killer, "first_blood", 1);
+
+            // Achievements de kills - Chasseur (50, 250)
+            achievementManager.checkAndUnlock(killer, "zombie_hunter_1", totalKills);
+            achievementManager.checkAndUnlock(killer, "zombie_hunter_2", totalKills);
+
+            // Achievements de kills - Tueur de Zombies (1000, 5000, 25000)
+            achievementManager.checkAndUnlock(killer, "zombie_slayer_1", totalKills);
+            achievementManager.checkAndUnlock(killer, "zombie_slayer_2", totalKills);
+            achievementManager.checkAndUnlock(killer, "zombie_slayer_3", totalKills);
+
+            // Achievements de kills extrêmes (100k, 500k, 1M)
+            achievementManager.checkAndUnlock(killer, "exterminator", totalKills);
+            achievementManager.checkAndUnlock(killer, "genocide", totalKills);
+            achievementManager.checkAndUnlock(killer, "legend", totalKills);
+
+            // Streak achievements (kills sans mourir)
             int streak = plugin.getMomentumManager().getStreak(killer);
-            plugin.getAchievementManager().checkAndUnlock(killer, "killing_spree", streak);
-            plugin.getAchievementManager().checkAndUnlock(killer, "unstoppable", streak);
+            achievementManager.checkAndUnlock(killer, "killing_spree_1", streak);
+            achievementManager.checkAndUnlock(killer, "killing_spree_2", streak);
+            achievementManager.checkAndUnlock(killer, "unstoppable", streak);
+            achievementManager.checkAndUnlock(killer, "immortal", streak);
+            achievementManager.checkAndUnlock(killer, "deathless", streak);
+
+            // Elite kill achievements
+            if (zombieType.contains("ELITE") || zombieType.contains("SPECIAL")) {
+                int eliteKills = (int) data.getEliteKills().get() + 1;
+                achievementManager.checkAndUnlock(killer, "elite_hunter_1", eliteKills);
+                achievementManager.checkAndUnlock(killer, "elite_hunter_2", eliteKills);
+                achievementManager.checkAndUnlock(killer, "elite_master", eliteKills);
+            }
+
+            // Boss kill achievements
+            if (zombieType.contains("BOSS")) {
+                int bossKills = (int) data.getBossKills().get() + 1;
+                achievementManager.checkAndUnlock(killer, "boss_slayer_1", bossKills);
+                achievementManager.checkAndUnlock(killer, "boss_slayer_2", bossKills);
+                achievementManager.checkAndUnlock(killer, "boss_master", bossKills);
+
+                // Achievement spécial Patient Zéro
+                if (zombieType.equals("PATIENT_ZERO")) {
+                    achievementManager.incrementProgress(killer, "patient_zero", 1);
+                }
+            }
         }
 
         // Récompenser le joueur
