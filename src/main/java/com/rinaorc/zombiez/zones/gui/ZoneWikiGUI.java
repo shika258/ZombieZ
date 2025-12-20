@@ -89,18 +89,30 @@ public class ZoneWikiGUI implements InventoryHolder {
     }
 
     private void setupGUI() {
-        // Remplir le fond
-        ItemStack filler = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
+        // Remplir le fond avec une couleur sombre
+        ItemStack filler = new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE)
+            .name("§8")
+            .build();
         for (int i = 0; i < SIZE; i++) {
             inventory.setItem(i, filler);
         }
 
-        // Bordures latérales
-        ItemStack border = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
+        // Bordures latérales décoratives avec couleur de l'acte sélectionné
+        Material borderMaterial = getBorderMaterialForAct(filterAct);
+        ItemStack border = new ItemBuilder(borderMaterial)
+            .name("§8")
+            .build();
         for (int row = 1; row < 5; row++) {
             inventory.setItem(row * 9, border);
             inventory.setItem(row * 9 + 8, border);
         }
+
+        // Slot 6 et 7 - Séparateurs entre filtres et légende
+        ItemStack separator = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
+            .name("§8")
+            .build();
+        inventory.setItem(6, separator);
+        inventory.setItem(7, separator);
 
         // Filtres par acte
         setupFilters();
@@ -112,38 +124,65 @@ public class ZoneWikiGUI implements InventoryHolder {
         setupNavigation();
     }
 
+    /**
+     * Retourne le matériau de bordure basé sur l'acte sélectionné
+     */
+    private Material getBorderMaterialForAct(int act) {
+        return switch (act) {
+            case 1 -> Material.LIME_STAINED_GLASS_PANE;    // Acte I - Vert clair
+            case 2 -> Material.GREEN_STAINED_GLASS_PANE;   // Acte II - Vert foncé
+            case 3 -> Material.ORANGE_STAINED_GLASS_PANE;  // Acte III - Orange
+            case 4 -> Material.LIGHT_BLUE_STAINED_GLASS_PANE; // Acte IV - Bleu clair
+            case 5 -> Material.PURPLE_STAINED_GLASS_PANE;  // Acte V - Violet
+            default -> Material.GRAY_STAINED_GLASS_PANE;   // Tous - Gris
+        };
+    }
+
     private void setupFilters() {
-        // Bouton "Toutes"
+        // Bouton "Toutes les Zones"
         boolean allSelected = filterAct == 0;
-        inventory.setItem(SLOT_FILTER_ALL, new ItemBuilder(allSelected ? Material.NETHER_STAR : Material.GRAY_DYE)
-            .name((allSelected ? "§a» " : "§7") + "Toutes les Zones")
+        inventory.setItem(SLOT_FILTER_ALL, new ItemBuilder(allSelected ? Material.ENDER_CHEST : Material.CHEST)
+            .name((allSelected ? "§a▸ " : "§7") + "Toutes les Zones")
             .lore(
                 "",
-                "§7Afficher toutes les 50 zones",
+                "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                "§7Afficher les §f50 zones §7du jeu",
+                "§7organisees par progression.",
+                "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
                 "",
-                allSelected ? "§a✓ Selectionne" : "§eCliquez pour afficher"
+                allSelected ? "§a✔ Actuellement selectionne" : "§e▸ Cliquez pour afficher"
             )
             .glow(allSelected)
             .build());
 
-        // Filtres par acte
+        // Configuration des 5 actes avec leurs caractéristiques
         String[] actNames = {
-            "Les Derniers Jours", // Acte I (1-10)
-            "La Contamination",   // Acte II (11-20)
-            "Le Chaos",           // Acte III (21-30)
-            "L'Extinction",       // Acte IV (31-40)
-            "L'Origine du Mal"    // Acte V (41-50)
+            "Les Derniers Jours",   // Acte I (1-10)
+            "La Contamination",      // Acte II (11-20)
+            "Le Chaos",              // Acte III (21-30)
+            "L'Extinction",          // Acte IV (31-40)
+            "L'Origine du Mal"       // Acte V (41-50)
         };
 
+        String[] actDescriptions = {
+            "Civilisation en ruines",
+            "La nature se corrompt",
+            "Destruction totale",
+            "Froid et mort",
+            "Corruption absolue"
+        };
+
+        // Items représentatifs de chaque acte
         Material[] actMaterials = {
-            Material.OAK_SAPLING,     // Acte I - Debut
-            Material.ROTTEN_FLESH,    // Acte II - Contamination
-            Material.BLAZE_POWDER,    // Acte III - Chaos
-            Material.BLUE_ICE,        // Acte IV - Extinction
-            Material.WITHER_ROSE      // Acte V - Origine
+            Material.SHIELD,            // Acte I - Civilisation
+            Material.BROWN_MUSHROOM,    // Acte II - Nature corrompue
+            Material.FIRE_CHARGE,       // Acte III - Destruction
+            Material.PACKED_ICE,        // Acte IV - Froid
+            Material.DRAGON_EGG         // Acte V - Origine
         };
 
-        String[] actColors = {"§a", "§2", "§c", "§b", "§5"};
+        String[] actColors = {"§a", "§2", "§6", "§b", "§5"};
+        String[] actSymbols = {"🏰", "🍄", "🔥", "❄", "💀"};
 
         for (int i = 0; i < 5; i++) {
             int act = i + 1;
@@ -152,38 +191,47 @@ public class ZoneWikiGUI implements InventoryHolder {
             int endZone = (i + 1) * 10;
 
             inventory.setItem(SLOT_FILTERS[i], new ItemBuilder(actMaterials[i])
-                .name((selected ? "§a» " : "") + actColors[i] + "Acte " + toRoman(act) + " - " + actNames[i])
+                .name((selected ? "§a▸ " : "") + actColors[i] + "§l" + actSymbols[i] + " Acte " + toRoman(act))
                 .lore(
+                    actColors[i] + actNames[i],
                     "",
-                    "§7Zones §e" + startZone + " §7a §e" + endZone,
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                    "§7" + actDescriptions[i],
+                    "",
+                    "§7Zones: " + actColors[i] + startZone + " §8→ " + actColors[i] + endZone,
                     "§7Difficulte: " + getDifficultyRange(act),
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
                     "",
-                    selected ? "§a✓ Selectionne" : "§eCliquez pour filtrer"
+                    selected ? "§a✔ Actuellement selectionne" : "§e▸ Cliquez pour filtrer"
                 )
                 .glow(selected)
                 .build());
         }
 
-        // Legende (slot 8)
-        inventory.setItem(8, new ItemBuilder(Material.BOOK)
-            .name("§6\uD83D\uDCD6 Legende")
+        // Legende améliorée (slot 8)
+        inventory.setItem(8, new ItemBuilder(Material.KNOWLEDGE_BOOK)
+            .name("§6§l📖 Guide du Wiki")
             .lore(
                 "",
-                "§7[Clic Gauche] §fVoir les details",
+                "§8▬▬▬ §e§lCONTROLES §8▬▬▬",
+                "§a⚲ Clic gauche §8→ §7Details de la zone",
+                player.hasPermission("zombiez.admin")
+                    ? "§d⌖ Clic droit §8→ §7Teleportation (Admin)"
+                    : "",
                 "",
-                "§c[Admin] Clic Droit §fTeleportation",
+                "§8▬▬▬ §e§lDIFFICULTE §8▬▬▬",
+                "§a★☆☆☆☆☆☆ §8→ §7Debutant",
+                "§e★★★☆☆☆☆ §8→ §7Intermediaire",
+                "§6★★★★★☆☆ §8→ §7Avance",
+                "§c★★★★★★☆ §8→ §7Expert",
+                "§4★★★★★★★ §8→ §7Legendaire",
                 "",
-                "§7═══ Couleurs ═══",
-                "§a✦ §7Zone facile",
-                "§e✦ §7Zone moderee",
-                "§c✦ §7Zone difficile",
-                "§5✦ §7Zone extreme",
-                "",
-                "§7═══ Icones ═══",
-                "§4☠ §7Zone PvP",
-                "§6\uD83D\uDC51 §7Zone Boss",
-                "§a♥ §7Zone Safe"
+                "§8▬▬▬ §e§lZONES SPECIALES §8▬▬▬",
+                "§a♥ Zone Safe §8→ §7Pas de mobs",
+                "§c☠ Zone PvP §8→ §7Combat joueurs",
+                "§d👑 Zone Boss §8→ §7Boss final"
             )
+            .glow(true)
             .build());
     }
 
@@ -206,32 +254,72 @@ public class ZoneWikiGUI implements InventoryHolder {
     private void setupNavigation() {
         int totalPages = Math.max(1, (int) Math.ceil(filteredZones.size() / (double) ZONES_PER_PAGE));
 
-        // Page precedente
-        if (page > 0) {
-            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.ARROW)
-                .name("§e◄ Page " + page)
-                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
-                .build());
-        } else {
-            inventory.setItem(SLOT_PREV, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
+        // Ligne de navigation avec bordure décorative
+        ItemStack navBorder = new ItemBuilder(Material.CYAN_STAINED_GLASS_PANE)
+            .name("§8")
+            .build();
+
+        // Décorer les slots de navigation non utilisés
+        for (int slot : new int[]{46, 48, 50, 51, 52}) {
+            inventory.setItem(slot, navBorder);
         }
 
-        // Info generale
+        // Page précédente
+        if (page > 0) {
+            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.SPECTRAL_ARROW)
+                .name("§a§l◄ Page Precedente")
+                .lore(
+                    "",
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                    "§7Aller a la page §e" + page,
+                    "",
+                    "§7Navigation: §a" + (page + 1) + "§7/§e" + totalPages,
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                    "",
+                    "§e▸ Cliquez pour naviguer"
+                )
+                .build());
+        } else {
+            inventory.setItem(SLOT_PREV, new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
+                .name("§8◄ Debut de liste")
+                .lore("", "§7Vous etes a la premiere page")
+                .build());
+        }
+
+        // Info générale au centre
         inventory.setItem(SLOT_INFO, createInfoItem());
 
-        // Fermer
+        // Bouton fermer avec style
         inventory.setItem(SLOT_CLOSE, new ItemBuilder(Material.BARRIER)
-            .name("§c✖ Fermer")
+            .name("§c§l✖ Fermer le Menu")
+            .lore(
+                "",
+                "§7Retourner au jeu",
+                "",
+                "§c▸ Cliquez pour fermer"
+            )
             .build());
 
         // Page suivante
         if ((page + 1) * ZONES_PER_PAGE < filteredZones.size()) {
-            inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.ARROW)
-                .name("§ePage " + (page + 2) + " ►")
-                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
+            inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.SPECTRAL_ARROW)
+                .name("§a§lPage Suivante ►")
+                .lore(
+                    "",
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                    "§7Aller a la page §e" + (page + 2),
+                    "",
+                    "§7Navigation: §a" + (page + 1) + "§7/§e" + totalPages,
+                    "§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+                    "",
+                    "§e▸ Cliquez pour naviguer"
+                )
                 .build());
         } else {
-            inventory.setItem(SLOT_NEXT, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
+            inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
+                .name("§8Fin de liste ►")
+                .lore("", "§7Vous etes a la derniere page")
+                .build());
         }
     }
 
@@ -240,64 +328,99 @@ public class ZoneWikiGUI implements InventoryHolder {
         List<String> lore = new ArrayList<>();
         int playersInZone = plugin.getZoneManager().getPlayersInZone(zone.getId());
 
+        // Couleur de l'acte pour la cohérence visuelle
+        String actColor = getActColor(zone.getId());
+
+        // Description italique
         lore.add("");
         lore.add("§7§o\"" + zone.getDescription() + "\"");
-        lore.add("");
 
-        // Difficulte et infos rapides
+        // Séparateur
+        lore.add("");
+        lore.add("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+
+        // Difficulté avec étoiles
         lore.add("§7Difficulte: " + zone.getStarsDisplay());
+
+        // Niveaux des mobs si applicable
         if (zone.getMinZombieLevel() > 0) {
-            lore.add("§7Niveaux Mobs: §c" + zone.getMinZombieLevel() + "-" + zone.getMaxZombieLevel());
+            lore.add("§7Niveaux Mobs: §c⚔ " + zone.getMinZombieLevel() + " §8→ §c" + zone.getMaxZombieLevel());
         }
 
-        // Item Score moyen
+        // Item Score recommandé
         int avgScore = ZoneScaling.getBaseScoreForZone(zone.getId());
-        lore.add("§7Item Score: §6" + formatNumber(avgScore));
+        lore.add("§7Item Score: §6⚡ " + formatNumber(avgScore));
 
-        // Multiplicateurs compacts
+        // Séparateur bonus
         lore.add("");
-        lore.add("§a+" + formatBonus(zone.getXpMultiplier()) + " XP §8| " +
-                 "§6+" + formatBonus(zone.getLootMultiplier()) + " Loot");
+        lore.add("§8▬▬▬ §e§lBONUS §8▬▬▬");
+        lore.add("§a✦ +" + formatBonus(zone.getXpMultiplier()) + " XP");
+        lore.add("§6✦ +" + formatBonus(zone.getLootMultiplier()) + " Loot");
 
         // Effets environnementaux
         if (!zone.getEnvironmentalEffect().equals("NONE")) {
             lore.add("");
+            lore.add("§8▬▬▬ §c§lDANGER §8▬▬▬");
             lore.add(getEnvironmentDisplay(zone.getEnvironmentalEffect()) +
-                     " §8(§c" + zone.getEnvironmentalDamage() + "/s§8)");
+                     " §8(§c" + String.format("%.1f", zone.getEnvironmentalDamage()) + "❤/s§8)");
         }
 
-        // Flags speciaux
+        // Flags spéciaux avec icônes améliorées
         if (zone.isPvpEnabled() || zone.isBossZone() || zone.isSafeZone() || zone.getRefugeId() > 0) {
             lore.add("");
+            lore.add("§8▬▬▬ §f§lSPECIAL §8▬▬▬");
             if (zone.isSafeZone()) lore.add("§a♥ Zone Securisee");
-            if (zone.isPvpEnabled()) lore.add("§4☠ PvP Active");
-            if (zone.isBossZone()) lore.add("§6👑 Boss Final");
-            if (zone.getRefugeId() > 0) lore.add("§e🏠 Refuge #" + zone.getRefugeId());
+            if (zone.isPvpEnabled()) lore.add("§c☠ PvP Active §8- §7Combat joueurs");
+            if (zone.isBossZone()) lore.add("§d👑 Zone Boss Final");
+            if (zone.getRefugeId() > 0) lore.add("§e🏠 Refuge #" + zone.getRefugeId() + " §7disponible");
         }
 
-        // Joueurs presents
+        // Joueurs présents avec indicateur visuel
         if (playersInZone > 0) {
             lore.add("");
-            lore.add("§7Joueurs: §a" + playersInZone + " §7present" + (playersInZone > 1 ? "s" : ""));
+            String playerIndicator = playersInZone > 5 ? "§c" : (playersInZone > 2 ? "§e" : "§a");
+            lore.add("§7Joueurs: " + playerIndicator + "● " + playersInZone + " §7present" + (playersInZone > 1 ? "s" : ""));
         }
 
+        // Instructions d'interaction
         lore.add("");
-        lore.add("§e⚲ Clic gauche §8→ §7Details");
+        lore.add("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+        lore.add("§a⚲ Clic gauche §8→ §7Voir details");
         if (player.hasPermission("zombiez.admin")) {
             lore.add("§d⌖ Clic droit §8→ §7Teleporter");
         }
 
+        // Préfixe pour les zones spéciales
         String prefix = "";
         if (zone.isSafeZone()) prefix = "§a♥ ";
-        else if (zone.isPvpEnabled()) prefix = "§4☠ ";
-        else if (zone.isBossZone()) prefix = "§6👑 ";
+        else if (zone.isPvpEnabled()) prefix = "§c☠ ";
+        else if (zone.isBossZone()) prefix = "§d👑 ";
+
+        // Formatage du numéro de zone avec padding
+        String zoneNum = String.format("%02d", zone.getId());
 
         return new ItemBuilder(material)
-            .name(prefix + zone.getColor() + "Zone " + zone.getId() + " §8- " + zone.getColor() + zone.getDisplayName())
+            .name(prefix + zone.getColor() + "§l#" + zoneNum + " §8| " + zone.getColor() + zone.getDisplayName())
             .lore(lore)
-            .glow(zone.isBossZone() || zone.isPvpEnabled())
+            .glow(zone.isBossZone() || zone.isPvpEnabled() || zone.isSafeZone())
             .hideAttributes()
             .build();
+    }
+
+    /**
+     * Retourne la couleur associée à l'acte de la zone
+     */
+    private String getActColor(int zoneId) {
+        if (zoneId == 0) return "§a"; // Spawn
+        int act = ((zoneId - 1) / 10) + 1;
+        return switch (act) {
+            case 1 -> "§a"; // Acte I - Vert
+            case 2 -> "§2"; // Acte II - Vert foncé
+            case 3 -> "§6"; // Acte III - Orange
+            case 4 -> "§b"; // Acte IV - Cyan
+            case 5 -> "§5"; // Acte V - Violet
+            default -> "§7";
+        };
     }
 
     private String formatBonus(double multiplier) {
@@ -310,26 +433,58 @@ public class ZoneWikiGUI implements InventoryHolder {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         int highestZone = data != null ? data.getMaxZone().get() : 1;
         int playersOnline = Bukkit.getOnlinePlayers().size();
+        int currentAct = currentZone.getId() == 0 ? 0 : ((currentZone.getId() - 1) / 10) + 1;
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7Zone actuelle: " + currentZone.getColoredName());
-        lore.add("§7Position Z: §e" + player.getLocation().getBlockZ());
-        lore.add("");
-        lore.add("§7═══ Progression ═══");
-        lore.add("§7Zone max atteinte: §a" + highestZone + "§7/§e50");
-        lore.add(createProgressBar(highestZone, 50));
-        lore.add("");
-        lore.add("§7═══ Serveur ═══");
-        lore.add("§7Joueurs en ligne: §a" + playersOnline);
-        lore.add("");
-        lore.add("§7═══ Conseils ═══");
-        lore.add("§7• Progressez vers le §cNord §7(Z-)");
-        lore.add("§7• Chaque zone fait §e200 blocs");
-        lore.add("§7• Les refuges sont vos allies!");
 
-        return new ItemBuilder(Material.COMPASS)
-            .name("§6\uD83D\uDDFA Votre Progression")
+        // Position actuelle avec style
+        lore.add("§8▬▬▬ §e§lPOSITION §8▬▬▬");
+        lore.add("§7Zone: " + currentZone.getColoredName());
+        if (currentAct > 0) {
+            lore.add("§7Acte: " + getActColor(currentZone.getId()) + "Acte " + toRoman(currentAct));
+        }
+        lore.add("§7Coord Z: §e" + player.getLocation().getBlockZ());
+
+        // Progression du joueur
+        lore.add("");
+        lore.add("§8▬▬▬ §a§lPROGRESSION §8▬▬▬");
+        lore.add("§7Zone max: §a" + highestZone + "§7/§e50");
+        lore.add(createProgressBar(highestZone, 50));
+
+        // Actes débloqués
+        int unlockedActs = Math.min(5, ((highestZone - 1) / 10) + 1);
+        StringBuilder actsDisplay = new StringBuilder("§7Actes: ");
+        for (int i = 1; i <= 5; i++) {
+            if (i <= unlockedActs) {
+                actsDisplay.append(getActColor(i * 10)).append("▰");
+            } else {
+                actsDisplay.append("§8▱");
+            }
+        }
+        lore.add(actsDisplay.toString());
+
+        // Statistiques serveur
+        lore.add("");
+        lore.add("§8▬▬▬ §b§lSERVEUR §8▬▬▬");
+        String onlineColor = playersOnline > 50 ? "§a" : (playersOnline > 20 ? "§e" : "§7");
+        lore.add("§7Joueurs: " + onlineColor + playersOnline + " §7en ligne");
+
+        // Conseils utiles
+        lore.add("");
+        lore.add("§8▬▬▬ §6§lCONSEILS §8▬▬▬");
+        lore.add("§7• Direction: §cNord §7(Z-)");
+        lore.add("§7• Taille zone: §e200 blocs");
+        lore.add("§7• Utilisez les §eRefuges §7!");
+
+        // Badge de completion
+        if (highestZone >= 50) {
+            lore.add("");
+            lore.add("§d§l✦ MAITRE DES ZONES ✦");
+        }
+
+        return new ItemBuilder(Material.RECOVERY_COMPASS)
+            .name("§6§l🗺 Votre Progression")
             .lore(lore)
             .glow(highestZone >= 50)
             .build();
@@ -342,12 +497,86 @@ public class ZoneWikiGUI implements InventoryHolder {
                String.format("%.0f%%", (current / (double) max) * 100);
     }
 
+    /**
+     * Retourne un item unique et thématique pour chaque zone
+     * Organisé par acte avec des items représentatifs du thème de chaque zone
+     */
     private Material getZoneMaterial(Zone zone) {
-        if (zone.isSafeZone()) return Material.EMERALD;
-        if (zone.isBossZone()) return Material.NETHER_STAR;
-        if (zone.isPvpEnabled()) return Material.IRON_SWORD;
+        // Zones spéciales en priorité
+        if (zone.isSafeZone()) return Material.EMERALD_BLOCK;
+        if (zone.isBossZone()) return Material.DRAGON_HEAD;
+        if (zone.isPvpEnabled()) return Material.NETHERITE_SWORD;
 
-        // Par theme/environnement
+        // Item unique par zone basé sur le thème
+        return switch (zone.getId()) {
+            // === ACTE I - Les Derniers Jours (Civilisation) ===
+            case 1 -> Material.SHIELD;                    // Bastion du Réveil - château médiéval
+            case 2 -> Material.LANTERN;                   // Faubourgs Oubliés - quartiers abandonnés
+            case 3 -> Material.WHEAT;                     // Champs du Silence - terres agricoles
+            case 4 -> Material.APPLE;                     // Verger des Pendus - verger macabre
+            case 5 -> Material.SADDLE;                    // Route des Fuyards - véhicules abandonnés
+            case 6 -> Material.FLOWER_POT;                // Hameau Brisé - petit village
+            case 7 -> Material.DARK_OAK_LEAVES;           // Bois des Soupirs - forêt sombre
+            case 8 -> Material.CRACKED_STONE_BRICKS;      // Ruines de Clairval - vestiges
+            case 9 -> Material.CHAIN;                     // Pont des Disparus - pont tragique
+            case 10 -> Material.CROSSBOW;                 // Avant-Poste Déserté - camp militaire
+
+            // === ACTE II - La Contamination (Nature corrompue) ===
+            case 11 -> Material.BROWN_MUSHROOM_BLOCK;     // Forêt Putréfiée - arbres malades
+            case 12 -> Material.BELL;                     // Clairière des Hurlements - cris
+            case 13 -> Material.LILY_PAD;                 // Marais Infect - eaux stagnantes
+            case 14 -> Material.VINE;                     // Jardins Dévoyés - plantes mutées
+            case 15 -> Material.MOSS_BLOCK;               // Village Moisi - moisissure vivante
+            case 16 -> Material.SWEET_BERRIES;            // Ronces Noires - ronces géantes
+            case 17 -> Material.BONE;                     // Territoire des Errants - zombies marcheurs
+            case 18 -> Material.CHARCOAL;                 // Campement Calciné - camp brûlé
+            case 19 -> Material.RED_MUSHROOM;             // Bois Rouge - feuilles rouges/sang
+            case 20 -> Material.ENDER_EYE;                // Lisière de la Peur - frontière
+
+            // === ACTE III - Le Chaos (Destruction) ===
+            case 21 -> Material.BLAZE_POWDER;             // Faille Incandescente - fissure enflammée
+            case 22 -> Material.GUNPOWDER;                // Cratères de Cendre - explosions
+            case 23 -> Material.FIRE_CHARGE;              // Plaines Brûlées - carbonisées
+            case 24 -> Material.NETHERITE_INGOT;          // Fournaise Antique - forge titanesque
+            case 25 -> Material.YELLOW_DYE;               // Terres de Soufre - sol toxique jaune
+            // Zone 26 est PvP, traitée en priorité
+            case 27 -> Material.LAVA_BUCKET;              // Rivière de Lave - fleuve en fusion
+            case 28 -> Material.SOUL_SAND;                // Canyon des Damnés - âmes perdues
+            case 29 -> Material.IRON_BARS;                // Forteresse Effondrée - ruines militaires
+            case 30 -> Material.TNT;                      // No Man's Land - terre dévastée
+
+            // === ACTE IV - L'Extinction (Froid et mort) ===
+            case 31 -> Material.SNOW_BLOCK;               // Toundra Morte - toundra gelée
+            case 32 -> Material.POWDER_SNOW_BUCKET;       // Neiges Hurlantes - vent et neige
+            case 33 -> Material.BLUE_ICE;                 // Plaines Gelées - glace éternelle
+            case 34 -> Material.GLASS;                    // Lac de Verre - lac gelé transparent
+            case 35 -> Material.PRISMARINE;               // Ruines Englouties - cité sous la glace
+            case 36 -> Material.ICE;                      // Pics du Désespoir - montagnes glacées
+            case 37 -> Material.PACKED_ICE;               // Blizzard Éternel - tempête de neige
+            case 38 -> Material.SKELETON_SKULL;           // Tombe Blanche - cimetière enneigé
+            case 39 -> Material.CANDLE;                   // Sanctuaire Abandonné - temple profané
+            case 40 -> Material.SCULK;                    // Seuil de l'Oblivion - frontière oubli
+
+            // === ACTE V - L'Origine du Mal (Corruption pure) ===
+            case 41 -> Material.SCULK_VEIN;               // Terres Corrompues - corruption infiltrée
+            case 42 -> Material.WITHER_ROSE;              // Forêt Noire - lumière interdite
+            case 43 -> Material.SCULK_CATALYST;           // Racines du Mal - racines infection
+            case 44 -> Material.CRIMSON_FUNGUS;           // Marécages Carmine - eau rouge sang
+            case 45 -> Material.HEART_OF_THE_SEA;         // Veines du Monde - tunnels organiques
+            case 46 -> Material.REINFORCED_DEEPSLATE;     // Citadelle Profanée - temple souillé
+            case 47 -> Material.NETHER_WART;              // Cœur Putride - cœur de l'infection
+            case 48 -> Material.CREEPER_HEAD;             // Trône des Infectés - siège du pouvoir
+            case 49 -> Material.END_STONE;                // Dernier Rempart - dernière barrière
+            // Zone 50 est boss, traitée en priorité
+
+            default -> getMaterialByEnvironment(zone);
+        };
+    }
+
+    /**
+     * Fallback pour les zones non mappées - basé sur l'environnement
+     */
+    private Material getMaterialByEnvironment(Zone zone) {
         return switch (zone.getEnvironmentalEffect()) {
             case "HEAT", "FIRE" -> Material.MAGMA_CREAM;
             case "COLD" -> Material.PACKED_ICE;
