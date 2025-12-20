@@ -635,29 +635,59 @@ public class BeastManager {
             return;
         }
 
-        // Trouver l'ennemi le plus proche dans 12 blocs
-        LivingEntity nearestEnemy = null;
-        double nearestDistSq = 144.0; // 12^2
+        // PRIORITÉ 1: Cible focus du joueur (celle qu'il attaque)
+        LivingEntity target = null;
+        UUID focusUuid = playerFocusTarget.get(owner.getUniqueId());
+        if (focusUuid != null) {
+            Entity focusEntity = Bukkit.getEntity(focusUuid);
+            if (focusEntity instanceof LivingEntity living && !living.isDead() &&
+                living.getLocation().distanceSquared(bat.getLocation()) < 256) { // 16 blocs
+                target = living;
+            } else {
+                // Focus invalide, nettoyer
+                playerFocusTarget.remove(owner.getUniqueId());
+            }
+        }
 
-        for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
-            if (nearby instanceof Monster monster && !isBeast(nearby)) {
-                double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
-                if (distSq < nearestDistSq) {
-                    nearestDistSq = distSq;
-                    nearestEnemy = monster;
-                    if (distSq < 9) break; // <3 blocs, on prend direct
+        // PRIORITÉ 2: Ennemi le plus proche du joueur (pas de la chauve-souris)
+        if (target == null) {
+            double nearestDistSq = 225.0; // 15^2
+
+            for (Entity nearby : owner.getNearbyEntities(15, 8, 15)) {
+                if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                    double distSq = owner.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        target = monster;
+                    }
                 }
             }
         }
 
-        if (nearestEnemy != null) {
-            shootUltrasound(owner, bat, nearestEnemy, frenzyMultiplier);
+        // PRIORITÉ 3: Ennemi le plus proche de la chauve-souris
+        if (target == null) {
+            double nearestDistSq = 144.0; // 12^2
+
+            for (Entity nearby : bat.getNearbyEntities(12, 6, 12)) {
+                if (nearby instanceof Monster monster && !isBeast(nearby) && !monster.isDead()) {
+                    double distSq = bat.getLocation().distanceSquared(nearby.getLocation());
+                    if (distSq < nearestDistSq) {
+                        nearestDistSq = distSq;
+                        target = monster;
+                    }
+                }
+            }
+        }
+
+        if (target != null) {
+            shootUltrasound(owner, bat, target, frenzyMultiplier);
             setCooldown(owner.getUniqueId(), cooldownKey, now + shootCooldown);
         }
     }
 
     /**
-     * Tire un ultrason en ligne droite qui transperce tous les ennemis
+     * Tire un ultrason en ligne droite qui transperce tous les ennemis.
+     * Particules optimisées pour réduire le lag.
      */
     private void shootUltrasound(Player owner, LivingEntity bat, LivingEntity target, double frenzyMultiplier) {
         Location start = bat.getLocation().add(0, 0.3, 0);
@@ -688,8 +718,14 @@ public class BeastManager {
                 // Avancer de 0.5 bloc
                 current.add(direction.clone().multiply(0.5));
 
-                // Particules d'onde sonore (sans couleur - juste effet sonore visuel)
-                current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
+                // Particules réduites: SONIC_BOOM seulement toutes les 6 étapes (3 blocs)
+                // + petites particules de note entre-temps pour le traçage visuel
+                if (steps % 6 == 0) {
+                    current.getWorld().spawnParticle(Particle.SONIC_BOOM, current, 1, 0, 0, 0, 0);
+                } else if (steps % 2 == 0) {
+                    // Particules légères entre les SONIC_BOOM
+                    current.getWorld().spawnParticle(Particle.NOTE, current, 1, 0.1, 0.1, 0.1, 0);
+                }
 
                 // Vérifier les collisions avec les ennemis
                 for (Entity entity : current.getWorld().getNearbyEntities(current, 0.8, 0.8, 0.8)) {
@@ -703,7 +739,7 @@ public class BeastManager {
                         hitEntities.add(entity.getUniqueId());
                         living.damage(damage, owner);
 
-                        // Effet d'impact sonore (sans particules visuelles)
+                        // Effet d'impact sonore
                         living.getWorld().playSound(living.getLocation(), Sound.ENTITY_BAT_HURT, 1.0f, 1.5f);
                     }
                 }
