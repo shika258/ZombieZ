@@ -476,6 +476,9 @@ public class ZombieManager {
         zombie.setRemoveWhenFarAway(true);
         zombie.setShouldBurnInDay(false);
 
+        // Réduire le temps d'invincibilité entre les coups (2 ticks = 0.1s au lieu de 10 = 0.5s)
+        zombie.setMaximumNoDamageTicks(2);
+
         // Appliquer les attributs
         var maxHealthAttr = zombie.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
@@ -524,6 +527,9 @@ public class ZombieManager {
     private void configureNonZombieEntity(LivingEntity entity, ZombieType type, int level,
                                            double finalHealth, double finalDamage, double finalSpeed, String customName) {
         entity.setRemoveWhenFarAway(true);
+
+        // Réduire le temps d'invincibilité entre les coups (2 ticks = 0.1s au lieu de 10 = 0.5s)
+        entity.setMaximumNoDamageTicks(2);
 
         // Empêcher les squelettes de brûler au soleil
         if (entity instanceof AbstractSkeleton skeleton) {
