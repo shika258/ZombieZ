@@ -212,7 +212,7 @@ public class CombatListener implements Listener {
 
     /**
      * Gère les attaques de joueur sur mob ZombieZ (zombie, squelette, etc.)
-     * Applique: Stats d'items, Momentum, Skills, Critiques, Effets
+     * Applique: Cooldown d'attaque, Stats d'items, Momentum, Skills, Critiques, Effets
      */
     private void handlePlayerAttackZombieZMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
         // ============ SECONDARY DAMAGE CHECK ============
@@ -245,6 +245,14 @@ public class CombatListener implements Listener {
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
+
+        // ============ 0. ATTACK COOLDOWN SYSTEM ============
+        // Les dégâts sont proportionnels au remplissage de la barre de cooldown
+        // getAttackCooldown() retourne une valeur entre 0.0 (spam) et 1.0 (pleinement rechargé)
+        float attackCooldown = player.getAttackCooldown();
+        // Appliquer un multiplicateur minimum de 20% pour ne pas annuler complètement les dégâts
+        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
+        finalDamage *= cooldownMultiplier;
 
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -389,6 +397,11 @@ public class CombatListener implements Listener {
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
+        // ============ 0. ATTACK COOLDOWN SYSTEM ============
+        float attackCooldown = player.getAttackCooldown();
+        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
+        finalDamage *= cooldownMultiplier;
+
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
 
@@ -459,6 +472,11 @@ public class CombatListener implements Listener {
     private void handlePlayerAttackGenericMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
         double finalDamage = event.getDamage();
         boolean isCritical = false;
+
+        // ============ 0. ATTACK COOLDOWN SYSTEM ============
+        float attackCooldown = player.getAttackCooldown();
+        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
+        finalDamage *= cooldownMultiplier;
 
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);

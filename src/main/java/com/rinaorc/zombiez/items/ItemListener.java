@@ -652,12 +652,13 @@ public class ItemListener implements Listener {
         return Math.max(0, damage);
     }
 
-    // Clé unique pour le modifier de vie max ZombieZ
+    // Clés uniques pour les modifiers ZombieZ
     private static final NamespacedKey ZOMBIEZ_HEALTH_KEY = new NamespacedKey("zombiez", "max_health_bonus");
+    private static final NamespacedKey ZOMBIEZ_ATTACK_SPEED_KEY = new NamespacedKey("zombiez", "attack_speed_bonus");
 
     /**
      * Applique les attributs du joueur basés sur son équipement ZombieZ
-     * Notamment le bonus de vie maximale (MAX_HEALTH)
+     * Notamment le bonus de vie maximale (MAX_HEALTH) et vitesse d'attaque (ATTACK_SPEED)
      */
     public void applyPlayerAttributes(Player player) {
         Map<StatType, Double> stats = plugin.getItemManager().calculatePlayerStats(player);
@@ -665,6 +666,12 @@ public class ItemListener implements Listener {
         // Appliquer le bonus de vie maximale
         double healthBonus = stats.getOrDefault(StatType.MAX_HEALTH, 0.0);
         applyMaxHealthBonus(player, healthBonus);
+
+        // Appliquer le bonus de vitesse d'attaque
+        // ATTACK_SPEED est flat, ATTACK_SPEED_PERCENT est un pourcentage
+        double attackSpeedFlat = stats.getOrDefault(StatType.ATTACK_SPEED, 0.0);
+        double attackSpeedPercent = stats.getOrDefault(StatType.ATTACK_SPEED_PERCENT, 0.0);
+        applyAttackSpeedBonus(player, attackSpeedFlat, attackSpeedPercent);
     }
 
     /**
@@ -698,6 +705,43 @@ public class ItemListener implements Listener {
     }
 
     /**
+     * Applique le bonus de vitesse d'attaque au joueur
+     * Modifie l'attribut GENERIC_ATTACK_SPEED pour que l'indicateur visuel de Minecraft
+     * (la barre de cooldown sous le curseur) se recharge plus ou moins vite
+     *
+     * @param player Le joueur
+     * @param flatBonus Bonus flat de vitesse d'attaque (ex: +0.5)
+     * @param percentBonus Bonus en pourcentage (ex: 20 = +20%)
+     */
+    private void applyAttackSpeedBonus(Player player, double flatBonus, double percentBonus) {
+        AttributeInstance attackSpeedAttr = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeedAttr == null) return;
+
+        // Supprimer l'ancien modifier ZombieZ s'il existe
+        attackSpeedAttr.getModifiers().stream()
+            .filter(mod -> mod.getKey().equals(ZOMBIEZ_ATTACK_SPEED_KEY))
+            .findFirst()
+            .ifPresent(attackSpeedAttr::removeModifier);
+
+        // Calculer le bonus total
+        // La vitesse d'attaque de base est 4.0 (épée) pour Minecraft vanilla
+        // Le bonus percent s'applique sur la base
+        double baseSpeed = attackSpeedAttr.getBaseValue();
+        double percentBonusValue = baseSpeed * (percentBonus / 100.0);
+        double totalBonus = flatBonus + percentBonusValue;
+
+        // Ajouter le nouveau modifier si le bonus est non-nul
+        if (Math.abs(totalBonus) > 0.001) {
+            AttributeModifier modifier = new AttributeModifier(
+                ZOMBIEZ_ATTACK_SPEED_KEY,
+                totalBonus,
+                AttributeModifier.Operation.ADD_NUMBER
+            );
+            attackSpeedAttr.addModifier(modifier);
+        }
+    }
+
+    /**
      * Supprime tous les modifiers ZombieZ d'un joueur (pour cleanup)
      */
     public void removeAllModifiers(Player player) {
@@ -707,6 +751,14 @@ public class ItemListener implements Listener {
                 .filter(mod -> mod.getKey().equals(ZOMBIEZ_HEALTH_KEY))
                 .findFirst()
                 .ifPresent(maxHealthAttr::removeModifier);
+        }
+
+        AttributeInstance attackSpeedAttr = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeedAttr != null) {
+            attackSpeedAttr.getModifiers().stream()
+                .filter(mod -> mod.getKey().equals(ZOMBIEZ_ATTACK_SPEED_KEY))
+                .findFirst()
+                .ifPresent(attackSpeedAttr::removeModifier);
         }
     }
 
