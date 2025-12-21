@@ -397,14 +397,17 @@ public class ShadowListener implements Listener {
         // Nettoyer la marque
         shadowManager.removeMark(victimUuid);
 
-        // === T7: LAMES SPECTRALES - Invoquer les lames à 5 Points ===
+        // === T7: LAMES SPECTRALES - 5% chance sur kill ===
         Talent spectralBlades = getActiveTalent(killer, Talent.TalentEffectType.SHADOW_CLONE);
-        if (spectralBlades != null && shadowManager.getShadowPoints(killerUuid) >= 5) {
+        if (spectralBlades != null) {
             // Ne pas réinvoquer si déjà actives
             if (!shadowManager.hasActiveBlades(killerUuid)) {
-                shadowManager.summonSpectralBlades(killer, spectralBlades);
+                // 5% de chance d'invoquer les lames sur chaque kill
+                double procChance = spectralBlades.getValues().length > 0 ? spectralBlades.getValue(0) : 0.05;
+                if (Math.random() < procChance) {
+                    shadowManager.summonSpectralBlades(killer, spectralBlades);
+                }
             }
-            // Note: les points ne sont pas consommés, les lames apparaissent comme bonus
         }
     }
 
