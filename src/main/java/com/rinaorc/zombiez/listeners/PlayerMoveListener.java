@@ -130,8 +130,8 @@ public class PlayerMoveListener implements Listener {
             // Mettre à jour les stats du joueur
             var playerData = plugin.getPlayerDataManager().getPlayer(player);
             if (playerData != null) {
-                playerData.addStat("distance_traveled", distanceInBlocks);
-                long totalDistance = (long) playerData.getStat("distance_traveled");
+                playerData.addDistanceTraveled(distanceInBlocks);
+                long totalDistance = playerData.getDistanceTraveled().get();
 
                 // Missions
                 plugin.getMissionManager().updateProgress(player,
