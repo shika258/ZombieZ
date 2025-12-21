@@ -31,6 +31,15 @@ public class PlayerMoveListener implements Listener {
     // Cache de la dernière position Z vérifiée par joueur
     private final Map<UUID, Integer> lastZCache = new ConcurrentHashMap<>();
 
+    // Cache de la dernière position pour calcul de distance
+    private final Map<UUID, Location> lastPositionCache = new ConcurrentHashMap<>();
+
+    // Accumulateur de distance parcourue (en blocs)
+    private final Map<UUID, Double> distanceAccumulator = new ConcurrentHashMap<>();
+
+    // Seuil pour mettre à jour les missions/achievements (100 blocs)
+    private static final double DISTANCE_UPDATE_THRESHOLD = 100.0;
+
     // Intervalle minimum entre les vérifications de zone (en blocs Z)
     private static final int Z_CHECK_THRESHOLD = 5;
 
@@ -61,19 +70,77 @@ public class PlayerMoveListener implements Listener {
         UUID uuid = player.getUniqueId();
         int currentZ = to.getBlockZ();
 
+        // ============ TRACKING DISTANCE PARCOURUE ============
+        trackDistanceTraveled(player, uuid, from, to);
+
         // Vérifier si on doit faire une vérification de zone
         Integer lastZ = lastZCache.get(uuid);
-        
+
         if (lastZ == null || Math.abs(currentZ - lastZ) >= Z_CHECK_THRESHOLD) {
             // Mettre à jour le cache
             lastZCache.put(uuid, currentZ);
-            
+
             // Vérifier les limites de la map
             checkMapBounds(player, to);
-            
+
             // La vérification de zone est faite périodiquement par ZoneManager
             // On peut forcer une vérification immédiate si nécessaire
             // plugin.getZoneManager().checkPlayerZone(player);
+        }
+    }
+
+    /**
+     * Track la distance parcourue par le joueur
+     * Optimisé pour ne mettre à jour les missions/achievements que tous les 100 blocs
+     */
+    private void trackDistanceTraveled(Player player, UUID uuid, Location from, Location to) {
+        Location lastPos = lastPositionCache.get(uuid);
+
+        if (lastPos == null || !lastPos.getWorld().equals(to.getWorld())) {
+            // Première position ou changement de monde
+            lastPositionCache.put(uuid, to.clone());
+            return;
+        }
+
+        // Calculer la distance horizontale (ignorer Y pour éviter les abus avec les ascenseurs)
+        double dx = to.getX() - lastPos.getX();
+        double dz = to.getZ() - lastPos.getZ();
+        double distance = Math.sqrt(dx * dx + dz * dz);
+
+        // Ignorer les téléportations (distance > 10 blocs en un tick)
+        if (distance > 10.0) {
+            lastPositionCache.put(uuid, to.clone());
+            return;
+        }
+
+        // Mettre à jour la position cache
+        lastPositionCache.put(uuid, to.clone());
+
+        // Accumuler la distance
+        double accumulated = distanceAccumulator.getOrDefault(uuid, 0.0) + distance;
+        distanceAccumulator.put(uuid, accumulated);
+
+        // Si on a accumulé assez de distance, mettre à jour les trackers
+        if (accumulated >= DISTANCE_UPDATE_THRESHOLD) {
+            int distanceInBlocks = (int) accumulated;
+
+            // Reset l'accumulateur
+            distanceAccumulator.put(uuid, accumulated - distanceInBlocks);
+
+            // Mettre à jour les stats du joueur
+            var playerData = plugin.getPlayerDataManager().getPlayer(player);
+            if (playerData != null) {
+                playerData.addStat("distance_traveled", distanceInBlocks);
+                long totalDistance = (long) playerData.getStat("distance_traveled");
+
+                // Missions
+                plugin.getMissionManager().updateProgress(player,
+                    com.rinaorc.zombiez.progression.MissionManager.MissionTracker.DISTANCE_TRAVELED, distanceInBlocks);
+
+                // Achievements (100km = 100000 blocs)
+                var achievementManager = plugin.getAchievementManager();
+                achievementManager.checkAndUnlock(player, "distance_walker", (int) Math.min(totalDistance, Integer.MAX_VALUE));
+            }
         }
     }
 
@@ -135,6 +202,8 @@ public class PlayerMoveListener implements Listener {
      */
     public void removeFromCache(UUID uuid) {
         lastZCache.remove(uuid);
+        lastPositionCache.remove(uuid);
+        distanceAccumulator.remove(uuid);
     }
 
     /**

@@ -137,6 +137,12 @@ public class DailyLoginStreakManager implements Listener {
             gems += milestoneGems;
         }
 
+        // ============ ACHIEVEMENTS DE STREAK ============
+        var achievementManager = plugin.getAchievementManager();
+
+        // Achievement "dedication" - 30 jours consécutifs
+        achievementManager.checkAndUnlock(player, "dedication", streak);
+
         // Afficher la récompense
         showRewardAnimation(player, streak, finalPoints, finalXp, gems, milestoneGems > 0);
     }
