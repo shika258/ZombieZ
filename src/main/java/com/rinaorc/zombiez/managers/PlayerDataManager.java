@@ -495,4 +495,123 @@ public class PlayerDataManager {
         playerCache.invalidateAll();
         recentCache.invalidateAll();
     }
+
+    // ==================== PLAYTIME TRACKER ====================
+
+    private org.bukkit.scheduler.BukkitTask playtimeTask;
+
+    // Tracking des nuits - joueurs qui ont commencé la nuit
+    private final Set<UUID> playersInNight = ConcurrentHashMap.newKeySet();
+    private boolean wasNight = false;
+
+    /**
+     * Démarre le tracker de temps de jeu
+     * Met à jour le playtime toutes les secondes et les missions toutes les minutes
+     * Track aussi les nuits survivées
+     */
+    public void startPlaytimeTracker() {
+        if (playtimeTask != null) {
+            playtimeTask.cancel();
+        }
+
+        // Compteur pour tracker les minutes (60 ticks = 60 secondes entre updates missions)
+        final int[] secondsCounter = {0};
+
+        playtimeTask = new org.bukkit.scheduler.BukkitRunnable() {
+            @Override
+            public void run() {
+                secondsCounter[0]++;
+
+                // Vérifier le cycle jour/nuit
+                checkNightCycle();
+
+                // Pour chaque joueur en ligne
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    PlayerData data = playerCache.getIfPresent(player.getUniqueId());
+                    if (data == null) continue;
+
+                    // Incrémenter le playtime (1 seconde)
+                    data.getPlaytime().incrementAndGet();
+
+                    // Toutes les 60 secondes, mettre à jour les missions PLAYTIME
+                    if (secondsCounter[0] >= 60) {
+                        plugin.getMissionManager().updateProgress(player,
+                            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.PLAYTIME, 60);
+
+                        // Vérifier les achievements de temps de jeu
+                        long totalPlaytime = data.getPlaytime().get();
+                        var achievementManager = plugin.getAchievementManager();
+                        achievementManager.checkAndUnlock(player, "survivor_1", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "survivor_2", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "survivor_3", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "veteran", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "ancient", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                    }
+                }
+
+                // Réinitialiser le compteur toutes les 60 secondes
+                if (secondsCounter[0] >= 60) {
+                    secondsCounter[0] = 0;
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Démarre après 1 seconde, répète chaque seconde
+
+        plugin.log(Level.INFO, "§a✓ Tracker de playtime démarré");
+    }
+
+    /**
+     * Vérifie le cycle jour/nuit et track les joueurs qui survivent la nuit
+     */
+    private void checkNightCycle() {
+        // Obtenir le monde principal
+        org.bukkit.World world = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        if (world == null) return;
+
+        long time = world.getTime();
+        boolean isNight = time >= 13000 && time <= 23000;
+
+        // Transition jour → nuit : enregistrer tous les joueurs en ligne
+        if (isNight && !wasNight) {
+            playersInNight.clear();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                playersInNight.add(player.getUniqueId());
+            }
+        }
+
+        // Transition nuit → jour : récompenser ceux qui ont survécu toute la nuit
+        if (!isNight && wasNight) {
+            for (UUID uuid : playersInNight) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    PlayerData data = playerCache.getIfPresent(uuid);
+                    if (data != null) {
+                        // Incrémenter le compteur de nuits
+                        data.incrementStat("nights_survived");
+                        int nightsSurvived = (int) data.getStat("nights_survived");
+
+                        // Mission
+                        plugin.getMissionManager().updateProgress(player,
+                            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.NIGHTS_SURVIVED, 1);
+
+                        // Achievement
+                        var achievementManager = plugin.getAchievementManager();
+                        achievementManager.checkAndUnlock(player, "night_walker", nightsSurvived);
+                    }
+                }
+            }
+            playersInNight.clear();
+        }
+
+        wasNight = isNight;
+    }
+
+    /**
+     * Arrête le tracker de temps de jeu
+     */
+    public void stopPlaytimeTracker() {
+        if (playtimeTask != null) {
+            playtimeTask.cancel();
+            playtimeTask = null;
+        }
+    }
 }

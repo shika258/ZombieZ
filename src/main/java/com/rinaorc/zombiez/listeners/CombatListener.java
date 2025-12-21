@@ -26,6 +26,9 @@ import org.bukkit.util.Vector;
 
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Listener pour les événements de combat
@@ -35,6 +38,10 @@ public class CombatListener implements Listener {
 
     private final ZombieZPlugin plugin;
     private final Random random = new Random();
+
+    // Tracking des joueurs qui n'ont pas pris de dégâts depuis leur dernier kill
+    // Si un joueur est dans ce set, il n'a pas pris de dégâts depuis son dernier kill
+    private final Set<UUID> playersWithoutDamage = ConcurrentHashMap.newKeySet();
 
     public CombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -76,6 +83,17 @@ public class CombatListener implements Listener {
                 plugin.getZombieManager().updateZombieHealthDisplay(livingVictim);
             }
         });
+    }
+
+    /**
+     * Track les dégâts reçus par les joueurs pour KILLS_NO_DAMAGE
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerTakeDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Le joueur a pris des dégâts - retirer du set
+        playersWithoutDamage.remove(player.getUniqueId());
     }
 
     /**
@@ -593,6 +611,29 @@ public class CombatListener implements Listener {
                 com.rinaorc.zombiez.progression.MissionManager.MissionTracker.BOSS_KILLS, 1);
         }
 
+        // Headshot kill tracking - vérifie si le mob a été tué par un headshot
+        if (mob.getScoreboardTags().contains("zombiez_headshot_kill")) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.HEADSHOTS, 1);
+        }
+
+        // Group kill tracking - vérifie si d'autres joueurs sont proches (< 20 blocs)
+        boolean isGroupKill = checkGroupKill(killer, mob.getLocation());
+        if (isGroupKill) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.GROUP_KILLS, 1);
+        }
+
+        // Kills sans dégâts tracking - vérifie si le joueur n'a pas pris de dégâts depuis son dernier kill
+        UUID killerUuid = killer.getUniqueId();
+        boolean killWithoutDamage = playersWithoutDamage.contains(killerUuid);
+        if (killWithoutDamage) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.KILLS_NO_DAMAGE, 1);
+        }
+        // Réinitialiser pour le prochain kill (le joueur n'a pas pris de dégâts pour ce kill-ci)
+        playersWithoutDamage.add(killerUuid);
+
         // ============ ACHIEVEMENTS ============
         PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);
         if (data != null) {
@@ -643,6 +684,24 @@ public class CombatListener implements Listener {
                 if (zombieType.equals("PATIENT_ZERO")) {
                     achievementManager.incrementProgress(killer, "patient_zero", 1);
                 }
+
+                // Achievement group_boss - tuer un boss en groupe
+                if (isGroupKill) {
+                    achievementManager.incrementProgress(killer, "group_boss", 1);
+                }
+            }
+
+            // Group kill achievements (kills avec des coéquipiers proches)
+            if (isGroupKill) {
+                data.incrementStat("group_kills");
+                int groupKills = (int) data.getStat("group_kills");
+
+                // Premier ami
+                achievementManager.incrementProgress(killer, "first_friend", 1);
+
+                // Joueur d'équipe I/II
+                achievementManager.checkAndUnlock(killer, "team_player_1", groupKills);
+                achievementManager.checkAndUnlock(killer, "team_player_2", groupKills);
             }
         }
 
@@ -880,6 +939,27 @@ public class CombatListener implements Listener {
         // Son de headshot (satisfaisant et distinct)
         shooter.playSound(shooter.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 0.8f, 1.8f);
         shooter.playSound(shooter.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.5f, 1.5f);
+    }
+
+    /**
+     * Vérifie si le kill est un kill en groupe (autres joueurs à moins de 20 blocs)
+     * Retourne true si au moins un autre joueur est proche
+     */
+    private boolean checkGroupKill(Player killer, Location mobLocation) {
+        // Rayon pour considérer un "groupe"
+        final double GROUP_RADIUS = 20.0;
+
+        for (Player nearbyPlayer : killer.getWorld().getPlayers()) {
+            // Ignorer le tueur lui-même
+            if (nearbyPlayer.equals(killer)) continue;
+
+            // Vérifier la distance
+            if (nearbyPlayer.getLocation().distanceSquared(mobLocation) <= GROUP_RADIUS * GROUP_RADIUS) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -89,6 +89,10 @@ public class EconomyManager {
         // Richesse simultanée (wealthy - avoir 10M en même temps)
         achievementManager.checkAndUnlock(player, "wealthy", (int) Math.min(currentPoints, Integer.MAX_VALUE));
 
+        // ============ MISSIONS DE POINTS ============
+        plugin.getMissionManager().updateProgress(player,
+            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.POINTS_EARNED, (int) finalAmount);
+
         // Notification
         if (finalAmount > 0) {
             MessageUtils.sendActionBar(player, "§a+" + formatPoints(finalAmount) + " Points §7(" + reason + ")");
@@ -249,6 +253,10 @@ public class EconomyManager {
         achievementManager.checkAndUnlock(player, "level_50", newLevel);
         achievementManager.checkAndUnlock(player, "level_75", newLevel);
         achievementManager.checkAndUnlock(player, "level_100", newLevel);
+
+        // ============ MISSIONS DE PROGRESSION ============
+        plugin.getMissionManager().updateProgress(player,
+            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.LEVELS_GAINED, 1);
 
         // Récompenses par niveau
         if (newLevel % 5 == 0) {

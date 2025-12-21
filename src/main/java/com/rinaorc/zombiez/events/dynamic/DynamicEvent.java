@@ -412,6 +412,30 @@ public abstract class DynamicEvent {
                 var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
                 if (playerData != null) {
                     playerData.addXp(totalXp);
+
+                    // ============ ACHIEVEMENTS D'ÉVÉNEMENTS ============
+                    // Incrémenter le compteur de participations aux événements
+                    playerData.incrementStat("events_completed");
+                    int eventsCompleted = (int) playerData.getStat("events_completed");
+
+                    var achievementManager = plugin.getAchievementManager();
+
+                    // Premier événement
+                    achievementManager.incrementProgress(player, "first_event", 1);
+
+                    // Vétéran/Champion/Légende des événements
+                    achievementManager.checkAndUnlock(player, "event_veteran", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_champion", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_legend", eventsCompleted);
+
+                    // Tracking spécifique selon le type d'événement
+                    if (type == DynamicEventType.HORDE_INVASION) {
+                        playerData.incrementStat("hordes_completed");
+                        int hordesCompleted = (int) playerData.getStat("hordes_completed");
+                        achievementManager.checkAndUnlock(player, "horde_breaker_1", hordesCompleted);
+                        achievementManager.checkAndUnlock(player, "horde_breaker_2", hordesCompleted);
+                        achievementManager.checkAndUnlock(player, "horde_destroyer", hordesCompleted);
+                    }
                 }
 
                 // Message de récompense

@@ -261,6 +261,8 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Sauvegarde de toutes les données joueurs
         if (playerDataManager != null) {
+            log(Level.INFO, "§7Arrêt du tracker de playtime...");
+            playerDataManager.stopPlaytimeTracker();
             log(Level.INFO, "§7Sauvegarde des données joueurs...");
             playerDataManager.saveAllSync();
         }
@@ -383,6 +385,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Player Data Manager - Cache et persistance des données joueurs
         playerDataManager = new PlayerDataManager(this);
+        playerDataManager.startPlaytimeTracker();
 
         // Economy Manager - Gestion des monnaies
         economyManager = new EconomyManager(this);

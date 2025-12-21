@@ -109,6 +109,10 @@ public class ZoneChangeListener implements Listener {
         // Statistique
         data.incrementStat("zones_discovered");
 
+        // ============ MISSIONS D'EXPLORATION ============
+        plugin.getMissionManager().updateProgress(player,
+            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ZONES_VISITED, 1);
+
         // ============ ACHIEVEMENTS D'EXPLORATION ============
         var achievementManager = plugin.getAchievementManager();
         int zonesDiscovered = (int) data.getStat("zones_discovered");

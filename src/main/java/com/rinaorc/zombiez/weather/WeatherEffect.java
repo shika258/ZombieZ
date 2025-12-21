@@ -227,8 +227,45 @@ public class WeatherEffect {
         completed = true;
         active = false;
 
+        // ============ TRACKING BLOOD MOON SURVIVORS ============
+        if (type == WeatherType.BLOOD_MOON) {
+            trackBloodMoonSurvivors();
+        }
+
         announceEnd();
         cleanup();
+    }
+
+    /**
+     * Track les joueurs qui ont survécu à la Blood Moon
+     */
+    private void trackBloodMoonSurvivors() {
+        var achievementManager = plugin.getAchievementManager();
+        var missionManager = plugin.getMissionManager();
+
+        for (Player player : getAffectedPlayers()) {
+            var playerData = plugin.getPlayerDataManager().getPlayer(player);
+            if (playerData == null) continue;
+
+            // Incrémenter le compteur de Blood Moons survivées
+            playerData.incrementStat("blood_moons_survived");
+            int bloodMoonsSurvived = (int) playerData.getStat("blood_moons_survived");
+
+            // Achievements Blood Moon
+            achievementManager.checkAndUnlock(player, "blood_moon_survivor_1", bloodMoonsSurvived);
+            achievementManager.checkAndUnlock(player, "blood_moon_survivor_2", bloodMoonsSurvived);
+            achievementManager.checkAndUnlock(player, "blood_moon_master", bloodMoonsSurvived);
+
+            // Mission Blood Moon
+            missionManager.updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.BLOOD_MOONS_SURVIVED, 1);
+
+            // Message de félicitations
+            player.sendMessage("");
+            player.sendMessage("§c§l★ §4BLOOD MOON SURVÉCUE! §c§l★");
+            player.sendMessage("§7Vous avez survécu à la lune de sang!");
+            player.sendMessage("");
+        }
     }
 
     /**
