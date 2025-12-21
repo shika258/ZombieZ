@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - T4: DEATH_MARK (Crits marquent la cible)
  * - T5: EXECUTION (5 Points = dégâts massifs sur marqué)
  * - T6: DANSE_MACABRE (Kill marqué = invis + reset + speed)
- * - T7: SHADOW_CLONE (5 Points = clone invoqué)
+ * - T7: SHADOW_CLONE (5 Points = Lames Spectrales orbitales)
  * - T8: SHADOW_STORM (Exécution kill = AoE + marque tous)
  * - T9: SHADOW_AVATAR (Ultime transformation)
  */
@@ -167,8 +167,8 @@ public class ShadowListener implements Listener {
             }
         }
 
-        // === T7: SHADOW_CLONE - Les clones attaquent automatiquement via leur IA ===
-        // (Pas besoin d'appeler manuellement, updateClones() gère l'IA)
+        // === T7: LAMES SPECTRALES - Les lames frappent automatiquement ===
+        // (Pas besoin d'appeler manuellement, updateSpectralBlades() gère la rotation et les hits)
 
         // === Bonus dégâts Avatar actif (+40% équilibré) ===
         // Note: Ce bonus ne s'applique pas aux Exécutions (event annulé plus haut)
@@ -397,11 +397,14 @@ public class ShadowListener implements Listener {
         // Nettoyer la marque
         shadowManager.removeMark(victimUuid);
 
-        // === T7: SHADOW_CLONE - Invoquer clone à 5 Points ===
-        Talent shadowClone = getActiveTalent(killer, Talent.TalentEffectType.SHADOW_CLONE);
-        if (shadowClone != null && shadowManager.getShadowPoints(killerUuid) >= 5) {
-            shadowManager.summonShadowClone(killer);
-            // Note: les points ne sont pas consommés, le clone apparaît comme bonus
+        // === T7: LAMES SPECTRALES - Invoquer les lames à 5 Points ===
+        Talent spectralBlades = getActiveTalent(killer, Talent.TalentEffectType.SHADOW_CLONE);
+        if (spectralBlades != null && shadowManager.getShadowPoints(killerUuid) >= 5) {
+            // Ne pas réinvoquer si déjà actives
+            if (!shadowManager.hasActiveBlades(killerUuid)) {
+                shadowManager.summonSpectralBlades(killer, spectralBlades);
+            }
+            // Note: les points ne sont pas consommés, les lames apparaissent comme bonus
         }
     }
 
