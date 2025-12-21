@@ -397,13 +397,13 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_shadow_step")
             .name("Pas de l'Ombre")
-            .description("Shift+Attaque = téléport derrière (20 blocs)")
+            .description("Shift+Attaque = téléport derrière (16 blocs)")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
                 "§6► PAS DE L'OMBRE",
                 "§7§eShift + Attaque§7 = téléport derrière",
-                "§7la cible (portée §e20 blocs§7)",
+                "§7la cible (portée §e16 blocs§7)",
                 "",
                 "§6FRAPPE D'OMBRE:",
                 "§8► Inflige §c125%§8 dégâts à l'arrivée",
@@ -420,7 +420,7 @@ public final class ChasseurTalents {
             .icon(Material.ENDER_EYE)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_STEP)
-            .values(new double[]{5000, 2, 20, 60, 1.25}) // cooldown_ms, points_gained, range, speed_buff_ticks, damage_mult
+            .values(new double[]{5000, 2, 16, 60, 1.25}) // cooldown_ms, points_gained, range (16 blocs), speed_buff_ticks, damage_mult
             .build());
 
         // 3.4 - TOXINES MORTELLES (Voie du Poison)
@@ -1040,15 +1040,15 @@ public final class ChasseurTalents {
             .build());
 
         // 7.3 - LAMES SPECTRALES (Branche Ombre)
-        // Lames d'ombre orbitales style Vampire Survivors - 5% chance sur kill
+        // Lames d'ombre orbitales style Vampire Survivors - 10% chance sur kill
         TALENTS.add(Talent.builder()
             .id("chasseur_spectral_blades")
             .name("Lames Spectrales")
-            .description("5% chance sur kill = lames orbitales!")
+            .description("10% chance sur kill = lames orbitales!")
             .loreLines(new String[]{
                 "§5§lBRANCHE OMBRE",
                 "",
-                "§7Chaque §ckill§7 a §e5%§7 de chance",
+                "§7Chaque §ckill§7 a §e10%§7 de chance",
                 "§7d'invoquer des §5§lLAMES SPECTRALES§7!",
                 "",
                 "§6LAMES D'OMBRE:",
@@ -1077,7 +1077,7 @@ public final class ChasseurTalents {
             .icon(Material.AMETHYST_SHARD)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_CLONE)
-            .values(new double[]{0.05, 8000, 5, 3.0, 0.35, 2000}) // proc_chance, duration_ms, blade_count, orbit_radius, damage_percent, rotation_period_ms
+            .values(new double[]{0.10, 8000, 5, 3.0, 0.35, 2000}) // proc_chance (10%), duration_ms, blade_count, orbit_radius, damage_percent, rotation_period_ms
             .build());
 
         // 7.4 - PESTE NOIRE (Voie du Poison)
