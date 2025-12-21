@@ -684,6 +684,7 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new InteractListener(this), this);
         pm.registerEvents(new ZoneChangeListener(this), this);
         pm.registerEvents(new BlockProtectionListener(this), this);
+        pm.registerEvents(new DamageListener(this), this); // Réduit invincibilité mobs (2 ticks)
 
         // Listeners système d'items
         itemListener = new ItemListener(this);
