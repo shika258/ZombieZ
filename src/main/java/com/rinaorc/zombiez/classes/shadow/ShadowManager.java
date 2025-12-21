@@ -720,11 +720,11 @@ public class ShadowManager {
 
         double finalDamage = baseDamage * multiplier;
 
-        // Effets visuels (plus intenses si marqué)
+        // Effets visuels (réduits pour perf)
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
-        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
-        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 2, 0.5, 0.5, 0.5, 0);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 20 : 12, 0.5, 0.5, 0.5, 0.3);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 12 : 6, 0.3, 0.3, 0.3, 0.1);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
@@ -793,11 +793,11 @@ public class ShadowManager {
 
         double finalDamage = baseDamage * multiplier;
 
-        // Effets visuels (plus intenses si marqué)
+        // Effets visuels (réduits pour perf)
         Location loc = target.getLocation().add(0, 1, 0);
-        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 5, 0.5, 0.5, 0.5, 0);
-        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 50 : 30, 0.5, 0.5, 0.5, 0.3);
-        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 35 : 20, 0.3, 0.3, 0.3, 0.1);
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 2, 0.5, 0.5, 0.5, 0);
+        target.getWorld().spawnParticle(Particle.CRIT, loc, isMarked ? 20 : 12, 0.5, 0.5, 0.5, 0.3);
+        target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 12 : 6, 0.3, 0.3, 0.3, 0.1);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
@@ -915,19 +915,19 @@ public class ShadowManager {
         // === POINTS D'OMBRE ===
         addShadowPoints(uuid, pointsGained);
 
-        // === EFFETS VISUELS ÉPIQUES ===
+        // === EFFETS VISUELS (réduits pour perf) ===
         Location loc = player.getLocation();
 
         // Explosion de particules d'ombre au centre
-        killLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, killLocation.add(0, 1, 0), 60, 1.5, 0.5, 1.5, 0.1);
-        killLocation.getWorld().spawnParticle(Particle.WITCH, killLocation, 40, cascadeRadius / 2, 0.5, cascadeRadius / 2, 0);
+        killLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, killLocation.add(0, 1, 0), 25, 1.5, 0.5, 1.5, 0.1);
+        killLocation.getWorld().spawnParticle(Particle.WITCH, killLocation, 15, cascadeRadius / 2, 0.5, cascadeRadius / 2, 0);
 
-        // Cercle de particules montrant la zone de cascade
-        for (double angle = 0; angle < 360; angle += 15) {
+        // Cercle de particules montrant la zone de cascade (réduit)
+        for (double angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
             double x = Math.cos(rad) * cascadeRadius;
             double z = Math.sin(rad) * cascadeRadius;
-            killLocation.getWorld().spawnParticle(Particle.DUST, killLocation.clone().add(x, 0.5, z), 2, 0, 0, 0, 0,
+            killLocation.getWorld().spawnParticle(Particle.DUST, killLocation.clone().add(x, 0.5, z), 1, 0, 0, 0, 0,
                 new Particle.DustOptions(Color.fromRGB(128, 0, 180), 1.2f));
         }
 
@@ -1383,19 +1383,19 @@ public class ShadowManager {
      * @param damageMult Le multiplicateur de dégâts (valeur du talent, ex: 1.50 = 150%)
      */
     public void triggerShadowStorm(Player owner, Location center, double baseDamage, double radius, double damageMult) {
-        // Explosion visuelle (proportionnelle au rayon)
+        // Explosion visuelle (réduit pour perf)
         center.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, (int)(50 * radius / 5), radius, 1, radius, 0.1);
-        center.getWorld().spawnParticle(Particle.WITCH, center, (int)(40 * radius / 5), radius, 1, radius, 0.05);
+        center.getWorld().spawnParticle(Particle.LARGE_SMOKE, center, (int)(20 * radius / 5), radius, 1, radius, 0.1);
+        center.getWorld().spawnParticle(Particle.WITCH, center, (int)(15 * radius / 5), radius, 1, radius, 0.05);
         center.getWorld().playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.5f, 1.0f);
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
 
-        // Cercle de particules montrant la zone
-        for (double angle = 0; angle < 360; angle += 20) {
+        // Cercle de particules montrant la zone (réduit)
+        for (double angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
             double x = Math.cos(rad) * radius;
             double z = Math.sin(rad) * radius;
-            center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 2, 0, 0, 0, 0,
+            center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.5, z), 1, 0, 0, 0, 0,
                 new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.2f));
         }
 
@@ -1475,7 +1475,7 @@ public class ShadowManager {
         int baseBlades = 5;
         int avatarBlades = baseBlades * bladeMultiplier; // 10 lames avec Avatar
         activeBlades.put(uuid, new SpectralBladesData(
-            uuid, durationMs, avatarBlades, 3.5, 0.45, 1500 // Plus de dégâts, rotation plus rapide
+            uuid, durationMs, avatarBlades, 3.5, 0.45, 750 // Plus de dégâts, rotation 2x plus rapide
         ));
         bladeHitCooldowns.put(uuid, new ConcurrentHashMap<>());
 
