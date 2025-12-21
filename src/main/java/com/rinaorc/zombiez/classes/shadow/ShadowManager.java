@@ -22,6 +22,9 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -96,6 +99,7 @@ public class ShadowManager {
 
     /**
      * Données des Lames Spectrales d'un joueur
+     * Utilise des ArmorStands invisibles avec des épées au lieu de particules
      */
     private static class SpectralBladesData {
         final UUID ownerUuid;
@@ -106,6 +110,9 @@ public class ShadowManager {
         final double damagePercent;
         final long rotationPeriod;
         double currentAngle = 0;
+
+        // Liste des ArmorStands représentant les lames
+        final List<UUID> bladeArmorStands = new ArrayList<>();
 
         SpectralBladesData(UUID owner, long duration, int bladeCount, double orbitRadius,
                           double damagePercent, long rotationPeriod) {
@@ -1068,13 +1075,12 @@ public class ShadowManager {
     /**
      * Invoque les Lames Spectrales autour du joueur
      * Style Vampire Survivors: lames orbitales qui frappent automatiquement
+     * Utilise des ArmorStands invisibles avec des épées
      *
      * @param owner Le joueur
      * @param talent Le talent pour récupérer les valeurs
      */
     public void summonSpectralBlades(Player owner, Talent talent) {
-        UUID ownerUuid = owner.getUniqueId();
-
         // Récupérer les valeurs du talent
         double[] values = talent != null ? talent.getValues() : new double[]{5, 8000, 5, 3.0, 0.35, 2000};
         long duration = (long) values[1];           // 8000ms
@@ -1083,24 +1089,12 @@ public class ShadowManager {
         double damagePercent = values[4];           // 0.35 (35%)
         long rotationPeriod = (long) values[5];     // 2000ms pour un tour complet
 
-        // Si déjà des lames actives, les refresh
-        if (activeBlades.containsKey(ownerUuid)) {
-            removeSpectralBlades(ownerUuid);
-        }
-
-        // Créer les nouvelles lames
-        SpectralBladesData bladesData = new SpectralBladesData(
-            ownerUuid, duration, bladeCount, orbitRadius, damagePercent, rotationPeriod
-        );
-        activeBlades.put(ownerUuid, bladesData);
-
-        // Initialiser les cooldowns de frappe
-        bladeHitCooldowns.put(ownerUuid, new ConcurrentHashMap<>());
+        // Utiliser la méthode interne
+        summonSpectralBladesInternal(owner, duration, bladeCount, orbitRadius, damagePercent, rotationPeriod);
 
         // Effets d'invocation
         Location loc = owner.getLocation();
-        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 50, 1.5, 0.5, 1.5, 0.1);
-        loc.getWorld().spawnParticle(Particle.WITCH, loc, 30, 1.0, 0.5, 1.0, 0.05);
+        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 30, 1.5, 0.5, 1.5, 0.1);
         loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.2f, 1.5f);
         loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
 
@@ -1116,88 +1110,146 @@ public class ShadowManager {
     }
 
     /**
+     * Méthode interne pour créer les lames avec paramètres personnalisés
+     * Utilisée par summonSpectralBlades et activateAvatar
+     */
+    private void summonSpectralBladesInternal(Player owner, long duration, int bladeCount,
+                                               double orbitRadius, double damagePercent, long rotationPeriod) {
+        UUID ownerUuid = owner.getUniqueId();
+
+        // Si déjà des lames actives, les supprimer
+        if (activeBlades.containsKey(ownerUuid)) {
+            removeSpectralBlades(ownerUuid);
+        }
+
+        // Créer les données des lames
+        SpectralBladesData bladesData = new SpectralBladesData(
+            ownerUuid, duration, bladeCount, orbitRadius, damagePercent, rotationPeriod
+        );
+        activeBlades.put(ownerUuid, bladesData);
+
+        // Initialiser les cooldowns de frappe
+        bladeHitCooldowns.put(ownerUuid, new ConcurrentHashMap<>());
+
+        // Créer les ArmorStands pour chaque lame
+        Location ownerLoc = owner.getLocation();
+        double angleStep = 360.0 / bladeCount;
+
+        for (int i = 0; i < bladeCount; i++) {
+            double angle = i * angleStep;
+            double rad = Math.toRadians(angle);
+
+            // Position initiale de la lame
+            double x = Math.cos(rad) * orbitRadius;
+            double z = Math.sin(rad) * orbitRadius;
+            Location bladeLoc = ownerLoc.clone().add(x, 0.8, z);
+
+            // Spawn l'ArmorStand invisible avec une épée
+            ArmorStand blade = owner.getWorld().spawn(bladeLoc, ArmorStand.class, armorStand -> {
+                // Invisible, pas de gravité, invulnérable
+                armorStand.setVisible(false);
+                armorStand.setGravity(false);
+                armorStand.setInvulnerable(true);
+                armorStand.setMarker(true); // Pas de hitbox
+                armorStand.setSmall(false);
+
+                // Pas de plaque de base
+                armorStand.setBasePlate(false);
+
+                // Bras visible pour l'épée
+                armorStand.setArms(true);
+
+                // Épée dans la main droite
+                ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
+                armorStand.setItem(EquipmentSlot.HAND, sword);
+
+                // Rotation initiale de l'ArmorStand (face vers le joueur)
+                float yaw = (float) Math.toDegrees(Math.atan2(-x, z));
+                bladeLoc.setYaw(yaw);
+                armorStand.setRotation(yaw, 0);
+
+                // Position du bras pour pointer l'épée horizontalement
+                armorStand.setRightArmPose(new org.bukkit.util.EulerAngle(
+                    Math.toRadians(-90), 0, 0)); // Bras horizontal
+
+                // Metadata pour identifier les lames
+                armorStand.setMetadata("spectral_blade", new FixedMetadataValue(plugin, ownerUuid.toString()));
+
+                // Désactiver le ticking pour perf
+                armorStand.setPersistent(false);
+            });
+
+            // Stocker l'UUID
+            bladesData.bladeArmorStands.add(blade.getUniqueId());
+        }
+    }
+
+    /**
      * Met à jour toutes les Lames Spectrales actives
-     * - Fait tourner les lames autour des joueurs
+     * - Fait tourner les ArmorStands autour des joueurs
      * - Vérifie les collisions avec les ennemis
-     * - Affiche les particules
      */
     private void updateSpectralBlades() {
-        long now = System.currentTimeMillis();
+        // Copier les entrées pour éviter ConcurrentModificationException
+        List<Map.Entry<UUID, SpectralBladesData>> entries = new ArrayList<>(activeBlades.entrySet());
 
-        // Nettoyer les lames expirées
-        activeBlades.entrySet().removeIf(entry -> {
-            if (entry.getValue().isExpired()) {
-                removeSpectralBlades(entry.getKey());
-                Player player = Bukkit.getPlayer(entry.getKey());
+        for (Map.Entry<UUID, SpectralBladesData> entry : entries) {
+            UUID ownerUuid = entry.getKey();
+            SpectralBladesData data = entry.getValue();
+
+            // Vérifier expiration
+            if (data.isExpired()) {
+                removeSpectralBlades(ownerUuid);
+                activeBlades.remove(ownerUuid);
+                Player player = Bukkit.getPlayer(ownerUuid);
                 if (player != null) {
                     player.sendMessage("§5§l[OMBRE] §7Lames Spectrales §cdissipées§7.");
                     player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 1.2f);
                 }
-                return true;
+                continue;
             }
-            return false;
-        });
 
-        // Mettre à jour chaque joueur avec des lames actives
-        for (Map.Entry<UUID, SpectralBladesData> entry : activeBlades.entrySet()) {
-            UUID ownerUuid = entry.getKey();
-            SpectralBladesData data = entry.getValue();
             Player owner = Bukkit.getPlayer(ownerUuid);
-
             if (owner == null || !owner.isOnline()) {
                 continue;
             }
 
-            Location ownerLoc = owner.getLocation().add(0, 1.0, 0); // Hauteur des lames
+            Location ownerLoc = owner.getLocation().add(0, 0.8, 0); // Hauteur des lames
 
             // Calculer l'angle de rotation (360° en rotationPeriod ms)
             double rotationSpeed = 360.0 / data.rotationPeriod * 100; // degrés par 100ms (tick rate)
             data.currentAngle = (data.currentAngle + rotationSpeed) % 360;
 
-            // Pour chaque lame
+            // Mettre à jour chaque ArmorStand
             double angleStep = 360.0 / data.bladeCount;
-            for (int i = 0; i < data.bladeCount; i++) {
+            for (int i = 0; i < data.bladeArmorStands.size() && i < data.bladeCount; i++) {
+                UUID bladeUuid = data.bladeArmorStands.get(i);
+                Entity bladeEntity = Bukkit.getEntity(bladeUuid);
+
+                if (!(bladeEntity instanceof ArmorStand blade) || !blade.isValid()) {
+                    continue;
+                }
+
                 double bladeAngle = data.currentAngle + (i * angleStep);
                 double rad = Math.toRadians(bladeAngle);
 
-                // Position de la lame
+                // Nouvelle position de la lame
                 double x = Math.cos(rad) * data.orbitRadius;
                 double z = Math.sin(rad) * data.orbitRadius;
                 Location bladeLoc = ownerLoc.clone().add(x, 0, z);
 
-                // Particules de la lame (forme allongée comme une épée)
-                spawnBladeParticles(bladeLoc, bladeAngle, owner.getWorld());
+                // Rotation de l'ArmorStand (l'épée pointe vers l'extérieur/tangent)
+                float yaw = (float) (bladeAngle + 90); // Tangent au cercle
+                bladeLoc.setYaw(yaw);
+                bladeLoc.setPitch(0);
+
+                // Téléporter l'ArmorStand
+                blade.teleport(bladeLoc);
 
                 // Vérifier les collisions avec les ennemis
                 checkBladeCollisions(owner, bladeLoc, data);
             }
         }
-    }
-
-    /**
-     * Affiche les particules d'une lame spectrale
-     */
-    private void spawnBladeParticles(Location center, double angle, org.bukkit.World world) {
-        // Direction de la lame (perpendiculaire au mouvement)
-        double rad = Math.toRadians(angle + 90); // Perpendiculaire
-        Vector bladeDir = new Vector(Math.cos(rad), 0, Math.sin(rad)).normalize();
-
-        // Dessiner la lame (3 points formant une ligne)
-        for (double offset = -0.5; offset <= 0.5; offset += 0.25) {
-            Location point = center.clone().add(bladeDir.clone().multiply(offset));
-
-            // Particule principale (violet brillant)
-            world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
-                new Particle.DustOptions(Color.fromRGB(148, 0, 211), 1.2f));
-
-            // Trainée de la lame
-            world.spawnParticle(Particle.DUST, point.clone().add(0, -0.1, 0), 1, 0.05, 0.05, 0.05, 0,
-                new Particle.DustOptions(Color.fromRGB(75, 0, 130), 0.8f));
-        }
-
-        // Pointe de la lame (plus brillante)
-        Location tip = center.clone().add(bladeDir.clone().multiply(0.6));
-        world.spawnParticle(Particle.END_ROD, tip, 1, 0, 0, 0, 0);
     }
 
     /**
@@ -1350,8 +1402,23 @@ public class ShadowManager {
 
     /**
      * Supprime les lames spectrales d'un joueur
+     * Retire tous les ArmorStands associés
      */
     private void removeSpectralBlades(UUID ownerUuid) {
+        SpectralBladesData data = activeBlades.get(ownerUuid);
+        if (data != null) {
+            // Supprimer tous les ArmorStands
+            for (UUID bladeUuid : data.bladeArmorStands) {
+                Entity entity = Bukkit.getEntity(bladeUuid);
+                if (entity != null && entity.isValid()) {
+                    // Effet de disparition
+                    entity.getWorld().spawnParticle(Particle.WITCH,
+                        entity.getLocation().add(0, 0.5, 0), 5, 0.2, 0.2, 0.2, 0);
+                    entity.remove();
+                }
+            }
+            data.bladeArmorStands.clear();
+        }
         activeBlades.remove(ownerUuid);
         bladeHitCooldowns.remove(ownerUuid);
     }
@@ -1470,14 +1537,11 @@ public class ShadowManager {
         avatarActive.put(uuid, System.currentTimeMillis() + durationMs);
         avatarCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
-        // Invoquer les Lames Spectrales améliorées (plus de lames, plus longues)
-        // Avatar double le nombre de lames et leur durée
+        // Invoquer les Lames Spectrales améliorées via méthode dédiée
+        // Avatar double le nombre de lames avec rotation plus rapide
         int baseBlades = 5;
         int avatarBlades = baseBlades * bladeMultiplier; // 10 lames avec Avatar
-        activeBlades.put(uuid, new SpectralBladesData(
-            uuid, durationMs, avatarBlades, 3.5, 0.45, 750 // Plus de dégâts, rotation 2x plus rapide
-        ));
-        bladeHitCooldowns.put(uuid, new ConcurrentHashMap<>());
+        summonSpectralBladesInternal(player, durationMs, avatarBlades, 3.5, 0.45, 750);
 
         // Remplir les Points d'Ombre
         shadowPoints.put(uuid, MAX_SHADOW_POINTS);
