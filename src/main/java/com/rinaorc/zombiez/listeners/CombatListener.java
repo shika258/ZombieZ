@@ -24,6 +24,9 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -43,8 +46,67 @@ public class CombatListener implements Listener {
     // Si un joueur est dans ce set, il n'a pas pris de dégâts depuis son dernier kill
     private final Set<UUID> playersWithoutDamage = ConcurrentHashMap.newKeySet();
 
+    // Tracking du temps de la dernière attaque pour chaque joueur (en millisecondes)
+    // Utilisé pour calculer le cooldown manuellement car player.getAttackCooldown()
+    // renvoie 1.0 après le reset effectué par Minecraft avant l'événement
+    private final Map<UUID, Long> lastAttackTime = new ConcurrentHashMap<>();
+
+    // Mode debug pour afficher les valeurs de cooldown dans la console
+    private static final boolean DEBUG_COOLDOWN = true;
+
     public CombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Calcule le cooldown d'attaque d'un joueur manuellement.
+     * Cette méthode contourne le bug où player.getAttackCooldown() renvoie toujours 1.0
+     * car Minecraft reset le cooldown AVANT de déclencher l'événement de dégâts.
+     *
+     * La formule Minecraft est:
+     * - Temps de recharge complet = 1 / attackSpeed (en secondes)
+     * - Cooldown ratio = min(1.0, tempsÉcoulé * attackSpeed)
+     *
+     * @param player Le joueur dont on calcule le cooldown
+     * @return Une valeur entre 0.0 (spam instantané) et 1.0 (pleinement rechargé)
+     */
+    private float calculateAttackCooldown(Player player) {
+        UUID playerId = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+
+        // Récupérer le temps de la dernière attaque
+        Long lastTime = lastAttackTime.get(playerId);
+
+        // Mettre à jour le temps de la dernière attaque pour la prochaine fois
+        lastAttackTime.put(playerId, currentTime);
+
+        // Si c'est la première attaque, considérer comme pleinement rechargé
+        if (lastTime == null) {
+            return 1.0f;
+        }
+
+        // Calculer le temps écoulé en secondes
+        double elapsedSeconds = (currentTime - lastTime) / 1000.0;
+
+        // Récupérer la vitesse d'attaque effective du joueur
+        // La valeur de base est 4.0 pour une main vide, les armes peuvent la modifier
+        AttributeInstance attackSpeedAttr = player.getAttribute(Attribute.ATTACK_SPEED);
+        double attackSpeed = attackSpeedAttr != null ? attackSpeedAttr.getValue() : 4.0;
+
+        // Calculer le ratio de cooldown
+        // À attackSpeed = 4.0, le temps de recharge complet = 0.25s (5 ticks / 20)
+        // Minecraft utilise: cooldown = min(1.0, (ticks * 20 * attackSpeed + 0.5) / 20)
+        // Simplifié en secondes: cooldown = min(1.0, elapsedSeconds * attackSpeed)
+        double cooldownRatio = Math.min(1.0, elapsedSeconds * attackSpeed);
+
+        if (DEBUG_COOLDOWN) {
+            plugin.getLogger().info(String.format(
+                "[COOLDOWN DEBUG] %s: elapsed=%.3fs, attackSpeed=%.2f, cooldown=%.2f (%.0f%%)",
+                player.getName(), elapsedSeconds, attackSpeed, cooldownRatio, cooldownRatio * 100
+            ));
+        }
+
+        return (float) cooldownRatio;
     }
 
     /**
@@ -138,8 +200,9 @@ public class CombatListener implements Listener {
 
     /**
      * Gère les dégâts entre entités
+     * Priorité HIGHEST pour que nos multiplicateurs (cooldown, stats) soient appliqués après d'autres plugins
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
         Entity victim = event.getEntity();
@@ -247,12 +310,18 @@ public class CombatListener implements Listener {
         boolean isCritical = false;
 
         // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        // Les dégâts sont proportionnels au remplissage de la barre de cooldown
-        // getAttackCooldown() retourne une valeur entre 0.0 (spam) et 1.0 (pleinement rechargé)
-        float attackCooldown = player.getAttackCooldown();
-        // Appliquer un multiplicateur minimum de 20% pour ne pas annuler complètement les dégâts
-        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
-        finalDamage *= cooldownMultiplier;
+        // Les dégâts sont strictement proportionnels au remplissage de la barre de cooldown
+        // Utilise notre tracking manuel car player.getAttackCooldown() renvoie 1.0 après le reset
+        float attackCooldown = calculateAttackCooldown(player);
+        // Formule linéaire stricte: 50% de charge = 50% de dégâts
+        finalDamage *= attackCooldown;
+
+        if (DEBUG_COOLDOWN) {
+            plugin.getLogger().info(String.format(
+                "[DAMAGE DEBUG] %s -> ZombieZ: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
+                player.getName(), baseDamage, attackCooldown * 100, finalDamage
+            ));
+        }
 
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -398,9 +467,16 @@ public class CombatListener implements Listener {
         boolean isCritical = false;
 
         // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        float attackCooldown = player.getAttackCooldown();
-        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
-        finalDamage *= cooldownMultiplier;
+        // Formule linéaire stricte: 50% de charge = 50% de dégâts
+        float attackCooldown = calculateAttackCooldown(player);
+        finalDamage *= attackCooldown;
+
+        if (DEBUG_COOLDOWN) {
+            plugin.getLogger().info(String.format(
+                "[DAMAGE DEBUG] %s -> PassiveMob: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
+                player.getName(), baseDamage, attackCooldown * 100, finalDamage
+            ));
+        }
 
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -470,13 +546,21 @@ public class CombatListener implements Listener {
      * Affiche simplement l'indicateur de dégâts sans appliquer de bonus spéciaux
      */
     private void handlePlayerAttackGenericMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
-        double finalDamage = event.getDamage();
+        double baseDamage = event.getDamage();
+        double finalDamage = baseDamage;
         boolean isCritical = false;
 
         // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        float attackCooldown = player.getAttackCooldown();
-        double cooldownMultiplier = 0.2 + (attackCooldown * 0.8);
-        finalDamage *= cooldownMultiplier;
+        // Formule linéaire stricte: 50% de charge = 50% de dégâts
+        float attackCooldown = calculateAttackCooldown(player);
+        finalDamage *= attackCooldown;
+
+        if (DEBUG_COOLDOWN) {
+            plugin.getLogger().info(String.format(
+                "[DAMAGE DEBUG] %s -> GenericMob: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
+                player.getName(), baseDamage, attackCooldown * 100, finalDamage
+            ));
+        }
 
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -766,8 +850,9 @@ public class CombatListener implements Listener {
     /**
      * Applique le bonus de dégâts pour les headshots et affiche les indicateurs de dégâts pour tous les projectiles
      * Applique aussi les stats d'équipement, skills, et autres bonus (comme pour les attaques de mêlée)
+     * Priorité HIGHEST pour cohérence avec onEntityDamage
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onProjectileDamage(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
 
