@@ -1040,15 +1040,15 @@ public final class ChasseurTalents {
             .build());
 
         // 7.3 - LAMES SPECTRALES (Branche Ombre)
-        // Lames d'ombre orbitales style Vampire Survivors - 5% chance sur kill
+        // Lames d'ombre orbitales style Vampire Survivors - 10% chance sur kill
         TALENTS.add(Talent.builder()
             .id("chasseur_spectral_blades")
             .name("Lames Spectrales")
-            .description("5% chance sur kill = lames orbitales!")
+            .description("10% chance sur kill = lames orbitales!")
             .loreLines(new String[]{
                 "§5§lBRANCHE OMBRE",
                 "",
-                "§7Chaque §ckill§7 a §e5%§7 de chance",
+                "§7Chaque §ckill§7 a §e10%§7 de chance",
                 "§7d'invoquer des §5§lLAMES SPECTRALES§7!",
                 "",
                 "§6LAMES D'OMBRE:",
@@ -1077,7 +1077,7 @@ public final class ChasseurTalents {
             .icon(Material.AMETHYST_SHARD)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_CLONE)
-            .values(new double[]{0.05, 8000, 5, 3.0, 0.35, 2000}) // proc_chance, duration_ms, blade_count, orbit_radius, damage_percent, rotation_period_ms
+            .values(new double[]{0.10, 8000, 5, 3.0, 0.35, 2000}) // proc_chance (10%), duration_ms, blade_count, orbit_radius, damage_percent, rotation_period_ms
             .build());
 
         // 7.4 - PESTE NOIRE (Voie du Poison)

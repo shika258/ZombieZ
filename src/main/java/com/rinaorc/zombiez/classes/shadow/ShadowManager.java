@@ -1299,11 +1299,17 @@ public class ShadowManager {
                     checkBladeCollisions(owner, bladeLoc, data);
                 }
             }
+
+            // Vérifier également les ennemis à l'intérieur du cercle orbital (pas seulement sur les lames)
+            if (System.currentTimeMillis() % 4 == 0) {
+                checkAreaCollisions(owner, data);
+            }
         }
     }
 
     /**
      * Vérifie les collisions de la lame avec les ennemis
+     * Vérifie également les ennemis à l'intérieur du rayon orbital (pas seulement sur la ligne des lames)
      */
     private void checkBladeCollisions(Player owner, Location bladeLoc, SpectralBladesData data) {
         UUID ownerUuid = owner.getUniqueId();
@@ -1330,6 +1336,48 @@ public class ShadowManager {
 
             // Infliger les dégâts
             applyBladeDamage(owner, monster, data.damagePercent);
+        }
+    }
+
+    /**
+     * Vérifie les ennemis à l'intérieur du cercle orbital complet
+     * Appelé une fois par cycle de mise à jour (pas par lame)
+     */
+    private void checkAreaCollisions(Player owner, SpectralBladesData data) {
+        UUID ownerUuid = owner.getUniqueId();
+        Map<UUID, Long> hitCooldowns = bladeHitCooldowns.get(ownerUuid);
+        if (hitCooldowns == null) return;
+
+        long now = System.currentTimeMillis();
+        Location ownerLoc = owner.getLocation().add(0, 0.8, 0);
+        double orbitRadius = data.orbitRadius;
+
+        // Chercher tous les ennemis dans la zone orbitale (intérieur du cercle)
+        for (Entity entity : ownerLoc.getWorld().getNearbyEntities(ownerLoc, orbitRadius, orbitRadius, orbitRadius)) {
+            if (!(entity instanceof Monster monster)) continue;
+            if (!monster.isValid() || monster.isDead()) continue;
+
+            UUID targetUuid = monster.getUniqueId();
+
+            // Vérifier si l'ennemi est à l'intérieur du cercle orbital (distance <= rayon)
+            double distanceXZ = Math.sqrt(
+                Math.pow(monster.getLocation().getX() - ownerLoc.getX(), 2) +
+                Math.pow(monster.getLocation().getZ() - ownerLoc.getZ(), 2)
+            );
+
+            if (distanceXZ > orbitRadius) continue; // En dehors du cercle
+
+            // Vérifier le cooldown de frappe sur cette cible
+            Long lastHit = hitCooldowns.get(targetUuid);
+            if (lastHit != null && (now - lastHit) < BLADE_HIT_COOLDOWN_MS) {
+                continue; // En cooldown
+            }
+
+            // Marquer la frappe
+            hitCooldowns.put(targetUuid, now);
+
+            // Infliger les dégâts (légèrement réduits pour les ennemis à l'intérieur)
+            applyBladeDamage(owner, monster, data.damagePercent * 0.75);
         }
     }
 
@@ -1588,10 +1636,10 @@ public class ShadowManager {
         avatarCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
         // Invoquer les Lames Spectrales améliorées via méthode dédiée
-        // Avatar double le nombre de lames avec rotation plus rapide
+        // Avatar double le nombre de lames (rotation ralentie pour meilleure lisibilité)
         int baseBlades = 5;
         int avatarBlades = baseBlades * bladeMultiplier; // 10 lames avec Avatar
-        summonSpectralBladesInternal(player, durationMs, avatarBlades, 3.5, 0.45, 750);
+        summonSpectralBladesInternal(player, durationMs, avatarBlades, 3.5, 0.45, 1500);
 
         // Remplir les Points d'Ombre
         shadowPoints.put(uuid, MAX_SHADOW_POINTS);
