@@ -16,10 +16,14 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.util.Map;
@@ -435,6 +439,63 @@ public class ShadowListener implements Listener {
             } else {
                 lastAvatarSneakTime.put(uuid, now);
             }
+        }
+    }
+
+    // ==================== PAS DE L'OMBRE A DISTANCE ====================
+
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        // Uniquement clic gauche (attaque dans le vide)
+        if (event.getAction() != Action.LEFT_CLICK_AIR) return;
+
+        Player player = event.getPlayer();
+        if (!shadowManager.isShadowPlayer(player)) return;
+        if (!player.isSneaking()) return;
+
+        // Vérifier le talent Pas de l'Ombre
+        Talent shadowStep = getActiveTalent(player, Talent.TalentEffectType.SHADOW_STEP);
+        if (shadowStep == null) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si Execution peut être utilisée (priorité à Execution)
+        Talent executionCheck = getActiveTalent(player, Talent.TalentEffectType.EXECUTION);
+        if (executionCheck != null) {
+            int preparedCost = shadowManager.getPreparedExecutionCost(uuid);
+            int requiredPoints = preparedCost > 0 ? preparedCost : 5;
+            if (shadowManager.hasEnoughPoints(uuid, requiredPoints)) {
+                return; // Priorité à l'Execution
+            }
+        }
+
+        // Récupérer la portée depuis le talent
+        double[] values = shadowStep.getValues();
+        double range = values.length > 2 ? values[2] : 16.0;
+
+        // Raycast pour trouver une cible dans la direction du regard
+        RayTraceResult result = player.getWorld().rayTraceEntities(
+            player.getEyeLocation(),
+            player.getLocation().getDirection(),
+            range,
+            1.0, // Rayon de détection des entités
+            entity -> entity instanceof Monster && entity.isValid() && !entity.isDead()
+        );
+
+        if (result == null || result.getHitEntity() == null) {
+            // Pas de cible trouvée - feedback visuel
+            player.sendMessage("§c§l[OMBRE] §7Aucune cible dans la ligne de mire! (§e" + (int) range + "§7 blocs max)");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
+        }
+
+        LivingEntity target = (LivingEntity) result.getHitEntity();
+
+        // Exécuter le Pas de l'Ombre
+        double damage = shadowManager.executeShadowStep(player, target, shadowStep);
+        if (damage > 0) {
+            // Succès - feedback
+            player.sendMessage("§5§l[OMBRE] §dPas de l'Ombre! §7" + String.format("%.0f", damage) + " dégâts");
         }
     }
 
