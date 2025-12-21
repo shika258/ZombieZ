@@ -420,6 +420,10 @@ public class ShadowManager {
             return 0;
         }
 
+        // Mettre en cooldown IMMÉDIATEMENT pour éviter les appels récursifs
+        // (target.damage() déclenche un nouvel événement EntityDamageByEntityEvent)
+        shadowStepCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
+
         // Calculer position derrière la cible
         Location targetLoc = target.getLocation();
         Vector direction = targetLoc.getDirection().normalize().multiply(-1.5); // Derrière
@@ -469,9 +473,6 @@ public class ShadowManager {
 
         // Ajouter Points d'Ombre
         addShadowPoints(uuid, pointsGained);
-
-        // Mettre en cooldown
-        shadowStepCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
         return finalDamage;
     }
