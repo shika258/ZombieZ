@@ -100,6 +100,7 @@ public class ShadowManager {
     /**
      * Données des Lames Spectrales d'un joueur
      * Utilise des ArmorStands invisibles avec des épées au lieu de particules
+     * Animation optimisée avec calcul basé sur le temps réel
      */
     private static class SpectralBladesData {
         final UUID ownerUuid;
@@ -109,10 +110,13 @@ public class ShadowManager {
         final double orbitRadius;
         final double damagePercent;
         final long rotationPeriod;
-        double currentAngle = 0;
 
         // Liste des ArmorStands représentant les lames
         final List<UUID> bladeArmorStands = new ArrayList<>();
+
+        // Cache de la dernière position pour interpolation fluide
+        double lastOwnerX = 0, lastOwnerY = 0, lastOwnerZ = 0;
+        boolean hasLastPosition = false;
 
         SpectralBladesData(UUID owner, long duration, int bladeCount, double orbitRadius,
                           double damagePercent, long rotationPeriod) {
@@ -131,6 +135,16 @@ public class ShadowManager {
 
         long getRemainingTime() {
             return Math.max(0, (startTime + duration) - System.currentTimeMillis());
+        }
+
+        /**
+         * Calcule l'angle de rotation actuel basé sur le temps réel
+         * Beaucoup plus fluide que l'incrémentation discrète
+         */
+        double getCurrentAngle() {
+            long elapsed = System.currentTimeMillis() - startTime;
+            // 360° par rotationPeriod ms
+            return (elapsed * 360.0 / rotationPeriod) % 360.0;
         }
     }
 
@@ -260,13 +274,13 @@ public class ShadowManager {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche Lames Spectrales (toutes les 2 ticks = 100ms pour rotation fluide)
+        // Tâche Lames Spectrales (chaque tick = 50ms pour rotation ultra-fluide)
         new BukkitRunnable() {
             @Override
             public void run() {
                 updateSpectralBlades();
             }
-        }.runTaskTimer(plugin, 2L, 2L);
+        }.runTaskTimer(plugin, 1L, 1L);
     }
 
     // ==================== POINTS D'OMBRE ====================
@@ -1188,6 +1202,7 @@ public class ShadowManager {
      * Met à jour toutes les Lames Spectrales actives
      * - Fait tourner les ArmorStands autour des joueurs
      * - Vérifie les collisions avec les ennemis
+     * - Animation fluide basée sur le temps réel avec interpolation
      */
     private void updateSpectralBlades() {
         // Copier les entrées pour éviter ConcurrentModificationException
@@ -1214,11 +1229,35 @@ public class ShadowManager {
                 continue;
             }
 
-            Location ownerLoc = owner.getLocation().add(0, 0.8, 0); // Hauteur des lames
+            // Position du joueur avec hauteur des lames
+            Location ownerLoc = owner.getLocation();
+            double targetX = ownerLoc.getX();
+            double targetY = ownerLoc.getY() + 0.8;
+            double targetZ = ownerLoc.getZ();
 
-            // Calculer l'angle de rotation (360° en rotationPeriod ms)
-            double rotationSpeed = 360.0 / data.rotationPeriod * 100; // degrés par 100ms (tick rate)
-            data.currentAngle = (data.currentAngle + rotationSpeed) % 360;
+            // Interpolation fluide pour éviter les saccades quand le joueur bouge
+            double centerX, centerY, centerZ;
+            if (data.hasLastPosition) {
+                // Interpolation douce (lerp) pour un suivi fluide
+                double smoothing = 0.4; // Plus c'est haut, plus ça suit vite (0.3-0.5 optimal)
+                centerX = data.lastOwnerX + (targetX - data.lastOwnerX) * smoothing;
+                centerY = data.lastOwnerY + (targetY - data.lastOwnerY) * smoothing;
+                centerZ = data.lastOwnerZ + (targetZ - data.lastOwnerZ) * smoothing;
+            } else {
+                // Première frame - pas d'interpolation
+                centerX = targetX;
+                centerY = targetY;
+                centerZ = targetZ;
+                data.hasLastPosition = true;
+            }
+
+            // Sauvegarder la position interpolée
+            data.lastOwnerX = centerX;
+            data.lastOwnerY = centerY;
+            data.lastOwnerZ = centerZ;
+
+            // Calculer l'angle de rotation basé sur le temps réel (ultra fluide)
+            double currentAngle = data.getCurrentAngle();
 
             // Mettre à jour chaque ArmorStand
             double angleStep = 360.0 / data.bladeCount;
@@ -1230,24 +1269,35 @@ public class ShadowManager {
                     continue;
                 }
 
-                double bladeAngle = data.currentAngle + (i * angleStep);
+                double bladeAngle = currentAngle + (i * angleStep);
                 double rad = Math.toRadians(bladeAngle);
 
-                // Nouvelle position de la lame
+                // Position orbitale de la lame
                 double x = Math.cos(rad) * data.orbitRadius;
                 double z = Math.sin(rad) * data.orbitRadius;
-                Location bladeLoc = ownerLoc.clone().add(x, 0, z);
 
-                // Rotation de l'ArmorStand (l'épée pointe vers l'extérieur/tangent)
-                float yaw = (float) (bladeAngle + 90); // Tangent au cercle
+                // Créer la location avec le centre interpolé
+                Location bladeLoc = new Location(ownerLoc.getWorld(), centerX + x, centerY, centerZ + z);
+
+                // Rotation de l'ArmorStand (l'épée pointe tangentiellement)
+                float yaw = (float) (bladeAngle + 90);
                 bladeLoc.setYaw(yaw);
                 bladeLoc.setPitch(0);
 
                 // Téléporter l'ArmorStand
                 blade.teleport(bladeLoc);
 
-                // Vérifier les collisions avec les ennemis
-                checkBladeCollisions(owner, bladeLoc, data);
+                // Particules de traînée (1 sur 3 ticks pour perf)
+                if (System.currentTimeMillis() % 3 == 0) {
+                    blade.getWorld().spawnParticle(Particle.DUST, bladeLoc.clone().add(0, 0.5, 0),
+                        1, 0.05, 0.05, 0.05, 0,
+                        new Particle.DustOptions(Color.fromRGB(148, 0, 211), 0.6f));
+                }
+
+                // Vérifier les collisions avec les ennemis (toutes les 2 frames pour perf)
+                if (System.currentTimeMillis() % 2 == 0) {
+                    checkBladeCollisions(owner, bladeLoc, data);
+                }
             }
         }
     }
