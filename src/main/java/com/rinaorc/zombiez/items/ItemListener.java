@@ -59,7 +59,7 @@ public class ItemListener implements Listener {
         }
 
         ItemStack item = event.getItem().getItemStack();
-        
+
         if (!ZombieZItem.isZombieZItem(item)) {
             return;
         }
@@ -67,12 +67,57 @@ public class ItemListener implements Listener {
         // Obtenir les infos de l'item
         Rarity rarity = ZombieZItem.getItemRarity(item);
         int itemScore = ZombieZItem.getItemScore(item);
-        
+
         if (rarity == null) return;
+
+        // ============ MISSIONS DE COLLECTION ============
+        var missionManager = plugin.getMissionManager();
+
+        // Tracker tous les items ramassés
+        missionManager.updateProgress(player,
+            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ITEMS_LOOTED, 1);
+
+        // Tracker les items rares+ (Rare, Epic, Legendary, Mythic, Exalted)
+        if (rarity.isAtLeast(Rarity.RARE)) {
+            missionManager.updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.RARE_ITEMS_FOUND, 1);
+        }
+
+        // Tracker les items épiques+ (Epic, Legendary, Mythic, Exalted)
+        if (rarity.isAtLeast(Rarity.EPIC)) {
+            missionManager.updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EPIC_ITEMS_FOUND, 1);
+        }
+
+        // ============ ACHIEVEMENTS DE COLLECTION ============
+        var achievementManager = plugin.getAchievementManager();
+        var playerData = plugin.getPlayerDataManager().getPlayer(player);
+
+        if (playerData != null) {
+            // Incrémenter le compteur total d'items ramassés
+            playerData.incrementStat("items_looted");
+            int totalItemsLooted = (int) playerData.getStat("items_looted");
+
+            // Achievements de collection
+            achievementManager.checkAndUnlock(player, "loot_collector_1", totalItemsLooted);
+            achievementManager.checkAndUnlock(player, "loot_collector_2", totalItemsLooted);
+            achievementManager.checkAndUnlock(player, "hoarder", totalItemsLooted);
+
+            // Achievements de raretés
+            if (rarity.isAtLeast(Rarity.EPIC)) {
+                achievementManager.incrementProgress(player, "rare_finder", 1);
+            }
+            if (rarity.isAtLeast(Rarity.LEGENDARY)) {
+                achievementManager.incrementProgress(player, "legendary_luck", 1);
+            }
+            if (rarity == Rarity.MYTHIC || rarity == Rarity.EXALTED) {
+                achievementManager.incrementProgress(player, "mythic_finder", 1);
+            }
+        }
 
         // Message selon rareté
         if (rarity.isAtLeast(Rarity.RARE)) {
-            String message = rarity.getChatColor() + "✦ " + rarity.getDisplayName() + 
+            String message = rarity.getChatColor() + "✦ " + rarity.getDisplayName() +
                 " §7ramassé! §8[" + itemScore + " IS]";
             MessageUtils.sendActionBar(player, message);
         }

@@ -495,4 +495,69 @@ public class PlayerDataManager {
         playerCache.invalidateAll();
         recentCache.invalidateAll();
     }
+
+    // ==================== PLAYTIME TRACKER ====================
+
+    private org.bukkit.scheduler.BukkitTask playtimeTask;
+
+    /**
+     * Démarre le tracker de temps de jeu
+     * Met à jour le playtime toutes les secondes et les missions toutes les minutes
+     */
+    public void startPlaytimeTracker() {
+        if (playtimeTask != null) {
+            playtimeTask.cancel();
+        }
+
+        // Compteur pour tracker les minutes (60 ticks = 60 secondes entre updates missions)
+        final int[] secondsCounter = {0};
+
+        playtimeTask = new org.bukkit.scheduler.BukkitRunnable() {
+            @Override
+            public void run() {
+                secondsCounter[0]++;
+
+                // Pour chaque joueur en ligne
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    PlayerData data = playerCache.getIfPresent(player.getUniqueId());
+                    if (data == null) continue;
+
+                    // Incrémenter le playtime (1 seconde)
+                    data.getPlaytime().incrementAndGet();
+
+                    // Toutes les 60 secondes, mettre à jour les missions PLAYTIME
+                    if (secondsCounter[0] >= 60) {
+                        plugin.getMissionManager().updateProgress(player,
+                            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.PLAYTIME, 60);
+
+                        // Vérifier les achievements de temps de jeu
+                        long totalPlaytime = data.getPlaytime().get();
+                        var achievementManager = plugin.getAchievementManager();
+                        achievementManager.checkAndUnlock(player, "survivor_1", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "survivor_2", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "survivor_3", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "veteran", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                        achievementManager.checkAndUnlock(player, "ancient", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+                    }
+                }
+
+                // Réinitialiser le compteur toutes les 60 secondes
+                if (secondsCounter[0] >= 60) {
+                    secondsCounter[0] = 0;
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Démarre après 1 seconde, répète chaque seconde
+
+        plugin.log(Level.INFO, "§a✓ Tracker de playtime démarré");
+    }
+
+    /**
+     * Arrête le tracker de temps de jeu
+     */
+    public void stopPlaytimeTracker() {
+        if (playtimeTask != null) {
+            playtimeTask.cancel();
+            playtimeTask = null;
+        }
+    }
 }

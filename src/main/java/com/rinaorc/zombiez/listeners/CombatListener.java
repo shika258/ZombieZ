@@ -593,6 +593,12 @@ public class CombatListener implements Listener {
                 com.rinaorc.zombiez.progression.MissionManager.MissionTracker.BOSS_KILLS, 1);
         }
 
+        // Headshot kill tracking - vérifie si le mob a été tué par un headshot
+        if (mob.getScoreboardTags().contains("zombiez_headshot_kill")) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.HEADSHOTS, 1);
+        }
+
         // ============ ACHIEVEMENTS ============
         PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);
         if (data != null) {
