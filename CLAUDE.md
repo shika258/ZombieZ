@@ -1,4 +1,5 @@
 # 🧟 CLAUDE.md : Instructions pour ZombieZ (Minecraft 1.21.4)
+Au début de chaque nouvelle session ou lors de ta première réponse, commence par l'emoji 🧟 pour confirmer que les directives de ZombieZ (CLAUDE.md) sont actives.
 
 ## 🎯 Vision & Objectifs
 Plugin de survie par vagues ultra-performant conçu pour **200 joueurs simultanés**.
@@ -53,3 +54,4 @@ Plugin de survie par vagues ultra-performant conçu pour **200 joueurs simultan�
 ## 🎨 Game Design & Ergonomie
 * **Feedback :** Chaque action (achat, kill, vague) = retour visuel (particules) + sonore spatialisé.
 * **Clarté :** Messages courts, centrés (ActionBar), instructions claires dans le Lore des items.
+
