@@ -66,9 +66,6 @@ public class ShadowManager {
     private final Map<UUID, Integer> poisonStacks = new ConcurrentHashMap<>();
     private final Map<UUID, Long> poisonExpiry = new ConcurrentHashMap<>();
 
-    // Clones d'Ombre actifs (player UUID -> clone entity UUID)
-    private final Map<UUID, List<UUID>> activeClones = new ConcurrentHashMap<>();
-
     // Avatar des Ombres (player UUID -> end time)
     private final Map<UUID, Long> avatarActive = new ConcurrentHashMap<>();
     private final Map<UUID, Long> avatarCooldown = new ConcurrentHashMap<>();
@@ -85,22 +82,50 @@ public class ShadowManager {
     // Cache des joueurs Ombre actifs
     private final Set<UUID> activeShadowPlayers = ConcurrentHashMap.newKeySet();
 
-    // === SHADOW CLONE AI SYSTEM ===
-    // Metadata key pour identifier les clones
-    public static final String SHADOW_CLONE_OWNER_KEY = "shadow_clone_owner";
+    // === LAMES SPECTRALES (Style Vampire Survivors) ===
 
-    // Cooldown des attaques des clones (owner UUID -> dernier timestamp d'attaque)
-    private final Map<UUID, Long> cloneAttackCooldown = new ConcurrentHashMap<>();
-    private static final long CLONE_ATTACK_COOLDOWN_MS = 2500; // 2.5s entre chaque attaque
+    // Données des lames actives par joueur
+    private final Map<UUID, SpectralBladesData> activeBlades = new ConcurrentHashMap<>();
 
-    // Multiplicateur de dégâts des clones (40% des dégâts du joueur)
-    private static final double CLONE_DAMAGE_MULTIPLIER = 0.40;
+    // Cooldown de frappe par cible (targetUUID -> dernière frappe timestamp)
+    private final Map<UUID, Map<UUID, Long>> bladeHitCooldowns = new ConcurrentHashMap<>();
 
-    // Portée de détection des cibles
-    private static final double CLONE_TARGET_RANGE = 20.0; // Portée max des Tirs de l'Ombre
+    // Constantes des lames
+    private static final long BLADE_HIT_COOLDOWN_MS = 500; // 0.5s entre chaque frappe sur même cible
+    private static final double BLADE_HIT_RADIUS = 1.2; // Rayon de hitbox de chaque lame
 
-    // Portée de suivi du joueur (distance max avant de retourner vers le joueur)
-    private static final double CLONE_FOLLOW_RANGE = 15.0;
+    /**
+     * Données des Lames Spectrales d'un joueur
+     */
+    private static class SpectralBladesData {
+        final UUID ownerUuid;
+        final long startTime;
+        final long duration;
+        final int bladeCount;
+        final double orbitRadius;
+        final double damagePercent;
+        final long rotationPeriod;
+        double currentAngle = 0;
+
+        SpectralBladesData(UUID owner, long duration, int bladeCount, double orbitRadius,
+                          double damagePercent, long rotationPeriod) {
+            this.ownerUuid = owner;
+            this.startTime = System.currentTimeMillis();
+            this.duration = duration;
+            this.bladeCount = bladeCount;
+            this.orbitRadius = orbitRadius;
+            this.damagePercent = damagePercent;
+            this.rotationPeriod = rotationPeriod;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > startTime + duration;
+        }
+
+        long getRemainingTime() {
+            return Math.max(0, (startTime + duration) - System.currentTimeMillis());
+        }
+    }
 
     public ShadowManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -198,8 +223,8 @@ public class ShadowManager {
                 // Cleanup Avatar expiré
                 avatarActive.entrySet().removeIf(entry -> {
                     if (now > entry.getValue()) {
-                        // Supprimer les clones d'Avatar
-                        removeAllClones(entry.getKey());
+                        // Supprimer les lames d'Avatar
+                        removeSpectralBlades(entry.getKey());
                         Player player = Bukkit.getPlayer(entry.getKey());
                         if (player != null) {
                             // Retirer le glowing violet et l'invisibilité
@@ -228,13 +253,13 @@ public class ShadowManager {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche clones (toutes les 10 ticks = 0.5s pour une IA plus réactive)
+        // Tâche Lames Spectrales (toutes les 2 ticks = 100ms pour rotation fluide)
         new BukkitRunnable() {
             @Override
             public void run() {
-                updateClones();
+                updateSpectralBlades();
             }
-        }.runTaskTimer(plugin, 10L, 10L);
+        }.runTaskTimer(plugin, 2L, 2L);
     }
 
     // ==================== POINTS D'OMBRE ====================
@@ -1038,260 +1063,207 @@ public class ShadowManager {
         return endTime != null && System.currentTimeMillis() < endTime;
     }
 
-    // ==================== CLONE D'OMBRE ====================
+    // ==================== LAMES SPECTRALES (Style Vampire Survivors) ====================
 
     /**
-     * Invoque un Clone d'Ombre sous forme de Wither Skeleton
-     * avec une IA similaire au Renard (recherche de cible, bond, attaque)
+     * Invoque les Lames Spectrales autour du joueur
+     * Style Vampire Survivors: lames orbitales qui frappent automatiquement
+     *
+     * @param owner Le joueur
+     * @param talent Le talent pour récupérer les valeurs
      */
-    public void summonShadowClone(Player owner) {
+    public void summonSpectralBlades(Player owner, Talent talent) {
         UUID ownerUuid = owner.getUniqueId();
 
-        // Limiter à 1 clone (ou 2 avec Avatar)
-        int maxClones = avatarActive.containsKey(ownerUuid) ? 2 : 1;
-        List<UUID> clones = activeClones.getOrDefault(ownerUuid, new ArrayList<>());
+        // Récupérer les valeurs du talent
+        double[] values = talent != null ? talent.getValues() : new double[]{5, 8000, 5, 3.0, 0.35, 2000};
+        long duration = (long) values[1];           // 8000ms
+        int bladeCount = (int) values[2];           // 5 lames
+        double orbitRadius = values[3];             // 3.0 blocs
+        double damagePercent = values[4];           // 0.35 (35%)
+        long rotationPeriod = (long) values[5];     // 2000ms pour un tour complet
 
-        if (clones.size() >= maxClones) {
-            // Supprimer le plus vieux clone
-            if (!clones.isEmpty()) {
-                UUID oldClone = clones.remove(0);
-                Entity entity = Bukkit.getEntity(oldClone);
-                if (entity != null) entity.remove();
-            }
+        // Si déjà des lames actives, les refresh
+        if (activeBlades.containsKey(ownerUuid)) {
+            removeSpectralBlades(ownerUuid);
         }
 
-        // Créer le clone (Wither Skeleton avec IA personnalisée)
-        Location spawnLoc = owner.getLocation().add(
-            (Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2);
+        // Créer les nouvelles lames
+        SpectralBladesData bladesData = new SpectralBladesData(
+            ownerUuid, duration, bladeCount, orbitRadius, damagePercent, rotationPeriod
+        );
+        activeBlades.put(ownerUuid, bladesData);
 
-        WitherSkeleton clone = owner.getWorld().spawn(spawnLoc, WitherSkeleton.class, skeleton -> {
-            // Configuration de base
-            skeleton.setMetadata(SHADOW_CLONE_OWNER_KEY, new FixedMetadataValue(plugin, ownerUuid.toString()));
-            skeleton.customName(Component.text("§5Clone de " + owner.getName(), NamedTextColor.DARK_PURPLE));
-            skeleton.setCustomNameVisible(true);
+        // Initialiser les cooldowns de frappe
+        bladeHitCooldowns.put(ownerUuid, new ConcurrentHashMap<>());
 
-            // Invincible et silencieux
-            skeleton.setInvulnerable(true);
-            skeleton.setSilent(true);
+        // Effets d'invocation
+        Location loc = owner.getLocation();
+        loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.add(0, 1, 0), 50, 1.5, 0.5, 1.5, 0.1);
+        loc.getWorld().spawnParticle(Particle.WITCH, loc, 30, 1.0, 0.5, 1.0, 0.05);
+        loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.2f, 1.5f);
+        loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
 
-            // Pas de loot ni d'XP
-            skeleton.setRemoveWhenFarAway(false);
+        // Message
+        owner.sendMessage("§5§l[OMBRE] §dLames Spectrales §7invoquées! (§e" + (duration / 1000) + "s§7)");
+    }
 
-            // Désactiver l'IA vanilla pour utiliser notre IA personnalisée
-            skeleton.setAI(false);
+    /**
+     * Version simplifiée sans talent (utilise valeurs par défaut)
+     */
+    public void summonSpectralBlades(Player owner) {
+        summonSpectralBlades(owner, null);
+    }
 
-            // Apparence: mains vides (pas d'épée)
-            skeleton.getEquipment().clear();
+    /**
+     * Met à jour toutes les Lames Spectrales actives
+     * - Fait tourner les lames autour des joueurs
+     * - Vérifie les collisions avec les ennemis
+     * - Affiche les particules
+     */
+    private void updateSpectralBlades() {
+        long now = System.currentTimeMillis();
 
-            // Effet visuel de glowing violet
-            skeleton.setGlowing(true);
-            if (deathMarkTeam != null) {
-                deathMarkTeam.addEntity(skeleton);
+        // Nettoyer les lames expirées
+        activeBlades.entrySet().removeIf(entry -> {
+            if (entry.getValue().isExpired()) {
+                removeSpectralBlades(entry.getKey());
+                Player player = Bukkit.getPlayer(entry.getKey());
+                if (player != null) {
+                    player.sendMessage("§5§l[OMBRE] §7Lames Spectrales §cdissipées§7.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 1.2f);
+                }
+                return true;
             }
-
-            // Effet visuel d'ombre (particules, pas d'invisibilité pour permettre le mouvement)
-            skeleton.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
+            return false;
         });
 
-        clones.add(clone.getUniqueId());
-        activeClones.put(ownerUuid, clones);
+        // Mettre à jour chaque joueur avec des lames actives
+        for (Map.Entry<UUID, SpectralBladesData> entry : activeBlades.entrySet()) {
+            UUID ownerUuid = entry.getKey();
+            SpectralBladesData data = entry.getValue();
+            Player owner = Bukkit.getPlayer(ownerUuid);
 
-        // Effets d'apparition
-        spawnLoc.getWorld().spawnParticle(Particle.LARGE_SMOKE, spawnLoc.add(0, 1, 0), 40, 0.4, 0.6, 0.4, 0.08);
-        spawnLoc.getWorld().spawnParticle(Particle.WITCH, spawnLoc, 20, 0.3, 0.5, 0.3, 0.05);
-        spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 1.2f, 0.6f);
-        spawnLoc.getWorld().playSound(spawnLoc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.0f, 1.5f);
-
-        // Particules continues d'aura d'ombre
-        startCloneAuraParticles(clone.getUniqueId());
-
-        // Auto-destruction après CLONE_DURATION
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (clone.isValid() && !clone.isDead()) {
-                    removeClone(ownerUuid, clone.getUniqueId());
-                }
-            }
-        }.runTaskLater(plugin, CLONE_DURATION / 50); // Convertir ms en ticks
-
-        owner.sendMessage("§5§l[OMBRE] §7Clone d'Ombre invoqué! (§d10s§7)");
-    }
-
-    /**
-     * Particules d'aura d'ombre autour du clone
-     */
-    private void startCloneAuraParticles(UUID cloneUuid) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Entity clone = Bukkit.getEntity(cloneUuid);
-                if (clone == null || !clone.isValid()) {
-                    cancel();
-                    return;
-                }
-
-                // Aura d'ombre autour du wither skeleton
-                Location loc = clone.getLocation();
-                loc.getWorld().spawnParticle(Particle.DUST,
-                    loc.clone().add(0, 1.5, 0), 3, 0.3, 0.5, 0.3, 0,
-                    new Particle.DustOptions(Color.fromRGB(60, 0, 80), 1.0f));
-
-                // Particules de fumée occasionnelles
-                if (Math.random() < 0.3) {
-                    loc.getWorld().spawnParticle(Particle.SMOKE, loc.clone().add(0, 0.5, 0), 2, 0.2, 0.3, 0.2, 0.01);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 4L);
-    }
-
-    /**
-     * Trouve la meilleure cible pour un clone (priorité aux blessés et marqués)
-     * Inspiré de l'IA du Renard
-     */
-    private LivingEntity findShadowCloneTarget(LivingEntity clone, Player owner) {
-        LivingEntity bestTarget = null;
-        double bestScore = 0;
-
-        for (Entity nearby : clone.getNearbyEntities(CLONE_TARGET_RANGE, 5, CLONE_TARGET_RANGE)) {
-            if (!(nearby instanceof LivingEntity living)) continue;
-            if (!(nearby instanceof Monster)) continue;
-            if (nearby.hasMetadata(SHADOW_CLONE_OWNER_KEY)) continue; // Pas les autres clones
-
-            double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
-            double currentHealth = living.getHealth();
-            double healthPercent = currentHealth / maxHealth;
-
-            // Score: préfère les cibles blessées et proches
-            double score = (1.0 - healthPercent) * 3; // Bonus pour blessés
-            double dist = clone.getLocation().distanceSquared(nearby.getLocation());
-            score += Math.max(0, (144 - dist) / 20); // Bonus proximité (144 = 12²)
-
-            // Bonus si la cible est marquée par le joueur (synergie Death Mark)
-            if (isMarked(nearby.getUniqueId())) {
-                score += 4; // Priorité haute aux cibles marquées
+            if (owner == null || !owner.isOnline()) {
+                continue;
             }
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestTarget = living;
+            Location ownerLoc = owner.getLocation().add(0, 1.0, 0); // Hauteur des lames
+
+            // Calculer l'angle de rotation (360° en rotationPeriod ms)
+            double rotationSpeed = 360.0 / data.rotationPeriod * 100; // degrés par 100ms (tick rate)
+            data.currentAngle = (data.currentAngle + rotationSpeed) % 360;
+
+            // Pour chaque lame
+            double angleStep = 360.0 / data.bladeCount;
+            for (int i = 0; i < data.bladeCount; i++) {
+                double bladeAngle = data.currentAngle + (i * angleStep);
+                double rad = Math.toRadians(bladeAngle);
+
+                // Position de la lame
+                double x = Math.cos(rad) * data.orbitRadius;
+                double z = Math.sin(rad) * data.orbitRadius;
+                Location bladeLoc = ownerLoc.clone().add(x, 0, z);
+
+                // Particules de la lame (forme allongée comme une épée)
+                spawnBladeParticles(bladeLoc, bladeAngle, owner.getWorld());
+
+                // Vérifier les collisions avec les ennemis
+                checkBladeCollisions(owner, bladeLoc, data);
             }
         }
-
-        return bestTarget;
     }
 
     /**
-     * Exécute l'attaque du clone - Tir de l'Ombre à distance (20 blocs max)
+     * Affiche les particules d'une lame spectrale
      */
-    private void executeShadowCloneAttack(Player owner, LivingEntity clone, LivingEntity target) {
-        Location cloneLoc = clone.getLocation().add(0, 1.5, 0); // Hauteur de tir
-        Location targetLoc = target.getLocation().add(0, target.getHeight() / 2, 0);
+    private void spawnBladeParticles(Location center, double angle, org.bukkit.World world) {
+        // Direction de la lame (perpendiculaire au mouvement)
+        double rad = Math.toRadians(angle + 90); // Perpendiculaire
+        Vector bladeDir = new Vector(Math.cos(rad), 0, Math.sin(rad)).normalize();
 
-        // Vérifier la portée (20 blocs max)
-        double distance = cloneLoc.distance(targetLoc);
-        if (distance > 20) {
-            return; // Trop loin
+        // Dessiner la lame (3 points formant une ligne)
+        for (double offset = -0.5; offset <= 0.5; offset += 0.25) {
+            Location point = center.clone().add(bladeDir.clone().multiply(offset));
+
+            // Particule principale (violet brillant)
+            world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(Color.fromRGB(148, 0, 211), 1.2f));
+
+            // Trainée de la lame
+            world.spawnParticle(Particle.DUST, point.clone().add(0, -0.1, 0), 1, 0.05, 0.05, 0.05, 0,
+                new Particle.DustOptions(Color.fromRGB(75, 0, 130), 0.8f));
         }
 
-        // Orienter le clone vers la cible
-        orientCloneTowards(clone, target.getLocation());
+        // Pointe de la lame (plus brillante)
+        Location tip = center.clone().add(bladeDir.clone().multiply(0.6));
+        world.spawnParticle(Particle.END_ROD, tip, 1, 0, 0, 0, 0);
+    }
 
-        // === EFFETS VISUELS DU TIR ===
+    /**
+     * Vérifie les collisions de la lame avec les ennemis
+     */
+    private void checkBladeCollisions(Player owner, Location bladeLoc, SpectralBladesData data) {
+        UUID ownerUuid = owner.getUniqueId();
+        Map<UUID, Long> hitCooldowns = bladeHitCooldowns.get(ownerUuid);
+        if (hitCooldowns == null) return;
 
-        // Son de tir
-        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_WITHER_SKELETON_HURT, 0.8f, 1.8f);
-        clone.getWorld().playSound(cloneLoc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.6f, 2.0f);
+        long now = System.currentTimeMillis();
 
-        // Particules de traînée (du clone vers la cible)
-        Vector direction = targetLoc.toVector().subtract(cloneLoc.toVector()).normalize();
+        // Chercher les ennemis proches de la lame
+        for (Entity entity : bladeLoc.getWorld().getNearbyEntities(bladeLoc, BLADE_HIT_RADIUS, BLADE_HIT_RADIUS, BLADE_HIT_RADIUS)) {
+            if (!(entity instanceof Monster monster)) continue;
+            if (!monster.isValid() || monster.isDead()) continue;
 
-        // Animation de la traînée de projectile
-        new BukkitRunnable() {
-            double traveled = 0;
-            Location currentPos = cloneLoc.clone();
+            UUID targetUuid = monster.getUniqueId();
 
-            @Override
-            public void run() {
-                if (target.isDead() || !target.isValid()) {
-                    cancel();
-                    return;
-                }
-
-                // Avancer le projectile de 2 blocs par tick
-                for (int i = 0; i < 4; i++) {
-                    if (traveled >= distance) {
-                        // Impact - appliquer les dégâts
-                        applyShadowCloneDamage(owner, clone, target);
-
-                        // Effets d'impact
-                        targetLoc.getWorld().spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.3, 0.3, 0.1);
-                        targetLoc.getWorld().spawnParticle(Particle.WITCH, targetLoc, 10, 0.2, 0.2, 0.2, 0);
-                        targetLoc.getWorld().playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.5f);
-
-                        cancel();
-                        return;
-                    }
-
-                    currentPos.add(direction.clone().multiply(0.5));
-                    traveled += 0.5;
-
-                    // Particules de traînée violette
-                    clone.getWorld().spawnParticle(Particle.DUST, currentPos, 1, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.fromRGB(100, 0, 150), 0.8f));
-
-                    // Fumée occasionnelle
-                    if (traveled % 1.5 < 0.5) {
-                        clone.getWorld().spawnParticle(Particle.SMOKE, currentPos, 1, 0.05, 0.05, 0.05, 0);
-                    }
-                }
+            // Vérifier le cooldown de frappe sur cette cible
+            Long lastHit = hitCooldowns.get(targetUuid);
+            if (lastHit != null && (now - lastHit) < BLADE_HIT_COOLDOWN_MS) {
+                continue; // En cooldown
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+
+            // Marquer la frappe
+            hitCooldowns.put(targetUuid, now);
+
+            // Infliger les dégâts
+            applyBladeDamage(owner, monster, data.damagePercent);
+        }
     }
 
     /**
-     * Oriente le clone vers une location
+     * Applique les dégâts d'une lame spectrale
      */
-    private void orientCloneTowards(LivingEntity clone, Location target) {
-        Location cloneLoc = clone.getLocation();
-        Vector dir = target.toVector().subtract(cloneLoc.toVector());
-        cloneLoc.setDirection(dir);
-        clone.teleport(cloneLoc);
-    }
-
-    /**
-     * Applique les dégâts du clone avec le calcul complet des stats du joueur
-     * (comme le système des Bêtes)
-     */
-    private void applyShadowCloneDamage(Player owner, LivingEntity clone, LivingEntity target) {
+    private void applyBladeDamage(Player owner, LivingEntity target, double damagePercent) {
         if (target.isDead()) return;
 
-        // ============ CALCUL DES DÉGÂTS AVEC STATS DU JOUEUR ============
+        UUID ownerUuid = owner.getUniqueId();
 
-        // 1. Dégâts de base du joueur
+        // ============ CALCUL DES DÉGÂTS ============
+
+        // Dégâts de base du joueur
         double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        baseDamage *= CLONE_DAMAGE_MULTIPLIER; // 40% des dégâts
+        baseDamage *= damagePercent; // 35% par défaut
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
-        // 2. Stats d'équipement ZombieZ
+        // Stats d'équipement ZombieZ
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(owner);
 
         // Bonus de dégâts flat
         double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
-        finalDamage += flatDamageBonus * CLONE_DAMAGE_MULTIPLIER;
+        finalDamage += flatDamageBonus * damagePercent;
 
         // Bonus de dégâts en pourcentage
-        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
-        finalDamage *= (1 + damagePercent / 100.0);
+        double damagePct = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePct / 100.0);
 
-        // 3. Skill Tree bonuses
+        // Skill Tree bonuses
         var skillManager = plugin.getSkillTreeManager();
-
         double skillDamageBonus = skillManager.getSkillBonus(owner, SkillBonus.DAMAGE_PERCENT);
         finalDamage *= (1 + skillDamageBonus / 100.0);
 
-        // 4. Système de critique
+        // Système de critique
         double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
         double skillCritChance = skillManager.getSkillBonus(owner, SkillBonus.CRIT_CHANCE);
         double totalCritChance = baseCritChance + skillCritChance;
@@ -1301,58 +1273,38 @@ public class ShadowManager {
             double baseCritDamage = 150.0;
             double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
             double skillCritDamage = skillManager.getSkillBonus(owner, SkillBonus.CRIT_DAMAGE);
-
             double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
             finalDamage *= critMultiplier;
         }
 
-        // 5. Momentum System
+        // Bonus si cible marquée (+50% pour les lames)
+        boolean isMarkedTarget = isMarked(target.getUniqueId());
+        if (isMarkedTarget) {
+            finalDamage *= 1.50;
+        }
+
+        // Momentum System
         var momentumManager = plugin.getMomentumManager();
         double momentumMultiplier = momentumManager.getDamageMultiplier(owner);
         finalDamage *= momentumMultiplier;
 
-        // 6. Execute Damage (<20% HP cible)
-        double mobHealthPercent = target.getHealth() / target.getMaxHealth() * 100;
-        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
-
-        if (mobHealthPercent <= executeThreshold) {
-            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
-            double skillExecuteBonus = skillManager.getSkillBonus(owner, SkillBonus.EXECUTE_DAMAGE);
-            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
-        }
-
-        // 7. Bonus si cible marquée (+30%)
-        if (isMarked(target.getUniqueId())) {
-            finalDamage *= 1.30;
-        }
-
-        // 8. Lifesteal
-        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
-        double skillLifesteal = skillManager.getSkillBonus(owner, SkillBonus.LIFESTEAL);
-        double totalLifesteal = lifestealPercent + skillLifesteal;
-        double lifestealAmount = 0;
-
-        if (totalLifesteal > 0) {
-            lifestealAmount = finalDamage * (totalLifesteal / 100.0);
-        }
-
         // ============ APPLICATION DES DÉGÂTS ============
 
-        // Configurer les metadata pour l'indicateur de dégâts
+        // Metadata pour l'indicateur de dégâts
         target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
         target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCritical));
-        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, ownerUuid.toString()));
 
-        // Attribution du loot au propriétaire
+        // Attribution du loot
         if (plugin.getZombieManager().isZombieZMob(target)) {
-            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
+            target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, ownerUuid.toString()));
         }
 
         // Appliquer les dégâts
         final double damage = Math.max(1.0, finalDamage);
         target.damage(damage, owner);
 
-        // Mettre à jour l'affichage de vie du zombie
+        // Mettre à jour l'affichage de vie
         if (plugin.getZombieManager().isZombieZMob(target)) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (target.isValid()) {
@@ -1361,179 +1313,63 @@ public class ShadowManager {
             });
         }
 
-        // ============ EFFETS VISUELS ET SONORES ============
+        // ============ EFFETS VISUELS ============
 
-        // Son et particules d'impact
-        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_SKELETON_HURT, 0.8f, 1.4f);
-        target.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
+        Location loc = target.getLocation().add(0, 1, 0);
 
-        target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 12, 0.3, 0.3, 0.3, 0.1);
-        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
-            8, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.fromRGB(100, 0, 150), 1.0f));
+        // Son de frappe
+        target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
 
-        // Effet visuel critique
+        // Particules de frappe
+        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0, 0, 0, 0);
+        target.getWorld().spawnParticle(Particle.DUST, loc, 5, 0.2, 0.2, 0.2, 0,
+            new Particle.DustOptions(Color.fromRGB(148, 0, 211), 1.0f));
+
+        // Effet critique
         if (isCritical) {
-            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
-            target.getWorld().spawnParticle(Particle.ENCHANT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.5);
+            target.getWorld().spawnParticle(Particle.CRIT, loc, 10, 0.3, 0.3, 0.3, 0.1);
+            owner.playSound(owner.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.5f, 1.3f);
         }
 
-        // Lifesteal pour le propriétaire
-        if (lifestealAmount > 0) {
-            double newHealth = Math.min(owner.getHealth() + lifestealAmount, owner.getMaxHealth());
-            owner.setHealth(newHealth);
-            if (lifestealAmount > 1) {
-                owner.getWorld().spawnParticle(Particle.HEART, owner.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
-            }
+        // Effet marqué
+        if (isMarkedTarget) {
+            target.getWorld().spawnParticle(Particle.WITCH, loc, 5, 0.2, 0.2, 0.2, 0);
         }
 
-        // 25% de chance de marquer la cible (si vivante)
-        if (!target.isDead() && !isMarked(target.getUniqueId()) && Math.random() < 0.25) {
+        // 15% de chance de marquer la cible
+        if (!target.isDead() && !isMarked(target.getUniqueId()) && Math.random() < 0.15) {
             applyDeathMark(owner, target);
         }
 
-        // === SYNERGIE AVATAR: Clone kill peut déclencher Shadow Storm ===
-        // Vérifier si la cible est morte et si le joueur a Shadow Storm
+        // Synergie Avatar: kill peut déclencher Shadow Storm
         if (target.isDead() && hasTalent(owner, Talent.TalentEffectType.SHADOW_STORM)) {
-            // Déclencher Tempête d'Ombre au niveau de la cible
-            Location killLocation = target.getLocation();
-            triggerShadowStorm(owner, killLocation, damage);
-
-            // Message de synergie
-            owner.sendMessage("§5§l[CLONE] §7Kill déclenche §d§lTempête d'Ombre§7!");
+            triggerShadowStorm(owner, target.getLocation(), damage);
+            owner.sendMessage("§5§l[LAMES] §7Kill déclenche §d§lTempête d'Ombre§7!");
         }
     }
 
     /**
-     * Fait attaquer les clones la cible (appelé quand le joueur attaque)
-     * @deprecated Utiliser l'IA automatique via updateClones() à la place
+     * Supprime les lames spectrales d'un joueur
      */
-    @Deprecated
-    public void clonesAttack(Player owner, LivingEntity target, double ownerDamage) {
-        // Les clones attaquent maintenant automatiquement via leur IA
-        // Cette méthode est conservée pour compatibilité mais n'est plus utilisée
+    private void removeSpectralBlades(UUID ownerUuid) {
+        activeBlades.remove(ownerUuid);
+        bladeHitCooldowns.remove(ownerUuid);
     }
 
     /**
-     * Supprime un clone
+     * Vérifie si le joueur a des lames spectrales actives
      */
-    private void removeClone(UUID ownerUuid, UUID cloneUuid) {
-        Entity clone = Bukkit.getEntity(cloneUuid);
-        if (clone != null) {
-            // Retirer de la team violet avant suppression
-            if (deathMarkTeam != null && clone instanceof LivingEntity living) {
-                deathMarkTeam.removeEntity(living);
-            }
-
-            clone.getWorld().spawnParticle(Particle.LARGE_SMOKE,
-                clone.getLocation().add(0, 1, 0), 25, 0.3, 0.5, 0.3, 0.05);
-            clone.getWorld().spawnParticle(Particle.WITCH,
-                clone.getLocation().add(0, 1, 0), 15, 0.2, 0.3, 0.2, 0.02);
-            clone.getWorld().playSound(clone.getLocation(), Sound.ENTITY_WITHER_SKELETON_DEATH, 0.6f, 1.5f);
-            clone.remove();
-        }
-
-        List<UUID> clones = activeClones.get(ownerUuid);
-        if (clones != null) {
-            clones.remove(cloneUuid);
-        }
-
-        // Nettoyer le cooldown d'attaque
-        cloneAttackCooldown.remove(ownerUuid);
+    public boolean hasActiveBlades(UUID ownerUuid) {
+        SpectralBladesData data = activeBlades.get(ownerUuid);
+        return data != null && !data.isExpired();
     }
 
     /**
-     * Supprime tous les clones d'un joueur
+     * Récupère le temps restant des lames (pour ActionBar)
      */
-    public void removeAllClones(UUID ownerUuid) {
-        List<UUID> clones = activeClones.remove(ownerUuid);
-        if (clones != null) {
-            for (UUID cloneUuid : clones) {
-                Entity clone = Bukkit.getEntity(cloneUuid);
-                if (clone != null) {
-                    // Retirer de la team violet
-                    if (deathMarkTeam != null && clone instanceof LivingEntity living) {
-                        deathMarkTeam.removeEntity(living);
-                    }
-                    clone.remove();
-                }
-            }
-        }
-        cloneAttackCooldown.remove(ownerUuid);
-    }
-
-    /**
-     * Met à jour les clones avec l'IA de combat personnalisée
-     * - Cherche des cibles à attaquer
-     * - Bondit sur les ennemis via téléportation
-     * - Suit le joueur si pas de cible
-     */
-    private void updateClones() {
-        long now = System.currentTimeMillis();
-
-        for (Map.Entry<UUID, List<UUID>> entry : activeClones.entrySet()) {
-            UUID ownerUuid = entry.getKey();
-            Player owner = Bukkit.getPlayer(ownerUuid);
-            if (owner == null) continue;
-
-            Location ownerLoc = owner.getLocation();
-
-            for (UUID cloneUuid : entry.getValue()) {
-                Entity cloneEntity = Bukkit.getEntity(cloneUuid);
-                if (cloneEntity == null || !(cloneEntity instanceof LivingEntity clone)) continue;
-                if (!clone.isValid()) continue;
-
-                // Vérifier si le clone est trop loin du joueur
-                double distanceToOwner = clone.getLocation().distance(ownerLoc);
-                if (distanceToOwner > CLONE_FOLLOW_RANGE) {
-                    // Téléporter près du joueur
-                    Location newLoc = ownerLoc.clone().add(
-                        (Math.random() - 0.5) * 3, 0, (Math.random() - 0.5) * 3);
-                    clone.teleport(newLoc);
-                    continue;
-                }
-
-                // Vérifier le cooldown d'attaque
-                Long lastAttack = cloneAttackCooldown.get(ownerUuid);
-                boolean canAttack = lastAttack == null || (now - lastAttack) >= CLONE_ATTACK_COOLDOWN_MS;
-
-                if (canAttack) {
-                    // Chercher une cible
-                    LivingEntity target = findShadowCloneTarget(clone, owner);
-
-                    if (target != null) {
-                        // Attaquer la cible
-                        cloneAttackCooldown.put(ownerUuid, now);
-                        executeShadowCloneAttack(owner, clone, target);
-                        continue;
-                    }
-                }
-
-                // Pas de cible ou en cooldown: suivre le joueur via téléportation fluide
-                // Position en cercle autour du joueur
-                int index = entry.getValue().indexOf(cloneUuid);
-                double angle = (index * 180) + (now / 80.0 % 360);
-                double rad = Math.toRadians(angle);
-                double x = Math.cos(rad) * 2.5;
-                double z = Math.sin(rad) * 2.5;
-
-                Location targetLoc = ownerLoc.clone().add(x, 0, z);
-
-                // Téléportation fluide vers la position cible (interpolation)
-                if (clone.getLocation().distanceSquared(targetLoc) > 4) {
-                    Location currentLoc = clone.getLocation();
-                    Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
-
-                    // Se déplacer de 0.5 bloc max par tick vers la cible
-                    if (direction.lengthSquared() > 0.25) {
-                        direction.normalize().multiply(0.5);
-                    }
-
-                    Location newLoc = currentLoc.add(direction);
-                    newLoc.setDirection(ownerLoc.toVector().subtract(newLoc.toVector())); // Regarder vers le joueur
-                    clone.teleport(newLoc);
-                }
-            }
-        }
+    public long getBladesRemainingTime(UUID ownerUuid) {
+        SpectralBladesData data = activeBlades.get(ownerUuid);
+        return data != null ? data.getRemainingTime() : 0;
     }
 
     // ==================== TEMPÊTE D'OMBRES ====================
@@ -1568,9 +1404,6 @@ public class ShadowManager {
         int enemiesHit = 0;
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius / 2, radius)) {
-            // Ne pas affecter les clones d'ombre
-            if (entity.hasMetadata(SHADOW_CLONE_OWNER_KEY)) continue;
-
             if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
                 // Metadata pour l'indicateur de dégâts
                 monster.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
@@ -1601,7 +1434,7 @@ public class ShadowManager {
     }
 
     /**
-     * Version simplifiée pour les appels internes (clone kills)
+     * Version simplifiée pour les appels internes (lame kills)
      */
     public void triggerShadowStorm(Player owner, Location center, double baseDamage) {
         triggerShadowStorm(owner, center, baseDamage, 6.0, 1.50);
@@ -1618,10 +1451,10 @@ public class ShadowManager {
         UUID uuid = player.getUniqueId();
 
         // Récupérer les valeurs du talent
-        // values: duration_ms, clone_count, point_interval_ms, damage_bonus, cooldown_ms
+        // values: duration_ms, blade_multiplier, point_interval_ms, damage_bonus, cooldown_ms
         double[] values = talent != null ? talent.getValues() : new double[]{15000, 2, 1000, 0.40, 45000};
         long durationMs = (long) values[0];     // 15000ms
-        int cloneCount = (int) values[1];       // 2 clones
+        int bladeMultiplier = (int) values[1];  // 2x lames (10 lames au total)
         double damageBonus = values[3];         // 0.40 (+40%)
         long cooldownMs = values.length > 4 ? (long) values[4] : 45000L; // 45s
 
@@ -1637,10 +1470,14 @@ public class ShadowManager {
         avatarActive.put(uuid, System.currentTimeMillis() + durationMs);
         avatarCooldown.put(uuid, System.currentTimeMillis() + cooldownMs);
 
-        // Invoquer les clones selon le talent
-        for (int i = 0; i < cloneCount; i++) {
-            summonShadowClone(player);
-        }
+        // Invoquer les Lames Spectrales améliorées (plus de lames, plus longues)
+        // Avatar double le nombre de lames et leur durée
+        int baseBlades = 5;
+        int avatarBlades = baseBlades * bladeMultiplier; // 10 lames avec Avatar
+        activeBlades.put(uuid, new SpectralBladesData(
+            uuid, durationMs, avatarBlades, 3.5, 0.45, 1500 // Plus de dégâts, rotation plus rapide
+        ));
+        bladeHitCooldowns.put(uuid, new ConcurrentHashMap<>());
 
         // Remplir les Points d'Ombre
         shadowPoints.put(uuid, MAX_SHADOW_POINTS);
@@ -1767,7 +1604,7 @@ public class ShadowManager {
         danceMacabreEnd.remove(playerUuid);
         preparedExecutionEnd.remove(playerUuid);
         preparedExecutionCost.remove(playerUuid);
-        removeAllClones(playerUuid);
+        removeSpectralBlades(playerUuid);
         activeShadowPlayers.remove(playerUuid);
 
         // Retirer les modifiers d'attributs et effets visuels
@@ -1782,9 +1619,6 @@ public class ShadowManager {
             }
             player.removePotionEffect(PotionEffectType.INVISIBILITY);
         }
-
-        // Nettoyer le cooldown des clones
-        cloneAttackCooldown.remove(playerUuid);
 
         // Désenregistrer de l'ActionBarManager
         if (plugin.getActionBarManager() != null) {

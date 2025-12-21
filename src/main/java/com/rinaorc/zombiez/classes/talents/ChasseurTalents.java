@@ -1039,41 +1039,45 @@ public final class ChasseurTalents {
             .values(new double[]{4000, 5000, 0.35}) // pounce_cooldown_ms, mark_duration_ms, mark_damage_bonus (buffed 30→35%)
             .build());
 
-        // 7.3 - CLONE D'OMBRE (Branche Ombre)
-        // Wither Skeleton avec IA similaire au Renard (recherche de cibles, bond, attaque)
+        // 7.3 - LAMES SPECTRALES (Branche Ombre)
+        // Lames d'ombre orbitales style Vampire Survivors
         TALENTS.add(Talent.builder()
-            .id("chasseur_shadow_clone")
-            .name("Clone d'Ombre")
-            .description("5 Points = Wither Skeleton spectral 10s")
+            .id("chasseur_spectral_blades")
+            .name("Lames Spectrales")
+            .description("5 Points = lames orbitales (Vampire Survivors)")
             .loreLines(new String[]{
-                "§8§lBRANCHE OMBRE",
+                "§5§lBRANCHE OMBRE",
                 "",
-                "§7Quand vous atteignez §55 Points§7,",
-                "§7invoquez un §5§lWither Skeleton spectral§7!",
+                "§7À §55 Points d'Ombre§7, invoquez",
+                "§7des §5§lLAMES SPECTRALES§7 orbitales!",
                 "",
-                "§6CLONE D'OMBRE:",
-                "§8► Durée: §e10s",
-                "§8► Dégâts: §c40%§8 de vos stats",
-                "§8► §5Glowing§8 violet (aura spectrale)",
-                "§8► §5Invulnérable§8 (ombre pure)",
+                "§6LAMES D'OMBRE:",
+                "§8► §e5 lames§8 tournent autour de vous",
+                "§8► Durée: §e8s",
+                "§8► Rayon orbital: §b3 blocs",
+                "§8► Vitesse: §e1 tour/2s",
                 "",
-                "§d► I.A. PRÉDATEUR:",
-                "§7Traque les ennemis blessés et marqués",
-                "§7Bond toutes les §e2.5s§7 (comme Renard)",
+                "§c§lDÉGÂTS AUTOMATIQUES:",
+                "§8► §c35%§8 de vos dégâts par lame",
+                "§8► Frappe chaque ennemi traversé",
+                "§8► Cooldown par cible: §e0.5s",
                 "",
-                "§6SYNERGIE MARQUE:",
-                "§7Priorité cibles §c§lMARQUÉES §7(+30% dégâts)",
-                "§725% chance de §5marquer§7 les victimes",
+                "§d§lSYNERGIE MARQUE:",
+                "§8► Cibles marquées: §c+50%§8 dégâts",
+                "§8► §e15%§8 chance de marquer",
                 "",
-                "§5§lL'OMBRE VOUS PROTÈGE"
+                "§6EFFET VISUEL:",
+                "§7Trainées violettes spectaculaires!",
+                "",
+                "§5§l★ DANSE DES LAMES ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.WITHER_SKELETON_SPAWN_EGG)
+            .icon(Material.AMETHYST_SHARD)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.SHADOW_CLONE)
-            .values(new double[]{5, 10000, 0.40}) // points_trigger, duration_ms, damage_percent (40%)
+            .values(new double[]{5, 8000, 5, 3.0, 0.35, 2000}) // points_trigger, duration_ms, blade_count, orbit_radius, damage_percent, rotation_period_ms
             .build());
 
         // 7.4 - PESTE NOIRE (Voie du Poison)
