@@ -35,12 +35,12 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_multi_shot")
             .name("Tirs Multiples")
-            .description("30% chance de tirer 3 fleches")
+            .description("35% chance de tirer 3 fleches")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
                 "§7Vos tirs a l'arc ou l'arbalete",
-                "§7ont §e30%§7 de chance de tirer",
+                "§7ont §e35%§7 de chance de tirer",
                 "§e3 fleches§7 horizontales!",
                 "",
                 "§8► Pattern: §fI I I",
@@ -52,7 +52,7 @@ public final class ChasseurTalents {
             .icon(Material.ARROW)
             .iconColor("§f")
             .effectType(Talent.TalentEffectType.MULTI_SHOT)
-            .values(new double[]{0.30, 2}) // chance (buffed 25→30%), extra_projectiles (2 bonus = 3 total)
+            .values(new double[]{0.35, 2}) // chance (buffed 30→35%), extra_projectiles (2 bonus = 3 total)
             .build());
 
         // 1.2 - CHAUVE-SOURIS (Voie des Bêtes)
@@ -73,7 +73,7 @@ public final class ChasseurTalents {
                 "§7sur sa trajectoire!",
                 "",
                 "§b~ Portee: §e12 blocs",
-                "§b~ Cadence: §e1.5s",
+                "§b~ Cadence: §e1.2s",
                 "§a✦ INVINCIBLE"
             })
             .classType(ClassType.CHASSEUR)
@@ -82,7 +82,7 @@ public final class ChasseurTalents {
             .icon(Material.BAT_SPAWN_EGG)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.BEAST_BAT)
-            .values(new double[]{1.5}) // base_damage
+            .values(new double[]{2.5}) // base_damage (buffed 1.5→2.5)
             .build());
 
         // 1.3 - LAME D'OMBRE (Branche Ombre - Refonte)
@@ -112,22 +112,22 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_venomous_strike")
             .name("Frappe Venimeuse")
-            .description("40% virulence, 70%+ = Nécrose (+25%)")
+            .description("50% virulence, 70%+ = Nécrose (+30%)")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Vos attaques ont §a40%§7 de chance",
-                "§7d'appliquer §2+15 Virulence§7.",
+                "§7Vos attaques ont §a50%§7 de chance",
+                "§7d'appliquer §2+18 Virulence§7.",
                 "",
                 "§6SYSTÈME DE VIRULENCE (0-100):",
-                "§8► DoT: §c8%§8 dégâts par 10 virulence",
+                "§8► DoT: §c10%§8 dégâts par 10 virulence",
                 "§8► Tick: §e2x/seconde§8 (rapide!)",
                 "",
                 "§c§lNÉCROSE (70%+):",
-                "§8► §c+25%§8 dégâts de DoT!",
+                "§8► §c+30%§8 dégâts de DoT!",
                 "",
                 "§d§lCORROMPU (100%):",
-                "§8► §d+30%§8 dégâts directs",
+                "§8► §d+35%§8 dégâts directs",
                 "§8► Propagation à la mort!",
                 "",
                 "§2§lINFECTEZ VOS PROIES"
@@ -138,7 +138,7 @@ public final class ChasseurTalents {
             .icon(Material.SPIDER_EYE)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.VENOMOUS_STRIKE)
-            .values(new double[]{0.40, 100, 70, 0.25}) // chance, max_virulence, necrosis_threshold (70%), necrosis_bonus (25%)
+            .values(new double[]{0.50, 100, 70, 0.30}) // chance (buffed 40→50%), max_virulence, necrosis_threshold, necrosis_bonus (buffed 25→30%)
             .build());
 
         // 1.5 - FLÈCHES REBONDISSANTES (Voie du Givre)
@@ -289,14 +289,14 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_corrosive_venom")
             .name("Venin Corrosif")
-            .description("+15% dégâts sur empoisonnés!")
+            .description("+20% dégâts sur empoisonnés!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
                 "§7Votre poison §2ronge§7 les défenses!",
                 "",
                 "§6BONUS DÉGÂTS:",
-                "§8► §c+15%§8 dégâts sur cibles",
+                "§8► §c+20%§8 dégâts sur cibles",
                 "§8► empoisonnées (virulence > 0)",
                 "",
                 "§6SYNERGIE VIRULENCE:",
@@ -312,7 +312,7 @@ public final class ChasseurTalents {
             .icon(Material.FERMENTED_SPIDER_EYE)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.CORROSIVE_VENOM)
-            .values(new double[]{0.15, 6000, 0.15}) // damage_bonus%, virulence_duration_ms, damage_bonus%
+            .values(new double[]{0.20, 6000, 0.20}) // damage_bonus% (buffed 15→20%), virulence_duration_ms, damage_bonus%
             .build());
 
         // 2.5 - CHARGE GLACIALE (Voie du Givre)
@@ -357,17 +357,17 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_arrow_rain")
             .name("Pluie de Fleches")
-            .description("25% chance pluie AoE")
+            .description("30% chance pluie AoE")
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos tirs ont §e25%§7 de chance",
+                "§7Vos tirs ont §e30%§7 de chance",
                 "§7d'invoquer une §bpluie de fleches§7!",
                 "",
-                "§8► Fleches: §e8",
-                "§8► Degats/fleche: §c30%",
-                "§8► Zone: §e4x4§8 blocs",
-                "§8► Cooldown: §e2s",
+                "§8► Fleches: §e10",
+                "§8► Degats/fleche: §c45%",
+                "§8► Zone: §e5x5§8 blocs",
+                "§8► Cooldown: §e1.5s",
                 "",
                 "§6§lAMELIORABLE:",
                 "§8Deluge, Furie, Cyclone, Nuee..."
@@ -378,8 +378,8 @@ public final class ChasseurTalents {
             .icon(Material.BOW)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.ARROW_RAIN)
-            .values(new double[]{0.25, 0.30, 8, 4.0}) // chance, damage_per_arrow%, arrows, radius
-            .internalCooldownMs(2000)
+            .values(new double[]{0.30, 0.45, 10, 5.0}) // chance (buffed 25→30%), damage_per_arrow% (buffed 30→45%), arrows (buffed 8→10), radius (buffed 4→5)
+            .internalCooldownMs(1500) // cooldown reduced 2000→1500
             .build());
 
         // 3.2 - LOUP (Voie des Bêtes)
@@ -405,7 +405,7 @@ public final class ChasseurTalents {
             .icon(Material.WOLF_SPAWN_EGG)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.BEAST_WOLF)
-            .values(new double[]{3.0, 5000, 1.5}) // base_damage, bleed_duration_ms, bleed_damage_per_tick
+            .values(new double[]{4.0, 5000, 2.0}) // base_damage (buffed 3→4), bleed_duration_ms, bleed_damage_per_tick (buffed 1.5→2.0)
             .build());
 
         // 3.3 - PAS DE L'OMBRE (Branche Ombre)
@@ -442,7 +442,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_deadly_toxins")
             .name("Toxines Mortelles")
-            .description("DoT peut CRIT! Ralentissement toxique")
+            .description("DoT peut CRIT! +20% dmg DoT, Slow progressif")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
@@ -452,6 +452,9 @@ public final class ChasseurTalents {
                 "§8► Le DoT peut §eCRIT§8!",
                 "§8► Utilise vos stats de crit",
                 "§8► Particules spéciales sur crit",
+                "",
+                "§6BONUS PASSIF:",
+                "§8► §c+20%§8 dégâts de DoT base!",
                 "",
                 "§6PARALYSIE PROGRESSIVE:",
                 "§8► 0-49%: §9Slow I",
@@ -466,7 +469,7 @@ public final class ChasseurTalents {
             .icon(Material.POISONOUS_POTATO)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.DEADLY_TOXINS)
-            .values(new double[]{0.25, 0.50, 0.30}) // crit_chance, crit_bonus, slow%
+            .values(new double[]{0.25, 0.50, 0.30, 0.20}) // crit_chance, crit_bonus, slow%, dot_bonus (NEW +20%)
             .build());
 
         // 3.5 - LIGNE DE GLACE (Voie du Givre)
@@ -791,13 +794,13 @@ public final class ChasseurTalents {
                 "§7Votre givre §bpénètre§7 les défenses!",
                 "",
                 "§6GIVRE PÉNÉTRANT:",
-                "§8► §b+20%§8 givre par rebond",
+                "§8► §b+15%§8 givre par rebond",
                 "§8► Ignore la résistance au froid",
-                "§8► Maximum: §b+80%§8 givre bonus",
+                "§8► Maximum: §b+60%§8 givre bonus",
                 "",
                 "§b§lÉCLAT AMPLIFIÉ:",
-                "§8► Morts de gelés: §b+35%§8 rayon",
-                "§8► §c+35%§8 dégâts d'éclat!",
+                "§8► Morts de gelés: §b+30%§8 rayon",
+                "§8► §c+30%§8 dégâts d'éclat!",
                 "§8► Propagation givre améliorée",
                 "",
                 "§6SYNERGIE:",
@@ -812,7 +815,7 @@ public final class ChasseurTalents {
             .icon(Material.HEART_OF_THE_SEA)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_PERFORATION)
-            .values(new double[]{0.20, 0.80, 5000, 0.35}) // frost_per_bounce%, max_bonus%, duration_ms, shatter_bonus%
+            .values(new double[]{0.15, 0.60, 5000, 0.30}) // frost_per_bounce% (nerfed 20→15%), max_bonus% (nerfed 80→60%), duration_ms, shatter_bonus% (nerfed 35→30%)
             .build());
     }
 
@@ -914,7 +917,7 @@ public final class ChasseurTalents {
             .icon(Material.PHANTOM_MEMBRANE)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.DANSE_MACABRE)
-            .values(new double[]{8.0, 5000, 5000, 0.80, 0.30, 6000, 3, 2}) // cascade_radius, mark_duration_ms, frenzy_duration_ms, speed_bonus, attack_speed_bonus, prepared_exec_duration_ms, prepared_exec_cost, points_gained
+            .values(new double[]{8.0, 5000, 5000, 0.60, 0.25, 6000, 3, 2}) // cascade_radius, mark_duration_ms, frenzy_duration_ms, speed_bonus (nerfed 80→60%), attack_speed_bonus (nerfed 30→25%), prepared_exec_duration_ms, prepared_exec_cost, points_gained
             .build());
 
         // 6.4 - SYNERGIE TOXIQUE (Voie du Poison)
@@ -1290,7 +1293,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_devastation")
             .name("Hiver Éternel")
-            .description("5 ennemis gelés = MODE HIVER 8s!")
+            .description("5 ennemis gelés = MODE HIVER 6s!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
@@ -1302,18 +1305,18 @@ public final class ChasseurTalents {
                 "§8► Le mode s'active seul!",
                 "§8► Compteur visible dans l'ActionBar",
                 "",
-                "§b§lMODE HIVER ÉTERNEL (8s):",
-                "§8► §b+50%§8 givre appliqué!",
-                "§8► §c+40%§8 dégâts",
-                "§8► §c+50%§8 dégâts d'éclat",
-                "§8► §a15 rebonds§8 max!",
+                "§b§lMODE HIVER ÉTERNEL (6s):",
+                "§8► §b+40%§8 givre appliqué!",
+                "§8► §c+35%§8 dégâts",
+                "§8► §c+40%§8 dégâts d'éclat",
+                "§8► §a10 rebonds§8 max!",
                 "",
                 "§6AURA DE GIVRE:",
                 "§8► §e4 blocs§8 autour de vous",
-                "§8► §b+8%§8 givre/tick aux ennemis",
+                "§8► §b+5%§8 givre/tick aux ennemis",
                 "§8► Gel passif automatique!",
                 "",
-                "§8► Cooldown: §c25s§8 après fin",
+                "§8► Cooldown: §c30s§8 après fin",
                 "",
                 "§b§l★ L'HIVER EST ÉTERNEL ★"
             })
@@ -1323,8 +1326,8 @@ public final class ChasseurTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.DEVASTATION)
-            .values(new double[]{8000, 0.40, 0.50, 1.50, 25000, 5}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms, freezes_needed
-            .internalCooldownMs(25000)
+            .values(new double[]{6000, 0.35, 0.40, 1.40, 30000, 5}) // duration_ms (nerfed 8s→6s), damage_bonus% (nerfed 40→35%), frost_bonus% (nerfed 50→40%), shatter_bonus (nerfed 1.50→1.40), cooldown_ms (nerfed 25s→30s), freezes_needed
+            .internalCooldownMs(30000)
             .build());
     }
 

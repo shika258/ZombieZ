@@ -42,11 +42,11 @@ public class PoisonManager {
     public static final int CORRUPTED_THRESHOLD = 100; // Seuil pour être "Corrompu"
     public static final int NECROSIS_THRESHOLD = 70;   // Seuil pour bonus Nécrose
 
-    // Virulence appliquée par hit (base)
-    public static final int BASE_VIRULENCE_PER_HIT = 15;
+    // Virulence appliquée par hit (base) - BUFFED from 15 to 18
+    public static final int BASE_VIRULENCE_PER_HIT = 18;
 
-    // DoT: % des dégâts de base par seconde par 10 virulence
-    public static final double DOT_PERCENT_PER_10_VIRULENCE = 0.08; // 8% par 10 virulence
+    // DoT: % des dégâts de base par seconde par 10 virulence - BUFFED from 8% to 10%
+    public static final double DOT_PERCENT_PER_10_VIRULENCE = 0.10; // 10% par 10 virulence
 
     // Propagation à la mort: nombre max de cibles
     public static final int PROPAGATION_MAX_TARGETS = 3;
