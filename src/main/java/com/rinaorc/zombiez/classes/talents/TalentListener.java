@@ -1835,14 +1835,23 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Facteur d'échelle pour l'absorption Rempart.
+     * 20 HP calculés par les talents = 2 HP réels = 1 cœur doré affiché.
+     * Divise l'absorption par 10 pour un affichage plus lisible.
+     */
+    private static final double ABSORPTION_DISPLAY_SCALE = 10.0;
+
+    /**
      * Ajoute de l'absorption au joueur (cumulable avec l'absorption existante)
-     * Dans Minecraft: 1 cœur jaune = 2 HP d'absorption
+     * Applique l'échelle Rempart: 20 HP talent = 1 cœur doré
      * @param player Le joueur
-     * @param amount Le montant d'absorption à ajouter (en HP)
+     * @param amount Le montant d'absorption à ajouter (en HP calculés par le talent)
      */
     private void addAbsorption(Player player, double amount) {
+        // Appliquer l'échelle: 20 HP talent = 2 HP réels = 1 cœur
+        double scaledAmount = amount / ABSORPTION_DISPLAY_SCALE;
         double currentAbsorption = player.getAbsorptionAmount();
-        double newAbsorption = currentAbsorption + amount;
+        double newAbsorption = currentAbsorption + scaledAmount;
 
         // En 1.21.4, l'attribut MAX_ABSORPTION limite l'absorption visible
         // On s'assure qu'il est suffisamment élevé pour afficher les cœurs
@@ -1857,23 +1866,25 @@ public class TalentListener implements Listener {
 
     /**
      * Définit l'absorption du joueur (remplace l'existante)
+     * Applique l'échelle Rempart: 20 HP talent = 1 cœur doré
      * @param player Le joueur
-     * @param amount Le montant d'absorption (en HP)
+     * @param amount Le montant d'absorption (en HP calculés par le talent)
      */
     private void setAbsorption(Player player, double amount) {
-        double safeAmount = Math.max(0, amount);
+        // Appliquer l'échelle: 20 HP talent = 2 HP réels = 1 cœur
+        double scaledAmount = Math.max(0, amount / ABSORPTION_DISPLAY_SCALE);
 
         // En 1.21.4, l'attribut MAX_ABSORPTION limite l'absorption visible
-        ensureMaxAbsorption(player, safeAmount);
+        ensureMaxAbsorption(player, scaledAmount);
 
-        player.setAbsorptionAmount(safeAmount);
+        player.setAbsorptionAmount(scaledAmount);
     }
 
     /**
      * S'assure que l'attribut MAX_ABSORPTION est suffisant pour afficher l'absorption demandée.
      * En Minecraft 1.21.4, cet attribut est à 0 par défaut, empêchant l'affichage des cœurs jaunes.
      * @param player Le joueur
-     * @param requiredAbsorption Le montant d'absorption nécessaire
+     * @param requiredAbsorption Le montant d'absorption nécessaire (déjà mis à l'échelle)
      */
     private void ensureMaxAbsorption(Player player, double requiredAbsorption) {
         var maxAbsorptionAttr = player.getAttribute(Attribute.MAX_ABSORPTION);
@@ -1881,7 +1892,7 @@ public class TalentListener implements Listener {
             double currentMax = maxAbsorptionAttr.getValue();
             if (currentMax < requiredAbsorption) {
                 // Définir le max à la valeur requise + marge de sécurité
-                maxAbsorptionAttr.setBaseValue(Math.max(requiredAbsorption, 40.0));
+                maxAbsorptionAttr.setBaseValue(Math.max(requiredAbsorption, 20.0));
             }
         }
     }
@@ -2659,12 +2670,13 @@ public class TalentListener implements Listener {
         // Calculer le bonus total d'absorption (8% par ennemi, sans limite)
         double absorptionAmount = baseMaxHealth * (enemiesHit * hpPerEnemy);
         int bonusPercent = (int) (enemiesHit * hpPerEnemy * 100);
-        int absorptionHearts = (int) Math.ceil(absorptionAmount / 2.0); // Convertir en cœurs
+        // Échelle Rempart: 20 HP talent = 1 cœur doré
+        int absorptionHearts = (int) Math.ceil(absorptionAmount / 20.0);
 
-        // Ajouter l'absorption à l'existante
-        // Gestion de MAX_ABSORPTION pour l'affichage des cœurs en 1.21.4
+        // Ajouter l'absorption avec l'échelle Rempart (pas de particules, on a déjà les effets visuels)
+        double scaledAmount = absorptionAmount / ABSORPTION_DISPLAY_SCALE;
         double currentAbsorption = player.getAbsorptionAmount();
-        double newAbsorption = currentAbsorption + absorptionAmount;
+        double newAbsorption = currentAbsorption + scaledAmount;
         ensureMaxAbsorption(player, newAbsorption);
         player.setAbsorptionAmount(newAbsorption);
 
@@ -2676,13 +2688,13 @@ public class TalentListener implements Listener {
         // Message de résultat via système centralisé
         showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §e+" + absorptionHearts + "§6❤ §7absorption §8(6s)");
 
-        // Planifier la fin du bonus d'absorption
-        final double addedAbsorption = absorptionAmount;
+        // Planifier la fin du bonus d'absorption (valeur déjà scalée)
+        final double addedScaledAbsorption = scaledAmount;
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
                 // Retirer l'absorption ajoutée (mais pas en dessous de 0)
                 double current = player.getAbsorptionAmount();
-                player.setAbsorptionAmount(Math.max(0, current - addedAbsorption));
+                player.setAbsorptionAmount(Math.max(0, current - addedScaledAbsorption));
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                 // Message d'expiration via système centralisé
