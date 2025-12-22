@@ -1093,7 +1093,7 @@ public class TalentListener implements Listener {
 
         // Contribution au systeme Apocalypse
         if (hitCount > 0) {
-            trackAoeDamage(player.getUniqueId(), totalDamage * hitCount, player);
+            trackAoeDamage(player, totalDamage);
         }
     }
 
