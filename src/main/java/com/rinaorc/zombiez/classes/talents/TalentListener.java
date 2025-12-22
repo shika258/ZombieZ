@@ -93,6 +93,9 @@ public class TalentListener implements Listener {
     private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW_MS = 400;
 
+    // Tracker paliers Apocalypse (pour feedback sans spam)
+    private final Map<UUID, Integer> lastApocalypseMilestone = new ConcurrentHashMap<>();
+
     // Cache des joueurs Guerriers actifs
     private final Set<UUID> activeGuerriers = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -772,16 +775,29 @@ public class TalentListener implements Listener {
 
         double current = aoeDamageCounter.merge(uuid, damage, Double::sum);
 
-        // Feedback progression
-        double progress = (current / APOCALYPSE_THRESHOLD) * 100;
-        if ((int) progress % 25 == 0 && progress > 0 && progress < 100) {
+        // Feedback progression avec tracking de paliers (25%, 50%, 75%)
+        int milestone = (int) ((current / APOCALYPSE_THRESHOLD) * 4); // 0, 1, 2, 3, 4
+        int lastMilestone = lastApocalypseMilestone.getOrDefault(uuid, 0);
+
+        if (milestone > lastMilestone && milestone < 4) {
+            lastApocalypseMilestone.put(uuid, milestone);
+            int percent = milestone * 25;
+            String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
             player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6🌋 Apocalypse: §e" + (int) progress + "%"));
+                "§6🌋 Apocalypse " + bar + " §e" + percent + "%"));
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
         }
 
         // Proc automatique!
         if (current >= APOCALYPSE_THRESHOLD && !isOnCooldown(uuid, "apocalypse")) {
             aoeDamageCounter.put(uuid, 0.0);
+            lastApocalypseMilestone.put(uuid, 0); // Reset milestones
+
+            // Message d'activation spectaculaire
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l🌋 APOCALYPSE TERRESTRE! 🌋"));
+            player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+
             procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
             setCooldown(uuid, "apocalypse", apocalypse.getInternalCooldownMs());
         }
