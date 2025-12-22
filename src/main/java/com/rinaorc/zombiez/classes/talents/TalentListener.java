@@ -2,6 +2,8 @@ package com.rinaorc.zombiez.classes.talents;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
+import com.rinaorc.zombiez.combat.PacketDamageIndicator;
+import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
@@ -88,6 +90,14 @@ public class TalentListener implements Listener {
     // Compteur de degats de zone pour proc Apocalypse
     private final Map<UUID, Double> aoeDamageCounter = new ConcurrentHashMap<>();
     private static final double APOCALYPSE_THRESHOLD = 500.0; // 500 degats AoE = proc
+
+    // Resonance Sismique - entites marquees pour amplification AoE
+    private final Map<UUID, Long> seismicResonanceTargets = new ConcurrentHashMap<>();
+    private static final long SEISMIC_RESONANCE_DURATION_MS = 3000;
+
+    // Secousses Residuelles - cooldown de stun par entite
+    private final Map<UUID, Long> aftermathStunCooldowns = new ConcurrentHashMap<>();
+    private static final long AFTERMATH_STUN_COOLDOWN_MS = 2000;
 
     // Double sneak detection pour Ragnarok UNIQUEMENT
     private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
@@ -977,12 +987,10 @@ public class TalentListener implements Listener {
         // Son
         player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
 
-        // Degats
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+        // Degats avec indicateurs
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                dealAoeDamage(player, target, damage, true);
             }
         }
 
@@ -995,11 +1003,9 @@ public class TalentListener implements Listener {
     }
 
     private void procSeismicStrikeNoEcho(Player player, Location center, double damage, double radius) {
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                dealAoeDamage(player, target, damage, true);
             }
         }
         player.getWorld().spawnParticle(Particle.SONIC_BOOM, center, 1);
@@ -1060,11 +1066,9 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 6, 0.5, 0.2, 0.5, 0.02);
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.8f);
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                dealAoeDamage(player, target, damage, true);
             }
         }
 
@@ -1114,11 +1118,9 @@ public class TalentListener implements Listener {
 
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 0.5f);
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                dealAoeDamage(player, target, damage, true);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
                 }
@@ -1138,25 +1140,28 @@ public class TalentListener implements Listener {
             new Particle.DustOptions(Color.fromRGB(100, 90, 80), 1.2f));
         player.getWorld().playSound(center, Sound.BLOCK_GRAVEL_STEP, 0.6f, 0.4f);
 
-        double baseDamage = 5;
+        // Degats bases sur les stats du joueur
+        double baseDamage = getPlayerBaseDamage(player);
         double damage = baseDamage * damageMultiplier;
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                dealAoeDamage(player, target, damage, true);
             }
         }
     }
 
     private void procRagnarok(Player player, Talent talent) {
-        Location center = player.getLocation();
-        double damage = 10 * talent.getValue(1);
-        double radius = talent.getValue(2);
+        Location center = player.getLocation().clone();
+        double radius = 10.0; // Rayon de la zone persistante: 10 blocs
         double stunMs = talent.getValue(3);
 
-        // === RAGNAROK - Effet apocalyptique fumé orange/rouge ===
+        // Calcul des degats bases sur les stats du joueur
+        double baseDamage = getPlayerBaseDamage(player);
+        double initialDamage = baseDamage * talent.getValue(1); // Impact initial: 800% = 8.0
+        double zoneDamagePerTick = baseDamage * 1.5; // Degats par seconde: 150% des degats de base
+
+        // === RAGNAROK - Impact initial + Zone persistante ===
 
         // 1. Flash d'impact initial
         player.getWorld().spawnParticle(Particle.FLASH, center.clone().add(0, 0.3, 0), 1);
@@ -1167,8 +1172,7 @@ public class TalentListener implements Listener {
 
         // 3. Onde de choc concentrique au sol (orange → rouge dégradé)
         for (double r = 1.5; r <= radius; r += 2.0) {
-            double progress = r / radius; // 0 → 1
-            // Dégradé orange (255,120,30) → rouge sombre (180,40,20)
+            double progress = r / radius;
             int red = (int) (255 - progress * 75);
             int green = (int) (120 - progress * 80);
             int blue = (int) (30 - progress * 10);
@@ -1183,35 +1187,40 @@ public class TalentListener implements Listener {
             }
         }
 
-        // 4. Braises/cendres qui s'élèvent (peu mais impactantes)
+        // 4. Braises/cendres qui s'élèvent
         player.getWorld().spawnParticle(Particle.DUST, center.clone().add(0, 0.8, 0), 8, 1.0, 0.6, 1.0, 0,
             new Particle.DustOptions(Color.fromRGB(255, 80, 20), 1.0f));
         player.getWorld().spawnParticle(Particle.LAVA, center, 3, 0.5, 0.2, 0.5, 0);
-
-        // 5. Fumée résiduelle au sol
-        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center.clone().add(0, 0.2, 0), 5, radius * 0.4, 0.1, radius * 0.4, 0.01);
 
         // Sons - grondement profond + impact
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.4f);
         player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.5f);
         player.getWorld().playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.6f, 0.6f);
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
-                if (target instanceof Mob mob) {
-                    mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
+        // === IMPACT INITIAL - Degats + Stun + Knockback ===
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                double distSq = Math.pow(target.getLocation().getX() - center.getX(), 2) +
+                               Math.pow(target.getLocation().getZ() - center.getZ(), 2);
+                if (distSq <= radius * radius) {
+                    dealAoeDamage(player, target, initialDamage, true);
+                    if (target instanceof Mob mob) {
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
+                    }
+                    // Knockback
+                    Vector direction = target.getLocation().toVector().subtract(center.toVector()).normalize();
+                    if (direction.lengthSquared() > 0) {
+                        target.setVelocity(direction.multiply(1.5).setY(0.5));
+                    }
                 }
-                // Knockback
-                Vector direction = target.getLocation().toVector().subtract(center.toVector()).normalize();
-                target.setVelocity(direction.multiply(1.5).setY(0.5));
             }
         }
 
+        // === ZONE PERSISTANTE - 5 secondes, degats toutes les secondes ===
+        createSeismicZone(player, center, radius, zoneDamagePerTick, 100, 20); // 100 ticks = 5s, 20 ticks = 1s interval
+
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis!");
+            player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis! §8(Zone 5s)");
         }
     }
 
@@ -1388,5 +1397,164 @@ public class TalentListener implements Listener {
                 }
             }
         }, durationMs / 50);
+    }
+
+    /**
+     * Applique les effets passifs Seisme (Resonance Sismique + Secousses Residuelles)
+     * a une cible touchee par une attaque AoE
+     */
+    private void applySeismicEffects(Player player, LivingEntity target, double baseDamage) {
+        UUID targetUuid = target.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Resonance Sismique - marquer la cible pour amplification future
+        Talent resonance = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_RESONANCE);
+        if (resonance != null) {
+            seismicResonanceTargets.put(targetUuid, now);
+        }
+
+        // Secousses Residuelles - chance de stun
+        Talent aftermath = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_AFTERMATH);
+        if (aftermath != null) {
+            Long lastStun = aftermathStunCooldowns.get(targetUuid);
+            if (lastStun == null || now - lastStun > AFTERMATH_STUN_COOLDOWN_MS) {
+                // 25% de chance de stun
+                if (Math.random() < 0.25) {
+                    aftermathStunCooldowns.put(targetUuid, now);
+                    if (target instanceof Mob mob) {
+                        // Stun de 0.5s (10 ticks)
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 10, 10, false, false));
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 10, 128, false, false)); // Empeche de sauter
+                    }
+                    // Effet visuel subtil
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                        3, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.GRAY, 1.0f));
+                }
+            }
+        }
+    }
+
+    /**
+     * Calcule le multiplicateur de degats AoE en fonction de Resonance Sismique
+     */
+    private double getSeismicDamageMultiplier(Player player, LivingEntity target) {
+        Talent resonance = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_RESONANCE);
+        if (resonance == null) return 1.0;
+
+        UUID targetUuid = target.getUniqueId();
+        Long markedTime = seismicResonanceTargets.get(targetUuid);
+        if (markedTime != null && System.currentTimeMillis() - markedTime < SEISMIC_RESONANCE_DURATION_MS) {
+            return 1.30; // +30% degats
+        }
+        return 1.0;
+    }
+
+    /**
+     * Calcule les degats de base du joueur en fonction de ses stats d'equipement
+     * Utilise pour les talents AoE afin que les degats scale avec la progression
+     */
+    private double getPlayerBaseDamage(Player player) {
+        // Degats de base (attaque au poing = 1, epee diamant = ~7, netherite = ~8)
+        double baseDamage = 8.0; // Base pour un guerrier equipe
+
+        // Ajouter les bonus de stats d'items
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus flat
+        double flatDamage = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        baseDamage += flatDamage;
+
+        // Bonus % degats
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        baseDamage *= (1 + damagePercent / 100.0);
+
+        // Bonus de classe Guerrier (+20% degats de base)
+        ClassData classData = plugin.getClassManager().getClassData(player);
+        if (classData != null && classData.hasClass()) {
+            baseDamage *= classData.getSelectedClass().getDamageMultiplier();
+        }
+
+        return baseDamage;
+    }
+
+    /**
+     * Inflige des degats AoE et affiche les indicateurs de degats
+     * Methode centrale pour tous les talents Seisme
+     */
+    private void dealAoeDamage(Player player, LivingEntity target, double damage, boolean showIndicator) {
+        // Marquer comme degats secondaires pour eviter les cascades dans TalentListener
+        target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+
+        // Calculer le multiplicateur de Resonance Sismique
+        double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+
+        // Infliger les degats
+        target.damage(finalDamage, player);
+
+        // Afficher l'indicateur de degats (hologramme)
+        if (showIndicator && finalDamage > 0) {
+            PacketDamageIndicator.display(plugin, target.getLocation().add(0, target.getHeight(), 0), finalDamage, false, player);
+        }
+
+        // Appliquer les effets passifs Seisme (Resonance + Secousses)
+        applySeismicEffects(player, target, finalDamage);
+    }
+
+    /**
+     * Cree une zone sismique persistante qui inflige des degats periodiquement
+     * Utilisee par Ragnarok et potentiellement d'autres talents
+     */
+    private void createSeismicZone(Player player, Location center, double radius, double damagePerTick, int durationTicks, int tickInterval) {
+        new BukkitRunnable() {
+            int ticksElapsed = 0;
+
+            @Override
+            public void run() {
+                if (ticksElapsed >= durationTicks || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Effet visuel de la zone (cercle de particules)
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                    double x = center.getX() + radius * Math.cos(angle);
+                    double z = center.getZ() + radius * Math.sin(angle);
+                    center.getWorld().spawnParticle(Particle.DUST,
+                        new Location(center.getWorld(), x, center.getY() + 0.1, z),
+                        1, 0.1, 0, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(200, 80, 20), 1.5f));
+                }
+
+                // Fissures au sol (effet aleatoire)
+                if (ticksElapsed % 2 == 0) {
+                    for (int i = 0; i < 3; i++) {
+                        double rx = center.getX() + (Math.random() - 0.5) * radius * 2;
+                        double rz = center.getZ() + (Math.random() - 0.5) * radius * 2;
+                        center.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE,
+                            new Location(center.getWorld(), rx, center.getY() + 0.2, rz),
+                            1, 0.1, 0.05, 0.1, 0.01);
+                    }
+                }
+
+                // Son periodique
+                if (ticksElapsed % 20 == 0) {
+                    center.getWorld().playSound(center, Sound.BLOCK_GRAVEL_STEP, 0.5f, 0.3f);
+                }
+
+                // Degats aux entites dans la zone
+                for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                        // Verifier la distance horizontale (zone circulaire)
+                        double distSq = Math.pow(target.getLocation().getX() - center.getX(), 2) +
+                                       Math.pow(target.getLocation().getZ() - center.getZ(), 2);
+                        if (distSq <= radius * radius) {
+                            dealAoeDamage(player, target, damagePerTick, true);
+                        }
+                    }
+                }
+
+                ticksElapsed += tickInterval;
+            }
+        }.runTaskTimer(plugin, 0L, tickInterval);
     }
 }
