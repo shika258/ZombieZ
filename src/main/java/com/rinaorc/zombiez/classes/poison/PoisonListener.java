@@ -3,7 +3,6 @@ package com.rinaorc.zombiez.classes.poison;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -17,7 +16,9 @@ import java.util.UUID;
 
 /**
  * Listener pour la Voie du Poison du Chasseur.
- * Gère les événements d'attaque, de mort et d'activation des talents.
+ *
+ * REFONTE: Utilise le nouveau système de Virulence (0-100)
+ * au lieu des stacks explosifs.
  */
 public class PoisonListener implements Listener {
 
@@ -33,7 +34,7 @@ public class PoisonListener implements Listener {
 
     // ==================== ATTAQUE ====================
 
-    @EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onDamageDealt(EntityDamageByEntityEvent event) {
         Player player = getPlayerFromDamager(event.getDamager());
         if (player == null) return;
@@ -44,86 +45,80 @@ public class PoisonListener implements Listener {
         if (!poisonManager.isPoisonPlayer(player)) return;
 
         UUID targetUuid = target.getUniqueId();
-        double damage = event.getDamage();
 
-        // === T1: VENOMOUS_STRIKE - Chance de poison ===
+        // === T1: VENOMOUS_STRIKE - Chance d'appliquer de la virulence ===
         Talent venomousStrike = getActiveTalent(player, Talent.TalentEffectType.VENOMOUS_STRIKE);
         if (venomousStrike != null) {
             double chance = venomousStrike.getValue(0); // 40%
             if (Math.random() < chance) {
-                poisonManager.addPoisonStacks(player, target, 1);
+                // Appliquer virulence de base
+                poisonManager.addVirulence(player, target, PoisonManager.BASE_VIRULENCE_PER_HIT);
             }
         }
 
-        // === T2: CORROSIVE_VENOM - Réduction d'armure ===
+        // === T2: CORROSIVE_VENOM - Bonus dégâts sur cibles empoisonnées ===
         Talent corrosiveVenom = getActiveTalent(player, Talent.TalentEffectType.CORROSIVE_VENOM);
         if (corrosiveVenom != null && poisonManager.isPoisoned(targetUuid)) {
-            // Simuler -10% armure via bonus dégâts
-            double armorReduction = corrosiveVenom.getValue(2); // 10%
-            event.setDamage(damage * (1 + armorReduction));
+            double bonusPercent = corrosiveVenom.getValue(2); // 15%
+            event.setDamage(event.getDamage() * (1 + bonusPercent));
         }
 
-        // === Bonus Nécrose (+25% dégâts poison) ===
-        if (poisonManager.hasNecrosis(targetUuid)) {
-            // Les dégâts de poison sont gérés par PoisonManager
+        // === Bonus Nécrose (+25% dégâts si 70%+ virulence) ===
+        // Géré automatiquement dans les DoTs de PoisonManager
+
+        // === T5: NECROSIS - Bonus dégâts sur cibles corrompues (+30%) ===
+        if (poisonManager.isCorrupted(targetUuid)) {
+            event.setDamage(event.getDamage() * 1.30);
         }
 
-        // === T3: DEADLY_TOXINS - Burst à 5 stacks + crit ===
-        Talent deadlyToxins = getActiveTalent(player, Talent.TalentEffectType.DEADLY_TOXINS);
-        if (deadlyToxins != null && poisonManager.getPoisonStacks(targetUuid) >= 5) {
-            // Si c'est un crit, déclencher l'explosion
-            double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-            if (damage > baseDamage * 1.4) { // Crit détecté
-                // Explosion burst
-                poisonManager.triggerEpidemicExplosion(player, target);
-            }
+        // === T6: TOXIC_SYNERGY - Bonus dégâts basé sur virulence proche ===
+        double synergyBonus = poisonManager.getToxicSynergyBonus(player);
+        if (synergyBonus > 0) {
+            event.setDamage(event.getDamage() * (1 + synergyBonus));
         }
 
-        // === T6: TOXIC_SYNERGY - Bonus Attack Speed ===
-        // Géré par des effets de potion dans PoisonManager
-
-        // === T8: BLIGHT - Bonus combo +25% dégâts ===
+        // === T8: BLIGHT - Bonus combo +20% dégâts si 200+ virulence totale ===
         if (poisonManager.isBlightComboActive(player)) {
-            event.setDamage(event.getDamage() * 1.25);
+            event.setDamage(event.getDamage() * 1.20);
         }
 
-        // === Avatar actif - Tous les stacks instantanément ===
+        // === Avatar actif - Application de virulence garantie ===
         if (poisonManager.isPlagueAvatarActive(player.getUniqueId())) {
             if (target instanceof Monster) {
-                // Max stacks appliqués automatiquement par PoisonManager
+                // Avatar garantit l'application (pas de chance)
+                // addVirulence applique déjà le x3 d'Avatar
+                if (venomousStrike == null) {
+                    // Si pas le talent T1, appliquer quand même pendant Avatar
+                    poisonManager.addVirulence(player, target, PoisonManager.BASE_VIRULENCE_PER_HIT);
+                }
             }
         }
     }
 
-    // ==================== MORT D'ENTITE ====================
+    // ==================== MORT D'ENTITÉ ====================
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
         LivingEntity victim = event.getEntity();
-        Player killer = victim.getKiller();
-        if (killer == null) return;
-
-        // Vérifier que c'est un joueur Poison
-        if (!poisonManager.isPoisonPlayer(killer)) return;
-
         UUID victimUuid = victim.getUniqueId();
 
-        // === T4: PANDEMIC - Explosion à la mort d'un empoisonné ===
-        Talent pandemic = getActiveTalent(killer, Talent.TalentEffectType.PANDEMIC);
-        if (pandemic != null && poisonManager.isPoisoned(victimUuid)) {
-            int chainCount = poisonManager.getPandemicChainCount(victimUuid);
-            double victimMaxHealth = victim.getAttribute(Attribute.MAX_HEALTH).getValue();
-            poisonManager.triggerPandemicExplosion(killer, victim.getLocation(), victimMaxHealth, chainCount);
-        }
+        // Vérifier si la cible était empoisonnée
+        if (!poisonManager.isPoisoned(victimUuid)) return;
 
-        // === T7: BLACK_PLAGUE - Nuage mortel à la mort par poison ===
-        Talent blackPlague = getActiveTalent(killer, Talent.TalentEffectType.BLACK_PLAGUE);
-        if (blackPlague != null && poisonManager.isPoisoned(victimUuid)) {
-            // Vérifier si mort par poison (dernière source de dégâts)
-            if (victim.getLastDamageCause() != null &&
-                victim.getLastDamageCause().getCause() == org.bukkit.event.entity.EntityDamageEvent.DamageCause.POISON) {
-                poisonManager.createDeathCloud(killer, victim.getLocation());
-            }
+        // Récupérer le propriétaire du poison
+        UUID ownerUuid = poisonManager.getPoisonOwner(victimUuid);
+        if (ownerUuid == null) return;
+
+        Player owner = plugin.getServer().getPlayer(ownerUuid);
+        if (owner == null) return;
+
+        // Vérifier que c'est un joueur Poison
+        if (!poisonManager.isPoisonPlayer(owner)) return;
+
+        // === T4: PANDEMIC - Propagation à la mort ===
+        Talent pandemic = getActiveTalent(owner, Talent.TalentEffectType.PANDEMIC);
+        if (pandemic != null) {
+            poisonManager.propagateOnDeath(owner, victim);
         }
     }
 
@@ -140,7 +135,7 @@ public class PoisonListener implements Listener {
         poisonManager.handleSneakForAvatar(player);
     }
 
-    // ==================== DECONNEXION ====================
+    // ==================== DÉCONNEXION ====================
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {

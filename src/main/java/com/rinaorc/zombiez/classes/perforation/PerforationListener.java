@@ -20,8 +20,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Listener pour la Voie de la Perforation du Chasseur.
+ * Listener pour la Voie du GIVRE (TIR DE GIVRE) du Chasseur.
  * Gère les événements de projectiles, dégâts et activation des talents.
+ *
+ * Système inspiré de l'Ice Shot Amazon de PoE2:
+ * - GIVRE (0-100%): Accumulation sur les ennemis
+ * - 50% = RALENTI, 100% = GELÉ
+ * - ÉCLAT: Mort d'un gelé = explosion AoE + propagation
  */
 public class PerforationListener implements Listener {
 
@@ -29,9 +34,12 @@ public class PerforationListener implements Listener {
     private final TalentManager talentManager;
     private final PerforationManager perforationManager;
 
-    private static final String PIERCE_COUNT_KEY = "perforation_pierce_count";
-    private static final String PIERCE_DAMAGE_KEY = "perforation_pierce_damage";
-    private static final String PIERCED_ENTITIES_KEY = "perforation_pierced_entities";
+    private static final String PIERCE_COUNT_KEY = "frost_pierce_count";
+    private static final String PIERCED_ENTITIES_KEY = "frost_pierced_entities";
+    private static final String FROST_APPLIED_KEY = "frost_applied_amount";
+
+    // Givre de base par tir
+    private static final double BASE_FROST_PER_HIT = 15.0; // 15% givre par tir
 
     public PerforationListener(ZombieZPlugin plugin, TalentManager talentManager, PerforationManager perforationManager) {
         this.plugin = plugin;
@@ -76,35 +84,59 @@ public class PerforationListener implements Listener {
         projectile.setMetadata(PIERCE_COUNT_KEY, new FixedMetadataValue(plugin, pierceCount));
         projectile.setMetadata(PIERCED_ENTITIES_KEY, new FixedMetadataValue(plugin, piercedEntities));
 
-        // === T1: FLECHES PERCANTES - Calculer pierce max ===
-        int maxPierce = 1;
+        // === CALCUL DU GIVRE À APPLIQUER ===
+        double frostToApply = BASE_FROST_PER_HIT;
+
+        // === T2: CHARGE GLACIALE - Bonus givre selon charge ===
+        frostToApply += perforationManager.getFrostChargeBonus(player) * 100; // Convertir en %
+
+        // Tir Glacial = gel instantané
+        if (perforationManager.isGlacialShot(uuid)) {
+            frostToApply = 100.0; // Gel instantané
+        }
+
+        // === T3: LIGNE DE GLACE - Bonus givre si dans la zone ===
+        frostToApply += perforationManager.getIceLineFrostBonus(player, target) * 100;
+
+        // === T1: TIRS PERÇANTS - Bonus givre par ennemi traversé ===
         Talent piercingTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
+        if (piercingTalent != null && pierceCount > 1) {
+            double bonusPerPierce = piercingTalent.getValue(1) * 100; // 25% par traversée
+            frostToApply += (pierceCount - 1) * bonusPerPierce * 0.5; // 12.5% givre bonus par traversée
+        }
+
+        // Appliquer le givre
+        boolean justFrozen = perforationManager.addFrost(player, target, frostToApply);
+
+        // Stocker le givre appliqué pour l'écho
+        projectile.setMetadata(FROST_APPLIED_KEY, new FixedMetadataValue(plugin, frostToApply));
+
+        // === T1: TIRS PERÇANTS - Calculer pierce max ===
+        int maxPierce = 1;
         if (piercingTalent != null) {
             maxPierce = (int) piercingTalent.getValue(0); // 2
         }
 
-        // === T2: CALIBRE - Bonus pierce sur Tir Lourd ===
-        if (perforationManager.isHeavyShot(uuid)) {
-            Talent caliberTalent = getActiveTalent(player, Talent.TalentEffectType.CALIBER);
-            if (caliberTalent != null) {
-                maxPierce += (int) caliberTalent.getValue(3); // +1 extra pierce
+        // === T2: CHARGE GLACIALE - Bonus pierce sur Tir Glacial ===
+        if (perforationManager.isGlacialShot(uuid)) {
+            Talent chargeTalent = getActiveTalent(player, Talent.TalentEffectType.CALIBER);
+            if (chargeTalent != null) {
+                maxPierce += (int) chargeTalent.getValue(3); // +1 extra pierce
             }
         }
 
-        // === T8: DÉVASTATION - Pierce infini ===
-        if (perforationManager.isDevastationActive(uuid)) {
+        // === T8: HIVER ÉTERNEL - Pierce infini ===
+        if (perforationManager.isEternalWinterActive(uuid)) {
             maxPierce = 999; // Infini
         }
 
-        // === T3: TRAJECTOIRE FATALE - Créer ligne si 2+ pierces ===
-        Talent fatalTalent = getActiveTalent(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
-        if (fatalTalent != null && pierceCount >= fatalTalent.getValue(0)) {
+        // === T3: LIGNE DE GLACE - Créer ligne si 2+ pierces ===
+        Talent iceTalent = getActiveTalent(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
+        if (iceTalent != null && pierceCount >= iceTalent.getValue(0)) {
             if (piercedEntities.size() >= 2) {
-                // Créer ligne entre premier et dernier ennemi percé
                 Location start = null;
                 Location end = target.getLocation();
 
-                // Le premier ennemi percé
                 for (UUID entityUuid : piercedEntities) {
                     Entity entity = plugin.getServer().getEntity(entityUuid);
                     if (entity != null) {
@@ -114,22 +146,24 @@ public class PerforationListener implements Listener {
                 }
 
                 if (start != null) {
-                    perforationManager.createFatalLine(player, start, end);
+                    perforationManager.createIceLine(player, start, end);
                 }
             }
         }
 
-        // === T5: PERFORATION ABSOLUE - Réduction d'armure ===
-        Talent absoluteTalent = getActiveTalent(player, Talent.TalentEffectType.ABSOLUTE_PERFORATION);
-        if (absoluteTalent != null) {
-            perforationManager.addArmorReduction(player, target, pierceCount);
+        // === T7: ÉCHO GLACIAL - Propager givre après dernier pierce ===
+        Talent echoTalent = getActiveTalent(player, Talent.TalentEffectType.CHAIN_PERFORATION);
+        if (echoTalent != null) {
+            if (pierceCount >= maxPierce || perforationManager.isEternalWinterActive(uuid)) {
+                perforationManager.triggerFrostEcho(player, target, frostToApply, 0);
+            }
         }
 
-        // Incrémenter Calibre
-        perforationManager.addCaliber(player, 1);
+        // Incrémenter Charge Glaciale
+        perforationManager.addFrostCharge(player, 1);
 
-        // Ajouter Surchauffe
-        perforationManager.addOverheat(player);
+        // Ajouter Hypothermie
+        perforationManager.addHypothermia(player);
 
         // Enregistrer le joueur si pas déjà fait
         perforationManager.registerPlayer(uuid);
@@ -150,7 +184,10 @@ public class PerforationListener implements Listener {
         double damage = event.getDamage();
         double bonusMultiplier = 1.0;
 
-        // === T1: FLECHES PERCANTES - Bonus par ennemi traversé ===
+        // === BONUS DÉGÂTS SUR CIBLE GELÉE (+50%) ===
+        bonusMultiplier += perforationManager.getFrozenDamageBonus(target);
+
+        // === T1: TIRS PERÇANTS - Bonus par ennemi traversé ===
         if (event.getDamager() instanceof Projectile projectile) {
             int pierceCount = projectile.hasMetadata(PIERCE_COUNT_KEY) ?
                 projectile.getMetadata(PIERCE_COUNT_KEY).get(0).asInt() : 0;
@@ -162,77 +199,57 @@ public class PerforationListener implements Listener {
             }
         }
 
-        // === T2: CALIBRE - Bonus dégâts ===
-        bonusMultiplier += perforationManager.getCaliberDamageBonus(player);
-
-        // === T4: SURCHAUFFE - Bonus dégâts ===
-        bonusMultiplier += perforationManager.getOverheatLevel(uuid);
-
-        // Si Surchauffe à 100% et c'est un projectile, déclencher explosion
-        if (perforationManager.isOverheatMax(uuid) && event.getDamager() instanceof Projectile) {
-            perforationManager.triggerOverheatExplosion(player, target.getLocation());
+        // === T4: HYPOTHERMIE - Déclencher Vague de Froid à 100% ===
+        if (perforationManager.isHypothermiaMax(uuid) && event.getDamager() instanceof Projectile) {
+            perforationManager.triggerColdWave(player, target.getLocation());
         }
 
-        // Consommer le Calibre si c'était un Tir Lourd
-        if (perforationManager.isHeavyShot(uuid) && event.getDamager() instanceof Projectile) {
-            perforationManager.consumeCaliber(uuid);
+        // Consommer la Charge Glaciale si c'était un Tir Glacial
+        if (perforationManager.isGlacialShot(uuid) && event.getDamager() instanceof Projectile) {
+            perforationManager.consumeFrostCharge(uuid);
         }
 
-        // === T5: PERFORATION ABSOLUE - Bonus dégâts sur cibles réduites ===
-        bonusMultiplier += perforationManager.getArmorReductionDamageBonus(player, target);
-
-        // === T3: TRAJECTOIRE FATALE - Bonus si dans ligne ===
-        bonusMultiplier += perforationManager.getFatalLineDamageBonus(player, target);
-
-        // === T8: DÉVASTATION - Bonus dégâts + slow ===
-        if (perforationManager.isDevastationActive(uuid)) {
-            bonusMultiplier += perforationManager.getDevastationDamageBonus(uuid);
-            perforationManager.applyDevastationSlow(target);
+        // === T8: HIVER ÉTERNEL - Bonus dégâts ===
+        if (perforationManager.isEternalWinterActive(uuid)) {
+            bonusMultiplier += 0.60; // +60% dégâts
         }
 
-        // === T6: FRÉNÉSIE - Tirs enflammés ===
-        if (perforationManager.isFrenzyActive(uuid)) {
-            target.setFireTicks(60); // 3s de feu
+        // === T6: TEMPÊTE DE NEIGE - Bonus dégâts ===
+        if (perforationManager.isBlizzardActive(uuid)) {
+            bonusMultiplier += 0.30; // +30% dégâts
         }
 
         // Appliquer les bonus
         event.setDamage(damage * bonusMultiplier);
-
-        // === T7: PERFORATION EN CHAÎNE - Rebonds après dernier pierce ===
-        if (event.getDamager() instanceof Projectile projectile) {
-            Talent chainTalent = getActiveTalent(player, Talent.TalentEffectType.CHAIN_PERFORATION);
-            if (chainTalent != null) {
-                int pierceCount = projectile.hasMetadata(PIERCE_COUNT_KEY) ?
-                    projectile.getMetadata(PIERCE_COUNT_KEY).get(0).asInt() : 0;
-
-                int maxPierce = 2; // Par défaut
-                Talent piercingTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
-                if (piercingTalent != null) {
-                    maxPierce = (int) piercingTalent.getValue(0);
-                }
-
-                // Si c'est le dernier pierce ou mode Dévastation, déclencher rebonds
-                if (pierceCount >= maxPierce || perforationManager.isDevastationActive(uuid)) {
-                    perforationManager.triggerChainBounce(player, target, damage * bonusMultiplier, 0);
-                }
-            }
-        }
     }
 
-    // ==================== MORT D'ENTITÉ ====================
+    // ==================== MORT D'ENTITÉ (ÉCLAT) ====================
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
         LivingEntity victim = event.getEntity();
+
+        // Chercher le joueur source du givre
+        Player frostSource = perforationManager.getFrostSource(victim.getUniqueId());
         Player killer = victim.getKiller();
-        if (killer == null) return;
 
-        if (!perforationManager.isPerforationPlayer(killer)) return;
+        // Utiliser le killer ou la source du givre
+        Player player = killer != null ? killer : frostSource;
+        if (player == null) return;
 
-        // === T6: MOMENTUM - Kill pendant Surchauffe ===
-        Talent momentumTalent = getActiveTalent(killer, Talent.TalentEffectType.HUNTER_MOMENTUM);
-        if (momentumTalent != null) {
-            perforationManager.onKillDuringOverheat(killer);
+        if (!perforationManager.isPerforationPlayer(player)) {
+            // Nettoyer les données même si ce n'est pas un joueur Givre
+            perforationManager.cleanupEntity(victim.getUniqueId());
+            return;
+        }
+
+        // === ÉCLAT - Mort d'une entité avec 70%+ givre ===
+        double frostLevel = perforationManager.getEntityFrost(victim.getUniqueId());
+        if (frostLevel >= 70) {
+            perforationManager.triggerShatter(player, victim, 0);
+        } else {
+            // Nettoyer les données de l'entité si pas d'éclat
+            perforationManager.cleanupEntity(victim.getUniqueId());
         }
     }
 
@@ -245,37 +262,29 @@ public class PerforationListener implements Listener {
         Player player = event.getPlayer();
         if (!perforationManager.isPerforationPlayer(player)) return;
 
-        // T8: DÉVASTATION - Double sneak
-        Talent devTalent = getActiveTalent(player, Talent.TalentEffectType.DEVASTATION);
-        if (devTalent != null) {
-            perforationManager.handleSneakForJudgment(player); // Réutilise la logique double-sneak
-            // Note: On vérifie d'abord Jugement car c'est T9
-        }
-
-        // T9: JUGEMENT - Double sneak puis immobile
-        Talent judgmentTalent = getActiveTalent(player, Talent.TalentEffectType.JUDGMENT);
-        if (judgmentTalent != null) {
-            perforationManager.handleSneakForJudgment(player);
+        // T9: ZÉRO ABSOLU - Double sneak puis immobile
+        Talent zeroTalent = getActiveTalent(player, Talent.TalentEffectType.JUDGMENT);
+        if (zeroTalent != null) {
+            perforationManager.handleSneakForAbsoluteZero(player);
             return;
         }
 
-        // Si pas Jugement, vérifier Dévastation
-        if (devTalent != null && !perforationManager.isDevastationActive(player.getUniqueId())) {
-            handleSneakForDevastation(player);
+        // T8: HIVER ÉTERNEL - Double sneak
+        Talent winterTalent = getActiveTalent(player, Talent.TalentEffectType.DEVASTATION);
+        if (winterTalent != null && !perforationManager.isEternalWinterActive(player.getUniqueId())) {
+            handleSneakForEternalWinter(player);
         }
     }
 
-    private void handleSneakForDevastation(Player player) {
-        UUID uuid = player.getUniqueId();
-
+    private void handleSneakForEternalWinter(Player player) {
         // Simple double-sneak detection
         long now = System.currentTimeMillis();
-        String key = "last_sneak_devastation";
+        String key = "last_sneak_eternal_winter";
 
         if (player.hasMetadata(key)) {
             long lastSneak = player.getMetadata(key).get(0).asLong();
             if (now - lastSneak < 500) {
-                perforationManager.activateDevastation(player);
+                perforationManager.activateEternalWinter(player);
                 player.removeMetadata(key, plugin);
                 return;
             }

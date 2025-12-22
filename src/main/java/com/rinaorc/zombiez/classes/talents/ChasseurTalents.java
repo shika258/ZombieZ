@@ -135,34 +135,37 @@ public final class ChasseurTalents {
             .values(new double[]{0.40, 5, 3, 0.20}) // chance, max_stacks, necrosis_threshold, necrosis_bonus (nerfed 25→20%)
             .build());
 
-        // 1.5 - FLECHES PERCANTES (Voie de la Perforation)
+        // 1.5 - FLÈCHES GIVRANTES (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_piercing_arrows")
-            .name("Flèches Perçantes")
-            .description("Traverse 2 ennemis, +25%/traversé")
+            .name("Flèches Givrantes")
+            .description("Traverse 2 ennemis, applique GIVRE!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos projectiles §atraversent§7",
-                "§7jusqu'à §e2 ennemis§7!",
+                "§7Vos projectiles §btraversent§7",
+                "§7jusqu'à §e2 ennemis§7 et",
+                "§7appliquent du §b§lGIVRE§7!",
                 "",
-                "§6MOMENTUM DE PERFORATION:",
-                "§8► Chaque ennemi traversé:",
-                "§8► §c+25%§8 dégâts au suivant!",
+                "§6SYSTÈME DE GIVRE:",
+                "§8► §b+15%§8 givre par touche",
+                "§8► §b50%§8 = §9RALENTI§8 (-30% vitesse)",
+                "§8► §b100%§8 = §b§lGELÉ§8 (2s immobile)",
                 "",
-                "§6EXEMPLE:",
-                "§71er ennemi: §c100%§7 dégâts",
-                "§72ème ennemi: §c125%§7 dégâts",
+                "§c§lBONUS GELÉ:",
+                "§8► Cibles gelées: §c+50%§8 dégâts!",
                 "",
-                "§8Compteur affiché dans l'ActionBar",
+                "§6MOMENTUM DE GIVRE:",
+                "§8► Chaque traversée: §c+25%§8 dégâts",
+                "§8► §b+12.5%§8 givre bonus!",
                 "",
-                "§a§lPERCEZ VOS ENNEMIS"
+                "§b§lGELEZ VOS ENNEMIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
             .slotIndex(4)
-            .icon(Material.SPECTRAL_ARROW)
-            .iconColor("§a")
+            .icon(Material.BLUE_ICE)
+            .iconColor("§b")
             .effectType(Talent.TalentEffectType.PIERCING_ARROWS)
             .values(new double[]{2, 0.25}) // pierce_count, bonus_damage_per_pierce%
             .build());
@@ -300,38 +303,38 @@ public final class ChasseurTalents {
             .values(new double[]{0.50, 3000, 0.10}) // damage%, duration_ms, armor_reduction
             .build());
 
-        // 2.5 - CALIBRE (Voie de la Perforation)
+        // 2.5 - CHARGE GLACIALE (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_caliber")
-            .name("Calibre")
-            .description("Charge 1-5, à 5 = TIR LOURD!")
+            .name("Charge Glaciale")
+            .description("Charge 1-5, à 5 = TIR GLACIAL!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
-                "§7Système de §eCalibre§7 (1-5).",
-                "§7Chaque tir augmente le Calibre.",
+                "§7Système de §bCharge Glaciale§7 (1-5).",
+                "§7Chaque tir augmente la Charge.",
                 "",
-                "§6CALIBRE CROISSANT:",
-                "§8► §e+1 Calibre§8 par tir",
-                "§8► §e+5%§8 dégâts par niveau",
+                "§6CHARGE CROISSANTE:",
+                "§8► §b+1 Charge§8 par tir",
+                "§8► §b+5%§8 givre appliqué par niveau",
                 "",
-                "§c§lÀ CALIBRE 5 - TIR LOURD:",
-                "§8► §c+100%§8 dégâts!",
+                "§b§lÀ CHARGE 5 - TIR GLACIAL:",
+                "§8► §b§lGEL INSTANTANÉ§8 de la cible!",
                 "§8► §a+1§8 ennemi traversé",
-                "§8► Son de railgun satisfaisant",
-                "§8► Reset le Calibre à 0",
+                "§8► Son de glace satisfaisant",
+                "§8► Reset la Charge à 0",
                 "",
-                "§8Calibre affiché: §e⬤⬤⬤⬤⬤",
+                "§8Charge affichée: §b❄❄❄❄❄",
                 "",
-                "§a§lMONTEZ EN PUISSANCE"
+                "§b§lCHARGEZ LE FROID"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
             .slotIndex(4)
-            .icon(Material.IRON_NUGGET)
-            .iconColor("§e")
+            .icon(Material.PACKED_ICE)
+            .iconColor("§b")
             .effectType(Talent.TalentEffectType.CALIBER)
-            .values(new double[]{5, 0.05, 1.0, 1}) // max_caliber, damage_per_level%, heavy_shot_bonus, extra_pierce
+            .values(new double[]{5, 0.05, 1.0, 1}) // max_charge, frost_per_level%, glacial_shot_bonus, extra_pierce
             .build());
     }
 
@@ -455,39 +458,39 @@ public final class ChasseurTalents {
             .values(new double[]{0.25, 0.50, 0.30}) // crit_chance, crit_bonus, slow%
             .build());
 
-        // 3.5 - TRAJECTOIRE FATALE (Voie de la Perforation)
+        // 3.5 - LIGNE DE GLACE (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_fatal_trajectory")
-            .name("Trajectoire Fatale")
-            .description("Pierce 2+ = Ligne de Mort (+30% dégâts)")
+            .name("Ligne de Glace")
+            .description("Pierce 2+ = Zone de Givre (+30% givre)")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
                 "§7Traverser §e2+ ennemis§7 crée",
-                "§7une §c§lLIGNE DE MORT§7!",
+                "§7une §b§lLIGNE DE GLACE§7!",
                 "",
-                "§6LIGNE DE MORT:",
+                "§6LIGNE DE GLACE:",
                 "§8► Zone linéaire de §e12 blocs",
                 "§8► Durée: §e3s",
-                "§8► Effet visuel subtil",
+                "§8► Particules de neige",
                 "",
-                "§c§lENNEMIS DANS LA LIGNE:",
-                "§8► Subissent §c+30%§8 de dégâts",
-                "§8► De toutes sources!",
+                "§b§lENNEMIS DANS LA LIGNE:",
+                "§8► Reçoivent §b+30%§8 givre bonus",
+                "§8► Facilite le gel en zone!",
                 "",
                 "§6SYNERGIE:",
-                "§7Parfait pour enchaîner les tirs",
+                "§7Parfait pour geler en chaîne",
                 "§7dans la même trajectoire!",
                 "",
-                "§a§lTRACEZ LEUR FIN"
+                "§b§lTRACEZ LE FROID"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
             .slotIndex(4)
-            .icon(Material.END_ROD)
-            .iconColor("§a")
+            .icon(Material.PRISMARINE_CRYSTALS)
+            .iconColor("§b")
             .effectType(Talent.TalentEffectType.FATAL_TRAJECTORY)
-            .values(new double[]{2, 12.0, 3000, 0.30}) // pierce_threshold, line_length, duration_ms, damage_bonus%
+            .values(new double[]{2, 12.0, 3000, 0.30}) // pierce_threshold, line_length, duration_ms, frost_bonus%
             .build());
     }
 
@@ -606,39 +609,39 @@ public final class ChasseurTalents {
             .values(new double[]{5.0, 2, 0.30, 3}) // range, stacks_applied, damage%, max_chains
             .build());
 
-        // 4.5 - SURCHAUFFE (Voie de la Perforation - Amélioré)
+        // 4.5 - HYPOTHERMIE (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_overheat")
-            .name("Surchauffe")
-            .description("+10%/tir (max +100%), à max = EXPLOSION!")
+            .name("Hypothermie")
+            .description("+10%/tir (max 100%), à max = VAGUE DE FROID!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos tirs §csurchauffent§7 votre arme!",
+                "§7Vos tirs accumulent le §bfroid§7!",
                 "",
                 "§6ACCUMULATION:",
-                "§8► §c+10%§8 dégâts par tir",
-                "§8► Maximum: §c+100%§8 (10 tirs)",
-                "§8► Reset après §e2.5s§8 sans tirer",
+                "§8► §b+10%§8 hypothermie par tir",
+                "§8► Maximum: §b100%§8 (10 tirs)",
+                "§8► Reset après §e3s§8 sans tirer",
                 "",
-                "§c§lÀ 100% - TIR EXPLOSIF:",
-                "§8► Le prochain tir §6EXPLOSE§8!",
+                "§b§lÀ 100% - VAGUE DE FROID:",
+                "§8► Le prochain tir déclenche une",
+                "§8► §b§lVAGUE DE FROID§8 AoE!",
                 "§8► Zone: §e4 blocs",
-                "§8► §c+50%§8 dégâts bonus",
-                "§8► Applique §9Lenteur§8 2s",
-                "§8► Reset la surchauffe",
+                "§8► §b30-70%§8 givre appliqué",
+                "§8► Reset l'hypothermie",
                 "",
-                "§6JAUGE: §8████████████",
+                "§6JAUGE: §9████████████",
                 "",
-                "§6§lCHAUFFEZ À BLANC!"
+                "§b§lREFROIDISSEZ-LES!"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
             .slotIndex(4)
-            .icon(Material.FIRE_CHARGE)
-            .iconColor("§6")
+            .icon(Material.SNOWBALL)
+            .iconColor("§9")
             .effectType(Talent.TalentEffectType.OVERHEAT)
-            .values(new double[]{0.10, 1.0, 2500, 4.0, 0.50}) // stack%, max%, reset_ms, explosion_radius, explosion_bonus%
+            .values(new double[]{0.10, 1.0, 3000, 4.0, 0.50}) // stack%, max%, reset_ms, wave_radius, frost_bonus%
             .build());
     }
 
@@ -766,40 +769,39 @@ public final class ChasseurTalents {
             .values(new double[]{10, 1.5}) // threshold, damage_multiplier (nerfed 200→150%)
             .build());
 
-        // 5.5 - PERFORATION ABSOLUE (Voie de la Perforation)
+        // 5.5 - GIVRE PÉNÉTRANT (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_absolute_perforation")
-            .name("Perforation Absolue")
-            .description("-20% armure/pierce (max -80%), expose!")
+            .name("Givre Pénétrant")
+            .description("Givre ignore résistance, vulnérabilité!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos tirs §cdéchirent§7 les armures!",
+                "§7Votre givre §bpénètre§7 les défenses!",
                 "",
-                "§6RÉDUCTION D'ARMURE:",
-                "§8► §c-20%§8 armure par ennemi traversé",
-                "§8► Se cumule sur la même cible",
-                "§8► Maximum: §c-80%§8 armure",
-                "§8► Durée: §e5s§8 (refresh)",
+                "§6GIVRE PÉNÉTRANT:",
+                "§8► §b+20%§8 givre par traversée",
+                "§8► Ignore la résistance au froid",
+                "§8► Maximum: §b+80%§8 givre bonus",
                 "",
-                "§c§lÀ -80% - EXPOSÉ:",
-                "§8► Cible devient §e§lEXPOSÉE",
-                "§8► §cGlowing§8 (visible à travers murs)",
-                "§8► Subit §c+35%§8 dégâts de vous",
+                "§b§lÉCLAT AMPLIFIÉ:",
+                "§8► Morts de gelés: §b+35%§8 rayon",
+                "§8► §c+35%§8 dégâts d'éclat!",
+                "§8► Propagation givre améliorée",
                 "",
                 "§6SYNERGIE:",
-                "§7Parfait avec Calibre et",
-                "§7Trajectoire Fatale!",
+                "§7Parfait avec Charge Glaciale",
+                "§7et Ligne de Glace!",
                 "",
-                "§a§lDÉTRUISEZ LEUR DÉFENSE"
+                "§b§lAUCUNE DÉFENSE NE RÉSISTE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
             .slotIndex(4)
-            .icon(Material.NETHERITE_PICKAXE)
-            .iconColor("§c")
+            .icon(Material.HEART_OF_THE_SEA)
+            .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_PERFORATION)
-            .values(new double[]{0.20, 0.80, 5000, 0.35}) // reduction_per_pierce%, max_reduction%, duration_ms, exposed_bonus%
+            .values(new double[]{0.20, 0.80, 5000, 0.35}) // frost_per_pierce%, max_bonus%, duration_ms, shatter_bonus%
             .build());
     }
 
@@ -937,41 +939,40 @@ public final class ChasseurTalents {
             .values(new double[]{0.05, 8.0, 0.30, 0.08}) // as_per_stack, range, max_as_bonus (nerfed 40→30%), heal_on_explosion
             .build());
 
-        // 6.5 - MOMENTUM DE CHASSEUR (Voie de la Perforation)
+        // 6.5 - TEMPÊTE DE NEIGE (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_hunter_momentum")
-            .name("Momentum de Chasseur")
-            .description("Kill surchauffé = vitesse, 3 kills = FRÉNÉSIE!")
+            .name("Tempête de Neige")
+            .description("3 éclats = TEMPÊTE (+30% givre, vitesse)!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
-                "§7Les kills pendant §cSurchauffe§7",
-                "§7vous propulsent vers l'avant!",
+                "§7Les §béclats§7 de glace vous",
+                "§7propulsent vers l'avant!",
                 "",
-                "§6KILL SURCHAUFFÉ:",
-                "§8► §a+35%§8 vitesse de déplacement",
-                "§8► Durée: §e2s§8 (cumule)",
-                "§8► Chaque kill étend de §e+1s",
+                "§6ÉCLAT DE GLACE:",
+                "§8► Chaque mort givrée compte",
+                "§8► Compteur d'éclats",
                 "",
-                "§c§l3 KILLS CONSÉCUTIFS - FRÉNÉSIE:",
-                "§8► §c+60%§8 Attack Speed!",
-                "§8► §a+50%§8 vitesse déplacement",
+                "§b§l3 ÉCLATS - TEMPÊTE DE NEIGE:",
+                "§8► §b+30%§8 givre appliqué!",
+                "§8► §a+Vitesse§8 de déplacement",
+                "§8► §c+30%§8 dégâts",
                 "§8► Durée: §e4s",
-                "§8► Tirs §6enflammés§8!",
                 "",
-                "§6ENCHAÎNEMENT PARFAIT:",
-                "§7Tuez vite pour maintenir",
-                "§7le momentum!",
+                "§6RÉACTION EN CHAÎNE:",
+                "§7Les éclats en chaîne maintiennent",
+                "§7la tempête active!",
                 "",
-                "§a§lNE VOUS ARRÊTEZ JAMAIS"
+                "§b§lDÉCHAÎNEZ LE BLIZZARD"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
             .slotIndex(4)
-            .icon(Material.SUGAR)
-            .iconColor("§a")
+            .icon(Material.POWDER_SNOW_BUCKET)
+            .iconColor("§b")
             .effectType(Talent.TalentEffectType.HUNTER_MOMENTUM)
-            .values(new double[]{0.35, 2000, 1000, 3, 0.60, 0.50, 4000}) // speed%, base_duration_ms, extension_ms, frenzy_kills, frenzy_as%, frenzy_speed%, frenzy_duration_ms
+            .values(new double[]{0.35, 2000, 1000, 3, 0.60, 0.50, 4000}) // speed%, base_duration_ms, extension_ms, shatter_kills, blizzard_bonus%, blizzard_speed%, blizzard_duration_ms
             .build());
     }
 
@@ -1113,44 +1114,44 @@ public final class ChasseurTalents {
             .values(new double[]{0.75, 0.10, 4.0, 0.15, 3000}) // heal_reduction%, lifesteal%, cloud_radius, cloud_dps%, cloud_duration_ms
             .build());
 
-        // 7.5 - PERFORATION EN CHAÎNE (Voie de la Perforation)
+        // 7.5 - ÉCHO GLACIAL (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_chain_perforation")
-            .name("Perforation en Chaîne")
-            .description("Après dernier pierce, rebondit 3x!")
+            .name("Écho Glacial")
+            .description("Après dernier pierce, givre se propage 3x!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
                 "§7Après avoir traversé le dernier",
-                "§7ennemi, vos projectiles §brebondissent§7!",
+                "§7ennemi, le §bgivre se propage§7!",
                 "",
-                "§6REBONDS EN CHAÎNE:",
-                "§8► Jusqu'à §e3§8 rebonds",
+                "§6PROPAGATION EN CHAÎNE:",
+                "§8► Jusqu'à §e3§8 propagations",
                 "§8► Vers l'ennemi le plus proche",
                 "§8► Portée: §e10 blocs",
                 "",
-                "§6DÉGÂTS PAR REBOND:",
-                "§8► 1er rebond: §c75%",
-                "§8► 2ème rebond: §c50%",
-                "§8► 3ème rebond: §c25%",
+                "§6GIVRE PAR ÉCHO:",
+                "§8► 1er écho: §b75%§8 givre",
+                "§8► 2ème écho: §b50%§8 givre",
+                "§8► 3ème écho: §b25%§8 givre",
                 "",
-                "§6BONUS CALIBRE:",
-                "§8► §e30%§8 chance de +1 Calibre",
-                "§8► Par rebond réussi!",
+                "§6BONUS ÉCLAT:",
+                "§8► §b+2 blocs§8 rayon d'éclat",
+                "§8► Plus de cibles touchées!",
                 "",
                 "§6SYNERGIE:",
-                "§7Plus vous percez, plus vous",
-                "§7rebondissez de fois!",
+                "§7Parfait pour geler un groupe",
+                "§7en une seule attaque!",
                 "",
-                "§a§lILS NE PEUVENT PAS FUIR"
+                "§b§lLE FROID SE RÉPAND"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
             .slotIndex(4)
-            .icon(Material.ECHO_SHARD)
+            .icon(Material.ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.CHAIN_PERFORATION)
-            .values(new double[]{3, 10.0, 0.75, 0.50, 0.25, 0.30}) // max_bounces, range, dmg_bounce1%, dmg_bounce2%, dmg_bounce3%, caliber_chance
+            .values(new double[]{3, 10.0, 0.75, 0.50, 0.25, 2.0}) // max_echoes, range, frost_echo1%, frost_echo2%, frost_echo3%, shatter_radius_bonus
             .build());
     }
 
@@ -1282,42 +1283,47 @@ public final class ChasseurTalents {
             .values(new double[]{5.0, 1000, 3.0, 50, 0.25}) // aura_range, tick_ms, spread_range, combo_threshold, combo_bonus
             .build());
 
-        // 8.5 - DÉVASTATION (Voie de la Perforation)
+        // 8.5 - HIVER ÉTERNEL (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_devastation")
-            .name("Dévastation")
-            .description("Mode 8s: pierce infini, +60% dégâts, slow!")
+            .name("Hiver Éternel")
+            .description("Mode 8s: +50% givre, aura de givre, +60% dégâts!")
             .loreLines(new String[]{
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§lVOIE DU GIVRE",
                 "",
                 "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Entrez en mode §c§lDÉVASTATION§7!",
+                "§7Entrez en mode §b§lHIVER ÉTERNEL§7!",
                 "",
-                "§6MODE DÉVASTATION (8s):",
-                "§8► §aPierce INFINI§8!",
+                "§6MODE HIVER ÉTERNEL (8s):",
+                "§8► §b+50%§8 givre appliqué!",
                 "§8► §c+60%§8 dégâts",
-                "§8► Tirs créent traînée visuelle",
-                "§8► Ennemis touchés: §9-40%§8 vitesse",
+                "§8► §c+50%§8 dégâts d'éclat",
+                "§8► Pierce INFINI",
                 "",
-                "§6BONUS CALIBRE:",
-                "§8► Calibre monte §e2x§8 plus vite",
-                "§8► Tirs Lourds = §c+150%§8 dégâts!",
+                "§6AURA DE GIVRE:",
+                "§8► §e5 blocs§8 autour de vous",
+                "§8► §b+5%§8 givre/tick aux ennemis",
+                "§8► Gel passif automatique!",
+                "",
+                "§6BONUS CHARGE:",
+                "§8► Charge monte §e2x§8 plus vite",
+                "§8► Tirs Glaciaux améliorés!",
                 "",
                 "§6EFFET VISUEL:",
-                "§8► Vous brillez §avert§8",
-                "§8► Projectiles laissent des traînées",
+                "§8► Aura de flocons de neige",
+                "§8► Traînées de glace",
                 "",
                 "§8► Cooldown: §c30s",
                 "",
-                "§a§l★ DÉVASTATION TOTALE ★"
+                "§b§l★ L'HIVER EST ÉTERNEL ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.NETHERITE_INGOT)
-            .iconColor("§a§l")
+            .icon(Material.BLUE_ICE)
+            .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.DEVASTATION)
-            .values(new double[]{8000, 0.60, 0.40, 1.50, 30000}) // duration_ms, damage_bonus%, slow%, heavy_shot_bonus, cooldown_ms
+            .values(new double[]{8000, 0.60, 0.50, 1.50, 30000}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms
             .internalCooldownMs(30000)
             .build());
     }
@@ -1466,48 +1472,53 @@ public final class ChasseurTalents {
             .internalCooldownMs(60000)
             .build());
 
-        // 9.5 - JUGEMENT (Voie de la Perforation - LÉGENDAIRE)
+        // 9.5 - ZÉRO ABSOLU (Voie du Givre - LÉGENDAIRE)
         TALENTS.add(Talent.builder()
             .id("chasseur_judgment")
-            .name("Jugement")
-            .description("Rayon 50 blocs, 1000% dégâts, -100% armure!")
+            .name("Zéro Absolu")
+            .description("Gel instantané TOUS ennemis 15 blocs!")
             .loreLines(new String[]{
-                "§a§l★ TALENT LÉGENDAIRE ★",
-                "§a§lVOIE DE LA PERFORATION",
+                "§b§l★ TALENT LÉGENDAIRE ★",
+                "§b§lVOIE DU GIVRE",
                 "",
                 "§7Activation: §e2x SNEAK§7 rapidement",
                 "§7puis restez §eimmobile 1.5s§7...",
                 "",
-                "§c§lTIR DU JUGEMENT:",
-                "§8► Tire un §cRAYON§8 de §e50 blocs",
-                "§8► Traverse §aTOUS§8 les ennemis",
+                "§b§lZÉRO ABSOLU:",
+                "§8► Vague de froid §e15 blocs",
+                "§8► §b§lGÈLE INSTANTANÉMENT§8 tous!",
                 "§8► Dégâts: §c§l1000%§8 de base!",
                 "",
-                "§6EFFETS SUR LES TOUCHÉS:",
-                "§8► §c-100%§8 armure pendant §e5s",
-                "§8► §6Enflammés§8 pendant §e3s",
-                "§8► §9Lenteur III§8 pendant §e3s",
+                "§6EFFETS SUR LES GELÉS:",
+                "§8► §b100%§8 givre instantané",
+                "§8► §bImmobilisés§8 pendant §e2s",
+                "§8► Subissent §c+50%§8 dégâts",
                 "",
-                "§6TRAÎNÉE DE FEU:",
-                "§8► Le rayon laisse une traînée",
-                "§8► Zone de feu §e3s§8, brûle!",
+                "§6VAGUE DE GLACE:",
+                "§8► S'étend depuis vous",
+                "§8► Traînée de particules de glace",
+                "§8► Sol couvert de neige §e3s",
+                "",
+                "§6ÉCLAT EN CHAÎNE:",
+                "§8► Les morts déclenchent des éclats",
+                "§8► Réaction en chaîne dévastatrice!",
                 "",
                 "§6EFFET VISUEL:",
-                "§8► Charge: particules convergent",
-                "§8► Tir: éclair §avert§8 massif",
-                "§8► Son: railgun épique",
+                "§8► Charge: flocons convergent",
+                "§8► Vague: anneau de glace §bcyan§8",
+                "§8► Son: cristallisation épique",
                 "",
                 "§8► Cooldown: §c45s",
                 "",
-                "§a§l★ JUGEMENT FINAL ★"
+                "§b§l★ ZÉRO ABSOLU ★"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
             .slotIndex(4)
-            .icon(Material.END_CRYSTAL)
-            .iconColor("§a§l")
+            .icon(Material.NETHER_STAR)
+            .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.JUDGMENT)
-            .values(new double[]{1500, 50.0, 10.0, 1.0, 5000, 3000, 45000}) // charge_ms, range, damage_mult, armor_reduction%, armor_duration_ms, fire_duration_ms, cooldown_ms
+            .values(new double[]{1500, 15.0, 10.0, 1.0, 2000, 3000, 45000}) // charge_ms, range (reduced to 15), damage_mult, frost%, freeze_duration_ms, visual_duration_ms, cooldown_ms
             .internalCooldownMs(45000)
             .build());
     }

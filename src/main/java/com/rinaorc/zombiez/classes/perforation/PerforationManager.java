@@ -11,6 +11,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -20,50 +21,70 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Gestionnaire de la Voie de la Perforation du Chasseur.
- * Gère le système de Calibre, Surchauffe, Perforation et effets associés.
+ * Gestionnaire de la Voie du GIVRE (TIR DE GIVRE) du Chasseur.
+ * Système inspiré de l'Ice Shot Amazon de PoE2.
+ *
+ * Mécaniques principales:
+ * - GIVRE (0-100%): Accumulation sur les ennemis
+ * - 50% = RALENTI (-30% vitesse)
+ * - 100% = GELÉ (immobilisé 2s, +50% dégâts reçus)
+ * - ÉCLAT: Mort d'un gelé = explosion AoE + propagation givre
+ * - ZÉRO ABSOLU: Ultimate de gel massif
  */
 public class PerforationManager {
 
     private final ZombieZPlugin plugin;
     private final TalentManager talentManager;
 
-    // === CALIBRE ===
-    private final Map<UUID, Integer> playerCaliber = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> lastShotTime = new ConcurrentHashMap<>();
+    // ============ CONFIGURATION GIVRE ============
+    private static final double FROST_SLOW_THRESHOLD = 50.0;      // 50% = ralenti
+    private static final double FROST_FROZEN_THRESHOLD = 100.0;   // 100% = gelé
+    private static final double FROST_SLOW_AMOUNT = 0.30;         // -30% vitesse
+    private static final double FROZEN_DAMAGE_BONUS = 0.50;       // +50% dégâts sur gelés
+    private static final long FROZEN_DURATION_MS = 2000;          // 2s de gel
+    private static final double SHATTER_BASE_RADIUS = 4.0;        // Rayon d'éclat
+    private static final double SHATTER_HP_DAMAGE_PERCENT = 0.15; // 15% HP max en dégâts
+    private static final int SHATTER_MAX_CHAIN = 3;               // Max chaînes d'éclat
+    private static final double FROST_DECAY_PER_SECOND = 5.0;     // -5% givre/s si pas touché
 
-    // === SURCHAUFFE ===
-    private final Map<UUID, Double> overheatLevel = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> lastOverheatTime = new ConcurrentHashMap<>();
+    // === GIVRE SUR ENNEMIS ===
+    private final Map<UUID, Double> entityFrost = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> entityFrostLastUpdate = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> entityFrozenUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> entityFrostSource = new ConcurrentHashMap<>(); // Qui a appliqué le givre
 
-    // === RÉDUCTION D'ARMURE ===
-    private final Map<UUID, Map<UUID, ArmorReductionData>> armorReduction = new ConcurrentHashMap<>();
+    // === CHARGE GLACIALE (remplace Calibre) ===
+    private final Map<UUID, Integer> playerFrostCharge = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastFrostChargeTime = new ConcurrentHashMap<>();
 
-    // === MOMENTUM ===
-    private final Map<UUID, Integer> consecutiveKills = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> momentumEnd = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> frenzyEnd = new ConcurrentHashMap<>();
+    // === HYPOTHERMIE (remplace Surchauffe) ===
+    private final Map<UUID, Double> hypothermiaLevel = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastHypothermiaTime = new ConcurrentHashMap<>();
 
-    // === DÉVASTATION ===
-    private final Map<UUID, Long> devastationEnd = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> devastationCooldown = new ConcurrentHashMap<>();
+    // === TEMPÊTE DE NEIGE (remplace Momentum) ===
+    private final Map<UUID, Integer> shatterKillStreak = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> blizzardModeEnd = new ConcurrentHashMap<>();
 
-    // === JUGEMENT ===
-    private final Map<UUID, Long> judgmentCooldown = new ConcurrentHashMap<>();
+    // === HIVER ÉTERNEL (remplace Dévastation) ===
+    private final Map<UUID, Long> eternalWinterEnd = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> eternalWinterCooldown = new ConcurrentHashMap<>();
+
+    // === ZÉRO ABSOLU (remplace Jugement) ===
+    private final Map<UUID, Long> absoluteZeroCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> chargingJudgment = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> judgmentChargeStart = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> chargingAbsoluteZero = new ConcurrentHashMap<>();
 
-    // === LIGNES DE MORT (Trajectoire Fatale) ===
-    private final Map<UUID, List<FatalLine>> fatalLines = new ConcurrentHashMap<>();
+    // === LIGNES DE GLACE (remplace Trajectoire Fatale) ===
+    private final Map<UUID, List<IceLine>> iceLines = new ConcurrentHashMap<>();
 
     // === JOUEURS ACTIFS ===
-    private final Set<UUID> activePerforationPlayers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> activeFrostPlayers = ConcurrentHashMap.newKeySet();
 
     public PerforationManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
         startTickTask();
+        startFrostDecayTask();
     }
 
     private void startTickTask() {
@@ -72,374 +93,513 @@ public class PerforationManager {
             public void run() {
                 long now = System.currentTimeMillis();
 
-                // Cleanup surchauffe expirée
-                overheatLevel.entrySet().removeIf(entry -> {
-                    Long lastTime = lastOverheatTime.get(entry.getKey());
-                    if (lastTime == null || now - lastTime > 2500) {
-                        return true; // Reset après 2.5s sans tir
-                    }
-                    return false;
+                // Cleanup hypothermie expirée
+                hypothermiaLevel.entrySet().removeIf(entry -> {
+                    Long lastTime = lastHypothermiaTime.get(entry.getKey());
+                    return lastTime == null || now - lastTime > 3000; // Reset après 3s
                 });
 
-                // Cleanup momentum expiré
-                momentumEnd.entrySet().removeIf(entry -> now > entry.getValue());
-                frenzyEnd.entrySet().removeIf(entry -> now > entry.getValue());
-
-                // Cleanup kills consécutifs si pas de momentum
-                consecutiveKills.entrySet().removeIf(entry ->
-                    !momentumEnd.containsKey(entry.getKey()) && !frenzyEnd.containsKey(entry.getKey()));
-
-                // Cleanup dévastation expirée
-                devastationEnd.entrySet().removeIf(entry -> {
+                // Cleanup blizzard expiré
+                blizzardModeEnd.entrySet().removeIf(entry -> {
                     if (now > entry.getValue()) {
                         Player player = Bukkit.getPlayer(entry.getKey());
                         if (player != null) {
-                            player.sendMessage("§a§l[PERFORATION] §7Mode Dévastation §cterminé§7.");
-                            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.8f);
+                            player.sendMessage("§b§l[GIVRE] §7Tempête de Neige §cterminée§7.");
+                            player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.8f, 0.5f);
                         }
                         return true;
                     }
                     return false;
                 });
 
-                // Cleanup réduction d'armure expirée
-                for (Map.Entry<UUID, Map<UUID, ArmorReductionData>> entry : armorReduction.entrySet()) {
-                    entry.getValue().entrySet().removeIf(e -> now > e.getValue().expiryTime);
-                }
+                // Cleanup hiver éternel expiré
+                eternalWinterEnd.entrySet().removeIf(entry -> {
+                    if (now > entry.getValue()) {
+                        Player player = Bukkit.getPlayer(entry.getKey());
+                        if (player != null) {
+                            player.sendMessage("§b§l[GIVRE] §7Hiver Éternel §cterminé§7.");
+                            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.5f);
+                        }
+                        return true;
+                    }
+                    return false;
+                });
 
-                // Cleanup lignes de mort expirées
-                for (Map.Entry<UUID, List<FatalLine>> entry : fatalLines.entrySet()) {
+                // Cleanup entités gelées expirées
+                entityFrozenUntil.entrySet().removeIf(entry -> {
+                    if (now > entry.getValue()) {
+                        // Réduire le givre de moitié après dégel
+                        entityFrost.computeIfPresent(entry.getKey(), (k, v) -> v * 0.5);
+                        return true;
+                    }
+                    return false;
+                });
+
+                // Cleanup lignes de glace expirées
+                for (Map.Entry<UUID, List<IceLine>> entry : iceLines.entrySet()) {
                     entry.getValue().removeIf(line -> now > line.expiryTime);
                 }
 
-                // Enregistrer les providers ActionBar pour les joueurs Perforation
+                // Enregistrer les providers ActionBar
                 registerActionBarProviders();
             }
         }.runTaskTimer(plugin, 4L, 4L);
     }
 
     /**
-     * Enregistre les providers d'ActionBar pour les joueurs Perforation auprès du ActionBarManager
+     * Task de décroissance passive du givre
      */
+    private void startFrostDecayTask() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+
+                entityFrost.entrySet().removeIf(entry -> {
+                    UUID entityId = entry.getKey();
+                    Long lastUpdate = entityFrostLastUpdate.get(entityId);
+
+                    // Si pas touché depuis 2s, le givre décroît
+                    if (lastUpdate != null && now - lastUpdate > 2000) {
+                        double newFrost = entry.getValue() - FROST_DECAY_PER_SECOND;
+                        if (newFrost <= 0) {
+                            entityFrostLastUpdate.remove(entityId);
+                            entityFrostSource.remove(entityId);
+                            return true;
+                        }
+                        entry.setValue(newFrost);
+                    }
+                    return false;
+                });
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+    }
+
     private void registerActionBarProviders() {
         if (plugin.getActionBarManager() == null) return;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID uuid = player.getUniqueId();
             if (isPerforationPlayer(player)) {
-                // Enregistrer le provider si pas déjà fait
-                if (!activePerforationPlayers.contains(uuid)) {
-                    activePerforationPlayers.add(uuid);
+                if (!activeFrostPlayers.contains(uuid)) {
+                    activeFrostPlayers.add(uuid);
                     plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
                 }
             } else {
-                // Retirer le provider si le joueur n'est plus Perforation
-                if (activePerforationPlayers.contains(uuid)) {
-                    activePerforationPlayers.remove(uuid);
+                if (activeFrostPlayers.contains(uuid)) {
+                    activeFrostPlayers.remove(uuid);
                     plugin.getActionBarManager().unregisterClassActionBar(uuid);
                 }
             }
         }
     }
 
-    // ==================== CALIBRE ====================
+    // ==================== SYSTÈME DE GIVRE ====================
 
-    public int getCaliber(UUID uuid) {
-        return playerCaliber.getOrDefault(uuid, 0);
+    /**
+     * Obtient le niveau de givre d'une entité (0-100%)
+     */
+    public double getEntityFrost(UUID entityId) {
+        return entityFrost.getOrDefault(entityId, 0.0);
     }
 
-    public void addCaliber(Player player, int amount) {
-        UUID uuid = player.getUniqueId();
-        int current = getCaliber(uuid);
-        int maxCaliber = 5;
+    /**
+     * Ajoute du givre à une entité
+     * @return true si l'entité vient d'être gelée
+     */
+    public boolean addFrost(Player source, LivingEntity target, double amount) {
+        UUID targetId = target.getUniqueId();
+        UUID sourceId = source.getUniqueId();
 
-        Talent caliberTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CALIBER);
-        if (caliberTalent != null) {
-            maxCaliber = (int) caliberTalent.getValue(0);
+        // En mode Hiver Éternel, +50% givre appliqué
+        if (isEternalWinterActive(sourceId)) {
+            amount *= 1.5;
         }
 
-        // En mode Dévastation, le calibre monte 2x plus vite
-        if (isDevastationActive(uuid)) {
+        // En mode Tempête de Neige, +30% givre
+        if (isBlizzardActive(sourceId)) {
+            amount *= 1.3;
+        }
+
+        double currentFrost = getEntityFrost(targetId);
+        boolean wasNotFrozen = currentFrost < FROST_FROZEN_THRESHOLD;
+
+        double newFrost = Math.min(currentFrost + amount, FROST_FROZEN_THRESHOLD);
+        entityFrost.put(targetId, newFrost);
+        entityFrostLastUpdate.put(targetId, System.currentTimeMillis());
+        entityFrostSource.put(targetId, sourceId);
+
+        // Effets visuels de givre
+        spawnFrostParticles(target, newFrost);
+
+        // Seuil 50% - RALENTI
+        if (currentFrost < FROST_SLOW_THRESHOLD && newFrost >= FROST_SLOW_THRESHOLD) {
+            applyFrostSlow(target);
+            source.playSound(source.getLocation(), Sound.BLOCK_POWDER_SNOW_STEP, 0.6f, 1.2f);
+        }
+
+        // Seuil 100% - GELÉ
+        if (wasNotFrozen && newFrost >= FROST_FROZEN_THRESHOLD) {
+            freezeEntity(source, target);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Applique le ralentissement de givre
+     */
+    private void applyFrostSlow(LivingEntity target) {
+        int slowLevel = 1; // Slowness II = -30%
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, 40, slowLevel, false, false, true
+        ));
+    }
+
+    /**
+     * Gèle complètement une entité
+     */
+    private void freezeEntity(Player source, LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        entityFrozenUntil.put(targetId, now + FROZEN_DURATION_MS);
+
+        // Immobilisation totale
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, (int)(FROZEN_DURATION_MS / 50), 255, false, false, true
+        ));
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.JUMP_BOOST, (int)(FROZEN_DURATION_MS / 50), 128, false, false, true
+        )); // Empêche les sauts
+
+        // Marqueur visuel
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.GLOWING, (int)(FROZEN_DURATION_MS / 50), 0, false, false, true
+        ));
+
+        // Effets visuels de gel
+        Location loc = target.getLocation().add(0, 1, 0);
+        target.getWorld().spawnParticle(Particle.BLOCK, loc, 30, 0.5, 0.8, 0.5, 0.1,
+            Material.BLUE_ICE.createBlockData());
+        target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, 20, 0.4, 0.6, 0.4, 0.05);
+        target.getWorld().playSound(loc, Sound.BLOCK_GLASS_PLACE, 1.2f, 0.5f);
+
+        source.sendMessage("§b§l[GELÉ] §7Cible §bimmobilisée §72s! §a+50%§7 dégâts!");
+        source.playSound(source.getLocation(), Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 1.5f);
+    }
+
+    /**
+     * Vérifie si une entité est gelée
+     */
+    public boolean isFrozen(UUID entityId) {
+        Long frozenUntil = entityFrozenUntil.get(entityId);
+        return frozenUntil != null && System.currentTimeMillis() < frozenUntil;
+    }
+
+    /**
+     * Obtient le bonus de dégâts sur cible gelée
+     */
+    public double getFrozenDamageBonus(LivingEntity target) {
+        if (isFrozen(target.getUniqueId())) {
+            return FROZEN_DAMAGE_BONUS;
+        }
+        return 0;
+    }
+
+    /**
+     * Spawn des particules de givre selon le niveau
+     */
+    private void spawnFrostParticles(LivingEntity target, double frostLevel) {
+        Location loc = target.getLocation().add(0, 1, 0);
+        int particleCount = (int)(frostLevel / 10);
+
+        if (frostLevel >= FROST_FROZEN_THRESHOLD) {
+            // Gelé = particules de glace denses
+            target.getWorld().spawnParticle(Particle.BLOCK, loc, 5, 0.3, 0.5, 0.3, 0,
+                Material.BLUE_ICE.createBlockData());
+        } else if (frostLevel >= FROST_SLOW_THRESHOLD) {
+            // Ralenti = flocons modérés
+            target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, particleCount, 0.3, 0.4, 0.3, 0.02);
+        } else if (frostLevel > 0) {
+            // Début de givre = légers flocons
+            target.getWorld().spawnParticle(Particle.SNOWFLAKE, loc, particleCount / 2, 0.2, 0.3, 0.2, 0.01);
+        }
+    }
+
+    // ==================== ÉCLAT (SHATTER) ====================
+
+    /**
+     * Déclenche l'éclat quand une entité gelée meurt
+     */
+    public void triggerShatter(Player source, LivingEntity deadEntity, int chainDepth) {
+        if (chainDepth > SHATTER_MAX_CHAIN) return;
+
+        UUID deadId = deadEntity.getUniqueId();
+        double frostLevel = getEntityFrost(deadId);
+
+        // Nettoyer les données de l'entité morte
+        entityFrost.remove(deadId);
+        entityFrostLastUpdate.remove(deadId);
+        entityFrozenUntil.remove(deadId);
+        entityFrostSource.remove(deadId);
+
+        // L'entité doit être gelée ou avoir au moins 70% de givre pour éclater
+        if (frostLevel < 70) return;
+
+        Location center = deadEntity.getLocation().add(0, 1, 0);
+        double radius = SHATTER_BASE_RADIUS;
+
+        // Talent Écho Glacial = rayon augmenté
+        Talent chainTalent = talentManager.getActiveTalentByEffect(source, Talent.TalentEffectType.CHAIN_PERFORATION);
+        if (chainTalent != null) {
+            radius += chainTalent.getValue(1); // +2 blocs de rayon
+        }
+
+        // Calculer les dégâts (basés sur HP max de l'entité morte)
+        double maxHealth = deadEntity.getAttribute(Attribute.MAX_HEALTH) != null ?
+            deadEntity.getAttribute(Attribute.MAX_HEALTH).getValue() : 20;
+        double shatterDamage = maxHealth * SHATTER_HP_DAMAGE_PERCENT;
+
+        // Bonus en mode Hiver Éternel
+        if (isEternalWinterActive(source.getUniqueId())) {
+            shatterDamage *= 1.5;
+        }
+
+        // Cap à 500 dégâts pour éviter l'infini
+        shatterDamage = Math.min(shatterDamage, 500);
+
+        // Effets visuels d'éclat
+        center.getWorld().spawnParticle(Particle.BLOCK, center, 50, radius / 2, radius / 2, radius / 2, 0.1,
+            Material.BLUE_ICE.createBlockData());
+        center.getWorld().spawnParticle(Particle.EXPLOSION, center, 1);
+        center.getWorld().spawnParticle(Particle.SNOWFLAKE, center, 40, radius / 2, radius / 2, radius / 2, 0.1);
+        center.getWorld().playSound(center, Sound.BLOCK_GLASS_BREAK, 1.5f, 1.2f);
+        center.getWorld().playSound(center, Sound.ENTITY_PLAYER_HURT_FREEZE, 0.8f, 0.8f);
+
+        // Propager givre et dégâts aux ennemis proches
+        double frostToPropagate = frostLevel * 0.5; // 50% du givre se propage
+        int targetsHit = 0;
+
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof Monster target && !target.isDead() && target != deadEntity) {
+                // Infliger dégâts d'éclat
+                target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                target.damage(shatterDamage, source);
+
+                // Propager le givre
+                boolean nowFrozen = addFrost(source, target, frostToPropagate);
+
+                // Si la cible est maintenant gelée et meurt, déclencher éclat en chaîne
+                if (nowFrozen && target.isDead()) {
+                    // Délai pour éviter la récursion infinie
+                    final LivingEntity finalTarget = target;
+                    final int nextChain = chainDepth + 1;
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            triggerShatter(source, finalTarget, nextChain);
+                        }
+                    }.runTaskLater(plugin, 2L);
+                }
+
+                targetsHit++;
+            }
+        }
+
+        // Compteur de kills pour Tempête de Neige
+        if (targetsHit > 0) {
+            onShatterKill(source);
+        }
+
+        // Message
+        if (chainDepth == 0) {
+            source.sendMessage("§b§l[ÉCLAT] §7Explosion de glace! §c" +
+                String.format("%.0f", shatterDamage) + " §7dégâts, §b" +
+                String.format("%.0f", frostToPropagate) + "%§7 givre propagé!");
+        }
+    }
+
+    // ==================== CHARGE GLACIALE (remplace CALIBRE) ====================
+
+    public int getFrostCharge(UUID uuid) {
+        return playerFrostCharge.getOrDefault(uuid, 0);
+    }
+
+    public void addFrostCharge(Player player, int amount) {
+        UUID uuid = player.getUniqueId();
+        int current = getFrostCharge(uuid);
+        int maxCharge = 5;
+
+        Talent chargeTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CALIBER);
+        if (chargeTalent != null) {
+            maxCharge = (int) chargeTalent.getValue(0);
+        }
+
+        // En mode Hiver Éternel, charges 2x plus vite
+        if (isEternalWinterActive(uuid)) {
             amount *= 2;
         }
 
-        int newCaliber = Math.min(current + amount, maxCaliber);
-        playerCaliber.put(uuid, newCaliber);
-        lastShotTime.put(uuid, System.currentTimeMillis());
+        int newCharge = Math.min(current + amount, maxCharge);
+        playerFrostCharge.put(uuid, newCharge);
+        lastFrostChargeTime.put(uuid, System.currentTimeMillis());
 
-        // Feedback visuel
-        if (newCaliber > current) {
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 0.8f + (newCaliber * 0.15f));
+        // Feedback
+        if (newCharge > current) {
+            player.playSound(player.getLocation(), Sound.BLOCK_POWDER_SNOW_STEP, 0.5f, 0.8f + (newCharge * 0.15f));
         }
 
-        // Calibre max atteint
-        if (newCaliber >= maxCaliber && current < maxCaliber) {
-            player.sendMessage("§a§l[PERFORATION] §eCalibre MAX! §7Prochain tir = §c§lTIR LOURD!");
-            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.6f, 1.5f);
+        // Charge max = TIR GLACIAL
+        if (newCharge >= maxCharge && current < maxCharge) {
+            player.sendMessage("§b§l[GIVRE] §eCharge MAX! §7Prochain tir = §b§lTIR GLACIAL!");
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT_FREEZE, 0.8f, 1.5f);
         }
     }
 
-    public boolean isHeavyShot(UUID uuid) {
-        return getCaliber(uuid) >= 5;
+    public boolean isGlacialShot(UUID uuid) {
+        return getFrostCharge(uuid) >= 5;
     }
 
-    public void consumeCaliber(UUID uuid) {
-        playerCaliber.put(uuid, 0);
+    public void consumeFrostCharge(UUID uuid) {
+        playerFrostCharge.put(uuid, 0);
     }
 
-    public double getCaliberDamageBonus(Player player) {
-        Talent caliberTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CALIBER);
-        if (caliberTalent == null) return 0;
+    /**
+     * Obtient le bonus de givre basé sur la charge
+     */
+    public double getFrostChargeBonus(Player player) {
+        Talent chargeTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CALIBER);
+        if (chargeTalent == null) return 0;
 
-        int caliber = getCaliber(player.getUniqueId());
-        double bonusPerLevel = caliberTalent.getValue(1); // 0.05 = 5%
+        int charge = getFrostCharge(player.getUniqueId());
+        double bonusPerLevel = chargeTalent.getValue(1); // +5% givre par niveau
 
-        if (isHeavyShot(player.getUniqueId())) {
-            double heavyShotBonus = caliberTalent.getValue(2); // 1.0 = 100%
-
-            // En mode Dévastation, Tirs Lourds = +150%
-            if (isDevastationActive(player.getUniqueId())) {
-                Talent devastation = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.DEVASTATION);
-                if (devastation != null) {
-                    heavyShotBonus = devastation.getValue(3); // 1.50 = 150%
-                }
-            }
-
-            return heavyShotBonus;
+        if (isGlacialShot(player.getUniqueId())) {
+            // Tir Glacial = gel instantané (+100% givre)
+            return 1.0;
         }
 
-        return caliber * bonusPerLevel;
+        return charge * bonusPerLevel;
     }
 
-    // ==================== SURCHAUFFE ====================
+    // ==================== HYPOTHERMIE (remplace SURCHAUFFE) ====================
 
-    public double getOverheatLevel(UUID uuid) {
-        return overheatLevel.getOrDefault(uuid, 0.0);
+    public double getHypothermiaLevel(UUID uuid) {
+        return hypothermiaLevel.getOrDefault(uuid, 0.0);
     }
 
-    public void addOverheat(Player player) {
+    public void addHypothermia(Player player) {
         UUID uuid = player.getUniqueId();
-        Talent overheatTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.OVERHEAT);
-        if (overheatTalent == null) return;
+        Talent hypoTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.OVERHEAT);
+        if (hypoTalent == null) return;
 
-        double stackPercent = overheatTalent.getValue(0); // 0.10 = 10%
-        double maxPercent = overheatTalent.getValue(1); // 1.0 = 100%
+        double stackPercent = hypoTalent.getValue(0); // 0.10 = 10%
+        double maxPercent = hypoTalent.getValue(1); // 1.0 = 100%
 
-        double current = getOverheatLevel(uuid);
+        double current = getHypothermiaLevel(uuid);
         double newLevel = Math.min(current + stackPercent, maxPercent);
-        overheatLevel.put(uuid, newLevel);
-        lastOverheatTime.put(uuid, System.currentTimeMillis());
+        hypothermiaLevel.put(uuid, newLevel);
+        lastHypothermiaTime.put(uuid, System.currentTimeMillis());
 
         // Feedback
         if (newLevel > current) {
             float pitch = 0.8f + (float) (newLevel * 0.8f);
-            player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.4f, pitch);
+            player.playSound(player.getLocation(), Sound.BLOCK_POWDER_SNOW_STEP, 0.4f, pitch);
         }
 
-        // Max atteint
+        // Max = VAGUE DE FROID
         if (newLevel >= maxPercent && current < maxPercent) {
-            player.sendMessage("§6§l[SURCHAUFFE] §c100%! §7Prochain tir = §6§lEXPLOSION!");
-            player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.5f);
+            player.sendMessage("§b§l[HYPOTHERMIE] §9100%! §7Prochain tir = §b§lVAGUE DE FROID!");
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.5f);
         }
     }
 
-    public boolean isOverheatMax(UUID uuid) {
-        return getOverheatLevel(uuid) >= 1.0;
+    public boolean isHypothermiaMax(UUID uuid) {
+        return getHypothermiaLevel(uuid) >= 1.0;
     }
 
-    public void resetOverheat(UUID uuid) {
-        overheatLevel.put(uuid, 0.0);
+    public void resetHypothermia(UUID uuid) {
+        hypothermiaLevel.put(uuid, 0.0);
     }
 
-    public void triggerOverheatExplosion(Player player, Location center) {
-        Talent overheatTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.OVERHEAT);
-        if (overheatTalent == null) return;
+    /**
+     * Déclenche une vague de froid AoE
+     */
+    public void triggerColdWave(Player player, Location center) {
+        Talent hypoTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.OVERHEAT);
+        if (hypoTalent == null) return;
 
-        double radius = overheatTalent.getValue(3); // 4.0 blocs
-        double explosionBonus = overheatTalent.getValue(4); // 0.50 = 50%
-        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double explosionDamage = baseDamage * (1 + explosionBonus + getOverheatLevel(player.getUniqueId()));
+        double radius = hypoTalent.getValue(3); // 4.0 blocs
+        double frostAmount = 30 + (getHypothermiaLevel(player.getUniqueId()) * 40); // 30-70% givre
 
         // Effets visuels
-        center.getWorld().spawnParticle(Particle.EXPLOSION, center, 1);
-        center.getWorld().spawnParticle(Particle.FLAME, center, 30, radius / 2, radius / 2, radius / 2, 0.1);
-        center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        center.getWorld().spawnParticle(Particle.SNOWFLAKE, center, 60, radius / 2, radius / 2, radius / 2, 0.15);
+        center.getWorld().spawnParticle(Particle.BLOCK, center, 30, radius / 2, 0.5, radius / 2, 0.05,
+            Material.BLUE_ICE.createBlockData());
+        center.getWorld().playSound(center, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.5f, 0.8f);
+        center.getWorld().playSound(center, Sound.BLOCK_GLASS_BREAK, 0.8f, 1.5f);
 
-        // Dégâts AoE
+        int frozen = 0;
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
             if (entity instanceof Monster target) {
-                target.damage(explosionDamage, player);
-                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1)); // 2s slow
+                if (addFrost(player, target, frostAmount)) {
+                    frozen++;
+                }
             }
         }
 
-        player.sendMessage("§6§l[SURCHAUFFE] §c§lEXPLOSION! §7" + String.format("%.0f", explosionDamage) + " dégâts!");
-        resetOverheat(player.getUniqueId());
+        player.sendMessage("§b§l[VAGUE DE FROID] §7" + frozen + " ennemis §bgelés§7! " +
+            String.format("%.0f", frostAmount) + "% givre appliqué!");
+        resetHypothermia(player.getUniqueId());
     }
 
-    // ==================== RÉDUCTION D'ARMURE ====================
+    // ==================== TEMPÊTE DE NEIGE (remplace MOMENTUM) ====================
 
-    public void addArmorReduction(Player player, LivingEntity target, int pierceCount) {
-        Talent perfTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.ABSOLUTE_PERFORATION);
-        if (perfTalent == null) return;
-
-        UUID playerUuid = player.getUniqueId();
-        UUID targetUuid = target.getUniqueId();
-
-        double reductionPerPierce = perfTalent.getValue(0); // 0.20 = 20%
-        double maxReduction = perfTalent.getValue(1); // 0.80 = 80%
-        long duration = (long) perfTalent.getValue(2); // 5000ms
-
-        Map<UUID, ArmorReductionData> playerReductions = armorReduction.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
-        ArmorReductionData current = playerReductions.get(targetUuid);
-
-        double newReduction = (current != null ? current.reduction : 0) + (reductionPerPierce * pierceCount);
-        newReduction = Math.min(newReduction, maxReduction);
-
-        long expiryTime = System.currentTimeMillis() + duration;
-        playerReductions.put(targetUuid, new ArmorReductionData(newReduction, expiryTime));
-
-        // Exposé à -80%
-        if (newReduction >= maxReduction) {
-            double exposedBonus = perfTalent.getValue(3); // 0.35 = 35%
-            target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, (int) (duration / 50), 0));
-
-            player.sendMessage("§c§l[EXPOSÉ] §7Cible à §c-80%§7 armure! §a+35%§7 dégâts!");
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
-        }
-    }
-
-    public double getArmorReductionDamageBonus(Player player, LivingEntity target) {
-        UUID playerUuid = player.getUniqueId();
-        UUID targetUuid = target.getUniqueId();
-
-        Map<UUID, ArmorReductionData> playerReductions = armorReduction.get(playerUuid);
-        if (playerReductions == null) return 0;
-
-        ArmorReductionData data = playerReductions.get(targetUuid);
-        if (data == null) return 0;
-
-        // Bonus dégâts basé sur réduction d'armure
-        // Simule la réduction d'armure via bonus dégâts
-        double bonus = data.reduction * 0.5; // 80% armor reduction = +40% dégâts
-
-        // Bonus EXPOSÉ
-        if (data.reduction >= 0.80) {
-            Talent perfTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.ABSOLUTE_PERFORATION);
-            if (perfTalent != null) {
-                bonus += perfTalent.getValue(3); // 0.35 = 35%
-            }
-        }
-
-        return bonus;
-    }
-
-    // ==================== MOMENTUM ====================
-
-    public void onKillDuringOverheat(Player player) {
-        Talent momentumTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.HUNTER_MOMENTUM);
-        if (momentumTalent == null) return;
-
-        if (getOverheatLevel(player.getUniqueId()) <= 0) return;
+    public void onShatterKill(Player player) {
+        Talent blizzardTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.HUNTER_MOMENTUM);
+        if (blizzardTalent == null) return;
 
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
 
-        double speedBonus = momentumTalent.getValue(0); // 0.35 = 35%
-        long baseDuration = (long) momentumTalent.getValue(1); // 2000ms
-        long extension = (long) momentumTalent.getValue(2); // 1000ms
-        int frenzyKills = (int) momentumTalent.getValue(3); // 3
+        int killsNeeded = (int) blizzardTalent.getValue(3); // 3 kills
+        long duration = (long) blizzardTalent.getValue(6); // 4000ms
 
-        // Ajouter/étendre momentum
-        long currentEnd = momentumEnd.getOrDefault(uuid, 0L);
-        if (currentEnd > now) {
-            momentumEnd.put(uuid, currentEnd + extension);
-        } else {
-            momentumEnd.put(uuid, now + baseDuration);
+        int kills = shatterKillStreak.getOrDefault(uuid, 0) + 1;
+        shatterKillStreak.put(uuid, kills);
+
+        // Activer Tempête de Neige à X kills
+        if (kills >= killsNeeded && !isBlizzardActive(uuid)) {
+            activateBlizzard(player, duration);
+            shatterKillStreak.put(uuid, 0);
         }
 
-        // Appliquer vitesse
-        int durationTicks = (int) ((momentumEnd.get(uuid) - now) / 50);
+        player.playSound(player.getLocation(), Sound.BLOCK_POWDER_SNOW_BREAK, 0.6f, 1.2f);
+    }
+
+    public boolean isBlizzardActive(UUID uuid) {
+        return blizzardModeEnd.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+    }
+
+    private void activateBlizzard(Player player, long duration) {
+        UUID uuid = player.getUniqueId();
+
+        blizzardModeEnd.put(uuid, System.currentTimeMillis() + duration);
+
+        int durationTicks = (int) (duration / 50);
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, durationTicks, 1, false, false));
 
-        // Compter kills consécutifs
-        int kills = consecutiveKills.getOrDefault(uuid, 0) + 1;
-        consecutiveKills.put(uuid, kills);
-
-        // Frénésie à 3 kills
-        if (kills >= frenzyKills && !isFrenzyActive(uuid)) {
-            activateFrenzy(player);
-        }
-
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
-    }
-
-    public boolean isFrenzyActive(UUID uuid) {
-        return frenzyEnd.getOrDefault(uuid, 0L) > System.currentTimeMillis();
-    }
-
-    private void activateFrenzy(Player player) {
-        Talent momentumTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.HUNTER_MOMENTUM);
-        if (momentumTalent == null) return;
-
-        UUID uuid = player.getUniqueId();
-        double frenzyAS = momentumTalent.getValue(4); // 0.60 = 60%
-        double frenzySpeed = momentumTalent.getValue(5); // 0.50 = 50%
-        long frenzyDuration = (long) momentumTalent.getValue(6); // 4000ms
-
-        frenzyEnd.put(uuid, System.currentTimeMillis() + frenzyDuration);
-        consecutiveKills.put(uuid, 0);
-
-        int durationTicks = (int) (frenzyDuration / 50);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, durationTicks, 2, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, durationTicks, 1, false, false));
-
-        player.sendMessage("§a§l[FRÉNÉSIE] §c+60%§7 Attack Speed! §a+50%§7 Vitesse! §6Tirs enflammés!");
-        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
-
-        // Effet visuel
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-    }
-
-    // ==================== DÉVASTATION ====================
-
-    public boolean isDevastationActive(UUID uuid) {
-        return devastationEnd.getOrDefault(uuid, 0L) > System.currentTimeMillis();
-    }
-
-    public boolean canActivateDevastation(UUID uuid) {
-        return devastationCooldown.getOrDefault(uuid, 0L) < System.currentTimeMillis();
-    }
-
-    public void activateDevastation(Player player) {
-        Talent devTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.DEVASTATION);
-        if (devTalent == null) return;
-
-        UUID uuid = player.getUniqueId();
-        if (!canActivateDevastation(uuid)) {
-            long remaining = (devastationCooldown.get(uuid) - System.currentTimeMillis()) / 1000;
-            player.sendMessage("§c§l[COOLDOWN] §7Dévastation disponible dans §e" + remaining + "s§7.");
-            return;
-        }
-
-        long duration = (long) devTalent.getValue(0); // 8000ms
-        long cooldown = (long) devTalent.getValue(4); // 30000ms
-
-        devastationEnd.put(uuid, System.currentTimeMillis() + duration);
-        devastationCooldown.put(uuid, System.currentTimeMillis() + cooldown);
-
-        // Effets
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, (int) (duration / 50), 0, false, false));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, (int) (duration / 50), 1, false, false));
-
-        player.sendMessage("§a§l[DÉVASTATION] §cPierce INFINI! §a+60%§7 dégâts! §9Slow§7 aux touchés!");
-        player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
+        player.sendMessage("§b§l[TEMPÊTE DE NEIGE] §a+30%§7 givre appliqué! §9+Vitesse§7!");
+        player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 2.0f);
 
         // Effet visuel périodique
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!isDevastationActive(uuid)) {
+                if (!isBlizzardActive(uuid)) {
                     cancel();
                     return;
                 }
@@ -448,40 +608,92 @@ public class PerforationManager {
                     cancel();
                     return;
                 }
-                p.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, p.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0);
+                p.getWorld().spawnParticle(Particle.SNOWFLAKE, p.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.05);
             }
         }.runTaskTimer(plugin, 5L, 5L);
     }
 
-    public double getDevastationDamageBonus(UUID uuid) {
-        if (!isDevastationActive(uuid)) return 0;
+    // ==================== HIVER ÉTERNEL (remplace DÉVASTATION) ====================
 
-        Player player = Bukkit.getPlayer(uuid);
-        if (player == null) return 0;
-
-        Talent devTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.DEVASTATION);
-        if (devTalent == null) return 0;
-
-        return devTalent.getValue(1); // 0.60 = 60%
+    public boolean isEternalWinterActive(UUID uuid) {
+        return eternalWinterEnd.getOrDefault(uuid, 0L) > System.currentTimeMillis();
     }
 
-    public void applyDevastationSlow(LivingEntity target) {
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1)); // 3s slow II
+    public boolean canActivateEternalWinter(UUID uuid) {
+        return eternalWinterCooldown.getOrDefault(uuid, 0L) < System.currentTimeMillis();
     }
 
-    // ==================== JUGEMENT ====================
+    public void activateEternalWinter(Player player) {
+        Talent winterTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.DEVASTATION);
+        if (winterTalent == null) return;
 
-    public void handleSneakForJudgment(Player player) {
-        Talent judgmentTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
-        if (judgmentTalent == null) return;
+        UUID uuid = player.getUniqueId();
+        if (!canActivateEternalWinter(uuid)) {
+            long remaining = (eternalWinterCooldown.get(uuid) - System.currentTimeMillis()) / 1000;
+            player.sendMessage("§c§l[COOLDOWN] §7Hiver Éternel disponible dans §e" + remaining + "s§7.");
+            return;
+        }
+
+        long duration = (long) winterTalent.getValue(0); // 8000ms
+        long cooldown = (long) winterTalent.getValue(4); // 30000ms
+
+        eternalWinterEnd.put(uuid, System.currentTimeMillis() + duration);
+        eternalWinterCooldown.put(uuid, System.currentTimeMillis() + cooldown);
+
+        // Effets
+        int durationTicks = (int) (duration / 50);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, durationTicks, 1, false, false));
+
+        player.sendMessage("§b§l[HIVER ÉTERNEL] §9Givre AMPLIFIÉ! §a+50%§7 givre! §c+50%§7 dégâts d'éclat!");
+        player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_THUNDER, 1.0f, 2.0f);
+
+        // Aura de givre autour du joueur
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!isEternalWinterActive(uuid)) {
+                    cancel();
+                    return;
+                }
+                Player p = Bukkit.getPlayer(uuid);
+                if (p == null || !p.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                Location loc = p.getLocation();
+                // Particules autour du joueur
+                for (int i = 0; i < 360; i += 30) {
+                    double rad = Math.toRadians(i);
+                    double x = Math.cos(rad) * 2;
+                    double z = Math.sin(rad) * 2;
+                    loc.getWorld().spawnParticle(Particle.SNOWFLAKE, loc.clone().add(x, 0.5, z), 2, 0, 0.2, 0, 0.01);
+                }
+
+                // Givre passif aux ennemis proches
+                for (Entity entity : loc.getWorld().getNearbyEntities(loc, 5, 3, 5)) {
+                    if (entity instanceof Monster target) {
+                        addFrost(p, target, 5); // +5% givre/tick
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 5L, 10L);
+    }
+
+    // ==================== ZÉRO ABSOLU (remplace JUGEMENT) ====================
+
+    public void handleSneakForAbsoluteZero(Player player) {
+        Talent zeroTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
+        if (zeroTalent == null) return;
 
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
 
         // Vérifier cooldown
-        if (judgmentCooldown.getOrDefault(uuid, 0L) > now) {
-            long remaining = (judgmentCooldown.get(uuid) - now) / 1000;
-            player.sendMessage("§c§l[COOLDOWN] §7Jugement disponible dans §e" + remaining + "s§7.");
+        if (absoluteZeroCooldown.getOrDefault(uuid, 0L) > now) {
+            long remaining = (absoluteZeroCooldown.get(uuid) - now) / 1000;
+            player.sendMessage("§c§l[COOLDOWN] §7Zéro Absolu disponible dans §e" + remaining + "s§7.");
             return;
         }
 
@@ -490,30 +702,27 @@ public class PerforationManager {
         lastSneakTime.put(uuid, now);
 
         if (now - lastSneak < 500) {
-            // Double sneak détecté - commencer la charge
-            startJudgmentCharge(player);
+            startAbsoluteZeroCharge(player);
         }
     }
 
-    private void startJudgmentCharge(Player player) {
+    private void startAbsoluteZeroCharge(Player player) {
         UUID uuid = player.getUniqueId();
 
-        if (chargingJudgment.getOrDefault(uuid, false)) return;
+        if (chargingAbsoluteZero.getOrDefault(uuid, false)) return;
 
-        Talent judgmentTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
-        if (judgmentTalent == null) return;
+        Talent zeroTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
+        if (zeroTalent == null) return;
 
-        long chargeTime = (long) judgmentTalent.getValue(0); // 1500ms
+        long chargeTime = (long) zeroTalent.getValue(0); // 1500ms
 
-        chargingJudgment.put(uuid, true);
-        judgmentChargeStart.put(uuid, System.currentTimeMillis());
+        chargingAbsoluteZero.put(uuid, true);
 
-        player.sendMessage("§a§l[JUGEMENT] §eChargement... §7Restez immobile!");
-        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 0.5f);
+        player.sendMessage("§b§l[ZÉRO ABSOLU] §eChargement... §7Restez immobile!");
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 2.0f);
 
         Location startLoc = player.getLocation();
 
-        // Vérifier immobilité et charger
         new BukkitRunnable() {
             int ticks = 0;
             final int maxTicks = (int) (chargeTime / 50);
@@ -522,16 +731,16 @@ public class PerforationManager {
             public void run() {
                 Player p = Bukkit.getPlayer(uuid);
                 if (p == null || !p.isOnline()) {
-                    chargingJudgment.put(uuid, false);
+                    chargingAbsoluteZero.put(uuid, false);
                     cancel();
                     return;
                 }
 
                 // Vérifier immobilité
                 if (p.getLocation().distance(startLoc) > 0.5) {
-                    p.sendMessage("§c§l[JUGEMENT] §7Charge annulée - vous avez bougé!");
+                    p.sendMessage("§c§l[ZÉRO ABSOLU] §7Charge annulée - vous avez bougé!");
                     p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                    chargingJudgment.put(uuid, false);
+                    chargingAbsoluteZero.put(uuid, false);
                     cancel();
                     return;
                 }
@@ -540,124 +749,93 @@ public class PerforationManager {
 
                 // Effets de charge
                 float progress = (float) ticks / maxTicks;
-                p.getWorld().spawnParticle(Particle.END_ROD, p.getLocation().add(0, 1, 0),
-                    (int) (5 + progress * 15), 0.5 - progress * 0.3, 0.5, 0.5 - progress * 0.3, 0.02);
+                p.getWorld().spawnParticle(Particle.SNOWFLAKE, p.getLocation().add(0, 1, 0),
+                    (int) (5 + progress * 20), 0.5 - progress * 0.3, 0.5, 0.5 - progress * 0.3, 0.03);
 
                 if (ticks % 10 == 0) {
-                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 0.5f + progress);
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + progress);
                 }
 
                 // Charge complète
                 if (ticks >= maxTicks) {
-                    fireJudgment(p);
-                    chargingJudgment.put(uuid, false);
+                    fireAbsoluteZero(p);
+                    chargingAbsoluteZero.put(uuid, false);
                     cancel();
                 }
             }
         }.runTaskTimer(plugin, 1L, 1L);
     }
 
-    private void fireJudgment(Player player) {
-        Talent judgmentTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
-        if (judgmentTalent == null) return;
+    private void fireAbsoluteZero(Player player) {
+        Talent zeroTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.JUDGMENT);
+        if (zeroTalent == null) return;
 
         UUID uuid = player.getUniqueId();
-        double range = judgmentTalent.getValue(1); // 50.0 blocs
-        double damageMult = judgmentTalent.getValue(2); // 10.0 = 1000%
-        long armorDuration = (long) judgmentTalent.getValue(4); // 5000ms
-        long fireDuration = (long) judgmentTalent.getValue(5); // 3000ms
-        long cooldown = (long) judgmentTalent.getValue(6); // 45000ms
+        double radius = zeroTalent.getValue(1); // 15.0 blocs (réduit de 50)
+        long cooldown = (long) zeroTalent.getValue(6); // 45000ms
 
-        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double judgmentDamage = baseDamage * damageMult;
+        Location center = player.getLocation();
 
-        Location start = player.getEyeLocation();
-        Vector direction = start.getDirection().normalize();
+        player.sendMessage("§b§l★ ZÉRO ABSOLU ★");
+        player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 2.0f, 2.0f);
 
-        player.sendMessage("§a§l★ JUGEMENT ★");
-        player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 1.5f, 1.2f);
-
-        // Tracer le rayon
-        List<LivingEntity> hit = new ArrayList<>();
-        for (double d = 0; d < range; d += 0.5) {
-            Location point = start.clone().add(direction.clone().multiply(d));
-
-            // Particules
-            point.getWorld().spawnParticle(Particle.END_ROD, point, 2, 0.1, 0.1, 0.1, 0);
-            point.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, point, 1, 0.05, 0.05, 0.05, 0);
-
-            // Traînée de feu
-            if (d % 2 < 0.5) {
-                new BukkitRunnable() {
-                    int ticks = 0;
-                    @Override
-                    public void run() {
-                        if (ticks++ > 60) { // 3s
-                            cancel();
-                            return;
-                        }
-                        point.getWorld().spawnParticle(Particle.FLAME, point, 1, 0.2, 0.1, 0.2, 0.01);
-
-                        // Brûler les ennemis dans la traînée
-                        for (Entity e : point.getWorld().getNearbyEntities(point, 0.5, 0.5, 0.5)) {
-                            if (e instanceof Monster target && !hit.contains(target)) {
-                                target.setFireTicks(20);
-                            }
-                        }
+        // Effet visuel massif - vague de glace
+        for (double r = 0; r < radius; r += 2) {
+            final double currentRadius = r;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (int angle = 0; angle < 360; angle += 15) {
+                        double rad = Math.toRadians(angle);
+                        double x = Math.cos(rad) * currentRadius;
+                        double z = Math.sin(rad) * currentRadius;
+                        Location point = center.clone().add(x, 0.5, z);
+                        point.getWorld().spawnParticle(Particle.BLOCK, point, 3, 0.2, 0.2, 0.2, 0,
+                            Material.BLUE_ICE.createBlockData());
+                        point.getWorld().spawnParticle(Particle.SNOWFLAKE, point, 2, 0.1, 0.3, 0.1, 0.02);
                     }
-                }.runTaskTimer(plugin, 0L, 1L);
-            }
-
-            // Détecter les ennemis
-            for (Entity entity : point.getWorld().getNearbyEntities(point, 1.0, 1.0, 1.0)) {
-                if (entity instanceof Monster target && !hit.contains(target)) {
-                    hit.add(target);
-
-                    // Dégâts
-                    target.damage(judgmentDamage, player);
-
-                    // Effets
-                    target.setFireTicks((int) (fireDuration / 50));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int) (fireDuration / 50), 2));
-                    target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, (int) (armorDuration / 50), 0));
-
-                    // Marquer comme -100% armure
-                    Map<UUID, ArmorReductionData> reductions = armorReduction.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
-                    reductions.put(target.getUniqueId(), new ArmorReductionData(1.0, System.currentTimeMillis() + armorDuration));
-
-                    // Effet visuel sur la cible
-                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.2);
                 }
+            }.runTaskLater(plugin, (long)(r / 2));
+        }
+
+        // Geler TOUS les ennemis dans le rayon
+        int frozen = 0;
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof Monster target && !target.isDead()) {
+                // Gel instantané à 100%
+                entityFrost.put(target.getUniqueId(), FROST_FROZEN_THRESHOLD);
+                freezeEntity(player, target);
+                frozen++;
             }
         }
 
         // Son final
-        player.playSound(start.clone().add(direction.clone().multiply(range / 2)), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.5f, 1.5f);
+        center.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.5f, 2.0f);
+        center.getWorld().playSound(center, Sound.BLOCK_GLASS_BREAK, 2.0f, 0.5f);
 
-        // Message résultat
-        player.sendMessage("§a§l[JUGEMENT] §7" + hit.size() + " ennemis touchés! §c" + String.format("%.0f", judgmentDamage) + " dégâts!");
+        player.sendMessage("§b§l[ZÉRO ABSOLU] §7" + frozen + " ennemis §b§lGELÉS§7 instantanément!");
 
         // Cooldown
-        judgmentCooldown.put(uuid, System.currentTimeMillis() + cooldown);
+        absoluteZeroCooldown.put(uuid, System.currentTimeMillis() + cooldown);
     }
 
-    // ==================== TRAJECTOIRE FATALE ====================
+    // ==================== LIGNES DE GLACE (remplace TRAJECTOIRE FATALE) ====================
 
-    public void createFatalLine(Player player, Location start, Location end) {
-        Talent fatalTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
-        if (fatalTalent == null) return;
+    public void createIceLine(Player player, Location start, Location end) {
+        Talent iceTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
+        if (iceTalent == null) return;
 
-        long duration = (long) fatalTalent.getValue(2); // 3000ms
-        double damageBonus = fatalTalent.getValue(3); // 0.30 = 30%
+        long duration = (long) iceTalent.getValue(2); // 3000ms
+        double frostBonus = iceTalent.getValue(3); // 0.30 = +30% givre
 
         UUID uuid = player.getUniqueId();
-        List<FatalLine> lines = fatalLines.computeIfAbsent(uuid, k -> new ArrayList<>());
+        List<IceLine> lines = iceLines.computeIfAbsent(uuid, k -> new ArrayList<>());
 
-        FatalLine line = new FatalLine(start.clone(), end.clone(), System.currentTimeMillis() + duration, damageBonus);
+        IceLine line = new IceLine(start.clone(), end.clone(), System.currentTimeMillis() + duration, frostBonus);
         lines.add(line);
 
-        player.sendMessage("§a§l[TRAJECTOIRE] §7Ligne de Mort créée! §c+30%§7 dégâts zone!");
-        player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 0.7f, 1.5f);
+        player.sendMessage("§b§l[LIGNE DE GLACE] §7Zone créée! §a+30%§7 givre dans la zone!");
+        player.playSound(player.getLocation(), Sound.ENTITY_ILLUSIONER_CAST_SPELL, 0.7f, 2.0f);
 
         // Effet visuel
         new BukkitRunnable() {
@@ -673,22 +851,22 @@ public class PerforationManager {
                 double distance = start.distance(end);
                 for (double d = 0; d < distance; d += 2) {
                     Location point = start.clone().add(dir.clone().multiply(d));
-                    point.getWorld().spawnParticle(Particle.END_ROD, point, 1, 0.1, 0.1, 0.1, 0);
+                    point.getWorld().spawnParticle(Particle.SNOWFLAKE, point, 2, 0.2, 0.1, 0.2, 0.01);
                 }
             }
         }.runTaskTimer(plugin, 0L, 10L);
     }
 
-    public double getFatalLineDamageBonus(Player player, LivingEntity target) {
+    public double getIceLineFrostBonus(Player player, LivingEntity target) {
         UUID uuid = player.getUniqueId();
-        List<FatalLine> lines = fatalLines.get(uuid);
+        List<IceLine> lines = iceLines.get(uuid);
         if (lines == null || lines.isEmpty()) return 0;
 
         Location targetLoc = target.getLocation();
 
-        for (FatalLine line : lines) {
+        for (IceLine line : lines) {
             if (isInLine(targetLoc, line.start, line.end, 2.0)) {
-                return line.damageBonus;
+                return line.frostBonus;
             }
         }
         return 0;
@@ -699,6 +877,8 @@ public class PerforationManager {
         Vector toPoint = point.toVector().subtract(lineStart.toVector());
 
         double lineLength = line.length();
+        if (lineLength == 0) return false;
+
         double projection = toPoint.dot(line.normalize());
 
         if (projection < 0 || projection > lineLength) return false;
@@ -707,17 +887,19 @@ public class PerforationManager {
         return closestPoint.distance(point) <= tolerance;
     }
 
-    // ==================== REBONDS (CHAIN PERFORATION) ====================
+    // ==================== ÉCHO GLACIAL (remplace CHAIN PERFORATION) ====================
 
-    public void triggerChainBounce(Player player, LivingEntity lastTarget, double baseDamage, int bounceIndex) {
-        Talent chainTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CHAIN_PERFORATION);
-        if (chainTalent == null) return;
+    /**
+     * Propagation de givre en chaîne après un tir perçant
+     */
+    public void triggerFrostEcho(Player player, LivingEntity lastTarget, double baseFrost, int echoIndex) {
+        Talent echoTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CHAIN_PERFORATION);
+        if (echoTalent == null) return;
 
-        int maxBounces = (int) chainTalent.getValue(0); // 3
-        double range = chainTalent.getValue(1); // 10.0 blocs
-        double caliberChance = chainTalent.getValue(5); // 0.30 = 30%
+        int maxEchoes = (int) echoTalent.getValue(0); // 3
+        double range = echoTalent.getValue(1); // 10.0 blocs
 
-        if (bounceIndex >= maxBounces) return;
+        if (echoIndex >= maxEchoes) return;
 
         // Trouver prochaine cible
         LivingEntity nextTarget = null;
@@ -735,9 +917,9 @@ public class PerforationManager {
 
         if (nextTarget == null) return;
 
-        // Calculer dégâts du rebond
-        double damagePercent = chainTalent.getValue(2 + bounceIndex); // 0.75, 0.50, 0.25
-        double bounceDamage = baseDamage * damagePercent;
+        // Calculer givre de l'écho (décroissant)
+        double frostPercent = echoTalent.getValue(2 + echoIndex); // 0.75, 0.50, 0.25
+        double echoFrost = baseFrost * frostPercent;
 
         // Effet visuel
         Location from = lastTarget.getLocation().add(0, 1, 0);
@@ -747,74 +929,65 @@ public class PerforationManager {
 
         for (double d = 0; d < distance; d += 0.5) {
             Location point = from.clone().add(dir.clone().multiply(d));
-            point.getWorld().spawnParticle(Particle.CRIT, point, 1, 0, 0, 0, 0);
+            point.getWorld().spawnParticle(Particle.SNOWFLAKE, point, 1, 0, 0, 0, 0);
         }
 
-        // Infliger dégâts
+        // Appliquer givre
         LivingEntity finalNextTarget = nextTarget;
         new BukkitRunnable() {
             @Override
             public void run() {
-                finalNextTarget.damage(bounceDamage, player);
-                finalNextTarget.getWorld().playSound(finalNextTarget.getLocation(), Sound.ENTITY_ARROW_HIT, 0.8f, 1.2f);
+                addFrost(player, finalNextTarget, echoFrost);
+                finalNextTarget.getWorld().playSound(finalNextTarget.getLocation(), Sound.BLOCK_POWDER_SNOW_HIT, 0.8f, 1.2f);
 
-                // Chance de +1 Calibre
-                if (Math.random() < caliberChance) {
-                    addCaliber(player, 1);
-                }
-
-                // Rebond suivant
-                triggerChainBounce(player, finalNextTarget, baseDamage, bounceIndex + 1);
+                // Écho suivant
+                triggerFrostEcho(player, finalNextTarget, baseFrost, echoIndex + 1);
             }
         }.runTaskLater(plugin, (long) (distance / 2));
 
-        if (bounceIndex == 0) {
-            player.sendMessage("§b§l[REBOND] §7Projectile rebondit!");
+        if (echoIndex == 0) {
+            player.sendMessage("§b§l[ÉCHO] §7Le givre se propage!");
         }
     }
 
     // ==================== ACTIONBAR ====================
 
-    /**
-     * Construit le contenu de l'ActionBar pour un joueur Perforation
-     * Appelé par ActionBarManager quand le joueur est en combat
-     */
     public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
         StringBuilder sb = new StringBuilder();
 
-        // Calibre
-        int caliber = getCaliber(uuid);
-        if (caliber > 0 || hasTalent(player, Talent.TalentEffectType.CALIBER)) {
-            sb.append("§eCalibre: ");
+        // Charge Glaciale
+        int charge = getFrostCharge(uuid);
+        if (charge > 0 || hasTalent(player, Talent.TalentEffectType.CALIBER)) {
+            sb.append("§bCharge: ");
             for (int i = 0; i < 5; i++) {
-                sb.append(i < caliber ? "§e⬤" : "§8○");
+                sb.append(i < charge ? "§b❄" : "§8○");
             }
             sb.append(" ");
         }
 
-        // Surchauffe
-        double overheat = getOverheatLevel(uuid);
-        if (overheat > 0 || hasTalent(player, Talent.TalentEffectType.OVERHEAT)) {
-            int bars = (int) (overheat * 10);
-            sb.append("§6Surchauffe: §c");
+        // Hypothermie
+        double hypo = getHypothermiaLevel(uuid);
+        if (hypo > 0 || hasTalent(player, Talent.TalentEffectType.OVERHEAT)) {
+            int bars = (int) (hypo * 10);
+            sb.append("§9Hypo: §b");
             for (int i = 0; i < 10; i++) {
                 sb.append(i < bars ? "█" : "§8░");
             }
-            sb.append("§6 ").append(String.format("%.0f", overheat * 100)).append("%");
+            sb.append("§9 ").append(String.format("%.0f", hypo * 100)).append("%");
             sb.append(" ");
         }
 
-        // Dévastation
-        if (isDevastationActive(uuid)) {
-            long remaining = (devastationEnd.get(uuid) - System.currentTimeMillis()) / 1000;
-            sb.append("§a§lDÉVASTATION §e").append(remaining).append("s ");
+        // Hiver Éternel
+        if (isEternalWinterActive(uuid)) {
+            long remaining = (eternalWinterEnd.get(uuid) - System.currentTimeMillis()) / 1000;
+            sb.append("§b§lHIVER §e").append(remaining).append("s ");
         }
 
-        // Frénésie
-        if (isFrenzyActive(uuid)) {
-            long remaining = (frenzyEnd.get(uuid) - System.currentTimeMillis()) / 1000;
-            sb.append("§c§lFRÉNÉSIE §e").append(remaining).append("s ");
+        // Tempête de Neige
+        if (isBlizzardActive(uuid)) {
+            long remaining = (blizzardModeEnd.get(uuid) - System.currentTimeMillis()) / 1000;
+            sb.append("§9§lTEMPÊTE §e").append(remaining).append("s ");
         }
 
         return sb.toString().trim();
@@ -835,56 +1008,60 @@ public class PerforationManager {
     }
 
     public void registerPlayer(UUID uuid) {
-        activePerforationPlayers.add(uuid);
+        activeFrostPlayers.add(uuid);
     }
 
     public void cleanupPlayer(UUID uuid) {
-        playerCaliber.remove(uuid);
-        overheatLevel.remove(uuid);
-        lastOverheatTime.remove(uuid);
-        lastShotTime.remove(uuid);
-        armorReduction.remove(uuid);
-        consecutiveKills.remove(uuid);
-        momentumEnd.remove(uuid);
-        frenzyEnd.remove(uuid);
-        devastationEnd.remove(uuid);
-        devastationCooldown.remove(uuid);
-        judgmentCooldown.remove(uuid);
+        playerFrostCharge.remove(uuid);
+        lastFrostChargeTime.remove(uuid);
+        hypothermiaLevel.remove(uuid);
+        lastHypothermiaTime.remove(uuid);
+        shatterKillStreak.remove(uuid);
+        blizzardModeEnd.remove(uuid);
+        eternalWinterEnd.remove(uuid);
+        eternalWinterCooldown.remove(uuid);
+        absoluteZeroCooldown.remove(uuid);
         lastSneakTime.remove(uuid);
-        chargingJudgment.remove(uuid);
-        judgmentChargeStart.remove(uuid);
-        fatalLines.remove(uuid);
-        activePerforationPlayers.remove(uuid);
+        chargingAbsoluteZero.remove(uuid);
+        iceLines.remove(uuid);
+        activeFrostPlayers.remove(uuid);
 
-        // Désenregistrer de l'ActionBarManager
         if (plugin.getActionBarManager() != null) {
             plugin.getActionBarManager().unregisterClassActionBar(uuid);
         }
     }
 
-    // ==================== CLASSES INTERNES ====================
-
-    private static class ArmorReductionData {
-        final double reduction;
-        final long expiryTime;
-
-        ArmorReductionData(double reduction, long expiryTime) {
-            this.reduction = reduction;
-            this.expiryTime = expiryTime;
-        }
+    /**
+     * Nettoie les données d'une entité morte
+     */
+    public void cleanupEntity(UUID entityId) {
+        entityFrost.remove(entityId);
+        entityFrostLastUpdate.remove(entityId);
+        entityFrozenUntil.remove(entityId);
+        entityFrostSource.remove(entityId);
     }
 
-    private static class FatalLine {
+    /**
+     * Obtient le joueur source du givre sur une entité
+     */
+    public Player getFrostSource(UUID entityId) {
+        UUID sourceId = entityFrostSource.get(entityId);
+        return sourceId != null ? Bukkit.getPlayer(sourceId) : null;
+    }
+
+    // ==================== CLASSES INTERNES ====================
+
+    private static class IceLine {
         final Location start;
         final Location end;
         final long expiryTime;
-        final double damageBonus;
+        final double frostBonus;
 
-        FatalLine(Location start, Location end, long expiryTime, double damageBonus) {
+        IceLine(Location start, Location end, long expiryTime, double frostBonus) {
             this.start = start;
             this.end = end;
             this.expiryTime = expiryTime;
-            this.damageBonus = damageBonus;
+            this.frostBonus = frostBonus;
         }
     }
 }
