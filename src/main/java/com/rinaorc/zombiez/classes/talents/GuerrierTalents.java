@@ -906,11 +906,12 @@ public final class GuerrierTalents {
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Aura passive (§e5 blocs§7):",
+                "§7Aura passive (§e6 blocs§7):",
                 "",
                 "§7Ennemis dans l'aura:",
                 "§7- §c-20%§7 degats infliges",
                 "§7- §eGlowing§7 (visibles)",
+                "§7- §6Aura doree§7 visible autour de vous",
                 "",
                 "§7Quand vous recevez des degats melee:",
                 "§7- §c30%§7 des degats reflechis",
@@ -924,7 +925,7 @@ public final class GuerrierTalents {
             .icon(Material.TOTEM_OF_UNDYING)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.DEFIANCE_AURA)
-            .values(new double[]{5.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
+            .values(new double[]{6.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
             .build());
 
         // 7.3 - NEMESIS

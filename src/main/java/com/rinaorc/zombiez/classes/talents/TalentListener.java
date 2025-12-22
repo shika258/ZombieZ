@@ -1224,13 +1224,48 @@ public class TalentListener implements Listener {
                                 target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0, false, false));
                             }
                         }
-                        // Particules de l'aura
+
+                        // Animation améliorée de l'aura dorée
                         Location loc = player.getLocation();
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-                            double x = radius * Math.cos(angle);
-                            double z = radius * Math.sin(angle);
-                            player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
-                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 180, 50), 0.8f));
+                        World world = player.getWorld();
+                        long tick = world.getGameTime();
+                        double rotationOffset = (tick % 60) * (Math.PI * 2 / 60); // Rotation complète en 3s
+
+                        // Anneau principal au sol (doré, rotatif)
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                            double x = radius * Math.cos(angle + rotationOffset);
+                            double z = radius * Math.sin(angle + rotationOffset);
+                            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
+                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
+                        }
+
+                        // Anneau secondaire (contre-rotation, orange)
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                            double x = (radius - 0.5) * Math.cos(angle - rotationOffset * 0.5);
+                            double z = (radius - 0.5) * Math.sin(angle - rotationOffset * 0.5);
+                            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.15, z),
+                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 140, 30), 0.8f));
+                        }
+
+                        // Piliers de lumière sacrée aux 4 points cardinaux
+                        for (int i = 0; i < 4; i++) {
+                            double pillarAngle = (Math.PI / 2) * i + rotationOffset * 0.3;
+                            double px = (radius - 0.3) * Math.cos(pillarAngle);
+                            double pz = (radius - 0.3) * Math.sin(pillarAngle);
+                            for (double y = 0; y < 2.0; y += 0.4) {
+                                world.spawnParticle(Particle.END_ROD, loc.clone().add(px, y, pz),
+                                    1, 0.05, 0.1, 0.05, 0.01);
+                            }
+                        }
+
+                        // Particules montantes centrales (effet sacré)
+                        if (tick % 5 == 0) {
+                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                                double sparkX = (radius * 0.5) * Math.cos(angle + rotationOffset * 2);
+                                double sparkZ = (radius * 0.5) * Math.sin(angle + rotationOffset * 2);
+                                world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(sparkX, 0.5, sparkZ),
+                                    1, 0.1, 0.3, 0.1, 0.02);
+                            }
                         }
                     }
                 }
