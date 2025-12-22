@@ -144,6 +144,12 @@ public class TalentListener implements Listener {
     // Onde de Fracture - compteur de coups
     private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
 
+    // === SYSTÈME MESSAGE FLASH ===
+    // Messages temporaires prioritaires affichés dans l'ActionBar pendant quelques secondes
+    private final Map<UUID, String> flashMessages = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> flashMessageExpiry = new ConcurrentHashMap<>();
+    private static final long FLASH_MESSAGE_DURATION_MS = 1500; // 1.5 secondes par défaut
+
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -282,7 +288,7 @@ public class TalentListener implements Listener {
                 }
 
                 if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
+                    setFlashMessage(player, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!");
                 }
             } else {
                 // Accumuler les stacks
@@ -294,7 +300,7 @@ public class TalentListener implements Listener {
                     if (stacks >= stacksNeeded) {
                         punishmentReady.put(uuid, true);
                         if (shouldSendTalentMessage(player)) {
-                            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT PRÊT! §7Prochaine attaque amplifiée!"));
+                            setFlashMessage(player, "§6§l⚔ CHÂTIMENT PRÊT! §7Prochaine attaque amplifiée!");
                         }
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 1.5f);
                     } else {
@@ -656,8 +662,7 @@ public class TalentListener implements Listener {
                 handleIronEcho(player, uuid, originalDamage);
 
                 if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte"));
+                    setFlashMessage(player, "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte");
                 }
             }
         }
@@ -1004,8 +1009,7 @@ public class TalentListener implements Listener {
                 setCooldown(uuid, "bastion_charge", (long) bastionCharge.getValue(4));
             } else {
                 long remaining = getCooldownRemaining(uuid, "bastion_charge");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s"));
+                setFlashMessage(player, "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s");
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return; // Ne pas activer Ragnarok si on a Charge du Bastion
@@ -1020,8 +1024,7 @@ public class TalentListener implements Listener {
             } else {
                 // Feedback cooldown
                 long remaining = getCooldownRemaining(uuid, "ragnarok");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Ragnarok: " + (remaining / 1000) + "s"));
+                setFlashMessage(player, "§c⏳ Ragnarok: " + (remaining / 1000) + "s");
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
@@ -1057,8 +1060,7 @@ public class TalentListener implements Listener {
             lastApocalypseMilestone.put(uuid, milestone);
             int percent = milestone * 25;
             String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6🌋 Apocalypse " + bar + " §e" + percent + "%"));
+            setFlashMessage(player, "§6🌋 Apocalypse " + bar + " §e" + percent + "%");
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
         }
 
@@ -1068,8 +1070,7 @@ public class TalentListener implements Listener {
             lastApocalypseMilestone.put(uuid, 0); // Reset milestones
 
             // Message d'activation spectaculaire
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🌋 APOCALYPSE TERRESTRE! 🌋"));
+            setFlashMessage(player, "§6§l🌋 APOCALYPSE TERRESTRE! 🌋", 2000);
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
 
             procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
@@ -1208,8 +1209,7 @@ public class TalentListener implements Listener {
                             removeFortifyBonus(player, uuid);
 
                             if (shouldSendTalentMessage(player)) {
-                                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                                    "§8⚔ Fortification expirée..."));
+                                setFlashMessage(player, "§8⚔ Fortification expirée...");
                             }
                             player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
@@ -1403,7 +1403,7 @@ public class TalentListener implements Listener {
             String msg = hitCount > 0
                 ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
                 : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+            setFlashMessage(player, msg);
         }
 
         // Contribution au systeme Apocalypse
@@ -1486,7 +1486,7 @@ public class TalentListener implements Listener {
         bar.append("§8]");
 
         String msg = "§7⚡ Onde " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        setFlashMessage(player, msg);
 
         // Petit son de progression
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (current * 0.2f));
@@ -2084,15 +2084,13 @@ public class TalentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
                 if (shouldSendTalentMessage(player)) {
                     int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!"));
+                    setFlashMessage(player, "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!");
                 }
             } else {
                 // Progression
                 if (shouldSendTalentMessage(player)) {
                     int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)"));
+                    setFlashMessage(player, "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)");
                 }
             }
         }
@@ -2113,8 +2111,7 @@ public class TalentListener implements Listener {
                 bulwarkLastMilestone.put(uuid, milestone);
                 int percent = milestone * 25;
                 String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§6🛡 Avatar " + bar + " §e" + percent + "%"));
+                setFlashMessage(player, "§6🛡 Avatar " + bar + " §e" + percent + "%");
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
             }
 
@@ -2217,7 +2214,7 @@ public class TalentListener implements Listener {
                         player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
                     }
                     if (shouldSendTalentMessage(player)) {
-                        player.sendActionBar(net.kyori.adventure.text.Component.text("§8Avatar du Rempart terminé"));
+                        setFlashMessage(player, "§8Avatar du Rempart terminé");
                     }
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
                     cancel();
@@ -2263,7 +2260,7 @@ public class TalentListener implements Listener {
 
         // Message d'activation
         if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚒ MARTEAU DU JUGEMENT!"));
+            setFlashMessage(player, "§6§l⚒ MARTEAU DU JUGEMENT!", 2000);
         }
 
         // Son de départ
@@ -2398,7 +2395,7 @@ public class TalentListener implements Listener {
             if (enemiesHit > 0) {
                 msg += " | §e" + enemiesHit + " §7cibles AoE";
             }
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+            setFlashMessage(player, msg);
         }
     }
 
@@ -2413,7 +2410,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_SHOOT, 0.8f, 1.2f);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6🛡 BOUCLIER VENGEUR!"));
+            setFlashMessage(player, "§6🛡 BOUCLIER VENGEUR!", 2000);
         }
 
         new BukkitRunnable() {
@@ -2518,7 +2515,7 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHARGE DU BASTION!"));
+            setFlashMessage(player, "§6§l⚔ CHARGE DU BASTION!", 2000);
         }
 
         // Sauvegarder la HP de base
@@ -2602,8 +2599,7 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)"));
+            setFlashMessage(player, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)");
         }
 
         // Planifier la fin du bonus
@@ -2619,7 +2615,7 @@ public class TalentListener implements Listener {
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                 if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§8⚔ Bonus Charge expiré..."));
+                    setFlashMessage(player, "§8⚔ Bonus Charge expiré...");
                 }
             }
         }, duration / 50L); // Convertir ms en ticks
@@ -2638,7 +2634,7 @@ public class TalentListener implements Listener {
         bar.append("§8]");
 
         String msg = "§7⚔ Châtiment " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        setFlashMessage(player, msg);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (current * 0.2f));
     }
 
@@ -2655,7 +2651,7 @@ public class TalentListener implements Listener {
         bar.append("§8]");
 
         String msg = "§7🛡 Disque " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        setFlashMessage(player, msg);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (current * 0.15f));
     }
 
@@ -2713,7 +2709,7 @@ public class TalentListener implements Listener {
         bar.append("§8]");
 
         String msg = "§6🔔 Écho de Fer " + bar + " §c" + String.format("%.0f", storedDamage) + " §7dégâts stockés";
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        setFlashMessage(player, msg);
         player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (current * 0.2f));
     }
 
@@ -2778,8 +2774,7 @@ public class TalentListener implements Listener {
 
         // === MESSAGE ===
         if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV"));
+            setFlashMessage(player, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV", 2000);
         }
 
         // === RESET ===
@@ -2824,10 +2819,53 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Définit un message flash temporaire qui sera affiché en priorité dans l'ActionBar
+     * @param player Le joueur
+     * @param message Le message à afficher
+     */
+    private void setFlashMessage(Player player, String message) {
+        setFlashMessage(player, message, FLASH_MESSAGE_DURATION_MS);
+    }
+
+    /**
+     * Définit un message flash temporaire avec durée personnalisée
+     * @param player Le joueur
+     * @param message Le message à afficher
+     * @param durationMs Durée en millisecondes
+     */
+    private void setFlashMessage(Player player, String message, long durationMs) {
+        UUID uuid = player.getUniqueId();
+        flashMessages.put(uuid, message);
+        flashMessageExpiry.put(uuid, System.currentTimeMillis() + durationMs);
+    }
+
+    /**
+     * Récupère le message flash actif s'il existe et n'a pas expiré
+     * @param uuid UUID du joueur
+     * @return Le message flash ou null si aucun/expiré
+     */
+    private String getActiveFlashMessage(UUID uuid) {
+        Long expiry = flashMessageExpiry.get(uuid);
+        if (expiry == null || System.currentTimeMillis() > expiry) {
+            flashMessages.remove(uuid);
+            flashMessageExpiry.remove(uuid);
+            return null;
+        }
+        return flashMessages.get(uuid);
+    }
+
+    /**
      * Construit l'ActionBar spécifique au Guerrier et sa spécialisation
      */
     public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
+
+        // Vérifier s'il y a un message flash actif (prioritaire)
+        String flashMsg = getActiveFlashMessage(uuid);
+        if (flashMsg != null) {
+            return flashMsg;
+        }
+
         StringBuilder bar = new StringBuilder();
 
         // Détecter la spécialisation dominante (basée sur les talents actifs)
@@ -3115,6 +3153,10 @@ public class TalentListener implements Listener {
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);
         fractureWaveHitCounter.remove(playerUuid);
+
+        // Cleanup flash messages
+        flashMessages.remove(playerUuid);
+        flashMessageExpiry.remove(playerUuid);
 
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
