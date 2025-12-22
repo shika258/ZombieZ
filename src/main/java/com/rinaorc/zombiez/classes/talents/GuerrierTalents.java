@@ -39,14 +39,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_strike")
             .name("Frappe Sismique")
-            .description("Genere des charges sismiques + onde de choc")
+            .description("Chaque attaque cree une onde de choc")
             .loreLines(new String[]{
-                "§7Chaque attaque genere une §6charge§7.",
-                "§7Chance d'onde de choc: §e15%§7 + §e2%/charge§7.",
+                "§a§lGARANTI§7: Chaque attaque genere",
+                "§7une onde de choc autour de la cible!",
                 "",
-                "§8Degats: §c80%§8 des degats de base",
-                "§8Rayon: §e3§8 blocs",
-                "§8Max: §610§8 charges (double sneak = burst)"
+                "§8Degats: §c50%§8 des degats de base",
+                "§8Rayon: §e2.5§8 blocs",
+                "§8Cooldown: §e0.6s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -54,8 +54,8 @@ public final class GuerrierTalents {
             .icon(Material.COBBLESTONE)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.SEISMIC_STRIKE)
-            .values(new double[]{0.15, 0.80, 3.0}) // chance, damage%, radius
-            .internalCooldownMs(800)
+            .values(new double[]{0.50, 2.5}) // damage%, radius (plus de chance!)
+            .internalCooldownMs(600)
             .build());
 
         // 1.2 - SOIF DE SANG
@@ -699,16 +699,16 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_eternal_tremor")
             .name("Tremor Eternal")
-            .description("Double sneak = liberer les charges sismiques")
+            .description("Courir genere des ondes sismiques")
             .loreLines(new String[]{
-                "§6ACTIVATION: §eDouble Sneak §7(3+ charges)",
+                "§e§lSPIN TO WIN!",
                 "",
-                "§7Libere toutes vos charges en",
-                "§7une onde devastatrice!",
+                "§7En §ecourant§7, vous generez des",
+                "§7ondes sismiques chaque seconde!",
                 "",
-                "§8Degats: §c+15%§8 par charge",
-                "§8Rayon: §e+0.3§8 bloc par charge",
-                "§8Bonus: §75+ charges = Slow"
+                "§8Degats: §c50%§8 de base",
+                "§8Rayon: §e3§8 blocs",
+                "§8Contribue a §6Apocalypse Terrestre"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -716,7 +716,7 @@ public final class GuerrierTalents {
             .icon(Material.DEEPSLATE)
             .iconColor("§8")
             .effectType(Talent.TalentEffectType.ETERNAL_TREMOR)
-            .values(new double[]{2000, 0.50, 3.0}) // interval_ms, damage%, radius
+            .values(new double[]{1000, 0.50, 3.0}) // interval_ms, damage%, radius
             .build());
 
         // 6.2 - AVATAR DE SANG
@@ -812,16 +812,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_earth_apocalypse")
             .name("Apocalypse Terrestre")
-            .description("Double sneak (5 charges) = seisme geant")
+            .description("Proc auto apres 500 degats de zone")
             .loreLines(new String[]{
-                "§6ACTIVATION: §eDouble Sneak §7(5 charges)",
+                "§6§lAUTOMATIQUE!",
                 "",
-                "§7Consomme 5 charges pour",
-                "§7declencher un seisme devastateur!",
+                "§7Apres avoir inflige §e500 degats§7",
+                "§7de zone, declenche un seisme!",
                 "",
                 "§8Degats: §c500%§8 de base",
                 "§8Rayon: §e8§8 blocs",
-                "§8Etourdissement: §e1s"
+                "§8Etourdissement: §e1s",
+                "",
+                "§7Progression affichee en ActionBar"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -829,8 +831,8 @@ public final class GuerrierTalents {
             .icon(Material.BEDROCK)
             .iconColor("§5")
             .effectType(Talent.TalentEffectType.EARTH_APOCALYPSE)
-            .values(new double[]{0.10, 5.0, 8.0, 1000}) // chance, damage%, radius, stun_ms
-            .internalCooldownMs(3000)
+            .values(new double[]{500, 5.0, 8.0, 1000}) // threshold, damage%, radius, stun_ms
+            .internalCooldownMs(5000)
             .build());
 
         // 7.2 - SEIGNEUR VAMPIRE
@@ -927,19 +929,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_ragnarok")
             .name("Ragnarok")
-            .description("Double sneak (10 charges) = apocalypse ultime")
+            .description("ULTIME: Double Sneak = apocalypse!")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§lTALENT LEGENDAIRE - ULTIME",
                 "",
-                "§6ACTIVATION: §eDouble Sneak §7(10 charges MAX)",
+                "§6ACTIVATION: §eDouble Sneak",
                 "",
-                "§7Consomme toutes vos charges pour",
-                "§7declencher l'apocalypse ultime!",
+                "§7Declenche l'apocalypse ultime!",
+                "§7Devastez tout autour de vous!",
                 "",
                 "§8Degats: §c800%§8 de base",
                 "§8Rayon: §e12§8 blocs",
-                "§8Etourdissement: §e2s§8 + projection",
-                "§8Cooldown: §e30s"
+                "§8Stun: §e2s§8 + projection",
+                "§8Cooldown: §e45s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -947,8 +949,8 @@ public final class GuerrierTalents {
             .icon(Material.END_CRYSTAL)
             .iconColor("§6§l")
             .effectType(Talent.TalentEffectType.RAGNAROK)
-            .values(new double[]{30000, 8.0, 12.0, 2000}) // cooldown_ms, damage%, radius, stun_ms
-            .internalCooldownMs(30000)
+            .values(new double[]{45000, 8.0, 12.0, 2000}) // cooldown_ms, damage%, radius, stun_ms
+            .internalCooldownMs(45000)
             .build());
 
         // 8.2 - DIEU DU SANG (EQUILIBRE - pas d'immortalite totale!)
