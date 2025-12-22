@@ -138,6 +138,9 @@ public class TalentListener implements Listener {
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000;
 
+    // Cache des joueurs Guerrier avec ActionBar enregistrée
+    private final Set<UUID> activeGuerrierActionBar = ConcurrentHashMap.newKeySet();
+
     // Onde de Fracture - compteur de coups
     private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
 
@@ -1294,6 +1297,14 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+
+        // ActionBar Registration Task (20L = 1s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                registerActionBarProviders();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
 
         // Note: Ragnarok est active par double sneak (handleDoubleSneak)
     }
@@ -2783,5 +2794,333 @@ public class TalentListener implements Listener {
     public boolean isBulwarkAvatar(Player player) {
         UUID uuid = player.getUniqueId();
         return bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+    }
+
+    // ==================== ACTION BAR ====================
+
+    /**
+     * Enregistre/désenregistre les ActionBars pour les joueurs Guerrier
+     */
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
+            ClassData data = plugin.getClassManager().getClassData(player);
+            boolean isGuerrier = data.hasClass() && data.getSelectedClass() == com.rinaorc.zombiez.classes.ClassType.GUERRIER;
+
+            if (isGuerrier) {
+                if (!activeGuerrierActionBar.contains(uuid)) {
+                    activeGuerrierActionBar.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                if (activeGuerrierActionBar.contains(uuid)) {
+                    activeGuerrierActionBar.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
+            }
+        }
+    }
+
+    /**
+     * Construit l'ActionBar spécifique au Guerrier et sa spécialisation
+     */
+    public String buildActionBar(Player player) {
+        UUID uuid = player.getUniqueId();
+        StringBuilder bar = new StringBuilder();
+
+        // Détecter la spécialisation dominante (basée sur les talents actifs)
+        int spec = detectDominantSpecialization(player);
+
+        switch (spec) {
+            case 0 -> buildBriseurActionBar(player, bar);
+            case 1 -> buildRempartActionBar(player, bar);
+            case 2 -> buildFureurActionBar(player, bar);
+            case 3 -> buildTitanActionBar(player, bar);
+            default -> buildGenericGuerrierActionBar(player, bar);
+        }
+
+        return bar.toString();
+    }
+
+    /**
+     * Détecte la spécialisation dominante du joueur
+     * basée sur le nombre de talents de chaque slot
+     */
+    private int detectDominantSpecialization(Player player) {
+        List<Talent> activeTalents = talentManager.getActiveTalents(player);
+        int[] specCounts = new int[4]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan
+
+        for (Talent talent : activeTalents) {
+            int slot = talent.getSlotIndex();
+            if (slot >= 0 && slot < 4) {
+                specCounts[slot]++;
+            }
+        }
+
+        // Trouver le slot avec le plus de talents
+        int maxCount = 0;
+        int dominantSpec = -1;
+        for (int i = 0; i < 4; i++) {
+            if (specCounts[i] > maxCount) {
+                maxCount = specCounts[i];
+                dominantSpec = i;
+            }
+        }
+
+        return dominantSpec;
+    }
+
+    /**
+     * ActionBar pour Briseur (Slot 0) - AoE/Séisme
+     */
+    private void buildBriseurActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§7§l[§6⚡§7§l] ");
+
+        // Apocalypse progress
+        Talent apocalypse = getActiveTalentIfHas(player, Talent.TalentEffectType.EARTH_APOCALYPSE);
+        if (apocalypse != null) {
+            double current = aoeDamageCounter.getOrDefault(uuid, 0.0);
+            int percent = (int) ((current / APOCALYPSE_THRESHOLD) * 100);
+            percent = Math.min(percent, 100);
+            String color = percent >= 100 ? "§c§l" : (percent >= 50 ? "§e" : "§7");
+            bar.append(color).append("🌋 ").append(percent).append("%");
+        }
+
+        // Compteur d'attaques pour Cataclysme
+        Talent cataclysm = getActiveTalentIfHas(player, Talent.TalentEffectType.CATACLYSM);
+        if (cataclysm != null) {
+            int count = attackCounter.getOrDefault(uuid, 0);
+            int needed = (int) cataclysm.getValue(0);
+            bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+        }
+
+        // Stacks de Fureur Croissante (si actif même en Briseur)
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        if (fury > 0) {
+            bar.append("  §c🔥").append(String.format("%.0f", fury * 2.0)).append("%");
+        }
+
+        // Charge Dévastatrice prête
+        if (chargeReady.getOrDefault(uuid, false)) {
+            bar.append("  §a§lCHARGE!");
+        }
+    }
+
+    /**
+     * ActionBar pour Rempart (Slot 1) - Tank/Défense
+     */
+    private void buildRempartActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§6§l[§e🛡§6§l] ");
+
+        // Fortification stacks
+        int fortStacks = fortifyStacks.getOrDefault(uuid, 0);
+        if (fortStacks > 0) {
+            Long expiry = fortifyExpireTime.get(uuid);
+            String timeStr = "";
+            if (expiry != null) {
+                long remaining = (expiry - System.currentTimeMillis()) / 1000;
+                timeStr = " §7(" + remaining + "s)";
+            }
+            bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
+        }
+
+        // Écho de Fer stacks et dégâts stockés
+        int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+        double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+        if (echoStacks > 0 || storedDmg > 0) {
+            String stackColor = echoStacks >= 3 ? "§a§l" : "§e";
+            bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/3");
+            if (storedDmg > 0) {
+                bar.append(" §c+").append(String.format("%.0f", storedDmg));
+            }
+        }
+
+        // Châtiment stacks
+        int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
+        if (punishStacks > 0) {
+            bar.append("  §d⚔").append(punishStacks);
+            if (punishmentReady.getOrDefault(uuid, false)) {
+                bar.append("§a✓");
+            }
+        }
+
+        // Avatar Rempart actif
+        if (isBulwarkAvatar(player)) {
+            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
+            bar.append("  §6§lAVATAR §e").append(remaining).append("s");
+        }
+
+        // Dégâts bloqués pour Avatar
+        double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
+        if (blocked > 0 && !isBulwarkAvatar(player)) {
+            bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+        }
+    }
+
+    /**
+     * ActionBar pour Fureur (Slot 2) - Rage/Dégâts
+     */
+    private void buildFureurActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§c§l[§4🔥§c§l] ");
+
+        // Stacks de Fureur Croissante
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        Talent risingFury = getActiveTalentIfHas(player, Talent.TalentEffectType.RISING_FURY);
+        if (risingFury != null) {
+            double maxBonus = risingFury.getValue(1) * 100;
+            double currentBonus = fury * risingFury.getValue(0) * 100;
+            String color = currentBonus >= maxBonus ? "§c§l" : (currentBonus >= maxBonus * 0.5 ? "§6" : "§e");
+            bar.append(color).append("🔥 +").append(String.format("%.0f", currentBonus)).append("%");
+        }
+
+        // Déchaînement (multi-kills)
+        List<Long> kills = recentKills.get(uuid);
+        if (kills != null && !kills.isEmpty()) {
+            long now = System.currentTimeMillis();
+            int recentCount = (int) kills.stream().filter(t -> now - t < 3000).count();
+            if (recentCount > 0) {
+                bar.append("  §c⚔x").append(recentCount);
+            }
+        }
+
+        // Riposte Buff actif
+        if (riposteBuffTime.containsKey(uuid)) {
+            long remaining = (riposteBuffTime.get(uuid) - System.currentTimeMillis()) / 1000;
+            if (remaining > 0) {
+                bar.append("  §6RIPOSTE §e").append(remaining).append("s");
+            }
+        }
+
+        // Cyclone actif
+        if (activeCyclones.contains(uuid)) {
+            bar.append("  §c§lCYCLONE");
+        }
+    }
+
+    /**
+     * ActionBar pour Titan (Slot 3) - Tanky/Résistance
+     */
+    private void buildTitanActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§8§l[§7🗿§8§l] ");
+
+        // Bouclier temporaire
+        double shield = tempShield.getOrDefault(uuid, 0.0);
+        if (shield > 0) {
+            Long expiry = tempShieldExpiry.get(uuid);
+            String timeStr = "";
+            if (expiry != null) {
+                long remaining = (expiry - System.currentTimeMillis()) / 1000;
+                if (remaining > 0) timeStr = " §7(" + remaining + "s)";
+            }
+            bar.append("§b🛡 ").append(String.format("%.0f", shield)).append(timeStr);
+        }
+
+        // Représailles stacks
+        int retStacks = retaliationStacks.getOrDefault(uuid, 0);
+        if (retStacks > 0) {
+            bar.append("  §c⚡").append(retStacks).append(" stacks");
+        }
+
+        // Dégâts stockés (Avatar Vengeance)
+        double stored = storedDamage.getOrDefault(uuid, 0.0);
+        if (stored > 0) {
+            bar.append("  §4Stocké: §c").append(String.format("%.0f", stored));
+        }
+
+        // HP volés (Avatar de Sang)
+        double bloodHp = bloodStolenHp.getOrDefault(uuid, 0.0);
+        if (bloodHp > 0) {
+            bar.append("  §4♥ ").append(String.format("%.0f", bloodHp));
+        }
+
+        // Immortel disponible
+        Talent immortal = getActiveTalentIfHas(player, Talent.TalentEffectType.IMMORTAL);
+        if (immortal != null) {
+            long cooldownEnd = immortalLastProc.getOrDefault(uuid, 0L) + (long) immortal.getValue(0);
+            if (System.currentTimeMillis() >= cooldownEnd) {
+                bar.append("  §a§l☠ PRÊT");
+            }
+        }
+    }
+
+    /**
+     * ActionBar générique si pas de spécialisation claire
+     */
+    private void buildGenericGuerrierActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§c§l[§6⚔§c§l] ");
+
+        // Fureur stacks
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        if (fury > 0) {
+            bar.append("§c🔥+").append(fury * 2).append("%");
+        }
+
+        // Charge prête
+        if (chargeReady.getOrDefault(uuid, false)) {
+            bar.append("  §a§lCHARGE!");
+        }
+
+        // Combat récent indicator
+        Long lastCombat = lastCombatTime.get(uuid);
+        if (lastCombat != null && System.currentTimeMillis() - lastCombat < 5000) {
+            bar.append("  §c⚔ COMBAT");
+        }
+    }
+
+    /**
+     * Nettoie les données d'un joueur (déconnexion)
+     */
+    public void cleanupPlayer(UUID playerUuid) {
+        // Cleanup tracking data
+        furyStacks.remove(playerUuid);
+        furyLastHit.remove(playerUuid);
+        sprintStartTime.remove(playerUuid);
+        chargeReady.remove(playerUuid);
+        recentKills.remove(playerUuid);
+        riposteBuffTime.remove(playerUuid);
+        attackCounter.remove(playerUuid);
+        immortalLastProc.remove(playerUuid);
+        activeCyclones.remove(playerUuid);
+        punishmentStacks.remove(playerUuid);
+        punishmentLastHit.remove(playerUuid);
+        punishmentReady.remove(playerUuid);
+        vengefulShieldCounter.remove(playerUuid);
+        fortifyStacks.remove(playerUuid);
+        fortifyExpireTime.remove(playerUuid);
+        fortifyBaseHealth.remove(playerUuid);
+        ironEchoStoredDamage.remove(playerUuid);
+        ironEchoStacks.remove(playerUuid);
+        ironEchoFirstStack.remove(playerUuid);
+        bulwarkDamageBlocked.remove(playerUuid);
+        bulwarkAvatarActiveUntil.remove(playerUuid);
+        bulwarkLastMilestone.remove(playerUuid);
+        retaliationStacks.remove(playerUuid);
+        retaliationLastProc.remove(playerUuid);
+        storedDamage.remove(playerUuid);
+        bloodStolenHp.remove(playerUuid);
+        chainExecuteBuff.remove(playerUuid);
+        lastDamageDealt.remove(playerUuid);
+        lastCombatTime.remove(playerUuid);
+        tempShield.remove(playerUuid);
+        tempShieldExpiry.remove(playerUuid);
+        burningStacks.remove(playerUuid);
+        aoeDamageCounter.remove(playerUuid);
+        lastApocalypseMilestone.remove(playerUuid);
+        lastSneakTime.remove(playerUuid);
+        fractureWaveHitCounter.remove(playerUuid);
+
+        // Unregister ActionBar
+        activeGuerriers.remove(playerUuid);
+        activeGuerrierActionBar.remove(playerUuid);
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+        }
     }
 }
