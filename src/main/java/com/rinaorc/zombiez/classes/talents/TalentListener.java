@@ -111,6 +111,9 @@ public class TalentListener implements Listener {
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000;
 
+    // Onde de Fracture - tracking des cibles differentes frappees
+    private final Map<UUID, Map<UUID, Long>> fractureWaveTargets = new ConcurrentHashMap<>();
+
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -222,15 +225,41 @@ public class TalentListener implements Listener {
 
         // === TIER 3 ===
 
-        // Tourbillon de Lames
-        Talent whirlwind = getActiveTalentIfHas(player, Talent.TalentEffectType.BLADE_WHIRLWIND);
-        if (whirlwind != null && !isOnCooldown(uuid, "whirlwind")) {
-            double chance = whirlwind.getValue(0);
-            if (Math.random() < chance) {
-                double aoeDamage = damage * whirlwind.getValue(1);
-                double radius = whirlwind.getValue(2);
-                procWhirlwind(player, aoeDamage, radius);
-                setCooldown(uuid, "whirlwind", whirlwind.getInternalCooldownMs());
+        // Onde de Fracture - frapper 3 cibles differentes declenche une onde en cone
+        Talent fractureWave = getActiveTalentIfHas(player, Talent.TalentEffectType.FRACTURE_WAVE);
+        if (fractureWave != null && target instanceof LivingEntity) {
+            UUID targetUUID = target.getUniqueId();
+            long now = System.currentTimeMillis();
+            long windowMs = (long) fractureWave.getValue(1);
+            int targetsNeeded = (int) fractureWave.getValue(0);
+
+            // Tracker les cibles frappees
+            Map<UUID, Long> playerTargets = fractureWaveTargets.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+
+            // Nettoyer les cibles expirees
+            playerTargets.entrySet().removeIf(e -> now - e.getValue() > windowMs);
+
+            // Ajouter la nouvelle cible (ou update son timestamp)
+            playerTargets.put(targetUUID, now);
+
+            // Verifier si on a atteint le seuil
+            if (playerTargets.size() >= targetsNeeded) {
+                // Proc l'Onde de Fracture!
+                double baseDamage = damage * fractureWave.getValue(2);  // 150%
+                double bonusPerHit = fractureWave.getValue(3);           // +25% par ennemi
+                double range = fractureWave.getValue(4);                 // 4 blocs
+                double coneAngle = fractureWave.getValue(5);             // 60 degres
+                double slowPercent = fractureWave.getValue(6);           // 30%
+                long slowDurationMs = (long) fractureWave.getValue(7);   // 1500ms
+
+                procFractureWave(player, baseDamage, bonusPerHit, range, coneAngle, slowPercent, slowDurationMs);
+
+                // Reset le tracker
+                playerTargets.clear();
+            } else {
+                // Feedback visuel de progression
+                int currentCount = playerTargets.size();
+                showFractureWaveProgress(player, currentCount, targetsNeeded);
             }
         }
 
@@ -1011,25 +1040,141 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.SONIC_BOOM, center, 1);
     }
 
-    private void procWhirlwind(Player player, double damage, double radius) {
-        Location center = player.getLocation();
+    /**
+     * Onde de Fracture - Cone AoE sismique devant le joueur
+     */
+    private void procFractureWave(Player player, double baseDamage, double bonusPerHit,
+                                   double range, double coneAngle, double slowPercent, long slowDurationMs) {
+        Location origin = player.getLocation();
+        Vector direction = origin.getDirection().setY(0).normalize();
+        double halfAngleRad = Math.toRadians(coneAngle / 2);
 
-        // Particules de rotation
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
-            double x = center.getX() + radius * Math.cos(angle);
-            double z = center.getZ() + radius * Math.sin(angle);
-            player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, new Location(player.getWorld(), x, center.getY() + 1, z), 1);
-        }
+        // Collecter les cibles dans le cone
+        List<LivingEntity> hitTargets = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(range, range, range)) {
+            if (!(entity instanceof LivingEntity target) || entity instanceof Player) continue;
 
-        player.getWorld().playSound(center, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
+            Vector toEntity = entity.getLocation().toVector().subtract(origin.toVector()).setY(0);
+            double distance = toEntity.length();
+            if (distance > range || distance < 0.5) continue;
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+            // Verifier l'angle du cone
+            double angle = Math.acos(toEntity.normalize().dot(direction));
+            if (angle <= halfAngleRad) {
+                hitTargets.add(target);
             }
         }
+
+        // Calculer les degats (bonus par ennemi touche)
+        int hitCount = hitTargets.size();
+        double totalDamage = baseDamage * (1 + bonusPerHit * hitCount);
+
+        // Appliquer les degats et le slow
+        int slowTicks = (int) (slowDurationMs / 50);
+        int slowLevel = (int) Math.round(slowPercent / 0.15) - 1; // ~30% = Slowness I
+        slowLevel = Math.max(0, Math.min(slowLevel, 3));
+
+        for (LivingEntity target : hitTargets) {
+            target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+            target.damage(totalDamage, player);
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, slowTicks, slowLevel, false, true, true));
+        }
+
+        // === EFFETS VISUELS SPECTACULAIRES ===
+        spawnFractureWaveVisuals(player, origin, direction, range, halfAngleRad, hitCount);
+
+        // Feedback ActionBar
+        if (shouldSendTalentMessage(player)) {
+            String msg = hitCount > 0
+                ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
+                : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
+            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        }
+
+        // Contribution au systeme Apocalypse
+        if (hitCount > 0) {
+            trackAoeDamage(player.getUniqueId(), totalDamage * hitCount, player);
+        }
+    }
+
+    /**
+     * Effets visuels de l'Onde de Fracture - fissure au sol + onde de choc
+     */
+    private void spawnFractureWaveVisuals(Player player, Location origin, Vector direction,
+                                           double range, double halfAngleRad, int hitCount) {
+        World world = player.getWorld();
+
+        // Son d'impact sismique
+        world.playSound(origin, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 1.5f);
+        world.playSound(origin, Sound.BLOCK_DEEPSLATE_BREAK, 1.2f, 0.6f);
+
+        // Particules de fissure au sol (lignes qui partent du joueur)
+        new BukkitRunnable() {
+            double progress = 0;
+            final double step = 0.5;
+
+            @Override
+            public void run() {
+                if (progress > range) {
+                    cancel();
+                    return;
+                }
+
+                // Creer plusieurs lignes dans le cone
+                for (double angleOffset = -halfAngleRad; angleOffset <= halfAngleRad; angleOffset += halfAngleRad / 2) {
+                    double cos = Math.cos(angleOffset);
+                    double sin = Math.sin(angleOffset);
+
+                    // Rotation du vecteur direction
+                    double rotX = direction.getX() * cos - direction.getZ() * sin;
+                    double rotZ = direction.getX() * sin + direction.getZ() * cos;
+
+                    Location particleLoc = origin.clone().add(rotX * progress, 0.1, rotZ * progress);
+
+                    // Fissure au sol
+                    world.spawnParticle(Particle.BLOCK, particleLoc, 3, 0.2, 0, 0.2, 0,
+                        Material.CRACKED_DEEPSLATE_TILES.createBlockData());
+
+                    // Poussiere sismique
+                    world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, particleLoc.clone().add(0, 0.3, 0),
+                        1, 0.1, 0.1, 0.1, 0.01);
+                }
+
+                // Onde de choc principale au front
+                if (progress > 0.5) {
+                    Location frontLoc = origin.clone().add(direction.clone().multiply(progress));
+                    world.spawnParticle(Particle.SONIC_BOOM, frontLoc.add(0, 0.5, 0), 1);
+                }
+
+                progress += step;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Flash d'impact si on a touche des cibles
+        if (hitCount > 0) {
+            world.spawnParticle(Particle.FLASH, origin.clone().add(0, 1, 0), 1);
+            world.spawnParticle(Particle.EXPLOSION, origin.clone().add(direction.multiply(range / 2)).add(0, 0.5, 0), 1);
+        }
+    }
+
+    /**
+     * Affiche la progression du build-up de l'Onde de Fracture
+     */
+    private void showFractureWaveProgress(Player player, int current, int needed) {
+        if (!shouldSendTalentMessage(player)) return;
+
+        // Barre de progression visuelle
+        StringBuilder bar = new StringBuilder("§8[");
+        for (int i = 1; i <= needed; i++) {
+            bar.append(i <= current ? "§6■" : "§7□");
+        }
+        bar.append("§8]");
+
+        String msg = "§7Fracture " + bar + " §e" + current + "§7/" + needed;
+        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+
+        // Petit son de progression
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (current * 0.2f));
     }
 
     private void procUnleash(Player player, double damageMultiplier, double radius) {
@@ -1352,7 +1497,7 @@ public class TalentListener implements Listener {
 
     private boolean hasAnyAoETalent(Player player) {
         return talentManager.hasTalentEffect(player, Talent.TalentEffectType.SEISMIC_STRIKE) ||
-               talentManager.hasTalentEffect(player, Talent.TalentEffectType.BLADE_WHIRLWIND) ||
+               talentManager.hasTalentEffect(player, Talent.TalentEffectType.FRACTURE_WAVE) ||
                talentManager.hasTalentEffect(player, Talent.TalentEffectType.CATACLYSM);
     }
 
