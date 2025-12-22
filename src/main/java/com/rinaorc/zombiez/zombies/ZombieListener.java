@@ -323,7 +323,8 @@ public class ZombieListener implements Listener {
                 victim.setFireTicks(60); // 3 secondes de feu
             }
             case "freeze_on_hit" -> {
-                victim.setFreezeTicks(victim.getMaxFreezeTicks());
+                // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
             }
             case "chain_lightning" -> {
                 // Dégâts aux joueurs proches

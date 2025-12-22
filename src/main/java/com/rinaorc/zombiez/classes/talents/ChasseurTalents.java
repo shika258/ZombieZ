@@ -141,17 +141,22 @@ public final class ChasseurTalents {
             .values(new double[]{0.40, 100, 70, 0.25}) // chance, max_virulence, necrosis_threshold (70%), necrosis_bonus (25%)
             .build());
 
-        // 1.5 - FLÈCHES GIVRANTES (Voie du Givre)
+        // 1.5 - FLÈCHES REBONDISSANTES (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_piercing_arrows")
-            .name("Flèches Givrantes")
-            .description("Traverse 2 ennemis, applique GIVRE!")
+            .name("Flèches Rebondissantes")
+            .description("Rebondit vers 2 ennemis, applique GIVRE!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos projectiles §btraversent§7",
-                "§7jusqu'à §e2 ennemis§7 et",
+                "§7Vos projectiles §brebondissent§7",
+                "§7vers jusqu'à §e2 ennemis§7 et",
                 "§7appliquent du §b§lGIVRE§7!",
+                "",
+                "§6SYSTÈME DE REBOND:",
+                "§8► Touche un ennemi → rebondit",
+                "§8► vers le mob le plus proche!",
+                "§8► Portée rebond: §e10 blocs",
                 "",
                 "§6SYSTÈME DE GIVRE:",
                 "§8► §b+15%§8 givre par touche",
@@ -161,11 +166,11 @@ public final class ChasseurTalents {
                 "§c§lBONUS GELÉ:",
                 "§8► Cibles gelées: §c+50%§8 dégâts!",
                 "",
-                "§6MOMENTUM DE GIVRE:",
-                "§8► Chaque traversée: §c+25%§8 dégâts",
-                "§8► §b+12.5%§8 givre bonus!",
+                "§6MOMENTUM DE REBOND:",
+                "§8► 2e cible+: §c+25%§8 dégâts/rebond",
+                "§8► §b+12.5%§8 givre bonus/rebond!",
                 "",
-                "§b§lGELEZ VOS ENNEMIS"
+                "§b§lGELEZ VOS ENNEMIS EN CHAÎNE"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -173,7 +178,7 @@ public final class ChasseurTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.PIERCING_ARROWS)
-            .values(new double[]{2, 0.25}) // pierce_count, bonus_damage_per_pierce%
+            .values(new double[]{2, 0.25}) // bounce_count, bonus_damage_per_bounce%
             .build());
     }
 
@@ -327,7 +332,7 @@ public final class ChasseurTalents {
                 "",
                 "§b§lÀ CHARGE 5 - TIR GLACIAL:",
                 "§8► §b§lGEL INSTANTANÉ§8 de la cible!",
-                "§8► §a+1§8 ennemi traversé",
+                "§8► §a+1§8 rebond supplémentaire",
                 "§8► Son de glace satisfaisant",
                 "§8► Reset la Charge à 0",
                 "",
@@ -341,7 +346,7 @@ public final class ChasseurTalents {
             .icon(Material.PACKED_ICE)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.CALIBER)
-            .values(new double[]{5, 0.05, 1.0, 1}) // max_charge, frost_per_level%, glacial_shot_bonus, extra_pierce
+            .values(new double[]{5, 0.05, 1.0, 1}) // max_charge, frost_per_level%, glacial_shot_bonus, extra_bounce
             .build());
     }
 
@@ -448,10 +453,10 @@ public final class ChasseurTalents {
                 "§8► Utilise vos stats de crit",
                 "§8► Particules spéciales sur crit",
                 "",
-                "§6PARALYSIE:",
-                "§8► Empoisonnés: §9Ralentis§8",
-                "§8► §9Slow II§8 à 70%+ virulence",
-                "§8► Facilite les combos!",
+                "§6PARALYSIE PROGRESSIVE:",
+                "§8► 0-49%: §9Slow I",
+                "§8► 50-69%: §9Slow II",
+                "§8► 70%+: §9Slow III§8 (très lent!)",
                 "",
                 "§2§lLA MORT LENTE"
             })
@@ -468,15 +473,16 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_fatal_trajectory")
             .name("Ligne de Glace")
-            .description("Pierce 2+ = Zone de Givre (+30% givre)")
+            .description("2+ rebonds = Zone de Givre (+30% givre)")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Traverser §e2+ ennemis§7 crée",
+                "§7Rebondir sur §e2+ ennemis§7 crée",
                 "§7une §b§lLIGNE DE GLACE§7!",
                 "",
                 "§6LIGNE DE GLACE:",
                 "§8► Zone linéaire de §e12 blocs",
+                "§8► Entre la 1ère et dernière cible",
                 "§8► Durée: §e3s",
                 "§8► Particules de neige",
                 "",
@@ -485,8 +491,8 @@ public final class ChasseurTalents {
                 "§8► Facilite le gel en zone!",
                 "",
                 "§6SYNERGIE:",
-                "§7Parfait pour geler en chaîne",
-                "§7dans la même trajectoire!",
+                "§7Parfait pour geler les groupes",
+                "§7sur la trajectoire de rebond!",
                 "",
                 "§b§lTRACEZ LE FROID"
             })
@@ -496,7 +502,7 @@ public final class ChasseurTalents {
             .icon(Material.PRISMARINE_CRYSTALS)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.FATAL_TRAJECTORY)
-            .values(new double[]{2, 12.0, 3000, 0.30}) // pierce_threshold, line_length, duration_ms, frost_bonus%
+            .values(new double[]{2, 12.0, 3000, 0.30}) // bounce_threshold, line_length, duration_ms, frost_bonus%
             .build());
     }
 
@@ -785,7 +791,7 @@ public final class ChasseurTalents {
                 "§7Votre givre §bpénètre§7 les défenses!",
                 "",
                 "§6GIVRE PÉNÉTRANT:",
-                "§8► §b+20%§8 givre par traversée",
+                "§8► §b+20%§8 givre par rebond",
                 "§8► Ignore la résistance au froid",
                 "§8► Maximum: §b+80%§8 givre bonus",
                 "",
@@ -806,7 +812,7 @@ public final class ChasseurTalents {
             .icon(Material.HEART_OF_THE_SEA)
             .iconColor("§b")
             .effectType(Talent.TalentEffectType.ABSOLUTE_PERFORATION)
-            .values(new double[]{0.20, 0.80, 5000, 0.35}) // frost_per_pierce%, max_bonus%, duration_ms, shatter_bonus%
+            .values(new double[]{0.20, 0.80, 5000, 0.35}) // frost_per_bounce%, max_bonus%, duration_ms, shatter_bonus%
             .build());
     }
 
@@ -1119,12 +1125,16 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_chain_perforation")
             .name("Écho Glacial")
-            .description("Après dernier pierce, givre se propage 3x!")
+            .description("Rebonds terminés = givre propage 3x!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Après avoir traversé le dernier",
-                "§7ennemi, le §bgivre se propage§7!",
+                "§7Quand les §brebonds s'arrêtent§7,",
+                "§7le §bgivre continue§7 à se propager!",
+                "",
+                "§6DÉCLENCHEMENT:",
+                "§8► Max rebonds atteint §eOU",
+                "§8► Plus de cible disponible",
                 "",
                 "§6PROPAGATION EN CHAÎNE:",
                 "§8► Jusqu'à §e3§8 propagations",
@@ -1138,13 +1148,8 @@ public final class ChasseurTalents {
                 "",
                 "§6BONUS ÉCLAT:",
                 "§8► §b+2 blocs§8 rayon d'éclat",
-                "§8► Plus de cibles touchées!",
                 "",
-                "§6SYNERGIE:",
-                "§7Parfait pour geler un groupe",
-                "§7en une seule attaque!",
-                "",
-                "§b§lLE FROID SE RÉPAND"
+                "§b§lLE FROID NE S'ARRÊTE JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1301,6 +1306,7 @@ public final class ChasseurTalents {
                 "§8► §b+50%§8 givre appliqué!",
                 "§8► §c+40%§8 dégâts",
                 "§8► §c+50%§8 dégâts d'éclat",
+                "§8► §a15 rebonds§8 max!",
                 "",
                 "§6AURA DE GIVRE:",
                 "§8► §e4 blocs§8 autour de vous",

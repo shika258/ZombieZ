@@ -139,8 +139,8 @@ public class ZombieAffixSystem {
             .particle(Particle.SNOWFLAKE)
             .rewardMultiplier(1.25)
             .onHit((zombie, player) -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-                player.setFreezeTicks(Math.min(player.getFreezeTicks() + 40, 140));
+                // Slowness II au lieu du gel visuel (texture gênante pour le joueur)
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 1));
             })
             .onTick((zombie, ticks) -> {
                 if (ticks % 10 == 0) {

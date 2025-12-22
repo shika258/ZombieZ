@@ -236,8 +236,8 @@ public class ElementalZombieAI extends ZombieAI {
                         .map(e -> (Player) e)
                         .forEach(p -> {
                             p.damage(4 + level, zombie);
-                            p.setFreezeTicks(p.getMaxFreezeTicks());
-                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
+                            // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 2));
                         });
             }, i * 2L);
         }
@@ -268,8 +268,8 @@ public class ElementalZombieAI extends ZombieAI {
                         .map(e -> (Player) e)
                         .forEach(p -> {
                             p.damage(2, zombie);
-                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1));
-                            p.setFreezeTicks(Math.min(p.getFreezeTicks() + 40, p.getMaxFreezeTicks()));
+                            // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2));
                         });
             }, tick * 20L);
         }
@@ -282,8 +282,8 @@ public class ElementalZombieAI extends ZombieAI {
         playParticles(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5);
 
         target.damage(8 + level, zombie);
-        target.setFreezeTicks(target.getMaxFreezeTicks());
-        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2));
+        // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
     }
 
     private void chillingHowl(Player target) {
@@ -433,8 +433,8 @@ public class ElementalZombieAI extends ZombieAI {
 
         switch (zombieType) {
             case FROZEN, YETI, WENDIGO -> {
-                target.setFreezeTicks(Math.min(target.getFreezeTicks() + 60, target.getMaxFreezeTicks()));
-                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
+                // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
                 playParticles(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3);
             }
             case DEMON, INFERNAL -> {
@@ -450,7 +450,8 @@ public class ElementalZombieAI extends ZombieAI {
         if (attacker instanceof Player player && random.nextFloat() < 0.25f) {
             switch (zombieType) {
                 case FROZEN, YETI, WENDIGO -> {
-                    player.setFreezeTicks(player.getMaxFreezeTicks() / 2);
+                    // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
                     playParticles(Particle.SNOWFLAKE, player.getLocation(), 20, 0.5, 0.5, 0.5);
                 }
                 case DEMON, INFERNAL -> {
@@ -473,14 +474,8 @@ public class ElementalZombieAI extends ZombieAI {
             case FROZEN, YETI, WENDIGO -> {
                 playSound(Sound.BLOCK_GLASS_BREAK, 2f, 0.5f);
                 playParticles(Particle.SNOWFLAKE, zombie.getLocation(), 100, 3, 2, 3);
+                // Slowness III au lieu du gel visuel (texture gênante pour le joueur)
                 applyAreaEffect(5, PotionEffectType.SLOWNESS, 100, 2);
-
-                // Geler tous les joueurs proches (sauf s'ils sont déjà morts)
-                zombie.getWorld().getNearbyEntities(zombie.getLocation(), 5, 3, 5).stream()
-                        .filter(e -> e instanceof Player)
-                        .map(e -> (Player) e)
-                        .filter(p -> !p.isDead()) // CRITIQUE: Ne pas geler les joueurs morts!
-                        .forEach(p -> p.setFreezeTicks(p.getMaxFreezeTicks()));
             }
             case DEMON, INFERNAL -> {
                 playSound(Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.5f);

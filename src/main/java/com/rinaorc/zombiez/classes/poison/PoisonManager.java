@@ -176,11 +176,19 @@ public class PoisonManager {
         poisonOwners.put(targetUuid, ownerUuid);
         poisonExpiry.put(targetUuid, System.currentTimeMillis() + POISON_DURATION);
 
-        // Effet slowness léger (Toxines Mortelles)
+        // Effet slowness progressif (Toxines Mortelles T3)
         if (hasTalent(owner, Talent.TalentEffectType.DEADLY_TOXINS)) {
-            int slowLevel = newVirulence >= NECROSIS_THRESHOLD ? 1 : 0;
+            // Slowness level basé sur virulence: 0-49% = I, 50-69% = II, 70%+ = III
+            int slowLevel;
+            if (newVirulence >= NECROSIS_THRESHOLD) {
+                slowLevel = 2; // Slowness III à 70%+
+            } else if (newVirulence >= 50) {
+                slowLevel = 1; // Slowness II à 50%+
+            } else {
+                slowLevel = 0; // Slowness I sinon
+            }
             target.addPotionEffect(new PotionEffect(
-                PotionEffectType.SLOWNESS, 40, slowLevel, false, false));
+                PotionEffectType.SLOWNESS, 60, slowLevel, false, false));
         }
 
         // Son subtil à l'application
@@ -277,9 +285,14 @@ public class PoisonManager {
             double dotPercent = (vir / 10.0) * DOT_PERCENT_PER_10_VIRULENCE;
             double dotDamage = baseDamage * dotPercent;
 
-            // Bonus Nécrose (+25% dégâts si 70%+ virulence)
-            if (hasNecrosis(targetUuid) && hasTalent(owner, Talent.TalentEffectType.VENOMOUS_STRIKE)) {
-                dotDamage *= 1.25;
+            // Bonus Nécrose (+25% dégâts DoT si 70%+ virulence)
+            // Ce bonus est inclus avec le talent T1 (Frappe Venimeuse)
+            if (hasNecrosis(targetUuid)) {
+                Talent venomous = talentManager.getActiveTalentByEffect(owner, Talent.TalentEffectType.VENOMOUS_STRIKE);
+                if (venomous != null) {
+                    double necrosisBonus = venomous.getValue(3); // 0.25 = 25%
+                    dotDamage *= (1 + necrosisBonus);
+                }
             }
 
             // === SYSTÈME DE CRIT SUR DoT (Toxines Mortelles) ===
@@ -714,8 +727,14 @@ public class PoisonManager {
     public double getToxicSynergyBonus(Player player) {
         if (!hasTalent(player, Talent.TalentEffectType.TOXIC_SYNERGY)) return 0;
 
+        Talent synergyTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.TOXIC_SYNERGY);
+        if (synergyTalent == null) return 0;
+
+        double bonusPerTenVir = synergyTalent.getValue(0); // 0.01 = 1% par 10 vir
+        double range = synergyTalent.getValue(1);          // 8.0 blocs
+        double maxBonus = synergyTalent.getValue(2);       // 0.25 = 25% max
+
         int totalVirulence = 0;
-        double range = 8.0;
         Location loc = player.getLocation();
 
         for (Entity entity : loc.getWorld().getNearbyEntities(loc, range, range, range)) {
@@ -725,7 +744,8 @@ public class PoisonManager {
         }
 
         // +1% dégâts par 10 virulence totale, max +25%
-        return Math.min(totalVirulence * 0.001, 0.25);
+        double bonus = (totalVirulence / 10.0) * bonusPerTenVir;
+        return Math.min(bonus, maxBonus);
     }
 
     /**
@@ -733,10 +753,13 @@ public class PoisonManager {
      * Activé quand 200+ virulence totale dans la zone
      */
     public boolean isBlightComboActive(Player player) {
-        if (!hasTalent(player, Talent.TalentEffectType.BLIGHT)) return false;
+        Talent blightTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.BLIGHT);
+        if (blightTalent == null) return false;
+
+        double range = blightTalent.getValue(0);           // 4.0 blocs (aura range)
+        int comboThreshold = (int) blightTalent.getValue(2); // 200 virulence
 
         int totalVirulence = 0;
-        double range = 5.0;
         Location loc = player.getLocation();
 
         for (Entity entity : loc.getWorld().getNearbyEntities(loc, range, range, range)) {
@@ -745,7 +768,7 @@ public class PoisonManager {
             }
         }
 
-        return totalVirulence >= 200; // 200+ virulence = +20% dégâts
+        return totalVirulence >= comboThreshold; // 200+ virulence = +20% dégâts
     }
 
     // ==================== ActionBar ====================

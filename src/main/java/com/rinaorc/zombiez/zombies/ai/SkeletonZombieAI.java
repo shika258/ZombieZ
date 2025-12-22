@@ -275,9 +275,8 @@ public class SkeletonZombieAI extends ZombieAI {
             }
             case STRAY -> {
                 playSound(Sound.ENTITY_STRAY_HURT, 1f, 1.5f);
-                // Gel au contact
-                target.setFreezeTicks(Math.min(target.getFreezeTicks() + 80, target.getMaxFreezeTicks()));
-                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 1));
+                // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 2));
                 playParticles(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3);
             }
         }
@@ -337,8 +336,8 @@ public class SkeletonZombieAI extends ZombieAI {
                         .filter(e -> e instanceof Player)
                         .map(e -> (Player) e)
                         .forEach(p -> {
-                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-                            p.setFreezeTicks(Math.min(p.getFreezeTicks() + 60, p.getMaxFreezeTicks()));
+                            // Slowness au lieu du gel visuel (texture gênante pour le joueur)
+                            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
                         });
             }
         }
