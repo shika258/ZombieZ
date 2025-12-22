@@ -70,9 +70,10 @@ public class TalentListener implements Listener {
     // Bouclier Vengeur - compteur de coups pour disque
     private final Map<UUID, Integer> vengefulShieldCounter = new ConcurrentHashMap<>();
 
-    // Fortification - niveau de fortification
-    private final Map<UUID, Double> fortifyLevel = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> fortifyLastBlock = new ConcurrentHashMap<>();
+    // Fortification - stacks de HP bonus
+    private final Map<UUID, Integer> fortifyStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> fortifyExpireTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> fortifyBaseHealth = new ConcurrentHashMap<>(); // HP de base avant bonus
 
     // Inébranlable - compteur de blocages récents
     private final Map<UUID, List<Long>> recentBlocks = new ConcurrentHashMap<>();
@@ -1189,24 +1190,21 @@ public class TalentListener implements Listener {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
                     }
 
-                    // === REMPART - Decay Fortification ===
+                    // === REMPART - Expiration Fortification ===
                     Talent fortify = getActiveTalentIfHas(player, Talent.TalentEffectType.FORTIFY);
                     if (fortify != null) {
-                        Long lastBlock = fortifyLastBlock.get(uuid);
-                        // Decay si pas de blocage depuis 2s
-                        if (lastBlock == null || now - lastBlock > 2000) {
-                            double current = fortifyLevel.getOrDefault(uuid, 0.0);
-                            if (current > 0) {
-                                double decay = fortify.getValue(3); // -8% par seconde
-                                double newLevel = Math.max(0, current - decay);
-                                fortifyLevel.put(uuid, newLevel);
-                                // Feedback visuel de perte
-                                if (newLevel > 0 && shouldSendTalentMessage(player)) {
-                                    int percent = (int) (newLevel * 100);
-                                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                                        "§8⚔ Fortification: §7" + percent + "% §8(decay)"));
-                                }
+                        Long expireTime = fortifyExpireTime.get(uuid);
+                        int stacks = fortifyStacks.getOrDefault(uuid, 0);
+
+                        if (stacks > 0 && expireTime != null && now >= expireTime) {
+                            // Expiration - retirer le bonus de HP
+                            removeFortifyBonus(player, uuid);
+
+                            if (shouldSendTalentMessage(player)) {
+                                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                                    "§8⚔ Fortification expirée..."));
                             }
+                            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
                     }
 
@@ -1998,35 +1996,53 @@ public class TalentListener implements Listener {
     private void handleRempartBlock(Player player, UUID uuid, double blockedDamage) {
         long now = System.currentTimeMillis();
 
-        // Fortification - accumulation
+        // Fortification - bonus HP max par stack
         Talent fortify = getActiveTalentIfHas(player, Talent.TalentEffectType.FORTIFY);
         if (fortify != null) {
-            fortifyLastBlock.put(uuid, now);
-            double current = fortifyLevel.getOrDefault(uuid, 0.0);
-            double increase = fortify.getValue(0); // +15% par blocage
-            double max = fortify.getValue(1); // 100%
-            double newLevel = Math.min(max, current + increase);
-            fortifyLevel.put(uuid, newLevel);
+            double hpBonusPerStack = fortify.getValue(0); // 10%
+            int maxStacks = (int) fortify.getValue(1); // 5
+            long duration = (long) fortify.getValue(2); // 5000ms
 
-            // Atteint 100%?
-            if (newLevel >= max) {
-                // Déclencher le bouclier!
-                double shieldAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * fortify.getValue(2);
-                applyTempShield(player, shieldAmount, 10000); // 10s
-                fortifyLevel.put(uuid, 0.0); // Reset
+            int currentStacks = fortifyStacks.getOrDefault(uuid, 0);
 
+            // Premier stack - sauvegarder la HP de base
+            if (currentStacks == 0) {
+                fortifyBaseHealth.put(uuid, player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
+            }
+
+            // Ajouter un stack (max 5)
+            int newStacks = Math.min(maxStacks, currentStacks + 1);
+            fortifyStacks.put(uuid, newStacks);
+
+            // Refresh le timer
+            fortifyExpireTime.put(uuid, now + duration);
+
+            // Appliquer le bonus de HP
+            applyFortifyBonus(player, uuid, newStacks, hpBonusPerStack);
+
+            // Effets visuels
+            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.6f, 0.9f + (newStacks * 0.15f));
+
+            // Particules dorées (plus intenses avec les stacks)
+            player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                5 + (newStacks * 3), 0.4, 0.6, 0.4, 0,
+                new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.0f));
+
+            if (newStacks == maxStacks) {
+                // MAX STACKS!
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
                 if (shouldSendTalentMessage(player)) {
+                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l🛡 FORTIFICATION MAX! §e+" + String.format("%.0f", shieldAmount) + " bouclier!"));
+                        "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!"));
                 }
             } else {
-                // Feedback progression
-                int percent = (int) (newLevel * 100);
+                // Progression
                 if (shouldSendTalentMessage(player)) {
+                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6⚔ Fortification: §e" + percent + "%"));
+                        "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)"));
                 }
             }
         }
@@ -2087,6 +2103,56 @@ public class TalentListener implements Listener {
                 activateBulwarkAvatar(player, bulwarkAvatar);
             }
         }
+    }
+
+    /**
+     * Applique le bonus de HP max de Fortification
+     */
+    private void applyFortifyBonus(Player player, UUID uuid, int stacks, double bonusPerStack) {
+        Double baseHealth = fortifyBaseHealth.get(uuid);
+        if (baseHealth == null) return;
+
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le nouveau max HP
+        double bonusMultiplier = 1.0 + (stacks * bonusPerStack);
+        double newMaxHealth = baseHealth * bonusMultiplier;
+
+        // Appliquer
+        maxHealthAttr.setBaseValue(newMaxHealth);
+
+        // Soigner proportionnellement si on gagne des HP
+        double currentHealth = player.getHealth();
+        double healthPercent = currentHealth / maxHealthAttr.getDefaultValue();
+        double newHealth = Math.min(newMaxHealth, healthPercent * newMaxHealth + (newMaxHealth - maxHealthAttr.getDefaultValue()) * 0.5);
+        player.setHealth(Math.max(1, newHealth));
+    }
+
+    /**
+     * Retire le bonus de HP max de Fortification
+     */
+    private void removeFortifyBonus(Player player, UUID uuid) {
+        Double baseHealth = fortifyBaseHealth.get(uuid);
+        if (baseHealth == null) return;
+
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le ratio de vie actuel
+        double healthRatio = player.getHealth() / maxHealthAttr.getValue();
+
+        // Restaurer la HP de base
+        maxHealthAttr.setBaseValue(baseHealth);
+
+        // Ajuster la vie pour garder le même ratio (sans dépasser le max)
+        double newHealth = Math.min(baseHealth, healthRatio * baseHealth);
+        player.setHealth(Math.max(1, newHealth));
+
+        // Nettoyer les données
+        fortifyStacks.put(uuid, 0);
+        fortifyExpireTime.remove(uuid);
+        fortifyBaseHealth.remove(uuid);
     }
 
     /**

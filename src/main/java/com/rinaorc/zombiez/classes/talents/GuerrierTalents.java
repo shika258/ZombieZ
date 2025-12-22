@@ -414,18 +414,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fortify")
             .name("Fortification")
-            .description("Blocages = bouclier absorbant")
+            .description("Blocages = bonus PV max temporaire")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Chaque blocage vous donne",
-                "§e+15% Fortification§7 (max 100%).",
+                "§7Chaque §eblocage§7 augmente vos",
+                "§cPV max de 10%§7!",
                 "",
-                "§7A §e100% Fortification§7:",
-                "§7- Gagnez un §6bouclier§7 = §e25%§7 PV max",
-                "§7- Fortification reset a 0%",
+                "§7- Cumulable §e5 fois§7 (max +50%)",
+                "§7- Dure §a5 secondes§7",
+                "§7- Chaque blocage §erefresh§7 le timer",
                 "",
-                "§8Perte: §7-8%/s§8 hors blocage",
+                "§8Effet: §6Aura doree croissante",
                 "§8Inspiré: Fortify (D4)"
             })
             .classType(ClassType.GUERRIER)
@@ -434,7 +434,7 @@ public final class GuerrierTalents {
             .icon(Material.IRON_CHESTPLATE)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.FORTIFY)
-            .values(new double[]{0.15, 1.0, 0.25, 0.08}) // fortify_per_block, max_fortify, shield%, decay_per_second
+            .values(new double[]{0.10, 5, 5000}) // hp_bonus_per_stack, max_stacks, duration_ms
             .build());
 
         // 4.3 - VENGEANCE ARDENTE
