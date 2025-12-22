@@ -34,7 +34,7 @@ public class SpawnSystem {
     
     // Cooldowns de spawn par joueur
     private final Map<UUID, Long> playerSpawnCooldowns;
-    
+
     // Compteur de spawns pour éviter le lag
     private int spawnsThisTick = 0;
     private static final int MAX_SPAWNS_PER_TICK = 15; // Augmenté de 5 à 15
@@ -43,6 +43,27 @@ public class SpawnSystem {
     private static final double MIN_DISTANCE_BETWEEN_ZOMBIES = 5.0; // Distance minimum entre zombies
     private static final int MAX_ZOMBIES_IN_AREA = 8; // Max zombies dans un rayon de 10 blocs
     private static final double DENSITY_CHECK_RADIUS = 10.0; // Rayon pour vérifier la densité
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTI-ACCUMULATION: Limites strictes par joueur
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static final int MAX_MOBS_PER_PLAYER = 40; // Max mobs autour d'un joueur
+    private static final double PLAYER_MOB_CHECK_RADIUS = 48.0; // Rayon de vérification
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANTI-AFK: Détection de joueurs inactifs
+    // ═══════════════════════════════════════════════════════════════════════════
+    private final Map<UUID, Location> lastPlayerLocations = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> playerAfkSince = new ConcurrentHashMap<>();
+    private static final long AFK_THRESHOLD_MS = 30_000; // 30 secondes sans bouger = AFK
+    private static final double AFK_MOVEMENT_THRESHOLD = 2.0; // Distance minimale pour reset AFK
+    private static final int AFK_MOB_LIMIT = 15; // Limite réduite pour joueurs AFK
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HARD CAP: Limite globale stricte avec vérification réelle
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static final int HARD_GLOBAL_CAP = 400; // Limite absolue avant pause de spawn
+    private static final int EMERGENCY_CLEANUP_THRESHOLD = 350; // Déclenche cleanup agressif
 
     // État du système
     @Getter
@@ -189,6 +210,11 @@ public class SpawnSystem {
             @Override
             public void run() {
                 zombieManager.cleanupDistantZombies();
+                // Synchroniser les compteurs toutes les 30s pour éviter les désynchronisations
+                int fixed = zombieManager.synchronizeCounters();
+                if (fixed > 5) {
+                    plugin.getLogger().info("[Clearlag] Compteurs synchronisés: " + fixed + " entrées invalides corrigées");
+                }
             }
         }.runTaskTimer(plugin, 600L, 600L); // 30 secondes
 
@@ -201,7 +227,119 @@ public class SpawnSystem {
             }
         }.runTaskTimer(plugin, 200L, 200L); // 10 secondes
 
-        plugin.log(java.util.logging.Level.INFO, "§a✓ Système de clearlag démarré");
+        // Task de vérification de surpopulation (toutes les 5 secondes)
+        // Nettoie les zones surchargées et synchronise les compteurs
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                performOverpopulationCheck();
+            }
+        }.runTaskTimer(plugin, 100L, 100L); // 5 secondes
+
+        // Task de cleanup des données AFK (toutes les minutes)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                cleanupAfkData();
+            }
+        }.runTaskTimer(plugin, 1200L, 1200L); // 60 secondes
+
+        plugin.log(java.util.logging.Level.INFO, "§a✓ Système de clearlag et anti-accumulation démarré");
+    }
+
+    /**
+     * Vérifie et corrige la surpopulation de mobs
+     * - Synchronise les compteurs internes avec les entités réelles
+     * - Nettoie les zones surchargées
+     */
+    private void performOverpopulationCheck() {
+        // Vérification du hard cap
+        int totalMobs = zombieManager.getTotalZombieCount();
+
+        if (totalMobs >= EMERGENCY_CLEANUP_THRESHOLD) {
+            // Nettoyer les mobs les plus vieux de chaque zone surchargée
+            for (int zoneId = 1; zoneId <= 50; zoneId++) {
+                ZoneSpawnConfig config = zoneConfigs.get(zoneId);
+                if (config == null) continue;
+
+                int zoneCount = zombieManager.getZombieCount(zoneId);
+                int targetLimit = (int) (config.maxZombies * 0.7); // Réduire à 70% de la limite
+
+                if (zoneCount > targetLimit) {
+                    int cleaned = zombieManager.cleanupOldestMobsInZone(zoneId, targetLimit);
+                    if (cleaned > 0) {
+                        plugin.getLogger().info("[AntiAccumulation] Zone " + zoneId + ": " + cleaned + " mobs nettoyés");
+                    }
+                }
+            }
+        }
+
+        // Vérifier aussi la surpopulation par joueur
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            int mobsAround = countMobsAroundPlayer(player);
+            boolean isAfk = playerAfkSince.containsKey(player.getUniqueId())
+                && (System.currentTimeMillis() - playerAfkSince.get(player.getUniqueId())) >= AFK_THRESHOLD_MS;
+
+            int limit = isAfk ? AFK_MOB_LIMIT : MAX_MOBS_PER_PLAYER;
+
+            // Si trop de mobs autour d'un joueur AFK, nettoyer les plus éloignés
+            if (mobsAround > limit + 10 && isAfk) {
+                cleanupExcessMobsAroundPlayer(player, limit);
+            }
+        }
+    }
+
+    /**
+     * Nettoie les mobs en excès autour d'un joueur
+     * Supprime les mobs les plus éloignés du joueur
+     */
+    private void cleanupExcessMobsAroundPlayer(Player player, int targetLimit) {
+        List<Entity> mobs = new ArrayList<>();
+
+        for (Entity entity : player.getWorld().getNearbyEntities(
+                player.getLocation(), PLAYER_MOB_CHECK_RADIUS, PLAYER_MOB_CHECK_RADIUS, PLAYER_MOB_CHECK_RADIUS)) {
+            if (zombieManager.isZombieZMob(entity)) {
+                mobs.add(entity);
+            }
+        }
+
+        if (mobs.size() <= targetLimit) return;
+
+        // Trier par distance décroissante (plus loin en premier)
+        Location playerLoc = player.getLocation();
+        mobs.sort((a, b) -> Double.compare(
+            b.getLocation().distanceSquared(playerLoc),
+            a.getLocation().distanceSquared(playerLoc)
+        ));
+
+        // Supprimer les excédents (les plus éloignés)
+        int toRemove = mobs.size() - targetLimit;
+        int removed = 0;
+
+        for (int i = 0; i < toRemove && i < mobs.size(); i++) {
+            Entity mob = mobs.get(i);
+            // Notifier le ZombieManager avant suppression
+            zombieManager.onZombieDeath(mob.getUniqueId(), null);
+            mob.remove();
+            removed++;
+        }
+
+        if (removed > 0) {
+            plugin.getLogger().info("[AntiAccumulation] " + removed + " mobs nettoyés autour de " + player.getName() + " (AFK)");
+        }
+    }
+
+    /**
+     * Nettoie les données AFK des joueurs déconnectés
+     */
+    private void cleanupAfkData() {
+        Set<UUID> onlineIds = plugin.getServer().getOnlinePlayers().stream()
+            .map(Player::getUniqueId)
+            .collect(java.util.stream.Collectors.toSet());
+
+        lastPlayerLocations.keySet().removeIf(id -> !onlineIds.contains(id));
+        playerAfkSince.keySet().removeIf(id -> !onlineIds.contains(id));
+        playerSpawnCooldowns.keySet().removeIf(id -> !onlineIds.contains(id));
     }
 
     /**
@@ -220,49 +358,145 @@ public class SpawnSystem {
      */
     private void processPlayerSpawn(Player player) {
         if (spawnsThisTick >= MAX_SPAWNS_PER_TICK) return;
-        
-        // Vérifier le cooldown
+
         UUID playerId = player.getUniqueId();
         long now = System.currentTimeMillis();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 1: Hard cap global - arrêter tout spawn si dépassé
+        // ═══════════════════════════════════════════════════════════════════
+        int totalMobs = zombieManager.getTotalZombieCount();
+        if (totalMobs >= HARD_GLOBAL_CAP) {
+            // Déclencher un cleanup d'urgence si on approche la limite
+            if (totalMobs >= EMERGENCY_CLEANUP_THRESHOLD) {
+                triggerEmergencyCleanup();
+            }
+            return;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 2: Détection AFK et mise à jour du statut
+        // ═══════════════════════════════════════════════════════════════════
+        boolean isAfk = updateAndCheckAfkStatus(player, now);
+        int playerMobLimit = isAfk ? AFK_MOB_LIMIT : MAX_MOBS_PER_PLAYER;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 3: Limite de mobs autour du joueur (ANTI-ACCUMULATION)
+        // ═══════════════════════════════════════════════════════════════════
+        int mobsAroundPlayer = countMobsAroundPlayer(player);
+        if (mobsAroundPlayer >= playerMobLimit) {
+            return; // Trop de mobs autour de ce joueur
+        }
+
+        // Vérifier le cooldown
         long lastSpawn = playerSpawnCooldowns.getOrDefault(playerId, 0L);
-        
+
         // Obtenir la zone du joueur
         Zone zone = plugin.getZoneManager().getZoneAt(player.getLocation());
         if (zone == null) return;
-        
+
         int zoneId = zone.getId();
         ZoneSpawnConfig config = zoneConfigs.get(zoneId);
         if (config == null || config.maxZombies == 0) return;
-        
-        // Calculer le cooldown de spawn
+
+        // Calculer le cooldown de spawn (plus lent si AFK)
         double spawnInterval = 60000.0 / config.spawnRate; // ms entre spawns
         if (nightBoostActive) {
             spawnInterval *= 0.7; // 30% plus rapide la nuit
         }
-        
+        if (isAfk) {
+            spawnInterval *= 3.0; // 3x plus lent si AFK
+        }
+
         if (now - lastSpawn < spawnInterval) return;
-        
-        // Vérifier si la zone a de la place
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 4: Limite de zone (avec vérification réelle)
+        // ═══════════════════════════════════════════════════════════════════
         int currentCount = zombieManager.getZombieCount(zoneId);
         if (currentCount >= config.maxZombies) return;
-        
+
         // Trouver un point de spawn valide
         Location spawnLoc = findValidSpawnLocation(player, config);
         if (spawnLoc == null) return;
-        
+
         // Choisir le type de zombie
         ZombieType type = selectZombieType(zoneId);
-        
+
         // Calculer le niveau
         int level = calculateZombieLevel(config.baseLevel, player);
-        
+
         // Spawner!
         ZombieManager.ActiveZombie zombie = zombieManager.spawnZombie(type, spawnLoc, level);
-        
+
         if (zombie != null) {
             playerSpawnCooldowns.put(playerId, now);
             spawnsThisTick++;
         }
+    }
+
+    /**
+     * Compte le nombre de mobs ZombieZ autour d'un joueur
+     * Utilise getNearbyEntities pour performance
+     */
+    private int countMobsAroundPlayer(Player player) {
+        int count = 0;
+        for (Entity entity : player.getWorld().getNearbyEntities(
+                player.getLocation(), PLAYER_MOB_CHECK_RADIUS, PLAYER_MOB_CHECK_RADIUS, PLAYER_MOB_CHECK_RADIUS)) {
+            if (zombieManager.isZombieZMob(entity)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Met à jour le statut AFK du joueur et vérifie s'il est AFK
+     * @return true si le joueur est considéré AFK
+     */
+    private boolean updateAndCheckAfkStatus(Player player, long now) {
+        UUID playerId = player.getUniqueId();
+        Location currentLoc = player.getLocation();
+        Location lastLoc = lastPlayerLocations.get(playerId);
+
+        if (lastLoc == null || !lastLoc.getWorld().equals(currentLoc.getWorld())) {
+            // Première vérification ou changement de monde
+            lastPlayerLocations.put(playerId, currentLoc.clone());
+            playerAfkSince.remove(playerId);
+            return false;
+        }
+
+        // Vérifier si le joueur a bougé
+        double distance = lastLoc.distance(currentLoc);
+        if (distance > AFK_MOVEMENT_THRESHOLD) {
+            // Le joueur a bougé - reset AFK
+            lastPlayerLocations.put(playerId, currentLoc.clone());
+            playerAfkSince.remove(playerId);
+            return false;
+        }
+
+        // Le joueur n'a pas bougé - vérifier depuis combien de temps
+        Long afkStart = playerAfkSince.get(playerId);
+        if (afkStart == null) {
+            // Commencer à compter le temps AFK
+            playerAfkSince.put(playerId, now);
+            return false;
+        }
+
+        // Vérifier si le seuil AFK est atteint
+        return (now - afkStart) >= AFK_THRESHOLD_MS;
+    }
+
+    /**
+     * Déclenche un cleanup d'urgence quand il y a trop de mobs
+     */
+    private void triggerEmergencyCleanup() {
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            int cleaned = zombieManager.forceCleanupAllDistantMobs();
+            if (cleaned > 0) {
+                plugin.getLogger().warning("[SpawnSystem] Emergency cleanup: " + cleaned + " mobs removed");
+            }
+        });
     }
 
     /**

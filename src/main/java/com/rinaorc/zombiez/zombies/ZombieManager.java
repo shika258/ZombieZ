@@ -1380,6 +1380,89 @@ public class ZombieManager {
             activeZombies.size(), totalSpawned, totalKilled);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNCHRONISATION DES COMPTEURS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Synchronise les compteurs internes avec les entités réelles
+     * À appeler périodiquement pour corriger les désynchronisations
+     * @return Le nombre d'entrées invalides corrigées
+     */
+    public int synchronizeCounters() {
+        List<UUID> invalidEntries = new ArrayList<>();
+        Map<Integer, Integer> actualCounts = new HashMap<>();
+
+        // Vérifier chaque entrée
+        for (var entry : activeZombies.entrySet()) {
+            UUID entityId = entry.getKey();
+            ActiveZombie zombie = entry.getValue();
+
+            Entity entity = plugin.getServer().getEntity(entityId);
+
+            // Entité invalide ou morte
+            if (entity == null || !entity.isValid() || entity.isDead()) {
+                invalidEntries.add(entityId);
+            } else {
+                // Compter par zone (entités valides uniquement)
+                actualCounts.merge(zombie.getZoneId(), 1, Integer::sum);
+            }
+        }
+
+        // Supprimer les entrées invalides
+        for (UUID id : invalidEntries) {
+            ActiveZombie zombie = activeZombies.remove(id);
+            if (zombie != null) {
+                // Ne pas décrémenter ici car on va resynchroniser
+            }
+        }
+
+        // Resynchroniser les compteurs de zone avec les comptages réels
+        for (int zoneId = 0; zoneId <= 50; zoneId++) {
+            int actualCount = actualCounts.getOrDefault(zoneId, 0);
+            int trackedCount = zombieCountByZone.getOrDefault(zoneId, 0);
+
+            if (actualCount != trackedCount) {
+                zombieCountByZone.put(zoneId, actualCount);
+            }
+        }
+
+        return invalidEntries.size();
+    }
+
+    /**
+     * Force la suppression de TOUS les mobs dans le monde
+     * Utilisé en cas d'urgence (lag, crash imminent)
+     * @return Le nombre de mobs supprimés
+     */
+    public int forceRemoveAllMobs() {
+        int removed = 0;
+
+        for (var entry : activeZombies.entrySet()) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+            if (entity != null && entity.isValid()) {
+                removeFromNoCollisionTeam(entity);
+                entity.remove();
+                removed++;
+            }
+        }
+
+        // Clear toutes les maps
+        activeZombies.clear();
+        zombieCountByZone.clear();
+        lastSpawnByZone.clear();
+
+        plugin.getLogger().warning("[ZombieManager] Force remove: " + removed + " mobs supprimés");
+        return removed;
+    }
+
+    /**
+     * Obtient le nombre de mobs par zone (copie pour lecture)
+     */
+    public Map<Integer, Integer> getZoneCountsSnapshot() {
+        return new HashMap<>(zombieCountByZone);
+    }
+
     /**
      * Représente un zombie actif avec ses données
      */
