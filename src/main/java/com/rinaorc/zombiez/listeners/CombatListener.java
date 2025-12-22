@@ -338,20 +338,57 @@ public class CombatListener implements Listener {
             return; // Ne pas appliquer les stats d'arme
         }
 
+        // ============ TALENT DAMAGE CHECK (Lames Spectrales, etc.) ============
+        // Si les dégâts sont calculés par un talent (déjà avec stats/crits/etc.), skip le traitement
+        // Le talent a déjà préparé les metadatas pour l'indicateur
+        if (mob.hasMetadata("zombiez_talent_damage")) {
+            mob.removeMetadata("zombiez_talent_damage", plugin);
+
+            // DPS tracking
+            DPSTracker.getInstance().recordDamage(player, event.getDamage());
+
+            // Mise à jour de l'affichage de vie
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (mob.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(mob);
+                }
+            });
+
+            // Enregistrer le joueur pour le loot
+            mob.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+            return; // Ne pas re-appliquer les stats (déjà fait par le talent)
+        }
+
+        // ============ SHADOW STEP DAMAGE CHECK ============
+        // Si les dégâts viennent de Pas de l'Ombre, ne pas appliquer le cooldown penalty
+        // mais appliquer quand même les stats/crits/etc.
+        boolean isShadowStepDamage = mob.hasMetadata("zombiez_shadowstep_damage");
+        if (isShadowStepDamage) {
+            mob.removeMetadata("zombiez_shadowstep_damage", plugin);
+        }
+
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
         // ============ 0. ATTACK COOLDOWN SYSTEM (PUNITIF) ============
         // Courbe quadratique pour punir le spam : 50% charge = 25% dégâts
-        float attackCooldown = calculateAttackCooldown(player);
-        double damageMultiplier = applyAttackCooldownPenalty(attackCooldown);
-        finalDamage *= damageMultiplier;
+        // EXCEPTION: Les talents (Shadow Step) bypass le cooldown penalty
+        if (!isShadowStepDamage) {
+            float attackCooldown = calculateAttackCooldown(player);
+            double damageMultiplier = applyAttackCooldownPenalty(attackCooldown);
+            finalDamage *= damageMultiplier;
 
-        if (DEBUG_COOLDOWN) {
+            if (DEBUG_COOLDOWN) {
+                plugin.getLogger().info(String.format(
+                    "[COOLDOWN] %s -> ZombieZ: charge=%.0f%%, mult=%.2f, base=%.1f, result=%.1f",
+                    player.getName(), attackCooldown * 100, damageMultiplier, baseDamage, finalDamage
+                ));
+            }
+        } else if (DEBUG_COOLDOWN) {
             plugin.getLogger().info(String.format(
-                "[COOLDOWN] %s -> ZombieZ: charge=%.0f%%, mult=%.2f, base=%.1f, result=%.1f",
-                player.getName(), attackCooldown * 100, damageMultiplier, baseDamage, finalDamage
+                "[COOLDOWN] %s -> ZombieZ: SHADOW_STEP bypass, base=%.1f (no penalty)",
+                player.getName(), baseDamage
             ));
         }
 

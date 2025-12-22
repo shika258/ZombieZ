@@ -506,8 +506,14 @@ public class ShadowManager {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedBuffTicks, 1, false, true));
 
         // Calculer et infliger les dégâts (125%)
+        // Les dégâts de base sont multipliés par damageMult, puis CombatListener appliquera
+        // les stats d'équipement, crits, etc. SANS le cooldown penalty (grâce à la metadata)
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
         double finalDamage = baseDamage * damageMult;
+
+        // Marquer la cible pour bypass le cooldown penalty dans CombatListener
+        // (les stats/crits seront appliqués normalement)
+        target.setMetadata("zombiez_shadowstep_damage", new FixedMetadataValue(plugin, true));
         target.damage(finalDamage, player);
 
         // Effets de frappe
@@ -749,6 +755,12 @@ public class ShadowManager {
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
 
+        // Metadata pour bypass CombatListener (calculs déjà faits ici)
+        target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Exécution = toujours crit visuel
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
         // Appliquer les dégâts
         target.damage(finalDamage, player);
 
@@ -821,6 +833,12 @@ public class ShadowManager {
         target.getWorld().spawnParticle(Particle.WITCH, loc, isMarked ? 12 : 6, 0.3, 0.3, 0.3, 0.1);
         target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.5f, 0.8f);
         target.getWorld().playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, isMarked ? 0.8f : 0.5f, 1.5f);
+
+        // Metadata pour bypass CombatListener (calculs déjà faits ici)
+        target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Exécution = toujours crit visuel
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
         // Appliquer les dégâts
         target.damage(finalDamage, player);
@@ -1450,6 +1468,10 @@ public class ShadowManager {
             target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, ownerUuid.toString()));
         }
 
+        // Marquer comme dégâts de talent pour que CombatListener fasse un return early
+        // (tous les calculs de stats/crits/etc. sont déjà faits ici)
+        target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+
         // Appliquer les dégâts
         final double damage = Math.max(1.0, finalDamage);
         target.damage(damage, owner);
@@ -1570,7 +1592,8 @@ public class ShadowManager {
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius / 2, radius)) {
             if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
-                // Metadata pour l'indicateur de dégâts
+                // Metadata pour bypass CombatListener et indicateur de dégâts
+                monster.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
                 monster.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
                 monster.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
 
