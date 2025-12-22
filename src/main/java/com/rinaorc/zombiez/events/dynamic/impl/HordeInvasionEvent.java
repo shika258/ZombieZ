@@ -55,8 +55,9 @@ public class HordeInvasionEvent extends DynamicEvent {
     private TextDisplay centerMarker;
     private TextDisplay killCounterMarker;
 
-    // Tâche de particules (pour cleanup)
+    // Tâches planifiées (pour cleanup)
     private BukkitTask particleTask;
+    private BukkitTask waveSpawnTask;
 
     // Statistiques
     private boolean waveClear = true;
@@ -327,8 +328,13 @@ public class HordeInvasionEvent extends DynamicEvent {
         World world = location.getWorld();
         if (world == null) return;
 
-        // Spawn très rapide pour un effet de horde massif
-        new BukkitRunnable() {
+        // Annuler la tâche précédente si elle existe encore
+        if (waveSpawnTask != null && !waveSpawnTask.isCancelled()) {
+            waveSpawnTask.cancel();
+        }
+
+        // Spawn très rapide pour un effet de horde massif - stocker la tâche pour cleanup
+        waveSpawnTask = new BukkitRunnable() {
             int spawned = 0;
             int spawnPerTick = Math.max(3, zombiesThisWave / 5); // Spawn 3-6 zombies par tick
 
@@ -492,18 +498,30 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Annuler la tâche de particules
         if (particleTask != null && !particleTask.isCancelled()) {
             particleTask.cancel();
+            particleTask = null;
+        }
+
+        // Annuler la tâche de spawn de zombies
+        if (waveSpawnTask != null && !waveSpawnTask.isCancelled()) {
+            waveSpawnTask.cancel();
+            waveSpawnTask = null;
         }
 
         // Supprimer les marqueurs TextDisplay
         if (centerMarker != null && centerMarker.isValid()) {
             centerMarker.remove();
         }
+        centerMarker = null;
+
         if (waveMarker != null && waveMarker.isValid()) {
             waveMarker.remove();
         }
+        waveMarker = null;
+
         if (killCounterMarker != null && killCounterMarker.isValid()) {
             killCounterMarker.remove();
         }
+        killCounterMarker = null;
     }
 
     @Override

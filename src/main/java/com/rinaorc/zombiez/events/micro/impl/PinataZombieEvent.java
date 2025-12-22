@@ -240,6 +240,9 @@ public class PinataZombieEvent extends MicroEvent {
         if (statusDisplay != null && statusDisplay.isValid()) {
             statusDisplay.remove();
         }
+        statusDisplay = null;
+        pinataZombie = null;
+        pinataUUID = null;
     }
 
     @Override

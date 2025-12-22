@@ -330,7 +330,9 @@ public class JackpotZombieEvent extends MicroEvent {
         }
         slotDisplays.clear();
 
-        // Le zombie est supprime via registerEntity dans la classe parente
+        // Nettoyer les références
+        jackpotZombie = null;
+        jackpotUUID = null;
     }
 
     @Override

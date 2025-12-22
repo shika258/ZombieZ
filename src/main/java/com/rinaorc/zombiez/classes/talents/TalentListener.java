@@ -131,6 +131,14 @@ public class TalentListener implements Listener {
         if (!(event.getDamager() instanceof Player player)) return;
         if (!(event.getEntity() instanceof LivingEntity target)) return;
 
+        // IMPORTANT: Ignorer les dégâts secondaires (AoE des talents) pour éviter les cascades infinies
+        // Ces dégâts sont marqués avant d'être appliqués via target.setMetadata("zombiez_secondary_damage", ...)
+        if (target.hasMetadata("zombiez_secondary_damage")) {
+            // Nettoyer la metadata après 1 tick pour ne pas affecter les futurs dégâts normaux
+            Bukkit.getScheduler().runTaskLater(plugin, () -> target.removeMetadata("zombiez_secondary_damage", plugin), 1L);
+            return;
+        }
+
         ClassData data = plugin.getClassManager().getClassData(player);
         if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
@@ -1148,20 +1156,45 @@ public class TalentListener implements Listener {
         double radius = talent.getValue(2);
         double stunMs = talent.getValue(3);
 
-        // Effet apocalyptique - ULTIME mais lisible (pas d'EXPLOSION volumineuse)
-        player.getWorld().spawnParticle(Particle.FLASH, center, 1);
-        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 0.5, 0), 1);
-        // Cercle de feu au sol (reduit)
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-            double x = center.getX() + (radius * 0.6) * Math.cos(angle);
-            double z = center.getZ() + (radius * 0.6) * Math.sin(angle);
-            player.getWorld().spawnParticle(Particle.FLAME,
-                new Location(player.getWorld(), x, center.getY() + 0.2, z), 2, 0.1, 0.05, 0.1, 0.01);
+        // === RAGNAROK - Effet apocalyptique fumé orange/rouge ===
+
+        // 1. Flash d'impact initial
+        player.getWorld().spawnParticle(Particle.FLASH, center.clone().add(0, 0.3, 0), 1);
+
+        // 2. Colonne de fumée centrale montante (style volcanique)
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center.clone().add(0, 0.5, 0), 6, 0.2, 0.1, 0.2, 0.04);
+        player.getWorld().spawnParticle(Particle.LARGE_SMOKE, center.clone().add(0, 1, 0), 4, 0.3, 0.5, 0.3, 0.02);
+
+        // 3. Onde de choc concentrique au sol (orange → rouge dégradé)
+        for (double r = 1.5; r <= radius; r += 2.0) {
+            double progress = r / radius; // 0 → 1
+            // Dégradé orange (255,120,30) → rouge sombre (180,40,20)
+            int red = (int) (255 - progress * 75);
+            int green = (int) (120 - progress * 80);
+            int blue = (int) (30 - progress * 10);
+            Color waveColor = Color.fromRGB(red, green, blue);
+
+            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 5) {
+                double x = center.getX() + r * Math.cos(angle);
+                double z = center.getZ() + r * Math.sin(angle);
+                player.getWorld().spawnParticle(Particle.DUST,
+                    new Location(player.getWorld(), x, center.getY() + 0.15, z),
+                    2, 0.15, 0.05, 0.15, 0, new Particle.DustOptions(waveColor, 2.2f));
+            }
         }
-        // Fumee legere
-        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center.clone().add(0, 0.5, 0), 8, 0.4, 0.3, 0.4, 0.02);
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 0.4f);
-        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 0.6f);
+
+        // 4. Braises/cendres qui s'élèvent (peu mais impactantes)
+        player.getWorld().spawnParticle(Particle.DUST, center.clone().add(0, 0.8, 0), 8, 1.0, 0.6, 1.0, 0,
+            new Particle.DustOptions(Color.fromRGB(255, 80, 20), 1.0f));
+        player.getWorld().spawnParticle(Particle.LAVA, center, 3, 0.5, 0.2, 0.5, 0);
+
+        // 5. Fumée résiduelle au sol
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center.clone().add(0, 0.2, 0), 5, radius * 0.4, 0.1, radius * 0.4, 0.01);
+
+        // Sons - grondement profond + impact
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.4f);
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.5f);
+        player.getWorld().playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.6f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {

@@ -226,6 +226,7 @@ public class DeathRaceEvent extends MicroEvent {
         if (titleDisplay != null && titleDisplay.isValid()) {
             titleDisplay.remove();
         }
+        titleDisplay = null;
 
         // Supprime les zombies restants avec effet visuel
         for (UUID zombieId : raceZombies) {

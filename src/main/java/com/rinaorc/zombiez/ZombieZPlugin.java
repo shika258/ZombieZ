@@ -27,10 +27,10 @@ import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.block.Block;
+import org.bukkit.entity.*;
 import java.util.logging.Level;
 
 /**
@@ -223,6 +223,10 @@ public class ZombieZPlugin extends JavaPlugin {
             // Nettoyage des mobs existants (évite les zombies bugués après reboot)
             log(Level.INFO, "§7Nettoyage des mobs existants...");
             clearAllZombieMobs();
+
+            // Nettoyage des entités d'événements (TextDisplay, ArmorStand, NPCs, coffres)
+            log(Level.INFO, "§7Nettoyage des entités d'événements persistantes...");
+            clearEventEntities();
 
             // Phase 3: Managers
             log(Level.INFO, "§e[3/6] Initialisation des managers...");
@@ -944,6 +948,105 @@ public class ZombieZPlugin extends JavaPlugin {
         if (totalCleared > 0) {
             log(Level.INFO, "§7Nettoyage initial: §c" + clearedHostile + " hostiles§7, §e" + clearedPDC
                     + " PDC§7, §a" + clearedPassive + " passifs §7supprimés (total: " + totalCleared + ")");
+        }
+    }
+
+    /**
+     * Nettoie toutes les entités d'événements persistantes au démarrage
+     * Cela inclut:
+     * - TextDisplay (hologrammes des événements dynamiques et micro)
+     * - ArmorStand utilisés comme marqueurs
+     * - Villagers avec le tag convoy_survivor
+     * - Entités avec tags event_* ou micro_event_entity
+     * - Boss bars orphelines
+     */
+    private void clearEventEntities() {
+        int clearedTextDisplays = 0;
+        int clearedArmorStands = 0;
+        int clearedVillagers = 0;
+        int clearedEventMobs = 0;
+
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                boolean shouldRemove = false;
+                String reason = "";
+
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 1: TextDisplay (hologrammes d'événements)
+                // ═══════════════════════════════════════════════════════════════════
+                if (entity instanceof TextDisplay) {
+                    // Supprimer tous les TextDisplay - ils sont recréés par les événements
+                    // Note: Les TextDisplay sont principalement utilisés par le système d'événements
+                    shouldRemove = true;
+                    reason = "TextDisplay";
+                    clearedTextDisplays++;
+                }
+
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 2: ArmorStand avec noms d'événements
+                // ═══════════════════════════════════════════════════════════════════
+                else if (entity instanceof ArmorStand armorStand) {
+                    String name = armorStand.getCustomName();
+                    // ArmorStand d'événements (ex: "§b§l✈ LARGAGE AÉRIEN")
+                    if (name != null && (
+                            name.contains("LARGAGE") ||
+                            name.contains("AIRDROP") ||
+                            name.contains("ÉVÉNEMENT") ||
+                            name.contains("EVENT"))) {
+                        shouldRemove = true;
+                        reason = "ArmorStand event";
+                        clearedArmorStands++;
+                    }
+                    // ArmorStand invisibles avec équipement (marqueurs)
+                    else if (!armorStand.isVisible() && armorStand.getEquipment() != null &&
+                            armorStand.getEquipment().getHelmet() != null &&
+                            armorStand.getEquipment().getHelmet().getType() == Material.CHEST) {
+                        shouldRemove = true;
+                        reason = "ArmorStand marker";
+                        clearedArmorStands++;
+                    }
+                }
+
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 3: Villagers du Convoi de Survivants
+                // ═══════════════════════════════════════════════════════════════════
+                else if (entity instanceof Villager) {
+                    if (entity.getScoreboardTags().contains("convoy_survivor") ||
+                        entity.getScoreboardTags().contains("no_trading")) {
+                        shouldRemove = true;
+                        reason = "Convoy Survivor";
+                        clearedVillagers++;
+                    }
+                }
+
+                // ═══════════════════════════════════════════════════════════════════
+                // NETTOYAGE 4: Entités avec tags d'événements
+                // ═══════════════════════════════════════════════════════════════════
+                else {
+                    for (String tag : entity.getScoreboardTags()) {
+                        if (tag.startsWith("event_") ||
+                            tag.equals("micro_event_entity") ||
+                            tag.equals("event_boss") ||
+                            tag.equals("survivor_attacker")) {
+                            shouldRemove = true;
+                            reason = "Event tag: " + tag;
+                            clearedEventMobs++;
+                            break;
+                        }
+                    }
+                }
+
+                if (shouldRemove) {
+                    entity.remove();
+                }
+            }
+        }
+
+        int totalCleared = clearedTextDisplays + clearedArmorStands + clearedVillagers + clearedEventMobs;
+        if (totalCleared > 0) {
+            log(Level.INFO, "§7Nettoyage événements: §b" + clearedTextDisplays + " TextDisplays§7, §e"
+                    + clearedArmorStands + " ArmorStands§7, §a" + clearedVillagers + " Villagers§7, §c"
+                    + clearedEventMobs + " mobs event §7supprimés (total: " + totalCleared + ")");
         }
     }
 
