@@ -647,10 +647,6 @@ public class TalentListener implements Listener {
 
                 // Écho de Fer - stocker les dégâts bloqués
                 handleIronEcho(player, uuid, originalDamage);
-
-                // Message d'événement via système centralisé (afficher en cœurs)
-                int absorptionHearts = (int) Math.ceil(absorptionGain / 2.0);
-                showTempEventMessage(uuid, "§6🛡 BLOQUÉ! §e+" + absorptionHearts + "§6❤ §7abso §c→ " + String.format("%.1f", riposteDamage) + " riposte");
             }
         }
 
