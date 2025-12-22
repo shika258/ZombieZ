@@ -870,10 +870,7 @@ public class OccultisteTalentListener implements Listener {
                     // lastUse stores the EXPIRATION timestamp (not last activation time)
                     // This ensures the cleanup task doesn't delete the cooldown prematurely
                     if (lastUse != null && now < lastUse) {
-                        // On cooldown - show remaining time and skip
-                        long remainingMs = lastUse - now;
-                        int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
-                        sendActionBar(player, "§b❄ Stase Temporelle §8- §cCooldown: §e" + remainingSec + "s");
+                        // On cooldown - skip
                         return;
                     }
 
@@ -1570,8 +1567,6 @@ public class OccultisteTalentListener implements Listener {
         // Visual initial
         target.getWorld().spawnParticle(Particle.REVERSE_PORTAL, target.clone().add(0, 1, 0), 60, 1, 0.5, 1, 0.2);
         target.getWorld().playSound(target, Sound.BLOCK_PORTAL_AMBIENT, 1.0f, 0.5f);
-
-        sendActionBar(player, "§5+ Puits de Gravite! +");
     }
 
     /**
@@ -1639,8 +1634,6 @@ public class OccultisteTalentListener implements Listener {
         target.getWorld().spawnParticle(Particle.DRAGON_BREATH, target, 50, 1, 1, 1, 0.1);
         target.getWorld().playSound(target, Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.8f);
         target.getWorld().playSound(target, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.3f);
-
-        sendActionBar(player, "§5§l* SINGULARITE! *");
     }
 
     /**
@@ -1696,8 +1689,6 @@ public class OccultisteTalentListener implements Listener {
         originalLoc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, originalLoc.add(0, 1, 0), 40, 0.5, 0.5, 0.5, 0.3);
         originalLoc.getWorld().spawnParticle(Particle.PORTAL, originalLoc, 30, 0.3, 0.5, 0.3, 0.5);
         originalLoc.getWorld().playSound(originalLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.5f);
-
-        sendActionBar(player, "§5* Banni dans le vide! *");
     }
 
     /**
@@ -1790,8 +1781,6 @@ public class OccultisteTalentListener implements Listener {
         target.getWorld().playSound(target, Sound.BLOCK_END_PORTAL_SPAWN, 1.5f, 0.4f);
         target.getWorld().playSound(target, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
         target.getWorld().playSound(target, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.8f, 0.3f);
-
-        sendActionBar(player, "§0§l✦ TROU NOIR! ✦");
     }
 
     private void processFirestorm(Player player, LivingEntity target, double baseDamage) {
@@ -1870,7 +1859,6 @@ public class OccultisteTalentListener implements Listener {
         if (talent.getValues().length > 3) {
             long buffDurationMs = (long) talent.getValue(3); // 5000ms = 5s
             soulSiphonBuff.put(player.getUniqueId(), System.currentTimeMillis() + buffDurationMs);
-            sendActionBar(player, "§d✦ §5Siphon d'Ame §8- §c+25% degats §7pendant §e5s");
         }
 
         // Visual
@@ -2058,7 +2046,6 @@ public class OccultisteTalentListener implements Listener {
             victim.getWorld().spawnParticle(Particle.ENCHANT, victim.getLocation(), 20, 0.5, 1, 0.5, 0.5);
             victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.4f);
             victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.2f, 1.5f);
-            sendActionBar(player, "§5☠ §cMort-Vivant releve! §8(" + minions.size() + "/" + maxMinions + ")");
         }
     }
 
@@ -2131,7 +2118,6 @@ public class OccultisteTalentListener implements Listener {
 
         int orbs = getSoulOrbs(player);
         if (orbs <= 0) {
-            sendActionBar(player, "§8Pas d'orbes d'ame disponibles!");
             return;
         }
 
@@ -2139,7 +2125,6 @@ public class OccultisteTalentListener implements Listener {
         int maxMinions = (int) talent.getValue(2);
 
         if (minions.size() >= maxMinions) {
-            sendActionBar(player, "§8Maximum de squelettes atteint!");
             return;
         }
 
@@ -2235,7 +2220,6 @@ public class OccultisteTalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.ENCHANT, minion.getLocation(), 30, 0.5, 1, 0.5, 0.5);
         player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_SKELETON_AMBIENT, 1.0f, 0.7f);
         player.getWorld().playSound(minion.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.3f, 1.5f);
-        sendActionBar(player, "§5☠ §dSquelette Archer invoque! §8(" + minions.size() + "/" + maxMinions + ")");
     }
 
     // ==================== PERIODIC PROCESSORS ====================
@@ -2500,7 +2484,6 @@ public class OccultisteTalentListener implements Listener {
             }
 
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.5f);
-            sendActionBar(player, "§6§l+ INFERNO +");
         }
     }
 
@@ -2650,7 +2633,6 @@ public class OccultisteTalentListener implements Listener {
             }
 
             if (struck > 0) {
-                sendActionBar(player, "§e§l+ JUGEMENT DIVIN + §7" + struck + " cibles");
                 // Son reduit pour eviter le spam sonore avec plusieurs joueurs
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 0.8f);
                 // Effet visuel de charge jaune au joueur
@@ -2684,8 +2666,6 @@ public class OccultisteTalentListener implements Listener {
             double damage = baseDamage * damagePercent;
 
             Location center = player.getLocation();
-
-            sendActionBar(player, "§4§l+ PLUIE DE METEORES +");
 
             for (int i = 0; i < meteors; i++) {
                 final int index = i;
