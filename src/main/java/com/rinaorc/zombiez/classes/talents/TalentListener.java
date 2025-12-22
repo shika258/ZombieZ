@@ -2240,9 +2240,10 @@ public class TalentListener implements Listener {
 
             // Taille géante (3x plus grand)
             org.bukkit.util.Transformation transform = display.getTransformation();
+            org.joml.Quaternionf leftRotation = new org.joml.Quaternionf().rotateX((float) Math.toRadians(180)); // Rotation pour pointer vers le bas
             display.setTransformation(new org.bukkit.util.Transformation(
                 transform.getTranslation(),
-                new org.joml.AxisAngle4f((float) Math.toRadians(180), 1, 0, 0), // Rotation pour pointer vers le bas
+                leftRotation,
                 new org.joml.Vector3f(4.0f, 4.0f, 4.0f), // Scale 4x
                 transform.getRightRotation()
             ));
@@ -2297,7 +2298,7 @@ public class TalentListener implements Listener {
 
                 // Son de sifflement
                 if (ticks % 3 == 0) {
-                    float pitch = 1.5f + (progress * 0.5f);
+                    float pitch = 1.5f + (float) (progress * 0.5);
                     hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, pitch);
                 }
 
