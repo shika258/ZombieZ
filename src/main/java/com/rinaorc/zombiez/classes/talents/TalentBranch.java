@@ -27,19 +27,19 @@ public enum TalentBranch {
             "§8Style: §fDégâts multi-cibles"
         }
     ),
-    GUERRIER_SANG(
+    GUERRIER_REMPART(
         ClassType.GUERRIER, 1,
-        "Sang",
-        "§c",
-        Material.REDSTONE,
+        "Rempart",
+        "§6",
+        Material.SHIELD,
         new String[]{
-            "§c§lVOIE DU SANG",
+            "§6§lVOIE DU REMPART",
             "",
-            "§7Drainez la vie de vos ennemis",
-            "§7pour alimenter votre survie.",
+            "§7Devenez un bastion impénétrable",
+            "§7dont la défense est l'attaque.",
             "",
-            "§8Spécialité: §cVol de vie, Régénération",
-            "§8Style: §cSurvie agressive"
+            "§8Spécialité: §6Blocage, Riposte, Disques",
+            "§8Style: §6Juggernaut défensif"
         }
     ),
     GUERRIER_RAGE(

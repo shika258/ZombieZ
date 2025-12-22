@@ -58,24 +58,30 @@ public final class GuerrierTalents {
             .internalCooldownMs(600)
             .build());
 
-        // 1.2 - SOIF DE SANG
+        // 1.2 - POSTURE DEFENSIVE (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_bloodthirst")
-            .name("Soif de Sang")
-            .description("Chaque kill soigne 5% PV max")
+            .id("guerrier_defensive_stance")
+            .name("Posture Defensive")
+            .description("25% blocage passif, riposte + soin")
             .loreLines(new String[]{
-                "§7Chaque elimination vous soigne",
-                "§7de §c5%§7 de vos PV max.",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Effet instantane"
+                "§7Vous avez §e25%§7 de chance de",
+                "§7§ebloquer§7 les attaques ennemies.",
+                "",
+                "§7Bloquer une attaque:",
+                "§7- §aSoigne 3%§7 PV max",
+                "§7- §cInflige 50%§7 des degats a l'attaquant",
+                "",
+                "§8Effet: Defenses passives"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
             .slotIndex(1)
-            .icon(Material.REDSTONE)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.BLOODTHIRST)
-            .values(new double[]{0.05}) // heal%
+            .icon(Material.SHIELD)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.DEFENSIVE_STANCE)
+            .values(new double[]{0.25, 0.03, 0.50}) // block_chance, heal%, riposte_damage%
             .build());
 
         // 1.3 - FUREUR CROISSANTE
@@ -165,25 +171,31 @@ public final class GuerrierTalents {
             .values(new double[]{0.30, 300}) // chance, delay_ms
             .build());
 
-        // 2.2 - FRENETIQUE
+        // 2.2 - CHATIMENT (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_frenetic")
-            .name("Frenetique")
-            .description("Sous 40% PV: +40% vitesse attaque, +10% vol de vie")
+            .id("guerrier_punishment")
+            .name("Chatiment")
+            .description("3 coups = prochaine attaque devastatrice")
             .loreLines(new String[]{
-                "§7Sous §c40%§7 PV:",
-                "§7- §e+40%§7 vitesse d'attaque",
-                "§7- §c+10%§7 vol de vie",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Mode enrage!"
+                "§7Frapper accumule des §echarges§7.",
+                "§7A §e3 charges§7 (en 6s):",
+                "",
+                "§7Prochaine attaque:",
+                "§7- §c+80%§7 degats",
+                "§7- §aSoigne 5%§7 PV max",
+                "",
+                "§8Style: §6Maintenir le rythme",
+                "§8Inspiré: Clash (Punishment)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
             .slotIndex(1)
-            .icon(Material.FERMENTED_SPIDER_EYE)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.FRENETIC)
-            .values(new double[]{0.40, 0.40, 0.10}) // hp_threshold, attack_speed_bonus, lifesteal
+            .icon(Material.GOLDEN_SWORD)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.PUNISHMENT)
+            .values(new double[]{3, 6000, 0.80, 0.05}) // stacks_needed, window_ms, damage_bonus%, heal%
             .build());
 
         // 2.3 - MASSE D'ARMES
@@ -279,24 +291,34 @@ public final class GuerrierTalents {
             .values(new double[]{4, 1.50, 0.25, 4.0, 60, 0.30, 1500}) // hits_needed, base_damage%, bonus_per_hit%, range, cone_angle, slow%, slow_duration_ms
             .build());
 
-        // 3.2 - VAMPIRE DE GUERRE
+        // 3.2 - BOUCLIER VENGEUR (REMPART) - TALENT SIGNATURE
         TALENTS.add(Talent.builder()
-            .id("guerrier_war_vampire")
-            .name("Vampire de Guerre")
-            .description("10% vol de vie, 20% sous 30% PV")
+            .id("guerrier_vengeful_shield")
+            .name("Bouclier Vengeur")
+            .description("Toutes les 4 attaques: disque pulsant!")
             .loreLines(new String[]{
-                "§7§c10%§7 des degats infliges",
-                "§7sont convertis en PV.",
+                "§6§lTALENT SIGNATURE - REMPART",
                 "",
-                "§7Double (§c20%§7) sous §c30%§7 PV!"
+                "§7Toutes les §e4 attaques§7, lancez un",
+                "§6disque spectral§7 devant vous!",
+                "",
+                "§7Le disque avance lentement et",
+                "§7§epulse 4 fois§7 avant d'exploser:",
+                "",
+                "§8Degats/pulse: §c60%§8 de base",
+                "§8Rayon pulse: §e2.5§8 blocs",
+                "§8Explosion finale: §c120%§8 + §e3§8 blocs",
+                "",
+                "§7§oPlaquez-vous a mi-distance!",
+                "§8Inspiré: Blessed Shield (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
             .slotIndex(1)
-            .icon(Material.GHAST_TEAR)
-            .iconColor("§4")
-            .effectType(Talent.TalentEffectType.WAR_VAMPIRE)
-            .values(new double[]{0.10, 0.20, 0.30}) // lifesteal_base, lifesteal_boosted, hp_threshold
+            .icon(Material.HEART_OF_THE_SEA)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.VENGEFUL_SHIELD)
+            .values(new double[]{4, 0.60, 2.5, 4, 1.20, 3.0, 8.0}) // hits_needed, pulse_damage%, pulse_radius, pulse_count, explosion_damage%, explosion_radius, travel_distance
             .build());
 
         // 3.3 - COLERE DES ANCETRES
@@ -388,24 +410,31 @@ public final class GuerrierTalents {
             .values(new double[]{3000, 0.30}) // duration_ms, damage_amplification%
             .build());
 
-        // 4.2 - FRISSON DU COMBAT
+        // 4.2 - FORTIFICATION (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_combat_thrill")
-            .name("Frisson du Combat")
-            .description("Vol de vie = +50% vitesse attaque temporaire")
+            .id("guerrier_fortify")
+            .name("Fortification")
+            .description("Blocages = bouclier absorbant")
             .loreLines(new String[]{
-                "§7Chaque PV vole genere §a0.5s§7",
-                "§7de §e+50%§7 vitesse d'attaque.",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Limite: 3s de duree max"
+                "§7Chaque blocage vous donne",
+                "§e+15% Fortification§7 (max 100%).",
+                "",
+                "§7A §e100% Fortification§7:",
+                "§7- Gagnez un §6bouclier§7 = §e25%§7 PV max",
+                "§7- Fortification reset a 0%",
+                "",
+                "§8Perte: §7-8%/s§8 hors blocage",
+                "§8Inspiré: Fortify (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
             .slotIndex(1)
-            .icon(Material.HEART_OF_THE_SEA)
-            .iconColor("§b")
-            .effectType(Talent.TalentEffectType.COMBAT_THRILL)
-            .values(new double[]{500, 0.50, 3000}) // duration_per_hp_ms, AS_bonus%, max_duration_ms
+            .icon(Material.IRON_CHESTPLATE)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.FORTIFY)
+            .values(new double[]{0.15, 1.0, 0.25, 0.08}) // fortify_per_block, max_fortify, shield%, decay_per_second
             .build());
 
         // 4.3 - VENGEANCE ARDENTE
@@ -496,26 +525,33 @@ public final class GuerrierTalents {
             .values(new double[]{10, 2.50, 5.0}) // attacks_needed, damage%, radius
             .build());
 
-        // 5.2 - IMMORTEL
+        // 5.2 - INEBRANLABLE (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_immortal")
-            .name("Immortel")
-            .description("1x/min: survie a 1 PV + invincible 2s")
+            .id("guerrier_unstoppable")
+            .name("Inebranlable")
+            .description("3 blocages = Inarretable + bonus degats")
             .loreLines(new String[]{
-                "§7Une fois par minute, si vous",
-                "§7devez mourir, restez a §c1 PV§7",
-                "§7et devenez §einvincible 2s§7.",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Temps de recharge: 60s"
+                "§7Apres §e3 blocages§7 en §a5s§7,",
+                "§7devenez §6INARRETABLE§7 pendant §e3s§7!",
+                "",
+                "§7Pendant Inarretable:",
+                "§7- §eImmunite§7 knockback/slow",
+                "§7- §c+25%§7 degats infliges",
+                "§7- Aura dorée visible",
+                "",
+                "§8Cooldown: 12s",
+                "§8Inspiré: Defiance Aura (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
             .slotIndex(1)
-            .icon(Material.TOTEM_OF_UNDYING)
+            .icon(Material.NETHERITE_CHESTPLATE)
             .iconColor("§6")
-            .effectType(Talent.TalentEffectType.IMMORTAL)
-            .values(new double[]{60000, 2000}) // cooldown_ms, invuln_duration_ms
-            .internalCooldownMs(60000)
+            .effectType(Talent.TalentEffectType.UNSTOPPABLE)
+            .values(new double[]{3, 5000, 3000, 0.25, 12000}) // blocks_needed, window_ms, duration_ms, damage_bonus%, cooldown_ms
+            .internalCooldownMs(12000)
             .build());
 
         // 5.3 - CYCLONE DE RAGE
@@ -607,26 +643,31 @@ public final class GuerrierTalents {
             .values(new double[]{0.25, 500, 2000}) // stun_chance, stun_duration_ms, cooldown_ms
             .build());
 
-        // 6.2 - FRENESIE SANGUINAIRE
+        // 6.2 - ENTRELACEMENT (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_blood_frenzy")
-            .name("Frenesie Sanguinaire")
-            .description("+2% vitesse attaque par 5% PV manquants")
+            .id("guerrier_weaving")
+            .name("Entrelacement")
+            .description("Alterner actions = bonus degats croissant")
             .loreLines(new String[]{
-                "§7Votre vitesse d'attaque augmente",
-                "§7de §e+2%§7 par §c5%§7 de PV manquants.",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Max: §e+40%§8 vitesse d'attaque",
-                "§8(a 0% PV)",
-                "§8Synergie: Build berserker"
+                "§7Alterner entre §eattaque§7 et §eblocage§7",
+                "§7vous donne §c+10%§7 degats par switch!",
+                "",
+                "§7- Max: §c+50%§7 (5 alternances)",
+                "§7- Reset si meme action 2x",
+                "§7- Les stacks durent §a4s§7",
+                "",
+                "§8Style: §6Rythme attaque/defense",
+                "§8Inspiré: Weaving (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
             .slotIndex(1)
-            .icon(Material.NETHER_WART)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.BLOOD_FRENZY)
-            .values(new double[]{0.02, 0.05, 0.40}) // bonus_per_step, hp_step, max_bonus
+            .icon(Material.CHAIN)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.WEAVING)
+            .values(new double[]{0.10, 0.50, 4000}) // bonus_per_switch, max_bonus, duration_ms
             .build());
 
         // 6.3 - RAGE IMPARABLE
@@ -724,26 +765,37 @@ public final class GuerrierTalents {
             .values(new double[]{1000, 0.50, 3.0}) // interval_ms, damage%, radius
             .build());
 
-        // 6.2 - AVATAR DE SANG
+        // 7.2 - CHARGE DU BASTION (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_blood_avatar")
-            .name("Avatar de Sang")
-            .description("100 PV voles = explosion massive")
+            .id("guerrier_bastion_charge")
+            .name("Charge du Bastion")
+            .description("Double-sneak: charge + bouclier par cible")
             .loreLines(new String[]{
-                "§7Apres avoir vole §c100 PV§7,",
-                "§7explosez pour des degats massifs!",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Degats: §c400%§8 de base",
-                "§8Rayon: §e4§8 blocs",
-                "§8Auto-soin: §c30%§8 PV max"
+                "§6ACTIVATION: §eDouble Sneak",
+                "",
+                "§7Chargez vers l'avant (§e6 blocs§7)!",
+                "",
+                "§7Effets sur les ennemis touches:",
+                "§7- §c200%§7 degats",
+                "§7- §eKnockback§7 puissant",
+                "",
+                "§7Vous gagnez:",
+                "§7- §6+8%§7 PV max en bouclier/ennemi",
+                "§7- Max: §e40%§7 PV max",
+                "",
+                "§8Cooldown: 10s",
+                "§8Inspiré: Falling Star (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(1)
-            .icon(Material.DRAGON_BREATH)
-            .iconColor("§4")
-            .effectType(Talent.TalentEffectType.BLOOD_AVATAR)
-            .values(new double[]{100, 4.0, 4.0, 0.30}) // hp_to_trigger, damage%, radius, self_heal%
+            .icon(Material.TRIDENT)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.BASTION_CHARGE)
+            .values(new double[]{6.0, 2.0, 0.08, 0.40, 10000}) // distance, damage%, shield_per_enemy%, max_shield%, cooldown_ms
+            .internalCooldownMs(10000)
             .build());
 
         // 6.3 - REPRESAILLES INFINIES
@@ -840,26 +892,33 @@ public final class GuerrierTalents {
             .internalCooldownMs(5000)
             .build());
 
-        // 7.2 - SEIGNEUR VAMPIRE
+        // 8.2 - AURA DE DEFI (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_vampire_lord")
-            .name("Seigneur Vampire")
-            .description("Vol de vie = bouclier de sang (50% max)")
+            .id("guerrier_defiance_aura")
+            .name("Aura de Defi")
+            .description("Aura: ennemis affaiblis + reflexion")
             .loreLines(new String[]{
-                "§7Le vol de vie peut depasser",
-                "§7vos PV max, creant un",
-                "§7§cbouclier de sang§7.",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§8Max: §c50%§8 PV max",
-                "§8Perte: §8-5%/s hors combat"
+                "§7Aura passive (§e5 blocs§7):",
+                "",
+                "§7Ennemis dans l'aura:",
+                "§7- §c-20%§7 degats infliges",
+                "§7- §eGlowing§7 (visibles)",
+                "",
+                "§7Quand vous recevez des degats melee:",
+                "§7- §c30%§7 des degats reflechis",
+                "",
+                "§8Effet: Domination de zone",
+                "§8Inspiré: Defiance Aura (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(1)
-            .icon(Material.REDSTONE_BLOCK)
-            .iconColor("§4")
-            .effectType(Talent.TalentEffectType.VAMPIRE_LORD)
-            .values(new double[]{0.50, 0.05}) // max_shield%, decay%_per_second
+            .icon(Material.TOTEM_OF_UNDYING)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.DEFIANCE_AURA)
+            .values(new double[]{5.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
             .build());
 
         // 7.3 - NEMESIS
@@ -959,29 +1018,35 @@ public final class GuerrierTalents {
             .internalCooldownMs(45000)
             .build());
 
-        // 8.2 - DIEU DU SANG (EQUILIBRE - pas d'immortalite totale!)
+        // 9.2 - AVATAR DU REMPART (REMPART) - TALENT LEGENDAIRE ULTIME
         TALENTS.add(Talent.builder()
-            .id("guerrier_blood_god")
-            .name("Dieu du Sang")
-            .description("-70% degats et +8% regeneration en attaquant")
+            .id("guerrier_bulwark_avatar")
+            .name("Avatar du Rempart")
+            .description("ULTIME: Transformation apres blocages cumules")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§lTALENT LEGENDAIRE - ULTIME",
                 "",
-                "§7Tant que vous infligez des degats:",
-                "§7- §a-70%§7 degats recus",
-                "§7- §c+8%§7 PV/s regeneration",
+                "§7Apres avoir §ebloque 300 degats§7",
+                "§7cumules, transformez-vous!",
                 "",
-                "§8Condition: Attaque dans les 2s",
-                "§8Note: Vous pouvez toujours mourir!"
+                "§6AVATAR DU REMPART §7(10s):",
+                "§7- §e100%§7 chance de blocage",
+                "§7- §c+50%§7 degats infliges",
+                "§7- §6Disques x2§7 frequence",
+                "§7- §eImmunite CC§7 totale",
+                "",
+                "§7Activation: §eAutomatique§7 a 300 dmg",
+                "§7Compteur affiche en ActionBar",
+                "",
+                "§8Inspiré: Juggernaut (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
             .slotIndex(1)
-            .icon(Material.DRAGON_EGG)
-            .iconColor("§4§l")
-            .effectType(Talent.TalentEffectType.BLOOD_GOD)
-            // BALANCE: -70% DR et +8% regen au lieu d'immortalite
-            .values(new double[]{2000, 0.70, 0.08}) // window_ms, DR%, regen%_per_second
+            .icon(Material.NETHER_STAR)
+            .iconColor("§6§l")
+            .effectType(Talent.TalentEffectType.BULWARK_AVATAR)
+            .values(new double[]{300, 10000, 1.0, 0.50, 2.0}) // damage_threshold, duration_ms, block_chance, damage_bonus%, disc_frequency_mult
             .build());
 
         // 8.3 - AVATAR DE VENGEANCE
