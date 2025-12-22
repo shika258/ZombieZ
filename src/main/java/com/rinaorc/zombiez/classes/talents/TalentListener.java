@@ -2759,10 +2759,6 @@ public class TalentListener implements Listener {
             addAbsorption(player, absorptionAmount);
         }
 
-        // === MESSAGE via système centralisé (afficher en cœurs) ===
-        int absorptionHearts = (int) Math.ceil(absorptionAmount / 2.0);
-        showTempEventMessage(uuid, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §e+" + absorptionHearts + "§6❤");
-
         // === RESET ===
         ironEchoStacks.put(uuid, 0);
         ironEchoStoredDamage.put(uuid, 0.0);
