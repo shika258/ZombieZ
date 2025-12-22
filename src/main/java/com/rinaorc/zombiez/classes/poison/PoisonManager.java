@@ -5,11 +5,12 @@ import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -19,30 +20,55 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manager pour le système de la Voie du Poison du Chasseur.
- * Gère les stacks de poison, les explosions, l'aura et les synergies.
+ * Manager pour la Voie du Poison du Chasseur.
  *
- * Gameplay dynamique inspiré de Plague Doctor/Necromancer.
+ * REFONTE COMPLÈTE - Système "Fléau Rampant"
+ *
+ * Concept: Le poison est une corruption progressive qui se propage,
+ * pas un système d'explosion qui freeze le serveur.
+ *
+ * Mécanique principale: VIRULENCE (0-100)
+ * - S'accumule progressivement sur les cibles
+ * - DoT proportionnel à la virulence
+ * - À 100%: cible "Corrompue" = bonus dégâts + propagation à la mort
  */
 public class PoisonManager {
 
     private final ZombieZPlugin plugin;
     private final TalentManager talentManager;
 
-    // === CONSTANTES ===
-    public static final int BASE_MAX_STACKS = 5;
-    public static final int NECROSIS_THRESHOLD = 3;
-    public static final int EPIDEMIC_EXPLOSION_THRESHOLD = 10;
-    public static final long POISON_TICK_INTERVAL = 1000; // 1s
-    public static final long AVATAR_DURATION = 20000; // 20s
+    // === CONSTANTES DE BALANCE ===
+    public static final int MAX_VIRULENCE = 100;
+    public static final int CORRUPTED_THRESHOLD = 100; // Seuil pour être "Corrompu"
+    public static final int NECROSIS_THRESHOLD = 70;   // Seuil pour bonus Nécrose
+
+    // Virulence appliquée par hit (base)
+    public static final int BASE_VIRULENCE_PER_HIT = 15;
+
+    // DoT: % des dégâts de base par seconde par 10 virulence
+    public static final double DOT_PERCENT_PER_10_VIRULENCE = 0.08; // 8% par 10 virulence
+
+    // Propagation à la mort: nombre max de cibles
+    public static final int PROPAGATION_MAX_TARGETS = 3;
+    public static final double PROPAGATION_RADIUS = 5.0;
+    public static final int PROPAGATION_VIRULENCE = 40; // Virulence transmise
+
+    // Avatar
+    public static final long AVATAR_DURATION = 15000; // 15s (réduit de 20s)
     public static final long AVATAR_COOLDOWN = 60000; // 60s
+    public static final double AVATAR_VIRULENCE_MULT = 3.0; // x3 virulence
+    public static final double AVATAR_FINAL_EXPLOSION_DAMAGE = 5.0; // 500% dégâts max
+    public static final double AVATAR_FINAL_EXPLOSION_CAP = 1000.0; // Cap absolu de dégâts
+
+    // Durée du poison avant expiration
+    public static final long POISON_DURATION = 6000; // 6s
 
     // === TRACKING ===
 
-    // Poison stacks par entité (target UUID -> stacks)
-    private final Map<UUID, Integer> poisonStacks = new ConcurrentHashMap<>();
+    // Virulence par entité (target UUID -> virulence 0-100)
+    private final Map<UUID, Integer> virulence = new ConcurrentHashMap<>();
 
-    // Qui a empoisonné qui (target UUID -> owner UUID)
+    // Propriétaire du poison (target UUID -> owner UUID)
     private final Map<UUID, UUID> poisonOwners = new ConcurrentHashMap<>();
 
     // Expiration du poison (target UUID -> expiry time)
@@ -52,15 +78,15 @@ public class PoisonManager {
     private final Map<UUID, Long> plagueAvatarActive = new ConcurrentHashMap<>();
     private final Map<UUID, Long> plagueAvatarCooldown = new ConcurrentHashMap<>();
 
-    // Tracking des chaînes d'explosion Pandémie
-    private final Map<UUID, Integer> pandemicChainCount = new ConcurrentHashMap<>();
-
     // Double-sneak pour Avatar
     private final Map<UUID, Long> lastAvatarSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW = 400;
 
     // Cache des joueurs Poison actifs pour l'ActionBar
     private final Set<UUID> activePoisonPlayers = ConcurrentHashMap.newKeySet();
+
+    // Cooldown entre ticks de DoT par cible (évite le spam)
+    private final Map<UUID, Long> lastDotTick = new ConcurrentHashMap<>();
 
     public PoisonManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -72,7 +98,7 @@ public class PoisonManager {
      * Démarre les tâches périodiques
      */
     private void startTasks() {
-        // Tâche principale (toutes les secondes)
+        // Tâche principale (toutes les secondes - 20 ticks)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -82,8 +108,9 @@ public class PoisonManager {
                 poisonExpiry.entrySet().removeIf(entry -> {
                     if (now > entry.getValue()) {
                         UUID targetUuid = entry.getKey();
-                        poisonStacks.remove(targetUuid);
+                        virulence.remove(targetUuid);
                         poisonOwners.remove(targetUuid);
+                        lastDotTick.remove(targetUuid);
                         return true;
                     }
                     return false;
@@ -92,124 +119,129 @@ public class PoisonManager {
                 // Cleanup Avatar expiré
                 plagueAvatarActive.entrySet().removeIf(entry -> {
                     if (now > entry.getValue()) {
-                        // Déclencher l'explosion finale
                         triggerAvatarFinalExplosion(entry.getKey());
                         return true;
                     }
                     return false;
                 });
 
-                // Appliquer les dégâts DoT de poison
+                // Appliquer les dégâts DoT
                 applyPoisonDamage();
 
-                // Appliquer l'aura Fléau
+                // Appliquer l'aura Fléau (passif)
                 applyBlightAura();
 
-                // Appliquer l'aura Avatar
+                // Appliquer l'aura Avatar (si actif)
                 applyAvatarAura();
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+        }.runTaskTimer(plugin, 20L, 20L);
 
-        // Tâche d'enregistrement ActionBar (toutes les 20 ticks = 1s)
+        // Tâche d'enregistrement ActionBar (toutes les secondes)
         new BukkitRunnable() {
             @Override
             public void run() {
                 registerActionBarProviders();
             }
         }.runTaskTimer(plugin, 20L, 20L);
+
+        // Tâche de particules légères (toutes les 10 ticks = 0.5s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                spawnAmbientPoisonParticles();
+            }
+        }.runTaskTimer(plugin, 10L, 10L);
     }
 
-    // ==================== STACKS DE POISON ====================
+    // ==================== VIRULENCE ====================
 
     /**
-     * Ajoute des stacks de poison à une cible
+     * Ajoute de la virulence à une cible
+     * @return La nouvelle virulence
      */
-    public int addPoisonStacks(Player owner, LivingEntity target, int amount) {
+    public int addVirulence(Player owner, LivingEntity target, int amount) {
         UUID targetUuid = target.getUniqueId();
         UUID ownerUuid = owner.getUniqueId();
 
-        int currentStacks = poisonStacks.getOrDefault(targetUuid, 0);
-        int maxStacks = getMaxStacks(owner);
+        int current = virulence.getOrDefault(targetUuid, 0);
 
-        // Avatar = max stacks instant
+        // Bonus Avatar: x3 virulence
         if (isPlagueAvatarActive(ownerUuid)) {
-            amount = maxStacks;
+            amount = (int) (amount * AVATAR_VIRULENCE_MULT);
         }
 
-        int newStacks = Math.min(currentStacks + amount, maxStacks);
+        int newVirulence = Math.min(current + amount, MAX_VIRULENCE);
 
-        // Si Épidémie, pas de limite
-        if (hasTalent(owner, Talent.TalentEffectType.EPIDEMIC)) {
-            newStacks = currentStacks + amount;
-        }
-
-        poisonStacks.put(targetUuid, newStacks);
+        virulence.put(targetUuid, newVirulence);
         poisonOwners.put(targetUuid, ownerUuid);
-        poisonExpiry.put(targetUuid, System.currentTimeMillis() + 5000); // 5s durée
+        poisonExpiry.put(targetUuid, System.currentTimeMillis() + POISON_DURATION);
 
-        // Appliquer effet slowness (Toxines Mortelles)
+        // Effet slowness léger (Toxines Mortelles)
         if (hasTalent(owner, Talent.TalentEffectType.DEADLY_TOXINS)) {
+            int slowLevel = newVirulence >= NECROSIS_THRESHOLD ? 1 : 0;
             target.addPotionEffect(new PotionEffect(
-                PotionEffectType.SLOWNESS, 60, 0, false, false));
+                PotionEffectType.SLOWNESS, 40, slowLevel, false, false));
         }
 
-        // Vérifier explosion Épidémie
-        if (newStacks >= EPIDEMIC_EXPLOSION_THRESHOLD && hasTalent(owner, Talent.TalentEffectType.EPIDEMIC)) {
-            triggerEpidemicExplosion(owner, target);
-        }
-
-        // Effet visuel
-        spawnPoisonParticles(target, newStacks);
-
-        // Son subtil
-        if (newStacks > currentStacks) {
+        // Son subtil à l'application
+        if (newVirulence > current) {
+            float pitch = 1.2f + (newVirulence / 100f) * 0.5f;
             target.getWorld().playSound(target.getLocation(),
-                Sound.BLOCK_SLIME_BLOCK_PLACE, 0.3f, 1.5f + (newStacks * 0.1f));
+                Sound.BLOCK_HONEY_BLOCK_SLIDE, 0.3f, pitch);
         }
 
-        return newStacks;
+        // Message si atteint 100% (Corrompu)
+        if (newVirulence == MAX_VIRULENCE && current < MAX_VIRULENCE) {
+            owner.sendMessage("§2§l[POISON] §aCible §d§lCORROMPUE§a! (+30% dégâts, propagation à la mort)");
+            target.getWorld().playSound(target.getLocation(),
+                Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.5f, 1.5f);
+        }
+
+        return newVirulence;
     }
 
     /**
-     * Récupère les stacks de poison d'une cible
+     * Récupère la virulence d'une cible
      */
-    public int getPoisonStacks(UUID targetUuid) {
-        return poisonStacks.getOrDefault(targetUuid, 0);
+    public int getVirulence(UUID targetUuid) {
+        return virulence.getOrDefault(targetUuid, 0);
     }
 
     /**
      * Vérifie si une cible est empoisonnée
      */
     public boolean isPoisoned(UUID targetUuid) {
-        return poisonStacks.containsKey(targetUuid) && poisonStacks.get(targetUuid) > 0;
+        return virulence.containsKey(targetUuid) && virulence.get(targetUuid) > 0;
     }
 
     /**
-     * Vérifie si la cible a la Nécrose (3+ stacks)
+     * Vérifie si une cible est Corrompue (100% virulence)
+     */
+    public boolean isCorrupted(UUID targetUuid) {
+        return getVirulence(targetUuid) >= CORRUPTED_THRESHOLD;
+    }
+
+    /**
+     * Vérifie si une cible a la Nécrose (70%+ virulence)
      */
     public boolean hasNecrosis(UUID targetUuid) {
-        return getPoisonStacks(targetUuid) >= NECROSIS_THRESHOLD;
+        return getVirulence(targetUuid) >= NECROSIS_THRESHOLD;
     }
 
-    /**
-     * Récupère le nombre max de stacks selon les talents
-     */
-    private int getMaxStacks(Player player) {
-        if (hasTalent(player, Talent.TalentEffectType.EPIDEMIC)) {
-            return Integer.MAX_VALUE; // Illimité
-        }
-        return BASE_MAX_STACKS;
-    }
-
-    // ==================== DÉGÂTS DE POISON ====================
+    // ==================== DÉGÂTS DE POISON (DoT) ====================
 
     /**
-     * Applique les dégâts de poison à toutes les cibles
+     * Applique les dégâts de poison à toutes les cibles empoisonnées
+     * REFONTE: Les DoTs peuvent crit et utilisent les stats du joueur
      */
     private void applyPoisonDamage() {
-        for (Map.Entry<UUID, Integer> entry : poisonStacks.entrySet()) {
+        long now = System.currentTimeMillis();
+
+        for (Map.Entry<UUID, Integer> entry : virulence.entrySet()) {
             UUID targetUuid = entry.getKey();
-            int stacks = entry.getValue();
+            int vir = entry.getValue();
+
+            if (vir <= 0) continue;
 
             Entity entity = Bukkit.getEntity(targetUuid);
             if (!(entity instanceof LivingEntity target) || target.isDead()) continue;
@@ -220,196 +252,215 @@ public class PoisonManager {
             Player owner = Bukkit.getPlayer(ownerUuid);
             if (owner == null) continue;
 
-            // Calculer les dégâts de base
+            // Éviter les ticks trop rapprochés
+            Long lastTick = lastDotTick.get(targetUuid);
+            if (lastTick != null && now - lastTick < 900) continue; // Min 0.9s entre ticks
+            lastDotTick.put(targetUuid, now);
+
+            // === CALCUL DES DÉGÂTS DoT ===
             double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-            double damagePercent = 0.50; // 50% par défaut (Venin Corrosif)
 
-            // Bonus Nécrose (+25%)
+            // Stats ZombieZ
+            Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(owner);
+            double flatBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+            double percentBonus = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+
+            // Skill tree
+            var skillManager = plugin.getSkillTreeManager();
+            double skillDamageBonus = skillManager.getSkillBonus(owner, SkillBonus.DAMAGE_PERCENT);
+
+            // Dégâts de base avec stats
+            baseDamage += flatBonus;
+            baseDamage *= (1 + (percentBonus + skillDamageBonus) / 100.0);
+
+            // DoT basé sur virulence: 8% par 10 virulence
+            double dotPercent = (vir / 10.0) * DOT_PERCENT_PER_10_VIRULENCE;
+            double dotDamage = baseDamage * dotPercent;
+
+            // Bonus Nécrose (+25% dégâts si 70%+ virulence)
             if (hasNecrosis(targetUuid) && hasTalent(owner, Talent.TalentEffectType.VENOMOUS_STRIKE)) {
-                damagePercent *= 1.25;
+                dotDamage *= 1.25;
             }
 
-            // Bonus par stack (Épidémie)
-            if (hasTalent(owner, Talent.TalentEffectType.EPIDEMIC)) {
-                damagePercent += stacks * 0.10; // +10% par stack
-            }
-
-            // Crit poison (Toxines Mortelles)
+            // === SYSTÈME DE CRIT SUR DoT (Toxines Mortelles) ===
             boolean isCrit = false;
             if (hasTalent(owner, Talent.TalentEffectType.DEADLY_TOXINS)) {
-                if (Math.random() < 0.25) { // 25% chance
-                    damagePercent *= 1.50; // +50% crit
+                double critChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+                double skillCritChance = skillManager.getSkillBonus(owner, SkillBonus.CRIT_CHANCE);
+                double totalCritChance = critChance + skillCritChance;
+
+                if (Math.random() * 100 < totalCritChance) {
                     isCrit = true;
+                    double baseCritDamage = 150.0;
+                    double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+                    double skillCritDamage = skillManager.getSkillBonus(owner, SkillBonus.CRIT_DAMAGE);
+                    double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+                    dotDamage *= critMultiplier;
                 }
             }
 
-            double finalDamage = baseDamage * damagePercent * stacks / 5.0; // Scaled par stacks
+            // Minimum de dégâts
+            dotDamage = Math.max(1.0, dotDamage);
 
-            // Appliquer les dégâts
-            target.damage(finalDamage, owner);
+            // === APPLICATION DES DÉGÂTS ===
+            // Metadata pour bypass CombatListener (dégâts déjà calculés)
+            target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+            target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+            target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, isCrit));
+            target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, ownerUuid.toString()));
 
-            // Lifesteal (Peste Noire)
+            if (plugin.getZombieManager().isZombieZMob(target)) {
+                target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, ownerUuid.toString()));
+            }
+
+            target.damage(dotDamage, owner);
+
+            // === LIFESTEAL (Peste Noire) ===
             if (hasTalent(owner, Talent.TalentEffectType.BLACK_PLAGUE)) {
-                double heal = finalDamage * 0.10;
-                double newHealth = Math.min(owner.getHealth() + heal,
-                    owner.getAttribute(Attribute.MAX_HEALTH).getValue());
+                double healPercent = 0.15; // 15% lifesteal
+                double heal = dotDamage * healPercent;
+                double maxHealth = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
+                double newHealth = Math.min(owner.getHealth() + heal, maxHealth);
                 owner.setHealth(newHealth);
             }
 
-            // Particules de dégâts
+            // === PARTICULES DE DoT (légères) ===
+            Location loc = target.getLocation().add(0, 1, 0);
             if (isCrit) {
-                target.getWorld().spawnParticle(Particle.CRIT,
-                    target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.1);
+                // Crit: particules de crit + poison
+                target.getWorld().spawnParticle(Particle.CRIT, loc, 5, 0.2, 0.2, 0.2, 0.1);
+                target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.4f, 1.3f);
             }
+            // Poison: 2-3 particules vertes (pas de spam)
+            target.getWorld().spawnParticle(Particle.DUST, loc, 2, 0.2, 0.2, 0.2, 0,
+                new Particle.DustOptions(Color.fromRGB(50, 180, 50), 0.8f));
         }
     }
 
-    // ==================== EXPLOSIONS ====================
+    // ==================== PROPAGATION ====================
 
     /**
-     * Déclenche l'explosion Épidémie (à 10 stacks)
+     * Propage le poison à la mort d'une cible corrompue
+     * REFONTE: Simple propagation, pas d'explosion, pas de chaîne récursive
      */
-    public void triggerEpidemicExplosion(Player owner, LivingEntity target) {
-        UUID targetUuid = target.getUniqueId();
-        int stacks = poisonStacks.getOrDefault(targetUuid, 0);
+    public void propagateOnDeath(Player owner, LivingEntity victim) {
+        UUID victimUuid = victim.getUniqueId();
 
-        if (stacks < EPIDEMIC_EXPLOSION_THRESHOLD) return;
+        // Seulement si la cible était empoisonnée
+        if (!isPoisoned(victimUuid)) return;
 
-        // Reset les stacks
-        poisonStacks.put(targetUuid, 0);
+        // Bonus si corrompue
+        boolean wasCorrupted = isCorrupted(victimUuid);
+        int propagationAmount = wasCorrupted ? PROPAGATION_VIRULENCE + 20 : PROPAGATION_VIRULENCE;
 
-        // Calculer les dégâts
-        double baseDamage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double explosionDamage = baseDamage * 2.0 * stacks; // 200% par stack
+        Location deathLoc = victim.getLocation();
 
-        Location loc = target.getLocation().add(0, 1, 0);
-
-        // Effet visuel
-        loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 0.5, 0.5, 0.5, 0);
-        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 30, 1.5, 1, 1.5, 0);
-        loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
-        loc.getWorld().playSound(loc, Sound.BLOCK_SLIME_BLOCK_BREAK, 1.0f, 0.5f);
-
-        // Dégâts AoE
-        double radius = isPlagueAvatarActive(owner.getUniqueId()) ? 8.0 : 4.0; // x2 avec Avatar
-
-        for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
-            if (entity instanceof Monster monster && !monster.isDead()) {
-                monster.damage(explosionDamage, owner);
-                addPoisonStacks(owner, monster, 2); // Appliquer 2 stacks
+        // Trouver les cibles proches (max PROPAGATION_MAX_TARGETS)
+        List<Monster> nearbyTargets = new ArrayList<>();
+        for (Entity entity : deathLoc.getWorld().getNearbyEntities(deathLoc,
+                PROPAGATION_RADIUS, PROPAGATION_RADIUS, PROPAGATION_RADIUS)) {
+            if (entity instanceof Monster monster &&
+                !monster.isDead() &&
+                monster.getUniqueId() != victimUuid) {
+                nearbyTargets.add(monster);
             }
         }
 
-        // Heal (Synergie Toxique)
-        if (hasTalent(owner, Talent.TalentEffectType.TOXIC_SYNERGY)) {
-            double heal = explosionDamage * 0.08; // 8% heal
-            double newHealth = Math.min(owner.getHealth() + heal,
-                owner.getAttribute(Attribute.MAX_HEALTH).getValue());
-            owner.setHealth(newHealth);
-            owner.sendMessage("§2§l[POISON] §aSoigné de " + String.format("%.0f", heal) + " PV!");
+        // Limiter au max
+        if (nearbyTargets.size() > PROPAGATION_MAX_TARGETS) {
+            // Trier par distance et prendre les plus proches
+            nearbyTargets.sort(Comparator.comparingDouble(
+                m -> m.getLocation().distanceSquared(deathLoc)));
+            nearbyTargets = nearbyTargets.subList(0, PROPAGATION_MAX_TARGETS);
         }
 
-        owner.sendMessage("§2§l[ÉPIDÉMIE] §c" + stacks + " stacks EXPLOSÉS! §eDégâts: " +
-            String.format("%.0f", explosionDamage));
+        // Appliquer la propagation
+        for (Monster target : nearbyTargets) {
+            addVirulence(owner, target, propagationAmount);
+
+            // Effet visuel de propagation (ligne de particules)
+            createPropagationLine(deathLoc.clone().add(0, 1, 0),
+                target.getLocation().add(0, 1, 0));
+        }
+
+        // Effet visuel au centre (nuage qui se dissipe, pas explosion)
+        spawnPropagationCloud(deathLoc);
+
+        // Son de propagation
+        deathLoc.getWorld().playSound(deathLoc, Sound.BLOCK_HONEY_BLOCK_BREAK, 1.0f, 0.6f);
+        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_PUFFER_FISH_BLOW_OUT, 0.8f, 0.8f);
+
+        // Message
+        if (!nearbyTargets.isEmpty()) {
+            String msg = wasCorrupted ?
+                "§2§l[PROPAGATION] §d§lCORRUPTION§a propagée à §e" + nearbyTargets.size() + "§a cibles!" :
+                "§2§l[PROPAGATION] §aPoison propagé à §e" + nearbyTargets.size() + "§a cibles";
+            owner.sendMessage(msg);
+        }
+
+        // Cleanup la victime
+        virulence.remove(victimUuid);
+        poisonOwners.remove(victimUuid);
+        poisonExpiry.remove(victimUuid);
     }
 
     /**
-     * Déclenche l'explosion Pandémie (à la mort d'un empoisonné)
+     * Crée une ligne de particules de propagation
      */
-    public void triggerPandemicExplosion(Player owner, Location deathLoc, double victimMaxHealth, int chainCount) {
-        if (chainCount > 3) return; // Max 3 chaînes
+    private void createPropagationLine(Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double length = direction.length();
+        direction.normalize();
 
-        double radius = 5.0;
-        double damage = victimMaxHealth * 0.30; // 30% des PV max du mort
-
-        // Effet visuel
-        deathLoc.getWorld().spawnParticle(Particle.SNEEZE, deathLoc, 40, 2, 1, 2, 0.05);
-        deathLoc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, deathLoc, 20, 2, 1, 2, 0);
-        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_SPIDER_DEATH, 1.0f, 0.5f);
-
-        int killed = 0;
-
-        for (Entity entity : deathLoc.getWorld().getNearbyEntities(deathLoc, radius, radius, radius)) {
-            if (entity instanceof Monster monster && !monster.isDead()) {
-                addPoisonStacks(owner, monster, 2);
-                monster.damage(damage, owner);
-
-                // Tracker pour chaîne
-                if (monster.getHealth() <= 0) {
-                    killed++;
-                    pandemicChainCount.put(monster.getUniqueId(), chainCount + 1);
-                }
-            }
-        }
-
-        if (killed > 0) {
-            owner.sendMessage("§2§l[PANDÉMIE] §eExplosion chaîne " + chainCount + "! §c" + killed + " morts");
+        // Particules espacées de 0.5 blocs
+        for (double i = 0; i < length; i += 0.5) {
+            Location point = from.clone().add(direction.clone().multiply(i));
+            point.getWorld().spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(Color.fromRGB(80, 200, 80), 0.6f));
         }
     }
 
-    // ==================== NUAGE MORTEL (Peste Noire) ====================
-
     /**
-     * Crée un nuage toxique à la mort par poison
+     * Crée un nuage de propagation (pas une explosion)
      */
-    public void createDeathCloud(Player owner, Location loc) {
-        if (!hasTalent(owner, Talent.TalentEffectType.BLACK_PLAGUE)) return;
-
-        double radius = 4.0;
-        double dps = 0.15; // 15% dégâts/s
-
+    private void spawnPropagationCloud(Location loc) {
+        // Nuage vert qui monte et se dissipe
         new BukkitRunnable() {
             int ticks = 0;
-            final int maxTicks = 60; // 3 secondes
-
             @Override
             public void run() {
-                if (ticks >= maxTicks) {
+                if (ticks >= 10) {
                     cancel();
                     return;
                 }
-
-                // Particules de nuage
-                for (int i = 0; i < 3; i++) {
-                    double x = (Math.random() - 0.5) * radius * 2;
-                    double z = (Math.random() - 0.5) * radius * 2;
-                    loc.getWorld().spawnParticle(Particle.SNEEZE,
-                        loc.clone().add(x, 0.5, z), 1, 0, 0, 0, 0);
-                }
-
-                // Dégâts toutes les secondes
-                if (ticks % 20 == 0) {
-                    double damage = owner.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * dps;
-
-                    for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, 2, radius)) {
-                        if (entity instanceof Monster monster && !monster.isDead()) {
-                            monster.damage(damage, owner);
-                            addPoisonStacks(owner, monster, 1);
-                        }
-                    }
-                }
-
+                double y = ticks * 0.15;
+                double spread = 0.5 + ticks * 0.1;
+                loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, y, 0),
+                    3, spread, 0.1, spread, 0,
+                    new Particle.DustOptions(Color.fromRGB(60, 180, 60), 1.0f - ticks * 0.08f));
                 ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 2L);
     }
 
     // ==================== AURA FLÉAU ====================
 
     /**
-     * Applique l'aura de poison du Fléau
+     * Applique l'aura passive de poison (Fléau)
+     * Ajoute de la virulence aux ennemis proches chaque seconde
      */
     private void applyBlightAura() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!isPoisonPlayer(player)) continue;
             if (!hasTalent(player, Talent.TalentEffectType.BLIGHT)) continue;
 
-            double radius = 5.0;
+            double radius = 4.0;
             Location loc = player.getLocation();
+            int virulencePerTick = 5; // 5 virulence/s dans l'aura
 
             for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
                 if (entity instanceof Monster monster && !monster.isDead()) {
-                    addPoisonStacks(player, monster, 1);
+                    addVirulence(player, monster, virulencePerTick);
                 }
             }
         }
@@ -419,6 +470,7 @@ public class PoisonManager {
 
     /**
      * Active l'Avatar de la Peste
+     * REFONTE: Plus de dégâts infinis, cap absolu sur l'explosion finale
      */
     public boolean activatePlagueAvatar(Player player) {
         UUID uuid = player.getUniqueId();
@@ -436,21 +488,25 @@ public class PoisonManager {
         plagueAvatarCooldown.put(uuid, System.currentTimeMillis() + AVATAR_COOLDOWN);
 
         // Immunité poison/wither
-        player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 400, 0, false, false));
         player.removePotionEffect(PotionEffectType.POISON);
         player.removePotionEffect(PotionEffectType.WITHER);
 
-        // Effets visuels
-        Location loc = player.getLocation();
-        loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2);
-        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 100, 3, 2, 3, 0);
-        loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
-        loc.getWorld().playSound(loc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 1.0f, 0.8f);
+        // Buff de vitesse
+        int durationTicks = (int) (AVATAR_DURATION / 50);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, durationTicks, 1, false, true));
 
-        // Aura visuelle pendant l'Avatar
+        // Effets visuels (réduits - pas d'EXPLOSION)
+        Location loc = player.getLocation();
+        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 30, 1.5, 1, 1.5, 0,
+            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 1.5f));
+        loc.getWorld().playSound(loc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 1.0f, 0.8f);
+        loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.2f);
+
+        // Aura visuelle
         startAvatarVisualAura(uuid);
 
-        player.sendMessage("§2§l[AVATAR DE LA PESTE] §aTransformation activée! §e20s");
+        player.sendMessage("§2§l[AVATAR DE LA PESTE] §aTransformation! §ex3 virulence §7| §e" +
+            (AVATAR_DURATION / 1000) + "s");
 
         return true;
     }
@@ -464,7 +520,7 @@ public class PoisonManager {
     }
 
     /**
-     * Applique l'aura de l'Avatar
+     * Applique l'aura de l'Avatar (virulence aux ennemis proches)
      */
     private void applyAvatarAura() {
         for (Map.Entry<UUID, Long> entry : plagueAvatarActive.entrySet()) {
@@ -473,22 +529,25 @@ public class PoisonManager {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null) continue;
 
-            double radius = 8.0;
+            double radius = 6.0;
             Location loc = player.getLocation();
+            int virulencePerTick = 10; // 10 virulence/s (x3 avec Avatar = 30 effectif)
 
             for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
                 if (entity instanceof Monster monster && !monster.isDead()) {
-                    addPoisonStacks(player, monster, 3); // 3 stacks/s
+                    // addVirulence applique déjà le x3 d'Avatar
+                    addVirulence(player, monster, virulencePerTick);
                 }
             }
         }
     }
 
     /**
-     * Aura visuelle pendant l'Avatar
+     * Aura visuelle pendant l'Avatar (réduite)
      */
     private void startAvatarVisualAura(UUID playerUuid) {
         new BukkitRunnable() {
+            int ticks = 0;
             @Override
             public void run() {
                 if (!plagueAvatarActive.containsKey(playerUuid)) {
@@ -502,49 +561,69 @@ public class PoisonManager {
                     return;
                 }
 
-                Location loc = player.getLocation();
-                double time = System.currentTimeMillis() / 200.0;
+                // Particules réduites: 4 particules en cercle, toutes les 4 ticks
+                if (ticks % 4 == 0) {
+                    Location loc = player.getLocation();
+                    double angle = (ticks * 5) % 360;
 
-                // Cercle de particules
-                for (int i = 0; i < 8; i++) {
-                    double angle = time + (i * 45);
-                    double x = Math.cos(Math.toRadians(angle)) * 2;
-                    double z = Math.sin(Math.toRadians(angle)) * 2;
+                    for (int i = 0; i < 4; i++) {
+                        double a = Math.toRadians(angle + i * 90);
+                        double x = Math.cos(a) * 1.5;
+                        double z = Math.sin(a) * 1.5;
 
-                    loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
-                        loc.clone().add(x, 0.1, z), 1, 0, 0, 0, 0);
+                        loc.getWorld().spawnParticle(Particle.DUST,
+                            loc.clone().add(x, 0.1, z), 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 0.8f));
+                    }
                 }
+                ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 2L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
      * Explosion finale de l'Avatar
+     * REFONTE: Cap absolu sur les dégâts pour éviter l'infini
      */
     private void triggerAvatarFinalExplosion(UUID playerUuid) {
         Player player = Bukkit.getPlayer(playerUuid);
         if (player == null) return;
 
         Location loc = player.getLocation();
-        double radius = 10.0;
-        double damage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 5.0; // 500%
+        double radius = 8.0;
 
-        // Effets visuels massifs
-        loc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 3);
-        loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 200, 5, 3, 5, 0);
-        loc.getWorld().spawnParticle(Particle.SNEEZE, loc, 100, 5, 2, 5, 0.1);
-        loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
-        loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_DEATH, 0.8f, 1.5f);
+        // Dégâts basés sur les dégâts du joueur mais CAPPÉS
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double damage = baseDamage * AVATAR_FINAL_EXPLOSION_DAMAGE; // 500%
+        damage = Math.min(damage, AVATAR_FINAL_EXPLOSION_CAP); // Cap à 1000
+
+        // Effets visuels (pas d'EXPLOSION_EMITTER, juste des particules vertes)
+        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 50, 3, 2, 3, 0,
+            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 2.0f));
+        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 30, 4, 1, 4, 0,
+            new Particle.DustOptions(Color.fromRGB(100, 255, 100), 1.5f));
+
+        // Sons
+        loc.getWorld().playSound(loc, Sound.ENTITY_EVOKER_FANGS_ATTACK, 1.5f, 0.8f);
+        loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.2f);
 
         int affected = 0;
 
         for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
             if (entity instanceof Monster monster && !monster.isDead()) {
+                // Metadata pour bypass CombatListener
+                monster.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                monster.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                monster.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, playerUuid.toString()));
+
+                if (plugin.getZombieManager().isZombieZMob(monster)) {
+                    monster.setMetadata("last_damage_player", new FixedMetadataValue(plugin, playerUuid.toString()));
+                }
+
                 monster.damage(damage, player);
 
-                // Max stacks sur tous
-                int maxStacks = getMaxStacks(player);
-                poisonStacks.put(monster.getUniqueId(), Math.min(maxStacks, 10));
+                // Appliquer virulence max (100)
+                virulence.put(monster.getUniqueId(), MAX_VIRULENCE);
                 poisonOwners.put(monster.getUniqueId(), playerUuid);
                 poisonExpiry.put(monster.getUniqueId(), System.currentTimeMillis() + 10000);
 
@@ -552,70 +631,66 @@ public class PoisonManager {
             }
         }
 
-        player.sendMessage("§2§l[AVATAR] §cMÉGA EXPLOSION! §e" + affected + " ennemis touchés! §cDégâts: " +
-            String.format("%.0f", damage));
+        player.sendMessage("§2§l[AVATAR] §aExplosion finale! §e" + affected + " ennemis §7| §c" +
+            String.format("%.0f", damage) + " dégâts (max " + (int)AVATAR_FINAL_EXPLOSION_CAP + ")");
         player.sendMessage("§2§l[AVATAR] §7Transformation terminée.");
     }
 
     // ==================== SYNERGIE TOXIQUE ====================
 
     /**
-     * Calcule le bonus d'attack speed basé sur les stacks proches
+     * Calcule le bonus de dégâts basé sur les cibles empoisonnées proches
      */
-    public double getAttackSpeedBonus(Player player) {
+    public double getToxicSynergyBonus(Player player) {
         if (!hasTalent(player, Talent.TalentEffectType.TOXIC_SYNERGY)) return 0;
 
-        int totalStacks = 0;
+        int totalVirulence = 0;
         double range = 8.0;
         Location loc = player.getLocation();
 
         for (Entity entity : loc.getWorld().getNearbyEntities(loc, range, range, range)) {
             if (entity instanceof LivingEntity living) {
-                totalStacks += getPoisonStacks(living.getUniqueId());
+                totalVirulence += getVirulence(living.getUniqueId());
             }
         }
 
-        // +5% par stack, max +40%
-        return Math.min(totalStacks * 0.05, 0.40);
+        // +1% dégâts par 10 virulence totale, max +25%
+        return Math.min(totalVirulence * 0.001, 0.25);
     }
 
     /**
      * Vérifie si le bonus combo Fléau est actif
+     * Activé quand 200+ virulence totale dans la zone
      */
     public boolean isBlightComboActive(Player player) {
         if (!hasTalent(player, Talent.TalentEffectType.BLIGHT)) return false;
 
-        int totalStacks = 0;
+        int totalVirulence = 0;
         double range = 5.0;
         Location loc = player.getLocation();
 
         for (Entity entity : loc.getWorld().getNearbyEntities(loc, range, range, range)) {
             if (entity instanceof LivingEntity living) {
-                totalStacks += getPoisonStacks(living.getUniqueId());
+                totalVirulence += getVirulence(living.getUniqueId());
             }
         }
 
-        return totalStacks >= 50; // 50+ stacks = +25% dégâts
+        return totalVirulence >= 200; // 200+ virulence = +20% dégâts
     }
 
     // ==================== ActionBar ====================
 
-    /**
-     * Enregistre les providers d'ActionBar pour les joueurs Poison auprès du ActionBarManager
-     */
     private void registerActionBarProviders() {
         if (plugin.getActionBarManager() == null) return;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID uuid = player.getUniqueId();
             if (isPoisonPlayer(player)) {
-                // Enregistrer le provider si pas déjà fait
                 if (!activePoisonPlayers.contains(uuid)) {
                     activePoisonPlayers.add(uuid);
                     plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
                 }
             } else {
-                // Retirer le provider si le joueur n'est plus Poison
                 if (activePoisonPlayers.contains(uuid)) {
                     activePoisonPlayers.remove(uuid);
                     plugin.getActionBarManager().unregisterClassActionBar(uuid);
@@ -624,30 +699,39 @@ public class PoisonManager {
         }
     }
 
-    /**
-     * Construit le contenu de l'ActionBar pour un joueur Poison
-     * Appelé par ActionBarManager quand le joueur est en combat
-     */
     public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
 
         StringBuilder bar = new StringBuilder();
 
-        // Compter les stacks totaux proches
-        int totalStacks = 0;
+        // Compter la virulence totale et les cibles corrompues
+        int totalVirulence = 0;
+        int corruptedCount = 0;
         for (Entity entity : player.getLocation().getWorld().getNearbyEntities(
-                player.getLocation(), 8, 8, 8)) {
+                player.getLocation(), 10, 10, 10)) {
             if (entity instanceof LivingEntity living) {
-                totalStacks += getPoisonStacks(living.getUniqueId());
+                int vir = getVirulence(living.getUniqueId());
+                totalVirulence += vir;
+                if (vir >= CORRUPTED_THRESHOLD) corruptedCount++;
             }
         }
 
-        bar.append("§2§l[POISON] §aStacks: §e").append(totalStacks);
+        bar.append("§2§l[§a☠§2§l] ");
 
-        // Bonus AS (Synergie Toxique)
+        // Virulence totale
+        bar.append("§aVir: §e").append(totalVirulence);
+
+        // Cibles corrompues
+        if (corruptedCount > 0) {
+            bar.append("  §d§l").append(corruptedCount).append(" CORR");
+        }
+
+        // Bonus Synergie
         if (hasTalent(player, Talent.TalentEffectType.TOXIC_SYNERGY)) {
-            double bonus = getAttackSpeedBonus(player);
-            bar.append("  §aAS: §b+").append(String.format("%.0f", bonus * 100)).append("%");
+            double bonus = getToxicSynergyBonus(player);
+            if (bonus > 0) {
+                bar.append("  §b+").append(String.format("%.0f", bonus * 100)).append("%");
+            }
         }
 
         // Combo Fléau
@@ -664,44 +748,50 @@ public class PoisonManager {
         return bar.toString();
     }
 
-    // ==================== UTILITAIRES ====================
+    // ==================== PARTICULES AMBIANTES ====================
 
     /**
-     * Vérifie si un joueur est dans la voie Poison
+     * Génère des particules légères sur les cibles empoisonnées
      */
+    private void spawnAmbientPoisonParticles() {
+        for (UUID targetUuid : virulence.keySet()) {
+            int vir = virulence.get(targetUuid);
+            if (vir <= 0) continue;
+
+            Entity entity = Bukkit.getEntity(targetUuid);
+            if (!(entity instanceof LivingEntity target) || target.isDead()) continue;
+
+            Location loc = target.getLocation().add(0, target.getHeight() * 0.5, 0);
+
+            // Intensité basée sur la virulence (1-3 particules)
+            int count = 1 + vir / 40;
+            count = Math.min(count, 3);
+
+            // Couleur: vert -> violet foncé selon virulence
+            int green = 200 - (vir * 150 / 100);
+            int red = vir * 80 / 100;
+            Color color = Color.fromRGB(Math.max(0, red), Math.max(50, green), 50);
+
+            target.getWorld().spawnParticle(Particle.DUST, loc, count, 0.2, 0.3, 0.2, 0,
+                new Particle.DustOptions(color, 0.5f));
+        }
+    }
+
+    // ==================== UTILITAIRES ====================
+
     public boolean isPoisonPlayer(Player player) {
         ClassData data = plugin.getClassManager().getClassData(player);
         if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return false;
 
         String branchId = data.getSelectedBranchId();
-        return branchId != null && (branchId.toLowerCase().contains("poison") || branchId.toLowerCase().contains("traque"));
+        return branchId != null && (branchId.toLowerCase().contains("poison") ||
+                                    branchId.toLowerCase().contains("traque"));
     }
 
     public boolean hasTalent(Player player, Talent.TalentEffectType effectType) {
         return talentManager.getActiveTalentByEffect(player, effectType) != null;
     }
 
-    /**
-     * Génère des particules de poison
-     */
-    private void spawnPoisonParticles(LivingEntity target, int stacks) {
-        Location loc = target.getLocation().add(0, 1, 0);
-
-        // Plus de particules = plus de stacks
-        int count = Math.min(stacks * 2, 15);
-
-        // Couleur change avec Nécrose
-        if (stacks >= NECROSIS_THRESHOLD) {
-            loc.getWorld().spawnParticle(Particle.DUST, loc, count, 0.3, 0.3, 0.3, 0,
-                new Particle.DustOptions(Color.fromRGB(50, 0, 50), 1.0f)); // Violet foncé
-        } else {
-            loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, count, 0.3, 0.3, 0.3, 0);
-        }
-    }
-
-    /**
-     * Gère le double-sneak pour Avatar
-     */
     public void handleSneakForAvatar(Player player) {
         if (!hasTalent(player, Talent.TalentEffectType.PLAGUE_AVATAR)) return;
 
@@ -718,23 +808,18 @@ public class PoisonManager {
     }
 
     /**
-     * Récupère le compteur de chaîne Pandémie
+     * Obtient le propriétaire du poison sur une cible
      */
-    public int getPandemicChainCount(UUID entityUuid) {
-        return pandemicChainCount.getOrDefault(entityUuid, 0);
+    public UUID getPoisonOwner(UUID targetUuid) {
+        return poisonOwners.get(targetUuid);
     }
 
-    /**
-     * Nettoie les données d'un joueur
-     */
     public void cleanupPlayer(UUID playerUuid) {
         plagueAvatarActive.remove(playerUuid);
         plagueAvatarCooldown.remove(playerUuid);
         lastAvatarSneakTime.remove(playerUuid);
-        pandemicChainCount.remove(playerUuid);
         activePoisonPlayers.remove(playerUuid);
 
-        // Désenregistrer de l'ActionBarManager
         if (plugin.getActionBarManager() != null) {
             plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
         }
