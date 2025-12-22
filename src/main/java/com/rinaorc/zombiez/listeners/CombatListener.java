@@ -54,6 +54,12 @@ public class CombatListener implements Listener {
     // Mode debug pour afficher les valeurs de cooldown dans la console
     private static final boolean DEBUG_COOLDOWN = true;
 
+    // ============ CONFIGURATION DU SYSTÈME DE COOLDOWN PUNITIF ============
+    // Seuil minimum de charge en dessous duquel les dégâts sont plafonnés
+    private static final double COOLDOWN_MIN_THRESHOLD = 0.20; // 20%
+    // Multiplicateur de dégâts appliqué en dessous du seuil minimum
+    private static final double COOLDOWN_MIN_DAMAGE_MULT = 0.05; // 5% des dégâts
+
     public CombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
     }
@@ -107,6 +113,33 @@ public class CombatListener implements Listener {
         }
 
         return (float) cooldownRatio;
+    }
+
+    /**
+     * Applique une pénalité de dégâts basée sur le ratio de cooldown.
+     *
+     * Le système est conçu pour punir sévèrement le spam de clics :
+     * - Courbe QUADRATIQUE : 50% charge = 25% dégâts (au lieu de 50% linéaire)
+     * - Seuil MINIMUM : En dessous de 20% de charge, dégâts plafonnés à 5%
+     *
+     * Comparaison DPS (sur 1 seconde avec attackSpeed = 4.0) :
+     * - Spam (4 attaques à 25%) : 4 × 0.0625 = 25% DPS effectif
+     * - Timing parfait (1 attaque à 100%) : 1.0² = 100% DPS effectif
+     *
+     * @param cooldownRatio Le ratio de cooldown linéaire (0.0 à 1.0)
+     * @return Le multiplicateur de dégâts après pénalité (0.05 à 1.0)
+     */
+    private double applyAttackCooldownPenalty(double cooldownRatio) {
+        // En dessous du seuil minimum, les dégâts sont fortement réduits
+        if (cooldownRatio < COOLDOWN_MIN_THRESHOLD) {
+            return COOLDOWN_MIN_DAMAGE_MULT;
+        }
+
+        // Courbe quadratique : pénalise les attaques partiellement chargées
+        // 50% charge → 25% dégâts
+        // 75% charge → 56% dégâts
+        // 90% charge → 81% dégâts
+        return cooldownRatio * cooldownRatio;
     }
 
     /**
@@ -309,17 +342,16 @@ public class CombatListener implements Listener {
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
-        // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        // Les dégâts sont strictement proportionnels au remplissage de la barre de cooldown
-        // Utilise notre tracking manuel car player.getAttackCooldown() renvoie 1.0 après le reset
+        // ============ 0. ATTACK COOLDOWN SYSTEM (PUNITIF) ============
+        // Courbe quadratique pour punir le spam : 50% charge = 25% dégâts
         float attackCooldown = calculateAttackCooldown(player);
-        // Formule linéaire stricte: 50% de charge = 50% de dégâts
-        finalDamage *= attackCooldown;
+        double damageMultiplier = applyAttackCooldownPenalty(attackCooldown);
+        finalDamage *= damageMultiplier;
 
         if (DEBUG_COOLDOWN) {
             plugin.getLogger().info(String.format(
-                "[DAMAGE DEBUG] %s -> ZombieZ: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
-                player.getName(), baseDamage, attackCooldown * 100, finalDamage
+                "[COOLDOWN] %s -> ZombieZ: charge=%.0f%%, mult=%.2f, base=%.1f, result=%.1f",
+                player.getName(), attackCooldown * 100, damageMultiplier, baseDamage, finalDamage
             ));
         }
 
@@ -466,17 +498,11 @@ public class CombatListener implements Listener {
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
-        // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        // Formule linéaire stricte: 50% de charge = 50% de dégâts
+        // ============ 0. ATTACK COOLDOWN SYSTEM (PUNITIF) ============
+        // Courbe quadratique pour punir le spam : 50% charge = 25% dégâts
         float attackCooldown = calculateAttackCooldown(player);
-        finalDamage *= attackCooldown;
-
-        if (DEBUG_COOLDOWN) {
-            plugin.getLogger().info(String.format(
-                "[DAMAGE DEBUG] %s -> PassiveMob: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
-                player.getName(), baseDamage, attackCooldown * 100, finalDamage
-            ));
-        }
+        double damageMultiplier = applyAttackCooldownPenalty(attackCooldown);
+        finalDamage *= damageMultiplier;
 
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
@@ -550,17 +576,11 @@ public class CombatListener implements Listener {
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
-        // ============ 0. ATTACK COOLDOWN SYSTEM ============
-        // Formule linéaire stricte: 50% de charge = 50% de dégâts
+        // ============ 0. ATTACK COOLDOWN SYSTEM (PUNITIF) ============
+        // Courbe quadratique pour punir le spam : 50% charge = 25% dégâts
         float attackCooldown = calculateAttackCooldown(player);
-        finalDamage *= attackCooldown;
-
-        if (DEBUG_COOLDOWN) {
-            plugin.getLogger().info(String.format(
-                "[DAMAGE DEBUG] %s -> GenericMob: baseDamage=%.2f, cooldown=%.2f%%, finalDamage=%.2f",
-                player.getName(), baseDamage, attackCooldown * 100, finalDamage
-            ));
-        }
+        double damageMultiplier = applyAttackCooldownPenalty(attackCooldown);
+        finalDamage *= damageMultiplier;
 
         // ============ STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
