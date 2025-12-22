@@ -144,6 +144,12 @@ public class TalentListener implements Listener {
     // Onde de Fracture - compteur de coups
     private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
 
+    // === SYSTÈME DE MESSAGES TEMPORAIRES POUR ACTIONBAR ===
+    // Messages d'événement ponctuels (affichés pendant quelques secondes dans l'ActionBar)
+    private final Map<UUID, String> tempEventMessage = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> tempEventMessageExpiry = new ConcurrentHashMap<>();
+    private static final long EVENT_MESSAGE_DURATION_MS = 2000; // 2 secondes
+
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -281,9 +287,8 @@ public class TalentListener implements Listener {
                     player.getWorld().spawnParticle(Particle.END_ROD, groundLoc.clone().add(x, 0, z), 1, 0, 0.1, 0, 0);
                 }
 
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
-                }
+                // Message d'activation via système centralisé
+                showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!");
             } else {
                 // Accumuler les stacks
                 Long lastHit = punishmentLastHit.get(uuid);
@@ -293,13 +298,11 @@ public class TalentListener implements Listener {
                     int stacks = punishmentStacks.merge(uuid, 1, Integer::sum);
                     if (stacks >= stacksNeeded) {
                         punishmentReady.put(uuid, true);
-                        if (shouldSendTalentMessage(player)) {
-                            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT PRÊT! §7Prochaine attaque amplifiée!"));
-                        }
+                        // Son de notification (l'affichage est dans l'ActionBar centralisé)
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 1.5f);
                     } else {
-                        // Feedback progression
-                        showPunishmentProgress(player, stacks, stacksNeeded);
+                        // Son de progression (l'affichage est dans l'ActionBar centralisé)
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (stacks * 0.2f));
                     }
                 }
                 punishmentLastHit.put(uuid, now);
@@ -340,8 +343,8 @@ public class TalentListener implements Listener {
                 // Reset le compteur
                 fractureWaveHitCounter.put(uuid, 0);
             } else {
-                // Feedback visuel de progression
-                showFractureWaveProgress(player, currentHits, hitsNeeded);
+                // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (currentHits * 0.2f));
             }
         }
 
@@ -371,8 +374,8 @@ public class TalentListener implements Listener {
 
                 procVengefulShield(player, pulseDamage, pulseRadius, pulseCount, explosionDamage, explosionRadius, travelDistance);
             } else {
-                // Feedback progression
-                showVengefulShieldProgress(player, currentHits, effectiveHitsNeeded);
+                // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (currentHits * 0.15f));
             }
         }
 
@@ -655,10 +658,8 @@ public class TalentListener implements Listener {
                 // Écho de Fer - stocker les dégâts bloqués
                 handleIronEcho(player, uuid, originalDamage);
 
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte"));
-                }
+                // Message d'événement via système centralisé
+                showTempEventMessage(uuid, "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte");
             }
         }
 
@@ -1004,8 +1005,7 @@ public class TalentListener implements Listener {
                 setCooldown(uuid, "bastion_charge", (long) bastionCharge.getValue(4));
             } else {
                 long remaining = getCooldownRemaining(uuid, "bastion_charge");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s"));
+                showTempEventMessage(uuid, "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s", 1500);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return; // Ne pas activer Ragnarok si on a Charge du Bastion
@@ -1018,10 +1018,9 @@ public class TalentListener implements Listener {
                 procRagnarok(player, ragnarok);
                 setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
             } else {
-                // Feedback cooldown
+                // Feedback cooldown via système centralisé
                 long remaining = getCooldownRemaining(uuid, "ragnarok");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Ragnarok: " + (remaining / 1000) + "s"));
+                showTempEventMessage(uuid, "§c⏳ Ragnarok: " + (remaining / 1000) + "s", 1500);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
@@ -1050,15 +1049,13 @@ public class TalentListener implements Listener {
         double current = aoeDamageCounter.merge(uuid, damage, Double::sum);
 
         // Feedback progression avec tracking de paliers (25%, 50%, 75%)
+        // L'affichage de la barre de progression est géré par l'ActionBar centralisé
         int milestone = (int) ((current / APOCALYPSE_THRESHOLD) * 4); // 0, 1, 2, 3, 4
         int lastMilestone = lastApocalypseMilestone.getOrDefault(uuid, 0);
 
         if (milestone > lastMilestone && milestone < 4) {
             lastApocalypseMilestone.put(uuid, milestone);
-            int percent = milestone * 25;
-            String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6🌋 Apocalypse " + bar + " §e" + percent + "%"));
+            // Son de milestone (l'affichage est dans l'ActionBar centralisé)
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
         }
 
@@ -1067,9 +1064,8 @@ public class TalentListener implements Listener {
             aoeDamageCounter.put(uuid, 0.0);
             lastApocalypseMilestone.put(uuid, 0); // Reset milestones
 
-            // Message d'activation spectaculaire
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🌋 APOCALYPSE TERRESTRE! 🌋"));
+            // Message d'activation spectaculaire via système centralisé
+            showTempEventMessage(uuid, "§6§l🌋 APOCALYPSE TERRESTRE! 🌋", 2500);
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
 
             procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
@@ -1207,10 +1203,8 @@ public class TalentListener implements Listener {
                             // Expiration - retirer le bonus de HP
                             removeFortifyBonus(player, uuid);
 
-                            if (shouldSendTalentMessage(player)) {
-                                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                                    "§8⚔ Fortification expirée..."));
-                            }
+                            // Message d'expiration via système centralisé
+                            showTempEventMessage(uuid, "§8⚔ Fortification expirée...");
                             player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
                     }
@@ -1398,13 +1392,11 @@ public class TalentListener implements Listener {
         // === EFFETS VISUELS SPECTACULAIRES ===
         spawnFractureWaveVisuals(player, origin, direction, range, halfAngleRad, hitCount);
 
-        // Feedback ActionBar
-        if (shouldSendTalentMessage(player)) {
-            String msg = hitCount > 0
-                ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
-                : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        }
+        // Feedback via système centralisé
+        String msg = hitCount > 0
+            ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
+            : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
+        showTempEventMessage(player.getUniqueId(), msg);
 
         // Contribution au systeme Apocalypse
         if (hitCount > 0) {
@@ -1473,24 +1465,8 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Affiche la progression du build-up de l'Onde de Fracture
+     * NOTE: showFractureWaveProgress supprimée - progression affichée dans l'ActionBar centralisé
      */
-    private void showFractureWaveProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        // Barre de progression visuelle
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7⚡ Onde " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-
-        // Petit son de progression
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (current * 0.2f));
-    }
 
     private void procUnleash(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
@@ -2082,18 +2058,12 @@ public class TalentListener implements Listener {
                 // MAX STACKS!
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
                 player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
-                if (shouldSendTalentMessage(player)) {
-                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!"));
-                }
+                // Message d'événement via système centralisé
+                int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
+                showTempEventMessage(uuid, "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!");
             } else {
-                // Progression
-                if (shouldSendTalentMessage(player)) {
-                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)"));
-                }
+                // Son de progression (l'affichage est dans l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (newStacks * 0.1f));
             }
         }
 
@@ -2106,15 +2076,13 @@ public class TalentListener implements Listener {
             double threshold = bulwarkAvatar.getValue(0);
 
             // Feedback progression avec milestones
+            // L'affichage de la barre est dans l'ActionBar centralisé
             int milestone = (int) ((current / threshold) * 4);
             int lastMilestone = bulwarkLastMilestone.getOrDefault(uuid, 0);
 
             if (milestone > lastMilestone && milestone < 4) {
                 bulwarkLastMilestone.put(uuid, milestone);
-                int percent = milestone * 25;
-                String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§6🛡 Avatar " + bar + " §e" + percent + "%"));
+                // Son de milestone (l'affichage est dans l'ActionBar centralisé)
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
             }
 
@@ -2216,9 +2184,8 @@ public class TalentListener implements Listener {
                     if (player.getAttribute(Attribute.SCALE) != null) {
                         player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
                     }
-                    if (shouldSendTalentMessage(player)) {
-                        player.sendActionBar(net.kyori.adventure.text.Component.text("§8Avatar du Rempart terminé"));
-                    }
+                    // Message d'expiration via système centralisé
+                    showTempEventMessage(player.getUniqueId(), "§8Avatar du Rempart terminé");
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
                     cancel();
                     return;
@@ -2261,10 +2228,8 @@ public class TalentListener implements Listener {
         double aoeDamageMultiplier = talent.getValue(2); // 150%
         double aoeRadius = talent.getValue(3); // 6 blocs
 
-        // Message d'activation
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚒ MARTEAU DU JUGEMENT!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6§l⚒ MARTEAU DU JUGEMENT!");
 
         // Son de départ
         player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
@@ -2392,14 +2357,12 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Message de résultat
-        if (shouldSendTalentMessage(player)) {
-            String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
-            if (enemiesHit > 0) {
-                msg += " | §e" + enemiesHit + " §7cibles AoE";
-            }
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        // Message de résultat via système centralisé
+        String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
+        if (enemiesHit > 0) {
+            msg += " | §e" + enemiesHit + " §7cibles AoE";
         }
+        showTempEventMessage(player.getUniqueId(), msg);
     }
 
     /**
@@ -2412,9 +2375,8 @@ public class TalentListener implements Listener {
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_SHOOT, 0.8f, 1.2f);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6🛡 BOUCLIER VENGEUR!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6🛡 BOUCLIER VENGEUR!");
 
         new BukkitRunnable() {
             double traveled = 0;
@@ -2517,9 +2479,8 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHARGE DU BASTION!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6§l⚔ CHARGE DU BASTION!");
 
         // Sauvegarder la HP de base
         UUID uuid = player.getUniqueId();
@@ -2601,10 +2562,8 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.2);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)"));
-        }
+        // Message de résultat via système centralisé
+        showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)");
 
         // Planifier la fin du bonus
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -2618,46 +2577,16 @@ public class TalentListener implements Listener {
                 }
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§8⚔ Bonus Charge expiré..."));
-                }
+                // Message d'expiration via système centralisé
+                showTempEventMessage(uuid, "§8⚔ Bonus Charge expiré...");
             }
         }, duration / 50L); // Convertir ms en ticks
     }
 
     /**
-     * Affiche la progression du Châtiment
+     * NOTE: showPunishmentProgress et showVengefulShieldProgress supprimées
+     * Les progressions sont maintenant affichées dans l'ActionBar centralisé (buildRempartActionBar)
      */
-    private void showPunishmentProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7⚔ Châtiment " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (current * 0.2f));
-    }
-
-    /**
-     * Affiche la progression du Bouclier Vengeur
-     */
-    private void showVengefulShieldProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7🛡 Disque " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (current * 0.15f));
-    }
 
     /**
      * Gère l'Écho de Fer - stocke les dégâts et déclenche l'onde de choc
@@ -2691,10 +2620,8 @@ public class TalentListener implements Listener {
             ironEchoFirstStack.put(uuid, now);
         }
 
-        // Afficher la progression
-        if (shouldSendTalentMessage(player)) {
-            showIronEchoProgress(player, stacks, stacksNeeded, totalStored);
-        }
+        // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (stacks * 0.2f));
 
         // Vérifier si on déclenche l'onde de choc
         if (stacks >= stacksNeeded) {
@@ -2703,19 +2630,8 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Affiche la progression de l'Écho de Fer
+     * NOTE: showIronEchoProgress supprimée - progression affichée dans l'ActionBar centralisé
      */
-    private void showIronEchoProgress(Player player, int current, int needed, double storedDamage) {
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6●" : "§7○");
-        }
-        bar.append("§8]");
-
-        String msg = "§6🔔 Écho de Fer " + bar + " §c" + String.format("%.0f", storedDamage) + " §7dégâts stockés";
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (current * 0.2f));
-    }
 
     /**
      * Déclenche l'onde de choc de l'Écho de Fer
@@ -2776,11 +2692,8 @@ public class TalentListener implements Listener {
             player.getWorld().spawnParticle(Particle.HEART, center.clone().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
         }
 
-        // === MESSAGE ===
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV"));
-        }
+        // === MESSAGE via système centralisé ===
+        showTempEventMessage(uuid, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV");
 
         // === RESET ===
         ironEchoStacks.put(uuid, 0);
@@ -2825,10 +2738,24 @@ public class TalentListener implements Listener {
 
     /**
      * Construit l'ActionBar spécifique au Guerrier et sa spécialisation
+     * Centralise TOUS les affichages pour éviter le clignotement
      */
     public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
         StringBuilder bar = new StringBuilder();
+
+        // Vérifier si un message d'événement temporaire doit être affiché
+        Long expiry = tempEventMessageExpiry.get(uuid);
+        if (expiry != null && System.currentTimeMillis() < expiry) {
+            String tempMsg = tempEventMessage.get(uuid);
+            if (tempMsg != null) {
+                return tempMsg; // Afficher le message d'événement à la place
+            }
+        } else {
+            // Nettoyer les messages expirés
+            tempEventMessage.remove(uuid);
+            tempEventMessageExpiry.remove(uuid);
+        }
 
         // Détecter la spécialisation dominante (basée sur les talents actifs)
         int spec = detectDominantSpecialization(player);
@@ -2842,6 +2769,22 @@ public class TalentListener implements Listener {
         }
 
         return bar.toString();
+    }
+
+    /**
+     * Affiche un message d'événement temporaire dans l'ActionBar
+     * Ce message remplace temporairement l'ActionBar normale pendant la durée spécifiée
+     */
+    private void showTempEventMessage(UUID uuid, String message) {
+        showTempEventMessage(uuid, message, EVENT_MESSAGE_DURATION_MS);
+    }
+
+    /**
+     * Affiche un message d'événement temporaire dans l'ActionBar avec durée personnalisée
+     */
+    private void showTempEventMessage(UUID uuid, String message, long durationMs) {
+        tempEventMessage.put(uuid, message);
+        tempEventMessageExpiry.put(uuid, System.currentTimeMillis() + durationMs);
     }
 
     /**
@@ -2874,6 +2817,7 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Briseur (Slot 0) - AoE/Séisme
+     * Centralise: Apocalypse, Cataclysme, Onde de Fracture, Fureur, Charge
      */
     private void buildBriseurActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
@@ -2889,18 +2833,31 @@ public class TalentListener implements Listener {
             bar.append(color).append("🌋 ").append(percent).append("%");
         }
 
+        // Onde de Fracture - progression des coups
+        Talent fractureWave = getActiveTalentIfHas(player, Talent.TalentEffectType.FRACTURE_WAVE);
+        if (fractureWave != null) {
+            int hitsNeeded = (int) fractureWave.getValue(0);
+            int currentHits = fractureWaveHitCounter.getOrDefault(uuid, 0);
+            if (currentHits > 0) {
+                String waveColor = currentHits >= hitsNeeded - 1 ? "§a" : "§e";
+                bar.append("  ").append(waveColor).append("⚡").append(currentHits).append("/").append(hitsNeeded);
+            }
+        }
+
         // Compteur d'attaques pour Cataclysme
         Talent cataclysm = getActiveTalentIfHas(player, Talent.TalentEffectType.CATACLYSM);
         if (cataclysm != null) {
             int count = attackCounter.getOrDefault(uuid, 0);
             int needed = (int) cataclysm.getValue(0);
-            bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+            if (count > 0) {
+                bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+            }
         }
 
         // Stacks de Fureur Croissante (si actif même en Briseur)
         int fury = furyStacks.getOrDefault(uuid, 0);
         if (fury > 0) {
-            bar.append("  §c🔥").append(String.format("%.0f", fury * 2.0)).append("%");
+            bar.append("  §c🔥+").append(String.format("%.0f", fury * 2.0)).append("%");
         }
 
         // Charge Dévastatrice prête
@@ -2911,6 +2868,7 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Rempart (Slot 1) - Tank/Défense
+     * Centralise: Fortification, Écho de Fer, Châtiment, Bouclier Vengeur, Avatar
      */
     private void buildRempartActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
@@ -2923,28 +2881,52 @@ public class TalentListener implements Listener {
             String timeStr = "";
             if (expiry != null) {
                 long remaining = (expiry - System.currentTimeMillis()) / 1000;
-                timeStr = " §7(" + remaining + "s)";
+                if (remaining > 0) {
+                    timeStr = " §7(" + remaining + "s)";
+                }
             }
             bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
         }
 
-        // Écho de Fer stacks et dégâts stockés
-        int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
-        double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
-        if (echoStacks > 0 || storedDmg > 0) {
-            String stackColor = echoStacks >= 3 ? "§a§l" : "§e";
-            bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/3");
-            if (storedDmg > 0) {
-                bar.append(" §c+").append(String.format("%.0f", storedDmg));
+        // Écho de Fer stacks et dégâts stockés (intégré directement)
+        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
+        if (ironEcho != null) {
+            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+            double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+            int stacksNeeded = (int) ironEcho.getValue(1);
+            if (echoStacks > 0 || storedDmg > 0) {
+                String stackColor = echoStacks >= stacksNeeded ? "§a§l" : "§e";
+                bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/").append(stacksNeeded);
+                if (storedDmg > 0) {
+                    bar.append(" §c+").append(String.format("%.0f", storedDmg));
+                }
             }
         }
 
-        // Châtiment stacks
-        int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
-        if (punishStacks > 0) {
-            bar.append("  §d⚔").append(punishStacks);
-            if (punishmentReady.getOrDefault(uuid, false)) {
-                bar.append("§a✓");
+        // Châtiment stacks (intégré avec progression)
+        Talent punishment = getActiveTalentIfHas(player, Talent.TalentEffectType.PUNISHMENT);
+        if (punishment != null) {
+            int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
+            int stacksNeeded = (int) punishment.getValue(0);
+            if (punishStacks > 0 || punishmentReady.getOrDefault(uuid, false)) {
+                String stackColor = punishmentReady.getOrDefault(uuid, false) ? "§a§l" : "§d";
+                bar.append("  ").append(stackColor).append("⚔").append(punishStacks).append("/").append(stacksNeeded);
+                if (punishmentReady.getOrDefault(uuid, false)) {
+                    bar.append("§a✓");
+                }
+            }
+        }
+
+        // Bouclier Vengeur - progression des coups
+        Talent vengefulShield = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEFUL_SHIELD);
+        if (vengefulShield != null) {
+            int hitsNeeded = (int) vengefulShield.getValue(0);
+            boolean avatarActive = bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+            int effectiveHitsNeeded = avatarActive ? Math.max(2, hitsNeeded / 2) : hitsNeeded;
+            int currentHits = vengefulShieldCounter.getOrDefault(uuid, 0);
+            if (currentHits > 0) {
+                String shieldColor = currentHits >= effectiveHitsNeeded - 1 ? "§b" : "§3";
+                bar.append("  ").append(shieldColor).append("◎").append(currentHits).append("/").append(effectiveHitsNeeded);
             }
         }
 
@@ -2952,12 +2934,12 @@ public class TalentListener implements Listener {
         if (isBulwarkAvatar(player)) {
             long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
             bar.append("  §6§lAVATAR §e").append(remaining).append("s");
-        }
-
-        // Dégâts bloqués pour Avatar
-        double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
-        if (blocked > 0 && !isBulwarkAvatar(player)) {
-            bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+        } else {
+            // Dégâts bloqués pour Avatar (si pas encore actif)
+            double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
+            if (blocked > 0) {
+                bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+            }
         }
     }
 
@@ -3115,6 +3097,8 @@ public class TalentListener implements Listener {
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);
         fractureWaveHitCounter.remove(playerUuid);
+        tempEventMessage.remove(playerUuid);
+        tempEventMessageExpiry.remove(playerUuid);
 
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
