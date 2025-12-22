@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -83,6 +84,18 @@ public class TalentListener implements Listener {
     // Vengeance Ardente - burning stacks
     private final Map<UUID, Integer> burningStacks = new ConcurrentHashMap<>();
 
+    // === SYSTEME SEISME SIMPLIFIE ===
+    // Compteur de degats de zone pour proc Apocalypse
+    private final Map<UUID, Double> aoeDamageCounter = new ConcurrentHashMap<>();
+    private static final double APOCALYPSE_THRESHOLD = 500.0; // 500 degats AoE = proc
+
+    // Double sneak detection pour Ragnarok UNIQUEMENT
+    private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW_MS = 400;
+
+    // Tracker paliers Apocalypse (pour feedback sans spam)
+    private final Map<UUID, Integer> lastApocalypseMilestone = new ConcurrentHashMap<>();
+
     // Cache des joueurs Guerriers actifs
     private final Set<UUID> activeGuerriers = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -130,16 +143,16 @@ public class TalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Frappe Sismique
+        // Frappe Sismique - GARANTI: chaque attaque = onde de choc
         Talent seismicStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_STRIKE);
         if (seismicStrike != null && !isOnCooldown(uuid, "seismic_strike")) {
-            double chance = seismicStrike.getValue(0);
-            if (Math.random() < chance) {
-                double aoeDamage = damage * seismicStrike.getValue(1);
-                double radius = seismicStrike.getValue(2);
-                procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
-                setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
-            }
+            double aoeDamage = damage * seismicStrike.getValue(0);
+            double radius = seismicStrike.getValue(1);
+            procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
+            setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
+
+            // Accumuler pour Apocalypse Terrestre
+            trackAoeDamage(player, aoeDamage);
         }
 
         // Fureur Croissante
@@ -172,9 +185,9 @@ public class TalentListener implements Listener {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(charge.getValue(2) / 50), 10, false, false));
                 }
 
-                // Effet visuel
-                target.getWorld().spawnParticle(Particle.EXPLOSION, target.getLocation(), 1);
-                target.getWorld().playSound(target.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.2f);
+                // Effet visuel - impact net sans explosion volumineuse
+                target.getWorld().spawnParticle(Particle.SONIC_BOOM, target.getLocation().add(0, 0.5, 0), 1);
+                target.getWorld().playSound(target.getLocation(), Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 0.8f, 0.8f);
             }
         }
 
@@ -694,6 +707,102 @@ public class TalentListener implements Listener {
         }
     }
 
+    // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
+
+    @EventHandler
+    public void onSneak(PlayerToggleSneakEvent event) {
+        if (!event.isSneaking()) return;
+
+        Player player = event.getPlayer();
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
+
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastSneak = lastSneakTime.getOrDefault(uuid, 0L);
+
+        // Double sneak detecte?
+        if (now - lastSneak < DOUBLE_SNEAK_WINDOW_MS) {
+            // Reset pour eviter triple-sneak
+            lastSneakTime.remove(uuid);
+            handleDoubleSneak(player);
+        } else {
+            lastSneakTime.put(uuid, now);
+        }
+    }
+
+    /**
+     * Gere l'activation par double sneak - RAGNAROK UNIQUEMENT
+     */
+    private void handleDoubleSneak(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Ragnarok - L'ULTIME du Guerrier Seisme
+        Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
+        if (ragnarok != null) {
+            if (!isOnCooldown(uuid, "ragnarok")) {
+                procRagnarok(player, ragnarok);
+                setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
+            } else {
+                // Feedback cooldown
+                long remaining = getCooldownRemaining(uuid, "ragnarok");
+                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                    "§c⏳ Ragnarok: " + (remaining / 1000) + "s"));
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            }
+        }
+    }
+
+    /**
+     * Retourne le temps restant d'un cooldown en ms
+     */
+    private long getCooldownRemaining(UUID uuid, String ability) {
+        Map<String, Long> playerCooldowns = cooldowns.get(uuid);
+        if (playerCooldowns == null) return 0;
+        Long cooldownEnd = playerCooldowns.get(ability);
+        if (cooldownEnd == null) return 0;
+        return Math.max(0, cooldownEnd - System.currentTimeMillis());
+    }
+
+    /**
+     * Track les degats de zone pour proc Apocalypse Terrestre
+     */
+    private void trackAoeDamage(Player player, double damage) {
+        UUID uuid = player.getUniqueId();
+
+        Talent apocalypse = getActiveTalentIfHas(player, Talent.TalentEffectType.EARTH_APOCALYPSE);
+        if (apocalypse == null) return;
+
+        double current = aoeDamageCounter.merge(uuid, damage, Double::sum);
+
+        // Feedback progression avec tracking de paliers (25%, 50%, 75%)
+        int milestone = (int) ((current / APOCALYPSE_THRESHOLD) * 4); // 0, 1, 2, 3, 4
+        int lastMilestone = lastApocalypseMilestone.getOrDefault(uuid, 0);
+
+        if (milestone > lastMilestone && milestone < 4) {
+            lastApocalypseMilestone.put(uuid, milestone);
+            int percent = milestone * 25;
+            String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6🌋 Apocalypse " + bar + " §e" + percent + "%"));
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
+        }
+
+        // Proc automatique!
+        if (current >= APOCALYPSE_THRESHOLD && !isOnCooldown(uuid, "apocalypse")) {
+            aoeDamageCounter.put(uuid, 0.0);
+            lastApocalypseMilestone.put(uuid, 0); // Reset milestones
+
+            // Message d'activation spectaculaire
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l🌋 APOCALYPSE TERRESTRE! 🌋"));
+            player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+
+            procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
+            setCooldown(uuid, "apocalypse", apocalypse.getInternalCooldownMs());
+        }
+    }
+
     // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
@@ -817,7 +926,7 @@ public class TalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
-        // SLOW TICK (40L = 2s) - Tremor
+        // TREMOR TICK (20L = 1s) - Ondes sismiques EN COURANT (comme Whirlwind de D4)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -827,50 +936,38 @@ public class TalentListener implements Listener {
                     if (player == null || !player.isOnline()) continue;
 
                     Talent tremor = getActiveTalentIfHas(player, Talent.TalentEffectType.ETERNAL_TREMOR);
-                    if (tremor != null) {
-                        long lastCombat = lastCombatTime.getOrDefault(uuid, 0L);
-                        if (System.currentTimeMillis() - lastCombat < 10000) {
-                            procTremor(player, tremor.getValue(1), Math.min(tremor.getValue(2), 10.0));
-                        }
+                    if (tremor != null && player.isSprinting()) {
+                        // Genere des ondes sismiques EN COURANT
+                        double damage = 5 * tremor.getValue(1);
+                        double radius = tremor.getValue(2);
+                        procTremor(player, tremor.getValue(1), radius);
+
+                        // Contribue a Apocalypse
+                        trackAoeDamage(player, damage);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 40L, 40L);
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
 
-        // RAGNAROK TICK (30s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (activeGuerriers.isEmpty()) return;
-                for (UUID uuid : activeGuerriers) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player == null || !player.isOnline()) continue;
-
-                    Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
-                    if (ragnarok != null && !isOnCooldown(uuid, "ragnarok")) {
-                        procRagnarok(player, ragnarok);
-                        setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 20L * 30, 20L * 30);
+        // Note: Ragnarok est active par double sneak (handleDoubleSneak)
     }
 
     // ==================== PROCS ====================
 
     private void procSeismicStrike(Player player, Location center, double damage, double radius) {
-        // Particules
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-            for (double r = 0.5; r <= radius; r += 0.5) {
-                double x = center.getX() + r * Math.cos(angle);
-                double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.BLOCK, new Location(player.getWorld(), x, center.getY(), z),
-                    3, Material.STONE.createBlockData());
-            }
+        // Effet visuel epure: cercle de particules au sol
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+            double x = center.getX() + radius * Math.cos(angle);
+            double z = center.getZ() + radius * Math.sin(angle);
+            player.getWorld().spawnParticle(Particle.DUST,
+                new Location(player.getWorld(), x, center.getY() + 0.1, z),
+                2, 0.1, 0, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 119, 101), 1.5f));
         }
+        // Impact central
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 5, 0.3, 0.1, 0.3, 0.01);
 
         // Son
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.8f);
+        player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
 
         // Degats
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
@@ -924,8 +1021,10 @@ public class TalentListener implements Listener {
     private void procUnleash(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 3, 1, 1, 1, 0);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+        // Onde de choc compacte au lieu d'explosions volumineuses
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, center, 8, 1.5, 0.5, 1.5, 0);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_CHARGE, 0.8f, 1.2f);
 
         double baseDamage = 10; // Base damage
         double damage = baseDamage * damageMultiplier;
@@ -946,9 +1045,12 @@ public class TalentListener implements Listener {
     private void procCataclysm(Player player, double damage, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        player.getWorld().spawnParticle(Particle.FLAME, center, 100, radius/2, 1, radius/2, 0.1);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
+        // Impact puissant mais lisible - pas d'explosion volumineuse
+        player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+        player.getWorld().spawnParticle(Particle.DUST, center, 15, radius / 2, 0.3, radius / 2, 0,
+            new Particle.DustOptions(Color.fromRGB(255, 100, 50), 1.8f));
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 6, 0.5, 0.2, 0.5, 0.02);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.8f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -989,17 +1091,20 @@ public class TalentListener implements Listener {
     private void procEarthApocalypse(Player player, double damage, double radius, double stunMs) {
         Location center = player.getLocation();
 
-        // Effet de tremblement de terre
-        for (double r = 1; r <= radius; r += 1) {
-            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+        // Effet de tremblement de terre - onde concentrique elegante
+        for (double r = 2; r <= radius; r += 2.5) {
+            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                 double x = center.getX() + r * Math.cos(angle);
                 double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.BLOCK, new Location(player.getWorld(), x, center.getY(), z),
-                    5, Material.DEEPSLATE.createBlockData());
+                player.getWorld().spawnParticle(Particle.DUST,
+                    new Location(player.getWorld(), x, center.getY() + 0.2, z),
+                    3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.fromRGB(60, 60, 60), 2.0f));
             }
         }
+        // Colonne centrale
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 8, 0.3, 0.5, 0.3, 0.02);
 
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.3f);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 0.5f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1020,9 +1125,10 @@ public class TalentListener implements Listener {
     private void procTremor(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.BLOCK, center, 30, radius/2, 0.5, radius/2, 0,
-            Material.STONE.createBlockData());
-        player.getWorld().playSound(center, Sound.BLOCK_STONE_BREAK, 0.5f, 0.5f);
+        // Onde subtile au sol
+        player.getWorld().spawnParticle(Particle.DUST, center, 8, radius / 2, 0.1, radius / 2, 0,
+            new Particle.DustOptions(Color.fromRGB(100, 90, 80), 1.2f));
+        player.getWorld().playSound(center, Sound.BLOCK_GRAVEL_STEP, 0.6f, 0.4f);
 
         double baseDamage = 5;
         double damage = baseDamage * damageMultiplier;
@@ -1042,11 +1148,20 @@ public class TalentListener implements Listener {
         double radius = talent.getValue(2);
         double stunMs = talent.getValue(3);
 
-        // Effet apocalyptique
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 5, radius/2, 2, radius/2, 0);
-        player.getWorld().spawnParticle(Particle.LAVA, center, 200, radius/2, 2, radius/2, 0);
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_DEATH, 1.0f, 0.3f);
-        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.5f);
+        // Effet apocalyptique - ULTIME mais lisible (pas d'EXPLOSION volumineuse)
+        player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 0.5, 0), 1);
+        // Cercle de feu au sol (reduit)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+            double x = center.getX() + (radius * 0.6) * Math.cos(angle);
+            double z = center.getZ() + (radius * 0.6) * Math.sin(angle);
+            player.getWorld().spawnParticle(Particle.FLAME,
+                new Location(player.getWorld(), x, center.getY() + 0.2, z), 2, 0.1, 0.05, 0.1, 0.01);
+        }
+        // Fumee legere
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center.clone().add(0, 0.5, 0), 8, 0.4, 0.3, 0.4, 0.02);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 0.4f);
+        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1070,9 +1185,12 @@ public class TalentListener implements Listener {
     private void procVengeanceRelease(Player player, double damage, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 50, radius/2, 1, radius/2, 0);
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.5f);
+        // Liberation de rage - effet intense mais compact
+        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 15, radius/3, 0.5, radius/3, 0);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+        player.getWorld().spawnParticle(Particle.DUST, center, 20, radius/2, 0.8, radius/2, 0,
+            new Particle.DustOptions(Color.fromRGB(180, 50, 50), 2.0f));
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1101,13 +1219,16 @@ public class TalentListener implements Listener {
             public void run() {
                 player.setInvulnerable(false);
 
-                // Explosion
+                // Explosion de la citadelle - puissante mais lisible
                 Location center = player.getLocation();
                 double damage = 10 * talent.getValue(1);
                 double radius = talent.getValue(2);
 
-                player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-                player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
+                player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+                player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+                player.getWorld().spawnParticle(Particle.DUST, center, 25, radius/2, 1, radius/2, 0,
+                    new Particle.DustOptions(Color.fromRGB(100, 200, 255), 2.0f));
+                player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.0f);
 
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {

@@ -2,7 +2,6 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
-import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
@@ -20,17 +19,11 @@ import org.bukkit.potion.PotionEffectType;
 
 /**
  * Listener pour la gestion des morts et respawns
- * Gère les pénalités de mort et le système de checkpoint
+ * Gère le système de checkpoint
  */
 public class DeathListener implements Listener {
 
     private final ZombieZPlugin plugin;
-
-    // Pénalité de points à la mort (pourcentage)
-    private static final double DEATH_POINT_PENALTY = 0.10; // 10%
-
-    // Points minimum préservés
-    private static final long MIN_POINTS_PRESERVED = 100;
 
     // Durée d'invulnérabilité au respawn (en ticks) - 5 secondes
     private static final int RESPAWN_INVULNERABILITY_TICKS = 100;
@@ -61,9 +54,6 @@ public class DeathListener implements Listener {
         
         String zoneInfo = deathZone != null ? deathZone.getColoredName() : "§7Zone inconnue";
         MessageUtils.broadcast("§c☠ §7" + player.getName() + " §cest mort §7(" + deathCause + " - " + zoneInfo + "§7)");
-
-        // Appliquer la pénalité de points
-        applyDeathPenalty(player, data);
 
         // Log pour debug
         if (plugin.getConfigManager().isDebugMode()) {
@@ -118,32 +108,6 @@ public class DeathListener implements Listener {
             case MAGIC -> "§dMagie";
             default -> "§7" + lastDamage.getCause().name();
         };
-    }
-
-    /**
-     * Applique la pénalité de mort (perte de points)
-     */
-    private void applyDeathPenalty(Player player, PlayerData data) {
-        long currentPoints = data.getPoints().get();
-        
-        if (currentPoints <= MIN_POINTS_PRESERVED) {
-            // Pas de pénalité si déjà au minimum
-            return;
-        }
-
-        // Calculer la pénalité
-        long penalty = (long) (currentPoints * DEATH_POINT_PENALTY);
-        long newPoints = Math.max(MIN_POINTS_PRESERVED, currentPoints - penalty);
-        long actualPenalty = currentPoints - newPoints;
-
-        if (actualPenalty > 0) {
-            data.getPoints().set(newPoints);
-            data.markDirty();
-            
-            // Notifier le joueur
-            MessageUtils.send(player, "§c-" + EconomyManager.formatPoints(actualPenalty) + 
-                " Points §7(Pénalité de mort)");
-        }
     }
 
     /**
