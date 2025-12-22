@@ -164,13 +164,12 @@ public class TalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Frappe Sismique - GARANTI: chaque attaque = onde de choc aux ennemis AUTOUR de la cible
+        // Frappe Sismique - GARANTI: chaque attaque = onde de choc (cible incluse dans l'AoE)
         Talent seismicStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_STRIKE);
         if (seismicStrike != null && !isOnCooldown(uuid, "seismic_strike")) {
             double aoeDamage = damage * seismicStrike.getValue(0);
             double radius = seismicStrike.getValue(1);
-            // Passer la cible originale pour l'exclure de l'AoE (elle prend deja les degats normaux)
-            procSeismicStrike(player, target, aoeDamage, radius);
+            procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
             setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
 
             // Accumuler pour Apocalypse Terrestre
@@ -1002,9 +1001,7 @@ public class TalentListener implements Listener {
 
     // ==================== PROCS ====================
 
-    private void procSeismicStrike(Player player, Entity originalTarget, double damage, double radius) {
-        Location center = originalTarget.getLocation();
-
+    private void procSeismicStrike(Player player, Location center, double damage, double radius) {
         // Effet visuel epure: cercle de particules au sol
         for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
             double x = center.getX() + radius * Math.cos(angle);
@@ -1019,10 +1016,9 @@ public class TalentListener implements Listener {
         // Son
         player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
 
-        // Degats aux ennemis AUTOUR de la cible (exclure la cible originale qui prend deja les degats normaux)
+        // Degats a TOUS les ennemis dans la zone (cible principale incluse)
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player
-                    && entity != originalTarget && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -1031,14 +1027,13 @@ public class TalentListener implements Listener {
         Talent echo = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_ECHO);
         if (echo != null && Math.random() < echo.getValue(0)) {
             Bukkit.getScheduler().runTaskLater(plugin, () ->
-                procSeismicStrikeNoEcho(player, originalTarget, center, damage, radius), (long)(echo.getValue(1) / 50));
+                procSeismicStrikeNoEcho(player, center, damage, radius), (long)(echo.getValue(1) / 50));
         }
     }
 
-    private void procSeismicStrikeNoEcho(Player player, Entity originalTarget, Location center, double damage, double radius) {
+    private void procSeismicStrikeNoEcho(Player player, Location center, double damage, double radius) {
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player
-                    && entity != originalTarget && !(entity instanceof Player)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
