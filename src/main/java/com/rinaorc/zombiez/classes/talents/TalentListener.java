@@ -1185,7 +1185,10 @@ public class TalentListener implements Listener {
                         if (currentAbsorption < maxAbsorption) {
                             // Régénérer 10% du max par seconde
                             double regenAmount = maxAbsorption * 0.10;
-                            player.setAbsorptionAmount(Math.min(maxAbsorption, currentAbsorption + regenAmount));
+                            double newAbsorption = Math.min(maxAbsorption, currentAbsorption + regenAmount);
+                            // Gestion de MAX_ABSORPTION pour l'affichage des cœurs en 1.21.4
+                            ensureMaxAbsorption(player, maxAbsorption);
+                            player.setAbsorptionAmount(newAbsorption);
                         }
 
                         // Scale du joueur (+20%)
@@ -1840,6 +1843,11 @@ public class TalentListener implements Listener {
     private void addAbsorption(Player player, double amount) {
         double currentAbsorption = player.getAbsorptionAmount();
         double newAbsorption = currentAbsorption + amount;
+
+        // En 1.21.4, l'attribut MAX_ABSORPTION limite l'absorption visible
+        // On s'assure qu'il est suffisamment élevé pour afficher les cœurs
+        ensureMaxAbsorption(player, newAbsorption);
+
         player.setAbsorptionAmount(newAbsorption);
 
         // Particules d'absorption (dorées)
@@ -1853,7 +1861,29 @@ public class TalentListener implements Listener {
      * @param amount Le montant d'absorption (en HP)
      */
     private void setAbsorption(Player player, double amount) {
-        player.setAbsorptionAmount(Math.max(0, amount));
+        double safeAmount = Math.max(0, amount);
+
+        // En 1.21.4, l'attribut MAX_ABSORPTION limite l'absorption visible
+        ensureMaxAbsorption(player, safeAmount);
+
+        player.setAbsorptionAmount(safeAmount);
+    }
+
+    /**
+     * S'assure que l'attribut MAX_ABSORPTION est suffisant pour afficher l'absorption demandée.
+     * En Minecraft 1.21.4, cet attribut est à 0 par défaut, empêchant l'affichage des cœurs jaunes.
+     * @param player Le joueur
+     * @param requiredAbsorption Le montant d'absorption nécessaire
+     */
+    private void ensureMaxAbsorption(Player player, double requiredAbsorption) {
+        var maxAbsorptionAttr = player.getAttribute(Attribute.MAX_ABSORPTION);
+        if (maxAbsorptionAttr != null) {
+            double currentMax = maxAbsorptionAttr.getValue();
+            if (currentMax < requiredAbsorption) {
+                // Définir le max à la valeur requise + marge de sécurité
+                maxAbsorptionAttr.setBaseValue(Math.max(requiredAbsorption, 40.0));
+            }
+        }
     }
 
     /**
@@ -2183,7 +2213,8 @@ public class TalentListener implements Listener {
         double absorptionAmount = baseHealth * (stacks * bonusPerStack);
 
         // Appliquer l'absorption (remplace l'absorption de Fortification précédente)
-        player.setAbsorptionAmount(absorptionAmount);
+        // Utilise setAbsorption pour gérer correctement MAX_ABSORPTION en 1.21.4
+        setAbsorption(player, absorptionAmount);
 
         // Particules d'absorption dorée
         player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
@@ -2194,7 +2225,7 @@ public class TalentListener implements Listener {
      * Retire le bonus d'absorption de Fortification
      */
     private void removeFortifyBonus(Player player, UUID uuid) {
-        // Retirer l'absorption
+        // Retirer l'absorption (pas besoin de gérer MAX_ABSORPTION, la valeur 0 est valide)
         player.setAbsorptionAmount(0);
 
         // Nettoyer les données
@@ -2631,8 +2662,11 @@ public class TalentListener implements Listener {
         int absorptionHearts = (int) Math.ceil(absorptionAmount / 2.0); // Convertir en cœurs
 
         // Ajouter l'absorption à l'existante
+        // Gestion de MAX_ABSORPTION pour l'affichage des cœurs en 1.21.4
         double currentAbsorption = player.getAbsorptionAmount();
-        player.setAbsorptionAmount(currentAbsorption + absorptionAmount);
+        double newAbsorption = currentAbsorption + absorptionAmount;
+        ensureMaxAbsorption(player, newAbsorption);
+        player.setAbsorptionAmount(newAbsorption);
 
         // Effets visuels
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
