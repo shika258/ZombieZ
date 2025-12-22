@@ -2945,7 +2945,14 @@ public class TalentListener implements Listener {
         UUID uuid = player.getUniqueId();
         bar.append("§6§l[§e🛡§6§l] ");
 
-        // Fortification stacks
+        // Avatar Rempart actif - PRIORITAIRE
+        if (isBulwarkAvatar(player)) {
+            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
+            bar.append("§6§l✦ AVATAR §e").append(remaining).append("s §7| §e100% blocage §7| §c+50% dégâts");
+            return; // Ne rien afficher d'autre pendant l'Avatar
+        }
+
+        // Fortification stacks (absorption active)
         int fortStacks = fortifyStacks.getOrDefault(uuid, 0);
         if (fortStacks > 0) {
             Long expiry = fortifyExpireTime.get(uuid);
@@ -2956,61 +2963,27 @@ public class TalentListener implements Listener {
                     timeStr = " §7(" + remaining + "s)";
                 }
             }
-            bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
+            bar.append("§6Fortification §e❤+").append(fortStacks * 10).append("%").append(timeStr);
         }
 
-        // Écho de Fer stacks et dégâts stockés (intégré directement)
-        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
-        if (ironEcho != null) {
-            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
-            double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
-            int stacksNeeded = (int) ironEcho.getValue(1);
-            if (echoStacks > 0 || storedDmg > 0) {
-                String stackColor = echoStacks >= stacksNeeded ? "§a§l" : "§e";
-                bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/").append(stacksNeeded);
-                if (storedDmg > 0) {
-                    bar.append(" §c+").append(String.format("%.0f", storedDmg));
-                }
-            }
-        }
-
-        // Châtiment stacks (intégré avec progression)
-        Talent punishment = getActiveTalentIfHas(player, Talent.TalentEffectType.PUNISHMENT);
-        if (punishment != null) {
-            int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
-            int stacksNeeded = (int) punishment.getValue(0);
-            if (punishStacks > 0 || punishmentReady.getOrDefault(uuid, false)) {
-                String stackColor = punishmentReady.getOrDefault(uuid, false) ? "§a§l" : "§d";
-                bar.append("  ").append(stackColor).append("⚔").append(punishStacks).append("/").append(stacksNeeded);
-                if (punishmentReady.getOrDefault(uuid, false)) {
-                    bar.append("§a✓");
-                }
-            }
-        }
-
-        // Bouclier Vengeur - progression des coups
-        Talent vengefulShield = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEFUL_SHIELD);
-        if (vengefulShield != null) {
-            int hitsNeeded = (int) vengefulShield.getValue(0);
-            boolean avatarActive = bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
-            int effectiveHitsNeeded = avatarActive ? Math.max(2, hitsNeeded / 2) : hitsNeeded;
-            int currentHits = vengefulShieldCounter.getOrDefault(uuid, 0);
-            if (currentHits > 0) {
-                String shieldColor = currentHits >= effectiveHitsNeeded - 1 ? "§b" : "§3";
-                bar.append("  ").append(shieldColor).append("◎").append(currentHits).append("/").append(effectiveHitsNeeded);
-            }
-        }
-
-        // Avatar Rempart actif
-        if (isBulwarkAvatar(player)) {
-            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
-            bar.append("  §6§lAVATAR §e").append(remaining).append("s");
-        } else {
-            // Dégâts bloqués pour Avatar (si pas encore actif)
+        // Progression vers Avatar (uniquement si > 50% du seuil)
+        Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
+        if (bulwarkAvatar != null) {
+            double threshold = bulwarkAvatar.getValue(0);
             double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
-            if (blocked > 0) {
-                bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+            int percent = (int) ((blocked / threshold) * 100);
+            if (percent >= 50) {
+                if (fortStacks > 0) bar.append("  §7| ");
+                bar.append("§6Avatar §e").append(percent).append("%");
             }
+        }
+
+        // Absorption actuelle (si > 0)
+        double absorption = player.getAbsorptionAmount();
+        if (absorption > 0) {
+            int hearts = (int) Math.ceil(absorption / 2.0);
+            if (fortStacks > 0 || bulwarkAvatar != null) bar.append("  §7| ");
+            bar.append("§e").append(hearts).append("§6❤");
         }
     }
 
