@@ -261,8 +261,8 @@ public class TalentListener implements Listener {
             if (punishmentReady.getOrDefault(uuid, false)) {
                 // Consommer le buff
                 damage *= (1 + punishment.getValue(2)); // +80% dégâts
-                double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * punishment.getValue(3);
-                applyLifesteal(player, heal);
+                double absorptionGain = player.getAttribute(Attribute.MAX_HEALTH).getValue() * punishment.getValue(3);
+                addAbsorption(player, absorptionGain);
                 punishmentReady.put(uuid, false);
                 punishmentStacks.put(uuid, 0);
 
@@ -276,8 +276,9 @@ public class TalentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.DUST, targetLoc, 8, 0.4, 0.5, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
 
-                // Message d'activation via système centralisé
-                showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!");
+                // Message d'activation via système centralisé (afficher en cœurs)
+                int absorptionHearts = (int) Math.ceil(absorptionGain / 2.0);
+                showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts! §e+" + absorptionHearts + "§6❤");
             } else {
                 // Accumuler les stacks
                 Long lastHit = punishmentLastHit.get(uuid);
@@ -628,9 +629,9 @@ public class TalentListener implements Listener {
                 // Réduction des dégâts (50% bloqué)
                 damage *= 0.5;
 
-                // Soin
-                double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * defensiveStance.getValue(1);
-                applyLifesteal(player, heal);
+                // Absorption au lieu de soin
+                double absorptionGain = player.getAttribute(Attribute.MAX_HEALTH).getValue() * defensiveStance.getValue(1);
+                addAbsorption(player, absorptionGain);
 
                 // Riposte - dégâts à l'attaquant
                 double riposteDamage = originalDamage * defensiveStance.getValue(2);
@@ -647,8 +648,9 @@ public class TalentListener implements Listener {
                 // Écho de Fer - stocker les dégâts bloqués
                 handleIronEcho(player, uuid, originalDamage);
 
-                // Message d'événement via système centralisé
-                showTempEventMessage(uuid, "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte");
+                // Message d'événement via système centralisé (afficher en cœurs)
+                int absorptionHearts = (int) Math.ceil(absorptionGain / 2.0);
+                showTempEventMessage(uuid, "§6🛡 BLOQUÉ! §e+" + absorptionHearts + "§6❤ §7abso §c→ " + String.format("%.1f", riposteDamage) + " riposte");
             }
         }
 
@@ -1172,10 +1174,24 @@ public class TalentListener implements Listener {
                         }
                     }
 
-                    // Colosse + Peau de Fer slowness
+                    // Colosse + Peau de Fer slowness + absorption
                     Talent colossus = getActiveTalentIfHas(player, Talent.TalentEffectType.COLOSSUS);
                     if (colossus != null) {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false));
+
+                        // Colosse - régénérer l'absorption jusqu'au maximum (50% des PV max)
+                        double maxAbsorption = player.getAttribute(Attribute.MAX_HEALTH).getValue() * colossus.getValue(0);
+                        double currentAbsorption = player.getAbsorptionAmount();
+                        if (currentAbsorption < maxAbsorption) {
+                            // Régénérer 10% du max par seconde
+                            double regenAmount = maxAbsorption * 0.10;
+                            player.setAbsorptionAmount(Math.min(maxAbsorption, currentAbsorption + regenAmount));
+                        }
+
+                        // Scale du joueur (+20%)
+                        if (player.getAttribute(Attribute.SCALE) != null) {
+                            player.getAttribute(Attribute.SCALE).setBaseValue(1.0 + colossus.getValue(3));
+                        }
                     }
                     Talent ironSkin = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_SKIN);
                     if (ironSkin != null) {
@@ -1815,6 +1831,76 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0);
     }
 
+    /**
+     * Ajoute de l'absorption au joueur (cumulable avec l'absorption existante)
+     * Dans Minecraft: 1 cœur jaune = 2 HP d'absorption
+     * @param player Le joueur
+     * @param amount Le montant d'absorption à ajouter (en HP)
+     */
+    private void addAbsorption(Player player, double amount) {
+        double currentAbsorption = player.getAbsorptionAmount();
+        double newAbsorption = currentAbsorption + amount;
+        player.setAbsorptionAmount(newAbsorption);
+
+        // Particules d'absorption (dorées)
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
+            5, 0.3, 0.4, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
+    }
+
+    /**
+     * Définit l'absorption du joueur (remplace l'existante)
+     * @param player Le joueur
+     * @param amount Le montant d'absorption (en HP)
+     */
+    private void setAbsorption(Player player, double amount) {
+        player.setAbsorptionAmount(Math.max(0, amount));
+    }
+
+    /**
+     * Applique un effet Glowing doré au joueur via une équipe Scoreboard
+     * @param player Le joueur
+     * @param durationTicks Durée en ticks
+     */
+    private void applyGoldenGlow(Player player, int durationTicks) {
+        // Ajouter l'effet Glowing
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
+
+        // Créer/récupérer l'équipe pour la couleur dorée
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        String teamName = "zz_avatar_gold";
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(teamName);
+            team.setColor(org.bukkit.ChatColor.GOLD);
+            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
+                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
+        }
+
+        // Ajouter le joueur à l'équipe dorée
+        final org.bukkit.scoreboard.Team goldTeam = team;
+        String playerName = player.getName();
+        goldTeam.addEntry(playerName);
+
+        // Retirer le joueur de l'équipe après la durée
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (goldTeam.hasEntry(playerName)) {
+                goldTeam.removeEntry(playerName);
+            }
+        }, durationTicks);
+    }
+
+    /**
+     * Retire le joueur de l'équipe de glowing doré
+     */
+    private void removeGoldenGlow(Player player) {
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_avatar_gold");
+        if (team != null && team.hasEntry(player.getName())) {
+            team.removeEntry(player.getName());
+        }
+    }
+
     private void applyTempShield(Player player, double amount, long durationMs) {
         UUID uuid = player.getUniqueId();
         tempShield.put(uuid, tempShield.getOrDefault(uuid, 0.0) + amount);
@@ -2085,48 +2171,31 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Applique le bonus de HP max de Fortification
+     * Applique le bonus d'absorption de Fortification
+     * Chaque stack donne un pourcentage des PV max en absorption
      */
     private void applyFortifyBonus(Player player, UUID uuid, int stacks, double bonusPerStack) {
         Double baseHealth = fortifyBaseHealth.get(uuid);
         if (baseHealth == null) return;
 
-        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
-        if (maxHealthAttr == null) return;
+        // Calculer l'absorption totale basée sur les stacks
+        // Exemple: 5 stacks × 10% = 50% des PV max en absorption
+        double absorptionAmount = baseHealth * (stacks * bonusPerStack);
 
-        // Calculer le nouveau max HP
-        double bonusMultiplier = 1.0 + (stacks * bonusPerStack);
-        double newMaxHealth = baseHealth * bonusMultiplier;
+        // Appliquer l'absorption (remplace l'absorption de Fortification précédente)
+        player.setAbsorptionAmount(absorptionAmount);
 
-        // Appliquer
-        maxHealthAttr.setBaseValue(newMaxHealth);
-
-        // Soigner proportionnellement si on gagne des HP
-        double currentHealth = player.getHealth();
-        double healthPercent = currentHealth / maxHealthAttr.getDefaultValue();
-        double newHealth = Math.min(newMaxHealth, healthPercent * newMaxHealth + (newMaxHealth - maxHealthAttr.getDefaultValue()) * 0.5);
-        player.setHealth(Math.max(1, newHealth));
+        // Particules d'absorption dorée
+        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
+            8, 0.4, 0.5, 0.4, 0, new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f));
     }
 
     /**
-     * Retire le bonus de HP max de Fortification
+     * Retire le bonus d'absorption de Fortification
      */
     private void removeFortifyBonus(Player player, UUID uuid) {
-        Double baseHealth = fortifyBaseHealth.get(uuid);
-        if (baseHealth == null) return;
-
-        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
-        if (maxHealthAttr == null) return;
-
-        // Calculer le ratio de vie actuel
-        double healthRatio = player.getHealth() / maxHealthAttr.getValue();
-
-        // Restaurer la HP de base
-        maxHealthAttr.setBaseValue(baseHealth);
-
-        // Ajuster la vie pour garder le même ratio (sans dépasser le max)
-        double newHealth = Math.min(baseHealth, healthRatio * baseHealth);
-        player.setHealth(Math.max(1, newHealth));
+        // Retirer l'absorption
+        player.setAbsorptionAmount(0);
 
         // Nettoyer les données
         fortifyStacks.put(uuid, 0);
@@ -2148,10 +2217,13 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.FLASH, player.getLocation(), 1);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 20, 0.8, 0.8, 0.8, 0.1);
 
-        // Augmenter la taille du joueur (scale 1.25)
+        // Augmenter la taille du joueur (scale 1.35 pour effet imposant)
         if (player.getAttribute(Attribute.SCALE) != null) {
-            player.getAttribute(Attribute.SCALE).setBaseValue(1.25);
+            player.getAttribute(Attribute.SCALE).setBaseValue(1.35);
         }
+
+        // Glowing doré via équipe Scoreboard
+        applyGoldenGlow(player, (int)(duration / 50));
 
         // Immunité CC (résistance aux effets négatifs)
         player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, (int)(duration / 50), 0, false, false));
@@ -2173,6 +2245,9 @@ public class TalentListener implements Listener {
                     if (player.getAttribute(Attribute.SCALE) != null) {
                         player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
                     }
+                    // Retirer le glowing doré
+                    player.removePotionEffect(PotionEffectType.GLOWING);
+                    removeGoldenGlow(player);
                     // Message d'expiration via système centralisé
                     showTempEventMessage(player.getUniqueId(), "§8Avatar du Rempart terminé");
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
@@ -2547,24 +2622,17 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Applique le bonus HP temporaire de la Charge du Bastion
+     * Applique le bonus d'absorption temporaire de la Charge du Bastion
      */
     private void applyBastionChargeHpBonus(Player player, UUID uuid, double baseMaxHealth, int enemiesHit, double hpPerEnemy, long duration) {
-        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
-        if (maxHealthAttr == null) return;
-
-        // Calculer le bonus total (8% par ennemi, sans limite)
-        double bonusMultiplier = 1.0 + (enemiesHit * hpPerEnemy);
-        double newMaxHealth = baseMaxHealth * bonusMultiplier;
+        // Calculer le bonus total d'absorption (8% par ennemi, sans limite)
+        double absorptionAmount = baseMaxHealth * (enemiesHit * hpPerEnemy);
         int bonusPercent = (int) (enemiesHit * hpPerEnemy * 100);
+        int absorptionHearts = (int) Math.ceil(absorptionAmount / 2.0); // Convertir en cœurs
 
-        // Appliquer le bonus
-        maxHealthAttr.setBaseValue(newMaxHealth);
-
-        // Soigner proportionnellement
-        double currentHealth = player.getHealth();
-        double bonusHealth = (newMaxHealth - baseMaxHealth) * 0.5; // Soigne 50% du bonus
-        player.setHealth(Math.min(newMaxHealth, currentHealth + bonusHealth));
+        // Ajouter l'absorption à l'existante
+        double currentAbsorption = player.getAbsorptionAmount();
+        player.setAbsorptionAmount(currentAbsorption + absorptionAmount);
 
         // Effets visuels
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
@@ -2572,22 +2640,19 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
 
         // Message de résultat via système centralisé
-        showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)");
+        showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §e+" + absorptionHearts + "§6❤ §7absorption §8(6s)");
 
-        // Planifier la fin du bonus
+        // Planifier la fin du bonus d'absorption
+        final double addedAbsorption = absorptionAmount;
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
-                // Restaurer la HP de base
-                var attr = player.getAttribute(Attribute.MAX_HEALTH);
-                if (attr != null) {
-                    double healthRatio = player.getHealth() / attr.getValue();
-                    attr.setBaseValue(baseMaxHealth);
-                    player.setHealth(Math.max(1, Math.min(baseMaxHealth, healthRatio * baseMaxHealth)));
-                }
+                // Retirer l'absorption ajoutée (mais pas en dessous de 0)
+                double current = player.getAbsorptionAmount();
+                player.setAbsorptionAmount(Math.max(0, current - addedAbsorption));
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                 // Message d'expiration via système centralisé
-                showTempEventMessage(uuid, "§8⚔ Bonus Charge expiré...");
+                showTempEventMessage(uuid, "§8⚔ Absorption Charge expirée...");
             }
         }, duration / 50L); // Convertir ms en ticks
     }
@@ -2691,18 +2756,15 @@ public class TalentListener implements Listener {
             }
         }
 
-        // === SOIN ===
-        double healAmount = totalDamageDealt * healPercent;
-        if (healAmount > 0) {
-            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-            double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
-            player.setHealth(newHealth);
-
-            player.getWorld().spawnParticle(Particle.HEART, center.clone().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+        // === ABSORPTION au lieu de soin ===
+        double absorptionAmount = totalDamageDealt * healPercent;
+        if (absorptionAmount > 0) {
+            addAbsorption(player, absorptionAmount);
         }
 
-        // === MESSAGE via système centralisé ===
-        showTempEventMessage(uuid, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV");
+        // === MESSAGE via système centralisé (afficher en cœurs) ===
+        int absorptionHearts = (int) Math.ceil(absorptionAmount / 2.0);
+        showTempEventMessage(uuid, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §e+" + absorptionHearts + "§6❤");
 
         // === RESET ===
         ironEchoStacks.put(uuid, 0);
@@ -2883,7 +2945,14 @@ public class TalentListener implements Listener {
         UUID uuid = player.getUniqueId();
         bar.append("§6§l[§e🛡§6§l] ");
 
-        // Fortification stacks
+        // Avatar Rempart actif - PRIORITAIRE
+        if (isBulwarkAvatar(player)) {
+            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
+            bar.append("§6§l✦ AVATAR §e").append(remaining).append("s §7| §e100% blocage §7| §c+50% dégâts");
+            return; // Ne rien afficher d'autre pendant l'Avatar
+        }
+
+        // Fortification stacks (absorption active)
         int fortStacks = fortifyStacks.getOrDefault(uuid, 0);
         if (fortStacks > 0) {
             Long expiry = fortifyExpireTime.get(uuid);
@@ -2894,61 +2963,27 @@ public class TalentListener implements Listener {
                     timeStr = " §7(" + remaining + "s)";
                 }
             }
-            bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
+            bar.append("§6Fortification §e❤+").append(fortStacks * 10).append("%").append(timeStr);
         }
 
-        // Écho de Fer stacks et dégâts stockés (intégré directement)
-        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
-        if (ironEcho != null) {
-            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
-            double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
-            int stacksNeeded = (int) ironEcho.getValue(1);
-            if (echoStacks > 0 || storedDmg > 0) {
-                String stackColor = echoStacks >= stacksNeeded ? "§a§l" : "§e";
-                bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/").append(stacksNeeded);
-                if (storedDmg > 0) {
-                    bar.append(" §c+").append(String.format("%.0f", storedDmg));
-                }
-            }
-        }
-
-        // Châtiment stacks (intégré avec progression)
-        Talent punishment = getActiveTalentIfHas(player, Talent.TalentEffectType.PUNISHMENT);
-        if (punishment != null) {
-            int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
-            int stacksNeeded = (int) punishment.getValue(0);
-            if (punishStacks > 0 || punishmentReady.getOrDefault(uuid, false)) {
-                String stackColor = punishmentReady.getOrDefault(uuid, false) ? "§a§l" : "§d";
-                bar.append("  ").append(stackColor).append("⚔").append(punishStacks).append("/").append(stacksNeeded);
-                if (punishmentReady.getOrDefault(uuid, false)) {
-                    bar.append("§a✓");
-                }
-            }
-        }
-
-        // Bouclier Vengeur - progression des coups
-        Talent vengefulShield = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEFUL_SHIELD);
-        if (vengefulShield != null) {
-            int hitsNeeded = (int) vengefulShield.getValue(0);
-            boolean avatarActive = bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
-            int effectiveHitsNeeded = avatarActive ? Math.max(2, hitsNeeded / 2) : hitsNeeded;
-            int currentHits = vengefulShieldCounter.getOrDefault(uuid, 0);
-            if (currentHits > 0) {
-                String shieldColor = currentHits >= effectiveHitsNeeded - 1 ? "§b" : "§3";
-                bar.append("  ").append(shieldColor).append("◎").append(currentHits).append("/").append(effectiveHitsNeeded);
-            }
-        }
-
-        // Avatar Rempart actif
-        if (isBulwarkAvatar(player)) {
-            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
-            bar.append("  §6§lAVATAR §e").append(remaining).append("s");
-        } else {
-            // Dégâts bloqués pour Avatar (si pas encore actif)
+        // Progression vers Avatar (uniquement si > 50% du seuil)
+        Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
+        if (bulwarkAvatar != null) {
+            double threshold = bulwarkAvatar.getValue(0);
             double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
-            if (blocked > 0) {
-                bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+            int percent = (int) ((blocked / threshold) * 100);
+            if (percent >= 50) {
+                if (fortStacks > 0) bar.append("  §7| ");
+                bar.append("§6Avatar §e").append(percent).append("%");
             }
+        }
+
+        // Absorption actuelle (si > 0)
+        double absorption = player.getAbsorptionAmount();
+        if (absorption > 0) {
+            int hearts = (int) Math.ceil(absorption / 2.0);
+            if (fortStacks > 0 || bulwarkAvatar != null) bar.append("  §7| ");
+            bar.append("§e").append(hearts).append("§6❤");
         }
     }
 

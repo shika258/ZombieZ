@@ -62,7 +62,7 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_defensive_stance")
             .name("Posture Defensive")
-            .description("25% blocage passif, riposte + soin")
+            .description("25% blocage passif, riposte + absorption")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
@@ -70,10 +70,10 @@ public final class GuerrierTalents {
                 "§7§ebloquer§7 les attaques ennemies.",
                 "",
                 "§7Bloquer une attaque:",
-                "§7- §aSoigne 3%§7 PV max",
+                "§7- §e+3%§7 PV max en §6absorption",
                 "§7- §cInflige 50%§7 des degats a l'attaquant",
                 "",
-                "§8Effet: Defenses passives"
+                "§8Effet: Coeurs d'absorption dores"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -184,7 +184,7 @@ public final class GuerrierTalents {
                 "",
                 "§7Prochaine attaque:",
                 "§7- §c+80%§7 degats",
-                "§7- §aSoigne 5%§7 PV max",
+                "§7- §e+5%§7 PV max en §6absorption",
                 "",
                 "§8Style: §6Maintenir le rythme",
                 "§8Inspiré: Clash (Punishment)"
@@ -414,18 +414,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fortify")
             .name("Fortification")
-            .description("Blocages = bonus PV max temporaire")
+            .description("Blocages = absorption temporaire")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Chaque §eblocage§7 augmente vos",
-                "§cPV max de 10%§7!",
+                "§7Chaque §eblocage§7 vous donne",
+                "§e10%§7 PV max en §6absorption§7!",
                 "",
                 "§7- Cumulable §e5 fois§7 (max +50%)",
                 "§7- Dure §a5 secondes§7",
                 "§7- Chaque blocage §erefresh§7 le timer",
                 "",
-                "§8Effet: §6Aura doree croissante",
+                "§8Effet: §6Coeurs dores d'absorption",
                 "§8Inspiré: Fortify (D4)"
             })
             .classType(ClassType.GUERRIER)
@@ -661,7 +661,7 @@ public final class GuerrierTalents {
                 "§7- §6ONDE DE CHOC§7 automatique!",
                 "§7- §cInflige§7 tous les degats stockes",
                 "§7- §aAoE 8 blocs§7 autour de vous",
-                "§7- §aSoigne 20%§7 des degats infliges",
+                "§7- §e+20%§7 des degats en §6absorption",
                 "",
                 "§8Effet: §6Explosion doree + gong",
                 "§8Inspiré: Iron Skin (D4)"
@@ -774,7 +774,7 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bastion_charge")
             .name("Charge du Bastion")
-            .description("Double-sneak: charge + bonus HP par cible")
+            .description("Double-sneak: charge + absorption par cible")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
@@ -787,7 +787,7 @@ public final class GuerrierTalents {
                 "§7- §eKnockback§7 puissant",
                 "",
                 "§7Vous gagnez:",
-                "§7- §c+8% PV max§7 par ennemi touche",
+                "§7- §e+8%§7 PV max en §6absorption§7 par ennemi",
                 "§7- Dure §a6 secondes§7",
                 "§7- §eCumulable§7 sans limite!",
                 "",
@@ -952,14 +952,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_colossus")
             .name("Colosse")
-            .description("+50% PV, +30% corps a corps, -25% vitesse")
+            .description("+50% absorption, +30% corps a corps, -25% vitesse")
             .loreLines(new String[]{
                 "§7Forme de geant permanente:",
-                "§7- §a+50%§7 PV max",
+                "§7- §e+50%§7 PV max en §6absorption§7 (regen)",
                 "§7- §c+30%§7 degats corps a corps",
                 "§7- §c-25%§7 vitesse",
                 "",
-                "§8Taille +20%"
+                "§8Taille +20%",
+                "§8L'absorption se regenere avec le temps"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
