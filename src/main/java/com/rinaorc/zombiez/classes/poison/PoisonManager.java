@@ -98,7 +98,7 @@ public class PoisonManager {
      * Démarre les tâches périodiques
      */
     private void startTasks() {
-        // Tâche principale (toutes les secondes - 20 ticks)
+        // Tâche principale (toutes les 0.5s - 10 ticks) - DoT plus rapide = plus de puissance
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -125,7 +125,7 @@ public class PoisonManager {
                     return false;
                 });
 
-                // Appliquer les dégâts DoT
+                // Appliquer les dégâts DoT (2x par seconde = DPS doublé)
                 applyPoisonDamage();
 
                 // Appliquer l'aura Fléau (passif)
@@ -134,7 +134,7 @@ public class PoisonManager {
                 // Appliquer l'aura Avatar (si actif)
                 applyAvatarAura();
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 10L, 10L);
 
         // Tâche d'enregistrement ActionBar (toutes les secondes)
         new BukkitRunnable() {
@@ -252,9 +252,9 @@ public class PoisonManager {
             Player owner = Bukkit.getPlayer(ownerUuid);
             if (owner == null) continue;
 
-            // Éviter les ticks trop rapprochés
+            // Éviter les ticks trop rapprochés (0.45s = tick toutes les 10 ticks)
             Long lastTick = lastDotTick.get(targetUuid);
-            if (lastTick != null && now - lastTick < 900) continue; // Min 0.9s entre ticks
+            if (lastTick != null && now - lastTick < 450) continue; // Min 0.45s entre ticks
             lastDotTick.put(targetUuid, now);
 
             // === CALCUL DES DÉGÂTS DoT ===
@@ -324,16 +324,25 @@ public class PoisonManager {
                 owner.setHealth(newHealth);
             }
 
-            // === PARTICULES DE DoT (légères) ===
+            // === PARTICULES DE DoT (plus impactantes) ===
             Location loc = target.getLocation().add(0, 1, 0);
             if (isCrit) {
-                // Crit: particules de crit + poison
-                target.getWorld().spawnParticle(Particle.CRIT, loc, 5, 0.2, 0.2, 0.2, 0.1);
-                target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.4f, 1.3f);
+                // Crit: particules de crit + poison (satisfaisant)
+                target.getWorld().spawnParticle(Particle.CRIT, loc, 8, 0.3, 0.3, 0.3, 0.15);
+                target.getWorld().spawnParticle(Particle.DUST, loc, 3, 0.2, 0.2, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(100, 255, 50), 1.0f));
+                target.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.5f, 1.2f);
+            } else {
+                // DoT normal: effet de "corrosion" visible
+                int particleCount = 2 + vir / 50; // Plus de particules à haute virulence
+                int green = 200 - (vir * 80 / 100);
+                target.getWorld().spawnParticle(Particle.DUST, loc, particleCount, 0.25, 0.3, 0.25, 0,
+                    new Particle.DustOptions(Color.fromRGB(60, Math.max(80, green), 40), 0.9f));
             }
-            // Poison: 2-3 particules vertes (pas de spam)
-            target.getWorld().spawnParticle(Particle.DUST, loc, 2, 0.2, 0.2, 0.2, 0,
-                new Particle.DustOptions(Color.fromRGB(50, 180, 50), 0.8f));
+            // Son subtil de corrosion (pas à chaque tick - seulement haute virulence)
+            if (vir >= 70 && Math.random() < 0.3) {
+                target.getWorld().playSound(loc, Sound.BLOCK_SLIME_BLOCK_HIT, 0.25f, 1.8f);
+            }
         }
     }
 
@@ -386,9 +395,10 @@ public class PoisonManager {
         // Effet visuel au centre (nuage qui se dissipe, pas explosion)
         spawnPropagationCloud(deathLoc);
 
-        // Son de propagation
-        deathLoc.getWorld().playSound(deathLoc, Sound.BLOCK_HONEY_BLOCK_BREAK, 1.0f, 0.6f);
-        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_PUFFER_FISH_BLOW_OUT, 0.8f, 0.8f);
+        // Sons de propagation (plus satisfaisants)
+        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_EVOKER_PREPARE_ATTACK, 0.8f, 1.4f);
+        deathLoc.getWorld().playSound(deathLoc, Sound.BLOCK_SLIME_BLOCK_BREAK, 1.0f, 0.7f);
+        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_PUFFER_FISH_BLOW_OUT, 0.6f, 1.0f);
 
         // Message
         if (!nearbyTargets.isEmpty()) {
@@ -405,39 +415,99 @@ public class PoisonManager {
     }
 
     /**
-     * Crée une ligne de particules de propagation
+     * Crée une chaîne de poison animée entre deux points
+     * Effet de "lien toxique" qui se propage visuellement
      */
     private void createPropagationLine(Location from, Location to) {
         Vector direction = to.toVector().subtract(from.toVector());
         double length = direction.length();
         direction.normalize();
 
-        // Particules espacées de 0.5 blocs
-        for (double i = 0; i < length; i += 0.5) {
-            Location point = from.clone().add(direction.clone().multiply(i));
-            point.getWorld().spawnParticle(Particle.DUST, point, 1, 0, 0, 0, 0,
-                new Particle.DustOptions(Color.fromRGB(80, 200, 80), 0.6f));
-        }
-    }
-
-    /**
-     * Crée un nuage de propagation (pas une explosion)
-     */
-    private void spawnPropagationCloud(Location loc) {
-        // Nuage vert qui monte et se dissipe
+        // Animation de la chaîne de poison (effet de vague qui se propage)
         new BukkitRunnable() {
-            int ticks = 0;
+            int step = 0;
+            final int totalSteps = (int) (length / 0.4);
+
             @Override
             public void run() {
-                if (ticks >= 10) {
+                if (step > totalSteps + 3) {
                     cancel();
                     return;
                 }
-                double y = ticks * 0.15;
-                double spread = 0.5 + ticks * 0.1;
-                loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, y, 0),
-                    3, spread, 0.1, spread, 0,
-                    new Particle.DustOptions(Color.fromRGB(60, 180, 60), 1.0f - ticks * 0.08f));
+
+                // Particules qui avancent comme une vague
+                for (int i = Math.max(0, step - 3); i <= step && i <= totalSteps; i++) {
+                    double dist = i * 0.4;
+                    Location point = from.clone().add(direction.clone().multiply(dist));
+
+                    // Couleur qui s'intensifie vers la cible
+                    float progress = (float) i / totalSteps;
+                    int green = (int) (180 - progress * 60); // 180 → 120
+                    int red = (int) (progress * 100);        // 0 → 100
+
+                    // Effet de spirale légère autour de la ligne
+                    double angle = (step + i) * 0.8;
+                    double offsetX = Math.cos(angle) * 0.15;
+                    double offsetZ = Math.sin(angle) * 0.15;
+
+                    point.getWorld().spawnParticle(Particle.DUST,
+                        point.clone().add(offsetX, 0, offsetZ), 1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.fromRGB(red, green, 50), 0.7f));
+                }
+
+                // Son subtil à mi-chemin
+                if (step == totalSteps / 2) {
+                    from.getWorld().playSound(to, Sound.BLOCK_SLIME_BLOCK_HIT, 0.4f, 1.5f);
+                }
+
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Crée un nuage de propagation avec effet de "burst" toxique
+     */
+    private void spawnPropagationCloud(Location loc) {
+        // Burst initial + nuage qui monte et se dissipe
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 12) {
+                    cancel();
+                    return;
+                }
+
+                if (ticks == 0) {
+                    // Burst initial - cercle de particules qui s'expand
+                    for (int i = 0; i < 8; i++) {
+                        double angle = Math.toRadians(i * 45);
+                        double x = Math.cos(angle) * 0.8;
+                        double z = Math.sin(angle) * 0.8;
+                        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0.5, z),
+                            1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(50, 200, 50), 1.2f));
+                    }
+                } else {
+                    // Nuage qui monte avec effet spiral
+                    double y = ticks * 0.12;
+                    double spread = 0.3 + ticks * 0.08;
+                    double angle = ticks * 30;
+
+                    for (int i = 0; i < 3; i++) {
+                        double a = Math.toRadians(angle + i * 120);
+                        double x = Math.cos(a) * spread;
+                        double z = Math.sin(a) * spread;
+
+                        int green = 180 - ticks * 8;
+                        loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, y, z),
+                            1, 0.05, 0.05, 0.05, 0,
+                            new Particle.DustOptions(Color.fromRGB(40, Math.max(80, green), 40),
+                                Math.max(0.4f, 1.0f - ticks * 0.06f)));
+                    }
+                }
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 2L);

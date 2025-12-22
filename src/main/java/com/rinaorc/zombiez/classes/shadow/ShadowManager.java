@@ -118,6 +118,9 @@ public class ShadowManager {
         double lastOwnerX = 0, lastOwnerY = 0, lastOwnerZ = 0;
         boolean hasLastPosition = false;
 
+        // Compteur de ticks pour les vérifications périodiques (collisions, particules)
+        int tickCounter = 0;
+
         SpectralBladesData(UUID owner, long duration, int bladeCount, double orbitRadius,
                           double damagePercent, long rotationPeriod) {
             this.ownerUuid = owner;
@@ -1274,8 +1277,14 @@ public class ShadowManager {
             data.lastOwnerY = centerY;
             data.lastOwnerZ = centerZ;
 
+            // Incrémenter le compteur de ticks
+            data.tickCounter++;
+
             // Calculer l'angle de rotation basé sur le temps réel (ultra fluide)
             double currentAngle = data.getCurrentAngle();
+
+            // Stocker les positions des lames pour la vérification de collision
+            List<Location> bladePositions = new ArrayList<>();
 
             // Mettre à jour chaque ArmorStand
             double angleStep = 360.0 / data.bladeCount;
@@ -1305,21 +1314,25 @@ public class ShadowManager {
                 // Téléporter l'ArmorStand
                 blade.teleport(bladeLoc);
 
-                // Particules de traînée (1 sur 3 ticks pour perf)
-                if (System.currentTimeMillis() % 3 == 0) {
+                // Stocker la position pour la collision
+                bladePositions.add(bladeLoc);
+
+                // Particules de traînée (tous les 3 ticks pour perf)
+                if (data.tickCounter % 3 == 0) {
                     blade.getWorld().spawnParticle(Particle.DUST, bladeLoc.clone().add(0, 0.5, 0),
                         1, 0.05, 0.05, 0.05, 0,
                         new Particle.DustOptions(Color.fromRGB(148, 0, 211), 0.6f));
                 }
-
-                // Vérifier les collisions avec les ennemis (toutes les 2 frames pour perf)
-                if (System.currentTimeMillis() % 2 == 0) {
-                    checkBladeCollisions(owner, bladeLoc, data);
-                }
             }
 
-            // Vérifier également les ennemis à l'intérieur du cercle orbital (pas seulement sur les lames)
-            if (System.currentTimeMillis() % 4 == 0) {
+            // Vérifier les collisions avec les ennemis à chaque tick
+            // Le cooldown par cible (BLADE_HIT_COOLDOWN_MS) empêche le spam de dégâts
+            for (Location bladeLoc : bladePositions) {
+                checkBladeCollisions(owner, bladeLoc, data);
+            }
+
+            // Vérifier également les ennemis à l'intérieur du cercle orbital (tous les 2 ticks)
+            if (data.tickCounter % 2 == 0) {
                 checkAreaCollisions(owner, data);
             }
         }

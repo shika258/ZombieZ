@@ -112,17 +112,23 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_venomous_strike")
             .name("Frappe Venimeuse")
-            .description("40% chance poison, 3+ = Nécrose")
+            .description("40% virulence, 70%+ = Nécrose (+25%)")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
                 "§7Vos attaques ont §a40%§7 de chance",
-                "§7d'appliquer §2Venin§7 (stack x5).",
+                "§7d'appliquer §2+15 Virulence§7.",
                 "",
-                "§6À 3+ STACKS - NÉCROSE:",
-                "§8► Le poison devient §cNécrose",
-                "§8► §c+20%§8 dégâts de poison",
-                "§8► Effet visuel de corruption",
+                "§6SYSTÈME DE VIRULENCE (0-100):",
+                "§8► DoT: §c8%§8 dégâts par 10 virulence",
+                "§8► Tick: §e2x/seconde§8 (rapide!)",
+                "",
+                "§c§lNÉCROSE (70%+):",
+                "§8► §c+25%§8 dégâts de DoT!",
+                "",
+                "§d§lCORROMPU (100%):",
+                "§8► §d+30%§8 dégâts directs",
+                "§8► Propagation à la mort!",
                 "",
                 "§2§lINFECTEZ VOS PROIES"
             })
@@ -132,7 +138,7 @@ public final class ChasseurTalents {
             .icon(Material.SPIDER_EYE)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.VENOMOUS_STRIKE)
-            .values(new double[]{0.40, 5, 3, 0.20}) // chance, max_stacks, necrosis_threshold, necrosis_bonus (nerfed 25→20%)
+            .values(new double[]{0.40, 100, 70, 0.25}) // chance, max_virulence, necrosis_threshold (70%), necrosis_bonus (25%)
             .build());
 
         // 1.5 - FLÈCHES GIVRANTES (Voie du Givre)
@@ -278,19 +284,20 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_corrosive_venom")
             .name("Venin Corrosif")
-            .description("Poison 50%/3s + -10% armure ennemi")
+            .description("+15% dégâts sur empoisonnés!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison devient §2corrosif§7!",
+                "§7Votre poison §2ronge§7 les défenses!",
                 "",
-                "§6DÉGÂTS POISON:",
-                "§8► §c50%§8 de vos dégâts sur §e3s",
-                "§8► Se cumule avec les stacks",
+                "§6BONUS DÉGÂTS:",
+                "§8► §c+15%§8 dégâts sur cibles",
+                "§8► empoisonnées (virulence > 0)",
                 "",
-                "§6CORROSION:",
-                "§8► Empoisonnés: §c-10%§8 armure",
-                "§8► Synergie avec Nécrose!",
+                "§6SYNERGIE VIRULENCE:",
+                "§8► Plus de virulence = plus",
+                "§8► d'opportunités de bonus!",
+                "§8► Stack avec Nécrose/Corrompu",
                 "",
                 "§2§lRONGEZ LEUR DÉFENSE"
             })
@@ -300,7 +307,7 @@ public final class ChasseurTalents {
             .icon(Material.FERMENTED_SPIDER_EYE)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.CORROSIVE_VENOM)
-            .values(new double[]{0.50, 3000, 0.10}) // damage%, duration_ms, armor_reduction
+            .values(new double[]{0.15, 6000, 0.15}) // damage_bonus%, virulence_duration_ms, damage_bonus%
             .build());
 
         // 2.5 - CHARGE GLACIALE (Voie du Givre)
@@ -430,22 +437,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_deadly_toxins")
             .name("Toxines Mortelles")
-            .description("Poison CRIT +50%, Slow -30%, burst possible")
+            .description("DoT peut CRIT! Ralentissement toxique")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
                 "§7Votre poison devient §cléthal§7!",
                 "",
                 "§6CRITIQUES TOXIQUES:",
-                "§8► §e25%§8 chance de crit poison",
-                "§8► Crits: §c+50%§8 dégâts DoT",
+                "§8► Le DoT peut §eCRIT§8!",
+                "§8► Utilise vos stats de crit",
+                "§8► Particules spéciales sur crit",
                 "",
                 "§6PARALYSIE:",
-                "§8► Empoisonnés: §9-30%§8 vitesse",
-                "§8► Facilite les combo!",
-                "",
-                "§6BURST (5 stacks):",
-                "§8► Crit sur 5 stacks = explosion!",
+                "§8► Empoisonnés: §9Ralentis§8",
+                "§8► §9Slow II§8 à 70%+ virulence",
+                "§8► Facilite les combos!",
                 "",
                 "§2§lLA MORT LENTE"
             })
@@ -582,21 +588,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_pandemic")
             .name("Pandémie")
-            .description("Kill empoisonné = EXPLOSION toxique 5 blocs!")
+            .description("Kill empoisonné = PROPAGATION en chaîne!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
                 "§7Tuer un ennemi §2empoisonné§7",
-                "§7déclenche une §c§lEXPLOSION§7!",
+                "§7§dpropage§7 le poison!",
                 "",
-                "§6EXPLOSION TOXIQUE:",
-                "§8► Zone: §e5§8 blocs",
-                "§8► Applique §22 stacks§8 poison",
-                "§8► §c30%§8 dégâts de l'ennemi tué",
+                "§6PROPAGATION TOXIQUE:",
+                "§8► Jusqu'à §e3§8 cibles proches",
+                "§8► Rayon: §e5§8 blocs",
+                "§8► §2+40 Virulence§8 transmise",
                 "",
-                "§6RÉACTION EN CHAÎNE:",
-                "§7Si l'explosion tue, nouvelle",
-                "§7explosion! (max 3 chaînes)",
+                "§d§lBONUS CORROMPU (100%):",
+                "§8► §d+60 Virulence§8 transmise!",
+                "§8► Chaînes de poison animées",
                 "",
                 "§2§lPROPAGEZ LA PESTE"
             })
@@ -606,7 +612,7 @@ public final class ChasseurTalents {
             .icon(Material.DRAGON_BREATH)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.PANDEMIC)
-            .values(new double[]{5.0, 2, 0.30, 3}) // range, stacks_applied, damage%, max_chains
+            .values(new double[]{5.0, 40, 60, 3}) // range, base_virulence, corrupted_virulence, max_targets
             .build());
 
         // 4.5 - HYPOTHERMIE (Voie du Givre)
@@ -736,29 +742,28 @@ public final class ChasseurTalents {
             .values(new double[]{5, 2.5, 4.0, 2}) // points_needed, dmg_normal (250%), dmg_marked (400%), points_on_kill
             .build());
 
-        // 5.4 - EPIDEMIE (Voie du Poison)
+        // 5.4 - NÉCROSE (Voie du Poison) - Passif améliorant les dégâts sur cibles corrompues
         TALENTS.add(Talent.builder()
             .id("chasseur_epidemic")
-            .name("Épidémie")
-            .description("Stacks infinis, 10+ = SUPER EXPLOSION auto!")
+            .name("Nécrose")
+            .description("+30% dégâts sur CORROMPUS (100% virulence)")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Le poison §2se cumule à l'infini§7!",
+                "§7Vos cibles §dcorrompues§7 sont",
+                "§7condamnées à une mort certaine!",
                 "",
-                "§6STACKS INFINIS:",
-                "§8► Plus de limite de 5 stacks",
-                "§8► Chaque stack = +10% dégâts DoT",
+                "§d§lBONUS CORROMPU (passif):",
+                "§8► §c+30%§8 dégâts directs",
+                "§8► Sur cibles à §d100% virulence§8",
+                "§8► S'applique à TOUT vos dégâts!",
                 "",
-                "§c§lÀ 10 STACKS - SUPER EXPLOSION:",
-                "§8► §cTous les stacks explosent!",
-                "§8► §e150%§8 dégâts par stack",
-                "§8► Zone: §e4§8 blocs",
-                "§8► Reset les stacks à 0",
+                "§6STRATÉGIE:",
+                "§8► Montez la virulence à 100%",
+                "§8► Profitez du bonus massif!",
+                "§8► Les DoT font le reste...",
                 "",
-                "§6SATISFACTION GARANTIE!",
-                "",
-                "§2§lACCUMULEZ, EXPLOSEZ"
+                "§2§lLEUR DESTIN EST SCELLÉ"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -766,7 +771,7 @@ public final class ChasseurTalents {
             .icon(Material.SLIME_BLOCK)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.EPIDEMIC)
-            .values(new double[]{10, 1.5}) // threshold, damage_multiplier (nerfed 200→150%)
+            .values(new double[]{100, 0.30}) // virulence_threshold, damage_bonus
             .build());
 
         // 5.5 - GIVRE PÉNÉTRANT (Voie du Givre)
@@ -910,23 +915,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_toxic_synergy")
             .name("Synergie Toxique")
-            .description("+5% AS par stack proche, heal sur explosion")
+            .description("+1% dégâts par 10 virulence proche (max 25%)")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison vous §arenforce§7!",
+                "§7La virulence vous §arenforce§7!",
                 "",
-                "§6FRÉNÉSIE TOXIQUE:",
-                "§8► §a+5%§8 Attack Speed par stack",
-                "§8► Compte tous ennemis à §e8§8 blocs",
-                "§8► Maximum: §a+30%§8 AS",
+                "§6SYNERGIE DE VIRULENCE:",
+                "§8► §c+1%§8 dégâts par 10 virulence",
+                "§8► Compte dans §e8 blocs§8 autour",
+                "§8► Maximum: §c+25%§8 dégâts!",
                 "",
-                "§6DRAIN VITAL:",
-                "§8► Explosions de poison: §c+8%§8 heal",
-                "§8► Applique aux explosions Épidémie",
-                "",
-                "§6PLUS ILS SOUFFRENT...",
-                "§7...plus vous êtes fort!",
+                "§6EXEMPLE:",
+                "§7- 5 ennemis à 40 virulence",
+                "§7- Total = 200 virulence",
+                "§7- Bonus = §c+20%§8 dégâts!",
                 "",
                 "§2§lLE POISON VOUS NOURRIT"
             })
@@ -936,7 +939,7 @@ public final class ChasseurTalents {
             .icon(Material.BREWING_STAND)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.TOXIC_SYNERGY)
-            .values(new double[]{0.05, 8.0, 0.30, 0.08}) // as_per_stack, range, max_as_bonus (nerfed 40→30%), heal_on_explosion
+            .values(new double[]{0.01, 8.0, 0.25}) // damage_per_10_virulence, range, max_bonus
             .build());
 
         // 6.5 - TEMPÊTE DE NEIGE (Voie du Givre)
@@ -1085,23 +1088,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_black_plague")
             .name("Peste Noire")
-            .description("Anti-heal, 10% lifesteal DoT, morts = nuages")
+            .description("15% Lifesteal sur tous vos DoT!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison devient §0§lmortel§r§7!",
+                "§7Votre poison vous §aSUSTENTE§7!",
                 "",
-                "§6ANTI-SOIN:",
-                "§8► Empoisonnés: §c-75%§8 soins reçus",
-                "§8► Bloque régénération naturelle",
+                "§a§lDRAIN DE VIE:",
+                "§8► §a15%§8 lifesteal sur DoT",
+                "§8► Chaque tick vous soigne!",
+                "§8► Stack avec vos stats de vie",
                 "",
-                "§6DRAIN DE VIE:",
-                "§8► Dégâts poison: §a+10%§8 lifesteal",
-                "§8► Vous soigne passivement!",
-                "",
-                "§6NUAGE MORTEL:",
-                "§8► Morts par poison = nuage 3s",
-                "§8► Nuage: §24§8 blocs, 15% dégâts/s",
+                "§6SYNERGIE:",
+                "§8► Plus de virulence = plus de DoT",
+                "§8► Plus de DoT = plus de soin!",
+                "§8► Crits DoT = gros heal!",
                 "",
                 "§0§lLA MORT INCARNÉE"
             })
@@ -1111,7 +1112,7 @@ public final class ChasseurTalents {
             .icon(Material.WITHER_ROSE)
             .iconColor("§0")
             .effectType(Talent.TalentEffectType.BLACK_PLAGUE)
-            .values(new double[]{0.75, 0.10, 4.0, 0.15, 3000}) // heal_reduction%, lifesteal%, cloud_radius, cloud_dps%, cloud_duration_ms
+            .values(new double[]{0.15}) // lifesteal%
             .build());
 
         // 7.5 - ÉCHO GLACIAL (Voie du Givre)
@@ -1253,24 +1254,21 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_blight")
             .name("Fléau")
-            .description("Aura poison 5 blocs, propagation auto, combo boost")
+            .description("Aura +5 virulence/s, COMBO à 200+!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Vous §2irradiez§7 le poison!",
+                "§7Vous §2IRRADIEZ§7 le poison!",
                 "",
-                "§6AURA TOXIQUE:",
-                "§8► §e5 blocs§8 autour de vous",
-                "§8► §21 stack§8/seconde aux ennemis",
-                "§8► Passive et permanente",
+                "§6AURA DE FLÉAU (passive):",
+                "§8► §e4 blocs§8 autour de vous",
+                "§8► §2+5 virulence§8/seconde",
+                "§8► Empoisonne automatiquement!",
                 "",
-                "§6PROPAGATION AUTO:",
-                "§8► Ennemis 3+ stacks infectent",
-                "§8► les autres à §e3 blocs§8",
-                "",
-                "§6BOOST COMBO:",
-                "§8► À 50+ stacks totaux proches:",
-                "§8► §c+25%§8 tous vos dégâts!",
+                "§c§lCOMBO FLÉAU (200+ virulence):",
+                "§8► 200+ virulence totale proche",
+                "§8► = §c+20%§8 TOUS vos dégâts!",
+                "§8► Indicateur §c§lCOMBO!§8 visible",
                 "",
                 "§2§lVOUS ÊTES LA PESTE"
             })
@@ -1280,40 +1278,36 @@ public final class ChasseurTalents {
             .icon(Material.MYCELIUM)
             .iconColor("§2")
             .effectType(Talent.TalentEffectType.BLIGHT)
-            .values(new double[]{5.0, 1000, 3.0, 50, 0.25}) // aura_range, tick_ms, spread_range, combo_threshold, combo_bonus
+            .values(new double[]{4.0, 5, 200, 0.20}) // aura_range, virulence_per_tick, combo_threshold, combo_bonus
             .build());
 
-        // 8.5 - HIVER ÉTERNEL (Voie du Givre)
+        // 8.5 - HIVER ÉTERNEL (Voie du Givre) - PASSIF: s'active après 5 gels
         TALENTS.add(Talent.builder()
             .id("chasseur_devastation")
             .name("Hiver Éternel")
-            .description("Mode 8s: +50% givre, aura de givre, +60% dégâts!")
+            .description("5 ennemis gelés = MODE HIVER 8s!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Entrez en mode §b§lHIVER ÉTERNEL§7!",
+                "§7Après avoir §bgelé 5 ennemis§7,",
+                "§7entrez en mode §b§lHIVER ÉTERNEL§7!",
                 "",
-                "§6MODE HIVER ÉTERNEL (8s):",
+                "§6ACTIVATION AUTOMATIQUE:",
+                "§8► Gelez §e5 ennemis§8",
+                "§8► Le mode s'active seul!",
+                "§8► Compteur visible dans l'ActionBar",
+                "",
+                "§b§lMODE HIVER ÉTERNEL (8s):",
                 "§8► §b+50%§8 givre appliqué!",
-                "§8► §c+60%§8 dégâts",
+                "§8► §c+40%§8 dégâts",
                 "§8► §c+50%§8 dégâts d'éclat",
-                "§8► Pierce INFINI",
                 "",
                 "§6AURA DE GIVRE:",
-                "§8► §e5 blocs§8 autour de vous",
-                "§8► §b+5%§8 givre/tick aux ennemis",
+                "§8► §e4 blocs§8 autour de vous",
+                "§8► §b+8%§8 givre/tick aux ennemis",
                 "§8► Gel passif automatique!",
                 "",
-                "§6BONUS CHARGE:",
-                "§8► Charge monte §e2x§8 plus vite",
-                "§8► Tirs Glaciaux améliorés!",
-                "",
-                "§6EFFET VISUEL:",
-                "§8► Aura de flocons de neige",
-                "§8► Traînées de glace",
-                "",
-                "§8► Cooldown: §c30s",
+                "§8► Cooldown: §c25s§8 après fin",
                 "",
                 "§b§l★ L'HIVER EST ÉTERNEL ★"
             })
@@ -1323,8 +1317,8 @@ public final class ChasseurTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.DEVASTATION)
-            .values(new double[]{8000, 0.60, 0.50, 1.50, 30000}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms
-            .internalCooldownMs(30000)
+            .values(new double[]{8000, 0.40, 0.50, 1.50, 25000, 5}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms, freezes_needed
+            .internalCooldownMs(25000)
             .build());
     }
 
@@ -1439,7 +1433,7 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_plague_avatar")
             .name("Avatar de la Peste")
-            .description("Ultime 20s: Max stacks instant, x2 explosions, immunité!")
+            .description("Ultime 15s: x3 virulence, aura 6 blocs, explosion finale!")
             .loreLines(new String[]{
                 "§2§l★ TALENT LÉGENDAIRE ★",
                 "§2§lVOIE DU POISON",
@@ -1447,16 +1441,16 @@ public final class ChasseurTalents {
                 "§7Activation: §e2x SNEAK§7 rapidement",
                 "§7Devenez l'§2§lAVATAR DE LA PESTE§7!",
                 "",
-                "§6TRANSFORMATION (20s):",
-                "§8► Attaques = §2max stacks§8 instant!",
-                "§8► Explosions poison: §cx2§8 rayon",
+                "§6TRANSFORMATION (15s):",
+                "§8► §2x3 VIRULENCE§8 appliquée!",
+                "§8► Aura §e6 blocs§8 (+30 vir/s)",
                 "§8► §aImmunité§8 poison/wither",
-                "§8► Aura 8 blocs (3 stacks/s)",
+                "§8► Bonus de vitesse",
                 "",
-                "§6PESTE FINALE:",
-                "§8► À la fin: §cMÉGA EXPLOSION",
-                "§8► 10 blocs, 500% dégâts poison",
-                "§8► Tous les ennemis = max stacks",
+                "§c§lPESTE FINALE (fin):",
+                "§8► Explosion §e8 blocs§8",
+                "§8► §c500%§8 dégâts (cap 1000)",
+                "§8► Tous = §d100% virulence§8!",
                 "",
                 "§8► Cooldown: §c60s",
                 "",
@@ -1468,45 +1462,35 @@ public final class ChasseurTalents {
             .icon(Material.DRAGON_HEAD)
             .iconColor("§2§l")
             .effectType(Talent.TalentEffectType.PLAGUE_AVATAR)
-            .values(new double[]{20000, 8.0, 3, 10.0, 5.0, 60000}) // duration_ms, aura_range, stacks_per_sec, final_radius, final_damage_mult, cooldown_ms
+            .values(new double[]{15000, 6.0, 10, 8.0, 5.0, 60000}) // duration_ms, aura_range, virulence_per_tick, final_radius, final_damage_mult, cooldown_ms
             .internalCooldownMs(60000)
             .build());
 
-        // 9.5 - ZÉRO ABSOLU (Voie du Givre - LÉGENDAIRE)
+        // 9.5 - ZÉRO ABSOLU (Voie du Givre - LÉGENDAIRE) - Activation instantanée
         TALENTS.add(Talent.builder()
             .id("chasseur_judgment")
             .name("Zéro Absolu")
-            .description("Gel instantané TOUS ennemis 15 blocs!")
+            .description("2x SNEAK = Gel instantané 12 blocs!")
             .loreLines(new String[]{
                 "§b§l★ TALENT LÉGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
                 "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7puis restez §eimmobile 1.5s§7...",
+                "§7Déclenche §b§lZÉRO ABSOLU§7!",
                 "",
                 "§b§lZÉRO ABSOLU:",
-                "§8► Vague de froid §e15 blocs",
+                "§8► Vague de froid §e12 blocs§8",
                 "§8► §b§lGÈLE INSTANTANÉMENT§8 tous!",
-                "§8► Dégâts: §c§l1000%§8 de base!",
+                "§8► Dégâts: §c500%§8 de base!",
                 "",
                 "§6EFFETS SUR LES GELÉS:",
                 "§8► §b100%§8 givre instantané",
                 "§8► §bImmobilisés§8 pendant §e2s",
                 "§8► Subissent §c+50%§8 dégâts",
                 "",
-                "§6VAGUE DE GLACE:",
-                "§8► S'étend depuis vous",
-                "§8► Traînée de particules de glace",
-                "§8► Sol couvert de neige §e3s",
-                "",
-                "§6ÉCLAT EN CHAÎNE:",
-                "§8► Les morts déclenchent des éclats",
-                "§8► Réaction en chaîne dévastatrice!",
-                "",
-                "§6EFFET VISUEL:",
-                "§8► Charge: flocons convergent",
-                "§8► Vague: anneau de glace §bcyan§8",
-                "§8► Son: cristallisation épique",
+                "§6VAGUE VISUELLE:",
+                "§8► Anneau de glace qui s'étend",
+                "§8► Particules de glace épiques",
                 "",
                 "§8► Cooldown: §c45s",
                 "",
@@ -1518,7 +1502,7 @@ public final class ChasseurTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.JUDGMENT)
-            .values(new double[]{1500, 15.0, 10.0, 1.0, 2000, 3000, 45000}) // charge_ms, range (reduced to 15), damage_mult, frost%, freeze_duration_ms, visual_duration_ms, cooldown_ms
+            .values(new double[]{12.0, 5.0, 2000, 45000}) // range, damage_mult, freeze_duration_ms, cooldown_ms
             .internalCooldownMs(45000)
             .build());
     }

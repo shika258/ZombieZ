@@ -151,17 +151,17 @@ public enum TalentBranch {
     ),
     CHASSEUR_PERFORATION(
         ClassType.CHASSEUR, 4,
-        "Perforation",
-        "§a",
-        Material.SPECTRAL_ARROW,
+        "Givre",
+        "§b",
+        Material.BLUE_ICE,
         new String[]{
-            "§a§lVOIE DE LA PERFORATION",
+            "§b§lVOIE DU GIVRE",
             "",
-            "§7Montez en puissance et percez",
-            "§7vos ennemis avec des tirs dévastateurs!",
+            "§7Gelez vos ennemis avec des tirs",
+            "§7glacials et faites-les éclater!",
             "",
-            "§8Spécialité: §aCalibré, Surchauffe, Momentum",
-            "§8Style: §aRailgun vivant"
+            "§8Spécialité: §bGel, Éclat, Contrôle",
+            "§8Style: §bCryomancien archer"
         }
     ),
 
