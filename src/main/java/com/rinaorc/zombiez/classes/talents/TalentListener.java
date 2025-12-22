@@ -95,6 +95,9 @@ public class TalentListener implements Listener {
     // Avatar de Vengeance - degats stockes
     private final Map<UUID, Double> storedDamage = new ConcurrentHashMap<>();
 
+    // Avatar de Sang - HP volés cumulés
+    private final Map<UUID, Double> bloodStolenHp = new ConcurrentHashMap<>();
+
     // Seigneur de Guerre - chain execute buff
     private final Map<UUID, Long> chainExecuteBuff = new ConcurrentHashMap<>();
 
@@ -256,7 +259,7 @@ public class TalentListener implements Listener {
                 punishmentStacks.put(uuid, 0);
 
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
-                player.getWorld().spawnParticle(Particle.CRIT_MAGIC, target.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.2);
+                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.2);
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
                 }
