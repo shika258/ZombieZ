@@ -131,6 +131,14 @@ public class TalentListener implements Listener {
         if (!(event.getDamager() instanceof Player player)) return;
         if (!(event.getEntity() instanceof LivingEntity target)) return;
 
+        // IMPORTANT: Ignorer les dégâts secondaires (AoE des talents) pour éviter les cascades infinies
+        // Ces dégâts sont marqués avant d'être appliqués via target.setMetadata("zombiez_secondary_damage", ...)
+        if (target.hasMetadata("zombiez_secondary_damage")) {
+            // Nettoyer la metadata après 1 tick pour ne pas affecter les futurs dégâts normaux
+            Bukkit.getScheduler().runTaskLater(plugin, () -> target.removeMetadata("zombiez_secondary_damage", plugin), 1L);
+            return;
+        }
+
         ClassData data = plugin.getClassManager().getClassData(player);
         if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
 
