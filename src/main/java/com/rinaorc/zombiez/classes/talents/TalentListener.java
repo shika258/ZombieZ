@@ -1856,6 +1856,51 @@ public class TalentListener implements Listener {
         player.setAbsorptionAmount(Math.max(0, amount));
     }
 
+    /**
+     * Applique un effet Glowing doré au joueur via une équipe Scoreboard
+     * @param player Le joueur
+     * @param durationTicks Durée en ticks
+     */
+    private void applyGoldenGlow(Player player, int durationTicks) {
+        // Ajouter l'effet Glowing
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
+
+        // Créer/récupérer l'équipe pour la couleur dorée
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        String teamName = "zz_avatar_gold";
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(teamName);
+            team.setColor(org.bukkit.ChatColor.GOLD);
+            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
+                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
+        }
+
+        // Ajouter le joueur à l'équipe dorée
+        final org.bukkit.scoreboard.Team goldTeam = team;
+        String playerName = player.getName();
+        goldTeam.addEntry(playerName);
+
+        // Retirer le joueur de l'équipe après la durée
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (goldTeam.hasEntry(playerName)) {
+                goldTeam.removeEntry(playerName);
+            }
+        }, durationTicks);
+    }
+
+    /**
+     * Retire le joueur de l'équipe de glowing doré
+     */
+    private void removeGoldenGlow(Player player) {
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_avatar_gold");
+        if (team != null && team.hasEntry(player.getName())) {
+            team.removeEntry(player.getName());
+        }
+    }
+
     private void applyTempShield(Player player, double amount, long durationMs) {
         UUID uuid = player.getUniqueId();
         tempShield.put(uuid, tempShield.getOrDefault(uuid, 0.0) + amount);
@@ -2172,10 +2217,13 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.FLASH, player.getLocation(), 1);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 20, 0.8, 0.8, 0.8, 0.1);
 
-        // Augmenter la taille du joueur (scale 1.25)
+        // Augmenter la taille du joueur (scale 1.35 pour effet imposant)
         if (player.getAttribute(Attribute.SCALE) != null) {
-            player.getAttribute(Attribute.SCALE).setBaseValue(1.25);
+            player.getAttribute(Attribute.SCALE).setBaseValue(1.35);
         }
+
+        // Glowing doré via équipe Scoreboard
+        applyGoldenGlow(player, (int)(duration / 50));
 
         // Immunité CC (résistance aux effets négatifs)
         player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, (int)(duration / 50), 0, false, false));
@@ -2197,6 +2245,9 @@ public class TalentListener implements Listener {
                     if (player.getAttribute(Attribute.SCALE) != null) {
                         player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
                     }
+                    // Retirer le glowing doré
+                    player.removePotionEffect(PotionEffectType.GLOWING);
+                    removeGoldenGlow(player);
                     // Message d'expiration via système centralisé
                     showTempEventMessage(player.getUniqueId(), "§8Avatar du Rempart terminé");
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
