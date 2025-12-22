@@ -144,6 +144,12 @@ public class TalentListener implements Listener {
     // Onde de Fracture - compteur de coups
     private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
 
+    // === SYSTÈME DE MESSAGES TEMPORAIRES POUR ACTIONBAR ===
+    // Messages d'événement ponctuels (affichés pendant quelques secondes dans l'ActionBar)
+    private final Map<UUID, String> tempEventMessage = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> tempEventMessageExpiry = new ConcurrentHashMap<>();
+    private static final long EVENT_MESSAGE_DURATION_MS = 2000; // 2 secondes
+
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -263,27 +269,15 @@ public class TalentListener implements Listener {
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
                 player.getWorld().playSound(target.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
 
-                // Effet visuel sacré/jaune
+                // Effet visuel sacré/jaune (réduit)
                 Location targetLoc = target.getLocation().add(0, 1, 0);
-                // Éclat doré central
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 25, 0.3, 0.5, 0.3, 0.15);
-                // Particules dorées lumineuses
-                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 12, 0.4, 0.6, 0.4, 0.05);
-                // Dust jaune/doré
-                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 20, 0.5, 0.7, 0.5, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f));
-                // Cercle sacré au sol
-                Location groundLoc = target.getLocation().add(0, 0.1, 0);
-                for (int i = 0; i < 12; i++) {
-                    double angle = (2 * Math.PI / 12) * i;
-                    double x = Math.cos(angle) * 1.2;
-                    double z = Math.sin(angle) * 1.2;
-                    player.getWorld().spawnParticle(Particle.END_ROD, groundLoc.clone().add(x, 0, z), 1, 0, 0.1, 0, 0);
-                }
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 12, 0.3, 0.5, 0.3, 0.1);
+                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 6, 0.3, 0.5, 0.3, 0.03);
+                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 8, 0.4, 0.5, 0.4, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
 
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
-                }
+                // Message d'activation via système centralisé
+                showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!");
             } else {
                 // Accumuler les stacks
                 Long lastHit = punishmentLastHit.get(uuid);
@@ -293,13 +287,11 @@ public class TalentListener implements Listener {
                     int stacks = punishmentStacks.merge(uuid, 1, Integer::sum);
                     if (stacks >= stacksNeeded) {
                         punishmentReady.put(uuid, true);
-                        if (shouldSendTalentMessage(player)) {
-                            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT PRÊT! §7Prochaine attaque amplifiée!"));
-                        }
+                        // Son de notification (l'affichage est dans l'ActionBar centralisé)
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 1.5f);
                     } else {
-                        // Feedback progression
-                        showPunishmentProgress(player, stacks, stacksNeeded);
+                        // Son de progression (l'affichage est dans l'ActionBar centralisé)
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (stacks * 0.2f));
                     }
                 }
                 punishmentLastHit.put(uuid, now);
@@ -340,8 +332,8 @@ public class TalentListener implements Listener {
                 // Reset le compteur
                 fractureWaveHitCounter.put(uuid, 0);
             } else {
-                // Feedback visuel de progression
-                showFractureWaveProgress(player, currentHits, hitsNeeded);
+                // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (currentHits * 0.2f));
             }
         }
 
@@ -371,8 +363,8 @@ public class TalentListener implements Listener {
 
                 procVengefulShield(player, pulseDamage, pulseRadius, pulseCount, explosionDamage, explosionRadius, travelDistance);
             } else {
-                // Feedback progression
-                showVengefulShieldProgress(player, currentHits, effectiveHitsNeeded);
+                // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (currentHits * 0.15f));
             }
         }
 
@@ -655,10 +647,8 @@ public class TalentListener implements Listener {
                 // Écho de Fer - stocker les dégâts bloqués
                 handleIronEcho(player, uuid, originalDamage);
 
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte"));
-                }
+                // Message d'événement via système centralisé
+                showTempEventMessage(uuid, "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte");
             }
         }
 
@@ -1004,8 +994,7 @@ public class TalentListener implements Listener {
                 setCooldown(uuid, "bastion_charge", (long) bastionCharge.getValue(4));
             } else {
                 long remaining = getCooldownRemaining(uuid, "bastion_charge");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s"));
+                showTempEventMessage(uuid, "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s", 1500);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return; // Ne pas activer Ragnarok si on a Charge du Bastion
@@ -1018,10 +1007,9 @@ public class TalentListener implements Listener {
                 procRagnarok(player, ragnarok);
                 setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
             } else {
-                // Feedback cooldown
+                // Feedback cooldown via système centralisé
                 long remaining = getCooldownRemaining(uuid, "ragnarok");
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§c⏳ Ragnarok: " + (remaining / 1000) + "s"));
+                showTempEventMessage(uuid, "§c⏳ Ragnarok: " + (remaining / 1000) + "s", 1500);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
@@ -1050,15 +1038,13 @@ public class TalentListener implements Listener {
         double current = aoeDamageCounter.merge(uuid, damage, Double::sum);
 
         // Feedback progression avec tracking de paliers (25%, 50%, 75%)
+        // L'affichage de la barre de progression est géré par l'ActionBar centralisé
         int milestone = (int) ((current / APOCALYPSE_THRESHOLD) * 4); // 0, 1, 2, 3, 4
         int lastMilestone = lastApocalypseMilestone.getOrDefault(uuid, 0);
 
         if (milestone > lastMilestone && milestone < 4) {
             lastApocalypseMilestone.put(uuid, milestone);
-            int percent = milestone * 25;
-            String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6🌋 Apocalypse " + bar + " §e" + percent + "%"));
+            // Son de milestone (l'affichage est dans l'ActionBar centralisé)
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
         }
 
@@ -1067,9 +1053,8 @@ public class TalentListener implements Listener {
             aoeDamageCounter.put(uuid, 0.0);
             lastApocalypseMilestone.put(uuid, 0); // Reset milestones
 
-            // Message d'activation spectaculaire
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🌋 APOCALYPSE TERRESTRE! 🌋"));
+            // Message d'activation spectaculaire via système centralisé
+            showTempEventMessage(uuid, "§6§l🌋 APOCALYPSE TERRESTRE! 🌋", 2500);
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
 
             procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
@@ -1207,10 +1192,8 @@ public class TalentListener implements Listener {
                             // Expiration - retirer le bonus de HP
                             removeFortifyBonus(player, uuid);
 
-                            if (shouldSendTalentMessage(player)) {
-                                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                                    "§8⚔ Fortification expirée..."));
-                            }
+                            // Message d'expiration via système centralisé
+                            showTempEventMessage(uuid, "§8⚔ Fortification expirée...");
                             player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
                     }
@@ -1234,36 +1217,36 @@ public class TalentListener implements Listener {
                         long tick = world.getGameTime();
                         double rotationOffset = (tick % 60) * (Math.PI * 2 / 60); // Rotation complète en 3s
 
-                        // Anneau principal au sol (doré, rotatif)
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                        // Anneau principal au sol (doré, rotatif) - réduit
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
                             double x = radius * Math.cos(angle + rotationOffset);
                             double z = radius * Math.sin(angle + rotationOffset);
                             world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
                                 1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
                         }
 
-                        // Anneau secondaire (contre-rotation, orange)
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                        // Anneau secondaire (contre-rotation, orange) - réduit
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                             double x = (radius - 0.5) * Math.cos(angle - rotationOffset * 0.5);
                             double z = (radius - 0.5) * Math.sin(angle - rotationOffset * 0.5);
                             world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.15, z),
                                 1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 140, 30), 0.8f));
                         }
 
-                        // Piliers de lumière sacrée aux 4 points cardinaux
-                        for (int i = 0; i < 4; i++) {
-                            double pillarAngle = (Math.PI / 2) * i + rotationOffset * 0.3;
+                        // Piliers de lumière sacrée aux 2 points opposés (réduit)
+                        for (int i = 0; i < 2; i++) {
+                            double pillarAngle = Math.PI * i + rotationOffset * 0.3;
                             double px = (radius - 0.3) * Math.cos(pillarAngle);
                             double pz = (radius - 0.3) * Math.sin(pillarAngle);
-                            for (double y = 0; y < 2.0; y += 0.4) {
+                            for (double y = 0; y < 2.0; y += 0.6) {
                                 world.spawnParticle(Particle.END_ROD, loc.clone().add(px, y, pz),
                                     1, 0.05, 0.1, 0.05, 0.01);
                             }
                         }
 
-                        // Particules montantes centrales (effet sacré)
-                        if (tick % 5 == 0) {
-                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                        // Particules montantes centrales (effet sacré) - réduit
+                        if (tick % 10 == 0) {
+                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI * 2 / 3) {
                                 double sparkX = (radius * 0.5) * Math.cos(angle + rotationOffset * 2);
                                 double sparkZ = (radius * 0.5) * Math.sin(angle + rotationOffset * 2);
                                 world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(sparkX, 0.5, sparkZ),
@@ -1398,13 +1381,11 @@ public class TalentListener implements Listener {
         // === EFFETS VISUELS SPECTACULAIRES ===
         spawnFractureWaveVisuals(player, origin, direction, range, halfAngleRad, hitCount);
 
-        // Feedback ActionBar
-        if (shouldSendTalentMessage(player)) {
-            String msg = hitCount > 0
-                ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
-                : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        }
+        // Feedback via système centralisé
+        String msg = hitCount > 0
+            ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
+            : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
+        showTempEventMessage(player.getUniqueId(), msg);
 
         // Contribution au systeme Apocalypse
         if (hitCount > 0) {
@@ -1473,24 +1454,8 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Affiche la progression du build-up de l'Onde de Fracture
+     * NOTE: showFractureWaveProgress supprimée - progression affichée dans l'ActionBar centralisé
      */
-    private void showFractureWaveProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        // Barre de progression visuelle
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7⚡ Onde " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-
-        // Petit son de progression
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.8f + (current * 0.2f));
-    }
 
     private void procUnleash(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
@@ -2079,21 +2044,15 @@ public class TalentListener implements Listener {
                 new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.0f));
 
             if (newStacks == maxStacks) {
-                // MAX STACKS!
+                // MAX STACKS! (particules réduites)
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
-                if (shouldSendTalentMessage(player)) {
-                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!"));
-                }
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 12, 0.4, 0.6, 0.4, 0.1);
+                // Message d'événement via système centralisé
+                int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
+                showTempEventMessage(uuid, "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!");
             } else {
-                // Progression
-                if (shouldSendTalentMessage(player)) {
-                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)"));
-                }
+                // Son de progression (l'affichage est dans l'ActionBar centralisé)
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (newStacks * 0.1f));
             }
         }
 
@@ -2106,15 +2065,13 @@ public class TalentListener implements Listener {
             double threshold = bulwarkAvatar.getValue(0);
 
             // Feedback progression avec milestones
+            // L'affichage de la barre est dans l'ActionBar centralisé
             int milestone = (int) ((current / threshold) * 4);
             int lastMilestone = bulwarkLastMilestone.getOrDefault(uuid, 0);
 
             if (milestone > lastMilestone && milestone < 4) {
                 bulwarkLastMilestone.put(uuid, milestone);
-                int percent = milestone * 25;
-                String bar = "§8[§6" + "█".repeat(milestone) + "§8" + "░".repeat(4 - milestone) + "]";
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§6🛡 Avatar " + bar + " §e" + percent + "%"));
+                // Son de milestone (l'affichage est dans l'ActionBar centralisé)
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.3f, 0.8f + milestone * 0.15f);
             }
 
@@ -2185,11 +2142,11 @@ public class TalentListener implements Listener {
         long duration = (long) talent.getValue(1);
         bulwarkAvatarActiveUntil.put(uuid, System.currentTimeMillis() + duration);
 
-        // Effets visuels d'activation
+        // Effets visuels d'activation (réduit)
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_EMERGE, 0.8f, 1.2f);
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.FLASH, player.getLocation(), 1);
-        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 20, 0.8, 0.8, 0.8, 0.1);
 
         // Augmenter la taille du joueur (scale 1.25)
         if (player.getAttribute(Attribute.SCALE) != null) {
@@ -2216,9 +2173,8 @@ public class TalentListener implements Listener {
                     if (player.getAttribute(Attribute.SCALE) != null) {
                         player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
                     }
-                    if (shouldSendTalentMessage(player)) {
-                        player.sendActionBar(net.kyori.adventure.text.Component.text("§8Avatar du Rempart terminé"));
-                    }
+                    // Message d'expiration via système centralisé
+                    showTempEventMessage(player.getUniqueId(), "§8Avatar du Rempart terminé");
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
                     cancel();
                     return;
@@ -2230,19 +2186,21 @@ public class TalentListener implements Listener {
                 player.removePotionEffect(PotionEffectType.POISON);
                 player.removePotionEffect(PotionEffectType.WITHER);
 
-                // Particules dorées autour du joueur (plus grandes car scale 1.25)
+                // Particules dorées autour du joueur (réduites)
                 Location loc = player.getLocation().add(0, 1.2, 0);
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-                    double x = 1.5 * Math.cos(angle + ticks * 0.1);
-                    double z = 1.5 * Math.sin(angle + ticks * 0.1);
-                    player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z),
-                        1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                if (ticks % 2 == 0) { // Une frame sur deux
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) { // 4 points au lieu de 8
+                        double x = 1.5 * Math.cos(angle + ticks * 0.1);
+                        double z = 1.5 * Math.sin(angle + ticks * 0.1);
+                        player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z),
+                            1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
+                    }
                 }
 
-                // Particules verticales pour effet "géant"
-                if (ticks % 4 == 0) {
+                // Particules verticales pour effet "géant" (réduites)
+                if (ticks % 8 == 0) {
                     player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2.5, 0),
-                        3, 0.3, 0.2, 0.3, 0.01);
+                        2, 0.2, 0.2, 0.2, 0.01);
                 }
 
                 ticks += 5;
@@ -2252,76 +2210,95 @@ public class TalentListener implements Listener {
 
     /**
      * Proc du Marteau du Jugement - fait tomber un marteau géant du ciel
+     * Utilise ItemDisplay (1.19.4+) pour afficher une hache géante qui tombe
      */
     private void procJudgmentHammer(Player player, LivingEntity target, Talent talent, double baseDamage) {
         Location targetLoc = target.getLocation();
-        Location spawnLoc = targetLoc.clone().add(0, 10, 0); // 10 blocs au-dessus
+        Location spawnLoc = targetLoc.clone().add(0, 12, 0); // 12 blocs au-dessus
 
         double mainDamageMultiplier = talent.getValue(1); // 300%
         double aoeDamageMultiplier = talent.getValue(2); // 150%
         double aoeRadius = talent.getValue(3); // 6 blocs
 
-        // Message d'activation
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚒ MARTEAU DU JUGEMENT!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6§l⚒ MARTEAU DU JUGEMENT!");
 
-        // Son de départ
-        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
-        player.getWorld().playSound(targetLoc, Sound.BLOCK_ANVIL_LAND, 0.5f, 0.5f);
+        // Son de départ - tonnerre annonciateur
+        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.2f);
+        player.getWorld().playSound(spawnLoc, Sound.BLOCK_ANVIL_PLACE, 0.8f, 0.5f);
 
-        // Créer le marteau géant avec armor stand
-        org.bukkit.entity.ArmorStand hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setMarker(true);
-            stand.setSmall(false);
-            stand.setArms(true);
-            stand.setBasePlate(false);
-
-            // Équiper avec une hache dorée
-            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE));
-
-            // Rendre géant avec l'attribut scale (1.21.4+)
-            var scaleAttr = stand.getAttribute(Attribute.SCALE);
-            if (scaleAttr != null) {
-                scaleAttr.setBaseValue(4.0); // 4x plus grand
+        // Créer le marteau géant avec ItemDisplay (1.19.4+)
+        org.bukkit.entity.ItemDisplay hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ItemDisplay.class, display -> {
+            // Créer l'item de hache dorée avec enchantement pour l'effet brillant
+            org.bukkit.inventory.ItemStack axeItem = new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE);
+            org.bukkit.inventory.meta.ItemMeta meta = axeItem.getItemMeta();
+            if (meta != null) {
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.SHARPNESS, 1, true);
+                axeItem.setItemMeta(meta);
             }
+            display.setItemStack(axeItem);
 
-            // Rotation pour que la hache pointe vers le bas
-            stand.setRightArmPose(new org.bukkit.util.EulerAngle(Math.toRadians(180), 0, 0));
+            // Taille géante (3x plus grand)
+            org.bukkit.util.Transformation transform = display.getTransformation();
+            display.setTransformation(new org.bukkit.util.Transformation(
+                transform.getTranslation(),
+                new org.joml.AxisAngle4f((float) Math.toRadians(180), 1, 0, 0), // Rotation pour pointer vers le bas
+                new org.joml.Vector3f(4.0f, 4.0f, 4.0f), // Scale 4x
+                transform.getRightRotation()
+            ));
+
+            // Mode d'affichage
+            display.setItemDisplayTransform(org.bukkit.entity.ItemDisplay.ItemDisplayTransform.FIXED);
+            display.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15)); // Pleine luminosité
+            display.setGlowing(true); // Effet de brillance
+            display.setGlowColorOverride(org.bukkit.Color.fromRGB(255, 200, 50)); // Lueur dorée
         });
+
+        // Flash lumineux au spawn (réduit)
+        player.getWorld().spawnParticle(Particle.FLASH, spawnLoc, 1);
+        player.getWorld().spawnParticle(Particle.END_ROD, spawnLoc, 8, 0.4, 0.4, 0.4, 0.05);
 
         // Animation de chute
         new BukkitRunnable() {
             int ticks = 0;
-            final int fallDuration = 10; // 0.5 seconde
+            final int fallDuration = 12;
             final double startY = spawnLoc.getY();
-            final double endY = targetLoc.getY() + 1;
-            final double dropPerTick = (startY - endY) / fallDuration;
+            final double endY = targetLoc.getY() + 0.5;
+            final double totalDrop = startY - endY;
 
             @Override
             public void run() {
                 if (ticks >= fallDuration || !hammer.isValid()) {
-                    // IMPACT!
                     hammer.remove();
                     triggerHammerImpact(player, targetLoc, target, baseDamage, mainDamageMultiplier, aoeDamageMultiplier, aoeRadius);
                     cancel();
                     return;
                 }
 
-                // Descendre le marteau
-                Location newLoc = hammer.getLocation().subtract(0, dropPerTick, 0);
+                double progress = (double) ticks / fallDuration;
+                double easedProgress = progress * progress;
+                double currentY = startY - (totalDrop * easedProgress);
+
+                Location newLoc = targetLoc.clone();
+                newLoc.setY(currentY);
                 hammer.teleport(newLoc);
 
-                // Particules de traînée
-                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc, 3, 0.2, 0.3, 0.2, 0.02);
-                hammer.getWorld().spawnParticle(Particle.DUST, newLoc, 5, 0.3, 0.5, 0.3, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 2.0f));
+                // Particules de traînée (réduites)
+                if (ticks % 2 == 0) {
+                    hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc.clone().add(0, 1, 0), 2, 0.2, 0.3, 0.2, 0.01);
+                    hammer.getWorld().spawnParticle(Particle.DUST, newLoc.clone().add(0, 1.5, 0), 3, 0.3, 0.5, 0.3, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.5f));
+                }
+
+                // Traînée de feu vers la fin (réduite)
+                if (ticks > fallDuration / 2 && ticks % 2 == 0) {
+                    hammer.getWorld().spawnParticle(Particle.FLAME, newLoc.clone().add(0, 1, 0), 2, 0.2, 0.2, 0.2, 0.01);
+                }
 
                 // Son de sifflement
-                if (ticks % 2 == 0) {
-                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, 2.0f);
+                if (ticks % 3 == 0) {
+                    float pitch = 1.5f + (progress * 0.5f);
+                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, pitch);
                 }
 
                 ticks++;
@@ -2334,26 +2311,24 @@ public class TalentListener implements Listener {
      */
     private void triggerHammerImpact(Player player, Location impactLoc, LivingEntity mainTarget,
                                       double baseDamage, double mainMultiplier, double aoeMultiplier, double radius) {
-        // === EFFETS VISUELS D'IMPACT ===
-        // Explosion de particules dorées
-        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 80, 1, 1, 1, 0.5);
-        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 3, 0.5, 0.5, 0.5, 0);
-        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 50, 2, 0.5, 2, 0.1);
+        // === EFFETS VISUELS D'IMPACT (réduits) ===
+        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 30, 0.8, 0.8, 0.8, 0.3);
+        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 2, 0.3, 0.3, 0.3, 0);
+        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 15, 1.5, 0.4, 1.5, 0.05);
 
-        // Onde de choc au sol
-        for (int ring = 1; ring <= (int) radius; ring++) {
+        // Onde de choc au sol (réduite)
+        for (int ring = 1; ring <= (int) radius; ring += 2) { // Un anneau sur deux
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                for (int i = 0; i < 20; i++) {
-                    double angle = (2 * Math.PI / 20) * i;
+                for (int i = 0; i < 12; i++) { // 12 points au lieu de 20
+                    double angle = (2 * Math.PI / 12) * i;
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     Location particleLoc = impactLoc.clone().add(x, 0.2, z);
-                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
-                    impactLoc.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0, 0.2, 0, 0.05);
+                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
                 }
-            }, ring * 2L);
+            }, ring);
         }
 
         // Sons d'impact
@@ -2392,14 +2367,12 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Message de résultat
-        if (shouldSendTalentMessage(player)) {
-            String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
-            if (enemiesHit > 0) {
-                msg += " | §e" + enemiesHit + " §7cibles AoE";
-            }
-            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        // Message de résultat via système centralisé
+        String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
+        if (enemiesHit > 0) {
+            msg += " | §e" + enemiesHit + " §7cibles AoE";
         }
+        showTempEventMessage(player.getUniqueId(), msg);
     }
 
     /**
@@ -2412,9 +2385,8 @@ public class TalentListener implements Listener {
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_SHOOT, 0.8f, 1.2f);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6🛡 BOUCLIER VENGEUR!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6🛡 BOUCLIER VENGEUR!");
 
         new BukkitRunnable() {
             double traveled = 0;
@@ -2449,28 +2421,26 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Particules du disque tournant
+     * Particules du disque tournant (réduit)
      */
     private void spawnDiscParticles(Location center, double rotation) {
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) { // 4 points au lieu de 8
             double x = 0.5 * Math.cos(angle + rotation);
             double z = 0.5 * Math.sin(angle + rotation);
             center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0, z),
-                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
         }
-        // Centre du disque
-        center.getWorld().spawnParticle(Particle.END_ROD, center, 1, 0, 0, 0, 0);
     }
 
     /**
-     * Pulse du disque
+     * Pulse du disque (réduit)
      */
     private void procVengefulShieldPulse(Player player, Location center, double damage, double radius, int pulseNumber) {
-        // Effet visuel de pulse
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+        // Effet visuel de pulse (réduit)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) { // 6 points au lieu de 12
             double x = radius * Math.cos(angle);
             double z = radius * Math.sin(angle);
-            center.getWorld().spawnParticle(Particle.ENCHANT, center.clone().add(x, 0, z), 3, 0.1, 0.1, 0.1, 0.1);
+            center.getWorld().spawnParticle(Particle.ENCHANT, center.clone().add(x, 0, z), 2, 0.1, 0.1, 0.1, 0.05);
         }
         center.getWorld().playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.0f + pulseNumber * 0.1f);
 
@@ -2483,13 +2453,13 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Explosion finale du disque
+     * Explosion finale du disque (réduit)
      */
     private void procVengefulShieldExplosion(Player player, Location center, double damage, double radius) {
-        // Effets visuels
+        // Effets visuels (réduits)
         center.getWorld().spawnParticle(Particle.FLASH, center, 1);
         center.getWorld().spawnParticle(Particle.EXPLOSION, center, 1);
-        center.getWorld().spawnParticle(Particle.END_ROD, center, 30, radius / 2, 0.5, radius / 2, 0.1);
+        center.getWorld().spawnParticle(Particle.END_ROD, center, 12, radius / 2, 0.4, radius / 2, 0.05);
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.5f);
 
         // Dégâts aux ennemis
@@ -2511,15 +2481,14 @@ public class TalentListener implements Listener {
         double hpPerEnemy = talent.getValue(2); // 8%
         long hpDuration = (long) talent.getValue(3); // 6000ms
 
-        // Propulser le joueur vers l'avant (plus fort pour 12 blocs)
+        // Propulser le joueur vers l'avant
         player.setVelocity(direction.clone().multiply(3.0).setY(0.3));
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
-        player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
+        player.getWorld().spawnParticle(Particle.CLOUD, start, 10, 0.4, 0.2, 0.4, 0.05); // Réduit
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHARGE DU BASTION!"));
-        }
+        // Message d'activation via système centralisé
+        showTempEventMessage(player.getUniqueId(), "§6§l⚔ CHARGE DU BASTION!");
 
         // Sauvegarder la HP de base
         UUID uuid = player.getUniqueId();
@@ -2543,9 +2512,9 @@ public class TalentListener implements Listener {
                     return;
                 }
 
-                // Particules de traînée
+                // Particules de traînée (réduit)
                 player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
-                    5, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    2, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
 
                 // Dégâts aux ennemis sur le chemin (rayon plus large pour 12 blocs)
                 for (Entity entity : player.getNearbyEntities(2.5, 2.5, 2.5)) {
@@ -2565,8 +2534,8 @@ public class TalentListener implements Listener {
 
                             player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.8f, 1.0f);
 
-                            // Effet visuel par ennemi touché
-                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.05);
+                            // Effet visuel par ennemi touché (réduit)
+                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 2, 0.2, 0.3, 0.2, 0.05);
                         }
                     }
                 }
@@ -2601,10 +2570,8 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.2);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)"));
-        }
+        // Message de résultat via système centralisé
+        showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)");
 
         // Planifier la fin du bonus
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -2618,46 +2585,16 @@ public class TalentListener implements Listener {
                 }
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§8⚔ Bonus Charge expiré..."));
-                }
+                // Message d'expiration via système centralisé
+                showTempEventMessage(uuid, "§8⚔ Bonus Charge expiré...");
             }
         }, duration / 50L); // Convertir ms en ticks
     }
 
     /**
-     * Affiche la progression du Châtiment
+     * NOTE: showPunishmentProgress et showVengefulShieldProgress supprimées
+     * Les progressions sont maintenant affichées dans l'ActionBar centralisé (buildRempartActionBar)
      */
-    private void showPunishmentProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7⚔ Châtiment " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (current * 0.2f));
-    }
-
-    /**
-     * Affiche la progression du Bouclier Vengeur
-     */
-    private void showVengefulShieldProgress(Player player, int current, int needed) {
-        if (!shouldSendTalentMessage(player)) return;
-
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6■" : "§7□");
-        }
-        bar.append("§8]");
-
-        String msg = "§7🛡 Disque " + bar + " §e" + current + "§7/" + needed;
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (current * 0.15f));
-    }
 
     /**
      * Gère l'Écho de Fer - stocke les dégâts et déclenche l'onde de choc
@@ -2691,10 +2628,8 @@ public class TalentListener implements Listener {
             ironEchoFirstStack.put(uuid, now);
         }
 
-        // Afficher la progression
-        if (shouldSendTalentMessage(player)) {
-            showIronEchoProgress(player, stacks, stacksNeeded, totalStored);
-        }
+        // Son de progression (l'affichage est géré par l'ActionBar centralisé)
+        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (stacks * 0.2f));
 
         // Vérifier si on déclenche l'onde de choc
         if (stacks >= stacksNeeded) {
@@ -2703,19 +2638,8 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Affiche la progression de l'Écho de Fer
+     * NOTE: showIronEchoProgress supprimée - progression affichée dans l'ActionBar centralisé
      */
-    private void showIronEchoProgress(Player player, int current, int needed, double storedDamage) {
-        StringBuilder bar = new StringBuilder("§8[");
-        for (int i = 1; i <= needed; i++) {
-            bar.append(i <= current ? "§6●" : "§7○");
-        }
-        bar.append("§8]");
-
-        String msg = "§6🔔 Écho de Fer " + bar + " §c" + String.format("%.0f", storedDamage) + " §7dégâts stockés";
-        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
-        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (current * 0.2f));
-    }
 
     /**
      * Déclenche l'onde de choc de l'Écho de Fer
@@ -2731,22 +2655,22 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.BLOCK_BELL_USE, 1.5f, 0.6f);
         player.getWorld().playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
 
-        // Explosion dorée centrale
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.3);
-        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.15);
+        // Explosion dorée centrale (réduit)
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 20, 0.5, 0.8, 0.5, 0.3);
+        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.15);
 
-        // Onde de choc en cercle qui s'étend
+        // Onde de choc en cercle qui s'étend (réduit)
         for (int ring = 1; ring <= (int) radius; ring++) {
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                for (int i = 0; i < 16; i++) {
-                    double angle = (2 * Math.PI / 16) * i;
+                for (int i = 0; i < 8; i++) {
+                    double angle = (2 * Math.PI / 8) * i;
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     Location particleLoc = center.clone().add(x, 0.2, z);
-                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0,
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.1, 0.1, 0.1, 0,
                         new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
-                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 1, 0.1, 0.1, 0.1, 0.02);
                 }
             }, ring * 2L);
         }
@@ -2760,8 +2684,8 @@ public class TalentListener implements Listener {
                     target.damage(storedDamage, player);
                     totalDamageDealt += storedDamage;
 
-                    // Effet sur la cible
-                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                    // Effet sur la cible (réduit)
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 4, 0.3, 0.3, 0.3, 0.1);
                 }
             }
         }
@@ -2776,11 +2700,8 @@ public class TalentListener implements Listener {
             player.getWorld().spawnParticle(Particle.HEART, center.clone().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
         }
 
-        // === MESSAGE ===
-        if (shouldSendTalentMessage(player)) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV"));
-        }
+        // === MESSAGE via système centralisé ===
+        showTempEventMessage(uuid, "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV");
 
         // === RESET ===
         ironEchoStacks.put(uuid, 0);
@@ -2825,10 +2746,24 @@ public class TalentListener implements Listener {
 
     /**
      * Construit l'ActionBar spécifique au Guerrier et sa spécialisation
+     * Centralise TOUS les affichages pour éviter le clignotement
      */
     public String buildActionBar(Player player) {
         UUID uuid = player.getUniqueId();
         StringBuilder bar = new StringBuilder();
+
+        // Vérifier si un message d'événement temporaire doit être affiché
+        Long expiry = tempEventMessageExpiry.get(uuid);
+        if (expiry != null && System.currentTimeMillis() < expiry) {
+            String tempMsg = tempEventMessage.get(uuid);
+            if (tempMsg != null) {
+                return tempMsg; // Afficher le message d'événement à la place
+            }
+        } else {
+            // Nettoyer les messages expirés
+            tempEventMessage.remove(uuid);
+            tempEventMessageExpiry.remove(uuid);
+        }
 
         // Détecter la spécialisation dominante (basée sur les talents actifs)
         int spec = detectDominantSpecialization(player);
@@ -2842,6 +2777,22 @@ public class TalentListener implements Listener {
         }
 
         return bar.toString();
+    }
+
+    /**
+     * Affiche un message d'événement temporaire dans l'ActionBar
+     * Ce message remplace temporairement l'ActionBar normale pendant la durée spécifiée
+     */
+    private void showTempEventMessage(UUID uuid, String message) {
+        showTempEventMessage(uuid, message, EVENT_MESSAGE_DURATION_MS);
+    }
+
+    /**
+     * Affiche un message d'événement temporaire dans l'ActionBar avec durée personnalisée
+     */
+    private void showTempEventMessage(UUID uuid, String message, long durationMs) {
+        tempEventMessage.put(uuid, message);
+        tempEventMessageExpiry.put(uuid, System.currentTimeMillis() + durationMs);
     }
 
     /**
@@ -2874,6 +2825,7 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Briseur (Slot 0) - AoE/Séisme
+     * Centralise: Apocalypse, Cataclysme, Onde de Fracture, Fureur, Charge
      */
     private void buildBriseurActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
@@ -2889,18 +2841,31 @@ public class TalentListener implements Listener {
             bar.append(color).append("🌋 ").append(percent).append("%");
         }
 
+        // Onde de Fracture - progression des coups
+        Talent fractureWave = getActiveTalentIfHas(player, Talent.TalentEffectType.FRACTURE_WAVE);
+        if (fractureWave != null) {
+            int hitsNeeded = (int) fractureWave.getValue(0);
+            int currentHits = fractureWaveHitCounter.getOrDefault(uuid, 0);
+            if (currentHits > 0) {
+                String waveColor = currentHits >= hitsNeeded - 1 ? "§a" : "§e";
+                bar.append("  ").append(waveColor).append("⚡").append(currentHits).append("/").append(hitsNeeded);
+            }
+        }
+
         // Compteur d'attaques pour Cataclysme
         Talent cataclysm = getActiveTalentIfHas(player, Talent.TalentEffectType.CATACLYSM);
         if (cataclysm != null) {
             int count = attackCounter.getOrDefault(uuid, 0);
             int needed = (int) cataclysm.getValue(0);
-            bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+            if (count > 0) {
+                bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+            }
         }
 
         // Stacks de Fureur Croissante (si actif même en Briseur)
         int fury = furyStacks.getOrDefault(uuid, 0);
         if (fury > 0) {
-            bar.append("  §c🔥").append(String.format("%.0f", fury * 2.0)).append("%");
+            bar.append("  §c🔥+").append(String.format("%.0f", fury * 2.0)).append("%");
         }
 
         // Charge Dévastatrice prête
@@ -2911,6 +2876,7 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Rempart (Slot 1) - Tank/Défense
+     * Centralise: Fortification, Écho de Fer, Châtiment, Bouclier Vengeur, Avatar
      */
     private void buildRempartActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
@@ -2923,28 +2889,52 @@ public class TalentListener implements Listener {
             String timeStr = "";
             if (expiry != null) {
                 long remaining = (expiry - System.currentTimeMillis()) / 1000;
-                timeStr = " §7(" + remaining + "s)";
+                if (remaining > 0) {
+                    timeStr = " §7(" + remaining + "s)";
+                }
             }
             bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
         }
 
-        // Écho de Fer stacks et dégâts stockés
-        int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
-        double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
-        if (echoStacks > 0 || storedDmg > 0) {
-            String stackColor = echoStacks >= 3 ? "§a§l" : "§e";
-            bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/3");
-            if (storedDmg > 0) {
-                bar.append(" §c+").append(String.format("%.0f", storedDmg));
+        // Écho de Fer stacks et dégâts stockés (intégré directement)
+        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
+        if (ironEcho != null) {
+            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+            double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+            int stacksNeeded = (int) ironEcho.getValue(1);
+            if (echoStacks > 0 || storedDmg > 0) {
+                String stackColor = echoStacks >= stacksNeeded ? "§a§l" : "§e";
+                bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/").append(stacksNeeded);
+                if (storedDmg > 0) {
+                    bar.append(" §c+").append(String.format("%.0f", storedDmg));
+                }
             }
         }
 
-        // Châtiment stacks
-        int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
-        if (punishStacks > 0) {
-            bar.append("  §d⚔").append(punishStacks);
-            if (punishmentReady.getOrDefault(uuid, false)) {
-                bar.append("§a✓");
+        // Châtiment stacks (intégré avec progression)
+        Talent punishment = getActiveTalentIfHas(player, Talent.TalentEffectType.PUNISHMENT);
+        if (punishment != null) {
+            int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
+            int stacksNeeded = (int) punishment.getValue(0);
+            if (punishStacks > 0 || punishmentReady.getOrDefault(uuid, false)) {
+                String stackColor = punishmentReady.getOrDefault(uuid, false) ? "§a§l" : "§d";
+                bar.append("  ").append(stackColor).append("⚔").append(punishStacks).append("/").append(stacksNeeded);
+                if (punishmentReady.getOrDefault(uuid, false)) {
+                    bar.append("§a✓");
+                }
+            }
+        }
+
+        // Bouclier Vengeur - progression des coups
+        Talent vengefulShield = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEFUL_SHIELD);
+        if (vengefulShield != null) {
+            int hitsNeeded = (int) vengefulShield.getValue(0);
+            boolean avatarActive = bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+            int effectiveHitsNeeded = avatarActive ? Math.max(2, hitsNeeded / 2) : hitsNeeded;
+            int currentHits = vengefulShieldCounter.getOrDefault(uuid, 0);
+            if (currentHits > 0) {
+                String shieldColor = currentHits >= effectiveHitsNeeded - 1 ? "§b" : "§3";
+                bar.append("  ").append(shieldColor).append("◎").append(currentHits).append("/").append(effectiveHitsNeeded);
             }
         }
 
@@ -2952,12 +2942,12 @@ public class TalentListener implements Listener {
         if (isBulwarkAvatar(player)) {
             long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
             bar.append("  §6§lAVATAR §e").append(remaining).append("s");
-        }
-
-        // Dégâts bloqués pour Avatar
-        double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
-        if (blocked > 0 && !isBulwarkAvatar(player)) {
-            bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+        } else {
+            // Dégâts bloqués pour Avatar (si pas encore actif)
+            double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
+            if (blocked > 0) {
+                bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+            }
         }
     }
 
@@ -3115,6 +3105,8 @@ public class TalentListener implements Listener {
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);
         fractureWaveHitCounter.remove(playerUuid);
+        tempEventMessage.remove(playerUuid);
+        tempEventMessageExpiry.remove(playerUuid);
 
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
