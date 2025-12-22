@@ -335,10 +335,13 @@ public class TalentListener implements Listener {
             if (currentHits >= effectiveHitsNeeded) {
                 // Lancer le disque!
                 vengefulShieldCounter.put(uuid, 0);
-                double pulseDamage = damage * vengefulShield.getValue(1);
+
+                // Utiliser les dégâts de base du joueur pour plus de consistance
+                double baseDamage = getPlayerBaseDamage(player);
+                double pulseDamage = baseDamage * vengefulShield.getValue(1);
                 double pulseRadius = vengefulShield.getValue(2);
                 int pulseCount = (int) vengefulShield.getValue(3);
-                double explosionDamage = damage * vengefulShield.getValue(4);
+                double explosionDamage = baseDamage * vengefulShield.getValue(4);
                 double explosionRadius = vengefulShield.getValue(5);
                 double travelDistance = vengefulShield.getValue(6);
 
@@ -656,6 +659,9 @@ public class TalentListener implements Listener {
                 // Tracker blocage pour les autres talents Rempart
                 handleRempartBlock(player, uuid, originalDamage);
 
+                // Entrelacement - tracker action "block" (blocage passif compte aussi!)
+                handleWeavingBlock(player, uuid);
+
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
                         "§6🛡 BLOQUÉ! §a+" + String.format("%.1f", heal) + " PV §c→ " + String.format("%.1f", riposteDamage) + " riposte"));
@@ -769,37 +775,9 @@ public class TalentListener implements Listener {
 
         // === TIER 7 ===
 
-        // Entrelacement tracking blocage (REMPART)
-        Talent weavingBlock = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
-        if (weavingBlock != null && player.isBlocking()) {
-            String lastAction = weavingLastAction.get(uuid);
-            long now = System.currentTimeMillis();
-            Long lastProc = weavingLastProc.get(uuid);
-
-            // Reset si trop de temps passé
-            if (lastProc != null && now - lastProc > weavingBlock.getValue(2)) {
-                weavingStacks.put(uuid, 0);
-                weavingLastAction.remove(uuid);
-            }
-
-            if (!"block".equals(lastAction)) {
-                // Alternance réussie!
-                int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
-                int maxStacks = (int) (weavingBlock.getValue(1) / weavingBlock.getValue(0));
-                if (stacks > maxStacks) stacks = maxStacks;
-                weavingStacks.put(uuid, stacks);
-                weavingLastProc.put(uuid, now);
-
-                if (shouldSendTalentMessage(player) && stacks > 1) {
-                    int bonus = (int) (stacks * weavingBlock.getValue(0) * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
-                }
-            } else {
-                // Même action, reset
-                weavingStacks.put(uuid, 0);
-            }
-            weavingLastAction.put(uuid, "block");
+        // Entrelacement tracking blocage actif (REMPART) - bouclier en main
+        if (player.isBlocking()) {
+            handleWeavingBlock(player, uuid);
         }
 
         // === TIER 8 ===
@@ -878,6 +856,17 @@ public class TalentListener implements Listener {
         }
 
         event.setDamage(Math.max(0, damage));
+
+        // === REMPART - Immunité knockback ===
+        // Si le joueur est Inébranlable ou Avatar du Rempart, annuler le knockback
+        if (isUnstoppable(player) || isBulwarkAvatar(player)) {
+            // Annuler le velocity au prochain tick
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    player.setVelocity(player.getVelocity().setX(0).setZ(0));
+                }
+            }, 1L);
+        }
     }
 
     // ==================== KILLS ====================
@@ -1215,6 +1204,49 @@ public class TalentListener implements Listener {
                     Talent ironSkin = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_SKIN);
                     if (ironSkin != null) {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
+                    }
+
+                    // === REMPART - Decay Fortification ===
+                    Talent fortify = getActiveTalentIfHas(player, Talent.TalentEffectType.FORTIFY);
+                    if (fortify != null) {
+                        Long lastBlock = fortifyLastBlock.get(uuid);
+                        // Decay si pas de blocage depuis 2s
+                        if (lastBlock == null || now - lastBlock > 2000) {
+                            double current = fortifyLevel.getOrDefault(uuid, 0.0);
+                            if (current > 0) {
+                                double decay = fortify.getValue(3); // -8% par seconde
+                                double newLevel = Math.max(0, current - decay);
+                                fortifyLevel.put(uuid, newLevel);
+                                // Feedback visuel de perte
+                                if (newLevel > 0 && shouldSendTalentMessage(player)) {
+                                    int percent = (int) (newLevel * 100);
+                                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                                        "§8⚔ Fortification: §7" + percent + "% §8(decay)"));
+                                }
+                            }
+                        }
+                    }
+
+                    // === REMPART - Aura de Défi (effets périodiques) ===
+                    Talent defianceAura = getActiveTalentIfHas(player, Talent.TalentEffectType.DEFIANCE_AURA);
+                    if (defianceAura != null) {
+                        double radius = defianceAura.getValue(0);
+                        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
+                                // Appliquer Glowing pour visibilité
+                                target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false));
+                                // Appliquer Weakness pour -20% dégâts (approximation)
+                                target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0, false, false));
+                            }
+                        }
+                        // Particules de l'aura
+                        Location loc = player.getLocation();
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                            double x = radius * Math.cos(angle);
+                            double z = radius * Math.sin(angle);
+                            player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
+                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 180, 50), 0.8f));
+                        }
                     }
                 }
             }
@@ -2088,12 +2120,20 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.FLASH, player.getLocation(), 1);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
 
+        // Augmenter la taille du joueur (scale 1.25)
+        if (player.getAttribute(Attribute.SCALE) != null) {
+            player.getAttribute(Attribute.SCALE).setBaseValue(1.25);
+        }
+
+        // Immunité CC (résistance aux effets négatifs)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, (int)(duration / 50), 0, false, false));
+
         if (shouldSendTalentMessage(player)) {
             player.sendMessage("§6§l✦ AVATAR DU REMPART! §7Transformation " + (duration/1000) + "s!");
             player.sendMessage("§7- §e100% blocage §7| §c+50% dégâts §7| §6Disques x2 §7| §eImmunité CC");
         }
 
-        // Aura visuelle pendant la durée
+        // Aura visuelle pendant la durée + maintien immunité CC
         new BukkitRunnable() {
             int ticks = 0;
             final int maxTicks = (int) (duration / 50);
@@ -2101,20 +2141,37 @@ public class TalentListener implements Listener {
             @Override
             public void run() {
                 if (ticks >= maxTicks || !player.isOnline()) {
+                    // Restaurer la taille normale
+                    if (player.getAttribute(Attribute.SCALE) != null) {
+                        player.getAttribute(Attribute.SCALE).setBaseValue(1.0);
+                    }
                     if (shouldSendTalentMessage(player)) {
                         player.sendActionBar(net.kyori.adventure.text.Component.text("§8Avatar du Rempart terminé"));
                     }
+                    player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
                     cancel();
                     return;
                 }
 
-                // Particules dorées autour du joueur
-                Location loc = player.getLocation().add(0, 1, 0);
+                // Maintenir immunité CC (annuler effets négatifs)
+                player.removePotionEffect(PotionEffectType.SLOWNESS);
+                player.removePotionEffect(PotionEffectType.WEAKNESS);
+                player.removePotionEffect(PotionEffectType.POISON);
+                player.removePotionEffect(PotionEffectType.WITHER);
+
+                // Particules dorées autour du joueur (plus grandes car scale 1.25)
+                Location loc = player.getLocation().add(0, 1.2, 0);
                 for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-                    double x = 1.2 * Math.cos(angle + ticks * 0.1);
-                    double z = 1.2 * Math.sin(angle + ticks * 0.1);
+                    double x = 1.5 * Math.cos(angle + ticks * 0.1);
+                    double z = 1.5 * Math.sin(angle + ticks * 0.1);
                     player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z),
-                        1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
+                        1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                }
+
+                // Particules verticales pour effet "géant"
+                if (ticks % 4 == 0) {
+                    player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2.5, 0),
+                        3, 0.3, 0.2, 0.3, 0.01);
                 }
 
                 ticks += 5;
@@ -2255,11 +2312,8 @@ public class TalentListener implements Listener {
         double shieldPerEnemy = talent.getValue(2);
         double maxShield = talent.getValue(3);
 
-        // Calculer la destination
-        Location destination = start.clone().add(direction.multiply(distance));
-
-        // Téléporter le joueur (avec vérification des collisions)
-        player.setVelocity(direction.multiply(2.0).setY(0.3));
+        // Propulser le joueur vers l'avant
+        player.setVelocity(direction.clone().multiply(2.0).setY(0.3));
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
@@ -2352,5 +2406,59 @@ public class TalentListener implements Listener {
         String msg = "§7🛡 Disque " + bar + " §e" + current + "§7/" + needed;
         player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f + (current * 0.15f));
+    }
+
+    /**
+     * Gère l'entrelacement pour un blocage (passif ou actif)
+     */
+    private void handleWeavingBlock(Player player, UUID uuid) {
+        Talent weaving = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
+        if (weaving == null) return;
+
+        String lastAction = weavingLastAction.get(uuid);
+        long now = System.currentTimeMillis();
+        Long lastProc = weavingLastProc.get(uuid);
+
+        // Reset si trop de temps passé
+        if (lastProc != null && now - lastProc > weaving.getValue(2)) {
+            weavingStacks.put(uuid, 0);
+            weavingLastAction.remove(uuid);
+            lastAction = null;
+        }
+
+        if (!"block".equals(lastAction)) {
+            // Alternance réussie!
+            int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
+            int maxStacks = (int) (weaving.getValue(1) / weaving.getValue(0));
+            if (stacks > maxStacks) stacks = maxStacks;
+            weavingStacks.put(uuid, stacks);
+            weavingLastProc.put(uuid, now);
+
+            if (shouldSendTalentMessage(player) && stacks > 1) {
+                int bonus = (int) (stacks * weaving.getValue(0) * 100);
+                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                    "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
+            }
+        } else {
+            // Même action, reset
+            weavingStacks.put(uuid, 0);
+        }
+        weavingLastAction.put(uuid, "block");
+    }
+
+    /**
+     * Vérifie si un joueur est en mode Inébranlable (immunité knockback)
+     */
+    public boolean isUnstoppable(Player player) {
+        UUID uuid = player.getUniqueId();
+        return unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+    }
+
+    /**
+     * Vérifie si un joueur est en mode Avatar du Rempart
+     */
+    public boolean isBulwarkAvatar(Player player) {
+        UUID uuid = player.getUniqueId();
+        return bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
     }
 }
