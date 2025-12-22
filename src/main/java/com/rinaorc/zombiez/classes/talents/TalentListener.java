@@ -996,12 +996,17 @@ public class TalentListener implements Listener {
         for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
             double x = center.getX() + radius * Math.cos(angle);
             double z = center.getZ() + radius * Math.sin(angle);
-            player.getWorld().spawnParticle(Particle.DUST,
-                new Location(player.getWorld(), x, center.getY() + 0.1, z),
+            Location particleLoc = new Location(player.getWorld(), x, center.getY() + 0.1, z);
+            player.getWorld().spawnParticle(Particle.DUST, particleLoc,
                 2, 0.1, 0, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 119, 101), 1.5f));
+            // Debris de roche
+            player.getWorld().spawnParticle(Particle.BLOCK, particleLoc,
+                2, 0.15, 0.1, 0.15, 0, Material.STONE.createBlockData());
         }
-        // Impact central
+        // Impact central - debris de pierre
         player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 5, 0.3, 0.1, 0.3, 0.01);
+        player.getWorld().spawnParticle(Particle.BLOCK, center.clone().add(0, 0.2, 0),
+            8, 0.4, 0.15, 0.4, 0, Material.COBBLESTONE.createBlockData());
 
         // Son
         player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
@@ -1243,13 +1248,18 @@ public class TalentListener implements Listener {
             for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                 double x = center.getX() + r * Math.cos(angle);
                 double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.DUST,
-                    new Location(player.getWorld(), x, center.getY() + 0.2, z),
+                Location particleLoc = new Location(player.getWorld(), x, center.getY() + 0.2, z);
+                player.getWorld().spawnParticle(Particle.DUST, particleLoc,
                     3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.fromRGB(60, 60, 60), 2.0f));
+                // Debris de deepslate fissure
+                player.getWorld().spawnParticle(Particle.BLOCK, particleLoc,
+                    2, 0.2, 0.15, 0.2, 0, Material.CRACKED_DEEPSLATE_BRICKS.createBlockData());
             }
         }
-        // Colonne centrale
+        // Colonne centrale + explosion de debris
         player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 8, 0.3, 0.5, 0.3, 0.02);
+        player.getWorld().spawnParticle(Particle.BLOCK, center.clone().add(0, 0.3, 0),
+            15, 1.0, 0.3, 1.0, 0.1, Material.DEEPSLATE.createBlockData());
 
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 0.5f);
 
@@ -1273,6 +1283,9 @@ public class TalentListener implements Listener {
         // Onde subtile au sol
         player.getWorld().spawnParticle(Particle.DUST, center, 8, radius / 2, 0.1, radius / 2, 0,
             new Particle.DustOptions(Color.fromRGB(100, 90, 80), 1.2f));
+        // Debris de gravier/terre qui s'elevent
+        player.getWorld().spawnParticle(Particle.BLOCK, center.clone().add(0, 0.1, 0),
+            6, radius / 2, 0.1, radius / 2, 0, Material.GRAVEL.createBlockData());
         player.getWorld().playSound(center, Sound.BLOCK_GRAVEL_STEP, 0.6f, 0.4f);
 
         // Degats bases sur les stats du joueur
@@ -1305,7 +1318,7 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center.clone().add(0, 0.5, 0), 6, 0.2, 0.1, 0.2, 0.04);
         player.getWorld().spawnParticle(Particle.LARGE_SMOKE, center.clone().add(0, 1, 0), 4, 0.3, 0.5, 0.3, 0.02);
 
-        // 3. Onde de choc concentrique au sol (orange → rouge dégradé)
+        // 3. Onde de choc concentrique au sol (orange → rouge dégradé) + debris
         for (double r = 1.5; r <= radius; r += 2.0) {
             double progress = r / radius;
             int red = (int) (255 - progress * 75);
@@ -1316,16 +1329,21 @@ public class TalentListener implements Listener {
             for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 5) {
                 double x = center.getX() + r * Math.cos(angle);
                 double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.DUST,
-                    new Location(player.getWorld(), x, center.getY() + 0.15, z),
+                Location particleLoc = new Location(player.getWorld(), x, center.getY() + 0.15, z);
+                player.getWorld().spawnParticle(Particle.DUST, particleLoc,
                     2, 0.15, 0.05, 0.15, 0, new Particle.DustOptions(waveColor, 2.2f));
+                // Debris de roche qui eclatent
+                player.getWorld().spawnParticle(Particle.BLOCK, particleLoc,
+                    2, 0.2, 0.2, 0.2, 0.05, Material.NETHERRACK.createBlockData());
             }
         }
 
-        // 4. Braises/cendres qui s'élèvent
+        // 4. Braises/cendres qui s'élèvent + debris centraux massifs
         player.getWorld().spawnParticle(Particle.DUST, center.clone().add(0, 0.8, 0), 8, 1.0, 0.6, 1.0, 0,
             new Particle.DustOptions(Color.fromRGB(255, 80, 20), 1.0f));
         player.getWorld().spawnParticle(Particle.LAVA, center, 3, 0.5, 0.2, 0.5, 0);
+        player.getWorld().spawnParticle(Particle.BLOCK, center.clone().add(0, 0.5, 0),
+            20, 1.5, 0.4, 1.5, 0.15, Material.MAGMA_BLOCK.createBlockData());
 
         // Sons - grondement profond + impact
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.4f);
@@ -1654,20 +1672,26 @@ public class TalentListener implements Listener {
                 for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
                     double x = center.getX() + radius * Math.cos(angle);
                     double z = center.getZ() + radius * Math.sin(angle);
-                    center.getWorld().spawnParticle(Particle.DUST,
-                        new Location(center.getWorld(), x, center.getY() + 0.1, z),
+                    Location particleLoc = new Location(center.getWorld(), x, center.getY() + 0.1, z);
+                    center.getWorld().spawnParticle(Particle.DUST, particleLoc,
                         1, 0.1, 0, 0.1, 0,
                         new Particle.DustOptions(Color.fromRGB(200, 80, 20), 1.5f));
+                    // Debris de roche sur le contour
+                    center.getWorld().spawnParticle(Particle.BLOCK, particleLoc,
+                        1, 0.15, 0.1, 0.15, 0, Material.CRACKED_STONE_BRICKS.createBlockData());
                 }
 
-                // Fissures au sol (effet aleatoire)
+                // Fissures au sol (effet aleatoire) + debris
                 if (ticksElapsed % 2 == 0) {
                     for (int i = 0; i < 3; i++) {
                         double rx = center.getX() + (Math.random() - 0.5) * radius * 2;
                         double rz = center.getZ() + (Math.random() - 0.5) * radius * 2;
-                        center.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE,
-                            new Location(center.getWorld(), rx, center.getY() + 0.2, rz),
+                        Location fissureLoc = new Location(center.getWorld(), rx, center.getY() + 0.2, rz);
+                        center.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, fissureLoc,
                             1, 0.1, 0.05, 0.1, 0.01);
+                        // Debris de pierre qui jaillissent des fissures
+                        center.getWorld().spawnParticle(Particle.BLOCK, fissureLoc,
+                            3, 0.15, 0.2, 0.15, 0.02, Material.COBBLESTONE.createBlockData());
                     }
                 }
 
