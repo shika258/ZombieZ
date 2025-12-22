@@ -269,23 +269,12 @@ public class TalentListener implements Listener {
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
                 player.getWorld().playSound(target.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
 
-                // Effet visuel sacré/jaune
+                // Effet visuel sacré/jaune (réduit)
                 Location targetLoc = target.getLocation().add(0, 1, 0);
-                // Éclat doré central
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 25, 0.3, 0.5, 0.3, 0.15);
-                // Particules dorées lumineuses
-                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 12, 0.4, 0.6, 0.4, 0.05);
-                // Dust jaune/doré
-                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 20, 0.5, 0.7, 0.5, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f));
-                // Cercle sacré au sol
-                Location groundLoc = target.getLocation().add(0, 0.1, 0);
-                for (int i = 0; i < 12; i++) {
-                    double angle = (2 * Math.PI / 12) * i;
-                    double x = Math.cos(angle) * 1.2;
-                    double z = Math.sin(angle) * 1.2;
-                    player.getWorld().spawnParticle(Particle.END_ROD, groundLoc.clone().add(x, 0, z), 1, 0, 0.1, 0, 0);
-                }
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 12, 0.3, 0.5, 0.3, 0.1);
+                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 6, 0.3, 0.5, 0.3, 0.03);
+                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 8, 0.4, 0.5, 0.4, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
 
                 // Message d'activation via système centralisé
                 showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!");
@@ -1228,36 +1217,36 @@ public class TalentListener implements Listener {
                         long tick = world.getGameTime();
                         double rotationOffset = (tick % 60) * (Math.PI * 2 / 60); // Rotation complète en 3s
 
-                        // Anneau principal au sol (doré, rotatif)
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                        // Anneau principal au sol (doré, rotatif) - réduit
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
                             double x = radius * Math.cos(angle + rotationOffset);
                             double z = radius * Math.sin(angle + rotationOffset);
                             world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
                                 1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
                         }
 
-                        // Anneau secondaire (contre-rotation, orange)
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                        // Anneau secondaire (contre-rotation, orange) - réduit
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                             double x = (radius - 0.5) * Math.cos(angle - rotationOffset * 0.5);
                             double z = (radius - 0.5) * Math.sin(angle - rotationOffset * 0.5);
                             world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.15, z),
                                 1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 140, 30), 0.8f));
                         }
 
-                        // Piliers de lumière sacrée aux 4 points cardinaux
-                        for (int i = 0; i < 4; i++) {
-                            double pillarAngle = (Math.PI / 2) * i + rotationOffset * 0.3;
+                        // Piliers de lumière sacrée aux 2 points opposés (réduit)
+                        for (int i = 0; i < 2; i++) {
+                            double pillarAngle = Math.PI * i + rotationOffset * 0.3;
                             double px = (radius - 0.3) * Math.cos(pillarAngle);
                             double pz = (radius - 0.3) * Math.sin(pillarAngle);
-                            for (double y = 0; y < 2.0; y += 0.4) {
+                            for (double y = 0; y < 2.0; y += 0.6) {
                                 world.spawnParticle(Particle.END_ROD, loc.clone().add(px, y, pz),
                                     1, 0.05, 0.1, 0.05, 0.01);
                             }
                         }
 
-                        // Particules montantes centrales (effet sacré)
-                        if (tick % 5 == 0) {
-                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                        // Particules montantes centrales (effet sacré) - réduit
+                        if (tick % 10 == 0) {
+                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI * 2 / 3) {
                                 double sparkX = (radius * 0.5) * Math.cos(angle + rotationOffset * 2);
                                 double sparkZ = (radius * 0.5) * Math.sin(angle + rotationOffset * 2);
                                 world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(sparkX, 0.5, sparkZ),
@@ -2055,9 +2044,9 @@ public class TalentListener implements Listener {
                 new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.0f));
 
             if (newStacks == maxStacks) {
-                // MAX STACKS!
+                // MAX STACKS! (particules réduites)
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 12, 0.4, 0.6, 0.4, 0.1);
                 // Message d'événement via système centralisé
                 int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
                 showTempEventMessage(uuid, "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!");
@@ -2153,11 +2142,11 @@ public class TalentListener implements Listener {
         long duration = (long) talent.getValue(1);
         bulwarkAvatarActiveUntil.put(uuid, System.currentTimeMillis() + duration);
 
-        // Effets visuels d'activation
+        // Effets visuels d'activation (réduit)
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_EMERGE, 0.8f, 1.2f);
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.FLASH, player.getLocation(), 1);
-        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 20, 0.8, 0.8, 0.8, 0.1);
 
         // Augmenter la taille du joueur (scale 1.25)
         if (player.getAttribute(Attribute.SCALE) != null) {
@@ -2197,19 +2186,21 @@ public class TalentListener implements Listener {
                 player.removePotionEffect(PotionEffectType.POISON);
                 player.removePotionEffect(PotionEffectType.WITHER);
 
-                // Particules dorées autour du joueur (plus grandes car scale 1.25)
+                // Particules dorées autour du joueur (réduites)
                 Location loc = player.getLocation().add(0, 1.2, 0);
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
-                    double x = 1.5 * Math.cos(angle + ticks * 0.1);
-                    double z = 1.5 * Math.sin(angle + ticks * 0.1);
-                    player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z),
-                        1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                if (ticks % 2 == 0) { // Une frame sur deux
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) { // 4 points au lieu de 8
+                        double x = 1.5 * Math.cos(angle + ticks * 0.1);
+                        double z = 1.5 * Math.sin(angle + ticks * 0.1);
+                        player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0, z),
+                            1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
+                    }
                 }
 
-                // Particules verticales pour effet "géant"
-                if (ticks % 4 == 0) {
+                // Particules verticales pour effet "géant" (réduites)
+                if (ticks % 8 == 0) {
                     player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 2.5, 0),
-                        3, 0.3, 0.2, 0.3, 0.01);
+                        2, 0.2, 0.2, 0.2, 0.01);
                 }
 
                 ticks += 5;
@@ -2263,14 +2254,14 @@ public class TalentListener implements Listener {
             display.setGlowColorOverride(org.bukkit.Color.fromRGB(255, 200, 50)); // Lueur dorée
         });
 
-        // Flash lumineux au spawn
+        // Flash lumineux au spawn (réduit)
         player.getWorld().spawnParticle(Particle.FLASH, spawnLoc, 1);
-        player.getWorld().spawnParticle(Particle.END_ROD, spawnLoc, 20, 0.5, 0.5, 0.5, 0.1);
+        player.getWorld().spawnParticle(Particle.END_ROD, spawnLoc, 8, 0.4, 0.4, 0.4, 0.05);
 
         // Animation de chute
         new BukkitRunnable() {
             int ticks = 0;
-            final int fallDuration = 12; // 0.6 seconde pour plus d'impact
+            final int fallDuration = 12;
             final double startY = spawnLoc.getY();
             final double endY = targetLoc.getY() + 0.5;
             final double totalDrop = startY - endY;
@@ -2278,36 +2269,36 @@ public class TalentListener implements Listener {
             @Override
             public void run() {
                 if (ticks >= fallDuration || !hammer.isValid()) {
-                    // IMPACT!
                     hammer.remove();
                     triggerHammerImpact(player, targetLoc, target, baseDamage, mainDamageMultiplier, aoeDamageMultiplier, aoeRadius);
                     cancel();
                     return;
                 }
 
-                // Mouvement accéléré (effet de gravité)
                 double progress = (double) ticks / fallDuration;
-                double easedProgress = progress * progress; // Accélération quadratique
+                double easedProgress = progress * progress;
                 double currentY = startY - (totalDrop * easedProgress);
 
                 Location newLoc = targetLoc.clone();
                 newLoc.setY(currentY);
                 hammer.teleport(newLoc);
 
-                // Particules de traînée dorée
-                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc.clone().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0.02);
-                hammer.getWorld().spawnParticle(Particle.DUST, newLoc.clone().add(0, 1.5, 0), 8, 0.4, 0.8, 0.4, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 2.0f));
-
-                // Traînée de feu vers la fin
-                if (ticks > fallDuration / 2) {
-                    hammer.getWorld().spawnParticle(Particle.FLAME, newLoc.clone().add(0, 1, 0), 3, 0.2, 0.3, 0.2, 0.02);
+                // Particules de traînée (réduites)
+                if (ticks % 2 == 0) {
+                    hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc.clone().add(0, 1, 0), 2, 0.2, 0.3, 0.2, 0.01);
+                    hammer.getWorld().spawnParticle(Particle.DUST, newLoc.clone().add(0, 1.5, 0), 3, 0.3, 0.5, 0.3, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.5f));
                 }
 
-                // Son de sifflement qui s'intensifie
-                if (ticks % 2 == 0) {
+                // Traînée de feu vers la fin (réduite)
+                if (ticks > fallDuration / 2 && ticks % 2 == 0) {
+                    hammer.getWorld().spawnParticle(Particle.FLAME, newLoc.clone().add(0, 1, 0), 2, 0.2, 0.2, 0.2, 0.01);
+                }
+
+                // Son de sifflement
+                if (ticks % 3 == 0) {
                     float pitch = 1.5f + (progress * 0.5f);
-                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.4f, pitch);
+                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, pitch);
                 }
 
                 ticks++;
@@ -2320,26 +2311,24 @@ public class TalentListener implements Listener {
      */
     private void triggerHammerImpact(Player player, Location impactLoc, LivingEntity mainTarget,
                                       double baseDamage, double mainMultiplier, double aoeMultiplier, double radius) {
-        // === EFFETS VISUELS D'IMPACT ===
-        // Explosion de particules dorées
-        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 80, 1, 1, 1, 0.5);
-        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 3, 0.5, 0.5, 0.5, 0);
-        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 50, 2, 0.5, 2, 0.1);
+        // === EFFETS VISUELS D'IMPACT (réduits) ===
+        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 30, 0.8, 0.8, 0.8, 0.3);
+        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 2, 0.3, 0.3, 0.3, 0);
+        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 15, 1.5, 0.4, 1.5, 0.05);
 
-        // Onde de choc au sol
-        for (int ring = 1; ring <= (int) radius; ring++) {
+        // Onde de choc au sol (réduite)
+        for (int ring = 1; ring <= (int) radius; ring += 2) { // Un anneau sur deux
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                for (int i = 0; i < 20; i++) {
-                    double angle = (2 * Math.PI / 20) * i;
+                for (int i = 0; i < 12; i++) { // 12 points au lieu de 20
+                    double angle = (2 * Math.PI / 12) * i;
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     Location particleLoc = impactLoc.clone().add(x, 0.2, z);
-                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
-                    impactLoc.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0, 0.2, 0, 0.05);
+                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
                 }
-            }, ring * 2L);
+            }, ring);
         }
 
         // Sons d'impact
@@ -2432,28 +2421,26 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Particules du disque tournant
+     * Particules du disque tournant (réduit)
      */
     private void spawnDiscParticles(Location center, double rotation) {
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) { // 4 points au lieu de 8
             double x = 0.5 * Math.cos(angle + rotation);
             double z = 0.5 * Math.sin(angle + rotation);
             center.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0, z),
-                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
         }
-        // Centre du disque
-        center.getWorld().spawnParticle(Particle.END_ROD, center, 1, 0, 0, 0, 0);
     }
 
     /**
-     * Pulse du disque
+     * Pulse du disque (réduit)
      */
     private void procVengefulShieldPulse(Player player, Location center, double damage, double radius, int pulseNumber) {
-        // Effet visuel de pulse
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+        // Effet visuel de pulse (réduit)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) { // 6 points au lieu de 12
             double x = radius * Math.cos(angle);
             double z = radius * Math.sin(angle);
-            center.getWorld().spawnParticle(Particle.ENCHANT, center.clone().add(x, 0, z), 3, 0.1, 0.1, 0.1, 0.1);
+            center.getWorld().spawnParticle(Particle.ENCHANT, center.clone().add(x, 0, z), 2, 0.1, 0.1, 0.1, 0.05);
         }
         center.getWorld().playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.0f + pulseNumber * 0.1f);
 
@@ -2466,13 +2453,13 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Explosion finale du disque
+     * Explosion finale du disque (réduit)
      */
     private void procVengefulShieldExplosion(Player player, Location center, double damage, double radius) {
-        // Effets visuels
+        // Effets visuels (réduits)
         center.getWorld().spawnParticle(Particle.FLASH, center, 1);
         center.getWorld().spawnParticle(Particle.EXPLOSION, center, 1);
-        center.getWorld().spawnParticle(Particle.END_ROD, center, 30, radius / 2, 0.5, radius / 2, 0.1);
+        center.getWorld().spawnParticle(Particle.END_ROD, center, 12, radius / 2, 0.4, radius / 2, 0.05);
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.5f);
 
         // Dégâts aux ennemis
@@ -2494,11 +2481,11 @@ public class TalentListener implements Listener {
         double hpPerEnemy = talent.getValue(2); // 8%
         long hpDuration = (long) talent.getValue(3); // 6000ms
 
-        // Propulser le joueur vers l'avant (plus fort pour 12 blocs)
+        // Propulser le joueur vers l'avant
         player.setVelocity(direction.clone().multiply(3.0).setY(0.3));
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
-        player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
+        player.getWorld().spawnParticle(Particle.CLOUD, start, 10, 0.4, 0.2, 0.4, 0.05); // Réduit
 
         // Message d'activation via système centralisé
         showTempEventMessage(player.getUniqueId(), "§6§l⚔ CHARGE DU BASTION!");
@@ -2525,9 +2512,9 @@ public class TalentListener implements Listener {
                     return;
                 }
 
-                // Particules de traînée
+                // Particules de traînée (réduit)
                 player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
-                    5, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    2, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
 
                 // Dégâts aux ennemis sur le chemin (rayon plus large pour 12 blocs)
                 for (Entity entity : player.getNearbyEntities(2.5, 2.5, 2.5)) {
@@ -2547,8 +2534,8 @@ public class TalentListener implements Listener {
 
                             player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.8f, 1.0f);
 
-                            // Effet visuel par ennemi touché
-                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.05);
+                            // Effet visuel par ennemi touché (réduit)
+                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 2, 0.2, 0.3, 0.2, 0.05);
                         }
                     }
                 }
@@ -2668,22 +2655,22 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.BLOCK_BELL_USE, 1.5f, 0.6f);
         player.getWorld().playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
 
-        // Explosion dorée centrale
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.3);
-        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.15);
+        // Explosion dorée centrale (réduit)
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 20, 0.5, 0.8, 0.5, 0.3);
+        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.15);
 
-        // Onde de choc en cercle qui s'étend
+        // Onde de choc en cercle qui s'étend (réduit)
         for (int ring = 1; ring <= (int) radius; ring++) {
             final int r = ring;
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                for (int i = 0; i < 16; i++) {
-                    double angle = (2 * Math.PI / 16) * i;
+                for (int i = 0; i < 8; i++) {
+                    double angle = (2 * Math.PI / 8) * i;
                     double x = Math.cos(angle) * r;
                     double z = Math.sin(angle) * r;
                     Location particleLoc = center.clone().add(x, 0.2, z);
-                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0,
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.1, 0.1, 0.1, 0,
                         new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
-                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 1, 0.1, 0.1, 0.1, 0.02);
                 }
             }, ring * 2L);
         }
@@ -2697,8 +2684,8 @@ public class TalentListener implements Listener {
                     target.damage(storedDamage, player);
                     totalDamageDealt += storedDamage;
 
-                    // Effet sur la cible
-                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                    // Effet sur la cible (réduit)
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 4, 0.3, 0.3, 0.3, 0.1);
                 }
             }
         }
