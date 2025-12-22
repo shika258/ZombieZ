@@ -2939,51 +2939,73 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Rempart (Slot 1) - Tank/Défense
-     * Centralise: Fortification, Écho de Fer, Châtiment, Bouclier Vengeur, Avatar
+     * Format optimisé inspiré de ShadowManager
+     * Affiche: Absorption, Châtiment, Bouclier Vengeur, Charge, Avatar
      */
     private void buildRempartActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
-        bar.append("§6§l[§e🛡§6§l] ");
 
-        // Avatar Rempart actif - PRIORITAIRE
+        // === ABSORPTION VISUELLE (comme les points d'ombre) ===
+        double absorption = player.getAbsorptionAmount();
+        int absHearts = Math.min((int) Math.ceil(absorption / 2.0), 5); // Max 5 symboles
+        bar.append("§6§l[§r ");
+        for (int i = 0; i < 5; i++) {
+            if (i < absHearts) {
+                bar.append("§6◆ "); // Coeur plein (doré)
+            } else {
+                bar.append("§8◇ "); // Coeur vide
+            }
+        }
+        bar.append("§6§l]§r");
+
+        // === AVATAR ACTIF - Mode prioritaire ===
         if (isBulwarkAvatar(player)) {
             long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
-            bar.append("§6§l✦ AVATAR §e").append(remaining).append("s §7| §e100% blocage §7| §c+50% dégâts");
-            return; // Ne rien afficher d'autre pendant l'Avatar
+            bar.append("  §6§l✦ AVATAR §e").append(remaining).append("s");
+            return; // Affichage simplifié pendant l'Avatar
         }
 
-        // Fortification stacks (absorption active)
-        int fortStacks = fortifyStacks.getOrDefault(uuid, 0);
-        if (fortStacks > 0) {
-            Long expiry = fortifyExpireTime.get(uuid);
-            String timeStr = "";
-            if (expiry != null) {
-                long remaining = (expiry - System.currentTimeMillis()) / 1000;
-                if (remaining > 0) {
-                    timeStr = " §7(" + remaining + "s)";
-                }
+        // === CHÂTIMENT (3 stacks = buff prêt) ===
+        Talent punishment = getActiveTalentIfHas(player, Talent.TalentEffectType.PUNISHMENT);
+        if (punishment != null) {
+            int stacks = punishmentStacks.getOrDefault(uuid, 0);
+            boolean ready = punishmentReady.getOrDefault(uuid, false);
+            if (ready) {
+                bar.append("  §6§lCHÂTI!");
+            } else if (stacks > 0) {
+                bar.append("  §7Châti: §e").append(stacks).append("§7/3");
             }
-            bar.append("§6Fortification §e❤+").append(fortStacks * 10).append("%").append(timeStr);
         }
 
-        // Progression vers Avatar (uniquement si > 50% du seuil)
+        // === BOUCLIER VENGEUR (4 hits = disque) ===
+        Talent vengefulShield = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEFUL_SHIELD);
+        if (vengefulShield != null) {
+            int hits = vengefulShieldCounter.getOrDefault(uuid, 0);
+            if (hits > 0) {
+                bar.append("  §7Disque: §e").append(hits).append("§7/4");
+            }
+        }
+
+        // === CHARGE DU BASTION (cooldown) ===
+        Talent bastionCharge = getActiveTalentIfHas(player, Talent.TalentEffectType.BASTION_CHARGE);
+        if (bastionCharge != null) {
+            long remaining = getCooldownRemaining(uuid, "bastion_charge");
+            if (remaining > 0) {
+                bar.append("  §7Charge: §c").append(String.format("%.1f", remaining / 1000.0)).append("s");
+            } else {
+                bar.append("  §7Charge: §aPRÊT");
+            }
+        }
+
+        // === PROGRESSION AVATAR (si talent actif et > 25%) ===
         Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
         if (bulwarkAvatar != null) {
             double threshold = bulwarkAvatar.getValue(0);
             double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
             int percent = (int) ((blocked / threshold) * 100);
-            if (percent >= 50) {
-                if (fortStacks > 0) bar.append("  §7| ");
-                bar.append("§6Avatar §e").append(percent).append("%");
+            if (percent >= 25) {
+                bar.append("  §6Avatar §e").append(percent).append("%");
             }
-        }
-
-        // Absorption actuelle (si > 0)
-        double absorption = player.getAbsorptionAmount();
-        if (absorption > 0) {
-            int hearts = (int) Math.ceil(absorption / 2.0);
-            if (fortStacks > 0 || bulwarkAvatar != null) bar.append("  §7| ");
-            bar.append("§e").append(hearts).append("§6❤");
         }
     }
 
