@@ -2219,10 +2219,11 @@ public class TalentListener implements Listener {
 
     /**
      * Proc du Marteau du Jugement - fait tomber un marteau géant du ciel
+     * Utilise ItemDisplay (1.19.4+) pour afficher une hache géante qui tombe
      */
     private void procJudgmentHammer(Player player, LivingEntity target, Talent talent, double baseDamage) {
         Location targetLoc = target.getLocation();
-        Location spawnLoc = targetLoc.clone().add(0, 10, 0); // 10 blocs au-dessus
+        Location spawnLoc = targetLoc.clone().add(0, 12, 0); // 12 blocs au-dessus
 
         double mainDamageMultiplier = talent.getValue(1); // 300%
         double aoeDamageMultiplier = talent.getValue(2); // 150%
@@ -2231,39 +2232,48 @@ public class TalentListener implements Listener {
         // Message d'activation via système centralisé
         showTempEventMessage(player.getUniqueId(), "§6§l⚒ MARTEAU DU JUGEMENT!");
 
-        // Son de départ
-        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
-        player.getWorld().playSound(targetLoc, Sound.BLOCK_ANVIL_LAND, 0.5f, 0.5f);
+        // Son de départ - tonnerre annonciateur
+        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.2f);
+        player.getWorld().playSound(spawnLoc, Sound.BLOCK_ANVIL_PLACE, 0.8f, 0.5f);
 
-        // Créer le marteau géant avec armor stand
-        org.bukkit.entity.ArmorStand hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setMarker(true);
-            stand.setSmall(false);
-            stand.setArms(true);
-            stand.setBasePlate(false);
-
-            // Équiper avec une hache dorée
-            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE));
-
-            // Rendre géant avec l'attribut scale (1.21.4+)
-            var scaleAttr = stand.getAttribute(Attribute.SCALE);
-            if (scaleAttr != null) {
-                scaleAttr.setBaseValue(4.0); // 4x plus grand
+        // Créer le marteau géant avec ItemDisplay (1.19.4+)
+        org.bukkit.entity.ItemDisplay hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ItemDisplay.class, display -> {
+            // Créer l'item de hache dorée avec enchantement pour l'effet brillant
+            org.bukkit.inventory.ItemStack axeItem = new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE);
+            org.bukkit.inventory.meta.ItemMeta meta = axeItem.getItemMeta();
+            if (meta != null) {
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.SHARPNESS, 1, true);
+                axeItem.setItemMeta(meta);
             }
+            display.setItemStack(axeItem);
 
-            // Rotation pour que la hache pointe vers le bas
-            stand.setRightArmPose(new org.bukkit.util.EulerAngle(Math.toRadians(180), 0, 0));
+            // Taille géante (3x plus grand)
+            org.bukkit.util.Transformation transform = display.getTransformation();
+            display.setTransformation(new org.bukkit.util.Transformation(
+                transform.getTranslation(),
+                new org.joml.AxisAngle4f((float) Math.toRadians(180), 1, 0, 0), // Rotation pour pointer vers le bas
+                new org.joml.Vector3f(4.0f, 4.0f, 4.0f), // Scale 4x
+                transform.getRightRotation()
+            ));
+
+            // Mode d'affichage
+            display.setItemDisplayTransform(org.bukkit.entity.ItemDisplay.ItemDisplayTransform.FIXED);
+            display.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15)); // Pleine luminosité
+            display.setGlowing(true); // Effet de brillance
+            display.setGlowColorOverride(org.bukkit.Color.fromRGB(255, 200, 50)); // Lueur dorée
         });
+
+        // Flash lumineux au spawn
+        player.getWorld().spawnParticle(Particle.FLASH, spawnLoc, 1);
+        player.getWorld().spawnParticle(Particle.END_ROD, spawnLoc, 20, 0.5, 0.5, 0.5, 0.1);
 
         // Animation de chute
         new BukkitRunnable() {
             int ticks = 0;
-            final int fallDuration = 10; // 0.5 seconde
+            final int fallDuration = 12; // 0.6 seconde pour plus d'impact
             final double startY = spawnLoc.getY();
-            final double endY = targetLoc.getY() + 1;
-            final double dropPerTick = (startY - endY) / fallDuration;
+            final double endY = targetLoc.getY() + 0.5;
+            final double totalDrop = startY - endY;
 
             @Override
             public void run() {
@@ -2275,18 +2285,29 @@ public class TalentListener implements Listener {
                     return;
                 }
 
-                // Descendre le marteau
-                Location newLoc = hammer.getLocation().subtract(0, dropPerTick, 0);
+                // Mouvement accéléré (effet de gravité)
+                double progress = (double) ticks / fallDuration;
+                double easedProgress = progress * progress; // Accélération quadratique
+                double currentY = startY - (totalDrop * easedProgress);
+
+                Location newLoc = targetLoc.clone();
+                newLoc.setY(currentY);
                 hammer.teleport(newLoc);
 
-                // Particules de traînée
-                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc, 3, 0.2, 0.3, 0.2, 0.02);
-                hammer.getWorld().spawnParticle(Particle.DUST, newLoc, 5, 0.3, 0.5, 0.3, 0,
+                // Particules de traînée dorée
+                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc.clone().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0.02);
+                hammer.getWorld().spawnParticle(Particle.DUST, newLoc.clone().add(0, 1.5, 0), 8, 0.4, 0.8, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 215, 0), 2.0f));
 
-                // Son de sifflement
+                // Traînée de feu vers la fin
+                if (ticks > fallDuration / 2) {
+                    hammer.getWorld().spawnParticle(Particle.FLAME, newLoc.clone().add(0, 1, 0), 3, 0.2, 0.3, 0.2, 0.02);
+                }
+
+                // Son de sifflement qui s'intensifie
                 if (ticks % 2 == 0) {
-                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, 2.0f);
+                    float pitch = 1.5f + (progress * 0.5f);
+                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.4f, pitch);
                 }
 
                 ticks++;
