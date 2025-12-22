@@ -66,9 +66,11 @@ public class PoisonListener implements Listener {
         // === Bonus Nécrose (+25% dégâts si 70%+ virulence) ===
         // Géré automatiquement dans les DoTs de PoisonManager
 
-        // === T5: NECROSIS - Bonus dégâts sur cibles corrompues (+30%) ===
-        if (poisonManager.isCorrupted(targetUuid)) {
-            event.setDamage(event.getDamage() * 1.30);
+        // === T5: EPIDEMIC (Nécrose) - Bonus dégâts sur cibles corrompues (+30%) ===
+        Talent epidemicTalent = getActiveTalent(player, Talent.TalentEffectType.EPIDEMIC);
+        if (epidemicTalent != null && poisonManager.isCorrupted(targetUuid)) {
+            double corruptedBonus = epidemicTalent.getValue(1); // 0.30 = 30%
+            event.setDamage(event.getDamage() * (1 + corruptedBonus));
         }
 
         // === T6: TOXIC_SYNERGY - Bonus dégâts basé sur virulence proche ===

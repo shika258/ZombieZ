@@ -453,10 +453,10 @@ public final class ChasseurTalents {
                 "§8► Utilise vos stats de crit",
                 "§8► Particules spéciales sur crit",
                 "",
-                "§6PARALYSIE:",
-                "§8► Empoisonnés: §9Ralentis§8",
-                "§8► §9Slow II§8 à 70%+ virulence",
-                "§8► Facilite les combos!",
+                "§6PARALYSIE PROGRESSIVE:",
+                "§8► 0-49%: §9Slow I",
+                "§8► 50-69%: §9Slow II",
+                "§8► 70%+: §9Slow III§8 (très lent!)",
                 "",
                 "§2§lLA MORT LENTE"
             })
