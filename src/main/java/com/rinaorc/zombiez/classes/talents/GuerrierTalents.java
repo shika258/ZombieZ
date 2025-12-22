@@ -771,23 +771,24 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bastion_charge")
             .name("Charge du Bastion")
-            .description("Double-sneak: charge + bouclier par cible")
+            .description("Double-sneak: charge + bonus HP par cible")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
                 "§6ACTIVATION: §eDouble Sneak",
                 "",
-                "§7Chargez vers l'avant (§e6 blocs§7)!",
+                "§7Chargez vers l'avant (§e12 blocs§7)!",
                 "",
                 "§7Effets sur les ennemis touches:",
                 "§7- §c200%§7 degats",
                 "§7- §eKnockback§7 puissant",
                 "",
                 "§7Vous gagnez:",
-                "§7- §6+8%§7 PV max en bouclier/ennemi",
-                "§7- Max: §e40%§7 PV max",
+                "§7- §c+8% PV max§7 par ennemi touche",
+                "§7- Dure §a6 secondes§7",
+                "§7- §eCumulable§7 sans limite!",
                 "",
-                "§8Cooldown: 10s",
+                "§8Cooldown: 8s",
                 "§8Inspiré: Falling Star (D4)"
             })
             .classType(ClassType.GUERRIER)
@@ -796,8 +797,8 @@ public final class GuerrierTalents {
             .icon(Material.TRIDENT)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BASTION_CHARGE)
-            .values(new double[]{6.0, 2.0, 0.08, 0.40, 10000}) // distance, damage%, shield_per_enemy%, max_shield%, cooldown_ms
-            .internalCooldownMs(10000)
+            .values(new double[]{12.0, 2.0, 0.08, 6000, 8000}) // distance, damage%, hp_per_enemy%, duration_ms, cooldown_ms
+            .internalCooldownMs(8000)
             .build());
 
         // 6.3 - REPRESAILLES INFINIES

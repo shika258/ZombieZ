@@ -2356,13 +2356,13 @@ public class TalentListener implements Listener {
     private void procBastionCharge(Player player, Talent talent) {
         Location start = player.getLocation();
         Vector direction = start.getDirection().setY(0).normalize();
-        double distance = talent.getValue(0);
-        double damageMultiplier = talent.getValue(1);
-        double shieldPerEnemy = talent.getValue(2);
-        double maxShield = talent.getValue(3);
+        double distance = talent.getValue(0); // 12 blocs
+        double damageMultiplier = talent.getValue(1); // 200%
+        double hpPerEnemy = talent.getValue(2); // 8%
+        long hpDuration = (long) talent.getValue(3); // 6000ms
 
-        // Propulser le joueur vers l'avant
-        player.setVelocity(direction.clone().multiply(2.0).setY(0.3));
+        // Propulser le joueur vers l'avant (plus fort pour 12 blocs)
+        player.setVelocity(direction.clone().multiply(3.0).setY(0.3));
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
@@ -2370,6 +2370,10 @@ public class TalentListener implements Listener {
         if (shouldSendTalentMessage(player)) {
             player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHARGE DU BASTION!"));
         }
+
+        // Sauvegarder la HP de base
+        UUID uuid = player.getUniqueId();
+        final double baseMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
 
         // Appliquer les dégâts et collecter les ennemis touchés
         final double baseDamage = getPlayerBaseDamage(player);
@@ -2380,14 +2384,10 @@ public class TalentListener implements Listener {
 
             @Override
             public void run() {
-                if (ticks >= 15 || !player.isOnline()) { // ~0.75s de charge
-                    // Fin de la charge - appliquer le bouclier
-                    double shield = Math.min(maxShield, enemiesHit * shieldPerEnemy) * player.getAttribute(Attribute.MAX_HEALTH).getValue();
-                    if (shield > 0) {
-                        applyTempShield(player, shield, 8000);
-                        if (shouldSendTalentMessage(player)) {
-                            player.sendMessage("§6⚔ Charge terminée! §e" + enemiesHit + " §7cibles | §6+" + String.format("%.0f", shield) + " §7bouclier");
-                        }
+                if (ticks >= 20 || !player.isOnline()) { // ~1s de charge (plus long pour 12 blocs)
+                    // Fin de la charge - appliquer le bonus HP
+                    if (enemiesHit > 0) {
+                        applyBastionChargeHpBonus(player, uuid, baseMaxHealth, enemiesHit, hpPerEnemy, hpDuration);
                     }
                     cancel();
                     return;
@@ -2397,8 +2397,8 @@ public class TalentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
                     5, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
 
-                // Dégâts aux ennemis sur le chemin
-                for (Entity entity : player.getNearbyEntities(2, 2, 2)) {
+                // Dégâts aux ennemis sur le chemin (rayon plus large pour 12 blocs)
+                for (Entity entity : player.getNearbyEntities(2.5, 2.5, 2.5)) {
                     if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
                         if (!hitEntities.contains(target.getUniqueId())) {
                             hitEntities.add(target.getUniqueId());
@@ -2414,6 +2414,9 @@ public class TalentListener implements Listener {
                             target.setVelocity(knockback);
 
                             player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.8f, 1.0f);
+
+                            // Effet visuel par ennemi touché
+                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.05);
                         }
                     }
                 }
@@ -2421,6 +2424,55 @@ public class TalentListener implements Listener {
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Applique le bonus HP temporaire de la Charge du Bastion
+     */
+    private void applyBastionChargeHpBonus(Player player, UUID uuid, double baseMaxHealth, int enemiesHit, double hpPerEnemy, long duration) {
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le bonus total (8% par ennemi, sans limite)
+        double bonusMultiplier = 1.0 + (enemiesHit * hpPerEnemy);
+        double newMaxHealth = baseMaxHealth * bonusMultiplier;
+        int bonusPercent = (int) (enemiesHit * hpPerEnemy * 100);
+
+        // Appliquer le bonus
+        maxHealthAttr.setBaseValue(newMaxHealth);
+
+        // Soigner proportionnellement
+        double currentHealth = player.getHealth();
+        double bonusHealth = (newMaxHealth - baseMaxHealth) * 0.5; // Soigne 50% du bonus
+        player.setHealth(Math.min(newMaxHealth, currentHealth + bonusHealth));
+
+        // Effets visuels
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.2);
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
+
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)"));
+        }
+
+        // Planifier la fin du bonus
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                // Restaurer la HP de base
+                var attr = player.getAttribute(Attribute.MAX_HEALTH);
+                if (attr != null) {
+                    double healthRatio = player.getHealth() / attr.getValue();
+                    attr.setBaseValue(baseMaxHealth);
+                    player.setHealth(Math.max(1, Math.min(baseMaxHealth, healthRatio * baseMaxHealth)));
+                }
+
+                player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
+                if (shouldSendTalentMessage(player)) {
+                    player.sendActionBar(net.kyori.adventure.text.Component.text("§8⚔ Bonus Charge expiré..."));
+                }
+            }
+        }, duration / 50L); // Convertir ms en ticks
     }
 
     /**
