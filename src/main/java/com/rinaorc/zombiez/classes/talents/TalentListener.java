@@ -111,8 +111,8 @@ public class TalentListener implements Listener {
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000;
 
-    // Onde de Fracture - tracking des cibles differentes frappees
-    private final Map<UUID, Map<UUID, Long>> fractureWaveTargets = new ConcurrentHashMap<>();
+    // Onde de Fracture - compteur de coups
+    private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
 
     public TalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
@@ -225,41 +225,31 @@ public class TalentListener implements Listener {
 
         // === TIER 3 ===
 
-        // Onde de Fracture - frapper 3 cibles differentes declenche une onde en cone
+        // Onde de Fracture - tous les 4 coups = onde sismique en cone
         Talent fractureWave = getActiveTalentIfHas(player, Talent.TalentEffectType.FRACTURE_WAVE);
         if (fractureWave != null && target instanceof LivingEntity) {
-            UUID targetUUID = target.getUniqueId();
-            long now = System.currentTimeMillis();
-            long windowMs = (long) fractureWave.getValue(1);
-            int targetsNeeded = (int) fractureWave.getValue(0);
+            int hitsNeeded = (int) fractureWave.getValue(0);  // 4 coups
 
-            // Tracker les cibles frappees
-            Map<UUID, Long> playerTargets = fractureWaveTargets.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
-
-            // Nettoyer les cibles expirees
-            playerTargets.entrySet().removeIf(e -> now - e.getValue() > windowMs);
-
-            // Ajouter la nouvelle cible (ou update son timestamp)
-            playerTargets.put(targetUUID, now);
+            // Incrementer le compteur de coups
+            int currentHits = fractureWaveHitCounter.merge(uuid, 1, Integer::sum);
 
             // Verifier si on a atteint le seuil
-            if (playerTargets.size() >= targetsNeeded) {
+            if (currentHits >= hitsNeeded) {
                 // Proc l'Onde de Fracture!
-                double baseDamage = damage * fractureWave.getValue(2);  // 150%
-                double bonusPerHit = fractureWave.getValue(3);           // +25% par ennemi
-                double range = fractureWave.getValue(4);                 // 4 blocs
-                double coneAngle = fractureWave.getValue(5);             // 60 degres
-                double slowPercent = fractureWave.getValue(6);           // 30%
-                long slowDurationMs = (long) fractureWave.getValue(7);   // 1500ms
+                double baseDamage = damage * fractureWave.getValue(1);  // 150%
+                double bonusPerHit = fractureWave.getValue(2);           // +25% par ennemi
+                double range = fractureWave.getValue(3);                 // 4 blocs
+                double coneAngle = fractureWave.getValue(4);             // 60 degres
+                double slowPercent = fractureWave.getValue(5);           // 30%
+                long slowDurationMs = (long) fractureWave.getValue(6);   // 1500ms
 
                 procFractureWave(player, baseDamage, bonusPerHit, range, coneAngle, slowPercent, slowDurationMs);
 
-                // Reset le tracker
-                playerTargets.clear();
+                // Reset le compteur
+                fractureWaveHitCounter.put(uuid, 0);
             } else {
                 // Feedback visuel de progression
-                int currentCount = playerTargets.size();
-                showFractureWaveProgress(player, currentCount, targetsNeeded);
+                showFractureWaveProgress(player, currentHits, hitsNeeded);
             }
         }
 
@@ -1170,7 +1160,7 @@ public class TalentListener implements Listener {
         }
         bar.append("§8]");
 
-        String msg = "§7Fracture " + bar + " §e" + current + "§7/" + needed;
+        String msg = "§7⚡ Onde " + bar + " §e" + current + "§7/" + needed;
         player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
 
         // Petit son de progression
