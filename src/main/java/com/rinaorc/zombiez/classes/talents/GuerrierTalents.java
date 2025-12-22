@@ -657,7 +657,7 @@ public final class GuerrierTalents {
                 "§7A §e3 stacks§7 (en 5s):",
                 "§7- §6ONDE DE CHOC§7 automatique!",
                 "§7- §cInflige§7 tous les degats stockes",
-                "§7- §aAoE 4 blocs§7 autour de vous",
+                "§7- §aAoE 8 blocs§7 autour de vous",
                 "§7- §aSoigne 20%§7 des degats infliges",
                 "",
                 "§8Effet: §6Explosion doree + gong",
@@ -669,7 +669,7 @@ public final class GuerrierTalents {
             .icon(Material.ECHO_SHARD)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.IRON_ECHO)
-            .values(new double[]{0.15, 3, 5000, 4.0, 0.20}) // storage_percent, stacks_needed, window_ms, aoe_radius, heal_percent
+            .values(new double[]{0.15, 3, 5000, 8.0, 0.20}) // storage_percent, stacks_needed, window_ms, aoe_radius, heal_percent
             .build());
 
         // 6.3 - RAGE IMPARABLE
