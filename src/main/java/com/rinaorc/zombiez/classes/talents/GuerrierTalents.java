@@ -39,13 +39,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_strike")
             .name("Frappe Sismique")
-            .description("15% de chance de creer une onde de choc")
+            .description("Genere des charges sismiques + onde de choc")
             .loreLines(new String[]{
-                "§7Vos attaques ont §e15%§7 de chance",
-                "§7de creer une onde de choc.",
+                "§7Chaque attaque genere une §6charge§7.",
+                "§7Chance d'onde de choc: §e15%§7 + §e2%/charge§7.",
                 "",
                 "§8Degats: §c80%§8 des degats de base",
-                "§8Rayon: §e3§8 blocs"
+                "§8Rayon: §e3§8 blocs",
+                "§8Max: §610§8 charges (double sneak = burst)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -698,13 +699,16 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_eternal_tremor")
             .name("Tremor Eternal")
-            .description("Ondes sismiques passives toutes 2s")
+            .description("Double sneak = liberer les charges sismiques")
             .loreLines(new String[]{
-                "§7En combat, vous generez des",
-                "§7ondes sismiques toutes les §a2s§7.",
+                "§6ACTIVATION: §eDouble Sneak §7(3+ charges)",
                 "",
-                "§8Degats: §c50%§8 base",
-                "§8Rayon: §e3§8 blocs"
+                "§7Libere toutes vos charges en",
+                "§7une onde devastatrice!",
+                "",
+                "§8Degats: §c+15%§8 par charge",
+                "§8Rayon: §e+0.3§8 bloc par charge",
+                "§8Bonus: §75+ charges = Slow"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -808,10 +812,12 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_earth_apocalypse")
             .name("Apocalypse Terrestre")
-            .description("10% chance seisme geant sur attaque de zone")
+            .description("Double sneak (5 charges) = seisme geant")
             .loreLines(new String[]{
-                "§7Vos attaques de zone ont §e10%§7",
-                "§7de chance de declencher un seisme!",
+                "§6ACTIVATION: §eDouble Sneak §7(5 charges)",
+                "",
+                "§7Consomme 5 charges pour",
+                "§7declencher un seisme devastateur!",
                 "",
                 "§8Degats: §c500%§8 de base",
                 "§8Rayon: §e8§8 blocs",
@@ -921,16 +927,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_ragnarok")
             .name("Ragnarok")
-            .description("Toutes 30s: apocalypse sismique massive")
+            .description("Double sneak (10 charges) = apocalypse ultime")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
                 "",
-                "§7Toutes les §e30s§7, declenche",
-                "§7une apocalypse sismique!",
+                "§6ACTIVATION: §eDouble Sneak §7(10 charges MAX)",
+                "",
+                "§7Consomme toutes vos charges pour",
+                "§7declencher l'apocalypse ultime!",
                 "",
                 "§8Degats: §c800%§8 de base",
                 "§8Rayon: §e12§8 blocs",
-                "§8Etourdissement: §e2s§8 + projection"
+                "§8Etourdissement: §e2s§8 + projection",
+                "§8Cooldown: §e30s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)

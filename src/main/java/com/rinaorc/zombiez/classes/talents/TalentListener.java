@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -83,6 +84,15 @@ public class TalentListener implements Listener {
     // Vengeance Ardente - burning stacks
     private final Map<UUID, Integer> burningStacks = new ConcurrentHashMap<>();
 
+    // === SYSTEME DE CHARGES SISMIQUES ===
+    // Charges accumulees par les attaques, depensees pour les gros effets
+    private final Map<UUID, Integer> seismicCharges = new ConcurrentHashMap<>();
+    private static final int MAX_SEISMIC_CHARGES = 10;
+
+    // Double sneak detection pour Ragnarok et autres activations
+    private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
+    private static final long DOUBLE_SNEAK_WINDOW_MS = 400; // 400ms pour double sneak
+
     // Cache des joueurs Guerriers actifs
     private final Set<UUID> activeGuerriers = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
@@ -130,15 +140,30 @@ public class TalentListener implements Listener {
 
         // === TIER 1 ===
 
-        // Frappe Sismique
+        // Frappe Sismique - Genere des charges + onde de choc
         Talent seismicStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_STRIKE);
-        if (seismicStrike != null && !isOnCooldown(uuid, "seismic_strike")) {
-            double chance = seismicStrike.getValue(0);
-            if (Math.random() < chance) {
-                double aoeDamage = damage * seismicStrike.getValue(1);
-                double radius = seismicStrike.getValue(2);
-                procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
-                setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
+        if (seismicStrike != null) {
+            // Generer une charge sismique a chaque attaque
+            int currentCharges = seismicCharges.getOrDefault(uuid, 0);
+            if (currentCharges < MAX_SEISMIC_CHARGES) {
+                seismicCharges.put(uuid, currentCharges + 1);
+                // Feedback visuel discret pour les charges
+                if ((currentCharges + 1) % 3 == 0) {
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§6⚡ " + (currentCharges + 1) + "/" + MAX_SEISMIC_CHARGES + " charges sismiques"));
+                }
+            }
+
+            // Proc onde de choc - chance augmentee par les charges
+            if (!isOnCooldown(uuid, "seismic_strike")) {
+                double baseChance = seismicStrike.getValue(0);
+                double bonusChance = currentCharges * 0.02; // +2% par charge
+                if (Math.random() < (baseChance + bonusChance)) {
+                    double aoeDamage = damage * seismicStrike.getValue(1);
+                    double radius = seismicStrike.getValue(2);
+                    procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
+                    setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
+                }
             }
         }
 
@@ -694,6 +719,75 @@ public class TalentListener implements Listener {
         }
     }
 
+    // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
+
+    @EventHandler
+    public void onSneak(PlayerToggleSneakEvent event) {
+        if (!event.isSneaking()) return;
+
+        Player player = event.getPlayer();
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
+
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastSneak = lastSneakTime.getOrDefault(uuid, 0L);
+
+        // Double sneak detecte?
+        if (now - lastSneak < DOUBLE_SNEAK_WINDOW_MS) {
+            // Reset pour eviter triple-sneak
+            lastSneakTime.remove(uuid);
+            handleDoubleSneak(player);
+        } else {
+            lastSneakTime.put(uuid, now);
+        }
+    }
+
+    /**
+     * Gere les activations par double sneak
+     * Priorite: Ragnarok > Tremor Release > Seismic Slam
+     */
+    private void handleDoubleSneak(Player player) {
+        UUID uuid = player.getUniqueId();
+        int charges = seismicCharges.getOrDefault(uuid, 0);
+
+        // Ragnarok - Ultime (necessite 10 charges + cooldown)
+        Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
+        if (ragnarok != null && !isOnCooldown(uuid, "ragnarok") && charges >= MAX_SEISMIC_CHARGES) {
+            seismicCharges.put(uuid, 0);
+            procRagnarok(player, ragnarok);
+            setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
+            return;
+        }
+
+        // Tremor Eternal - Liberation des charges (3+ charges)
+        Talent tremor = getActiveTalentIfHas(player, Talent.TalentEffectType.ETERNAL_TREMOR);
+        if (tremor != null && charges >= 3 && !isOnCooldown(uuid, "tremor_release")) {
+            int chargesToUse = charges;
+            seismicCharges.put(uuid, 0);
+            procTremorRelease(player, tremor, chargesToUse);
+            setCooldown(uuid, "tremor_release", 3000); // 3s cooldown
+            return;
+        }
+
+        // Apocalypse Terrestre - Activation puissante (5+ charges)
+        Talent apocalypse = getActiveTalentIfHas(player, Talent.TalentEffectType.EARTH_APOCALYPSE);
+        if (apocalypse != null && charges >= 5 && !isOnCooldown(uuid, "apocalypse")) {
+            seismicCharges.put(uuid, charges - 5);
+            double baseDamage = 10;
+            procEarthApocalypse(player, baseDamage * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
+            setCooldown(uuid, "apocalypse", apocalypse.getInternalCooldownMs());
+            return;
+        }
+
+        // Feedback si pas assez de charges
+        if (charges < 3 && (tremor != null || apocalypse != null || ragnarok != null)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§c⚡ " + charges + "/" + (ragnarok != null ? "10" : "3") + " charges sismiques"));
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+        }
+    }
+
     // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
@@ -837,23 +931,7 @@ public class TalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 40L, 40L);
 
-        // RAGNAROK TICK (30s)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (activeGuerriers.isEmpty()) return;
-                for (UUID uuid : activeGuerriers) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player == null || !player.isOnline()) continue;
-
-                    Talent ragnarok = getActiveTalentIfHas(player, Talent.TalentEffectType.RAGNAROK);
-                    if (ragnarok != null && !isOnCooldown(uuid, "ragnarok")) {
-                        procRagnarok(player, ragnarok);
-                        setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 20L * 30, 20L * 30);
+        // Note: Ragnarok est maintenant active manuellement par double sneak (handleDoubleSneak)
     }
 
     // ==================== PROCS ====================
@@ -1040,6 +1118,56 @@ public class TalentListener implements Listener {
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
             }
+        }
+    }
+
+    /**
+     * Liberation de charges sismiques - activation manuelle (double sneak)
+     * Degats et rayon scales avec le nombre de charges
+     */
+    private void procTremorRelease(Player player, Talent talent, int charges) {
+        Location center = player.getLocation();
+        double baseRadius = talent.getValue(2);
+        double radius = baseRadius + (charges * 0.3); // +0.3 bloc par charge
+
+        // Effet visuel en fonction des charges
+        float particleSize = 1.0f + (charges * 0.15f);
+        int particleCount = 5 + (charges * 2);
+
+        // Onde concentrique qui s'etend
+        for (int ring = 1; ring <= 3; ring++) {
+            final int ringNum = ring;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                double r = (radius / 3) * ringNum;
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                    double x = center.getX() + r * Math.cos(angle);
+                    double z = center.getZ() + r * Math.sin(angle);
+                    player.getWorld().spawnParticle(Particle.DUST,
+                        new Location(player.getWorld(), x, center.getY() + 0.2, z),
+                        2, 0.1, 0, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(80 + ringNum * 20, 70, 50), particleSize));
+                }
+                player.getWorld().playSound(center, Sound.BLOCK_STONE_BREAK, 0.4f + (ringNum * 0.1f), 0.5f + (ringNum * 0.1f));
+            }, ring * 2L);
+        }
+
+        // Degats scales avec les charges
+        double baseDamage = 8 * talent.getValue(1);
+        double damage = baseDamage * (1 + charges * 0.15); // +15% par charge
+
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && entity != player) {
+                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                target.damage(damage, player);
+                // Slow scale avec les charges
+                if (target instanceof Mob mob && charges >= 5) {
+                    mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20 + charges * 5, 1, false, false));
+                }
+            }
+        }
+
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§8§l⚡ TREMOR! §7" + charges + " charges liberees!");
         }
     }
 
