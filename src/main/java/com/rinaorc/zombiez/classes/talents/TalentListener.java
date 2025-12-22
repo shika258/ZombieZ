@@ -75,9 +75,7 @@ public class TalentListener implements Listener {
     private final Map<UUID, Long> fortifyExpireTime = new ConcurrentHashMap<>();
     private final Map<UUID, Double> fortifyBaseHealth = new ConcurrentHashMap<>(); // HP de base avant bonus
 
-    // Inébranlable - compteur de blocages récents
-    private final Map<UUID, List<Long>> recentBlocks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> unstoppableActiveUntil = new ConcurrentHashMap<>();
+    // Marteau du Jugement - cooldown géré par le système standard
 
     // Écho de Fer - tracking dégâts stockés et stacks
     private final Map<UUID, Double> ironEchoStoredDamage = new ConcurrentHashMap<>();
@@ -377,11 +375,17 @@ public class TalentListener implements Listener {
 
         // Écho de Fer ne s'active pas sur les attaques - voir onPlayerTakeDamage
 
-        // Inébranlable bonus dégâts si actif (REMPART)
-        if (unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis()) {
-            Talent unstoppable = getActiveTalentIfHas(player, Talent.TalentEffectType.UNSTOPPABLE);
-            if (unstoppable != null) {
-                damage *= (1 + unstoppable.getValue(3)); // +25% dégâts
+        // Marteau du Jugement - si la cible est <15% HP
+        Talent judgmentHammer = getActiveTalentIfHas(player, Talent.TalentEffectType.JUDGMENT_HAMMER);
+        if (judgmentHammer != null && !isOnCooldown(uuid, "judgment_hammer")) {
+            double hpThreshold = judgmentHammer.getValue(0); // 15%
+            double targetMaxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double targetCurrentHp = target.getHealth();
+
+            if (targetCurrentHp / targetMaxHp <= hpThreshold) {
+                // JUGEMENT!
+                procJudgmentHammer(player, target, judgmentHammer, damage);
+                setCooldown(uuid, "judgment_hammer", (long) judgmentHammer.getValue(4));
             }
         }
 
@@ -842,8 +846,8 @@ public class TalentListener implements Listener {
         event.setDamage(Math.max(0, damage));
 
         // === REMPART - Immunité knockback ===
-        // Si le joueur est Inébranlable ou Avatar du Rempart, annuler le knockback
-        if (isUnstoppable(player) || isBulwarkAvatar(player)) {
+        // Si le joueur est en Avatar du Rempart, annuler le knockback
+        if (isBulwarkAvatar(player)) {
             // Annuler le velocity au prochain tick
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -1991,7 +1995,7 @@ public class TalentListener implements Listener {
 
     /**
      * Gère un blocage pour les talents Rempart
-     * Met à jour Fortification, Inébranlable et Avatar du Rempart
+     * Met à jour Fortification et Avatar du Rempart
      */
     private void handleRempartBlock(Player player, UUID uuid, double blockedDamage) {
         long now = System.currentTimeMillis();
@@ -2047,35 +2051,7 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Inébranlable - compteur de blocages récents
-        Talent unstoppable = getActiveTalentIfHas(player, Talent.TalentEffectType.UNSTOPPABLE);
-        if (unstoppable != null && !isOnCooldown(uuid, "unstoppable")) {
-            List<Long> blocks = recentBlocks.computeIfAbsent(uuid, k -> new ArrayList<>());
-            blocks.add(now);
-
-            // Nettoyer les vieux blocages
-            long window = (long) unstoppable.getValue(1);
-            blocks.removeIf(t -> now - t > window);
-
-            int blocksNeeded = (int) unstoppable.getValue(0);
-            if (blocks.size() >= blocksNeeded) {
-                // Activer Inébranlable!
-                long duration = (long) unstoppable.getValue(2);
-                unstoppableActiveUntil.put(uuid, now + duration);
-                blocks.clear();
-                setCooldown(uuid, "unstoppable", (long) unstoppable.getValue(4));
-
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
-                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l⚡ INÉBRANLABLE! §7Immunité CC + §c+25% §7dégâts (" + (duration/1000) + "s)"));
-                }
-
-                // Aura visuelle pendant la durée
-                startUnstoppableAura(player, duration);
-            }
-        }
+        // Marteau du Jugement ne se déclenche pas sur blocage - voir onPlayerAttackZombie
 
         // Avatar du Rempart - accumulation dégâts bloqués
         Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
@@ -2229,27 +2205,155 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Aura visuelle pour Inébranlable
+     * Proc du Marteau du Jugement - fait tomber un marteau géant du ciel
      */
-    private void startUnstoppableAura(Player player, long duration) {
+    private void procJudgmentHammer(Player player, LivingEntity target, Talent talent, double baseDamage) {
+        Location targetLoc = target.getLocation();
+        Location spawnLoc = targetLoc.clone().add(0, 10, 0); // 10 blocs au-dessus
+
+        double mainDamageMultiplier = talent.getValue(1); // 300%
+        double aoeDamageMultiplier = talent.getValue(2); // 150%
+        double aoeRadius = talent.getValue(3); // 6 blocs
+
+        // Message d'activation
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚒ MARTEAU DU JUGEMENT!"));
+        }
+
+        // Son de départ
+        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
+        player.getWorld().playSound(targetLoc, Sound.BLOCK_ANVIL_LAND, 0.5f, 0.5f);
+
+        // Créer le marteau géant avec armor stand
+        org.bukkit.entity.ArmorStand hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setGravity(false);
+            stand.setMarker(true);
+            stand.setSmall(false);
+            stand.setArms(true);
+            stand.setBasePlate(false);
+
+            // Équiper avec une hache dorée
+            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE));
+
+            // Rendre géant avec l'attribut scale (1.21.4+)
+            var scaleAttr = stand.getAttribute(Attribute.SCALE);
+            if (scaleAttr != null) {
+                scaleAttr.setBaseValue(4.0); // 4x plus grand
+            }
+
+            // Rotation pour que la hache pointe vers le bas
+            stand.setRightArmPose(new org.bukkit.util.EulerAngle(Math.toRadians(180), 0, 0));
+        });
+
+        // Animation de chute
         new BukkitRunnable() {
             int ticks = 0;
-            final int maxTicks = (int) (duration / 50);
+            final int fallDuration = 10; // 0.5 seconde
+            final double startY = spawnLoc.getY();
+            final double endY = targetLoc.getY() + 1;
+            final double dropPerTick = (startY - endY) / fallDuration;
 
             @Override
             public void run() {
-                if (ticks >= maxTicks || !player.isOnline()) {
+                if (ticks >= fallDuration || !hammer.isValid()) {
+                    // IMPACT!
+                    hammer.remove();
+                    triggerHammerImpact(player, targetLoc, target, baseDamage, mainDamageMultiplier, aoeDamageMultiplier, aoeRadius);
                     cancel();
                     return;
                 }
 
-                // Particules dorées
-                Location loc = player.getLocation().add(0, 0.5, 0);
-                player.getWorld().spawnParticle(Particle.END_ROD, loc, 3, 0.5, 0.3, 0.5, 0.02);
+                // Descendre le marteau
+                Location newLoc = hammer.getLocation().subtract(0, dropPerTick, 0);
+                hammer.teleport(newLoc);
 
-                ticks += 5;
+                // Particules de traînée
+                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc, 3, 0.2, 0.3, 0.2, 0.02);
+                hammer.getWorld().spawnParticle(Particle.DUST, newLoc, 5, 0.3, 0.5, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 2.0f));
+
+                // Son de sifflement
+                if (ticks % 2 == 0) {
+                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, 2.0f);
+                }
+
+                ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 5L);
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Impact du Marteau du Jugement
+     */
+    private void triggerHammerImpact(Player player, Location impactLoc, LivingEntity mainTarget,
+                                      double baseDamage, double mainMultiplier, double aoeMultiplier, double radius) {
+        // === EFFETS VISUELS D'IMPACT ===
+        // Explosion de particules dorées
+        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 80, 1, 1, 1, 0.5);
+        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 3, 0.5, 0.5, 0.5, 0);
+        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 50, 2, 0.5, 2, 0.1);
+
+        // Onde de choc au sol
+        for (int ring = 1; ring <= (int) radius; ring++) {
+            final int r = ring;
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 20; i++) {
+                    double angle = (2 * Math.PI / 20) * i;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    Location particleLoc = impactLoc.clone().add(x, 0.2, z);
+                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    impactLoc.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0, 0.2, 0, 0.05);
+                }
+            }, ring * 2L);
+        }
+
+        // Sons d'impact
+        impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
+        impactLoc.getWorld().playSound(impactLoc, Sound.BLOCK_ANVIL_LAND, 1.5f, 0.6f);
+        impactLoc.getWorld().playSound(impactLoc, Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 1.0f, 0.8f);
+
+        // === DÉGÂTS ===
+        // Dégâts à la cible principale (300%)
+        if (mainTarget.isValid() && !mainTarget.isDead()) {
+            double mainDamage = baseDamage * mainMultiplier;
+            mainTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+            mainTarget.damage(mainDamage, player);
+
+            // Knockback vers le haut
+            mainTarget.setVelocity(new Vector(0, 0.8, 0));
+        }
+
+        // Dégâts AoE (150%)
+        double aoeDamage = baseDamage * aoeMultiplier;
+        int enemiesHit = 0;
+
+        for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity aoTarget && entity != mainTarget && !(entity instanceof Player)) {
+                if (plugin.getZombieManager().isZombieZMob(aoTarget)) {
+                    aoTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                    aoTarget.damage(aoeDamage, player);
+
+                    // Knockback depuis le centre
+                    Vector knockback = aoTarget.getLocation().toVector()
+                        .subtract(impactLoc.toVector()).normalize().multiply(1.2).setY(0.5);
+                    aoTarget.setVelocity(knockback);
+
+                    enemiesHit++;
+                }
+            }
+        }
+
+        // Message de résultat
+        if (shouldSendTalentMessage(player)) {
+            String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
+            if (enemiesHit > 0) {
+                msg += " | §e" + enemiesHit + " §7cibles AoE";
+            }
+            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        }
     }
 
     /**
@@ -2636,14 +2740,6 @@ public class TalentListener implements Listener {
         ironEchoStacks.put(uuid, 0);
         ironEchoStoredDamage.put(uuid, 0.0);
         ironEchoFirstStack.remove(uuid);
-    }
-
-    /**
-     * Vérifie si un joueur est en mode Inébranlable (immunité knockback)
-     */
-    public boolean isUnstoppable(Player player) {
-        UUID uuid = player.getUniqueId();
-        return unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
     }
 
     /**

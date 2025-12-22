@@ -525,33 +525,36 @@ public final class GuerrierTalents {
             .values(new double[]{10, 2.50, 5.0}) // attacks_needed, damage%, radius
             .build());
 
-        // 5.2 - INEBRANLABLE (REMPART)
+        // 5.2 - MARTEAU DU JUGEMENT (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_unstoppable")
-            .name("Inebranlable")
-            .description("3 blocages = Inarretable + bonus degats")
+            .id("guerrier_judgment_hammer")
+            .name("Marteau du Jugement")
+            .description("Execute <15% HP = marteau geant du ciel")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Apres §e3 blocages§7 en §a5s§7,",
-                "§7devenez §6INARRETABLE§7 pendant §e3s§7!",
+                "§7Frapper un ennemi en dessous",
+                "§7de §c15% PV§7 invoque le §6JUGEMENT§7!",
                 "",
-                "§7Pendant Inarretable:",
-                "§7- §eImmunite§7 knockback/slow",
-                "§7- §c+25%§7 degats infliges",
-                "§7- Aura dorée visible",
+                "§7Un §6marteau dore geant§7 tombe",
+                "§7du ciel et s'ecrase sur la cible!",
                 "",
-                "§8Cooldown: 12s",
-                "§8Inspiré: Defiance Aura (D4)"
+                "§7Effets:",
+                "§7- §c300%§7 degats a la cible",
+                "§7- §cAoE 6 blocs§7 (150% degats)",
+                "§7- §eKnockback§7 puissant",
+                "",
+                "§8Cooldown: 6s",
+                "§8Inspiré: Hammer of the Ancients"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
             .slotIndex(1)
-            .icon(Material.NETHERITE_CHESTPLATE)
+            .icon(Material.GOLDEN_AXE)
             .iconColor("§6")
-            .effectType(Talent.TalentEffectType.UNSTOPPABLE)
-            .values(new double[]{3, 5000, 3000, 0.25, 12000}) // blocks_needed, window_ms, duration_ms, damage_bonus%, cooldown_ms
-            .internalCooldownMs(12000)
+            .effectType(Talent.TalentEffectType.JUDGMENT_HAMMER)
+            .values(new double[]{0.15, 3.0, 1.5, 6.0, 6000}) // hp_threshold, main_damage%, aoe_damage%, aoe_radius, cooldown_ms
+            .internalCooldownMs(6000)
             .build());
 
         // 5.3 - CYCLONE DE RAGE

@@ -103,7 +103,7 @@ public class Talent {
 
         // === GUERRIER - Tier 5 ===
         CATACLYSM,               // Big AoE every X attacks
-        UNSTOPPABLE,             // REMPART: Après blocages → Inarrêtable
+        JUDGMENT_HAMMER,         // REMPART: Exécute <15% HP → Marteau géant du ciel
         RAGE_CYCLONE,            // Sprint = spin damage
         ETERNAL_AEGIS,           // Perfect parry reflect
         WARLORD,                 // Chain execute
