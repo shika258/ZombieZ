@@ -816,20 +816,25 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         // Annuler la tâche de ciblage
         if (zombieTargetTask != null && !zombieTargetTask.isCancelled()) {
             zombieTargetTask.cancel();
+            zombieTargetTask = null;
         }
 
         // Annuler la tâche de despawn du coffre
         if (rewardChestTask != null && !rewardChestTask.isCancelled()) {
             rewardChestTask.cancel();
+            rewardChestTask = null;
         }
 
         // Supprimer les affichages de titre
         if (titleDisplay != null && titleDisplay.isValid()) {
             titleDisplay.remove();
         }
+        titleDisplay = null;
+
         if (timerDisplay != null && timerDisplay.isValid()) {
             timerDisplay.remove();
         }
+        timerDisplay = null;
 
         // Supprimer les affichages de vie
         for (TextDisplay display : healthDisplays.values()) {
@@ -855,8 +860,15 @@ public class SurvivorConvoyEvent extends DynamicEvent {
         }
         attackingZombies.clear();
 
-        // Note: Le coffre de récompense reste pour que les joueurs puissent le looter
-        // La tâche de despawn continue à tourner jusqu'à ce que le coffre soit vide ou après 60s
+        // Nettoyer le coffre de récompense (évite les coffres orphelins après reboot/crash)
+        // Le coffre est nettoyé lors du cleanup pour éviter la persistance indésirable
+        if (rewardChestBlock != null && rewardChestBlock.getType() == Material.CHEST) {
+            if (rewardChestBlock.getState() instanceof Chest chest) {
+                chest.getInventory().clear();
+            }
+            rewardChestBlock.setType(Material.AIR);
+        }
+        rewardChestBlock = null;
     }
 
     @Override

@@ -500,6 +500,7 @@ public class ZombieNestEvent extends DynamicEvent {
         if (healthMarker != null && healthMarker.isValid()) {
             healthMarker.remove();
         }
+        healthMarker = null;
 
         // Restaurer les blocs originaux si l'événement échoue
         if (failed) {
@@ -517,6 +518,11 @@ public class ZombieNestEvent extends DynamicEvent {
                 }
             }
         }
+
+        // Nettoyer les collections et références
+        nestBlock = null;
+        savedBlocks.clear();
+        originalBlocks.clear();
     }
 
     @Override

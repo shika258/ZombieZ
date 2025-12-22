@@ -647,12 +647,17 @@ public class WanderingBossEvent extends DynamicEvent {
         // Supprimer la boss bar
         if (bossBossBar != null) {
             bossBossBar.removeAll();
+            bossBossBar = null;
         }
 
         // Supprimer le boss s'il existe encore
         if (boss != null && boss.isValid()) {
             boss.remove();
         }
+        boss = null;
+
+        // Nettoyer la destination
+        destination = null;
     }
 
     @Override

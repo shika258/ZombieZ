@@ -16,6 +16,7 @@ import org.bukkit.block.Chest;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.joml.AxisAngle4f;
@@ -51,6 +52,10 @@ public class AirdropEvent extends DynamicEvent {
     private TextDisplay crateMarker;
     private Location landingLocation;
     private Block chestBlock;
+
+    // Tâches planifiées (pour cleanup)
+    private BukkitTask fallingTask;
+    private BukkitTask lootingTimeoutTask;
 
     // Défense - OPTIMISÉ: utiliser double pour précision
     private int defenseTimeRequired = 45; // Secondes pour ouvrir
@@ -122,8 +127,8 @@ public class AirdropEvent extends DynamicEvent {
         landingLocation = location.clone();
         landingLocation.setY(world.getHighestBlockYAt(location) + 1);
 
-        // Effets de chute
-        new BukkitRunnable() {
+        // Effets de chute - stocker la tâche pour cleanup
+        fallingTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (fallingCrate == null || !fallingCrate.isValid()) {
@@ -406,8 +411,8 @@ public class AirdropEvent extends DynamicEvent {
             player.sendTitle("§a§l✓ COFFRE OUVERT!", "§7Récupérez le loot!", 10, 40, 20);
         }
 
-        // Timer pour compléter automatiquement après 60s
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+        // Timer pour compléter automatiquement après 60s - stocker pour cleanup
+        lootingTimeoutTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (phase == Phase.LOOTING) {
                 complete();
             }
@@ -459,14 +464,26 @@ public class AirdropEvent extends DynamicEvent {
 
     @Override
     protected void onCleanup() {
+        // Annuler les tâches planifiées
+        if (fallingTask != null && !fallingTask.isCancelled()) {
+            fallingTask.cancel();
+            fallingTask = null;
+        }
+        if (lootingTimeoutTask != null && !lootingTimeoutTask.isCancelled()) {
+            lootingTimeoutTask.cancel();
+            lootingTimeoutTask = null;
+        }
+
         // Supprimer le marqueur
         if (crateMarker != null && crateMarker.isValid()) {
             crateMarker.remove();
+            crateMarker = null;
         }
 
         // Supprimer le falling block si encore présent
         if (fallingCrate != null && fallingCrate.isValid()) {
             fallingCrate.remove();
+            fallingCrate = null;
         }
 
         // Supprimer le coffre pour éviter de spammer la map
@@ -475,6 +492,7 @@ public class AirdropEvent extends DynamicEvent {
                 chest.getInventory().clear();
             }
             chestBlock.setType(Material.AIR);
+            chestBlock = null;
         }
     }
 

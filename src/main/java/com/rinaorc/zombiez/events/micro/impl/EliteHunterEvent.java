@@ -269,6 +269,7 @@ public class EliteHunterEvent extends MicroEvent {
         if (healthDisplay != null && healthDisplay.isValid()) {
             healthDisplay.remove();
         }
+        healthDisplay = null;
 
         if (eliteZombie != null && !eliteZombie.isDead()) {
             // Effet de disparition
@@ -276,6 +277,8 @@ public class EliteHunterEvent extends MicroEvent {
             loc.getWorld().spawnParticle(Particle.SMOKE, loc, 20, 0.3, 0.5, 0.3, 0.05);
             loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.5f);
         }
+        eliteZombie = null;
+        eliteUUID = null;
     }
 
     @Override

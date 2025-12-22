@@ -319,6 +319,7 @@ public class TemporalRiftEvent extends MicroEvent {
         if (riftDisplay != null && riftDisplay.isValid()) {
             riftDisplay.remove();
         }
+        riftDisplay = null;
 
         // Effet de fermeture du portail
         if (riftClosed) {
@@ -326,6 +327,8 @@ public class TemporalRiftEvent extends MicroEvent {
             location.getWorld().spawnParticle(Particle.FLASH, center, 1);
             location.getWorld().spawnParticle(Particle.END_ROD, center, 20, 0.8, 1.2, 0.8, 0.15);
             location.getWorld().playSound(location, Sound.BLOCK_BEACON_DEACTIVATE, 1f, 0.5f);
+            // Nettoyer la liste
+            riftZombies.clear();
         } else {
             // Echec - les zombies restants deviennent enrages
             for (UUID zombieId : riftZombies) {
