@@ -45,7 +45,7 @@ public final class GuerrierTalents {
                 "§7une onde de choc autour de la cible!",
                 "",
                 "§8Degats: §c50%§8 des degats de base",
-                "§8Rayon: §e2.5§8 blocs",
+                "§8Rayon: §e5§8 blocs",
                 "§8Cooldown: §e0.6s"
             })
             .classType(ClassType.GUERRIER)
@@ -54,7 +54,7 @@ public final class GuerrierTalents {
             .icon(Material.COBBLESTONE)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.SEISMIC_STRIKE)
-            .values(new double[]{0.50, 2.5}) // damage%, radius (plus de chance!)
+            .values(new double[]{0.50, 5.0}) // damage%, radius
             .internalCooldownMs(600)
             .build());
 
