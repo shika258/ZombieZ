@@ -78,10 +78,10 @@ public class TalentListener implements Listener {
     private final Map<UUID, List<Long>> recentBlocks = new ConcurrentHashMap<>();
     private final Map<UUID, Long> unstoppableActiveUntil = new ConcurrentHashMap<>();
 
-    // Entrelacement - tracking dernière action et stacks
-    private final Map<UUID, String> weavingLastAction = new ConcurrentHashMap<>(); // "attack" ou "block"
-    private final Map<UUID, Integer> weavingStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> weavingLastProc = new ConcurrentHashMap<>();
+    // Écho de Fer - tracking dégâts stockés et stacks
+    private final Map<UUID, Double> ironEchoStoredDamage = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> ironEchoStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> ironEchoFirstStack = new ConcurrentHashMap<>();
 
     // Avatar du Rempart - dégâts bloqués cumulés
     private final Map<UUID, Double> bulwarkDamageBlocked = new ConcurrentHashMap<>();
@@ -374,44 +374,7 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Entrelacement (REMPART) - tracking action "attack"
-        Talent weaving = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
-        if (weaving != null) {
-            String lastAction = weavingLastAction.get(uuid);
-            long now = System.currentTimeMillis();
-            Long lastProc = weavingLastProc.get(uuid);
-
-            // Reset si trop de temps passé
-            if (lastProc != null && now - lastProc > weaving.getValue(2)) {
-                weavingStacks.put(uuid, 0);
-                weavingLastAction.remove(uuid);
-            }
-
-            if (!"attack".equals(lastAction)) {
-                // Alternance réussie!
-                int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
-                int maxStacks = (int) (weaving.getValue(1) / weaving.getValue(0));
-                if (stacks > maxStacks) stacks = maxStacks;
-                weavingStacks.put(uuid, stacks);
-                weavingLastProc.put(uuid, now);
-
-                if (shouldSendTalentMessage(player) && stacks > 1) {
-                    int bonus = (int) (stacks * weaving.getValue(0) * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
-                }
-            } else {
-                // Même action, reset
-                weavingStacks.put(uuid, 0);
-            }
-            weavingLastAction.put(uuid, "attack");
-
-            // Appliquer le bonus de dégâts
-            int stacks = weavingStacks.getOrDefault(uuid, 0);
-            if (stacks > 0) {
-                damage *= (1 + stacks * weaving.getValue(0));
-            }
-        }
+        // Écho de Fer ne s'active pas sur les attaques - voir onPlayerTakeDamage
 
         // Inébranlable bonus dégâts si actif (REMPART)
         if (unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis()) {
@@ -681,8 +644,8 @@ public class TalentListener implements Listener {
                 // Tracker blocage pour les autres talents Rempart
                 handleRempartBlock(player, uuid, originalDamage);
 
-                // Entrelacement - tracker action "block" (blocage passif compte aussi!)
-                handleWeavingBlock(player, uuid);
+                // Écho de Fer - stocker les dégâts bloqués
+                handleIronEcho(player, uuid, originalDamage);
 
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
@@ -797,10 +760,8 @@ public class TalentListener implements Listener {
 
         // === TIER 7 ===
 
-        // Entrelacement tracking blocage actif (REMPART) - bouclier en main
-        if (player.isBlocking()) {
-            handleWeavingBlock(player, uuid);
-        }
+        // Écho de Fer - stocker les dégâts reçus (après réductions)
+        handleIronEcho(player, uuid, damage);
 
         // === TIER 8 ===
 
@@ -2431,41 +2392,132 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Gère l'entrelacement pour un blocage (passif ou actif)
+     * Gère l'Écho de Fer - stocke les dégâts et déclenche l'onde de choc
      */
-    private void handleWeavingBlock(Player player, UUID uuid) {
-        Talent weaving = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
-        if (weaving == null) return;
+    private void handleIronEcho(Player player, UUID uuid, double damage) {
+        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
+        if (ironEcho == null || damage <= 0) return;
 
-        String lastAction = weavingLastAction.get(uuid);
         long now = System.currentTimeMillis();
-        Long lastProc = weavingLastProc.get(uuid);
+        Long firstStack = ironEchoFirstStack.get(uuid);
+        long windowMs = (long) ironEcho.getValue(2);
 
-        // Reset si trop de temps passé
-        if (lastProc != null && now - lastProc > weaving.getValue(2)) {
-            weavingStacks.put(uuid, 0);
-            weavingLastAction.remove(uuid);
-            lastAction = null;
+        // Reset si fenêtre expirée
+        if (firstStack != null && now - firstStack > windowMs) {
+            ironEchoStacks.put(uuid, 0);
+            ironEchoStoredDamage.put(uuid, 0.0);
+            ironEchoFirstStack.remove(uuid);
         }
 
-        if (!"block".equals(lastAction)) {
-            // Alternance réussie!
-            int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
-            int maxStacks = (int) (weaving.getValue(1) / weaving.getValue(0));
-            if (stacks > maxStacks) stacks = maxStacks;
-            weavingStacks.put(uuid, stacks);
-            weavingLastProc.put(uuid, now);
+        // Stocker les dégâts (15% des dégâts)
+        double storagePercent = ironEcho.getValue(0);
+        double storedAmount = damage * storagePercent;
+        double totalStored = ironEchoStoredDamage.merge(uuid, storedAmount, Double::sum);
 
-            if (shouldSendTalentMessage(player) && stacks > 1) {
-                int bonus = (int) (stacks * weaving.getValue(0) * 100);
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
+        // Incrémenter les stacks
+        int stacks = ironEchoStacks.merge(uuid, 1, Integer::sum);
+        int stacksNeeded = (int) ironEcho.getValue(1);
+
+        // Premier stack - démarrer la fenêtre
+        if (stacks == 1) {
+            ironEchoFirstStack.put(uuid, now);
+        }
+
+        // Afficher la progression
+        if (shouldSendTalentMessage(player)) {
+            showIronEchoProgress(player, stacks, stacksNeeded, totalStored);
+        }
+
+        // Vérifier si on déclenche l'onde de choc
+        if (stacks >= stacksNeeded) {
+            triggerIronEchoShockwave(player, uuid, totalStored, ironEcho);
+        }
+    }
+
+    /**
+     * Affiche la progression de l'Écho de Fer
+     */
+    private void showIronEchoProgress(Player player, int current, int needed, double storedDamage) {
+        StringBuilder bar = new StringBuilder("§8[");
+        for (int i = 1; i <= needed; i++) {
+            bar.append(i <= current ? "§6●" : "§7○");
+        }
+        bar.append("§8]");
+
+        String msg = "§6🔔 Écho de Fer " + bar + " §c" + String.format("%.0f", storedDamage) + " §7dégâts stockés";
+        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (current * 0.2f));
+    }
+
+    /**
+     * Déclenche l'onde de choc de l'Écho de Fer
+     */
+    private void triggerIronEchoShockwave(Player player, UUID uuid, double storedDamage, Talent talent) {
+        double radius = talent.getValue(3);
+        double healPercent = talent.getValue(4);
+
+        Location center = player.getLocation();
+
+        // === EFFETS VISUELS ÉPIQUES ===
+        // Son de gong
+        player.getWorld().playSound(center, Sound.BLOCK_BELL_USE, 1.5f, 0.6f);
+        player.getWorld().playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
+
+        // Explosion dorée centrale
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.3);
+        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.15);
+
+        // Onde de choc en cercle qui s'étend
+        for (int ring = 1; ring <= (int) radius; ring++) {
+            final int r = ring;
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 16; i++) {
+                    double angle = (2 * Math.PI / 16) * i;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    Location particleLoc = center.clone().add(x, 0.2, z);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
+                }
+            }, ring * 2L);
+        }
+
+        // === DÉGÂTS AoE ===
+        double totalDamageDealt = 0;
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && !(target instanceof Player)) {
+                if (plugin.getZombieManager().isZombieZMob(target)) {
+                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                    target.damage(storedDamage, player);
+                    totalDamageDealt += storedDamage;
+
+                    // Effet sur la cible
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                }
             }
-        } else {
-            // Même action, reset
-            weavingStacks.put(uuid, 0);
         }
-        weavingLastAction.put(uuid, "block");
+
+        // === SOIN ===
+        double healAmount = totalDamageDealt * healPercent;
+        if (healAmount > 0) {
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+            player.setHealth(newHealth);
+
+            player.getWorld().spawnParticle(Particle.HEART, center.clone().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+        }
+
+        // === MESSAGE ===
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV"));
+        }
+
+        // === RESET ===
+        ironEchoStacks.put(uuid, 0);
+        ironEchoStoredDamage.put(uuid, 0.0);
+        ironEchoFirstStack.remove(uuid);
     }
 
     /**

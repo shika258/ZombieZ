@@ -110,7 +110,7 @@ public class Talent {
 
         // === GUERRIER - Tier 6 (Niveau 25 - Ascension) ===
         SEISMIC_AFTERMATH,       // AoE attacks leave lingering damage zones
-        WEAVING,                 // REMPART: Alterner actions → bonus dégâts
+        IRON_ECHO,               // REMPART: Blocages/dégâts stockés → onde de choc AoE
         UNSTOPPABLE_RAGE,        // Damage immunity during rage buildup
         UNYIELDING_WALL,         // Damage reduction scales with stillness
         MOMENTUM,                // Sprint damage bonus stacks
