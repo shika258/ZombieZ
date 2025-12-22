@@ -167,8 +167,8 @@ public final class ChasseurTalents {
                 "§8► Cibles gelées: §c+50%§8 dégâts!",
                 "",
                 "§6MOMENTUM DE REBOND:",
-                "§8► Chaque rebond: §c+25%§8 dégâts",
-                "§8► §b+12.5%§8 givre bonus!",
+                "§8► 2e cible+: §c+25%§8 dégâts/rebond",
+                "§8► §b+12.5%§8 givre bonus/rebond!",
                 "",
                 "§b§lGELEZ VOS ENNEMIS EN CHAÎNE"
             })
@@ -1125,12 +1125,16 @@ public final class ChasseurTalents {
         TALENTS.add(Talent.builder()
             .id("chasseur_chain_perforation")
             .name("Écho Glacial")
-            .description("Après dernier rebond, givre se propage 3x!")
+            .description("Rebonds terminés = givre propage 3x!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Après le dernier §brebond§7,",
-                "§7le §bgivre se propage§7!",
+                "§7Quand les §brebonds s'arrêtent§7,",
+                "§7le §bgivre continue§7 à se propager!",
+                "",
+                "§6DÉCLENCHEMENT:",
+                "§8► Max rebonds atteint §eOU",
+                "§8► Plus de cible disponible",
                 "",
                 "§6PROPAGATION EN CHAÎNE:",
                 "§8► Jusqu'à §e3§8 propagations",
@@ -1144,13 +1148,8 @@ public final class ChasseurTalents {
                 "",
                 "§6BONUS ÉCLAT:",
                 "§8► §b+2 blocs§8 rayon d'éclat",
-                "§8► Plus de cibles touchées!",
                 "",
-                "§6SYNERGIE:",
-                "§7Continue le travail des rebonds",
-                "§7pour geler encore plus d'ennemis!",
-                "",
-                "§b§lLE FROID SE RÉPAND"
+                "§b§lLE FROID NE S'ARRÊTE JAMAIS"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1307,7 +1306,7 @@ public final class ChasseurTalents {
                 "§8► §b+50%§8 givre appliqué!",
                 "§8► §c+40%§8 dégâts",
                 "§8► §c+50%§8 dégâts d'éclat",
-                "§8► §a∞ Rebonds infinis§8!",
+                "§8► §a15 rebonds§8 max!",
                 "",
                 "§6AURA DE GIVRE:",
                 "§8► §e4 blocs§8 autour de vous",

@@ -41,12 +41,14 @@ public class PerforationListener implements Listener {
     private static final String BOUNCED_ENTITIES_KEY = "frost_bounced_entities";
     private static final String FROST_APPLIED_KEY = "frost_applied_amount";
     private static final String BOUNCE_SOURCE_KEY = "frost_bounce_source";
-    private static final String BOUNCE_ORIGIN_KEY = "frost_bounce_origin";
+    private static final String FIRST_TARGET_LOC_KEY = "frost_first_target_loc";
+    private static final String ICE_LINE_CREATED_KEY = "frost_ice_line_created";
 
     // Givre de base par tir
     private static final double BASE_FROST_PER_HIT = 15.0; // 15% givre par tir
     private static final double BOUNCE_RANGE = 10.0; // Distance max pour trouver une cible de rebond
     private static final double BOUNCE_PROJECTILE_SPEED = 1.8; // Vitesse du projectile de rebond
+    private static final int MAX_BOUNCES_CAP = 15; // Cap absolu pour éviter les boucles infinies
 
     public PerforationListener(ZombieZPlugin plugin, TalentManager talentManager, PerforationManager perforationManager) {
         this.plugin = plugin;
@@ -81,15 +83,23 @@ public class PerforationListener implements Listener {
         List<UUID> bouncedEntities = projectile.hasMetadata(BOUNCED_ENTITIES_KEY) ?
             (List<UUID>) projectile.getMetadata(BOUNCED_ENTITIES_KEY).get(0).value() : new ArrayList<>();
 
-        // Récupérer l'origine du tir pour la ligne de glace
-        Location bounceOrigin = projectile.hasMetadata(BOUNCE_ORIGIN_KEY) ?
-            (Location) projectile.getMetadata(BOUNCE_ORIGIN_KEY).get(0).value() : projectile.getLocation();
+        // Récupérer la position de la première cible (pour Ligne de Glace)
+        Location firstTargetLoc = projectile.hasMetadata(FIRST_TARGET_LOC_KEY) ?
+            (Location) projectile.getMetadata(FIRST_TARGET_LOC_KEY).get(0).value() : null;
+
+        // Vérifier si la Ligne de Glace a déjà été créée pour ce tir
+        boolean iceLineCreated = projectile.hasMetadata(ICE_LINE_CREATED_KEY);
 
         // Ne pas toucher deux fois la même entité
         if (bouncedEntities.contains(target.getUniqueId())) return;
 
         bounceCount++;
         bouncedEntities.add(target.getUniqueId());
+
+        // Sauvegarder la position de la première cible
+        if (firstTargetLoc == null) {
+            firstTargetLoc = target.getLocation().clone();
+        }
 
         // === CALCUL DU GIVRE À APPLIQUER ===
         double frostToApply = BASE_FROST_PER_HIT;
@@ -105,11 +115,20 @@ public class PerforationListener implements Listener {
         // === T3: LIGNE DE GLACE - Bonus givre si dans la zone ===
         frostToApply += perforationManager.getIceLineFrostBonus(player, target) * 100;
 
-        // === T1: FLÈCHES REBONDISSANTES - Bonus givre par rebond ===
+        // === T1: FLÈCHES REBONDISSANTES - Bonus givre par rebond (après le 1er hit) ===
         Talent bounceTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
         if (bounceTalent != null && bounceCount > 1) {
             double bonusPerBounce = bounceTalent.getValue(1) * 100; // 25% par rebond
             frostToApply += (bounceCount - 1) * bonusPerBounce * 0.5; // 12.5% givre bonus par rebond
+        }
+
+        // === T5: GIVRE PÉNÉTRANT - Bonus givre par rebond (cumulatif, max +80%) ===
+        Talent penetratingTalent = getActiveTalent(player, Talent.TalentEffectType.ABSOLUTE_PERFORATION);
+        if (penetratingTalent != null && bounceCount > 1) {
+            double frostPerBounce = penetratingTalent.getValue(0) * 100; // 20% par rebond
+            double maxBonus = penetratingTalent.getValue(1) * 100; // 80% max
+            double bonusFrost = Math.min((bounceCount - 1) * frostPerBounce, maxBonus);
+            frostToApply += bonusFrost;
         }
 
         // Appliquer le givre
@@ -129,24 +148,24 @@ public class PerforationListener implements Listener {
             }
         }
 
-        // === T8: HIVER ÉTERNEL - Rebonds infinis ===
+        // === T8: HIVER ÉTERNEL - Rebonds étendus (avec cap pour éviter boucle infinie) ===
         if (perforationManager.isEternalWinterActive(uuid)) {
-            maxBounces = 999;
+            maxBounces = MAX_BOUNCES_CAP;
         }
 
-        // === T3: LIGNE DE GLACE - Créer ligne si 2+ rebonds ===
+        // === T3: LIGNE DE GLACE - Créer ligne si 2+ rebonds (une seule fois par tir) ===
         Talent iceTalent = getActiveTalent(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
-        if (iceTalent != null && bounceCount >= iceTalent.getValue(0)) {
-            if (bouncedEntities.size() >= 2) {
-                perforationManager.createIceLine(player, bounceOrigin, target.getLocation());
-            }
+        if (iceTalent != null && !iceLineCreated && bounceCount >= (int) iceTalent.getValue(0)) {
+            perforationManager.createIceLine(player, firstTargetLoc, target.getLocation());
+            iceLineCreated = true;
         }
 
         // === SYSTÈME DE REBOND - Chercher et rebondir vers la prochaine cible ===
         if (bounceCount < maxBounces) {
             LivingEntity nextTarget = findNextBounceTarget(target, bouncedEntities);
             if (nextTarget != null) {
-                launchBounceProjectile(player, target, nextTarget, bounceCount, bouncedEntities, bounceOrigin, frostToApply);
+                launchBounceProjectile(player, target, nextTarget, bounceCount, bouncedEntities,
+                    firstTargetLoc, frostToApply, iceLineCreated);
             } else {
                 // Pas de cible pour rebondir, déclencher l'écho glacial
                 triggerEchoIfNeeded(player, target, frostToApply);
@@ -156,11 +175,11 @@ public class PerforationListener implements Listener {
             triggerEchoIfNeeded(player, target, frostToApply);
         }
 
-        // Incrémenter Charge Glaciale
-        perforationManager.addFrostCharge(player, 1);
-
-        // Ajouter Hypothermie
-        perforationManager.addHypothermia(player);
+        // Incrémenter Charge Glaciale (seulement sur le premier hit, pas les rebonds)
+        if (bounceCount == 1) {
+            perforationManager.addFrostCharge(player, 1);
+            perforationManager.addHypothermia(player);
+        }
 
         // Enregistrer le joueur si pas déjà fait
         perforationManager.registerPlayer(uuid);
@@ -191,7 +210,8 @@ public class PerforationListener implements Listener {
      */
     private void launchBounceProjectile(Player player, LivingEntity from, LivingEntity to,
                                          int currentBounceCount, List<UUID> bouncedEntities,
-                                         Location bounceOrigin, double previousFrost) {
+                                         Location firstTargetLoc, double previousFrost,
+                                         boolean iceLineCreated) {
         Location start = from.getLocation().add(0, 1, 0);
         Location end = to.getLocation().add(0, 1, 0);
         Vector direction = end.toVector().subtract(start.toVector()).normalize();
@@ -199,10 +219,14 @@ public class PerforationListener implements Listener {
         // Effet visuel de traînée de glace
         spawnBounceTrail(start, end);
 
-        // Son de rebond
-        start.getWorld().playSound(start, Sound.BLOCK_POWDER_SNOW_HIT, 0.8f, 1.5f);
+        // Son de rebond (pitch augmente avec les rebonds pour le feedback)
+        float pitch = Math.min(1.5f + (currentBounceCount * 0.1f), 2.0f);
+        start.getWorld().playSound(start, Sound.BLOCK_POWDER_SNOW_HIT, 0.8f, pitch);
 
         // Créer un nouveau projectile (flèche spectrale) vers la cible
+        final Location finalFirstTargetLoc = firstTargetLoc;
+        final boolean finalIceLineCreated = iceLineCreated;
+
         Arrow bounceArrow = player.getWorld().spawn(start, Arrow.class, arrow -> {
             arrow.setShooter(player);
             arrow.setVelocity(direction.multiply(BOUNCE_PROJECTILE_SPEED));
@@ -213,8 +237,13 @@ public class PerforationListener implements Listener {
             arrow.setMetadata(BOUNCE_COUNT_KEY, new FixedMetadataValue(plugin, currentBounceCount));
             arrow.setMetadata(BOUNCED_ENTITIES_KEY, new FixedMetadataValue(plugin, new ArrayList<>(bouncedEntities)));
             arrow.setMetadata(BOUNCE_SOURCE_KEY, new FixedMetadataValue(plugin, player.getUniqueId().toString()));
-            arrow.setMetadata(BOUNCE_ORIGIN_KEY, new FixedMetadataValue(plugin, bounceOrigin));
+            arrow.setMetadata(FIRST_TARGET_LOC_KEY, new FixedMetadataValue(plugin, finalFirstTargetLoc));
             arrow.setMetadata(FROST_APPLIED_KEY, new FixedMetadataValue(plugin, previousFrost));
+
+            // Marquer si la Ligne de Glace a déjà été créée
+            if (finalIceLineCreated) {
+                arrow.setMetadata(ICE_LINE_CREATED_KEY, new FixedMetadataValue(plugin, true));
+            }
         });
 
         // Particules de givre sur la flèche pendant son vol
@@ -277,15 +306,15 @@ public class PerforationListener implements Listener {
         // === BONUS DÉGÂTS SUR CIBLE GELÉE (+50%) ===
         bonusMultiplier += perforationManager.getFrozenDamageBonus(target);
 
-        // === T1: FLÈCHES REBONDISSANTES - Bonus par rebond ===
+        // === T1: FLÈCHES REBONDISSANTES - Bonus par rebond (après le 1er hit) ===
         if (event.getDamager() instanceof Projectile projectile) {
             int bounceCount = projectile.hasMetadata(BOUNCE_COUNT_KEY) ?
                 projectile.getMetadata(BOUNCE_COUNT_KEY).get(0).asInt() : 0;
 
             Talent bounceTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
-            if (bounceTalent != null && bounceCount > 0) {
+            if (bounceTalent != null && bounceCount > 1) {
                 double bonusPerBounce = bounceTalent.getValue(1); // 0.25 = 25%
-                bonusMultiplier += bounceCount * bonusPerBounce;
+                bonusMultiplier += (bounceCount - 1) * bonusPerBounce; // Bonus seulement sur les rebonds
             }
         }
 
