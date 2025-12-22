@@ -276,9 +276,6 @@ public class TalentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.DUST, targetLoc, 8, 0.4, 0.5, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.0f));
 
-                // Message d'activation via système centralisé (afficher en cœurs)
-                int absorptionHearts = (int) Math.ceil(absorptionGain / 2.0);
-                showTempEventMessage(uuid, "§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts! §e+" + absorptionHearts + "§6❤");
             } else {
                 // Accumuler les stacks
                 Long lastHit = punishmentLastHit.get(uuid);
@@ -1204,8 +1201,6 @@ public class TalentListener implements Listener {
                             // Expiration - retirer le bonus de HP
                             removeFortifyBonus(player, uuid);
 
-                            // Message d'expiration via système centralisé
-                            showTempEventMessage(uuid, "§8⚔ Fortification expirée...");
                             player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
                     }
@@ -2291,9 +2286,6 @@ public class TalentListener implements Listener {
         double aoeDamageMultiplier = talent.getValue(2); // 150%
         double aoeRadius = talent.getValue(3); // 6 blocs
 
-        // Message d'activation via système centralisé
-        showTempEventMessage(player.getUniqueId(), "§6§l⚒ MARTEAU DU JUGEMENT!");
-
         // Son de départ - tonnerre annonciateur
         player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.2f);
         player.getWorld().playSound(spawnLoc, Sound.BLOCK_ANVIL_PLACE, 0.8f, 0.5f);
@@ -2439,12 +2431,6 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Message de résultat via système centralisé
-        String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
-        if (enemiesHit > 0) {
-            msg += " | §e" + enemiesHit + " §7cibles AoE";
-        }
-        showTempEventMessage(player.getUniqueId(), msg);
     }
 
     /**
