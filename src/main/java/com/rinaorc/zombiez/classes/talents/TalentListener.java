@@ -185,9 +185,9 @@ public class TalentListener implements Listener {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(charge.getValue(2) / 50), 10, false, false));
                 }
 
-                // Effet visuel
-                target.getWorld().spawnParticle(Particle.EXPLOSION, target.getLocation(), 1);
-                target.getWorld().playSound(target.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.2f);
+                // Effet visuel - impact net sans explosion volumineuse
+                target.getWorld().spawnParticle(Particle.SONIC_BOOM, target.getLocation().add(0, 0.5, 0), 1);
+                target.getWorld().playSound(target.getLocation(), Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 0.8f, 0.8f);
             }
         }
 
@@ -1021,8 +1021,10 @@ public class TalentListener implements Listener {
     private void procUnleash(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 3, 1, 1, 1, 0);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+        // Onde de choc compacte au lieu d'explosions volumineuses
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, center, 8, 1.5, 0.5, 1.5, 0);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_CHARGE, 0.8f, 1.2f);
 
         double baseDamage = 10; // Base damage
         double damage = baseDamage * damageMultiplier;
@@ -1043,11 +1045,12 @@ public class TalentListener implements Listener {
     private void procCataclysm(Player player, double damage, double radius) {
         Location center = player.getLocation();
 
-        // Explosion impressionnante mais pas surchargee
-        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 1, 0.5, 0.3, 0.5, 0);
-        player.getWorld().spawnParticle(Particle.FLAME, center, 20, radius / 3, 0.5, radius / 3, 0.05);
-        player.getWorld().spawnParticle(Particle.SMOKE, center, 10, radius / 3, 0.3, radius / 3, 0.02);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.6f);
+        // Impact puissant mais lisible - pas d'explosion volumineuse
+        player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+        player.getWorld().spawnParticle(Particle.DUST, center, 15, radius / 2, 0.3, radius / 2, 0,
+            new Particle.DustOptions(Color.fromRGB(255, 100, 50), 1.8f));
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 6, 0.5, 0.2, 0.5, 0.02);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.8f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1145,17 +1148,18 @@ public class TalentListener implements Listener {
         double radius = talent.getValue(2);
         double stunMs = talent.getValue(3);
 
-        // Effet apocalyptique - puissant mais elegant
-        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 2, 1, 0.5, 1, 0);
-        // Cercle de feu au sol
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
-            double x = center.getX() + (radius * 0.7) * Math.cos(angle);
-            double z = center.getZ() + (radius * 0.7) * Math.sin(angle);
+        // Effet apocalyptique - ULTIME mais lisible (pas d'EXPLOSION volumineuse)
+        player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 0.5, 0), 1);
+        // Cercle de feu au sol (reduit)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+            double x = center.getX() + (radius * 0.6) * Math.cos(angle);
+            double z = center.getZ() + (radius * 0.6) * Math.sin(angle);
             player.getWorld().spawnParticle(Particle.FLAME,
-                new Location(player.getWorld(), x, center.getY() + 0.3, z), 3, 0.2, 0.1, 0.2, 0.02);
+                new Location(player.getWorld(), x, center.getY() + 0.2, z), 2, 0.1, 0.05, 0.1, 0.01);
         }
-        // Colonne de fumee centrale
-        player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center.clone().add(0, 1, 0), 15, 0.5, 1, 0.5, 0.03);
+        // Fumee legere
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center.clone().add(0, 0.5, 0), 8, 0.4, 0.3, 0.4, 0.02);
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 0.4f);
         player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 0.6f);
 
@@ -1181,9 +1185,12 @@ public class TalentListener implements Listener {
     private void procVengeanceRelease(Player player, double damage, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 50, radius/2, 1, radius/2, 0);
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.5f);
+        // Liberation de rage - effet intense mais compact
+        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 15, radius/3, 0.5, radius/3, 0);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+        player.getWorld().spawnParticle(Particle.DUST, center, 20, radius/2, 0.8, radius/2, 0,
+            new Particle.DustOptions(Color.fromRGB(180, 50, 50), 2.0f));
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1212,13 +1219,16 @@ public class TalentListener implements Listener {
             public void run() {
                 player.setInvulnerable(false);
 
-                // Explosion
+                // Explosion de la citadelle - puissante mais lisible
                 Location center = player.getLocation();
                 double damage = 10 * talent.getValue(1);
                 double radius = talent.getValue(2);
 
-                player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-                player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
+                player.getWorld().spawnParticle(Particle.FLASH, center, 1);
+                player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
+                player.getWorld().spawnParticle(Particle.DUST, center, 25, radius/2, 1, radius/2, 0,
+                    new Particle.DustOptions(Color.fromRGB(100, 200, 255), 2.0f));
+                player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.0f);
 
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
