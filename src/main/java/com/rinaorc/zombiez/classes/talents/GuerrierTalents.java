@@ -414,18 +414,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fortify")
             .name("Fortification")
-            .description("Blocages = bouclier absorbant")
+            .description("Blocages = bonus PV max temporaire")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Chaque blocage vous donne",
-                "§e+15% Fortification§7 (max 100%).",
+                "§7Chaque §eblocage§7 augmente vos",
+                "§cPV max de 10%§7!",
                 "",
-                "§7A §e100% Fortification§7:",
-                "§7- Gagnez un §6bouclier§7 = §e25%§7 PV max",
-                "§7- Fortification reset a 0%",
+                "§7- Cumulable §e5 fois§7 (max +50%)",
+                "§7- Dure §a5 secondes§7",
+                "§7- Chaque blocage §erefresh§7 le timer",
                 "",
-                "§8Perte: §7-8%/s§8 hors blocage",
+                "§8Effet: §6Aura doree croissante",
                 "§8Inspiré: Fortify (D4)"
             })
             .classType(ClassType.GUERRIER)
@@ -434,7 +434,7 @@ public final class GuerrierTalents {
             .icon(Material.IRON_CHESTPLATE)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.FORTIFY)
-            .values(new double[]{0.15, 1.0, 0.25, 0.08}) // fortify_per_block, max_fortify, shield%, decay_per_second
+            .values(new double[]{0.10, 5, 5000}) // hp_bonus_per_stack, max_stacks, duration_ms
             .build());
 
         // 4.3 - VENGEANCE ARDENTE
@@ -525,33 +525,36 @@ public final class GuerrierTalents {
             .values(new double[]{10, 2.50, 5.0}) // attacks_needed, damage%, radius
             .build());
 
-        // 5.2 - INEBRANLABLE (REMPART)
+        // 5.2 - MARTEAU DU JUGEMENT (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_unstoppable")
-            .name("Inebranlable")
-            .description("3 blocages = Inarretable + bonus degats")
+            .id("guerrier_judgment_hammer")
+            .name("Marteau du Jugement")
+            .description("Execute <15% HP = marteau geant du ciel")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Apres §e3 blocages§7 en §a5s§7,",
-                "§7devenez §6INARRETABLE§7 pendant §e3s§7!",
+                "§7Frapper un ennemi en dessous",
+                "§7de §c15% PV§7 invoque le §6JUGEMENT§7!",
                 "",
-                "§7Pendant Inarretable:",
-                "§7- §eImmunite§7 knockback/slow",
-                "§7- §c+25%§7 degats infliges",
-                "§7- Aura dorée visible",
+                "§7Un §6marteau dore geant§7 tombe",
+                "§7du ciel et s'ecrase sur la cible!",
                 "",
-                "§8Cooldown: 12s",
-                "§8Inspiré: Defiance Aura (D4)"
+                "§7Effets:",
+                "§7- §c300%§7 degats a la cible",
+                "§7- §cAoE 6 blocs§7 (150% degats)",
+                "§7- §eKnockback§7 puissant",
+                "",
+                "§8Cooldown: 6s",
+                "§8Inspiré: Hammer of the Ancients"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
             .slotIndex(1)
-            .icon(Material.NETHERITE_CHESTPLATE)
+            .icon(Material.GOLDEN_AXE)
             .iconColor("§6")
-            .effectType(Talent.TalentEffectType.UNSTOPPABLE)
-            .values(new double[]{3, 5000, 3000, 0.25, 12000}) // blocks_needed, window_ms, duration_ms, damage_bonus%, cooldown_ms
-            .internalCooldownMs(12000)
+            .effectType(Talent.TalentEffectType.JUDGMENT_HAMMER)
+            .values(new double[]{0.15, 3.0, 1.5, 6.0, 6000}) // hp_threshold, main_damage%, aoe_damage%, aoe_radius, cooldown_ms
+            .internalCooldownMs(6000)
             .build());
 
         // 5.3 - CYCLONE DE RAGE
@@ -643,31 +646,33 @@ public final class GuerrierTalents {
             .values(new double[]{0.25, 500, 2000}) // stun_chance, stun_duration_ms, cooldown_ms
             .build());
 
-        // 6.2 - ENTRELACEMENT (REMPART)
+        // 6.2 - ÉCHO DE FER (REMPART)
         TALENTS.add(Talent.builder()
-            .id("guerrier_weaving")
-            .name("Entrelacement")
-            .description("Alterner actions = bonus degats croissant")
+            .id("guerrier_iron_echo")
+            .name("Echo de Fer")
+            .description("Stocke les degats bloques/recus → onde de choc")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Alterner entre §eattaque§7 et §eblocage§7",
-                "§7vous donne §c+10%§7 degats par switch!",
+                "§7Chaque §eblocage§7 ou §edegat recu§7",
+                "§7stocke §c15%§7 de ces degats.",
                 "",
-                "§7- Max: §c+50%§7 (5 alternances)",
-                "§7- Reset si meme action 2x",
-                "§7- Les stacks durent §a4s§7",
+                "§7A §e3 stacks§7 (en 5s):",
+                "§7- §6ONDE DE CHOC§7 automatique!",
+                "§7- §cInflige§7 tous les degats stockes",
+                "§7- §aAoE 8 blocs§7 autour de vous",
+                "§7- §aSoigne 20%§7 des degats infliges",
                 "",
-                "§8Style: §6Rythme attaque/defense",
-                "§8Inspiré: Weaving (D4)"
+                "§8Effet: §6Explosion doree + gong",
+                "§8Inspiré: Iron Skin (D4)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
             .slotIndex(1)
-            .icon(Material.CHAIN)
+            .icon(Material.ECHO_SHARD)
             .iconColor("§6")
-            .effectType(Talent.TalentEffectType.WEAVING)
-            .values(new double[]{0.10, 0.50, 4000}) // bonus_per_switch, max_bonus, duration_ms
+            .effectType(Talent.TalentEffectType.IRON_ECHO)
+            .values(new double[]{0.15, 3, 5000, 8.0, 0.20}) // storage_percent, stacks_needed, window_ms, aoe_radius, heal_percent
             .build());
 
         // 6.3 - RAGE IMPARABLE
@@ -769,23 +774,24 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bastion_charge")
             .name("Charge du Bastion")
-            .description("Double-sneak: charge + bouclier par cible")
+            .description("Double-sneak: charge + bonus HP par cible")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
                 "§6ACTIVATION: §eDouble Sneak",
                 "",
-                "§7Chargez vers l'avant (§e6 blocs§7)!",
+                "§7Chargez vers l'avant (§e12 blocs§7)!",
                 "",
                 "§7Effets sur les ennemis touches:",
                 "§7- §c200%§7 degats",
                 "§7- §eKnockback§7 puissant",
                 "",
                 "§7Vous gagnez:",
-                "§7- §6+8%§7 PV max en bouclier/ennemi",
-                "§7- Max: §e40%§7 PV max",
+                "§7- §c+8% PV max§7 par ennemi touche",
+                "§7- Dure §a6 secondes§7",
+                "§7- §eCumulable§7 sans limite!",
                 "",
-                "§8Cooldown: 10s",
+                "§8Cooldown: 8s",
                 "§8Inspiré: Falling Star (D4)"
             })
             .classType(ClassType.GUERRIER)
@@ -794,8 +800,8 @@ public final class GuerrierTalents {
             .icon(Material.TRIDENT)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.BASTION_CHARGE)
-            .values(new double[]{6.0, 2.0, 0.08, 0.40, 10000}) // distance, damage%, shield_per_enemy%, max_shield%, cooldown_ms
-            .internalCooldownMs(10000)
+            .values(new double[]{12.0, 2.0, 0.08, 6000, 8000}) // distance, damage%, hp_per_enemy%, duration_ms, cooldown_ms
+            .internalCooldownMs(8000)
             .build());
 
         // 6.3 - REPRESAILLES INFINIES
@@ -900,11 +906,12 @@ public final class GuerrierTalents {
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Aura passive (§e5 blocs§7):",
+                "§7Aura passive (§e6 blocs§7):",
                 "",
                 "§7Ennemis dans l'aura:",
                 "§7- §c-20%§7 degats infliges",
                 "§7- §eGlowing§7 (visibles)",
+                "§7- §6Aura doree§7 visible autour de vous",
                 "",
                 "§7Quand vous recevez des degats melee:",
                 "§7- §c30%§7 des degats reflechis",
@@ -918,7 +925,7 @@ public final class GuerrierTalents {
             .icon(Material.TOTEM_OF_UNDYING)
             .iconColor("§6")
             .effectType(Talent.TalentEffectType.DEFIANCE_AURA)
-            .values(new double[]{5.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
+            .values(new double[]{6.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
             .build());
 
         // 7.3 - NEMESIS

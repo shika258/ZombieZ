@@ -103,14 +103,14 @@ public class Talent {
 
         // === GUERRIER - Tier 5 ===
         CATACLYSM,               // Big AoE every X attacks
-        UNSTOPPABLE,             // REMPART: Après blocages → Inarrêtable
+        JUDGMENT_HAMMER,         // REMPART: Exécute <15% HP → Marteau géant du ciel
         RAGE_CYCLONE,            // Sprint = spin damage
         ETERNAL_AEGIS,           // Perfect parry reflect
         WARLORD,                 // Chain execute
 
         // === GUERRIER - Tier 6 (Niveau 25 - Ascension) ===
         SEISMIC_AFTERMATH,       // AoE attacks leave lingering damage zones
-        WEAVING,                 // REMPART: Alterner actions → bonus dégâts
+        IRON_ECHO,               // REMPART: Blocages/dégâts stockés → onde de choc AoE
         UNSTOPPABLE_RAGE,        // Damage immunity during rage buildup
         UNYIELDING_WALL,         // Damage reduction scales with stillness
         MOMENTUM,                // Sprint damage bonus stacks

@@ -70,18 +70,17 @@ public class TalentListener implements Listener {
     // Bouclier Vengeur - compteur de coups pour disque
     private final Map<UUID, Integer> vengefulShieldCounter = new ConcurrentHashMap<>();
 
-    // Fortification - niveau de fortification
-    private final Map<UUID, Double> fortifyLevel = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> fortifyLastBlock = new ConcurrentHashMap<>();
+    // Fortification - stacks de HP bonus
+    private final Map<UUID, Integer> fortifyStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> fortifyExpireTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> fortifyBaseHealth = new ConcurrentHashMap<>(); // HP de base avant bonus
 
-    // Inébranlable - compteur de blocages récents
-    private final Map<UUID, List<Long>> recentBlocks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> unstoppableActiveUntil = new ConcurrentHashMap<>();
+    // Marteau du Jugement - cooldown géré par le système standard
 
-    // Entrelacement - tracking dernière action et stacks
-    private final Map<UUID, String> weavingLastAction = new ConcurrentHashMap<>(); // "attack" ou "block"
-    private final Map<UUID, Integer> weavingStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> weavingLastProc = new ConcurrentHashMap<>();
+    // Écho de Fer - tracking dégâts stockés et stacks
+    private final Map<UUID, Double> ironEchoStoredDamage = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> ironEchoStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> ironEchoFirstStack = new ConcurrentHashMap<>();
 
     // Avatar du Rempart - dégâts bloqués cumulés
     private final Map<UUID, Double> bulwarkDamageBlocked = new ConcurrentHashMap<>();
@@ -138,6 +137,9 @@ public class TalentListener implements Listener {
     private final Set<UUID> activeGuerriers = ConcurrentHashMap.newKeySet();
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000;
+
+    // Cache des joueurs Guerrier avec ActionBar enregistrée
+    private final Set<UUID> activeGuerrierActionBar = ConcurrentHashMap.newKeySet();
 
     // Onde de Fracture - compteur de coups
     private final Map<UUID, Integer> fractureWaveHitCounter = new ConcurrentHashMap<>();
@@ -259,7 +261,26 @@ public class TalentListener implements Listener {
                 punishmentStacks.put(uuid, 0);
 
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
-                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.2);
+                player.getWorld().playSound(target.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
+
+                // Effet visuel sacré/jaune
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+                // Éclat doré central
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 25, 0.3, 0.5, 0.3, 0.15);
+                // Particules dorées lumineuses
+                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 12, 0.4, 0.6, 0.4, 0.05);
+                // Dust jaune/doré
+                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 20, 0.5, 0.7, 0.5, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f));
+                // Cercle sacré au sol
+                Location groundLoc = target.getLocation().add(0, 0.1, 0);
+                for (int i = 0; i < 12; i++) {
+                    double angle = (2 * Math.PI / 12) * i;
+                    double x = Math.cos(angle) * 1.2;
+                    double z = Math.sin(angle) * 1.2;
+                    player.getWorld().spawnParticle(Particle.END_ROD, groundLoc.clone().add(x, 0, z), 1, 0, 0.1, 0, 0);
+                }
+
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
                 }
@@ -355,50 +376,19 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Entrelacement (REMPART) - tracking action "attack"
-        Talent weaving = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
-        if (weaving != null) {
-            String lastAction = weavingLastAction.get(uuid);
-            long now = System.currentTimeMillis();
-            Long lastProc = weavingLastProc.get(uuid);
+        // Écho de Fer ne s'active pas sur les attaques - voir onPlayerTakeDamage
 
-            // Reset si trop de temps passé
-            if (lastProc != null && now - lastProc > weaving.getValue(2)) {
-                weavingStacks.put(uuid, 0);
-                weavingLastAction.remove(uuid);
-            }
+        // Marteau du Jugement - si la cible est <15% HP
+        Talent judgmentHammer = getActiveTalentIfHas(player, Talent.TalentEffectType.JUDGMENT_HAMMER);
+        if (judgmentHammer != null && !isOnCooldown(uuid, "judgment_hammer")) {
+            double hpThreshold = judgmentHammer.getValue(0); // 15%
+            double targetMaxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double targetCurrentHp = target.getHealth();
 
-            if (!"attack".equals(lastAction)) {
-                // Alternance réussie!
-                int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
-                int maxStacks = (int) (weaving.getValue(1) / weaving.getValue(0));
-                if (stacks > maxStacks) stacks = maxStacks;
-                weavingStacks.put(uuid, stacks);
-                weavingLastProc.put(uuid, now);
-
-                if (shouldSendTalentMessage(player) && stacks > 1) {
-                    int bonus = (int) (stacks * weaving.getValue(0) * 100);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
-                }
-            } else {
-                // Même action, reset
-                weavingStacks.put(uuid, 0);
-            }
-            weavingLastAction.put(uuid, "attack");
-
-            // Appliquer le bonus de dégâts
-            int stacks = weavingStacks.getOrDefault(uuid, 0);
-            if (stacks > 0) {
-                damage *= (1 + stacks * weaving.getValue(0));
-            }
-        }
-
-        // Inébranlable bonus dégâts si actif (REMPART)
-        if (unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis()) {
-            Talent unstoppable = getActiveTalentIfHas(player, Talent.TalentEffectType.UNSTOPPABLE);
-            if (unstoppable != null) {
-                damage *= (1 + unstoppable.getValue(3)); // +25% dégâts
+            if (targetCurrentHp / targetMaxHp <= hpThreshold) {
+                // JUGEMENT!
+                procJudgmentHammer(player, target, judgmentHammer, damage);
+                setCooldown(uuid, "judgment_hammer", (long) judgmentHammer.getValue(4));
             }
         }
 
@@ -662,8 +652,8 @@ public class TalentListener implements Listener {
                 // Tracker blocage pour les autres talents Rempart
                 handleRempartBlock(player, uuid, originalDamage);
 
-                // Entrelacement - tracker action "block" (blocage passif compte aussi!)
-                handleWeavingBlock(player, uuid);
+                // Écho de Fer - stocker les dégâts bloqués
+                handleIronEcho(player, uuid, originalDamage);
 
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
@@ -778,10 +768,8 @@ public class TalentListener implements Listener {
 
         // === TIER 7 ===
 
-        // Entrelacement tracking blocage actif (REMPART) - bouclier en main
-        if (player.isBlocking()) {
-            handleWeavingBlock(player, uuid);
-        }
+        // Écho de Fer - stocker les dégâts reçus (après réductions)
+        handleIronEcho(player, uuid, damage);
 
         // === TIER 8 ===
 
@@ -861,8 +849,8 @@ public class TalentListener implements Listener {
         event.setDamage(Math.max(0, damage));
 
         // === REMPART - Immunité knockback ===
-        // Si le joueur est Inébranlable ou Avatar du Rempart, annuler le knockback
-        if (isUnstoppable(player) || isBulwarkAvatar(player)) {
+        // Si le joueur est en Avatar du Rempart, annuler le knockback
+        if (isBulwarkAvatar(player)) {
             // Annuler le velocity au prochain tick
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -1209,24 +1197,21 @@ public class TalentListener implements Listener {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
                     }
 
-                    // === REMPART - Decay Fortification ===
+                    // === REMPART - Expiration Fortification ===
                     Talent fortify = getActiveTalentIfHas(player, Talent.TalentEffectType.FORTIFY);
                     if (fortify != null) {
-                        Long lastBlock = fortifyLastBlock.get(uuid);
-                        // Decay si pas de blocage depuis 2s
-                        if (lastBlock == null || now - lastBlock > 2000) {
-                            double current = fortifyLevel.getOrDefault(uuid, 0.0);
-                            if (current > 0) {
-                                double decay = fortify.getValue(3); // -8% par seconde
-                                double newLevel = Math.max(0, current - decay);
-                                fortifyLevel.put(uuid, newLevel);
-                                // Feedback visuel de perte
-                                if (newLevel > 0 && shouldSendTalentMessage(player)) {
-                                    int percent = (int) (newLevel * 100);
-                                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                                        "§8⚔ Fortification: §7" + percent + "% §8(decay)"));
-                                }
+                        Long expireTime = fortifyExpireTime.get(uuid);
+                        int stacks = fortifyStacks.getOrDefault(uuid, 0);
+
+                        if (stacks > 0 && expireTime != null && now >= expireTime) {
+                            // Expiration - retirer le bonus de HP
+                            removeFortifyBonus(player, uuid);
+
+                            if (shouldSendTalentMessage(player)) {
+                                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                                    "§8⚔ Fortification expirée..."));
                             }
+                            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
                         }
                     }
 
@@ -1242,13 +1227,48 @@ public class TalentListener implements Listener {
                                 target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 0, false, false));
                             }
                         }
-                        // Particules de l'aura
+
+                        // Animation améliorée de l'aura dorée
                         Location loc = player.getLocation();
-                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-                            double x = radius * Math.cos(angle);
-                            double z = radius * Math.sin(angle);
-                            player.getWorld().spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
-                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 180, 50), 0.8f));
+                        World world = player.getWorld();
+                        long tick = world.getGameTime();
+                        double rotationOffset = (tick % 60) * (Math.PI * 2 / 60); // Rotation complète en 3s
+
+                        // Anneau principal au sol (doré, rotatif)
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                            double x = radius * Math.cos(angle + rotationOffset);
+                            double z = radius * Math.sin(angle + rotationOffset);
+                            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.1, z),
+                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.2f));
+                        }
+
+                        // Anneau secondaire (contre-rotation, orange)
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                            double x = (radius - 0.5) * Math.cos(angle - rotationOffset * 0.5);
+                            double z = (radius - 0.5) * Math.sin(angle - rotationOffset * 0.5);
+                            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0.15, z),
+                                1, 0, 0, 0, 0, new Particle.DustOptions(Color.fromRGB(255, 140, 30), 0.8f));
+                        }
+
+                        // Piliers de lumière sacrée aux 4 points cardinaux
+                        for (int i = 0; i < 4; i++) {
+                            double pillarAngle = (Math.PI / 2) * i + rotationOffset * 0.3;
+                            double px = (radius - 0.3) * Math.cos(pillarAngle);
+                            double pz = (radius - 0.3) * Math.sin(pillarAngle);
+                            for (double y = 0; y < 2.0; y += 0.4) {
+                                world.spawnParticle(Particle.END_ROD, loc.clone().add(px, y, pz),
+                                    1, 0.05, 0.1, 0.05, 0.01);
+                            }
+                        }
+
+                        // Particules montantes centrales (effet sacré)
+                        if (tick % 5 == 0) {
+                            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                                double sparkX = (radius * 0.5) * Math.cos(angle + rotationOffset * 2);
+                                double sparkZ = (radius * 0.5) * Math.sin(angle + rotationOffset * 2);
+                                world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.clone().add(sparkX, 0.5, sparkZ),
+                                    1, 0.1, 0.3, 0.1, 0.02);
+                            }
                         }
                     }
                 }
@@ -1277,6 +1297,14 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+
+        // ActionBar Registration Task (20L = 1s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                registerActionBarProviders();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
 
         // Note: Ragnarok est active par double sneak (handleDoubleSneak)
     }
@@ -2013,73 +2041,63 @@ public class TalentListener implements Listener {
 
     /**
      * Gère un blocage pour les talents Rempart
-     * Met à jour Fortification, Inébranlable et Avatar du Rempart
+     * Met à jour Fortification et Avatar du Rempart
      */
     private void handleRempartBlock(Player player, UUID uuid, double blockedDamage) {
         long now = System.currentTimeMillis();
 
-        // Fortification - accumulation
+        // Fortification - bonus HP max par stack
         Talent fortify = getActiveTalentIfHas(player, Talent.TalentEffectType.FORTIFY);
         if (fortify != null) {
-            fortifyLastBlock.put(uuid, now);
-            double current = fortifyLevel.getOrDefault(uuid, 0.0);
-            double increase = fortify.getValue(0); // +15% par blocage
-            double max = fortify.getValue(1); // 100%
-            double newLevel = Math.min(max, current + increase);
-            fortifyLevel.put(uuid, newLevel);
+            double hpBonusPerStack = fortify.getValue(0); // 10%
+            int maxStacks = (int) fortify.getValue(1); // 5
+            long duration = (long) fortify.getValue(2); // 5000ms
 
-            // Atteint 100%?
-            if (newLevel >= max) {
-                // Déclencher le bouclier!
-                double shieldAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * fortify.getValue(2);
-                applyTempShield(player, shieldAmount, 10000); // 10s
-                fortifyLevel.put(uuid, 0.0); // Reset
+            int currentStacks = fortifyStacks.getOrDefault(uuid, 0);
 
+            // Premier stack - sauvegarder la HP de base
+            if (currentStacks == 0) {
+                fortifyBaseHealth.put(uuid, player.getAttribute(Attribute.MAX_HEALTH).getBaseValue());
+            }
+
+            // Ajouter un stack (max 5)
+            int newStacks = Math.min(maxStacks, currentStacks + 1);
+            fortifyStacks.put(uuid, newStacks);
+
+            // Refresh le timer
+            fortifyExpireTime.put(uuid, now + duration);
+
+            // Appliquer le bonus de HP
+            applyFortifyBonus(player, uuid, newStacks, hpBonusPerStack);
+
+            // Effets visuels
+            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.6f, 0.9f + (newStacks * 0.15f));
+
+            // Particules dorées (plus intenses avec les stacks)
+            player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                5 + (newStacks * 3), 0.4, 0.6, 0.4, 0,
+                new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.0f));
+
+            if (newStacks == maxStacks) {
+                // MAX STACKS!
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
-                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 25, 0.5, 0.8, 0.5, 0.15);
                 if (shouldSendTalentMessage(player)) {
+                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l🛡 FORTIFICATION MAX! §e+" + String.format("%.0f", shieldAmount) + " bouclier!"));
+                        "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!"));
                 }
             } else {
-                // Feedback progression
-                int percent = (int) (newLevel * 100);
+                // Progression
                 if (shouldSendTalentMessage(player)) {
+                    int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
                     player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6⚔ Fortification: §e" + percent + "%"));
+                        "§6🛡 Fortification x" + newStacks + " §c+" + totalBonus + "% §7PV max §8(5s)"));
                 }
             }
         }
 
-        // Inébranlable - compteur de blocages récents
-        Talent unstoppable = getActiveTalentIfHas(player, Talent.TalentEffectType.UNSTOPPABLE);
-        if (unstoppable != null && !isOnCooldown(uuid, "unstoppable")) {
-            List<Long> blocks = recentBlocks.computeIfAbsent(uuid, k -> new ArrayList<>());
-            blocks.add(now);
-
-            // Nettoyer les vieux blocages
-            long window = (long) unstoppable.getValue(1);
-            blocks.removeIf(t -> now - t > window);
-
-            int blocksNeeded = (int) unstoppable.getValue(0);
-            if (blocks.size() >= blocksNeeded) {
-                // Activer Inébranlable!
-                long duration = (long) unstoppable.getValue(2);
-                unstoppableActiveUntil.put(uuid, now + duration);
-                blocks.clear();
-                setCooldown(uuid, "unstoppable", (long) unstoppable.getValue(4));
-
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
-                player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-                if (shouldSendTalentMessage(player)) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§6§l⚡ INÉBRANLABLE! §7Immunité CC + §c+25% §7dégâts (" + (duration/1000) + "s)"));
-                }
-
-                // Aura visuelle pendant la durée
-                startUnstoppableAura(player, duration);
-            }
-        }
+        // Marteau du Jugement ne se déclenche pas sur blocage - voir onPlayerAttackZombie
 
         // Avatar du Rempart - accumulation dégâts bloqués
         Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
@@ -2107,6 +2125,56 @@ public class TalentListener implements Listener {
                 activateBulwarkAvatar(player, bulwarkAvatar);
             }
         }
+    }
+
+    /**
+     * Applique le bonus de HP max de Fortification
+     */
+    private void applyFortifyBonus(Player player, UUID uuid, int stacks, double bonusPerStack) {
+        Double baseHealth = fortifyBaseHealth.get(uuid);
+        if (baseHealth == null) return;
+
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le nouveau max HP
+        double bonusMultiplier = 1.0 + (stacks * bonusPerStack);
+        double newMaxHealth = baseHealth * bonusMultiplier;
+
+        // Appliquer
+        maxHealthAttr.setBaseValue(newMaxHealth);
+
+        // Soigner proportionnellement si on gagne des HP
+        double currentHealth = player.getHealth();
+        double healthPercent = currentHealth / maxHealthAttr.getDefaultValue();
+        double newHealth = Math.min(newMaxHealth, healthPercent * newMaxHealth + (newMaxHealth - maxHealthAttr.getDefaultValue()) * 0.5);
+        player.setHealth(Math.max(1, newHealth));
+    }
+
+    /**
+     * Retire le bonus de HP max de Fortification
+     */
+    private void removeFortifyBonus(Player player, UUID uuid) {
+        Double baseHealth = fortifyBaseHealth.get(uuid);
+        if (baseHealth == null) return;
+
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le ratio de vie actuel
+        double healthRatio = player.getHealth() / maxHealthAttr.getValue();
+
+        // Restaurer la HP de base
+        maxHealthAttr.setBaseValue(baseHealth);
+
+        // Ajuster la vie pour garder le même ratio (sans dépasser le max)
+        double newHealth = Math.min(baseHealth, healthRatio * baseHealth);
+        player.setHealth(Math.max(1, newHealth));
+
+        // Nettoyer les données
+        fortifyStacks.put(uuid, 0);
+        fortifyExpireTime.remove(uuid);
+        fortifyBaseHealth.remove(uuid);
     }
 
     /**
@@ -2183,27 +2251,155 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Aura visuelle pour Inébranlable
+     * Proc du Marteau du Jugement - fait tomber un marteau géant du ciel
      */
-    private void startUnstoppableAura(Player player, long duration) {
+    private void procJudgmentHammer(Player player, LivingEntity target, Talent talent, double baseDamage) {
+        Location targetLoc = target.getLocation();
+        Location spawnLoc = targetLoc.clone().add(0, 10, 0); // 10 blocs au-dessus
+
+        double mainDamageMultiplier = talent.getValue(1); // 300%
+        double aoeDamageMultiplier = talent.getValue(2); // 150%
+        double aoeRadius = talent.getValue(3); // 6 blocs
+
+        // Message d'activation
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚒ MARTEAU DU JUGEMENT!"));
+        }
+
+        // Son de départ
+        player.getWorld().playSound(targetLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
+        player.getWorld().playSound(targetLoc, Sound.BLOCK_ANVIL_LAND, 0.5f, 0.5f);
+
+        // Créer le marteau géant avec armor stand
+        org.bukkit.entity.ArmorStand hammer = targetLoc.getWorld().spawn(spawnLoc, org.bukkit.entity.ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setGravity(false);
+            stand.setMarker(true);
+            stand.setSmall(false);
+            stand.setArms(true);
+            stand.setBasePlate(false);
+
+            // Équiper avec une hache dorée
+            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.GOLDEN_AXE));
+
+            // Rendre géant avec l'attribut scale (1.21.4+)
+            var scaleAttr = stand.getAttribute(Attribute.SCALE);
+            if (scaleAttr != null) {
+                scaleAttr.setBaseValue(4.0); // 4x plus grand
+            }
+
+            // Rotation pour que la hache pointe vers le bas
+            stand.setRightArmPose(new org.bukkit.util.EulerAngle(Math.toRadians(180), 0, 0));
+        });
+
+        // Animation de chute
         new BukkitRunnable() {
             int ticks = 0;
-            final int maxTicks = (int) (duration / 50);
+            final int fallDuration = 10; // 0.5 seconde
+            final double startY = spawnLoc.getY();
+            final double endY = targetLoc.getY() + 1;
+            final double dropPerTick = (startY - endY) / fallDuration;
 
             @Override
             public void run() {
-                if (ticks >= maxTicks || !player.isOnline()) {
+                if (ticks >= fallDuration || !hammer.isValid()) {
+                    // IMPACT!
+                    hammer.remove();
+                    triggerHammerImpact(player, targetLoc, target, baseDamage, mainDamageMultiplier, aoeDamageMultiplier, aoeRadius);
                     cancel();
                     return;
                 }
 
-                // Particules dorées
-                Location loc = player.getLocation().add(0, 0.5, 0);
-                player.getWorld().spawnParticle(Particle.END_ROD, loc, 3, 0.5, 0.3, 0.5, 0.02);
+                // Descendre le marteau
+                Location newLoc = hammer.getLocation().subtract(0, dropPerTick, 0);
+                hammer.teleport(newLoc);
 
-                ticks += 5;
+                // Particules de traînée
+                hammer.getWorld().spawnParticle(Particle.END_ROD, newLoc, 3, 0.2, 0.3, 0.2, 0.02);
+                hammer.getWorld().spawnParticle(Particle.DUST, newLoc, 5, 0.3, 0.5, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 2.0f));
+
+                // Son de sifflement
+                if (ticks % 2 == 0) {
+                    hammer.getWorld().playSound(newLoc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.3f, 2.0f);
+                }
+
+                ticks++;
             }
-        }.runTaskTimer(plugin, 0L, 5L);
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Impact du Marteau du Jugement
+     */
+    private void triggerHammerImpact(Player player, Location impactLoc, LivingEntity mainTarget,
+                                      double baseDamage, double mainMultiplier, double aoeMultiplier, double radius) {
+        // === EFFETS VISUELS D'IMPACT ===
+        // Explosion de particules dorées
+        impactLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, impactLoc.clone().add(0, 0.5, 0), 80, 1, 1, 1, 0.5);
+        impactLoc.getWorld().spawnParticle(Particle.EXPLOSION, impactLoc, 3, 0.5, 0.5, 0.5, 0);
+        impactLoc.getWorld().spawnParticle(Particle.END_ROD, impactLoc, 50, 2, 0.5, 2, 0.1);
+
+        // Onde de choc au sol
+        for (int ring = 1; ring <= (int) radius; ring++) {
+            final int r = ring;
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 20; i++) {
+                    double angle = (2 * Math.PI / 20) * i;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    Location particleLoc = impactLoc.clone().add(x, 0.2, z);
+                    impactLoc.getWorld().spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    impactLoc.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0, 0.2, 0, 0.05);
+                }
+            }, ring * 2L);
+        }
+
+        // Sons d'impact
+        impactLoc.getWorld().playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
+        impactLoc.getWorld().playSound(impactLoc, Sound.BLOCK_ANVIL_LAND, 1.5f, 0.6f);
+        impactLoc.getWorld().playSound(impactLoc, Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 1.0f, 0.8f);
+
+        // === DÉGÂTS ===
+        // Dégâts à la cible principale (300%)
+        if (mainTarget.isValid() && !mainTarget.isDead()) {
+            double mainDamage = baseDamage * mainMultiplier;
+            mainTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+            mainTarget.damage(mainDamage, player);
+
+            // Knockback vers le haut
+            mainTarget.setVelocity(new Vector(0, 0.8, 0));
+        }
+
+        // Dégâts AoE (150%)
+        double aoeDamage = baseDamage * aoeMultiplier;
+        int enemiesHit = 0;
+
+        for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity aoTarget && entity != mainTarget && !(entity instanceof Player)) {
+                if (plugin.getZombieManager().isZombieZMob(aoTarget)) {
+                    aoTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                    aoTarget.damage(aoeDamage, player);
+
+                    // Knockback depuis le centre
+                    Vector knockback = aoTarget.getLocation().toVector()
+                        .subtract(impactLoc.toVector()).normalize().multiply(1.2).setY(0.5);
+                    aoTarget.setVelocity(knockback);
+
+                    enemiesHit++;
+                }
+            }
+        }
+
+        // Message de résultat
+        if (shouldSendTalentMessage(player)) {
+            String msg = "§6⚒ JUGEMENT! §c" + String.format("%.0f", baseDamage * mainMultiplier) + " §7dégâts";
+            if (enemiesHit > 0) {
+                msg += " | §e" + enemiesHit + " §7cibles AoE";
+            }
+            player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        }
     }
 
     /**
@@ -2310,13 +2506,13 @@ public class TalentListener implements Listener {
     private void procBastionCharge(Player player, Talent talent) {
         Location start = player.getLocation();
         Vector direction = start.getDirection().setY(0).normalize();
-        double distance = talent.getValue(0);
-        double damageMultiplier = talent.getValue(1);
-        double shieldPerEnemy = talent.getValue(2);
-        double maxShield = talent.getValue(3);
+        double distance = talent.getValue(0); // 12 blocs
+        double damageMultiplier = talent.getValue(1); // 200%
+        double hpPerEnemy = talent.getValue(2); // 8%
+        long hpDuration = (long) talent.getValue(3); // 6000ms
 
-        // Propulser le joueur vers l'avant
-        player.setVelocity(direction.clone().multiply(2.0).setY(0.3));
+        // Propulser le joueur vers l'avant (plus fort pour 12 blocs)
+        player.setVelocity(direction.clone().multiply(3.0).setY(0.3));
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CLOUD, start, 20, 0.5, 0.2, 0.5, 0.1);
@@ -2324,6 +2520,10 @@ public class TalentListener implements Listener {
         if (shouldSendTalentMessage(player)) {
             player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHARGE DU BASTION!"));
         }
+
+        // Sauvegarder la HP de base
+        UUID uuid = player.getUniqueId();
+        final double baseMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
 
         // Appliquer les dégâts et collecter les ennemis touchés
         final double baseDamage = getPlayerBaseDamage(player);
@@ -2334,14 +2534,10 @@ public class TalentListener implements Listener {
 
             @Override
             public void run() {
-                if (ticks >= 15 || !player.isOnline()) { // ~0.75s de charge
-                    // Fin de la charge - appliquer le bouclier
-                    double shield = Math.min(maxShield, enemiesHit * shieldPerEnemy) * player.getAttribute(Attribute.MAX_HEALTH).getValue();
-                    if (shield > 0) {
-                        applyTempShield(player, shield, 8000);
-                        if (shouldSendTalentMessage(player)) {
-                            player.sendMessage("§6⚔ Charge terminée! §e" + enemiesHit + " §7cibles | §6+" + String.format("%.0f", shield) + " §7bouclier");
-                        }
+                if (ticks >= 20 || !player.isOnline()) { // ~1s de charge (plus long pour 12 blocs)
+                    // Fin de la charge - appliquer le bonus HP
+                    if (enemiesHit > 0) {
+                        applyBastionChargeHpBonus(player, uuid, baseMaxHealth, enemiesHit, hpPerEnemy, hpDuration);
                     }
                     cancel();
                     return;
@@ -2351,8 +2547,8 @@ public class TalentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
                     5, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
 
-                // Dégâts aux ennemis sur le chemin
-                for (Entity entity : player.getNearbyEntities(2, 2, 2)) {
+                // Dégâts aux ennemis sur le chemin (rayon plus large pour 12 blocs)
+                for (Entity entity : player.getNearbyEntities(2.5, 2.5, 2.5)) {
                     if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
                         if (!hitEntities.contains(target.getUniqueId())) {
                             hitEntities.add(target.getUniqueId());
@@ -2368,6 +2564,9 @@ public class TalentListener implements Listener {
                             target.setVelocity(knockback);
 
                             player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.8f, 1.0f);
+
+                            // Effet visuel par ennemi touché
+                            target.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, target.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.05);
                         }
                     }
                 }
@@ -2375,6 +2574,55 @@ public class TalentListener implements Listener {
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Applique le bonus HP temporaire de la Charge du Bastion
+     */
+    private void applyBastionChargeHpBonus(Player player, UUID uuid, double baseMaxHealth, int enemiesHit, double hpPerEnemy, long duration) {
+        var maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) return;
+
+        // Calculer le bonus total (8% par ennemi, sans limite)
+        double bonusMultiplier = 1.0 + (enemiesHit * hpPerEnemy);
+        double newMaxHealth = baseMaxHealth * bonusMultiplier;
+        int bonusPercent = (int) (enemiesHit * hpPerEnemy * 100);
+
+        // Appliquer le bonus
+        maxHealthAttr.setBaseValue(newMaxHealth);
+
+        // Soigner proportionnellement
+        double currentHealth = player.getHealth();
+        double bonusHealth = (newMaxHealth - baseMaxHealth) * 0.5; // Soigne 50% du bonus
+        player.setHealth(Math.min(newMaxHealth, currentHealth + bonusHealth));
+
+        // Effets visuels
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.2);
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
+
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §c+" + bonusPercent + "% §7PV max §8(6s)"));
+        }
+
+        // Planifier la fin du bonus
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                // Restaurer la HP de base
+                var attr = player.getAttribute(Attribute.MAX_HEALTH);
+                if (attr != null) {
+                    double healthRatio = player.getHealth() / attr.getValue();
+                    attr.setBaseValue(baseMaxHealth);
+                    player.setHealth(Math.max(1, Math.min(baseMaxHealth, healthRatio * baseMaxHealth)));
+                }
+
+                player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
+                if (shouldSendTalentMessage(player)) {
+                    player.sendActionBar(net.kyori.adventure.text.Component.text("§8⚔ Bonus Charge expiré..."));
+                }
+            }
+        }, duration / 50L); // Convertir ms en ticks
     }
 
     /**
@@ -2412,49 +2660,132 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Gère l'entrelacement pour un blocage (passif ou actif)
+     * Gère l'Écho de Fer - stocke les dégâts et déclenche l'onde de choc
      */
-    private void handleWeavingBlock(Player player, UUID uuid) {
-        Talent weaving = getActiveTalentIfHas(player, Talent.TalentEffectType.WEAVING);
-        if (weaving == null) return;
+    private void handleIronEcho(Player player, UUID uuid, double damage) {
+        Talent ironEcho = getActiveTalentIfHas(player, Talent.TalentEffectType.IRON_ECHO);
+        if (ironEcho == null || damage <= 0) return;
 
-        String lastAction = weavingLastAction.get(uuid);
         long now = System.currentTimeMillis();
-        Long lastProc = weavingLastProc.get(uuid);
+        Long firstStack = ironEchoFirstStack.get(uuid);
+        long windowMs = (long) ironEcho.getValue(2);
 
-        // Reset si trop de temps passé
-        if (lastProc != null && now - lastProc > weaving.getValue(2)) {
-            weavingStacks.put(uuid, 0);
-            weavingLastAction.remove(uuid);
-            lastAction = null;
+        // Reset si fenêtre expirée
+        if (firstStack != null && now - firstStack > windowMs) {
+            ironEchoStacks.put(uuid, 0);
+            ironEchoStoredDamage.put(uuid, 0.0);
+            ironEchoFirstStack.remove(uuid);
         }
 
-        if (!"block".equals(lastAction)) {
-            // Alternance réussie!
-            int stacks = weavingStacks.merge(uuid, 1, Integer::sum);
-            int maxStacks = (int) (weaving.getValue(1) / weaving.getValue(0));
-            if (stacks > maxStacks) stacks = maxStacks;
-            weavingStacks.put(uuid, stacks);
-            weavingLastProc.put(uuid, now);
+        // Stocker les dégâts (15% des dégâts)
+        double storagePercent = ironEcho.getValue(0);
+        double storedAmount = damage * storagePercent;
+        double totalStored = ironEchoStoredDamage.merge(uuid, storedAmount, Double::sum);
 
-            if (shouldSendTalentMessage(player) && stacks > 1) {
-                int bonus = (int) (stacks * weaving.getValue(0) * 100);
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    "§6⚡ Entrelacement x" + stacks + " §c+" + bonus + "% §7dégâts"));
-            }
-        } else {
-            // Même action, reset
-            weavingStacks.put(uuid, 0);
+        // Incrémenter les stacks
+        int stacks = ironEchoStacks.merge(uuid, 1, Integer::sum);
+        int stacksNeeded = (int) ironEcho.getValue(1);
+
+        // Premier stack - démarrer la fenêtre
+        if (stacks == 1) {
+            ironEchoFirstStack.put(uuid, now);
         }
-        weavingLastAction.put(uuid, "block");
+
+        // Afficher la progression
+        if (shouldSendTalentMessage(player)) {
+            showIronEchoProgress(player, stacks, stacksNeeded, totalStored);
+        }
+
+        // Vérifier si on déclenche l'onde de choc
+        if (stacks >= stacksNeeded) {
+            triggerIronEchoShockwave(player, uuid, totalStored, ironEcho);
+        }
     }
 
     /**
-     * Vérifie si un joueur est en mode Inébranlable (immunité knockback)
+     * Affiche la progression de l'Écho de Fer
      */
-    public boolean isUnstoppable(Player player) {
-        UUID uuid = player.getUniqueId();
-        return unstoppableActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+    private void showIronEchoProgress(Player player, int current, int needed, double storedDamage) {
+        StringBuilder bar = new StringBuilder("§8[");
+        for (int i = 1; i <= needed; i++) {
+            bar.append(i <= current ? "§6●" : "§7○");
+        }
+        bar.append("§8]");
+
+        String msg = "§6🔔 Écho de Fer " + bar + " §c" + String.format("%.0f", storedDamage) + " §7dégâts stockés";
+        player.sendActionBar(net.kyori.adventure.text.Component.text(msg));
+        player.playSound(player.getLocation(), Sound.BLOCK_COPPER_BULB_TURN_ON, 0.5f, 0.8f + (current * 0.2f));
+    }
+
+    /**
+     * Déclenche l'onde de choc de l'Écho de Fer
+     */
+    private void triggerIronEchoShockwave(Player player, UUID uuid, double storedDamage, Talent talent) {
+        double radius = talent.getValue(3);
+        double healPercent = talent.getValue(4);
+
+        Location center = player.getLocation();
+
+        // === EFFETS VISUELS ÉPIQUES ===
+        // Son de gong
+        player.getWorld().playSound(center, Sound.BLOCK_BELL_USE, 1.5f, 0.6f);
+        player.getWorld().playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 1.0f, 1.2f);
+
+        // Explosion dorée centrale
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.3);
+        player.getWorld().spawnParticle(Particle.END_ROD, center.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.15);
+
+        // Onde de choc en cercle qui s'étend
+        for (int ring = 1; ring <= (int) radius; ring++) {
+            final int r = ring;
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 16; i++) {
+                    double angle = (2 * Math.PI / 16) * i;
+                    double x = Math.cos(angle) * r;
+                    double z = Math.sin(angle) * r;
+                    Location particleLoc = center.clone().add(x, 0.2, z);
+                    player.getWorld().spawnParticle(Particle.DUST, particleLoc, 3, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 50), 1.5f));
+                    player.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.1, 0.1, 0.1, 0.02);
+                }
+            }, ring * 2L);
+        }
+
+        // === DÉGÂTS AoE ===
+        double totalDamageDealt = 0;
+        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+            if (entity instanceof LivingEntity target && !(target instanceof Player)) {
+                if (plugin.getZombieManager().isZombieZMob(target)) {
+                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                    target.damage(storedDamage, player);
+                    totalDamageDealt += storedDamage;
+
+                    // Effet sur la cible
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                }
+            }
+        }
+
+        // === SOIN ===
+        double healAmount = totalDamageDealt * healPercent;
+        if (healAmount > 0) {
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+            player.setHealth(newHealth);
+
+            player.getWorld().spawnParticle(Particle.HEART, center.clone().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+        }
+
+        // === MESSAGE ===
+        if (shouldSendTalentMessage(player)) {
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6§l🔔 ÉCHO DE FER! §c" + String.format("%.0f", storedDamage) + " §7dégâts AoE! §a+" + String.format("%.0f", healAmount) + " PV"));
+        }
+
+        // === RESET ===
+        ironEchoStacks.put(uuid, 0);
+        ironEchoStoredDamage.put(uuid, 0.0);
+        ironEchoFirstStack.remove(uuid);
     }
 
     /**
@@ -2463,5 +2794,333 @@ public class TalentListener implements Listener {
     public boolean isBulwarkAvatar(Player player) {
         UUID uuid = player.getUniqueId();
         return bulwarkAvatarActiveUntil.getOrDefault(uuid, 0L) > System.currentTimeMillis();
+    }
+
+    // ==================== ACTION BAR ====================
+
+    /**
+     * Enregistre/désenregistre les ActionBars pour les joueurs Guerrier
+     */
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
+            ClassData data = plugin.getClassManager().getClassData(player);
+            boolean isGuerrier = data.hasClass() && data.getSelectedClass() == com.rinaorc.zombiez.classes.ClassType.GUERRIER;
+
+            if (isGuerrier) {
+                if (!activeGuerrierActionBar.contains(uuid)) {
+                    activeGuerrierActionBar.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                if (activeGuerrierActionBar.contains(uuid)) {
+                    activeGuerrierActionBar.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
+            }
+        }
+    }
+
+    /**
+     * Construit l'ActionBar spécifique au Guerrier et sa spécialisation
+     */
+    public String buildActionBar(Player player) {
+        UUID uuid = player.getUniqueId();
+        StringBuilder bar = new StringBuilder();
+
+        // Détecter la spécialisation dominante (basée sur les talents actifs)
+        int spec = detectDominantSpecialization(player);
+
+        switch (spec) {
+            case 0 -> buildBriseurActionBar(player, bar);
+            case 1 -> buildRempartActionBar(player, bar);
+            case 2 -> buildFureurActionBar(player, bar);
+            case 3 -> buildTitanActionBar(player, bar);
+            default -> buildGenericGuerrierActionBar(player, bar);
+        }
+
+        return bar.toString();
+    }
+
+    /**
+     * Détecte la spécialisation dominante du joueur
+     * basée sur le nombre de talents de chaque slot
+     */
+    private int detectDominantSpecialization(Player player) {
+        List<Talent> activeTalents = talentManager.getActiveTalents(player);
+        int[] specCounts = new int[4]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan
+
+        for (Talent talent : activeTalents) {
+            int slot = talent.getSlotIndex();
+            if (slot >= 0 && slot < 4) {
+                specCounts[slot]++;
+            }
+        }
+
+        // Trouver le slot avec le plus de talents
+        int maxCount = 0;
+        int dominantSpec = -1;
+        for (int i = 0; i < 4; i++) {
+            if (specCounts[i] > maxCount) {
+                maxCount = specCounts[i];
+                dominantSpec = i;
+            }
+        }
+
+        return dominantSpec;
+    }
+
+    /**
+     * ActionBar pour Briseur (Slot 0) - AoE/Séisme
+     */
+    private void buildBriseurActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§7§l[§6⚡§7§l] ");
+
+        // Apocalypse progress
+        Talent apocalypse = getActiveTalentIfHas(player, Talent.TalentEffectType.EARTH_APOCALYPSE);
+        if (apocalypse != null) {
+            double current = aoeDamageCounter.getOrDefault(uuid, 0.0);
+            int percent = (int) ((current / APOCALYPSE_THRESHOLD) * 100);
+            percent = Math.min(percent, 100);
+            String color = percent >= 100 ? "§c§l" : (percent >= 50 ? "§e" : "§7");
+            bar.append(color).append("🌋 ").append(percent).append("%");
+        }
+
+        // Compteur d'attaques pour Cataclysme
+        Talent cataclysm = getActiveTalentIfHas(player, Talent.TalentEffectType.CATACLYSM);
+        if (cataclysm != null) {
+            int count = attackCounter.getOrDefault(uuid, 0);
+            int needed = (int) cataclysm.getValue(0);
+            bar.append("  §8⚔§f").append(count).append("§7/§e").append(needed);
+        }
+
+        // Stacks de Fureur Croissante (si actif même en Briseur)
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        if (fury > 0) {
+            bar.append("  §c🔥").append(String.format("%.0f", fury * 2.0)).append("%");
+        }
+
+        // Charge Dévastatrice prête
+        if (chargeReady.getOrDefault(uuid, false)) {
+            bar.append("  §a§lCHARGE!");
+        }
+    }
+
+    /**
+     * ActionBar pour Rempart (Slot 1) - Tank/Défense
+     */
+    private void buildRempartActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§6§l[§e🛡§6§l] ");
+
+        // Fortification stacks
+        int fortStacks = fortifyStacks.getOrDefault(uuid, 0);
+        if (fortStacks > 0) {
+            Long expiry = fortifyExpireTime.get(uuid);
+            String timeStr = "";
+            if (expiry != null) {
+                long remaining = (expiry - System.currentTimeMillis()) / 1000;
+                timeStr = " §7(" + remaining + "s)";
+            }
+            bar.append("§e❤+").append(fortStacks * 10).append("%").append(timeStr);
+        }
+
+        // Écho de Fer stacks et dégâts stockés
+        int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+        double storedDmg = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+        if (echoStacks > 0 || storedDmg > 0) {
+            String stackColor = echoStacks >= 3 ? "§a§l" : "§e";
+            bar.append("  ").append(stackColor).append("🔔").append(echoStacks).append("/3");
+            if (storedDmg > 0) {
+                bar.append(" §c+").append(String.format("%.0f", storedDmg));
+            }
+        }
+
+        // Châtiment stacks
+        int punishStacks = punishmentStacks.getOrDefault(uuid, 0);
+        if (punishStacks > 0) {
+            bar.append("  §d⚔").append(punishStacks);
+            if (punishmentReady.getOrDefault(uuid, false)) {
+                bar.append("§a✓");
+            }
+        }
+
+        // Avatar Rempart actif
+        if (isBulwarkAvatar(player)) {
+            long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
+            bar.append("  §6§lAVATAR §e").append(remaining).append("s");
+        }
+
+        // Dégâts bloqués pour Avatar
+        double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
+        if (blocked > 0 && !isBulwarkAvatar(player)) {
+            bar.append("  §8Bloqué: §7").append(String.format("%.0f", blocked));
+        }
+    }
+
+    /**
+     * ActionBar pour Fureur (Slot 2) - Rage/Dégâts
+     */
+    private void buildFureurActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§c§l[§4🔥§c§l] ");
+
+        // Stacks de Fureur Croissante
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        Talent risingFury = getActiveTalentIfHas(player, Talent.TalentEffectType.RISING_FURY);
+        if (risingFury != null) {
+            double maxBonus = risingFury.getValue(1) * 100;
+            double currentBonus = fury * risingFury.getValue(0) * 100;
+            String color = currentBonus >= maxBonus ? "§c§l" : (currentBonus >= maxBonus * 0.5 ? "§6" : "§e");
+            bar.append(color).append("🔥 +").append(String.format("%.0f", currentBonus)).append("%");
+        }
+
+        // Déchaînement (multi-kills)
+        List<Long> kills = recentKills.get(uuid);
+        if (kills != null && !kills.isEmpty()) {
+            long now = System.currentTimeMillis();
+            int recentCount = (int) kills.stream().filter(t -> now - t < 3000).count();
+            if (recentCount > 0) {
+                bar.append("  §c⚔x").append(recentCount);
+            }
+        }
+
+        // Riposte Buff actif
+        if (riposteBuffTime.containsKey(uuid)) {
+            long remaining = (riposteBuffTime.get(uuid) - System.currentTimeMillis()) / 1000;
+            if (remaining > 0) {
+                bar.append("  §6RIPOSTE §e").append(remaining).append("s");
+            }
+        }
+
+        // Cyclone actif
+        if (activeCyclones.contains(uuid)) {
+            bar.append("  §c§lCYCLONE");
+        }
+    }
+
+    /**
+     * ActionBar pour Titan (Slot 3) - Tanky/Résistance
+     */
+    private void buildTitanActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§8§l[§7🗿§8§l] ");
+
+        // Bouclier temporaire
+        double shield = tempShield.getOrDefault(uuid, 0.0);
+        if (shield > 0) {
+            Long expiry = tempShieldExpiry.get(uuid);
+            String timeStr = "";
+            if (expiry != null) {
+                long remaining = (expiry - System.currentTimeMillis()) / 1000;
+                if (remaining > 0) timeStr = " §7(" + remaining + "s)";
+            }
+            bar.append("§b🛡 ").append(String.format("%.0f", shield)).append(timeStr);
+        }
+
+        // Représailles stacks
+        int retStacks = retaliationStacks.getOrDefault(uuid, 0);
+        if (retStacks > 0) {
+            bar.append("  §c⚡").append(retStacks).append(" stacks");
+        }
+
+        // Dégâts stockés (Avatar Vengeance)
+        double stored = storedDamage.getOrDefault(uuid, 0.0);
+        if (stored > 0) {
+            bar.append("  §4Stocké: §c").append(String.format("%.0f", stored));
+        }
+
+        // HP volés (Avatar de Sang)
+        double bloodHp = bloodStolenHp.getOrDefault(uuid, 0.0);
+        if (bloodHp > 0) {
+            bar.append("  §4♥ ").append(String.format("%.0f", bloodHp));
+        }
+
+        // Immortel disponible
+        Talent immortal = getActiveTalentIfHas(player, Talent.TalentEffectType.IMMORTAL);
+        if (immortal != null) {
+            long cooldownEnd = immortalLastProc.getOrDefault(uuid, 0L) + (long) immortal.getValue(0);
+            if (System.currentTimeMillis() >= cooldownEnd) {
+                bar.append("  §a§l☠ PRÊT");
+            }
+        }
+    }
+
+    /**
+     * ActionBar générique si pas de spécialisation claire
+     */
+    private void buildGenericGuerrierActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§c§l[§6⚔§c§l] ");
+
+        // Fureur stacks
+        int fury = furyStacks.getOrDefault(uuid, 0);
+        if (fury > 0) {
+            bar.append("§c🔥+").append(fury * 2).append("%");
+        }
+
+        // Charge prête
+        if (chargeReady.getOrDefault(uuid, false)) {
+            bar.append("  §a§lCHARGE!");
+        }
+
+        // Combat récent indicator
+        Long lastCombat = lastCombatTime.get(uuid);
+        if (lastCombat != null && System.currentTimeMillis() - lastCombat < 5000) {
+            bar.append("  §c⚔ COMBAT");
+        }
+    }
+
+    /**
+     * Nettoie les données d'un joueur (déconnexion)
+     */
+    public void cleanupPlayer(UUID playerUuid) {
+        // Cleanup tracking data
+        furyStacks.remove(playerUuid);
+        furyLastHit.remove(playerUuid);
+        sprintStartTime.remove(playerUuid);
+        chargeReady.remove(playerUuid);
+        recentKills.remove(playerUuid);
+        riposteBuffTime.remove(playerUuid);
+        attackCounter.remove(playerUuid);
+        immortalLastProc.remove(playerUuid);
+        activeCyclones.remove(playerUuid);
+        punishmentStacks.remove(playerUuid);
+        punishmentLastHit.remove(playerUuid);
+        punishmentReady.remove(playerUuid);
+        vengefulShieldCounter.remove(playerUuid);
+        fortifyStacks.remove(playerUuid);
+        fortifyExpireTime.remove(playerUuid);
+        fortifyBaseHealth.remove(playerUuid);
+        ironEchoStoredDamage.remove(playerUuid);
+        ironEchoStacks.remove(playerUuid);
+        ironEchoFirstStack.remove(playerUuid);
+        bulwarkDamageBlocked.remove(playerUuid);
+        bulwarkAvatarActiveUntil.remove(playerUuid);
+        bulwarkLastMilestone.remove(playerUuid);
+        retaliationStacks.remove(playerUuid);
+        retaliationLastProc.remove(playerUuid);
+        storedDamage.remove(playerUuid);
+        bloodStolenHp.remove(playerUuid);
+        chainExecuteBuff.remove(playerUuid);
+        lastDamageDealt.remove(playerUuid);
+        lastCombatTime.remove(playerUuid);
+        tempShield.remove(playerUuid);
+        tempShieldExpiry.remove(playerUuid);
+        burningStacks.remove(playerUuid);
+        aoeDamageCounter.remove(playerUuid);
+        lastApocalypseMilestone.remove(playerUuid);
+        lastSneakTime.remove(playerUuid);
+        fractureWaveHitCounter.remove(playerUuid);
+
+        // Unregister ActionBar
+        activeGuerriers.remove(playerUuid);
+        activeGuerrierActionBar.remove(playerUuid);
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+        }
     }
 }

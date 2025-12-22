@@ -155,6 +155,9 @@ public class OccultisteTalentListener implements Listener {
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000; // 2 secondes
 
+    // Cache des joueurs Occultiste avec ActionBar enregistrée
+    private final Set<UUID> activeOccultisteActionBar = ConcurrentHashMap.newKeySet();
+
     private void startPeriodicTasks() {
         // FAST TICK (10L = 0.5s) - Auras haute frequence
         new BukkitRunnable() {
@@ -220,6 +223,14 @@ public class OccultisteTalentListener implements Listener {
                 cleanupExpiredData();
             }
         }.runTaskTimer(plugin, 200L, 200L);
+
+        // ActionBar Registration Task (20L = 1s)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                registerActionBarProviders();
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
     private void updateOccultistesCache() {
@@ -3973,6 +3984,416 @@ public class OccultisteTalentListener implements Listener {
             this.originalLocation = originalLocation;
             this.expiry = expiry;
             this.exitDamage = exitDamage;
+        }
+    }
+
+    // ==================== ACTION BAR ====================
+
+    /**
+     * Enregistre/désenregistre les ActionBars pour les joueurs Occultiste
+     */
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID uuid = player.getUniqueId();
+            boolean isOccultiste = isOccultiste(player);
+
+            if (isOccultiste) {
+                if (!activeOccultisteActionBar.contains(uuid)) {
+                    activeOccultisteActionBar.add(uuid);
+                    plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                }
+            } else {
+                if (activeOccultisteActionBar.contains(uuid)) {
+                    activeOccultisteActionBar.remove(uuid);
+                    plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                }
+            }
+        }
+    }
+
+    /**
+     * Construit l'ActionBar spécifique à l'Occultiste et sa spécialisation
+     */
+    public String buildActionBar(Player player) {
+        UUID uuid = player.getUniqueId();
+        StringBuilder bar = new StringBuilder();
+
+        // Détecter la spécialisation dominante (basée sur les talents actifs)
+        int spec = detectDominantSpecialization(player);
+
+        switch (spec) {
+            case 0 -> buildPyromancerActionBar(player, bar);
+            case 1 -> buildFrostMageActionBar(player, bar);
+            case 2 -> buildStormMageActionBar(player, bar);
+            case 3 -> buildNecromancerActionBar(player, bar);
+            case 4 -> buildShadowActionBar(player, bar);
+            default -> buildGenericOccultisteActionBar(player, bar);
+        }
+
+        return bar.toString();
+    }
+
+    /**
+     * Détecte la spécialisation dominante du joueur
+     * basée sur le nombre de talents de chaque slot
+     */
+    private int detectDominantSpecialization(Player player) {
+        List<Talent> activeTalents = talentManager.getActiveTalents(player);
+        int[] specCounts = new int[5]; // 0=Feu, 1=Givre, 2=Foudre, 3=Âme, 4=Ombre
+
+        for (Talent talent : activeTalents) {
+            int slot = talent.getSlotIndex();
+            if (slot >= 0 && slot < 5) {
+                specCounts[slot]++;
+            }
+        }
+
+        // Trouver le slot avec le plus de talents
+        int maxCount = 0;
+        int dominantSpec = -1;
+        for (int i = 0; i < 5; i++) {
+            if (specCounts[i] > maxCount) {
+                maxCount = specCounts[i];
+                dominantSpec = i;
+            }
+        }
+
+        return dominantSpec;
+    }
+
+    /**
+     * ActionBar pour Pyromancien (Slot 0) - Feu/Brûlure
+     */
+    private void buildPyromancerActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§c§l[§6🔥§c§l] ");
+
+        // Compter les ennemis en feu
+        long now = System.currentTimeMillis();
+        int burningCount = 0;
+        double maxIntensity = 0;
+        for (Map.Entry<UUID, Long> entry : burningEnemies.entrySet()) {
+            if (entry.getValue() > now) {
+                burningCount++;
+                Long startTime = burnStartTime.get(entry.getKey());
+                if (startTime != null) {
+                    double intensity = Math.min((now - startTime) / 1000.0, MAX_BURN_INTENSITY);
+                    maxIntensity = Math.max(maxIntensity, intensity);
+                }
+            }
+        }
+
+        if (burningCount > 0) {
+            bar.append("§c🔥 ").append(burningCount);
+            if (maxIntensity > 0) {
+                String intensityColor = maxIntensity >= 6 ? "§c§l" : (maxIntensity >= 3 ? "§6" : "§e");
+                bar.append(" ").append(intensityColor).append("+").append(String.format("%.0f", maxIntensity * 5)).append("%");
+            }
+        }
+
+        // Zones de chaleur actives
+        int activeHeatZones = (int) heatZones.values().stream().filter(t -> t > now).count();
+        if (activeHeatZones > 0) {
+            bar.append("  §6☀ ").append(activeHeatZones);
+        }
+
+        // Black Sun actif
+        Long blackSunEnd = blackSunActive.get(uuid);
+        if (blackSunEnd != null && blackSunEnd > now) {
+            long remaining = (blackSunEnd - now) / 1000;
+            bar.append("  §4§lSOLEIL NOIR §c").append(remaining).append("s");
+        }
+
+        // Orbes d'âme (toujours utiles)
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        if (orbs > 0) {
+            bar.append("  §d✦ ").append(orbs);
+        }
+    }
+
+    /**
+     * ActionBar pour Mage de Givre (Slot 1) - Glace/Gel
+     */
+    private void buildFrostMageActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§b§l[§3❄§b§l] ");
+
+        // Compter les ennemis gelés et stacks de givre max
+        long now = System.currentTimeMillis();
+        int frozenCount = 0;
+        int maxFrostStacks = 0;
+        int totalFrostStacks = 0;
+
+        for (Map.Entry<UUID, Long> entry : frozenEnemies.entrySet()) {
+            if (entry.getValue() > now) {
+                frozenCount++;
+            }
+        }
+
+        for (Map.Entry<UUID, Integer> entry : frostStacks.entrySet()) {
+            int stacks = entry.getValue();
+            totalFrostStacks += stacks;
+            maxFrostStacks = Math.max(maxFrostStacks, stacks);
+        }
+
+        if (frozenCount > 0) {
+            bar.append("§b❄ ").append(frozenCount).append(" gelés");
+        }
+
+        if (maxFrostStacks > 0) {
+            String stackColor = maxFrostStacks >= 15 ? "§b§l" : (maxFrostStacks >= 8 ? "§3" : "§7");
+            bar.append("  ").append(stackColor).append("❆ ").append(maxFrostStacks).append("/").append(MAX_FROST_STACKS);
+        }
+
+        // Zones de glace actives
+        int activeIceZones = (int) iceZones.values().stream().filter(t -> t > now).count();
+        if (activeIceZones > 0) {
+            bar.append("  §3☃ ").append(activeIceZones);
+        }
+
+        // Time Stasis actif
+        Long stasisEnd = timeStasisActive.get(uuid);
+        if (stasisEnd != null && stasisEnd > now) {
+            long remaining = (stasisEnd - now) / 1000;
+            bar.append("  §b§lSTASIS §f").append(remaining).append("s");
+        }
+
+        // Orbes d'âme
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        if (orbs > 0) {
+            bar.append("  §d✦ ").append(orbs);
+        }
+    }
+
+    /**
+     * ActionBar pour Mage de Foudre (Slot 2) - Éclair/Tempête
+     */
+    private void buildStormMageActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§e§l[§f⚡§e§l] ");
+
+        // Compter les chaînes d'éclairs récentes (approximation via cooldowns)
+        long now = System.currentTimeMillis();
+
+        // Orbes d'âme (énergie magique)
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        bar.append("§d✦ ").append(orbs).append("/5");
+
+        // Soul Siphon buff actif
+        Long siphonBuffEnd = soulSiphonBuff.get(uuid);
+        if (siphonBuffEnd != null && siphonBuffEnd > now) {
+            long remaining = (siphonBuffEnd - now) / 1000;
+            bar.append("  §c+25% §7(").append(remaining).append("s)");
+        }
+
+        // Ennemis en feu (Firestorm synergy)
+        int burningCount = (int) burningEnemies.values().stream().filter(t -> t > now).count();
+        if (burningCount > 0) {
+            bar.append("  §c🔥").append(burningCount);
+        }
+
+        // Ennemis gelés (Blizzard synergy)
+        int frozenCount = (int) frozenEnemies.values().stream().filter(t -> t > now).count();
+        if (frozenCount > 0) {
+            bar.append("  §b❄").append(frozenCount);
+        }
+
+        // Minions
+        List<UUID> minions = playerMinions.get(uuid);
+        if (minions != null && !minions.isEmpty()) {
+            bar.append("  §5☠ ").append(minions.size());
+        }
+    }
+
+    /**
+     * ActionBar pour Nécromancien (Slot 3) - Âmes/Invocations
+     */
+    private void buildNecromancerActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§5§l[§d☠§5§l] ");
+
+        // Orbes d'âme (ressource principale)
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        String orbColor = orbs >= 5 ? "§d§l" : (orbs >= 3 ? "§d" : "§8");
+        bar.append(orbColor).append("✦ ").append(orbs).append("/5");
+
+        // Soul Siphon buff actif
+        long now = System.currentTimeMillis();
+        Long siphonBuffEnd = soulSiphonBuff.get(uuid);
+        if (siphonBuffEnd != null && siphonBuffEnd > now) {
+            long remaining = (siphonBuffEnd - now) / 1000;
+            bar.append("  §c+25% §7(").append(remaining).append("s)");
+        }
+
+        // Minions actifs
+        List<UUID> minions = playerMinions.get(uuid);
+        int minionCount = (minions != null) ? minions.size() : 0;
+        if (minionCount > 0) {
+            bar.append("  §5☠ ").append(minionCount).append(" serviteurs");
+        } else {
+            bar.append("  §8☠ 0 serviteur");
+        }
+
+        // Dark Ascension buff
+        Long ascensionEnd = darkAscensionBuff.get(uuid);
+        if (ascensionEnd != null && ascensionEnd > now) {
+            long remaining = (ascensionEnd - now) / 1000;
+            bar.append("  §5§lASCENSION §d").append(remaining).append("s");
+        }
+
+        // Voidling actif
+        UUID voidlingId = activeVoidlings.get(uuid);
+        if (voidlingId != null && Bukkit.getEntity(voidlingId) != null) {
+            bar.append("  §0§lVOIDLING");
+        }
+    }
+
+    /**
+     * ActionBar pour Occultiste des Ombres (Slot 4) - Vide/Gravité
+     */
+    private void buildShadowActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§5§l[§0✧§5§l] ");
+
+        long now = System.currentTimeMillis();
+
+        // Shadow DOTs actifs
+        int activeShadowDots = (int) shadowDots.values().stream()
+            .filter(d -> d.expiry > now && d.ownerUuid.equals(uuid)).count();
+        if (activeShadowDots > 0) {
+            bar.append("§5⚫ ").append(activeShadowDots).append(" DOTs");
+        }
+
+        // Gravity Wells actifs
+        int activeWells = (int) activeGravityWells.values().stream()
+            .filter(w -> w.expiry > now && w.ownerUuid.equals(uuid)).count();
+        if (activeWells > 0) {
+            bar.append("  §5⌀ ").append(activeWells);
+        }
+
+        // Singularities actives
+        int activeSings = (int) activeSingularities.values().stream()
+            .filter(s -> s.expiry > now && s.ownerUuid.equals(uuid)).count();
+        if (activeSings > 0) {
+            bar.append("  §5§l✦ ").append(activeSings);
+        }
+
+        // Black Holes actifs
+        int activeHoles = (int) activeBlackHoles.values().stream()
+            .filter(h -> h.expiry > now && h.ownerUuid.equals(uuid)).count();
+        if (activeHoles > 0) {
+            bar.append("  §0§l⬤ ").append(activeHoles);
+        }
+
+        // Ennemis bannis
+        int banishedCount = (int) banishedEntities.values().stream()
+            .filter(b -> b.expiry > now && b.ownerUuid.equals(uuid)).count();
+        if (banishedCount > 0) {
+            bar.append("  §5✘ ").append(banishedCount).append(" bannis");
+        }
+
+        // Psychic Horror debuff count
+        int horrorCount = (int) psychicHorrorDebuff.values().stream().filter(t -> t > now).count();
+        if (horrorCount > 0) {
+            bar.append("  §5☠ ").append(horrorCount);
+        }
+
+        // Dark Ascension
+        Long ascensionEnd = darkAscensionBuff.get(uuid);
+        if (ascensionEnd != null && ascensionEnd > now) {
+            long remaining = (ascensionEnd - now) / 1000;
+            bar.append("  §5§lASCENSION §d").append(remaining).append("s");
+        }
+
+        // Orbes d'âme
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        if (orbs > 0) {
+            bar.append("  §d✦ ").append(orbs);
+        }
+    }
+
+    /**
+     * ActionBar générique si pas de spécialisation claire
+     */
+    private void buildGenericOccultisteActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§5§l[§d⚗§5§l] ");
+
+        // Orbes d'âme
+        int orbs = soulOrbs.getOrDefault(uuid, 0);
+        bar.append("§d✦ ").append(orbs).append("/5");
+
+        // Soul Siphon buff
+        long now = System.currentTimeMillis();
+        Long siphonBuffEnd = soulSiphonBuff.get(uuid);
+        if (siphonBuffEnd != null && siphonBuffEnd > now) {
+            long remaining = (siphonBuffEnd - now) / 1000;
+            bar.append("  §c+25% §7(").append(remaining).append("s)");
+        }
+
+        // Minions
+        List<UUID> minions = playerMinions.get(uuid);
+        if (minions != null && !minions.isEmpty()) {
+            bar.append("  §5☠ ").append(minions.size());
+        }
+
+        // Ennemis en feu
+        int burningCount = (int) burningEnemies.values().stream().filter(t -> t > now).count();
+        if (burningCount > 0) {
+            bar.append("  §c🔥").append(burningCount);
+        }
+
+        // Ennemis gelés
+        int frozenCount = (int) frozenEnemies.values().stream().filter(t -> t > now).count();
+        if (frozenCount > 0) {
+            bar.append("  §b❄").append(frozenCount);
+        }
+    }
+
+    /**
+     * Nettoie les données d'un joueur (déconnexion)
+     */
+    public void cleanupPlayer(UUID playerUuid) {
+        // Cleanup tracking data
+        soulOrbs.remove(playerUuid);
+        blackSunActive.remove(playerUuid);
+        timeStasisActive.remove(playerUuid);
+        lastSneakTime.remove(playerUuid);
+        soulSiphonBuff.remove(playerUuid);
+        darkAscensionBuff.remove(playerUuid);
+        darkAscensionCharging.remove(playerUuid);
+        lastGravityWellSpawn.remove(playerUuid);
+        lastBlackHoleSpawn.remove(playerUuid);
+        recentKills.remove(playerUuid);
+        internalCooldowns.remove(playerUuid);
+
+        // Cleanup minions
+        List<UUID> minions = playerMinions.remove(playerUuid);
+        if (minions != null) {
+            for (UUID minionId : minions) {
+                Entity minion = Bukkit.getEntity(minionId);
+                if (minion != null) {
+                    minion.remove();
+                }
+            }
+        }
+
+        // Cleanup voidling
+        UUID voidlingId = activeVoidlings.remove(playerUuid);
+        if (voidlingId != null) {
+            Entity voidling = Bukkit.getEntity(voidlingId);
+            if (voidling != null) {
+                voidling.remove();
+            }
+        }
+
+        // Unregister ActionBar
+        activeOccultistes.remove(playerUuid);
+        activeOccultisteActionBar.remove(playerUuid);
+        if (plugin.getActionBarManager() != null) {
+            plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
         }
     }
 }
