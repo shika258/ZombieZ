@@ -89,6 +89,14 @@ public class TalentListener implements Listener {
     private final Map<UUID, Double> aoeDamageCounter = new ConcurrentHashMap<>();
     private static final double APOCALYPSE_THRESHOLD = 500.0; // 500 degats AoE = proc
 
+    // Resonance Sismique - entites marquees pour amplification AoE
+    private final Map<UUID, Long> seismicResonanceTargets = new ConcurrentHashMap<>();
+    private static final long SEISMIC_RESONANCE_DURATION_MS = 3000;
+
+    // Secousses Residuelles - cooldown de stun par entite
+    private final Map<UUID, Long> aftermathStunCooldowns = new ConcurrentHashMap<>();
+    private static final long AFTERMATH_STUN_COOLDOWN_MS = 2000;
+
     // Double sneak detection pour Ragnarok UNIQUEMENT
     private final Map<UUID, Long> lastSneakTime = new ConcurrentHashMap<>();
     private static final long DOUBLE_SNEAK_WINDOW_MS = 400;
@@ -977,12 +985,15 @@ public class TalentListener implements Listener {
         // Son
         player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
 
-        // Degats
+        // Degats avec amplification Resonance Sismique
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+                double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+                target.damage(finalDamage, player);
+                // Appliquer les effets passifs Seisme
+                applySeismicEffects(player, target, finalDamage);
             }
         }
 
@@ -1064,7 +1075,10 @@ public class TalentListener implements Listener {
             if (entity instanceof LivingEntity target && entity != player) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+                double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+                target.damage(finalDamage, player);
+                // Appliquer les effets passifs Seisme
+                applySeismicEffects(player, target, finalDamage);
             }
         }
 
@@ -1118,10 +1132,13 @@ public class TalentListener implements Listener {
             if (entity instanceof LivingEntity target && entity != player) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+                double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+                target.damage(finalDamage, player);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
                 }
+                // Appliquer les effets passifs Seisme
+                applySeismicEffects(player, target, finalDamage);
             }
         }
 
@@ -1145,7 +1162,10 @@ public class TalentListener implements Listener {
             if (entity instanceof LivingEntity target && entity != player) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+                double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+                target.damage(finalDamage, player);
+                // Appliquer les effets passifs Seisme
+                applySeismicEffects(player, target, finalDamage);
             }
         }
     }
@@ -1200,13 +1220,16 @@ public class TalentListener implements Listener {
             if (entity instanceof LivingEntity target && entity != player) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
+                double finalDamage = damage * getSeismicDamageMultiplier(player, target);
+                target.damage(finalDamage, player);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
                 }
                 // Knockback
                 Vector direction = target.getLocation().toVector().subtract(center.toVector()).normalize();
                 target.setVelocity(direction.multiply(1.5).setY(0.5));
+                // Appliquer les effets passifs Seisme
+                applySeismicEffects(player, target, finalDamage);
             }
         }
 
@@ -1388,5 +1411,55 @@ public class TalentListener implements Listener {
                 }
             }
         }, durationMs / 50);
+    }
+
+    /**
+     * Applique les effets passifs Seisme (Resonance Sismique + Secousses Residuelles)
+     * a une cible touchee par une attaque AoE
+     */
+    private void applySeismicEffects(Player player, LivingEntity target, double baseDamage) {
+        UUID targetUuid = target.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Resonance Sismique - marquer la cible pour amplification future
+        Talent resonance = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_RESONANCE);
+        if (resonance != null) {
+            seismicResonanceTargets.put(targetUuid, now);
+        }
+
+        // Secousses Residuelles - chance de stun
+        Talent aftermath = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_AFTERMATH);
+        if (aftermath != null) {
+            Long lastStun = aftermathStunCooldowns.get(targetUuid);
+            if (lastStun == null || now - lastStun > AFTERMATH_STUN_COOLDOWN_MS) {
+                // 25% de chance de stun
+                if (Math.random() < 0.25) {
+                    aftermathStunCooldowns.put(targetUuid, now);
+                    if (target instanceof Mob mob) {
+                        // Stun de 0.5s (10 ticks)
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 10, 10, false, false));
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 10, 128, false, false)); // Empeche de sauter
+                    }
+                    // Effet visuel subtil
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                        3, 0.2, 0.2, 0.2, 0, new Particle.DustOptions(Color.GRAY, 1.0f));
+                }
+            }
+        }
+    }
+
+    /**
+     * Calcule le multiplicateur de degats AoE en fonction de Resonance Sismique
+     */
+    private double getSeismicDamageMultiplier(Player player, LivingEntity target) {
+        Talent resonance = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_RESONANCE);
+        if (resonance == null) return 1.0;
+
+        UUID targetUuid = target.getUniqueId();
+        Long markedTime = seismicResonanceTargets.get(targetUuid);
+        if (markedTime != null && System.currentTimeMillis() - markedTime < SEISMIC_RESONANCE_DURATION_MS) {
+            return 1.30; // +30% degats
+        }
+        return 1.0;
     }
 }

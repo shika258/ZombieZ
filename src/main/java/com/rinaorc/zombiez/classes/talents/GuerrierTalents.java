@@ -366,13 +366,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_resonance")
             .name("Resonance Sismique")
-            .description("Attaques de zone laissent une zone de degats 3s")
+            .description("Amplifie les degats de zone contre les cibles debuffs")
             .loreLines(new String[]{
-                "§7Vos attaques de zone laissent",
-                "§7une fracture pendant §a3s§7 qui",
-                "§7inflige des degats continus.",
+                "§7Les ennemis touches par vos",
+                "§7attaques de zone prennent",
+                "§c+30%§7 degats supplementaires",
+                "§7de vos futures attaques AoE.",
                 "",
-                "§8Degats: §c30%§8/s"
+                "§8Duree: §a3s",
+                "§8Effet: §eAmplification AoE"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -380,7 +382,7 @@ public final class GuerrierTalents {
             .icon(Material.CRACKED_STONE_BRICKS)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.SEISMIC_RESONANCE)
-            .values(new double[]{3000, 0.30}) // duration_ms, damage%_per_second
+            .values(new double[]{3000, 0.30}) // duration_ms, damage_amplification%
             .build());
 
         // 4.2 - FRISSON DU COMBAT
@@ -583,15 +585,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_aftermath")
             .name("Secousses Residuelles")
-            .description("Attaques AoE creent des fissures persistantes")
+            .description("Vos AoE etourdissent brievement les cibles")
             .loreLines(new String[]{
-                "§7Vos attaques de zone laissent",
-                "§7des §efissures§7 sur le sol qui",
-                "§7infligent des degats continus.",
+                "§7Vos attaques de zone ont",
+                "§e25%§7 de chance d'etourdir",
+                "§7brievement les ennemis touches.",
                 "",
-                "§8Duree: §a4s",
-                "§8Degats: §c25%§8/s",
-                "§8Rayon fissure: §e2§8 blocs"
+                "§8Stun: §e0.5s",
+                "§8Cooldown interne: §e2s§8 par cible",
+                "§8Synergie: §6Cataclysme/Tremor"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
@@ -599,7 +601,7 @@ public final class GuerrierTalents {
             .icon(Material.CRACKED_DEEPSLATE_BRICKS)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.SEISMIC_AFTERMATH)
-            .values(new double[]{4000, 0.25, 2.0}) // duration_ms, damage%_per_second, radius
+            .values(new double[]{0.25, 500, 2000}) // stun_chance, stun_duration_ms, cooldown_ms
             .build());
 
         // 6.2 - FRENESIE SANGUINAIRE
@@ -706,7 +708,7 @@ public final class GuerrierTalents {
                 "§7En §ecourant§7, vous generez des",
                 "§7ondes sismiques chaque seconde!",
                 "",
-                "§8Degats: §c50%§8 de base",
+                "§8Degats: §c2.5 HP§8 par onde",
                 "§8Rayon: §e3§8 blocs",
                 "§8Contribue a §6Apocalypse Terrestre"
             })
