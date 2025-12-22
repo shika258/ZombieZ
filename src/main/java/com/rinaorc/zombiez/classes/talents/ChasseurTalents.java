@@ -1281,37 +1281,33 @@ public final class ChasseurTalents {
             .values(new double[]{4.0, 5, 200, 0.20}) // aura_range, virulence_per_tick, combo_threshold, combo_bonus
             .build());
 
-        // 8.5 - HIVER ÉTERNEL (Voie du Givre)
+        // 8.5 - HIVER ÉTERNEL (Voie du Givre) - PASSIF: s'active après 5 gels
         TALENTS.add(Talent.builder()
             .id("chasseur_devastation")
             .name("Hiver Éternel")
-            .description("Mode 8s: +50% givre, aura de givre, +60% dégâts!")
+            .description("5 ennemis gelés = MODE HIVER 8s!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Entrez en mode §b§lHIVER ÉTERNEL§7!",
+                "§7Après avoir §bgelé 5 ennemis§7,",
+                "§7entrez en mode §b§lHIVER ÉTERNEL§7!",
                 "",
-                "§6MODE HIVER ÉTERNEL (8s):",
+                "§6ACTIVATION AUTOMATIQUE:",
+                "§8► Gelez §e5 ennemis§8",
+                "§8► Le mode s'active seul!",
+                "§8► Compteur visible dans l'ActionBar",
+                "",
+                "§b§lMODE HIVER ÉTERNEL (8s):",
                 "§8► §b+50%§8 givre appliqué!",
-                "§8► §c+60%§8 dégâts",
+                "§8► §c+40%§8 dégâts",
                 "§8► §c+50%§8 dégâts d'éclat",
-                "§8► Pierce INFINI",
                 "",
                 "§6AURA DE GIVRE:",
-                "§8► §e5 blocs§8 autour de vous",
-                "§8► §b+5%§8 givre/tick aux ennemis",
+                "§8► §e4 blocs§8 autour de vous",
+                "§8► §b+8%§8 givre/tick aux ennemis",
                 "§8► Gel passif automatique!",
                 "",
-                "§6BONUS CHARGE:",
-                "§8► Charge monte §e2x§8 plus vite",
-                "§8► Tirs Glaciaux améliorés!",
-                "",
-                "§6EFFET VISUEL:",
-                "§8► Aura de flocons de neige",
-                "§8► Traînées de glace",
-                "",
-                "§8► Cooldown: §c30s",
+                "§8► Cooldown: §c25s§8 après fin",
                 "",
                 "§b§l★ L'HIVER EST ÉTERNEL ★"
             })
@@ -1321,8 +1317,8 @@ public final class ChasseurTalents {
             .icon(Material.BLUE_ICE)
             .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.DEVASTATION)
-            .values(new double[]{8000, 0.60, 0.50, 1.50, 30000}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms
-            .internalCooldownMs(30000)
+            .values(new double[]{8000, 0.40, 0.50, 1.50, 25000, 5}) // duration_ms, damage_bonus%, frost_bonus%, shatter_bonus, cooldown_ms, freezes_needed
+            .internalCooldownMs(25000)
             .build());
     }
 
@@ -1470,41 +1466,31 @@ public final class ChasseurTalents {
             .internalCooldownMs(60000)
             .build());
 
-        // 9.5 - ZÉRO ABSOLU (Voie du Givre - LÉGENDAIRE)
+        // 9.5 - ZÉRO ABSOLU (Voie du Givre - LÉGENDAIRE) - Activation instantanée
         TALENTS.add(Talent.builder()
             .id("chasseur_judgment")
             .name("Zéro Absolu")
-            .description("Gel instantané TOUS ennemis 15 blocs!")
+            .description("2x SNEAK = Gel instantané 12 blocs!")
             .loreLines(new String[]{
                 "§b§l★ TALENT LÉGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
                 "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7puis restez §eimmobile 1.5s§7...",
+                "§7Déclenche §b§lZÉRO ABSOLU§7!",
                 "",
                 "§b§lZÉRO ABSOLU:",
-                "§8► Vague de froid §e15 blocs",
+                "§8► Vague de froid §e12 blocs§8",
                 "§8► §b§lGÈLE INSTANTANÉMENT§8 tous!",
-                "§8► Dégâts: §c§l1000%§8 de base!",
+                "§8► Dégâts: §c500%§8 de base!",
                 "",
                 "§6EFFETS SUR LES GELÉS:",
                 "§8► §b100%§8 givre instantané",
                 "§8► §bImmobilisés§8 pendant §e2s",
                 "§8► Subissent §c+50%§8 dégâts",
                 "",
-                "§6VAGUE DE GLACE:",
-                "§8► S'étend depuis vous",
-                "§8► Traînée de particules de glace",
-                "§8► Sol couvert de neige §e3s",
-                "",
-                "§6ÉCLAT EN CHAÎNE:",
-                "§8► Les morts déclenchent des éclats",
-                "§8► Réaction en chaîne dévastatrice!",
-                "",
-                "§6EFFET VISUEL:",
-                "§8► Charge: flocons convergent",
-                "§8► Vague: anneau de glace §bcyan§8",
-                "§8► Son: cristallisation épique",
+                "§6VAGUE VISUELLE:",
+                "§8► Anneau de glace qui s'étend",
+                "§8► Particules de glace épiques",
                 "",
                 "§8► Cooldown: §c45s",
                 "",
@@ -1516,7 +1502,7 @@ public final class ChasseurTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§b§l")
             .effectType(Talent.TalentEffectType.JUDGMENT)
-            .values(new double[]{1500, 15.0, 10.0, 1.0, 2000, 3000, 45000}) // charge_ms, range (reduced to 15), damage_mult, frost%, freeze_duration_ms, visual_duration_ms, cooldown_ms
+            .values(new double[]{12.0, 5.0, 2000, 45000}) // range, damage_mult, freeze_duration_ms, cooldown_ms
             .internalCooldownMs(45000)
             .build());
     }
