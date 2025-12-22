@@ -94,6 +94,9 @@ public class ChasseurTalentListener implements Listener {
     private long lastCacheUpdate = 0;
     private static final long CACHE_TTL = 2000;
 
+    // Cache des joueurs Chasseur avec ActionBar enregistrée
+    private final Set<UUID> activeChasseurActionBar = ConcurrentHashMap.newKeySet();
+
     public ChasseurTalentListener(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -538,9 +541,7 @@ public class ChasseurTalentListener implements Listener {
                 // Vérifier le cooldown
                 long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
                 if (remainingMs > 0) {
-                    // En cooldown - afficher le temps restant dans l'action bar
-                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
-                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
+                    // En cooldown
                     player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
                     return;
                 }
@@ -551,14 +552,6 @@ public class ChasseurTalentListener implements Listener {
             } else {
                 // Premier sneak, enregistrer le temps
                 lastOrbitalSneakTime.put(uuid, now);
-                // Feedback visuel subtil + afficher cooldown si en attente
-                long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
-                if (remainingMs > 0) {
-                    int remainingSec = (int) Math.ceil(remainingMs / 1000.0);
-                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §cCooldown: §e" + remainingSec + "s");
-                } else {
-                    sendActionBar(player, "§c☄ Frappe Orbitale §8- §aPRÊT §7(2x Sneak)");
-                }
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1.5f);
             }
         }
@@ -682,6 +675,9 @@ public class ChasseurTalentListener implements Listener {
                         procToxicAura(player, toxicApoc);
                     }
                 }
+
+                // ActionBar registration
+                registerActionBarProviders();
             }
         }.runTaskTimer(plugin, 20L, 20L);
 
@@ -1737,14 +1733,6 @@ public class ChasseurTalentListener implements Listener {
     }
 
     /**
-     * Envoie un message dans l'actionbar au lieu du chat pour eviter le spam
-     */
-    private void sendActionBar(Player player, String message) {
-        player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
-                net.md_5.bungee.api.chat.TextComponent.fromLegacyText(message));
-    }
-
-    /**
      * Compte le nombre de talents actifs de la Voie du Barrage (slotIndex 0)
      * Utilisé pour calculer le bonus de Tirs Multiples (+10% par talent supplémentaire)
      */
@@ -1872,6 +1860,259 @@ public class ChasseurTalentListener implements Listener {
                     }
                 }
             }.runTaskLater(plugin, salve * intervalTicks);
+        }
+    }
+
+    // ==================== ACTION BAR ====================
+
+    /**
+     * Enregistre/désenregistre les ActionBars pour les joueurs Chasseur
+     */
+    private void registerActionBarProviders() {
+        if (plugin.getActionBarManager() == null) return;
+
+        for (UUID uuid : activeChasseurs) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) continue;
+
+            if (!activeChasseurActionBar.contains(uuid)) {
+                activeChasseurActionBar.add(uuid);
+                plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+            }
+        }
+
+        // Cleanup: retirer les joueurs qui ne sont plus Chasseur
+        activeChasseurActionBar.removeIf(uuid -> {
+            if (!activeChasseurs.contains(uuid)) {
+                plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Construit l'ActionBar spécifique au Chasseur et sa spécialisation
+     */
+    public String buildActionBar(Player player) {
+        StringBuilder bar = new StringBuilder();
+
+        // Détecter la spécialisation dominante
+        int spec = detectDominantSpecialization(player);
+
+        switch (spec) {
+            case 0 -> buildBarrageActionBar(player, bar);
+            case 1 -> buildBetesActionBar(player, bar);
+            case 2 -> buildOmbreActionBar(player, bar);
+            case 3 -> buildPoisonActionBar(player, bar);
+            case 4 -> buildGivreActionBar(player, bar);
+            default -> buildGenericChasseurActionBar(player, bar);
+        }
+
+        return bar.toString();
+    }
+
+    /**
+     * Détecte la spécialisation dominante basée sur les talents actifs
+     */
+    private int detectDominantSpecialization(Player player) {
+        List<Talent> activeTalents = talentManager.getActiveTalents(player);
+        int[] specCounts = new int[5]; // 0=Barrage, 1=Bêtes, 2=Ombre, 3=Poison, 4=Givre
+
+        for (Talent talent : activeTalents) {
+            int slot = talent.getSlotIndex();
+            if (slot >= 0 && slot < 5) {
+                specCounts[slot]++;
+            }
+        }
+
+        int maxCount = 0;
+        int dominantSpec = -1;
+        for (int i = 0; i < 5; i++) {
+            if (specCounts[i] > maxCount) {
+                maxCount = specCounts[i];
+                dominantSpec = i;
+            }
+        }
+
+        return dominantSpec;
+    }
+
+    /**
+     * ActionBar pour Voie du Barrage (Slot 0) - DPS/Tirs
+     */
+    private void buildBarrageActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§f§l[§7🏹§f§l] ");
+
+        // Rafale charges
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot != null) {
+            int charges = rafaleCharges.getOrDefault(uuid, 0);
+            int maxCharges = (int) burstShot.getValue(0);
+            if (charges >= maxCharges) {
+                bar.append("§a§lRAFALE!");
+            } else if (charges > 0) {
+                bar.append("§7Rafale: §e").append(charges).append("§7/").append(maxCharges);
+            }
+        }
+
+        // Surchauffe stacks
+        Talent overheat = getActiveTalentIfHas(player, Talent.TalentEffectType.OVERHEAT);
+        if (overheat != null) {
+            int stacks = overheatStacks.getOrDefault(uuid, 0);
+            int maxStacks = (int) overheat.getValue(0);
+            if (stacks > 0) {
+                String color = stacks >= maxStacks ? "§c§l" : (stacks >= maxStacks / 2 ? "§6" : "§e");
+                bar.append("  ").append(color).append("🔥 ").append(stacks);
+                if (stacks >= maxStacks) {
+                    bar.append(" §c§lMAX");
+                }
+            }
+        }
+
+        // Mode Gatling actif
+        Long gatlingEnd = gatlingModeEnd.get(uuid);
+        if (gatlingEnd != null && gatlingEnd > System.currentTimeMillis()) {
+            long remaining = (gatlingEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §6§lGATLING §e").append(remaining).append("s");
+        }
+
+        // Frappe Orbitale cooldown
+        Talent orbitalStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.ORBITAL_STRIKE);
+        if (orbitalStrike != null) {
+            long remainingMs = getRemainingCooldown(uuid, "orbital_strike");
+            if (remainingMs > 0) {
+                bar.append("  §c☄ ").append(remainingMs / 1000).append("s");
+            } else {
+                bar.append("  §a☄ PRÊT");
+            }
+        }
+    }
+
+    /**
+     * ActionBar pour Voie des Bêtes (Slot 1) - Invocations
+     */
+    private void buildBetesActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§6§l[§e🐺§6§l] ");
+
+        // Marques actives
+        Set<UUID> marks = markedEnemies.get(uuid);
+        if (marks != null && !marks.isEmpty()) {
+            bar.append("§c◎ ").append(marks.size());
+        }
+
+        // Bounty buff actif
+        Long bountyEnd = bountyBuffEnd.get(uuid);
+        if (bountyEnd != null && bountyEnd > System.currentTimeMillis()) {
+            long remaining = (bountyEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §e§lPRIME §a+").append(remaining).append("s");
+        }
+    }
+
+    /**
+     * ActionBar pour Voie de l'Ombre (Slot 2) - Furtivité
+     */
+    private void buildOmbreActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§5§l[§d👁§5§l] ");
+
+        // Attaques furtives restantes
+        Integer stealthAttacks = stealthAttacksRemaining.get(uuid);
+        if (stealthAttacks != null && stealthAttacks > 0) {
+            bar.append("§5⚔ ").append(stealthAttacks);
+        }
+
+        // Crit garanti (Tireur d'Elite)
+        Boolean hasCrit = guaranteedCrit.get(uuid);
+        if (hasCrit != null && hasCrit) {
+            bar.append("  §e§l★ CRIT!");
+        }
+
+        // Dodge disponible
+        Talent dodge = getActiveTalentIfHas(player, Talent.TalentEffectType.AGILE_HUNTER);
+        if (dodge != null) {
+            long dodgeCd = getRemainingCooldown(uuid, "dodge");
+            if (dodgeCd > 0) {
+                bar.append("  §7↺ ").append(dodgeCd / 1000).append("s");
+            } else {
+                bar.append("  §a↺ PRÊT");
+            }
+        }
+    }
+
+    /**
+     * ActionBar pour Voie du Poison (Slot 3) - DoT
+     */
+    private void buildPoisonActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§2§l[§a☠§2§l] ");
+
+        // Ennemis empoisonnés
+        Map<UUID, Integer> playerPoisons = poisonStacks.get(uuid);
+        if (playerPoisons != null && !playerPoisons.isEmpty()) {
+            int totalStacks = playerPoisons.values().stream().mapToInt(Integer::intValue).sum();
+            int enemyCount = playerPoisons.size();
+            bar.append("§a☠ ").append(enemyCount).append(" §7(").append(totalStacks).append(" stacks)");
+        }
+    }
+
+    /**
+     * ActionBar pour Voie du Givre (Slot 4) - Contrôle
+     */
+    private void buildGivreActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§b§l[§f❄§b§l] ");
+
+        // Barrage Fury charges (pour SUPER PLUIE)
+        Integer furyCharges = barrageFuryCharges.get(uuid);
+        if (furyCharges != null && furyCharges > 0) {
+            Talent barrageFury = getActiveTalentIfHas(player, Talent.TalentEffectType.BARRAGE_FURY);
+            if (barrageFury != null) {
+                int maxCharges = (int) barrageFury.getValue(0);
+                if (furyCharges >= maxCharges) {
+                    bar.append("§b§l❄ TEMPÊTE!");
+                } else {
+                    bar.append("§7Tempête: §b").append(furyCharges).append("§7/").append(maxCharges);
+                }
+            }
+        }
+
+        // Cyclone actif
+        Set<UUID> cycloneTargets = cycloneAffectedEntities.get(uuid);
+        if (cycloneTargets != null && !cycloneTargets.isEmpty()) {
+            bar.append("  §b🌀 ").append(cycloneTargets.size());
+        }
+    }
+
+    /**
+     * ActionBar générique si pas de spécialisation claire
+     */
+    private void buildGenericChasseurActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§7§l[§f🏹§7§l] ");
+
+        // Marques actives
+        Set<UUID> marks = markedEnemies.get(uuid);
+        if (marks != null && !marks.isEmpty()) {
+            bar.append("§c◎ ").append(marks.size());
+        }
+
+        // Rafale charges
+        Talent burstShot = getActiveTalentIfHas(player, Talent.TalentEffectType.BURST_SHOT);
+        if (burstShot != null) {
+            int charges = rafaleCharges.getOrDefault(uuid, 0);
+            int maxCharges = (int) burstShot.getValue(0);
+            if (charges > 0) {
+                bar.append("  §7Rafale: §e").append(charges).append("§7/").append(maxCharges);
+            }
+        }
+
+        // Poison actif
+        Map<UUID, Integer> playerPoisons = poisonStacks.get(uuid);
+        if (playerPoisons != null && !playerPoisons.isEmpty()) {
+            bar.append("  §a☠ ").append(playerPoisons.size());
         }
     }
 }
