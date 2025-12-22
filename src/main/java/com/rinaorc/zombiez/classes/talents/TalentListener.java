@@ -859,18 +859,19 @@ public class TalentListener implements Listener {
     // ==================== PROCS ====================
 
     private void procSeismicStrike(Player player, Location center, double damage, double radius) {
-        // Particules
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-            for (double r = 0.5; r <= radius; r += 0.5) {
-                double x = center.getX() + r * Math.cos(angle);
-                double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.BLOCK, new Location(player.getWorld(), x, center.getY(), z),
-                    3, Material.STONE.createBlockData());
-            }
+        // Effet visuel epure: cercle de particules au sol
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+            double x = center.getX() + radius * Math.cos(angle);
+            double z = center.getZ() + radius * Math.sin(angle);
+            player.getWorld().spawnParticle(Particle.DUST,
+                new Location(player.getWorld(), x, center.getY() + 0.1, z),
+                2, 0.1, 0, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 119, 101), 1.5f));
         }
+        // Impact central
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 5, 0.3, 0.1, 0.3, 0.01);
 
         // Son
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.8f);
+        player.getWorld().playSound(center, Sound.BLOCK_DECORATED_POT_BREAK, 0.8f, 0.6f);
 
         // Degats
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
@@ -946,9 +947,11 @@ public class TalentListener implements Listener {
     private void procCataclysm(Player player, double damage, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
-        player.getWorld().spawnParticle(Particle.FLAME, center, 100, radius/2, 1, radius/2, 0.1);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.5f);
+        // Explosion impressionnante mais pas surchargee
+        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 1, 0.5, 0.3, 0.5, 0);
+        player.getWorld().spawnParticle(Particle.FLAME, center, 20, radius / 3, 0.5, radius / 3, 0.05);
+        player.getWorld().spawnParticle(Particle.SMOKE, center, 10, radius / 3, 0.3, radius / 3, 0.02);
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -989,17 +992,20 @@ public class TalentListener implements Listener {
     private void procEarthApocalypse(Player player, double damage, double radius, double stunMs) {
         Location center = player.getLocation();
 
-        // Effet de tremblement de terre
-        for (double r = 1; r <= radius; r += 1) {
-            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+        // Effet de tremblement de terre - onde concentrique elegante
+        for (double r = 2; r <= radius; r += 2.5) {
+            for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
                 double x = center.getX() + r * Math.cos(angle);
                 double z = center.getZ() + r * Math.sin(angle);
-                player.getWorld().spawnParticle(Particle.BLOCK, new Location(player.getWorld(), x, center.getY(), z),
-                    5, Material.DEEPSLATE.createBlockData());
+                player.getWorld().spawnParticle(Particle.DUST,
+                    new Location(player.getWorld(), x, center.getY() + 0.2, z),
+                    3, 0.2, 0.1, 0.2, 0, new Particle.DustOptions(Color.fromRGB(60, 60, 60), 2.0f));
             }
         }
+        // Colonne centrale
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center, 8, 0.3, 0.5, 0.3, 0.02);
 
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.3f);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 0.5f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
@@ -1020,9 +1026,10 @@ public class TalentListener implements Listener {
     private void procTremor(Player player, double damageMultiplier, double radius) {
         Location center = player.getLocation();
 
-        player.getWorld().spawnParticle(Particle.BLOCK, center, 30, radius/2, 0.5, radius/2, 0,
-            Material.STONE.createBlockData());
-        player.getWorld().playSound(center, Sound.BLOCK_STONE_BREAK, 0.5f, 0.5f);
+        // Onde subtile au sol
+        player.getWorld().spawnParticle(Particle.DUST, center, 8, radius / 2, 0.1, radius / 2, 0,
+            new Particle.DustOptions(Color.fromRGB(100, 90, 80), 1.2f));
+        player.getWorld().playSound(center, Sound.BLOCK_GRAVEL_STEP, 0.6f, 0.4f);
 
         double baseDamage = 5;
         double damage = baseDamage * damageMultiplier;
@@ -1042,11 +1049,19 @@ public class TalentListener implements Listener {
         double radius = talent.getValue(2);
         double stunMs = talent.getValue(3);
 
-        // Effet apocalyptique
-        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, center, 5, radius/2, 2, radius/2, 0);
-        player.getWorld().spawnParticle(Particle.LAVA, center, 200, radius/2, 2, radius/2, 0);
-        player.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_DEATH, 1.0f, 0.3f);
-        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.5f);
+        // Effet apocalyptique - puissant mais elegant
+        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 2, 1, 0.5, 1, 0);
+        // Cercle de feu au sol
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+            double x = center.getX() + (radius * 0.7) * Math.cos(angle);
+            double z = center.getZ() + (radius * 0.7) * Math.sin(angle);
+            player.getWorld().spawnParticle(Particle.FLAME,
+                new Location(player.getWorld(), x, center.getY() + 0.3, z), 3, 0.2, 0.1, 0.2, 0.02);
+        }
+        // Colonne de fumee centrale
+        player.getWorld().spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, center.clone().add(0, 1, 0), 15, 0.5, 1, 0.5, 0.03);
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 0.4f);
+        player.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 0.6f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (entity instanceof LivingEntity target && entity != player) {
