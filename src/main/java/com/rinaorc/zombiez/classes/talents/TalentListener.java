@@ -2461,9 +2461,6 @@ public class TalentListener implements Listener {
 
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_SHOOT, 0.8f, 1.2f);
 
-        // Message d'activation via système centralisé
-        showTempEventMessage(player.getUniqueId(), "§6🛡 BOUCLIER VENGEUR!");
-
         new BukkitRunnable() {
             double traveled = 0;
             int pulsesDone = 0;
