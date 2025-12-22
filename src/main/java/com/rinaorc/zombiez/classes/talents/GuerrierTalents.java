@@ -257,12 +257,12 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fracture_wave")
             .name("Onde de Fracture")
-            .description("Frapper 3 cibles differentes = onde sismique!")
+            .description("Tous les 4 coups = onde sismique!")
             .loreLines(new String[]{
                 "§e§lBUILD-UP ACTIF!",
                 "",
-                "§7Frapper §e3 cibles differentes§7 en §a3s§7",
-                "§7libere une §conde de fracture§7 en cone!",
+                "§7Tous les §e4 coups§7, liberez une",
+                "§conde de fracture§7 en cone!",
                 "",
                 "§8Degats: §c150%§8 + §c25%§8/ennemi touche",
                 "§8Cone: §e60°§8 devant vous, §e4§8 blocs",
@@ -276,7 +276,7 @@ public final class GuerrierTalents {
             .icon(Material.CRACKED_DEEPSLATE_TILES)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.FRACTURE_WAVE)
-            .values(new double[]{3, 3000, 1.50, 0.25, 4.0, 60, 0.30, 1500}) // targets_needed, window_ms, base_damage%, bonus_per_hit%, range, cone_angle, slow%, slow_duration_ms
+            .values(new double[]{4, 1.50, 0.25, 4.0, 60, 0.30, 1500}) // hits_needed, base_damage%, bonus_per_hit%, range, cone_angle, slow%, slow_duration_ms
             .build());
 
         // 3.2 - VAMPIRE DE GUERRE
