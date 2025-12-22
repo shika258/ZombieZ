@@ -708,7 +708,7 @@ public final class GuerrierTalents {
                 "§7En §ecourant§7, vous generez des",
                 "§7ondes sismiques chaque seconde!",
                 "",
-                "§8Degats: §c2.5 HP§8 par onde",
+                "§8Degats: §c50%§8 de vos degats de base",
                 "§8Rayon: §e3§8 blocs",
                 "§8Contribue a §6Apocalypse Terrestre"
             })
@@ -931,17 +931,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_ragnarok")
             .name("Ragnarok")
-            .description("ULTIME: Double Sneak = apocalypse!")
+            .description("ULTIME: Double Sneak = zone d'apocalypse!")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE - ULTIME",
                 "",
                 "§6ACTIVATION: §eDouble Sneak",
                 "",
                 "§7Declenche l'apocalypse ultime!",
-                "§7Devastez tout autour de vous!",
+                "§7Cree une §czone de devastation§7!",
                 "",
-                "§8Degats: §c800%§8 de base",
-                "§8Rayon: §e12§8 blocs",
+                "§8Impact: §c800%§8 de vos degats",
+                "§8Zone: §e10§8 blocs pendant §e5s",
+                "§8Tick: §c150%§8/s aux ennemis dedans",
                 "§8Stun: §e2s§8 + projection",
                 "§8Cooldown: §e45s"
             })
