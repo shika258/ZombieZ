@@ -987,10 +987,6 @@ public class TalentListener implements Listener {
             if (!isOnCooldown(uuid, "bastion_charge")) {
                 procBastionCharge(player, bastionCharge);
                 setCooldown(uuid, "bastion_charge", (long) bastionCharge.getValue(4));
-            } else {
-                long remaining = getCooldownRemaining(uuid, "bastion_charge");
-                showTempEventMessage(uuid, "§c⏳ Charge du Bastion: " + (remaining / 1000) + "s", 1500);
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return; // Ne pas activer Ragnarok si on a Charge du Bastion
         }
@@ -2124,9 +2120,6 @@ public class TalentListener implements Listener {
                 // MAX STACKS! (particules réduites)
                 player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
                 player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 12, 0.4, 0.6, 0.4, 0.1);
-                // Message d'événement via système centralisé
-                int totalBonus = (int) (newStacks * hpBonusPerStack * 100);
-                showTempEventMessage(uuid, "§6§l🛡 FORTIFICATION MAX! §c+" + totalBonus + "% §7PV max!");
             } else {
                 // Son de progression (l'affichage est dans l'ActionBar centralisé)
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f + (newStacks * 0.1f));
@@ -2239,8 +2232,6 @@ public class TalentListener implements Listener {
                     // Retirer le glowing doré
                     player.removePotionEffect(PotionEffectType.GLOWING);
                     removeGoldenGlow(player);
-                    // Message d'expiration via système centralisé
-                    showTempEventMessage(player.getUniqueId(), "§8Avatar du Rempart terminé");
                     player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
                     cancel();
                     return;
@@ -2542,9 +2533,6 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(start, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CLOUD, start, 10, 0.4, 0.2, 0.4, 0.05); // Réduit
 
-        // Message d'activation via système centralisé
-        showTempEventMessage(player.getUniqueId(), "§6§l⚔ CHARGE DU BASTION!");
-
         // Sauvegarder la HP de base
         UUID uuid = player.getUniqueId();
         final double baseMaxHealth = player.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
@@ -2618,9 +2606,6 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.2);
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 15, 0.4, 0.6, 0.4, 0.1);
 
-        // Message de résultat via système centralisé
-        showTempEventMessage(uuid, "§6§l⚔ CHARGE! §e" + enemiesHit + " §7cibles | §e+" + absorptionHearts + "§6❤ §7absorption §8(6s)");
-
         // Planifier la fin du bonus d'absorption
         final double addedAbsorption = absorptionAmount;
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -2630,8 +2615,6 @@ public class TalentListener implements Listener {
                 player.setAbsorptionAmount(Math.max(0, current - addedAbsorption));
 
                 player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.5f, 0.8f);
-                // Message d'expiration via système centralisé
-                showTempEventMessage(uuid, "§8⚔ Absorption Charge expirée...");
             }
         }, duration / 50L); // Convertir ms en ticks
     }
