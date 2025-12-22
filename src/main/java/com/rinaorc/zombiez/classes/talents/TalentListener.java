@@ -259,7 +259,26 @@ public class TalentListener implements Listener {
                 punishmentStacks.put(uuid, 0);
 
                 player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
-                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, target.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.2);
+                player.getWorld().playSound(target.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
+
+                // Effet visuel sacré/jaune
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+                // Éclat doré central
+                player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 25, 0.3, 0.5, 0.3, 0.15);
+                // Particules dorées lumineuses
+                player.getWorld().spawnParticle(Particle.END_ROD, targetLoc, 12, 0.4, 0.6, 0.4, 0.05);
+                // Dust jaune/doré
+                player.getWorld().spawnParticle(Particle.DUST, targetLoc, 20, 0.5, 0.7, 0.5, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.2f));
+                // Cercle sacré au sol
+                Location groundLoc = target.getLocation().add(0, 0.1, 0);
+                for (int i = 0; i < 12; i++) {
+                    double angle = (2 * Math.PI / 12) * i;
+                    double x = Math.cos(angle) * 1.2;
+                    double z = Math.sin(angle) * 1.2;
+                    player.getWorld().spawnParticle(Particle.END_ROD, groundLoc.clone().add(x, 0, z), 1, 0, 0.1, 0, 0);
+                }
+
                 if (shouldSendTalentMessage(player)) {
                     player.sendActionBar(net.kyori.adventure.text.Component.text("§6§l⚔ CHÂTIMENT! §c+" + (int)(punishment.getValue(2)*100) + "% §7dégâts!"));
                 }
