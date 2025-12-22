@@ -45,7 +45,7 @@ public final class GuerrierTalents {
                 "§7une onde de choc autour de la cible!",
                 "",
                 "§8Degats: §c50%§8 des degats de base",
-                "§8Rayon: §e2.5§8 blocs",
+                "§8Rayon: §e5§8 blocs",
                 "§8Cooldown: §e0.6s"
             })
             .classType(ClassType.GUERRIER)
@@ -54,7 +54,7 @@ public final class GuerrierTalents {
             .icon(Material.COBBLESTONE)
             .iconColor("§7")
             .effectType(Talent.TalentEffectType.SEISMIC_STRIKE)
-            .values(new double[]{0.50, 2.5}) // damage%, radius (plus de chance!)
+            .values(new double[]{0.50, 5.0}) // damage%, radius
             .internalCooldownMs(600)
             .build());
 
@@ -253,27 +253,30 @@ public final class GuerrierTalents {
     // ==================== PALIER 3 - NIVEAU 10 (Specialisation) ====================
 
     private static void registerTier3Talents() {
-        // 3.1 - TOURBILLON DE LAMES
+        // 3.1 - ONDE DE FRACTURE
         TALENTS.add(Talent.builder()
-            .id("guerrier_blade_whirlwind")
-            .name("Tourbillon de Lames")
-            .description("25% chance de tournoyer autour de vous")
+            .id("guerrier_fracture_wave")
+            .name("Onde de Fracture")
+            .description("Frapper 3 cibles differentes = onde sismique!")
             .loreLines(new String[]{
-                "§7§e25%§7 de chance sur attaque",
-                "§7de tournoyer, frappant tous",
-                "§7les ennemis autour de vous.",
+                "§e§lBUILD-UP ACTIF!",
                 "",
-                "§8Degats: §c120%§8 de base",
-                "§8Rayon: §e2.5§8 blocs"
+                "§7Frapper §e3 cibles differentes§7 en §a3s§7",
+                "§7libere une §conde de fracture§7 en cone!",
+                "",
+                "§8Degats: §c150%§8 + §c25%§8/ennemi touche",
+                "§8Cone: §e60°§8 devant vous, §e4§8 blocs",
+                "§8Effet: §bRalentissement 30%§8 (1.5s)",
+                "",
+                "§7§oPositionnez-vous bien!"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
             .slotIndex(0)
-            .icon(Material.IRON_SWORD)
-            .iconColor("§f")
-            .effectType(Talent.TalentEffectType.BLADE_WHIRLWIND)
-            .values(new double[]{0.25, 1.20, 2.5}) // chance, damage%, radius
-            .internalCooldownMs(600)
+            .icon(Material.CRACKED_DEEPSLATE_TILES)
+            .iconColor("§7")
+            .effectType(Talent.TalentEffectType.FRACTURE_WAVE)
+            .values(new double[]{3, 3000, 1.50, 0.25, 4.0, 60, 0.30, 1500}) // targets_needed, window_ms, base_damage%, bonus_per_hit%, range, cone_angle, slow%, slow_duration_ms
             .build());
 
         // 3.2 - VAMPIRE DE GUERRE

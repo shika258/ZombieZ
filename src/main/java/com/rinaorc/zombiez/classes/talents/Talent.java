@@ -88,7 +88,7 @@ public class Talent {
         UNLEASH,                 // Explosion on multi-kill
 
         // === GUERRIER - Tier 3 ===
-        BLADE_WHIRLWIND,         // Spin attack on hit
+        FRACTURE_WAVE,           // Cone AoE after hitting 3 different targets
         WAR_VAMPIRE,             // Lifesteal passif
         ANCESTRAL_WRATH,         // Riposte damage boost
         IMMOVABLE_TITAN,         // No knockback, DR when still
