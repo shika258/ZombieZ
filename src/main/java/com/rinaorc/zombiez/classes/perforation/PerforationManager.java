@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - GIVRE (0-100%): Accumulation sur les ennemis
  * - 50% = RALENTI (-30% vitesse)
  * - 100% = GELÉ (immobilisé 2s, +50% dégâts reçus)
+ * - REBOND: Les projectiles rebondissent vers les mobs environnants
  * - ÉCLAT: Mort d'un gelé = explosion AoE + propagation givre
  * - ZÉRO ABSOLU: Ultimate de gel massif
  */
@@ -867,7 +868,7 @@ public class PerforationManager {
     // ==================== ÉCHO GLACIAL (remplace CHAIN PERFORATION) ====================
 
     /**
-     * Propagation de givre en chaîne après un tir perçant
+     * Propagation de givre en chaîne après le dernier rebond
      */
     public void triggerFrostEcho(Player player, LivingEntity lastTarget, double baseFrost, int echoIndex) {
         Talent echoTalent = talentManager.getActiveTalentByEffect(player, Talent.TalentEffectType.CHAIN_PERFORATION);
