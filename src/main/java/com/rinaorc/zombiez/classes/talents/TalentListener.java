@@ -997,11 +997,6 @@ public class TalentListener implements Listener {
             if (!isOnCooldown(uuid, "ragnarok")) {
                 procRagnarok(player, ragnarok);
                 setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
-            } else {
-                // Feedback cooldown via système centralisé
-                long remaining = getCooldownRemaining(uuid, "ragnarok");
-                showTempEventMessage(uuid, "§c⏳ Ragnarok: " + (remaining / 1000) + "s", 1500);
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
     }
@@ -1044,8 +1039,6 @@ public class TalentListener implements Listener {
             aoeDamageCounter.put(uuid, 0.0);
             lastApocalypseMilestone.put(uuid, 0); // Reset milestones
 
-            // Message d'activation spectaculaire via système centralisé
-            showTempEventMessage(uuid, "§6§l🌋 APOCALYPSE TERRESTRE! 🌋", 2500);
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
 
             procEarthApocalypse(player, 10 * apocalypse.getValue(1), apocalypse.getValue(2), apocalypse.getValue(3));
@@ -1383,12 +1376,6 @@ public class TalentListener implements Listener {
 
         // === EFFETS VISUELS SPECTACULAIRES ===
         spawnFractureWaveVisuals(player, origin, direction, range, halfAngleRad, hitCount);
-
-        // Feedback via système centralisé
-        String msg = hitCount > 0
-            ? "§7§l⚡ §6ONDE DE FRACTURE! §7" + hitCount + " cible(s) §c" + String.format("%.0f", totalDamage) + " dmg"
-            : "§7§l⚡ §6Onde de Fracture §7(aucune cible)";
-        showTempEventMessage(player.getUniqueId(), msg);
 
         // Contribution au systeme Apocalypse
         if (hitCount > 0) {
