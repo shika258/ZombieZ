@@ -51,6 +51,10 @@ public class TalentListener implements Listener {
     // Colere des Ancetres - riposte buff
     private final Map<UUID, Long> riposteBuffTime = new ConcurrentHashMap<>();
 
+    // Ferveur Sanguinaire - stacks de kills
+    private final Map<UUID, Integer> bloodFervourStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> bloodFervourExpiry = new ConcurrentHashMap<>();
+
     // Cataclysme - compteur d'attaques
     private final Map<UUID, Integer> attackCounter = new ConcurrentHashMap<>();
 
@@ -296,13 +300,18 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Masse d'Armes - knockback on crit
-        Talent maceImpact = getActiveTalentIfHas(player, Talent.TalentEffectType.MACE_IMPACT);
-        if (maceImpact != null && event.isCritical()) {
-            double knockbackPower = maceImpact.getValue(0);
-            Vector direction = target.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
-            target.setVelocity(direction.multiply(knockbackPower * 0.5).setY(0.3));
-            target.getWorld().playSound(target.getLocation(), Sound.ITEM_MACE_SMASH_GROUND, 1.0f, 0.8f);
+        // Ferveur Sanguinaire - bonus de dégâts basé sur les stacks
+        Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+        if (bloodFervour != null) {
+            Long expiry = bloodFervourExpiry.get(uuid);
+            if (expiry != null && System.currentTimeMillis() < expiry) {
+                int stacks = bloodFervourStacks.getOrDefault(uuid, 0);
+                if (stacks > 0) {
+                    double bonusPerStack = bloodFervour.getValue(0); // 0.15 = 15%
+                    double totalBonus = stacks * bonusPerStack;
+                    damage *= (1 + totalBonus);
+                }
+            }
         }
 
         // === TIER 3 ===
@@ -884,6 +893,47 @@ public class TalentListener implements Listener {
             }
         }
 
+        // Ferveur Sanguinaire - stack on kill
+        Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+        if (bloodFervour != null) {
+            double bonusPerStack = bloodFervour.getValue(0); // 0.15 = 15%
+            long duration = (long) bloodFervour.getValue(1); // 4000ms
+            int maxStacks = (int) bloodFervour.getValue(2);  // 3
+
+            int currentStacks = bloodFervourStacks.getOrDefault(uuid, 0);
+            int newStacks = Math.min(currentStacks + 1, maxStacks);
+            bloodFervourStacks.put(uuid, newStacks);
+            bloodFervourExpiry.put(uuid, System.currentTimeMillis() + duration);
+
+            // Feedback visuel et sonore selon les stacks
+            float pitch = 0.8f + (newStacks * 0.2f); // Son plus aigu avec plus de stacks
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, pitch);
+
+            // Particules de sang
+            player.getWorld().spawnParticle(
+                Particle.DUST,
+                player.getLocation().add(0, 1, 0),
+                10 * newStacks,
+                0.5, 0.5, 0.5, 0.1,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.2f)
+            );
+
+            // Aura croissante à max stacks
+            if (newStacks >= maxStacks) {
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+                player.getWorld().spawnParticle(
+                    Particle.DUST,
+                    player.getLocation().add(0, 1, 0),
+                    30,
+                    0.8, 0.8, 0.8, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.5f) // Dark red
+                );
+            }
+
+            // Marquer en combat pour l'ActionBar
+            plugin.getActionBarManager().markInCombat(uuid);
+        }
+
         // === TIER 4 ===
 
         // Moisson Sanglante
@@ -1117,6 +1167,14 @@ public class TalentListener implements Listener {
                 // Cleanup retaliation stacks
                 retaliationLastProc.forEach((uuid, time) -> {
                     if (now - time > 10000) retaliationStacks.remove(uuid);
+                });
+
+                // Cleanup blood fervour stacks
+                bloodFervourExpiry.forEach((uuid, expiry) -> {
+                    if (now > expiry) {
+                        bloodFervourStacks.remove(uuid);
+                        bloodFervourExpiry.remove(uuid);
+                    }
                 });
 
                 for (UUID uuid : activeGuerriers) {
@@ -2991,6 +3049,23 @@ public class TalentListener implements Listener {
             bar.append(color).append("🔥 +").append(String.format("%.0f", currentBonus)).append("%");
         }
 
+        // Ferveur Sanguinaire - stacks de kills
+        Long bloodExpiry = bloodFervourExpiry.get(uuid);
+        if (bloodExpiry != null && System.currentTimeMillis() < bloodExpiry) {
+            int bloodStacks = bloodFervourStacks.getOrDefault(uuid, 0);
+            if (bloodStacks > 0) {
+                Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+                if (bloodFervour != null) {
+                    int maxStacks = (int) bloodFervour.getValue(2);
+                    double bonusPercent = bloodStacks * bloodFervour.getValue(0) * 100;
+                    String color = bloodStacks >= maxStacks ? "§c§l" : (bloodStacks >= 2 ? "§c" : "§4");
+                    long remaining = (bloodExpiry - System.currentTimeMillis()) / 1000;
+                    bar.append("  ").append(color).append("🩸 x").append(bloodStacks);
+                    bar.append(" §7(+").append(String.format("%.0f", bonusPercent)).append("% ").append(remaining).append("s)");
+                }
+            }
+        }
+
         // Déchaînement (multi-kills)
         List<Long> kills = recentKills.get(uuid);
         if (kills != null && !kills.isEmpty()) {
@@ -3098,6 +3173,8 @@ public class TalentListener implements Listener {
         chargeReady.remove(playerUuid);
         recentKills.remove(playerUuid);
         riposteBuffTime.remove(playerUuid);
+        bloodFervourStacks.remove(playerUuid);
+        bloodFervourExpiry.remove(playerUuid);
         attackCounter.remove(playerUuid);
         immortalLastProc.remove(playerUuid);
         activeCyclones.remove(playerUuid);

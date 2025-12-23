@@ -198,24 +198,27 @@ public final class GuerrierTalents {
             .values(new double[]{3, 6000, 0.80, 0.05}) // stacks_needed, window_ms, damage_bonus%, heal%
             .build());
 
-        // 2.3 - MASSE D'ARMES
+        // 2.3 - FERVEUR SANGUINAIRE
         TALENTS.add(Talent.builder()
-            .id("guerrier_mace_impact")
-            .name("Masse d'Armes")
-            .description("Critiques = projection de 3 blocs")
+            .id("guerrier_blood_fervour")
+            .name("Ferveur Sanguinaire")
+            .description("Kills = +15% degats, stack 3x")
             .loreLines(new String[]{
-                "§7Les coups critiques projettent",
-                "§7les ennemis en arriere.",
+                "§c§lSOIF DE SANG!",
                 "",
-                "§8Distance: §e3§8 blocs"
+                "§7Chaque elimination donne",
+                "§c+15%§7 de degats pendant §e4s§7.",
+                "",
+                "§8Cumulable §c3x§8 (max +45%)",
+                "§8Chaque kill refresh la duree"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
             .slotIndex(2)
-            .icon(Material.MACE)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.MACE_IMPACT)
-            .values(new double[]{3.0}) // knockback_blocks
+            .icon(Material.REDSTONE)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.BLOOD_FERVOUR)
+            .values(new double[]{0.15, 4000, 3}) // damage_bonus%, duration_ms, max_stacks
             .build());
 
         // 2.4 - BASTION

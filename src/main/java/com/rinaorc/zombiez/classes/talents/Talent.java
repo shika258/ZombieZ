@@ -83,7 +83,7 @@ public class Talent {
         // === GUERRIER - Tier 2 ===
         WAR_ECHO,                // Double AoE chance
         PUNISHMENT,              // REMPART: Stacks → buff degats + heal
-        MACE_IMPACT,             // Knockback on crit
+        BLOOD_FERVOUR,           // FUREUR: Kill stacking damage buff
         BASTION,                 // Shield on block
         UNLEASH,                 // Explosion on multi-kill
 
