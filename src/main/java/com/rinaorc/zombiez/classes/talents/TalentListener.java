@@ -1888,14 +1888,15 @@ public class TalentListener implements Listener {
                             player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
                                 new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 69, 0), 1.2f));
                         } else if (y < 1.6) {
-                            // Milieu: Sweep + Flame
+                            // Milieu: Flame + Dust jaune
                             if (i % 2 == 0) {
-                                player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, particleLoc, 1, 0, 0, 0, 0);
+                                player.getWorld().spawnParticle(Particle.FLAME, particleLoc, 1, 0.05, 0.05, 0.05, 0.02);
                             } else {
-                                player.getWorld().spawnParticle(Particle.FLAME, particleLoc, 1, 0.05, 0.05, 0.05, 0.01);
+                                player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 0.9f));
                             }
                         } else {
-                            // Sommet: Crit + Dust orange
+                            // Sommet: Crit
                             player.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0.1, 0.1, 0.1, 0.05);
                         }
                     }
@@ -1928,11 +1929,11 @@ public class TalentListener implements Listener {
                         enemiesHit++;
 
                         // Effet de hit sur l'ennemi
-                        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
-                            target.getLocation().add(0, 1, 0), 2, 0.3, 0.3, 0.3, 0);
+                        target.getWorld().spawnParticle(Particle.CRIT,
+                            target.getLocation().add(0, 1, 0), 4, 0.2, 0.3, 0.2, 0.1);
                         target.getWorld().spawnParticle(Particle.DUST,
-                            target.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.1,
-                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+                            target.getLocation().add(0, 1, 0), 6, 0.25, 0.25, 0.25, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 0.9f));
 
                         // Léger knockback rotatif (aspiration vers le centre)
                         if (ticks % 4 == 0) {
