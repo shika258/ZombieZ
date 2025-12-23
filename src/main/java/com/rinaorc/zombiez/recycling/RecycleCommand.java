@@ -120,6 +120,42 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
+            case "all", "tout", "inventory", "inventaire" -> {
+                RecycleSettings settings = recycleManager.getSettings(player.getUniqueId());
+                int totalPoints = 0;
+                int itemsRecycled = 0;
+
+                ItemStack[] contents = player.getInventory().getStorageContents();
+                for (int i = 0; i < contents.length; i++) {
+                    ItemStack item = contents[i];
+                    if (item == null || item.isEmpty()) continue;
+                    if (!ZombieZItem.isZombieZItem(item)) continue;
+
+                    Rarity rarity = ZombieZItem.getItemRarity(item);
+                    if (rarity == null) continue;
+
+                    // Respecter les paramètres de rareté du joueur
+                    if (!settings.shouldRecycle(rarity)) continue;
+
+                    int points = recycleManager.recycleItem(player, item);
+                    if (points > 0) {
+                        player.getInventory().setItem(i, null);
+                        totalPoints += points;
+                        itemsRecycled++;
+                    }
+                }
+
+                if (itemsRecycled > 0) {
+                    player.sendMessage("§a§l♻ §aRecyclage massif terminé!");
+                    player.sendMessage("§7Items recyclés: §e" + itemsRecycled);
+                    player.sendMessage("§7Points gagnés: §6+" + RecycleManager.formatPoints(totalPoints));
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.5f);
+                } else {
+                    player.sendMessage("§cAucun item recyclable trouvé dans votre inventaire.");
+                    player.sendMessage("§7Vérifiez vos paramètres de rareté avec §e/recycle§7.");
+                }
+            }
+
             case "help", "aide", "?" -> {
                 sendHelp(player);
             }
@@ -138,6 +174,7 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/recycle §7- Ouvre le menu de configuration");
         player.sendMessage("§e/recycle toggle §7- Active/désactive le recyclage");
         player.sendMessage("§e/recycle hand §7- Recycle l'item en main");
+        player.sendMessage("§e/recycle all §7- Recycle tout l'inventaire");
         player.sendMessage("§e/recycle stats §7- Affiche vos statistiques");
         player.sendMessage("§e/recycle preview §7- Aperçu des points par rareté");
         player.sendMessage("");
@@ -152,7 +189,7 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            List<String> options = List.of("toggle", "on", "off", "hand", "stats", "preview", "help");
+            List<String> options = List.of("toggle", "on", "off", "hand", "all", "stats", "preview", "help");
             String input = args[0].toLowerCase();
             for (String option : options) {
                 if (option.startsWith(input)) {

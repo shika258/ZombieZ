@@ -363,7 +363,7 @@ public class RecycleManager implements Listener {
     /**
      * Formate les points pour affichage
      */
-    private String formatPoints(long points) {
+    public static String formatPoints(long points) {
         if (points >= 1_000_000) {
             return String.format("%.1fM", points / 1_000_000.0);
         } else if (points >= 1_000) {
