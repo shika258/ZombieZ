@@ -125,30 +125,32 @@ public class MeteorShowerPower extends Power {
                 // Déplacer le météore vers le bas
                 currentLoc.add(0, -1, 0);
 
-                // Particules de feu pendant la chute
+                // Particules de feu pendant la chute (optimisées)
                 currentLoc.getWorld().spawnParticle(
                     Particle.FLAME,
                     currentLoc,
-                    30,
-                    0.6, 0.6, 0.6,
-                    0.08
+                    15,  // Réduit de 30 à 15
+                    0.5, 0.5, 0.5,
+                    0.06
                 );
 
                 currentLoc.getWorld().spawnParticle(
                     Particle.LAVA,
                     currentLoc,
-                    8,
-                    0.4, 0.4, 0.4
+                    4,  // Réduit de 8 à 4
+                    0.3, 0.3, 0.3
                 );
 
-                // Effet de traînée
-                currentLoc.getWorld().spawnParticle(
-                    Particle.SMOKE,
-                    currentLoc.clone().add(0, 0.5, 0),
-                    10,
-                    0.3, 0.5, 0.3,
-                    0.02
-                );
+                // Effet de traînée (moins fréquent)
+                if (ticks % 2 == 0) {
+                    currentLoc.getWorld().spawnParticle(
+                        Particle.SMOKE,
+                        currentLoc.clone().add(0, 0.5, 0),
+                        5,  // Réduit de 10 à 5
+                        0.25, 0.4, 0.25,
+                        0.015
+                    );
+                }
 
                 // Son de sifflement
                 if (random.nextInt(3) == 0) {
@@ -173,28 +175,28 @@ public class MeteorShowerPower extends Power {
      * Crée l'effet d'impact du météore
      */
     private void createMeteorImpact(Location loc, double damage, int fireTicks, Player player) {
-        // Effets visuels
+        // Effets visuels (optimisés)
         loc.getWorld().spawnParticle(
             Particle.EXPLOSION,
             loc,
-            5,
-            1, 0.5, 1,
+            3,  // Réduit de 5 à 3
+            0.8, 0.4, 0.8,
             0
         );
 
         loc.getWorld().spawnParticle(
             Particle.FLAME,
             loc,
-            100,
-            2, 1, 2,
-            0.2
+            40,  // Réduit de 100 à 40
+            1.5, 0.8, 1.5,
+            0.15
         );
 
         loc.getWorld().spawnParticle(
             Particle.LAVA,
             loc,
-            30,
-            2, 1, 2
+            12,  // Réduit de 30 à 12
+            1.5, 0.8, 1.5
         );
 
         // Son d'explosion
@@ -226,12 +228,12 @@ public class MeteorShowerPower extends Power {
                     )
                 );
 
-                // Effet visuel sur la cible
+                // Effet visuel sur la cible (optimisé)
                 livingTarget.getWorld().spawnParticle(
                     Particle.FLAME,
                     livingTarget.getEyeLocation(),
-                    10,
-                    0.3, 0.5, 0.3
+                    5,  // Réduit de 10 à 5
+                    0.25, 0.4, 0.25
                 );
             }
         }
@@ -249,22 +251,22 @@ public class MeteorShowerPower extends Power {
                     return;
                 }
 
-                // Particules de feu persistantes au sol
+                // Particules de feu persistantes au sol (optimisées)
                 centerLoc.getWorld().spawnParticle(
                     Particle.FLAME,
                     centerLoc,
-                    15,
-                    2, 0.2, 2,
-                    0.02
+                    8,  // Réduit de 15 à 8
+                    1.5, 0.15, 1.5,
+                    0.015
                 );
 
-                if (ticks % 5 == 0) {
+                if (ticks % 8 == 0) {  // Moins fréquent (de 5 à 8)
                     centerLoc.getWorld().spawnParticle(
                         Particle.SMOKE,
                         centerLoc.clone().add(0, 0.5, 0),
-                        8,
-                        1.5, 0.3, 1.5,
-                        0.01
+                        4,  // Réduit de 8 à 4
+                        1.2, 0.25, 1.2,
+                        0.008
                     );
                 }
 

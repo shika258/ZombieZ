@@ -36,6 +36,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Listener pour les événements liés aux items ZombieZ
@@ -45,8 +46,21 @@ public class ItemListener implements Listener {
 
     private final ZombieZPlugin plugin;
 
+    // Compteurs de coups pour les effets spéciaux élémentaires (par joueur)
+    private final Map<UUID, Integer> infernoBurstCounters = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> thunderstrikeCounters = new ConcurrentHashMap<>();
+
     public ItemListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Réinitialise les compteurs d'effets élémentaires pour un joueur
+     * À appeler lors de la déconnexion
+     */
+    public void clearPlayerCounters(UUID playerId) {
+        infernoBurstCounters.remove(playerId);
+        thunderstrikeCounters.remove(playerId);
     }
 
     /**
@@ -579,9 +593,27 @@ public class ItemListener implements Listener {
                         });
                 }
             }
-            case "inferno_burst", "thunderstrike", "flame_nova" -> {
-                // Ces effets sont gérés par un compteur de coups
-                // TODO: Implémenter le compteur de coups
+            case "inferno_burst" -> {
+                // Explosion de feu tous les 5 coups
+                UUID playerId = attacker.getUniqueId();
+                int hitCount = infernoBurstCounters.getOrDefault(playerId, 0) + 1;
+                infernoBurstCounters.put(playerId, hitCount);
+
+                if (hitCount >= 5) {
+                    infernoBurstCounters.put(playerId, 0);
+                    triggerInfernoBurst(attacker, target, damage);
+                }
+            }
+            case "thunderstrike" -> {
+                // Éclair puissant tous les 10 coups
+                UUID playerId = attacker.getUniqueId();
+                int hitCount = thunderstrikeCounters.getOrDefault(playerId, 0) + 1;
+                thunderstrikeCounters.put(playerId, hitCount);
+
+                if (hitCount >= 10) {
+                    thunderstrikeCounters.put(playerId, 0);
+                    triggerThunderstrike(attacker, target, damage);
+                }
             }
             case "plague_spread" -> {
                 // Propager le poison aux ennemis proches
@@ -795,5 +827,90 @@ public class ItemListener implements Listener {
         // Impacts aux deux extrémités
         from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, start, 8, 0.2, 0.2, 0.2, 0.02);
         from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, end, 10, 0.3, 0.3, 0.3, 0.03);
+    }
+
+    /**
+     * Déclenche l'explosion de feu (Inferno Burst)
+     * Effet: AOE de feu autour de la cible, dégâts + mise en feu des ennemis
+     */
+    private void triggerInfernoBurst(Player attacker, org.bukkit.entity.LivingEntity target, double baseDamage) {
+        Location center = target.getLocation();
+
+        // Notification au joueur
+        MessageUtils.sendActionBar(attacker, "§6§l🔥 INFERNO BURST! §c+50% dégâts feu");
+
+        // Son d'explosion de feu
+        center.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.2f, 0.6f);
+        center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+
+        // Particules d'explosion de feu (optimisées - moins nombreuses mais plus impactantes)
+        center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 1, 0), 25, 1.5, 0.8, 1.5, 0.08);
+        center.getWorld().spawnParticle(Particle.LAVA, center.clone().add(0, 0.5, 0), 8, 1.2, 0.3, 1.2);
+
+        // Dégâts AOE (rayon 3 blocs)
+        double aoeDamage = baseDamage * 0.5; // 50% des dégâts de base
+        for (org.bukkit.entity.Entity entity : center.getWorld().getNearbyEntities(center, 3, 3, 3)) {
+            if (entity instanceof org.bukkit.entity.LivingEntity livingEntity && entity != attacker) {
+                if (livingEntity instanceof Player && !livingEntity.getWorld().getPVP()) {
+                    continue;
+                }
+
+                double distance = entity.getLocation().distance(center);
+                double distanceFactor = 1.0 - (distance / 3.0) * 0.4;
+                double finalDamage = aoeDamage * distanceFactor;
+
+                livingEntity.damage(finalDamage, attacker);
+                livingEntity.setFireTicks(80); // 4 secondes de feu
+
+                // Petite particule sur chaque cible touchée
+                livingEntity.getWorld().spawnParticle(Particle.FLAME, livingEntity.getEyeLocation(), 6, 0.2, 0.3, 0.2, 0.03);
+            }
+        }
+    }
+
+    /**
+     * Déclenche l'éclair puissant (Thunderstrike)
+     * Effet: Éclair sur la cible + dégâts massifs + étourdissement
+     */
+    private void triggerThunderstrike(Player attacker, org.bukkit.entity.LivingEntity target, double baseDamage) {
+        Location center = target.getLocation();
+
+        // Notification au joueur
+        MessageUtils.sendActionBar(attacker, "§e§l⚡ THUNDERSTRIKE! §f+100% dégâts foudre");
+
+        // Faire apparaître un vrai éclair pour l'effet visuel
+        center.getWorld().strikeLightningEffect(center);
+
+        // Particules électriques supplémentaires (optimisées)
+        center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center.clone().add(0, 1, 0), 20, 0.8, 1, 0.8, 0.1);
+
+        // Dégâts massifs sur la cible principale
+        double thunderDamage = baseDamage * 1.0; // 100% des dégâts de base en bonus
+        target.damage(thunderDamage, attacker);
+
+        // Effet d'étourdissement (Slowness extrême + No Jump)
+        target.addPotionEffect(new org.bukkit.potion.PotionEffect(
+            org.bukkit.potion.PotionEffectType.SLOWNESS, 30, 4, false, false // 1.5s
+        ));
+        target.addPotionEffect(new org.bukkit.potion.PotionEffect(
+            org.bukkit.potion.PotionEffectType.WEAKNESS, 40, 1, false, false
+        ));
+
+        // Dégâts AOE réduits aux ennemis proches (rayon 2.5 blocs)
+        double aoeDamage = baseDamage * 0.3;
+        for (org.bukkit.entity.Entity entity : center.getWorld().getNearbyEntities(center, 2.5, 2.5, 2.5)) {
+            if (entity instanceof org.bukkit.entity.LivingEntity livingEntity
+                && entity != attacker && entity != target) {
+
+                if (livingEntity instanceof Player && !livingEntity.getWorld().getPVP()) {
+                    continue;
+                }
+
+                livingEntity.damage(aoeDamage, attacker);
+
+                // Arc électrique vers la cible secondaire
+                spawnChainLightningArc(center, livingEntity.getLocation());
+            }
+        }
     }
 }

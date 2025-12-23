@@ -471,6 +471,18 @@ public class CombatListener implements Listener {
             finalDamage += lightningDamage * 2;
         }
 
+        // Poison DoT - applique un effet de poison proportionnel
+        double poisonDamage = playerStats.getOrDefault(StatType.POISON_DAMAGE, 0.0);
+        if (poisonDamage > 0) {
+            // L'amplificateur augmente avec les dégâts poison (0-20 → 0-2 amplifier)
+            int poisonAmplifier = Math.min(2, (int) (poisonDamage / 8));
+            // Durée: 3 secondes de base + 0.1s par point de poison damage
+            int poisonDuration = (int) (60 + poisonDamage * 2);
+            mob.addPotionEffect(new PotionEffect(PotionEffectType.POISON, poisonDuration, poisonAmplifier, false, true));
+            // Particules de poison (optimisées)
+            mob.getWorld().spawnParticle(Particle.ITEM_SLIME, mob.getLocation().add(0, 1, 0), 4, 0.3, 0.4, 0.3, 0.02);
+        }
+
         // ============ 8. LIFESTEAL ============
         double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
         double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
