@@ -227,9 +227,17 @@ public class TalentListener implements Listener {
         if (risingFury != null) {
             double stackPercent = risingFury.getValue(0);
             double maxBonus = risingFury.getValue(1);
+            long timeout = (long) risingFury.getValue(2); // 3000ms
             int maxStacks = (int) (maxBonus / stackPercent);
+            long now = System.currentTimeMillis();
 
-            furyLastHit.put(uuid, System.currentTimeMillis());
+            // Reset si timeout expiré
+            Long lastHit = furyLastHit.get(uuid);
+            if (lastHit != null && now - lastHit > timeout) {
+                furyStacks.put(uuid, 0);
+            }
+
+            furyLastHit.put(uuid, now);
             int stacks = furyStacks.getOrDefault(uuid, 0);
             if (stacks < maxStacks) {
                 furyStacks.put(uuid, stacks + 1);
@@ -454,21 +462,21 @@ public class TalentListener implements Listener {
                 double damageBonus = mercyStrike.getValue(1); // 0.80 = 80%
                 damage *= (1 + damageBonus);
 
-                // Feedback visuel - slash doré/rouge
+                // Feedback visuel - slash doré net
                 target.getWorld().spawnParticle(
                     Particle.SWEEP_ATTACK,
                     target.getLocation().add(0, 1, 0),
-                    3, 0.3, 0.3, 0.3, 0.1
+                    1, 0.1, 0.1, 0.1, 0
                 );
                 target.getWorld().spawnParticle(
                     Particle.DUST,
                     target.getLocation().add(0, 1, 0),
-                    15, 0.4, 0.4, 0.4, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.2f) // Gold
+                    6, 0.3, 0.3, 0.3, 0.05,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 200, 0), 1.0f)
                 );
 
-                // Son métallique satisfaisant
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+                // Son satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 1.4f);
 
                 // Tracker pour ActionBar
                 lastMercyStrike.put(uuid, System.currentTimeMillis());
@@ -608,42 +616,35 @@ public class TalentListener implements Listener {
 
                 // === EXPLOSION VISUELLE ET SONORE ===
 
-                // Son d'explosion satisfaisant (BOOM!)
-                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.5f);
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.6f, 1.5f);
+                // Son d'explosion satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.3f);
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.6f);
 
-                // Explosion orange/jaune
+                // Explosion centrale
                 center.getWorld().spawnParticle(
                     Particle.EXPLOSION,
                     center.add(0, 1, 0),
-                    3, 0.5, 0.5, 0.5, 0.1
+                    1, 0.2, 0.2, 0.2, 0
                 );
 
-                // Cercle d'éclairs orange
-                for (int i = 0; i < 16; i++) {
-                    double angle = (2 * Math.PI * i) / 16;
-                    double x = Math.cos(angle) * aoeRadius * 0.8;
-                    double z = Math.sin(angle) * aoeRadius * 0.8;
+                // Cercle d'impact (réduit à 8 points)
+                for (int i = 0; i < 8; i++) {
+                    double angle = (2 * Math.PI * i) / 8;
+                    double x = Math.cos(angle) * aoeRadius * 0.7;
+                    double z = Math.sin(angle) * aoeRadius * 0.7;
                     center.getWorld().spawnParticle(
                         Particle.DUST,
-                        center.clone().add(x, 0, z),
-                        5, 0.1, 0.3, 0.1, 0,
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
-                    );
-                    center.getWorld().spawnParticle(
-                        Particle.ELECTRIC_SPARK,
-                        center.clone().add(x, 0.5, z),
-                        3, 0.1, 0.2, 0.1, 0.05
+                        center.clone().add(x, 0.1, z),
+                        2, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.3f)
                     );
                 }
 
-                // Flash jaune central
+                // Flash central (réduit)
                 center.getWorld().spawnParticle(
-                    Particle.DUST,
+                    Particle.CRIT,
                     center,
-                    25, 0.8, 0.8, 0.8, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 2.0f)
+                    10, 0.5, 0.5, 0.5, 0.15
                 );
 
                 // Reset combo
@@ -667,42 +668,33 @@ public class TalentListener implements Listener {
                 int currentCombo = frenzyComboCount.merge(uuid, 1, Integer::sum);
                 frenzyLastHit.put(uuid, now);
 
-                // Sons crescendo (do-ré-mi-fa-sol)
-                float[] pitches = {0.5f, 0.6f, 0.75f, 0.9f, 1.0f}; // Notes musicales croissantes
+                // Sons crescendo
+                float[] pitches = {0.5f, 0.65f, 0.8f, 0.95f, 1.1f};
                 if (currentCombo <= comboRequired) {
                     float pitch = pitches[Math.min(currentCombo - 1, pitches.length - 1)];
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.6f, pitch);
 
-                    // Éclairs croissants autour du joueur
-                    int sparkCount = currentCombo * 3;
+                    // Éclairs légers
                     player.getWorld().spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         player.getLocation().add(0, 1.2, 0),
-                        sparkCount, 0.4, 0.4, 0.4, 0.05
+                        currentCombo + 1, 0.3, 0.3, 0.3, 0.03
                     );
                 }
 
-                // Si combo atteint = prêt pour explosion
+                // Combo atteint = prêt
                 if (currentCombo >= comboRequired) {
                     frenzyReady.put(uuid, true);
 
-                    // Son de charge maximale
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
+                    // Son de charge
                     player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
 
-                    // Flash lumineux
-                    player.getWorld().spawnParticle(
-                        Particle.FLASH,
-                        player.getLocation().add(0, 1, 0),
-                        1, 0, 0, 0, 0
-                    );
-
-                    // Aura orange
+                    // Aura orange légère
                     player.getWorld().spawnParticle(
                         Particle.DUST,
                         player.getLocation().add(0, 1, 0),
-                        20, 0.6, 0.6, 0.6, 0.1,
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                        8, 0.4, 0.4, 0.4, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.2f)
                     );
                 }
 
@@ -1030,28 +1022,28 @@ public class TalentListener implements Listener {
             bloodFervourStacks.put(uuid, newStacks);
             bloodFervourExpiry.put(uuid, System.currentTimeMillis() + duration);
 
-            // Feedback visuel et sonore selon les stacks
-            float pitch = 0.8f + (newStacks * 0.2f); // Son plus aigu avec plus de stacks
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, pitch);
+            // Feedback sonore selon les stacks
+            float pitch = 0.9f + (newStacks * 0.15f);
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, pitch);
 
-            // Particules de sang
+            // Particules de sang (léger)
             player.getWorld().spawnParticle(
                 Particle.DUST,
                 player.getLocation().add(0, 1, 0),
-                10 * newStacks,
-                0.5, 0.5, 0.5, 0.1,
-                new Particle.DustOptions(org.bukkit.Color.RED, 1.2f)
+                3 + newStacks * 2,
+                0.4, 0.4, 0.4, 0.05,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.0f)
             );
 
-            // Aura croissante à max stacks
+            // Aura à max stacks
             if (newStacks >= maxStacks) {
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+                player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 0.5f, 1.2f);
                 player.getWorld().spawnParticle(
                     Particle.DUST,
                     player.getLocation().add(0, 1, 0),
-                    30,
-                    0.8, 0.8, 0.8, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.5f) // Dark red
+                    12,
+                    0.5, 0.5, 0.5, 0.05,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.3f)
                 );
             }
 
@@ -1073,24 +1065,21 @@ public class TalentListener implements Listener {
                 double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
                 applyLifesteal(player, heal);
 
-                // Effets d'exécution satisfaisants
-                // Explosion de particules (tête qui explose)
+                // Effet d'exécution net
                 target.getWorld().spawnParticle(
                     Particle.DUST,
-                    target.getLocation().add(0, 1.5, 0),
-                    25, 0.3, 0.3, 0.3, 0.15,
-                    new Particle.DustOptions(org.bukkit.Color.RED, 1.5f)
+                    target.getLocation().add(0, 1.2, 0),
+                    10, 0.25, 0.25, 0.25, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), 1.2f)
                 );
                 target.getWorld().spawnParticle(
-                    Particle.DUST,
-                    target.getLocation().add(0, 1.5, 0),
-                    15, 0.3, 0.3, 0.3, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.3f) // Gold
+                    Particle.CRIT,
+                    target.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.2, 0.2, 0.1
                 );
 
-                // Son d'exécution ultra satisfaisant
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
+                // Son d'exécution
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.9f, 0.8f);
 
                 // Cyclones Sanglants - spawn sur exécution (cooldown 3s)
                 Talent bloodCyclones = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_CYCLONES);
@@ -2053,22 +2042,17 @@ public class TalentListener implements Listener {
         if (player.isOnline()) {
             Location center = player.getLocation();
 
-            // Explosion finale
-            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 3, 1, 1, 1, 0.1);
+            // Effet de dissipation
+            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 1, 0.3, 0.3, 0.3, 0);
             center.getWorld().spawnParticle(
                 Particle.DUST,
                 center,
-                30, 2, 2, 2, 0.1,
-                new Particle.DustOptions(Color.RED, 2.0f)
+                12, 1.5, 1.5, 1.5, 0.05,
+                new Particle.DustOptions(Color.RED, 1.5f)
             );
 
-            // Sons de fin
-            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.8f);
-            player.getWorld().playSound(center, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
-
-            if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§7La §c§lMega Tornade§7 se dissipe...");
-            }
+            // Son de fin
+            player.getWorld().playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 0.7f, 0.6f);
         }
     }
 
