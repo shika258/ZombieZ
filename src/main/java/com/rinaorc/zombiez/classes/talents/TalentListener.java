@@ -2468,6 +2468,9 @@ public class TalentListener implements Listener {
                                     target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                     target.damage(baseDamage, player);
 
+                                    // Afficher l'hologramme de dégâts directement
+                                    PacketDamageIndicator.display(plugin, target.getLocation().add(0, target.getHeight(), 0), baseDamage, false, player);
+
                                     // Particules sur la cible
                                     target.getWorld().spawnParticle(
                                         Particle.CRIT,
@@ -2650,10 +2653,16 @@ public class TalentListener implements Listener {
                 int enemiesHit = 0;
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
-                        // Marquer comme dégâts secondaires
+                        // Calculer les dégâts finaux
+                        double finalDamage = damage * intensity;
+
+                        // Marquer comme dégâts secondaires (pour éviter double processing dans CombatListener)
                         target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                        target.damage(damage * intensity, player);
+                        target.damage(finalDamage, player);
                         enemiesHit++;
+
+                        // Afficher l'hologramme de dégâts directement
+                        PacketDamageIndicator.display(plugin, target.getLocation().add(0, target.getHeight(), 0), finalDamage, false, player);
 
                         // Effet de hit sur l'ennemi (blanc/gris)
                         target.getWorld().spawnParticle(Particle.DUST,
@@ -2823,10 +2832,13 @@ public class TalentListener implements Listener {
                 // === DÉGÂTS AUX ENNEMIS PROCHES ===
                 for (Entity entity : currentLocation.getWorld().getNearbyEntities(currentLocation, radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
-                        // Dégâts
+                        // Dégâts (marquer comme secondaires pour éviter double processing)
                         target.setMetadata("zombiez_secondary_damage",
                             new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                         target.damage(baseDamage, player);
+
+                        // Afficher l'hologramme de dégâts directement
+                        PacketDamageIndicator.display(plugin, target.getLocation().add(0, target.getHeight(), 0), baseDamage, false, player);
 
                         // Heal au joueur
                         if (player.isOnline()) {
