@@ -18,6 +18,7 @@ import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -1653,6 +1654,26 @@ public class TalentListener implements Listener {
     // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
+        // ULTRA FAST TICK (2L = 0.1s) - Animation fluide des os du Bouclier d'Os
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeGuerriers.isEmpty()) return;
+
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    // Bouclier d'Os - ArmorStands tournants avec animation ultra-fluide
+                    Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
+                    if (boneShieldVisual != null) {
+                        int charges = boneShieldCharges.getOrDefault(uuid, 0);
+                        updateBoneShieldArmorStands(player, charges);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 2L, 2L);
+
         // FAST TICK (10L = 0.5s) - Execute auras
         new BukkitRunnable() {
             @Override
@@ -1701,13 +1722,6 @@ public class TalentListener implements Listener {
                                 }
                             }
                         }
-                    }
-
-                    // Bouclier d'Os - ArmorStands tournants
-                    Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
-                    if (boneShieldVisual != null) {
-                        int charges = boneShieldCharges.getOrDefault(uuid, 0);
-                        updateBoneShieldArmorStands(player, charges);
                     }
                 }
             }
@@ -4437,6 +4451,7 @@ public class TalentListener implements Listener {
     /**
      * Met à jour les ArmorStands du Bouclier d'Os autour du joueur
      * Crée, supprime ou repositionne les os selon le nombre de charges
+     * Animation fluide: appelée chaque tick pour une rotation smooth
      */
     private void updateBoneShieldArmorStands(Player player, int charges) {
         UUID uuid = player.getUniqueId();
@@ -4467,13 +4482,13 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Rotation progressive (avance de 18° à chaque tick = ~0.5s = rotation complète en ~1s)
+        // Rotation fluide: 3.6° par tick = rotation complète en 100 ticks (5 secondes)
         double baseAngle = boneShieldRotation.getOrDefault(uuid, 0.0);
-        baseAngle = (baseAngle + 18) % 360;
+        baseAngle = (baseAngle + 3.6) % 360;
         boneShieldRotation.put(uuid, baseAngle);
 
-        // Positionner les os autour du joueur
-        double radius = 1.0;
+        // Positionner les os autour du joueur avec mouvement fluide
+        double radius = 1.2;
         double angleStep = 360.0 / charges;
         Location playerLoc = player.getLocation();
 
@@ -4486,19 +4501,28 @@ public class TalentListener implements Listener {
                 if (stand == null) continue;
             }
 
-            double angle = Math.toRadians(baseAngle + (i * angleStep));
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
+            double currentAngle = baseAngle + (i * angleStep);
+            double angleRad = Math.toRadians(currentAngle);
+            double x = Math.cos(angleRad) * radius;
+            double z = Math.sin(angleRad) * radius;
 
-            Location newLoc = playerLoc.clone().add(x, 0.8, z);
-            // Faire tourner l'os sur lui-même aussi
-            newLoc.setYaw((float) (baseAngle + (i * angleStep)));
+            // Légère oscillation verticale pour effet de flottement
+            double yOffset = 0.9 + Math.sin(Math.toRadians(baseAngle * 2 + i * 60)) * 0.1;
+
+            Location newLoc = playerLoc.clone().add(x, yOffset, z);
+            // L'os pointe vers l'extérieur du cercle
+            newLoc.setYaw((float) currentAngle + 90);
+
+            // Mettre à jour la pose pour une rotation fluide sur lui-même
+            double selfRotation = Math.toRadians(baseAngle * 2);
+            stand.setHeadPose(new EulerAngle(Math.toRadians(45), selfRotation, Math.toRadians(45)));
+
             stand.teleport(newLoc);
         }
     }
 
     /**
-     * Crée un ArmorStand invisible avec un os sur la tête
+     * Crée un ArmorStand invisible avec un os sur la tête, en diagonale et glowing
      */
     private ArmorStand spawnBoneArmorStand(Player player) {
         Location loc = player.getLocation().add(0, 0.8, 0);
@@ -4513,6 +4537,10 @@ public class TalentListener implements Listener {
             as.setArms(false);
             // Mettre un os sur la tête
             as.getEquipment().setHelmet(new org.bukkit.inventory.ItemStack(Material.BONE));
+            // Pose diagonale de l'os (45° sur X et Z pour effet incliné)
+            as.setHeadPose(new EulerAngle(Math.toRadians(45), 0, Math.toRadians(45)));
+            // Glowing pour visibilité
+            as.setGlowing(true);
             // Tag pour identifier
             as.addScoreboardTag("zombiez_bone_shield");
             as.addScoreboardTag("zombiez_bone_owner_" + player.getUniqueId());
