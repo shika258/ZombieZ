@@ -754,8 +754,9 @@ public class TalentListener implements Listener {
         // === VOIE DU SANG ===
 
         // Frappe de Mort (SANG) - soigne basé sur les dégâts reçus récemment
+        // ICD de 1s pour éviter le spam heal sur attaques rapides
         Talent deathStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_STRIKE);
-        if (deathStrike != null) {
+        if (deathStrike != null && !isOnCooldown(uuid, "death_strike")) {
             // Vérifier si amélioration Volonté Vampirique ou Pacte de Sang
             double healPercent = deathStrike.getValue(0); // 25% de base
             Talent vampiricWill = getActiveTalentIfHas(player, Talent.TalentEffectType.VAMPIRIC_WILL);
@@ -772,30 +773,53 @@ public class TalentListener implements Listener {
 
             // Calculer les dégâts reçus dans la fenêtre
             double recentDamage = getRecentDamage(uuid, (long) deathStrike.getValue(1));
-            double healAmount = Math.max(recentDamage * healPercent, maxHp * minHeal);
 
-            // Appliquer le soin
-            double currentHealth = player.getHealth();
-            double overheal = 0;
-            if (currentHealth + healAmount > maxHp) {
-                overheal = (currentHealth + healAmount) - maxHp;
-                player.setHealth(maxHp);
-            } else {
-                player.setHealth(currentHealth + healAmount);
-            }
+            // Seulement soigner si on a reçu des dégâts récemment ou au minimum
+            if (recentDamage > 0 || minHeal > 0) {
+                double healAmount = Math.max(recentDamage * healPercent, maxHp * minHeal);
 
-            // Pacte de Sang: overheal devient bouclier
-            if (bloodPact != null && overheal > 0) {
-                double maxShield = maxHp * bloodPact.getValue(1); // 20% max
-                double shieldAmount = Math.min(overheal, maxShield);
-                applyTempShield(player, shieldAmount, (long) bloodPact.getValue(2));
-            }
+                // Appliquer le soin
+                double currentHealth = player.getHealth();
+                double overheal = 0;
+                if (currentHealth + healAmount > maxHp) {
+                    overheal = (currentHealth + healAmount) - maxHp;
+                    player.setHealth(maxHp);
+                } else {
+                    player.setHealth(currentHealth + healAmount);
+                }
 
-            // Effets visuels - traînée de sang
-            if (healAmount > maxHp * 0.05) { // Si heal significatif
-                player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation().add(0, 1, 0),
-                    15, 0.3, 0.5, 0.3, 0.1, Material.REDSTONE_BLOCK.createBlockData());
-                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_BURP, 0.6f, 0.8f);
+                // Pacte de Sang: overheal devient bouclier
+                if (bloodPact != null && overheal > 0) {
+                    double maxShield = maxHp * bloodPact.getValue(1); // 20% max
+                    double shieldAmount = Math.min(overheal, maxShield);
+                    applyTempShield(player, shieldAmount, (long) bloodPact.getValue(2));
+
+                    // Feedback bouclier
+                    if (shouldSendTalentMessage(player)) {
+                        setTempEventMessage(uuid, "§6+" + (int)shieldAmount + " §7bouclier (overheal)");
+                    }
+                }
+
+                // ICD de 1 seconde
+                setCooldown(uuid, "death_strike", 1000);
+
+                // Effets visuels - traînée de sang vers le joueur
+                if (healAmount > maxHp * 0.03) { // Si heal > 3% PV
+                    // Particules de sang de la cible vers le joueur
+                    Location targetLoc = target.getLocation().add(0, 1, 0);
+                    Location playerLoc = player.getLocation().add(0, 1, 0);
+                    Vector direction = playerLoc.toVector().subtract(targetLoc.toVector()).normalize();
+
+                    for (double d = 0; d < targetLoc.distance(playerLoc); d += 0.5) {
+                        Location particleLoc = targetLoc.clone().add(direction.clone().multiply(d));
+                        player.getWorld().spawnParticle(Particle.DUST, particleLoc,
+                            2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.RED, 1.0f));
+                    }
+
+                    // Particules de heal sur le joueur
+                    player.getWorld().spawnParticle(Particle.HEART, playerLoc, 3, 0.3, 0.3, 0.3, 0);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_BURP, 0.5f, 1.2f);
+                }
             }
         }
 
@@ -805,8 +829,14 @@ public class TalentListener implements Listener {
             int chargesToRegen = (int) marrowrend.getValue(0); // 3
             double damageBonus = marrowrend.getValue(1); // +50%
 
+            // Récupérer charges avant pour feedback
+            int chargesBefore = boneShieldCharges.getOrDefault(uuid, 0);
+
             // Régénérer les charges
             regenerateBoneShieldCharges(player, chargesToRegen);
+
+            int chargesAfter = boneShieldCharges.getOrDefault(uuid, 0);
+            int chargesGained = chargesAfter - chargesBefore;
 
             // Bonus dégâts
             damage *= (1 + damageBonus);
@@ -815,10 +845,23 @@ public class TalentListener implements Listener {
             long cooldown = (long) marrowrend.getValue(2);
             setCooldown(uuid, "marrowrend", cooldown);
 
-            // Effets visuels
-            player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation().add(0, 1, 0),
-                20, 0.5, 0.5, 0.5, 0.1, Material.BONE_BLOCK.createBlockData());
+            // Effets visuels améliorés - os qui jaillissent
+            Location loc = player.getLocation();
+            for (int i = 0; i < 8; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double dist = 0.5 + Math.random() * 0.5;
+                double x = loc.getX() + dist * Math.cos(angle);
+                double z = loc.getZ() + dist * Math.sin(angle);
+                player.getWorld().spawnParticle(Particle.BLOCK, x, loc.getY() + 0.5 + Math.random(), z,
+                    3, 0.1, 0.2, 0.1, 0.05, Material.BONE_BLOCK.createBlockData());
+            }
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SKELETON_HURT, 1.0f, 0.6f);
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BONE_BLOCK_PLACE, 0.8f, 1.2f);
+
+            // Feedback
+            if (shouldSendTalentMessage(player)) {
+                setTempEventMessage(uuid, "§f§lMOELLE! §7+" + chargesGained + " os §8(§f" + chargesAfter + "/5§8)");
+            }
         }
 
         // Cœur de Vampire (SANG) - lifesteal passif + réduction cooldowns
@@ -861,15 +904,20 @@ public class TalentListener implements Listener {
             Talent deathDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
             if (deathDecay != null) {
                 double radius = deathDecay.getValue(0);
-                if (player.getLocation().distance(dadCenter) <= radius) {
+
+                // Vérifier même monde avant de calculer la distance
+                if (player.getWorld().equals(dadCenter.getWorld()) &&
+                    player.getLocation().distance(dadCenter) <= radius) {
+
                     // Bonus dégâts dans la zone
                     damage *= (1 + deathDecay.getValue(2)); // +25%
 
-                    // AoE: touche tous les ennemis dans la zone
+                    // AoE: touche tous les ennemis dans la zone (dégâts réduits)
+                    double baseDamage = damage; // Stocker avant AoE pour éviter amplification
                     for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                         if (entity instanceof LivingEntity nearbyTarget && entity != target && entity != player) {
                             if (nearbyTarget.getLocation().distance(dadCenter) <= radius) {
-                                double aoeDamage = damage * 0.5; // 50% aux autres cibles
+                                double aoeDamage = baseDamage * 0.35; // 35% aux autres cibles (réduit de 50%)
                                 nearbyTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                 nearbyTarget.damage(aoeDamage, player);
                             }
@@ -1615,6 +1663,15 @@ public class TalentListener implements Listener {
                                     target.getWorld().spawnParticle(Particle.SOUL, target.getLocation(), 5, 0.3, 0.3, 0.3, 0.02);
                                 }
                             }
+                        }
+                    }
+
+                    // Bouclier d'Os - Particules tournantes visuelles
+                    Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
+                    if (boneShieldVisual != null) {
+                        int charges = boneShieldCharges.getOrDefault(uuid, 0);
+                        if (charges > 0) {
+                            spawnBoneShieldParticles(player, charges);
                         }
                     }
                 }
@@ -3997,80 +4054,115 @@ public class TalentListener implements Listener {
     /**
      * ActionBar pour Titan (Slot 3) - Tanky/Résistance
      */
+    /**
+     * ActionBar pour Voie du Sang (Slot 3) - Tank Vampire
+     * Affiche: Charges d'Os, Épée Dansante, Zone D&D, Dégâts récents
+     */
     private void buildTitanActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
-        bar.append("§8§l[§7🗿§8§l] ");
+        bar.append("§4§l[§c🩸§4§l] ");
 
-        // Bouclier temporaire
+        // === ÉPÉE DANSANTE ACTIVE - Mode prioritaire ===
+        Long dancingExpiry = dancingRuneWeaponExpiry.get(uuid);
+        if (dancingExpiry != null && System.currentTimeMillis() < dancingExpiry) {
+            long remaining = (dancingExpiry - System.currentTimeMillis()) / 1000;
+            bar.append("§4§l⚔ EPÉE! §e").append(remaining).append("s");
+
+            // Charges d'os pendant ultime (compact)
+            int charges = boneShieldCharges.getOrDefault(uuid, 0);
+            bar.append("  §f").append(getBoneChargesDisplay(charges));
+            return;
+        }
+
+        // === CHARGES D'OS (Bone Shield) ===
+        Talent boneShield = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
+        if (boneShield != null) {
+            int charges = boneShieldCharges.getOrDefault(uuid, 0);
+            int maxCharges = (int) boneShield.getValue(0);
+
+            // Affichage visuel des charges
+            bar.append(getBoneChargesDisplay(charges));
+
+            // Alerte si peu de charges
+            if (charges <= 2 && charges > 0) {
+                bar.append(" §c⚠");
+            } else if (charges == 0) {
+                bar.append(" §4§l⚠⚠");
+            }
+        }
+
+        // === MORT ET DECOMPOSITION (Zone active) ===
+        Location dadCenter = deathAndDecayCenter.get(uuid);
+        Long dadExpiry = deathAndDecayExpiry.get(uuid);
+        if (dadCenter != null && dadExpiry != null && System.currentTimeMillis() < dadExpiry) {
+            long remaining = (dadExpiry - System.currentTimeMillis()) / 1000;
+            boolean inZone = player.getWorld().equals(dadCenter.getWorld()) &&
+                             player.getLocation().distance(dadCenter) <= 6.0;
+            if (inZone) {
+                bar.append("  §4§l☠ ZONE §e").append(remaining).append("s");
+            } else {
+                bar.append("  §8☠ ").append(remaining).append("s §c(hors zone!)");
+            }
+        }
+
+        // === DÉGÂTS RÉCENTS (pour Death Strike feedback) ===
+        Talent deathStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_STRIKE);
+        if (deathStrike != null) {
+            double recentDamage = getRecentDamage(uuid, (long) deathStrike.getValue(1));
+            if (recentDamage > 0) {
+                double maxHp = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+                double healPercent = deathStrike.getValue(0);
+
+                // Vérifier améliorations
+                Talent vampiricWill = getActiveTalentIfHas(player, Talent.TalentEffectType.VAMPIRIC_WILL);
+                if (vampiricWill != null) healPercent = vampiricWill.getValue(0);
+                Talent bloodPact = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_PACT);
+                if (bloodPact != null) healPercent = bloodPact.getValue(0);
+
+                double potentialHeal = recentDamage * healPercent;
+                String healColor = potentialHeal > maxHp * 0.15 ? "§a§l" : "§a";
+                bar.append("  ").append(healColor).append("♥+").append(String.format("%.0f", potentialHeal));
+            }
+        }
+
+        // === BOUCLIER TEMPORAIRE (Pacte de Sang) ===
         double shield = tempShield.getOrDefault(uuid, 0.0);
         if (shield > 0) {
             Long expiry = tempShieldExpiry.get(uuid);
             String timeStr = "";
             if (expiry != null) {
                 long remaining = (expiry - System.currentTimeMillis()) / 1000;
-                if (remaining > 0) timeStr = " §7(" + remaining + "s)";
+                if (remaining > 0) timeStr = " " + remaining + "s";
             }
-            bar.append("§b🛡 ").append(String.format("%.0f", shield)).append(timeStr);
+            bar.append("  §6◇").append(String.format("%.0f", shield)).append(timeStr);
         }
 
-        // Cyclones Sanglants actifs
-        int cyclones = activeBloodCyclones.getOrDefault(uuid, 0);
-        if (cyclones > 0) {
-            bar.append("  §4🌀 x").append(cyclones);
-        }
-
-        // Frénésie Guerrière - combo counter
-        Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
-        if (warriorFrenzy != null) {
-            int comboRequired = (int) warriorFrenzy.getValue(0); // 5
-            long timeout = (long) warriorFrenzy.getValue(1);      // 3000ms
-            Long lastHit = frenzyLastHit.get(uuid);
-            boolean isActive = lastHit != null && System.currentTimeMillis() - lastHit <= timeout;
-
-            if (frenzyReady.getOrDefault(uuid, false)) {
-                // Ready to explode!
-                bar.append("  §c§l⚡ FRÉNÉSIE!");
-            } else if (isActive) {
-                int currentCombo = frenzyComboCount.getOrDefault(uuid, 0);
-                if (currentCombo > 0) {
-                    String color = currentCombo >= comboRequired - 1 ? "§e" : "§6";
-                    bar.append("  ").append(color).append("⚡ ").append(currentCombo).append("/").append(comboRequired);
-                }
-            }
-        }
-
-        // Méga Tornade - affichage durée restante ou cooldown
-        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
-        if (megaTornado != null) {
-            Long activeUntil = megaTornadoActiveUntil.get(uuid);
-            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
-                // Actif - afficher durée restante
-                long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
-                bar.append("  §c§l🌪 MEGA! §e").append(remaining).append("s");
-            } else if (isOnCooldown(uuid, "mega_tornado")) {
-                // En cooldown
-                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
-                bar.append("  §8🌪 ").append(remaining).append("s");
+        // === ÉPÉE DANSANTE COOLDOWN ===
+        Talent dancing = getActiveTalentIfHas(player, Talent.TalentEffectType.DANCING_RUNE_WEAPON);
+        if (dancing != null) {
+            if (isOnCooldown(uuid, "dancing_rune_weapon")) {
+                long remaining = getCooldownRemaining(uuid, "dancing_rune_weapon") / 1000;
+                bar.append("  §8⚔ ").append(remaining).append("s");
             } else {
-                // Prêt!
-                bar.append("  §a🌪 PRÊT");
+                bar.append("  §a⚔ PRÊT");
             }
         }
+    }
 
-        // HP volés (Avatar de Sang)
-        double bloodHp = bloodStolenHp.getOrDefault(uuid, 0.0);
-        if (bloodHp > 0) {
-            bar.append("  §4♥ ").append(String.format("%.0f", bloodHp));
-        }
-
-        // Immortel disponible
-        Talent immortal = getActiveTalentIfHas(player, Talent.TalentEffectType.IMMORTAL);
-        if (immortal != null) {
-            long cooldownEnd = immortalLastProc.getOrDefault(uuid, 0L) + (long) immortal.getValue(0);
-            if (System.currentTimeMillis() >= cooldownEnd) {
-                bar.append("  §a§l☠ PRÊT");
+    /**
+     * Génère l'affichage visuel des charges d'os
+     * Exemple: ●●●○○ pour 3/5 charges
+     */
+    private String getBoneChargesDisplay(int charges) {
+        StringBuilder display = new StringBuilder("§f");
+        for (int i = 0; i < 5; i++) {
+            if (i < charges) {
+                display.append("●");
+            } else {
+                display.append("§8○");
             }
         }
+        return display.toString();
     }
 
     /**
@@ -4188,6 +4280,7 @@ public class TalentListener implements Listener {
         recentDamageTaken.remove(playerUuid);
         boneShieldCharges.remove(playerUuid);
         boneShieldLastRegen.remove(playerUuid);
+        boneShieldRotation.remove(playerUuid);
         deathAndDecayCenter.remove(playerUuid);
         deathAndDecayExpiry.remove(playerUuid);
         dancingRuneWeaponExpiry.remove(playerUuid);
@@ -4245,6 +4338,51 @@ public class TalentListener implements Listener {
         int current = boneShieldCharges.getOrDefault(uuid, 0);
         int newCharges = Math.min(current + amount, maxCharges);
         boneShieldCharges.put(uuid, newCharges);
+    }
+
+    // Compteur pour l'angle de rotation des particules d'os
+    private final Map<UUID, Double> boneShieldRotation = new ConcurrentHashMap<>();
+
+    /**
+     * Affiche des particules d'os tournantes autour du joueur
+     * Les os orbitent à hauteur du torse, un par charge active
+     */
+    private void spawnBoneShieldParticles(Player player, int charges) {
+        UUID uuid = player.getUniqueId();
+        Location center = player.getLocation().add(0, 1.0, 0);
+
+        // Rotation progressive (avance de 15° à chaque tick = ~0.5s)
+        double baseAngle = boneShieldRotation.getOrDefault(uuid, 0.0);
+        baseAngle = (baseAngle + 15) % 360;
+        boneShieldRotation.put(uuid, baseAngle);
+
+        // Rayon orbital
+        double radius = 0.8;
+
+        // Afficher un os par charge, répartis uniformément
+        double angleStep = 360.0 / charges;
+        for (int i = 0; i < charges; i++) {
+            double angle = Math.toRadians(baseAngle + (i * angleStep));
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+
+            Location particleLoc = center.clone().add(x, 0, z);
+
+            // Particule principale - bloc d'os
+            player.getWorld().spawnParticle(
+                Particle.BLOCK,
+                particleLoc,
+                2, 0.05, 0.1, 0.05, 0.01,
+                Material.BONE_BLOCK.createBlockData()
+            );
+
+            // Petite traînée spectrale
+            player.getWorld().spawnParticle(
+                Particle.SOUL,
+                particleLoc,
+                1, 0.02, 0.02, 0.02, 0.005
+            );
+        }
     }
 
     /**
