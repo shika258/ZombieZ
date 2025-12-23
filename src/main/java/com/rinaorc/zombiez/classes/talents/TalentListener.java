@@ -1950,49 +1950,33 @@ public class TalentListener implements Listener {
                 rotationAngle += 0.5;
                 Location center = player.getLocation();
 
-                // === EFFET VISUEL - MEGA TORNADE (cône inversé: étroit en bas, large en haut) ===
+                // === EFFET VISUEL - MEGA TORNADE ===
+                // Spirale ascendante fluide (une seule boucle optimisée)
+                double pulse = 1.0 + Math.sin(ticks * 0.15) * 0.1; // Légère pulsation
 
-                // Structure de la tornade (5 couches, étroite en bas → large en haut)
-                for (int layer = 0; layer < 5; layer++) {
-                    double height = layer * 0.8;
-                    // Rayon croissant avec la hauteur (vraie forme de tornade)
-                    double layerRadius = 0.5 + (layer * 0.6);
+                for (int i = 0; i < 12; i++) {
+                    double t = i / 12.0;
+                    double height = t * 3.5;
+                    double layerRadius = (0.4 + t * 2.0) * pulse;
+                    double angle = rotationAngle + t * Math.PI * 3; // Spirale sur 1.5 tours
 
-                    for (int i = 0; i < 6; i++) {
-                        double angle = rotationAngle + (2 * Math.PI * i / 6) + (layer * 0.4);
-                        double x = Math.cos(angle) * layerRadius;
-                        double z = Math.sin(angle) * layerRadius;
+                    double x = Math.cos(angle) * layerRadius;
+                    double z = Math.sin(angle) * layerRadius;
 
-                        // Dégradé rouge sombre → orange vers le haut
-                        int red = 139 + layer * 20;
-                        center.getWorld().spawnParticle(
-                            Particle.DUST,
-                            center.clone().add(x, height, z),
-                            1, 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(Math.min(red, 255), layer * 15, 0), 1.8f)
-                        );
-                    }
-                }
-
-                // Spirale externe (réduite à 8 points)
-                for (int i = 0; i < 8; i++) {
-                    double angle = rotationAngle * 2 + (2 * Math.PI * i / 8);
-                    double spiralRadius = radius * 0.5;
-                    double x = Math.cos(angle) * spiralRadius;
-                    double z = Math.sin(angle) * spiralRadius;
-                    double y = (i % 3) * 0.6;
-
+                    // Dégradé rouge sombre → orange
+                    int red = (int) (140 + t * 100);
+                    int green = (int) (t * 60);
                     center.getWorld().spawnParticle(
                         Particle.DUST,
-                        center.clone().add(x, y + 0.3, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.ORANGE, 1.2f)
+                        center.clone().add(x, height, z),
+                        1, 0.05, 0.05, 0.05, 0,
+                        new Particle.DustOptions(Color.fromRGB(Math.min(red, 255), green, 0), 1.5f + (float)t * 0.5f)
                     );
                 }
 
-                // Flammes légères au sommet (réduites)
-                if (ticks % 2 == 0) {
-                    center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 3.5, 0), 3, 1.0, 0.5, 1.0, 0.02);
+                // Flammes au sommet (occasionnelles)
+                if (ticks % 3 == 0) {
+                    center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 3.2, 0), 2, 0.8, 0.3, 0.8, 0.01);
                 }
 
                 // Son ambiant (vent)
@@ -2157,37 +2141,26 @@ public class TalentListener implements Listener {
                 ticks++;
                 rotationAngle += 0.5; // Rotation progressive
 
-                // Intensité croissante (plus le cyclone dure, plus il est intense)
-                double intensity = Math.min(1.0 + (ticks / 40.0), 2.0);
+                // Intensité croissante
+                double intensity = Math.min(1.0 + (ticks / 50.0), 1.5);
+                double pulse = 1.0 + Math.sin(ticks * 0.2) * 0.08;
 
-                // === TORNADO VISUELLE (blanc/gris, cône inversé) ===
-                for (double y = 0; y < 2.0; y += 0.5) {
-                    double layerRadius = 0.3 + (y / 2.0) * radius * 0.8 * intensity;
-                    int particlesPerLayer = 6;
+                // === TORNADO VISUELLE (blanc/gris, spirale fluide) ===
+                for (int i = 0; i < 10; i++) {
+                    double t = i / 10.0;
+                    double height = t * 2.2;
+                    double layerRadius = (0.2 + t * radius * 0.7) * intensity * pulse;
+                    double angle = rotationAngle + t * Math.PI * 2.5;
 
-                    for (int i = 0; i < particlesPerLayer; i++) {
-                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 0.8);
-                        double x = center.getX() + layerRadius * Math.cos(angle);
-                        double z = center.getZ() + layerRadius * Math.sin(angle);
-                        Location particleLoc = new Location(player.getWorld(), x, center.getY() + y, z);
+                    double x = center.getX() + Math.cos(angle) * layerRadius;
+                    double z = center.getZ() + Math.sin(angle) * layerRadius;
 
-                        // Dégradé gris foncé (bas) → blanc (haut)
-                        int gray = (int) (140 + y * 50);
-                        player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(org.bukkit.Color.fromRGB(gray, gray, gray), 1.0f));
-                    }
-                }
-
-                // Spirale centrale (gris clair)
-                for (double y = 0; y < 1.8; y += 0.4) {
-                    double spiralAngle = rotationAngle * 2 + y * 3;
-                    double spiralRadius = 0.15 + y * 0.15;
-                    double x = center.getX() + spiralRadius * Math.cos(spiralAngle);
-                    double z = center.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    // Dégradé gris foncé → blanc
+                    int gray = (int) (130 + t * 110);
                     player.getWorld().spawnParticle(Particle.DUST,
-                        new Location(player.getWorld(), x, center.getY() + y, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 200, 200), 0.7f));
+                        new Location(player.getWorld(), x, center.getY() + height, z),
+                        1, 0.03, 0.03, 0.03, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(gray, gray, gray), 0.9f + (float)t * 0.3f));
                 }
 
                 // Son de vent périodique (toutes les 10 ticks)
@@ -2326,42 +2299,24 @@ public class TalentListener implements Listener {
                     currentLocation.add(direction.multiply(speed));
                 }
 
-                // === ANIMATION DU CYCLONE SANGLANT (cône inversé: étroit en bas, large en haut) ===
-                for (double y = 0; y < 1.8; y += 0.45) {
-                    // Rayon croissant avec la hauteur (vraie forme de tornade)
-                    double layerRadius = 0.2 + (y / 1.8) * radius * 0.5;
-                    int particlesPerLayer = 5;
+                // === ANIMATION DU CYCLONE SANGLANT (spirale fluide) ===
+                double pulse = 1.0 + Math.sin(ticks * 0.25) * 0.1;
 
-                    for (int i = 0; i < particlesPerLayer; i++) {
-                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 1.2);
-                        double x = currentLocation.getX() + layerRadius * Math.cos(angle);
-                        double z = currentLocation.getZ() + layerRadius * Math.sin(angle);
-                        Location particleLoc = new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z);
+                for (int i = 0; i < 8; i++) {
+                    double t = i / 8.0;
+                    double height = t * 1.8;
+                    double layerRadius = (0.15 + t * radius * 0.4) * pulse;
+                    double angle = rotationAngle + t * Math.PI * 2;
 
-                        // Dégradé rouge sombre → rouge vif vers le haut
-                        int red = (int) (100 + y * 50);
-                        currentLocation.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(org.bukkit.Color.fromRGB(red, 0, 0), 0.9f));
-                    }
-                }
+                    double x = currentLocation.getX() + Math.cos(angle) * layerRadius;
+                    double z = currentLocation.getZ() + Math.sin(angle) * layerRadius;
 
-                // Spirale centrale (réduite)
-                for (double y = 0; y < 1.4; y += 0.35) {
-                    double spiralAngle = rotationAngle * 2.5 + y * 4;
-                    double spiralRadius = 0.1 + y * 0.08;
-                    double x = currentLocation.getX() + spiralRadius * Math.cos(spiralAngle);
-                    double z = currentLocation.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    // Dégradé rouge sombre → rouge vif
+                    int red = (int) (80 + t * 150);
                     currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 0.6f));
-                }
-
-                // Particules de sang occasionnelles (moins fréquentes)
-                if (ticks % 6 == 0) {
-                    currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        currentLocation.clone().add(0, 0.8, 0), 2, 0.2, 0.2, 0.2, 0.03,
-                        new Particle.DustOptions(org.bukkit.Color.RED, 0.7f));
+                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + height, z),
+                        1, 0.02, 0.02, 0.02, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(red, 0, 0), 0.7f + (float)t * 0.4f));
                 }
 
                 // Son ambiant (toutes les 15 ticks)
@@ -2384,10 +2339,10 @@ public class TalentListener implements Listener {
                             applyLifesteal(player, heal);
                         }
 
-                        // Effet de hit
+                        // Effet de hit (réduit)
                         target.getWorld().spawnParticle(Particle.DUST,
-                            target.getLocation().add(0, 1, 0), 8, 0.2, 0.3, 0.2, 0.1,
-                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+                            target.getLocation().add(0, 1, 0), 4, 0.15, 0.2, 0.15, 0.05,
+                            new Particle.DustOptions(org.bukkit.Color.RED, 0.8f));
                     }
                 }
             }
