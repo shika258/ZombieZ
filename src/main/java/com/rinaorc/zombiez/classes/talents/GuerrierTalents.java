@@ -1071,28 +1071,31 @@ public final class GuerrierTalents {
             .values(new double[]{300, 10000, 1.0, 0.50, 2.0}) // damage_threshold, duration_ms, block_chance, damage_bonus%, disc_frequency_mult
             .build());
 
-        // 8.3 - AVATAR DE VENGEANCE
+        // 8.3 - MÉGA TORNADE
         TALENTS.add(Talent.builder()
-            .id("guerrier_vengeance_avatar")
-            .name("Avatar de Vengeance")
-            .description("Stocke degats recus, liberation massive")
+            .id("guerrier_mega_tornado")
+            .name("Mega Tornade")
+            .description("Double sneak = transformation en mega tornade")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
                 "",
-                "§7Les degats recus sont stockes",
-                "§7(cap §c500%§7 PV max).",
+                "§7Upgrade du §cCyclone de Rage§7:",
+                "§7Double sneak = §c§lMEGA TORNADE§7!",
                 "",
-                "§8Crouch + Attack = Explosion",
-                "§8Degats: §c100%§8 du stocke",
-                "§8Rayon: §e6§8 blocs"
+                "§7Vous doublez de taille et aspirez",
+                "§7les mobs vers vous en courant,",
+                "§7infligeant de §clourds degats§7.",
+                "",
+                "§8Duree: §e10s§8 | Cooldown: §e35s",
+                "§8Rayon d'aspiration: §e8§8 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
             .slotIndex(2)
-            .icon(Material.NETHERITE_BLOCK)
-            .iconColor("§5§l")
-            .effectType(Talent.TalentEffectType.VENGEANCE_AVATAR)
-            .values(new double[]{5.0, 1.0, 6.0}) // max_stored_multiplier, release_damage%, radius
+            .icon(Material.BREEZE_ROD)
+            .iconColor("§c§l")
+            .effectType(Talent.TalentEffectType.MEGA_TORNADO)
+            .values(new double[]{10000, 35000, 8.0, 2.0, 0.75}) // duration_ms, cooldown_ms, radius, scale, damage%_per_tick
             .build());
 
         // 8.4 - CITADELLE VIVANTE

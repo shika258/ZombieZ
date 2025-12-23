@@ -132,7 +132,7 @@ public class Talent {
         // === GUERRIER - Tier 9 ===
         RAGNAROK,                // Auto mega nuke
         BULWARK_AVATAR,          // REMPART: Transformation ultime défensive
-        VENGEANCE_AVATAR,        // Stored damage release
+        MEGA_TORNADO,            // FUREUR: Upgrade Cyclone - double sneak = méga tornade aspirante
         LIVING_CITADEL,          // Invuln then explode
         EXTINCTION,              // First hit mega damage
 

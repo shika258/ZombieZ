@@ -94,8 +94,9 @@ public class TalentListener implements Listener {
     // Cyclones Sanglants - tracking des cyclones actifs par joueur
     private final Map<UUID, Integer> activeBloodCyclones = new ConcurrentHashMap<>();
 
-    // Avatar de Vengeance - degats stockes
-    private final Map<UUID, Double> storedDamage = new ConcurrentHashMap<>();
+    // Méga Tornade - état actif et expiration
+    private final Map<UUID, Long> megaTornadoActiveUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> megaTornadoOriginalScale = new ConcurrentHashMap<>();
 
     // Avatar de Sang - HP volés cumulés
     private final Map<UUID, Double> bloodStolenHp = new ConcurrentHashMap<>();
@@ -567,16 +568,6 @@ public class TalentListener implements Listener {
 
         // Dieu du Sang - tracking (handled in damage received)
 
-        // Avatar de Vengeance - crouch + attack release
-        Talent vengeanceAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEANCE_AVATAR);
-        if (vengeanceAvatar != null && player.isSneaking()) {
-            double stored = storedDamage.getOrDefault(uuid, 0.0);
-            if (stored > 0) {
-                procVengeanceRelease(player, stored, vengeanceAvatar.getValue(2));
-                storedDamage.put(uuid, 0.0);
-            }
-        }
-
         // Frénésie Guerrière - combo 5 coups = 6ème coup AoE +150%
         Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
         if (warriorFrenzy != null) {
@@ -947,15 +938,6 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Avatar de Vengeance - stockage
-        Talent vengeance = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEANCE_AVATAR);
-        if (vengeance != null) {
-            double maxHp = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-            double maxStore = maxHp * vengeance.getValue(0);
-            double current = storedDamage.getOrDefault(uuid, 0.0);
-            storedDamage.put(uuid, Math.min(maxStore, current + damage));
-        }
-
         // Citadelle Vivante
         Talent citadel = getActiveTalentIfHas(player, Talent.TalentEffectType.LIVING_CITADEL);
         if (citadel != null && player.isSneaking() && !isOnCooldown(uuid, "citadel")) {
@@ -1228,6 +1210,28 @@ public class TalentListener implements Listener {
             if (!isOnCooldown(uuid, "ragnarok")) {
                 procRagnarok(player, ragnarok);
                 setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
+            }
+            return; // Ne pas activer Mega Tornade si on a Ragnarok
+        }
+
+        // Méga Tornade - L'ULTIME du Guerrier Fureur
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+        if (megaTornado != null) {
+            // Vérifier si pas déjà actif
+            Long activeUntil = megaTornadoActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                // Déjà actif - feedback
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                return;
+            }
+
+            if (!isOnCooldown(uuid, "mega_tornado")) {
+                procMegaTornado(player, megaTornado);
+                setCooldown(uuid, "mega_tornado", (long) megaTornado.getValue(1));
+            } else {
+                // Feedback cooldown
+                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
     }
@@ -1886,26 +1890,185 @@ public class TalentListener implements Listener {
         }
     }
 
-    private void procVengeanceRelease(Player player, double damage, double radius) {
-        Location center = player.getLocation();
+    /**
+     * Mega Tornade - transformation en tornade géante aspirante
+     */
+    private void procMegaTornado(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0);      // 10000ms
+        double radius = talent.getValue(2);              // 8.0 blocs
+        double targetScale = talent.getValue(3);         // 2.0 (double taille)
+        double damagePercent = talent.getValue(4);       // 0.75 = 75% par tick
 
-        // Liberation de rage - effet intense mais compact
-        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 15, radius/3, 0.5, radius/3, 0);
-        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
-        player.getWorld().spawnParticle(Particle.DUST, center, 20, radius/2, 0.8, radius/2, 0,
-            new Particle.DustOptions(Color.fromRGB(180, 50, 50), 2.0f));
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 0.6f);
+        // Sauvegarder le scale original
+        double originalScale = player.getAttribute(Attribute.SCALE).getValue();
+        megaTornadoOriginalScale.put(uuid, originalScale);
+        megaTornadoActiveUntil.put(uuid, System.currentTimeMillis() + duration);
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
-            }
+        // Doubler la taille du joueur
+        player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * targetScale);
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 0.6f, 0.8f);
+
+        // Message
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c§l🌪 MEGA TORNADE! §7Vous devenez une force de destruction!");
         }
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ VENGEANCE! §7Vous liberez toute votre rage accumulee!");
+        // Marquer en combat
+        plugin.getActionBarManager().markInCombat(uuid);
+
+        // Calculer les dégâts de base
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * damagePercent;
+
+        // Task pour l'effet de tornade
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+
+            @Override
+            public void run() {
+                // Vérifier si le joueur est toujours en ligne
+                if (!player.isOnline() || player.isDead()) {
+                    endMegaTornado(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                // Vérifier si la durée est écoulée
+                Long activeUntil = megaTornadoActiveUntil.get(uuid);
+                if (activeUntil == null || System.currentTimeMillis() >= activeUntil) {
+                    endMegaTornado(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+                rotationAngle += 0.5;
+                Location center = player.getLocation();
+
+                // === EFFET VISUEL - MEGA TORNADE ===
+
+                // Base de la tornade (rouge sombre)
+                for (int layer = 0; layer < 8; layer++) {
+                    double height = layer * 0.5;
+                    double layerRadius = 1.0 + (layer * 0.4);
+
+                    for (int i = 0; i < 8; i++) {
+                        double angle = rotationAngle + (2 * Math.PI * i / 8) + (layer * 0.3);
+                        double x = Math.cos(angle) * layerRadius;
+                        double z = Math.sin(angle) * layerRadius;
+
+                        center.getWorld().spawnParticle(
+                            Particle.DUST,
+                            center.clone().add(x, height, z),
+                            1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f)
+                        );
+                    }
+                }
+
+                // Spirale externe (orange/jaune)
+                for (int i = 0; i < 16; i++) {
+                    double angle = rotationAngle * 2 + (2 * Math.PI * i / 16);
+                    double spiralRadius = radius * 0.6;
+                    double x = Math.cos(angle) * spiralRadius;
+                    double z = Math.sin(angle) * spiralRadius;
+                    double y = (i % 4) * 0.5;
+
+                    center.getWorld().spawnParticle(
+                        Particle.DUST,
+                        center.clone().add(x, y + 0.5, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.ORANGE, 1.5f)
+                    );
+                }
+
+                // Flammes et éclairs
+                center.getWorld().spawnParticle(Particle.FLAME, center.add(0, 2, 0), 10, 1.5, 1.5, 1.5, 0.05);
+                center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 5, 2, 2, 2, 0.1);
+
+                // Son ambiant (vent)
+                if (ticks % 4 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_PHANTOM_FLAP, 0.5f, 0.5f);
+                }
+
+                // === ASPIRATION ET DEGATS (seulement si le joueur court) ===
+                if (player.isSprinting()) {
+                    for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+                        if (entity instanceof LivingEntity target && entity != player && !entity.isDead()) {
+                            if (target instanceof Monster || target.getScoreboardTags().contains("zombiez_enemy")) {
+                                // Aspiration vers le joueur
+                                Vector direction = center.toVector().subtract(target.getLocation().toVector());
+                                double distance = direction.length();
+
+                                if (distance > 1.5) {
+                                    // Plus fort quand plus loin
+                                    double pullStrength = Math.min(0.8, (radius - distance) / radius + 0.3);
+                                    direction.normalize().multiply(pullStrength);
+                                    target.setVelocity(target.getVelocity().add(direction));
+                                }
+
+                                // Dégâts (tous les 5 ticks = 4x/sec)
+                                if (ticks % 5 == 0) {
+                                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                                    target.damage(baseDamage, player);
+
+                                    // Particules sur la cible
+                                    target.getWorld().spawnParticle(
+                                        Particle.CRIT,
+                                        target.getLocation().add(0, 1, 0),
+                                        5, 0.3, 0.3, 0.3, 0.1
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    // Son de vent intense pendant le sprint
+                    if (ticks % 10 == 0) {
+                        player.getWorld().playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 0.6f, 1.2f);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
+     * Termine la Mega Tornade et restaure le scale
+     */
+    private void endMegaTornado(Player player, UUID uuid) {
+        // Restaurer le scale original
+        Double originalScale = megaTornadoOriginalScale.remove(uuid);
+        if (originalScale != null && player.isOnline()) {
+            player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+        }
+
+        megaTornadoActiveUntil.remove(uuid);
+
+        // Effets de fin
+        if (player.isOnline()) {
+            Location center = player.getLocation();
+
+            // Explosion finale
+            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 3, 1, 1, 1, 0.1);
+            center.getWorld().spawnParticle(
+                Particle.DUST,
+                center,
+                30, 2, 2, 2, 0.1,
+                new Particle.DustOptions(Color.RED, 2.0f)
+            );
+
+            // Sons de fin
+            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.8f);
+            player.getWorld().playSound(center, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
+
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§7La §c§lMega Tornade§7 se dissipe...");
+            }
         }
     }
 
@@ -3548,10 +3711,22 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Dégâts stockés (Avatar Vengeance)
-        double stored = storedDamage.getOrDefault(uuid, 0.0);
-        if (stored > 0) {
-            bar.append("  §4Stocké: §c").append(String.format("%.0f", stored));
+        // Méga Tornade - affichage durée restante ou cooldown
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+        if (megaTornado != null) {
+            Long activeUntil = megaTornadoActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                // Actif - afficher durée restante
+                long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
+                bar.append("  §c§l🌪 MEGA! §e").append(remaining).append("s");
+            } else if (isOnCooldown(uuid, "mega_tornado")) {
+                // En cooldown
+                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                bar.append("  §8🌪 ").append(remaining).append("s");
+            } else {
+                // Prêt!
+                bar.append("  §a🌪 PRÊT");
+            }
         }
 
         // HP volés (Avatar de Sang)
@@ -3599,6 +3774,15 @@ public class TalentListener implements Listener {
      * Nettoie les données d'un joueur (déconnexion)
      */
     public void cleanupPlayer(UUID playerUuid) {
+        // Restaurer le scale si Mega Tornade était active
+        Double originalScale = megaTornadoOriginalScale.get(playerUuid);
+        if (originalScale != null) {
+            Player player = plugin.getServer().getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+            }
+        }
+
         // Cleanup tracking data
         furyStacks.remove(playerUuid);
         furyLastHit.remove(playerUuid);
@@ -3625,7 +3809,8 @@ public class TalentListener implements Listener {
         bulwarkAvatarActiveUntil.remove(playerUuid);
         bulwarkLastMilestone.remove(playerUuid);
         activeBloodCyclones.remove(playerUuid);
-        storedDamage.remove(playerUuid);
+        megaTornadoActiveUntil.remove(playerUuid);
+        megaTornadoOriginalScale.remove(playerUuid);
         bloodStolenHp.remove(playerUuid);
         chainExecuteBuff.remove(playerUuid);
         lastDamageDealt.remove(playerUuid);
