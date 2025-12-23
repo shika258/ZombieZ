@@ -122,10 +122,52 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
 
             case "all", "tout", "inventory", "inventaire" -> {
                 RecycleSettings settings = recycleManager.getSettings(player.getUniqueId());
+
+                // Compter les items qui seront recyclés (preview)
+                int previewCount = 0;
+                int previewPoints = 0;
+                ItemStack[] contents = player.getInventory().getStorageContents();
+
+                for (ItemStack item : contents) {
+                    if (item == null || item.isEmpty()) continue;
+                    if (!ZombieZItem.isZombieZItem(item)) continue;
+
+                    Rarity rarity = ZombieZItem.getItemRarity(item);
+                    if (rarity == null) continue;
+                    if (!settings.shouldRecycle(rarity)) continue;
+
+                    previewCount++;
+                    previewPoints += recycleManager.calculateRecyclePoints(rarity, ZombieZItem.getItemZoneLevel(item));
+                }
+
+                if (previewCount == 0) {
+                    player.sendMessage("§cAucun item recyclable trouvé dans votre inventaire.");
+                    player.sendMessage("§7Vérifiez vos paramètres de rareté avec §e/recycle§7.");
+                    return true;
+                }
+
+                // Vérifier si confirmation fournie
+                boolean confirmed = args.length >= 2 && args[1].equalsIgnoreCase("confirm");
+
+                if (!confirmed) {
+                    // Afficher l'aperçu et demander confirmation
+                    player.sendMessage("§6§l⚠ Confirmation Requise");
+                    player.sendMessage("");
+                    player.sendMessage("§7Vous allez recycler §e" + previewCount + " items§7.");
+                    player.sendMessage("§7Points estimés: §6~" + RecycleManager.formatPoints(previewPoints) + " pts");
+                    player.sendMessage("");
+                    player.sendMessage("§c⚠ Attention: §7Cela peut inclure vos armes et équipements!");
+                    player.sendMessage("§7Seules les raretés activées seront recyclées.");
+                    player.sendMessage("");
+                    player.sendMessage("§aTapez §e/rec all confirm §apour confirmer.");
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.6f, 1.0f);
+                    return true;
+                }
+
+                // Exécuter le recyclage
                 int totalPoints = 0;
                 int itemsRecycled = 0;
 
-                ItemStack[] contents = player.getInventory().getStorageContents();
                 for (int i = 0; i < contents.length; i++) {
                     ItemStack item = contents[i];
                     if (item == null || item.isEmpty()) continue;
@@ -150,9 +192,6 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("§7Items recyclés: §e" + itemsRecycled);
                     player.sendMessage("§7Points gagnés: §6+" + RecycleManager.formatPoints(totalPoints));
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.5f);
-                } else {
-                    player.sendMessage("§cAucun item recyclable trouvé dans votre inventaire.");
-                    player.sendMessage("§7Vérifiez vos paramètres de rareté avec §e/recycle§7.");
                 }
             }
 
@@ -174,7 +213,7 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/recycle §7- Ouvre le menu de configuration");
         player.sendMessage("§e/recycle toggle §7- Active/désactive le recyclage");
         player.sendMessage("§e/recycle hand §7- Recycle l'item en main");
-        player.sendMessage("§e/recycle all §7- Recycle tout l'inventaire");
+        player.sendMessage("§e/rec all [confirm] §7- Recycle tout l'inventaire");
         player.sendMessage("§e/recycle stats §7- Affiche vos statistiques");
         player.sendMessage("§e/recycle preview §7- Aperçu des points par rareté");
         player.sendMessage("");
@@ -194,6 +233,13 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
             for (String option : options) {
                 if (option.startsWith(input)) {
                     completions.add(option);
+                }
+            }
+        } else if (args.length == 2) {
+            String firstArg = args[0].toLowerCase();
+            if (firstArg.equals("all") || firstArg.equals("tout") || firstArg.equals("inventory") || firstArg.equals("inventaire")) {
+                if ("confirm".startsWith(args[1].toLowerCase())) {
+                    completions.add("confirm");
                 }
             }
         }

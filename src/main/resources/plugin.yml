@@ -97,9 +97,9 @@ commands:
   # Commandes Recyclage
   recycle:
     description: Système de recyclage automatique d'items
-    usage: /<command> [toggle|hand|stats|preview|help]
+    usage: /<command> [toggle|hand|all|stats|preview|help]
     permission: zombiez.recycle
-    aliases: [recycler, recyclage]
+    aliases: [recycler, recyclage, rec]
 
   # Commandes Économie
   prestige:
