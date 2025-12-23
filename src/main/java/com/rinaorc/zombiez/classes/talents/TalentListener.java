@@ -93,6 +93,7 @@ public class TalentListener implements Listener {
 
     // Cyclones Sanglants - tracking des cyclones actifs par joueur
     private final Map<UUID, Integer> activeBloodCyclones = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> bloodCycloneCooldown = new ConcurrentHashMap<>(); // Cooldown 3s
 
     // Méga Tornade - état actif et expiration
     private final Map<UUID, Long> megaTornadoActiveUntil = new ConcurrentHashMap<>();
@@ -226,9 +227,17 @@ public class TalentListener implements Listener {
         if (risingFury != null) {
             double stackPercent = risingFury.getValue(0);
             double maxBonus = risingFury.getValue(1);
+            long timeout = (long) risingFury.getValue(2); // 3000ms
             int maxStacks = (int) (maxBonus / stackPercent);
+            long now = System.currentTimeMillis();
 
-            furyLastHit.put(uuid, System.currentTimeMillis());
+            // Reset si timeout expiré
+            Long lastHit = furyLastHit.get(uuid);
+            if (lastHit != null && now - lastHit > timeout) {
+                furyStacks.put(uuid, 0);
+            }
+
+            furyLastHit.put(uuid, now);
             int stacks = furyStacks.getOrDefault(uuid, 0);
             if (stacks < maxStacks) {
                 furyStacks.put(uuid, stacks + 1);
@@ -453,21 +462,21 @@ public class TalentListener implements Listener {
                 double damageBonus = mercyStrike.getValue(1); // 0.80 = 80%
                 damage *= (1 + damageBonus);
 
-                // Feedback visuel - slash doré/rouge
+                // Feedback visuel - slash doré net
                 target.getWorld().spawnParticle(
                     Particle.SWEEP_ATTACK,
                     target.getLocation().add(0, 1, 0),
-                    3, 0.3, 0.3, 0.3, 0.1
+                    1, 0.1, 0.1, 0.1, 0
                 );
                 target.getWorld().spawnParticle(
                     Particle.DUST,
                     target.getLocation().add(0, 1, 0),
-                    15, 0.4, 0.4, 0.4, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.2f) // Gold
+                    6, 0.3, 0.3, 0.3, 0.05,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 200, 0), 1.0f)
                 );
 
-                // Son métallique satisfaisant
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+                // Son satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 1.4f);
 
                 // Tracker pour ActionBar
                 lastMercyStrike.put(uuid, System.currentTimeMillis());
@@ -607,42 +616,35 @@ public class TalentListener implements Listener {
 
                 // === EXPLOSION VISUELLE ET SONORE ===
 
-                // Son d'explosion satisfaisant (BOOM!)
-                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.5f);
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.6f, 1.5f);
+                // Son d'explosion satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.3f);
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.6f);
 
-                // Explosion orange/jaune
+                // Explosion centrale
                 center.getWorld().spawnParticle(
                     Particle.EXPLOSION,
                     center.add(0, 1, 0),
-                    3, 0.5, 0.5, 0.5, 0.1
+                    1, 0.2, 0.2, 0.2, 0
                 );
 
-                // Cercle d'éclairs orange
-                for (int i = 0; i < 16; i++) {
-                    double angle = (2 * Math.PI * i) / 16;
-                    double x = Math.cos(angle) * aoeRadius * 0.8;
-                    double z = Math.sin(angle) * aoeRadius * 0.8;
+                // Cercle d'impact (réduit à 8 points)
+                for (int i = 0; i < 8; i++) {
+                    double angle = (2 * Math.PI * i) / 8;
+                    double x = Math.cos(angle) * aoeRadius * 0.7;
+                    double z = Math.sin(angle) * aoeRadius * 0.7;
                     center.getWorld().spawnParticle(
                         Particle.DUST,
-                        center.clone().add(x, 0, z),
-                        5, 0.1, 0.3, 0.1, 0,
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
-                    );
-                    center.getWorld().spawnParticle(
-                        Particle.ELECTRIC_SPARK,
-                        center.clone().add(x, 0.5, z),
-                        3, 0.1, 0.2, 0.1, 0.05
+                        center.clone().add(x, 0.1, z),
+                        2, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.3f)
                     );
                 }
 
-                // Flash jaune central
+                // Flash central (réduit)
                 center.getWorld().spawnParticle(
-                    Particle.DUST,
+                    Particle.CRIT,
                     center,
-                    25, 0.8, 0.8, 0.8, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 2.0f)
+                    10, 0.5, 0.5, 0.5, 0.15
                 );
 
                 // Reset combo
@@ -666,42 +668,33 @@ public class TalentListener implements Listener {
                 int currentCombo = frenzyComboCount.merge(uuid, 1, Integer::sum);
                 frenzyLastHit.put(uuid, now);
 
-                // Sons crescendo (do-ré-mi-fa-sol)
-                float[] pitches = {0.5f, 0.6f, 0.75f, 0.9f, 1.0f}; // Notes musicales croissantes
+                // Sons crescendo
+                float[] pitches = {0.5f, 0.65f, 0.8f, 0.95f, 1.1f};
                 if (currentCombo <= comboRequired) {
                     float pitch = pitches[Math.min(currentCombo - 1, pitches.length - 1)];
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.6f, pitch);
 
-                    // Éclairs croissants autour du joueur
-                    int sparkCount = currentCombo * 3;
+                    // Éclairs légers
                     player.getWorld().spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         player.getLocation().add(0, 1.2, 0),
-                        sparkCount, 0.4, 0.4, 0.4, 0.05
+                        currentCombo + 1, 0.3, 0.3, 0.3, 0.03
                     );
                 }
 
-                // Si combo atteint = prêt pour explosion
+                // Combo atteint = prêt
                 if (currentCombo >= comboRequired) {
                     frenzyReady.put(uuid, true);
 
-                    // Son de charge maximale
-                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
+                    // Son de charge
                     player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
 
-                    // Flash lumineux
-                    player.getWorld().spawnParticle(
-                        Particle.FLASH,
-                        player.getLocation().add(0, 1, 0),
-                        1, 0, 0, 0, 0
-                    );
-
-                    // Aura orange
+                    // Aura orange légère
                     player.getWorld().spawnParticle(
                         Particle.DUST,
                         player.getLocation().add(0, 1, 0),
-                        20, 0.6, 0.6, 0.6, 0.1,
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                        8, 0.4, 0.4, 0.4, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.2f)
                     );
                 }
 
@@ -1029,28 +1022,28 @@ public class TalentListener implements Listener {
             bloodFervourStacks.put(uuid, newStacks);
             bloodFervourExpiry.put(uuid, System.currentTimeMillis() + duration);
 
-            // Feedback visuel et sonore selon les stacks
-            float pitch = 0.8f + (newStacks * 0.2f); // Son plus aigu avec plus de stacks
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, pitch);
+            // Feedback sonore selon les stacks
+            float pitch = 0.9f + (newStacks * 0.15f);
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, pitch);
 
-            // Particules de sang
+            // Particules de sang (léger)
             player.getWorld().spawnParticle(
                 Particle.DUST,
                 player.getLocation().add(0, 1, 0),
-                10 * newStacks,
-                0.5, 0.5, 0.5, 0.1,
-                new Particle.DustOptions(org.bukkit.Color.RED, 1.2f)
+                3 + newStacks * 2,
+                0.4, 0.4, 0.4, 0.05,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.0f)
             );
 
-            // Aura croissante à max stacks
+            // Aura à max stacks
             if (newStacks >= maxStacks) {
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+                player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 0.5f, 1.2f);
                 player.getWorld().spawnParticle(
                     Particle.DUST,
                     player.getLocation().add(0, 1, 0),
-                    30,
-                    0.8, 0.8, 0.8, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.5f) // Dark red
+                    12,
+                    0.5, 0.5, 0.5, 0.05,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.3f)
                 );
             }
 
@@ -1072,29 +1065,31 @@ public class TalentListener implements Listener {
                 double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
                 applyLifesteal(player, heal);
 
-                // Effets d'exécution satisfaisants
-                // Explosion de particules (tête qui explose)
+                // Effet d'exécution net
                 target.getWorld().spawnParticle(
                     Particle.DUST,
-                    target.getLocation().add(0, 1.5, 0),
-                    25, 0.3, 0.3, 0.3, 0.15,
-                    new Particle.DustOptions(org.bukkit.Color.RED, 1.5f)
+                    target.getLocation().add(0, 1.2, 0),
+                    10, 0.25, 0.25, 0.25, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), 1.2f)
                 );
                 target.getWorld().spawnParticle(
-                    Particle.DUST,
-                    target.getLocation().add(0, 1.5, 0),
-                    15, 0.3, 0.3, 0.3, 0.1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.3f) // Gold
+                    Particle.CRIT,
+                    target.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.2, 0.2, 0.1
                 );
 
-                // Son d'exécution ultra satisfaisant
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
+                // Son d'exécution
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 0.9f, 0.8f);
 
-                // Cyclones Sanglants - spawn sur exécution
+                // Cyclones Sanglants - spawn sur exécution (cooldown 3s)
                 Talent bloodCyclones = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_CYCLONES);
                 if (bloodCyclones != null) {
-                    spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                    long now = System.currentTimeMillis();
+                    Long lastSpawn = bloodCycloneCooldown.get(player.getUniqueId());
+                    if (lastSpawn == null || now - lastSpawn >= 3000) {
+                        bloodCycloneCooldown.put(player.getUniqueId(), now);
+                        spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                    }
                 }
             }
         }
@@ -1908,6 +1903,9 @@ public class TalentListener implements Listener {
         // Doubler la taille du joueur
         player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * targetScale);
 
+        // Glowing rouge pendant la durée
+        applyRedGlow(player, (int) (duration / 50)); // Convertir ms en ticks
+
         // Sons d'activation épiques
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
@@ -1951,45 +1949,33 @@ public class TalentListener implements Listener {
                 Location center = player.getLocation();
 
                 // === EFFET VISUEL - MEGA TORNADE ===
+                // Spirale ascendante fluide (une seule boucle optimisée)
+                double pulse = 1.0 + Math.sin(ticks * 0.15) * 0.1; // Légère pulsation
 
-                // Base de la tornade (rouge sombre)
-                for (int layer = 0; layer < 8; layer++) {
-                    double height = layer * 0.5;
-                    double layerRadius = 1.0 + (layer * 0.4);
+                for (int i = 0; i < 12; i++) {
+                    double t = i / 12.0;
+                    double height = t * 3.5;
+                    double layerRadius = (0.4 + t * 2.0) * pulse;
+                    double angle = rotationAngle + t * Math.PI * 3; // Spirale sur 1.5 tours
 
-                    for (int i = 0; i < 8; i++) {
-                        double angle = rotationAngle + (2 * Math.PI * i / 8) + (layer * 0.3);
-                        double x = Math.cos(angle) * layerRadius;
-                        double z = Math.sin(angle) * layerRadius;
+                    double x = Math.cos(angle) * layerRadius;
+                    double z = Math.sin(angle) * layerRadius;
 
-                        center.getWorld().spawnParticle(
-                            Particle.DUST,
-                            center.clone().add(x, height, z),
-                            1, 0, 0, 0, 0,
-                            new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f)
-                        );
-                    }
-                }
-
-                // Spirale externe (orange/jaune)
-                for (int i = 0; i < 16; i++) {
-                    double angle = rotationAngle * 2 + (2 * Math.PI * i / 16);
-                    double spiralRadius = radius * 0.6;
-                    double x = Math.cos(angle) * spiralRadius;
-                    double z = Math.sin(angle) * spiralRadius;
-                    double y = (i % 4) * 0.5;
-
+                    // Dégradé rouge sombre → orange
+                    int red = (int) (140 + t * 100);
+                    int green = (int) (t * 60);
                     center.getWorld().spawnParticle(
                         Particle.DUST,
-                        center.clone().add(x, y + 0.5, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(Color.ORANGE, 1.5f)
+                        center.clone().add(x, height, z),
+                        1, 0.05, 0.05, 0.05, 0,
+                        new Particle.DustOptions(Color.fromRGB(Math.min(red, 255), green, 0), 1.5f + (float)t * 0.5f)
                     );
                 }
 
-                // Flammes et éclairs
-                center.getWorld().spawnParticle(Particle.FLAME, center.add(0, 2, 0), 10, 1.5, 1.5, 1.5, 0.05);
-                center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 5, 2, 2, 2, 0.1);
+                // Flammes au sommet (occasionnelles)
+                if (ticks % 3 == 0) {
+                    center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 3.2, 0), 2, 0.8, 0.3, 0.8, 0.01);
+                }
 
                 // Son ambiant (vent)
                 if (ticks % 4 == 0) {
@@ -2049,26 +2035,24 @@ public class TalentListener implements Listener {
 
         megaTornadoActiveUntil.remove(uuid);
 
+        // Retirer le glowing rouge
+        removeRedGlow(player);
+
         // Effets de fin
         if (player.isOnline()) {
             Location center = player.getLocation();
 
-            // Explosion finale
-            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 3, 1, 1, 1, 0.1);
+            // Effet de dissipation
+            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 1, 0.3, 0.3, 0.3, 0);
             center.getWorld().spawnParticle(
                 Particle.DUST,
                 center,
-                30, 2, 2, 2, 0.1,
-                new Particle.DustOptions(Color.RED, 2.0f)
+                12, 1.5, 1.5, 1.5, 0.05,
+                new Particle.DustOptions(Color.RED, 1.5f)
             );
 
-            // Sons de fin
-            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.8f);
-            player.getWorld().playSound(center, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
-
-            if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§7La §c§lMega Tornade§7 se dissipe...");
-            }
+            // Son de fin
+            player.getWorld().playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 0.7f, 0.6f);
         }
     }
 
@@ -2153,51 +2137,26 @@ public class TalentListener implements Listener {
                 ticks++;
                 rotationAngle += 0.5; // Rotation progressive
 
-                // Intensité croissante (plus le cyclone dure, plus il est intense)
-                double intensity = Math.min(1.0 + (ticks / 40.0), 2.0);
+                // Intensité croissante
+                double intensity = Math.min(1.0 + (ticks / 50.0), 1.5);
+                double pulse = 1.0 + Math.sin(ticks * 0.2) * 0.08;
 
-                // === TORNADO VISUELLE ===
-                // Couche 1: Base du cyclone (large, rouge/orange)
-                for (double y = 0; y < 2.5; y += 0.25) {
-                    double layerRadius = radius * (1 - y / 4.0) * intensity;
-                    int particlesPerLayer = (int) (8 + (2.5 - y) * 4);
+                // === TORNADO VISUELLE (blanc/gris, spirale fluide) ===
+                for (int i = 0; i < 10; i++) {
+                    double t = i / 10.0;
+                    double height = t * 2.2;
+                    double layerRadius = (0.2 + t * radius * 0.7) * intensity * pulse;
+                    double angle = rotationAngle + t * Math.PI * 2.5;
 
-                    for (int i = 0; i < particlesPerLayer; i++) {
-                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 0.8);
-                        double x = center.getX() + layerRadius * Math.cos(angle);
-                        double z = center.getZ() + layerRadius * Math.sin(angle);
-                        Location particleLoc = new Location(player.getWorld(), x, center.getY() + y, z);
+                    double x = center.getX() + Math.cos(angle) * layerRadius;
+                    double z = center.getZ() + Math.sin(angle) * layerRadius;
 
-                        // Alternance de particules selon la hauteur
-                        if (y < 0.8) {
-                            // Base: Dust rouge/orange
-                            player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
-                                new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 69, 0), 1.2f));
-                        } else if (y < 1.6) {
-                            // Milieu: Flame + Dust jaune
-                            if (i % 2 == 0) {
-                                player.getWorld().spawnParticle(Particle.FLAME, particleLoc, 1, 0.05, 0.05, 0.05, 0.02);
-                            } else {
-                                player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
-                                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 0.9f));
-                            }
-                        } else {
-                            // Sommet: Crit
-                            player.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0.1, 0.1, 0.1, 0.05);
-                        }
-                    }
-                }
-
-                // Couche 2: Spirale centrale ascendante
-                for (double y = 0; y < 2; y += 0.15) {
-                    double spiralAngle = rotationAngle * 2 + y * 3;
-                    double spiralRadius = 0.3 + y * 0.2;
-                    double x = center.getX() + spiralRadius * Math.cos(spiralAngle);
-                    double z = center.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    // Dégradé gris foncé → blanc
+                    int gray = (int) (130 + t * 110);
                     player.getWorld().spawnParticle(Particle.DUST,
-                        new Location(player.getWorld(), x, center.getY() + y, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 0.8f));
+                        new Location(player.getWorld(), x, center.getY() + height, z),
+                        1, 0.03, 0.03, 0.03, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(gray, gray, gray), 0.9f + (float)t * 0.3f));
                 }
 
                 // Son de vent périodique (toutes les 10 ticks)
@@ -2214,12 +2173,10 @@ public class TalentListener implements Listener {
                         target.damage(damage * intensity, player);
                         enemiesHit++;
 
-                        // Effet de hit sur l'ennemi
-                        target.getWorld().spawnParticle(Particle.CRIT,
-                            target.getLocation().add(0, 1, 0), 4, 0.2, 0.3, 0.2, 0.1);
+                        // Effet de hit sur l'ennemi (blanc/gris)
                         target.getWorld().spawnParticle(Particle.DUST,
-                            target.getLocation().add(0, 1, 0), 6, 0.25, 0.25, 0.25, 0.1,
-                            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 0.9f));
+                            target.getLocation().add(0, 1, 0), 5, 0.25, 0.3, 0.25, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(220, 220, 220), 0.9f));
 
                         // Léger knockback rotatif (aspiration vers le centre)
                         if (ticks % 4 == 0) {
@@ -2304,12 +2261,12 @@ public class TalentListener implements Listener {
 
             @Override
             public void run() {
-                // Vérifier durée
-                if (ticks * 50 >= duration || !player.isOnline()) {
-                    // Effet de disparition
+                // Vérifier durée (task tourne toutes les 5 ticks = 250ms)
+                if (ticks * 250 >= duration || !player.isOnline()) {
+                    // Effet de disparition (réduit)
                     currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        currentLocation.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1,
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.5f));
+                        currentLocation.clone().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.2f));
                     currentLocation.getWorld().playSound(currentLocation, Sound.BLOCK_FIRE_EXTINGUISH, 0.6f, 0.8f);
 
                     activeBloodCyclones.merge(uuid, -1, Integer::sum);
@@ -2334,48 +2291,28 @@ public class TalentListener implements Listener {
                     Location targetLoc = currentTarget.getLocation();
                     org.bukkit.util.Vector direction = targetLoc.toVector()
                         .subtract(currentLocation.toVector()).normalize();
-                    double speed = 0.25; // Vitesse de déplacement
+                    double speed = 0.375; // Vitesse +50%
                     currentLocation.add(direction.multiply(speed));
                 }
 
-                // === ANIMATION DU CYCLONE SANGLANT ===
-                // Structure en spirale rouge/noire
-                for (double y = 0; y < 2.0; y += 0.2) {
-                    double layerRadius = radius * 0.4 * (1 - y / 3.0);
-                    int particlesPerLayer = 6;
+                // === ANIMATION DU CYCLONE SANGLANT (spirale fluide) ===
+                double pulse = 1.0 + Math.sin(ticks * 0.25) * 0.1;
 
-                    for (int i = 0; i < particlesPerLayer; i++) {
-                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 1.2);
-                        double x = currentLocation.getX() + layerRadius * Math.cos(angle);
-                        double z = currentLocation.getZ() + layerRadius * Math.sin(angle);
-                        Location particleLoc = new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z);
+                for (int i = 0; i < 8; i++) {
+                    double t = i / 8.0;
+                    double height = t * 1.8;
+                    double layerRadius = (0.15 + t * radius * 0.4) * pulse;
+                    double angle = rotationAngle + t * Math.PI * 2;
 
-                        // Couleur dégradée rouge → noir selon hauteur
-                        int red = (int) (180 - y * 40);
-                        int green = 0;
-                        int blue = 0;
-                        currentLocation.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
-                            new Particle.DustOptions(org.bukkit.Color.fromRGB(red, green, blue), 1.0f));
-                    }
-                }
+                    double x = currentLocation.getX() + Math.cos(angle) * layerRadius;
+                    double z = currentLocation.getZ() + Math.sin(angle) * layerRadius;
 
-                // Spirale centrale
-                for (double y = 0; y < 1.5; y += 0.1) {
-                    double spiralAngle = rotationAngle * 2.5 + y * 4;
-                    double spiralRadius = 0.15 + y * 0.1;
-                    double x = currentLocation.getX() + spiralRadius * Math.cos(spiralAngle);
-                    double z = currentLocation.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    // Dégradé rouge sombre → rouge vif
+                    int red = (int) (80 + t * 150);
                     currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z),
-                        1, 0, 0, 0, 0,
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 0.7f)); // Dark red
-                }
-
-                // Particules de sang occasionnelles
-                if (ticks % 4 == 0) {
-                    currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        currentLocation.clone().add(0, 0.5, 0), 3, 0.3, 0.2, 0.3, 0.05,
-                        new Particle.DustOptions(org.bukkit.Color.RED, 0.8f));
+                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + height, z),
+                        1, 0.02, 0.02, 0.02, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(red, 0, 0), 0.7f + (float)t * 0.4f));
                 }
 
                 // Son ambiant (toutes les 15 ticks)
@@ -2398,10 +2335,10 @@ public class TalentListener implements Listener {
                             applyLifesteal(player, heal);
                         }
 
-                        // Effet de hit
+                        // Effet de hit (réduit)
                         target.getWorld().spawnParticle(Particle.DUST,
-                            target.getLocation().add(0, 1, 0), 8, 0.2, 0.3, 0.2, 0.1,
-                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+                            target.getLocation().add(0, 1, 0), 4, 0.15, 0.2, 0.15, 0.05,
+                            new Particle.DustOptions(org.bukkit.Color.RED, 0.8f));
                     }
                 }
             }
@@ -2492,6 +2429,38 @@ public class TalentListener implements Listener {
     private void removeGoldenGlow(Player player) {
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
         org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_avatar_gold");
+        if (team != null && team.hasEntry(player.getName())) {
+            team.removeEntry(player.getName());
+        }
+    }
+
+    /**
+     * Applique un effet Glowing rouge au joueur via une équipe Scoreboard
+     */
+    private void applyRedGlow(Player player, int durationTicks) {
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
+
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        String teamName = "zz_mega_tornado";
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(teamName);
+            team.setColor(org.bukkit.ChatColor.DARK_RED);
+            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
+                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
+        }
+
+        team.addEntry(player.getName());
+    }
+
+    /**
+     * Retire le glowing rouge du joueur
+     */
+    private void removeRedGlow(Player player) {
+        player.removePotionEffect(PotionEffectType.GLOWING);
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_mega_tornado");
         if (team != null && team.hasEntry(player.getName())) {
             team.removeEntry(player.getName());
         }
@@ -3364,11 +3333,14 @@ public class TalentListener implements Listener {
                 if (!activeGuerrierActionBar.contains(uuid)) {
                     activeGuerrierActionBar.add(uuid);
                     plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                    // Suffixe pour ActionBar par défaut (hors combat) - cooldown Mega Tornado
+                    plugin.getActionBarManager().registerDefaultBarSuffix(uuid, this::buildMegaTornadoSuffix);
                 }
             } else {
                 if (activeGuerrierActionBar.contains(uuid)) {
                     activeGuerrierActionBar.remove(uuid);
                     plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                    plugin.getActionBarManager().unregisterDefaultBarSuffix(uuid);
                 }
             }
         }
@@ -3746,6 +3718,33 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Suffixe pour l'ActionBar par défaut (hors combat)
+     * Affiche le statut de Mega Tornado si le talent est actif
+     */
+    private String buildMegaTornadoSuffix(Player player) {
+        UUID uuid = player.getUniqueId();
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+
+        if (megaTornado == null) {
+            return "";
+        }
+
+        Long activeUntil = megaTornadoActiveUntil.get(uuid);
+        if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+            // Actif
+            long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
+            return " §8│ §c§l🌪 " + remaining + "s";
+        } else if (isOnCooldown(uuid, "mega_tornado")) {
+            // Cooldown
+            long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+            return " §8│ §8🌪 " + remaining + "s";
+        } else {
+            // Prêt
+            return " §8│ §a🌪";
+        }
+    }
+
+    /**
      * ActionBar générique si pas de spécialisation claire
      */
     private void buildGenericGuerrierActionBar(Player player, StringBuilder bar) {
@@ -3809,6 +3808,7 @@ public class TalentListener implements Listener {
         bulwarkAvatarActiveUntil.remove(playerUuid);
         bulwarkLastMilestone.remove(playerUuid);
         activeBloodCyclones.remove(playerUuid);
+        bloodCycloneCooldown.remove(playerUuid);
         megaTornadoActiveUntil.remove(playerUuid);
         megaTornadoOriginalScale.remove(playerUuid);
         bloodStolenHp.remove(playerUuid);
@@ -3833,6 +3833,7 @@ public class TalentListener implements Listener {
         activeGuerrierActionBar.remove(playerUuid);
         if (plugin.getActionBarManager() != null) {
             plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+            plugin.getActionBarManager().unregisterDefaultBarSuffix(playerUuid);
         }
     }
 }
