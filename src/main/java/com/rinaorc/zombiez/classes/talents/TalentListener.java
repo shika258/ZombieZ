@@ -93,6 +93,7 @@ public class TalentListener implements Listener {
 
     // Cyclones Sanglants - tracking des cyclones actifs par joueur
     private final Map<UUID, Integer> activeBloodCyclones = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> bloodCycloneCooldown = new ConcurrentHashMap<>(); // Cooldown 3s
 
     // Méga Tornade - état actif et expiration
     private final Map<UUID, Long> megaTornadoActiveUntil = new ConcurrentHashMap<>();
@@ -1091,10 +1092,15 @@ public class TalentListener implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
 
-                // Cyclones Sanglants - spawn sur exécution
+                // Cyclones Sanglants - spawn sur exécution (cooldown 3s)
                 Talent bloodCyclones = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_CYCLONES);
                 if (bloodCyclones != null) {
-                    spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                    long now = System.currentTimeMillis();
+                    Long lastSpawn = bloodCycloneCooldown.get(player.getUniqueId());
+                    if (lastSpawn == null || now - lastSpawn >= 3000) {
+                        bloodCycloneCooldown.put(player.getUniqueId(), now);
+                        spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                    }
                 }
             }
         }
@@ -2265,12 +2271,12 @@ public class TalentListener implements Listener {
 
             @Override
             public void run() {
-                // Vérifier durée
-                if (ticks * 50 >= duration || !player.isOnline()) {
-                    // Effet de disparition
+                // Vérifier durée (task tourne toutes les 5 ticks = 250ms)
+                if (ticks * 250 >= duration || !player.isOnline()) {
+                    // Effet de disparition (réduit)
                     currentLocation.getWorld().spawnParticle(Particle.DUST,
-                        currentLocation.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1,
-                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.5f));
+                        currentLocation.clone().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.2f));
                     currentLocation.getWorld().playSound(currentLocation, Sound.BLOCK_FIRE_EXTINGUISH, 0.6f, 0.8f);
 
                     activeBloodCyclones.merge(uuid, -1, Integer::sum);
@@ -2295,7 +2301,7 @@ public class TalentListener implements Listener {
                     Location targetLoc = currentTarget.getLocation();
                     org.bukkit.util.Vector direction = targetLoc.toVector()
                         .subtract(currentLocation.toVector()).normalize();
-                    double speed = 0.25; // Vitesse de déplacement
+                    double speed = 0.375; // Vitesse +50%
                     currentLocation.add(direction.multiply(speed));
                 }
 
@@ -3750,6 +3756,7 @@ public class TalentListener implements Listener {
         bulwarkAvatarActiveUntil.remove(playerUuid);
         bulwarkLastMilestone.remove(playerUuid);
         activeBloodCyclones.remove(playerUuid);
+        bloodCycloneCooldown.remove(playerUuid);
         megaTornadoActiveUntil.remove(playerUuid);
         megaTornadoOriginalScale.remove(playerUuid);
         bloodStolenHp.remove(playerUuid);
