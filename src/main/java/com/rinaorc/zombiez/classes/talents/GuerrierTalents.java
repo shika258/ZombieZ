@@ -104,25 +104,30 @@ public final class GuerrierTalents {
             .values(new double[]{0.02, 0.20, 3000}) // stack%, max%, reset_ms
             .build());
 
-        // 1.4 - PEAU DE FER
+        // 1.4 - FRAPPE DE MORT (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_iron_skin")
-            .name("Peau de Fer")
-            .description("-15% degats recus, -10% vitesse")
+            .id("guerrier_death_strike")
+            .name("Frappe de Mort")
+            .description("Attaquer soigne selon les degats recus")
             .loreLines(new String[]{
-                "§7Les degats recus sont reduits",
-                "§7de §a15%§7 mais vous etes",
-                "§710% plus lent.",
+                "§4§lVOIE DU SANG",
                 "",
-                "§8Compromis survie vs mobilite"
+                "§7Chaque attaque vous §4soigne§7 de",
+                "§c25%§7 des degats recus dans",
+                "§7les §e5 dernieres secondes§7.",
+                "",
+                "§7Plus vous encaissez, plus vous",
+                "§7volez de vie aux ennemis!",
+                "",
+                "§8Fenetre: §e5s§8 | Min heal: §c2%§8 PV"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
             .slotIndex(3)
-            .icon(Material.IRON_CHESTPLATE)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.IRON_SKIN)
-            .values(new double[]{0.15, 0.10}) // DR%, slow%
+            .icon(Material.REDSTONE)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.DEATH_STRIKE)
+            .values(new double[]{0.25, 5000, 0.02}) // heal%, window_ms, min_heal%
             .build());
 
         // 1.5 - CHARGE DEVASTATRICE
@@ -221,26 +226,32 @@ public final class GuerrierTalents {
             .values(new double[]{0.15, 4000, 3}) // damage_bonus%, duration_ms, max_stacks
             .build());
 
-        // 2.4 - BASTION
+        // 2.4 - BOUCLIER D'OS (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_bastion")
-            .name("Bastion")
-            .description("Bloquer = bouclier 20% PV pendant 3s")
+            .id("guerrier_bone_shield")
+            .name("Bouclier d'Os")
+            .description("5 charges d'os protectrices")
             .loreLines(new String[]{
-                "§7Bloquer une attaque vous donne",
-                "§7un bouclier de §e20%§7 PV max",
-                "§7pendant §a3s§7.",
+                "§4§lVOIE DU SANG",
                 "",
-                "§8Temps de recharge: 8s"
+                "§7Vous etes entoure de §f5 charges",
+                "§7d'os§7 qui §aabsorbent 8%§7 des",
+                "§7degats chacune.",
+                "",
+                "§7Les charges se §eregenerent§7:",
+                "§7- §e1 charge§7 toutes les §a8s§7",
+                "§7- Affichees autour de vous",
+                "",
+                "§8Gardez toujours 3+ charges!",
+                "§8Max: §f5§8 charges"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
             .slotIndex(3)
-            .icon(Material.SHIELD)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.BASTION)
-            .values(new double[]{0.20, 3000, 8000}) // shield%, duration_ms, cooldown_ms
-            .internalCooldownMs(8000)
+            .icon(Material.BONE)
+            .iconColor("§f")
+            .effectType(Talent.TalentEffectType.BONE_SHIELD)
+            .values(new double[]{5, 0.08, 8000}) // max_charges, DR_per_charge, regen_ms
             .build());
 
         // 2.5 - DECHAÎNEMENT
@@ -345,25 +356,32 @@ public final class GuerrierTalents {
             .values(new double[]{2000, 1.0}) // window_ms, bonus_damage%
             .build());
 
-        // 3.4 - TITAN IMMUABLE
+        // 3.4 - MOELLE DE DECHIREMENT (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_immovable_titan")
-            .name("Titan Immuable")
-            .description("Immunite projections/etourdissements, -20% degats si immobile")
+            .id("guerrier_marrowrend")
+            .name("Moelle de Dechirement")
+            .description("Shift+Attaque regenere 3 charges d'os")
             .loreLines(new String[]{
-                "§7Immunite aux projections",
-                "§7et etourdissements.",
+                "§4§lVOIE DU SANG",
                 "",
-                "§7Si immobile depuis §a1s§7:",
-                "§7§a-20%§7 degats recus"
+                "§6ACTIVATION: §eShift + Attaque",
+                "",
+                "§7Regenere instantanement §f3 charges§7",
+                "§7de §fBouclier d'Os§7!",
+                "",
+                "§7Bonus: Inflige §c+50%§7 degats",
+                "§7sur cette attaque.",
+                "",
+                "§8Cooldown: §e6s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
             .slotIndex(3)
-            .icon(Material.ANVIL)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.IMMOVABLE_TITAN)
-            .values(new double[]{1000, 0.20}) // still_time_ms, DR_bonus
+            .icon(Material.BONE_BLOCK)
+            .iconColor("§f")
+            .effectType(Talent.TalentEffectType.MARROWREND)
+            .values(new double[]{3, 0.50, 6000}) // charges_regen, damage_bonus%, cooldown_ms
+            .internalCooldownMs(6000)
             .build());
 
         // 3.5 - EXECUTEUR
@@ -463,25 +481,29 @@ public final class GuerrierTalents {
             .values(new double[]{0.30, 0.80, 0.05}) // threshold%, damage_bonus%, heal%
             .build());
 
-        // 4.4 - FORTERESSE
+        // 4.4 - VOLONTE VAMPIRIQUE (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_fortress")
-            .name("Forteresse")
-            .description("Bouclier expire = explosion 200%")
+            .id("guerrier_vampiric_will")
+            .name("Volonte Vampirique")
+            .description("Ameliore Death Strike + kills = charges")
             .loreLines(new String[]{
-                "§7Quand votre bouclier temporaire",
-                "§7expire, il explose!",
+                "§4§lVOIE DU SANG",
                 "",
-                "§8Degats: §c200%§8 du bouclier restant",
-                "§8Rayon: §e3§8 blocs"
+                "§7Frappe de Mort soigne maintenant",
+                "§c35%§7 des degats recus (au lieu de 25%).",
+                "",
+                "§7Bonus: Chaque §ckill§7 regenere",
+                "§f1 charge§7 de Bouclier d'Os!",
+                "",
+                "§8Synergie: Sang + Os"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
             .slotIndex(3)
-            .icon(Material.GOLDEN_CHESTPLATE)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.FORTRESS)
-            .values(new double[]{2.0, 3.0}) // damage_multiplier, radius
+            .icon(Material.WITHER_ROSE)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.VAMPIRIC_WILL)
+            .values(new double[]{0.35, 1}) // upgraded_heal%, charges_on_kill
             .build());
 
         // 4.5 - MOISSON SANGLANTE
@@ -583,24 +605,35 @@ public final class GuerrierTalents {
             .values(new double[]{500, 0.60, 2.0}) // tick_ms, damage%, radius
             .build());
 
-        // 5.4 - AEGIS ETERNAL
+        // 5.4 - MORT ET DECOMPOSITION (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_eternal_aegis")
-            .name("Aegis Eternelle")
-            .description("Parade parfaite = 100% degats renvoyes")
+            .id("guerrier_death_and_decay")
+            .name("Mort et Decomposition")
+            .description("Zone de sang au sol")
             .loreLines(new String[]{
-                "§7Chaque parade parfaite (timing 0.3s)",
-                "§7renvoie §c100%§7 des degats!",
+                "§4§lVOIE DU SANG - ZONE VAMPIRIQUE",
                 "",
-                "§8Necessite de la precision"
+                "§6ACTIVATION: §eDouble Sneak",
+                "",
+                "§7Cree une §4flaque de sang§7 de §e6 blocs§7",
+                "§7pendant §e10 secondes§7.",
+                "",
+                "§7Dans la zone:",
+                "§7- §c+25%§7 degats infliges",
+                "§7- §a+15%§7 reduction degats",
+                "§7- Attaques touchent §ctous§7 les ennemis",
+                "",
+                "§c§lRESTEZ DANS LA ZONE!",
+                "§8Cooldown: §e25s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
             .slotIndex(3)
-            .icon(Material.DIAMOND_CHESTPLATE)
-            .iconColor("§b")
-            .effectType(Talent.TalentEffectType.ETERNAL_AEGIS)
-            .values(new double[]{300, 1.0}) // window_ms, reflect%
+            .icon(Material.CRIMSON_NYLIUM)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.DEATH_AND_DECAY)
+            .values(new double[]{6.0, 10000, 0.25, 0.15, 25000}) // radius, duration_ms, damage_bonus%, DR_bonus%, cooldown_ms
+            .internalCooldownMs(25000)
             .build());
 
         // 5.5 - SEIGNEUR DE GUERRE
@@ -703,26 +736,32 @@ public final class GuerrierTalents {
             .internalCooldownMs(10000)
             .build());
 
-        // 6.4 - MUR INEBRANLABLE
+        // 6.4 - CONSOMMATION (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_unyielding_wall")
-            .name("Mur Inebranlable")
-            .description("Immobile: -5% degats/s (max -35%)")
+            .id("guerrier_consumption")
+            .name("Consommation")
+            .description("Consomme les charges d'os pour soigner")
             .loreLines(new String[]{
-                "§7Rester immobile accumule",
-                "§7§a-5%§7 de reduction de degats",
-                "§7par seconde.",
+                "§4§lVOIE DU SANG",
                 "",
-                "§8Max: §a-35%§8 reduction",
-                "§8Reinitialise en bougeant"
+                "§7Quand vous tombez sous §c30%§7 PV,",
+                "§7consomme §fTOUTES§7 vos charges d'os",
+                "§7pour vous §asoigner§7!",
+                "",
+                "§7Soin: §a5%§7 PV par charge consommee",
+                "§7+ §6Explosion sanglante§7 autour de vous!",
+                "",
+                "§8Declenchement: §eAutomatique",
+                "§8Cooldown: §e15s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
             .slotIndex(3)
-            .icon(Material.STONE_BRICKS)
-            .iconColor("§8")
-            .effectType(Talent.TalentEffectType.UNYIELDING_WALL)
-            .values(new double[]{0.05, 0.35, 1000}) // DR_per_second, max_DR, tick_ms
+            .icon(Material.NETHER_WART)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.CONSUMPTION)
+            .values(new double[]{0.30, 0.05, 4.0, 15000}) // hp_threshold, heal_per_charge%, explosion_radius, cooldown_ms
+            .internalCooldownMs(15000)
             .build());
 
         // 6.5 - ELAN
@@ -835,25 +874,30 @@ public final class GuerrierTalents {
             .values(new double[]{4000, 0.50, 0.015, 3.0}) // duration_ms, damage%, heal%, radius
             .build());
 
-        // 6.4 - BASTILLE IMPRENABLE
+        // 6.4 - PACTE DE SANG (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_impregnable_bastion")
-            .name("Bastille Imprenable")
-            .description("Reduction degats x2, +2% PV/s en combat")
+            .id("guerrier_blood_pact")
+            .name("Pacte de Sang")
+            .description("Death Strike ameliore + overheal = bouclier")
             .loreLines(new String[]{
-                "§7Votre reduction de degats",
-                "§7est §edoublee§7 et vous regenerez",
-                "§7§c2%§7 PV/s en combat.",
+                "§4§lVOIE DU SANG",
                 "",
-                "§8Survie passive"
+                "§7Frappe de Mort peut maintenant",
+                "§7stocker jusqu'a §c40%§7 de vos PV max",
+                "§7en degats recus (au lieu de 25%).",
+                "",
+                "§7§aOVERHEAL§7: L'exces de soin devient",
+                "§7un §6bouclier temporaire§7 (5s)!",
+                "",
+                "§8Max bouclier: §620%§8 PV max"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(3)
-            .icon(Material.NETHERITE_CHESTPLATE)
-            .iconColor("§5")
-            .effectType(Talent.TalentEffectType.IMPREGNABLE_BASTION)
-            .values(new double[]{2.0, 0.02}) // DR_multiplier, regen%_per_second
+            .icon(Material.GHAST_TEAR)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.BLOOD_PACT)
+            .values(new double[]{0.40, 0.20, 5000}) // max_stored_damage%, max_shield%, shield_duration_ms
             .build());
 
         // 6.5 - FAUCHEUR
@@ -962,27 +1006,30 @@ public final class GuerrierTalents {
             .values(new double[]{5, 3000, 1.50, 5.0}) // combo_hits, timeout_ms, damage_bonus%, aoe_radius
             .build());
 
-        // 7.4 - COLOSSE
+        // 7.4 - COEUR DE VAMPIRE (SANG)
         TALENTS.add(Talent.builder()
-            .id("guerrier_colossus")
-            .name("Colosse")
-            .description("+50% absorption, +30% corps a corps, -25% vitesse")
+            .id("guerrier_vampiric_heart")
+            .name("Coeur de Vampire")
+            .description("Lifesteal permanent + reduit cooldowns")
             .loreLines(new String[]{
-                "§7Forme de geant permanente:",
-                "§7- §e+50%§7 PV max en §6absorption§7 (regen)",
-                "§7- §c+30%§7 degats corps a corps",
-                "§7- §c-25%§7 vitesse",
+                "§4§lVOIE DU SANG - APEX",
                 "",
-                "§8Taille +20%",
-                "§8L'absorption se regenere avec le temps"
+                "§7Votre coeur bat au rythme du sang:",
+                "",
+                "§7- §c+8%§7 lifesteal permanent",
+                "§7- Chaque attaque reduit §eMarrowrend§7",
+                "§7  et §eConsommation§7 de §a0.5s§7",
+                "§7- §fBouclier d'Os§7 regenere §e2x§7 plus vite",
+                "",
+                "§8Synergie totale du build Sang!"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(3)
-            .icon(Material.IRON_BLOCK)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.COLOSSUS)
-            .values(new double[]{0.50, 0.30, 0.25, 0.20}) // hp_bonus%, damage_bonus%, speed_malus%, size_bonus%
+            .icon(Material.HEART_OF_THE_SEA)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.VAMPIRIC_HEART)
+            .values(new double[]{0.08, 500, 2.0}) // lifesteal%, cooldown_reduction_ms, bone_regen_multiplier
             .build());
 
         // 7.5 - ANGE DE LA MORT
@@ -1098,30 +1145,36 @@ public final class GuerrierTalents {
             .values(new double[]{10000, 35000, 8.0, 2.0, 0.75}) // duration_ms, cooldown_ms, radius, scale, damage%_per_tick
             .build());
 
-        // 8.4 - CITADELLE VIVANTE
+        // 8.4 - EPEE DANSANTE (SANG) - TALENT LEGENDAIRE
         TALENTS.add(Talent.builder()
-            .id("guerrier_living_citadel")
-            .name("Citadelle Vivante")
-            .description("3s invincible sans attaque, puis explosion")
+            .id("guerrier_dancing_rune_weapon")
+            .name("Epee Dansante")
+            .description("ULTIME: Epee fantome + double attaques")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§4§lTALENT LEGENDAIRE - ULTIME",
                 "",
-                "§7Activation (s'accroupir): 3s d'invincibilite",
-                "§7totale (pas d'attaque possible),",
-                "§7puis explosion massive.",
+                "§6ACTIVATION: §eDouble Sneak",
                 "",
-                "§8Degats: §c300%§8 de base",
-                "§8Rayon: §e5§8 blocs",
-                "§8Temps de recharge: 20s"
+                "§7Invoque une §4epee runique fantome§7",
+                "§7qui combat a vos cotes pendant §e15s§7!",
+                "",
+                "§7Pendant l'effet:",
+                "§7- Vos attaques sont §cdoublees§7",
+                "§7- §a+30%§7 reduction de degats",
+                "§7- §c+20%§7 lifesteal supplementaire",
+                "§7- Regenere §f1 charge d'os§7/2s",
+                "",
+                "§4§lVOUS ETES LE BOSS DU COMBAT!",
+                "§8Cooldown: §e90s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
             .slotIndex(3)
-            .icon(Material.BEACON)
-            .iconColor("§b§l")
-            .effectType(Talent.TalentEffectType.LIVING_CITADEL)
-            .values(new double[]{3000, 3.0, 5.0, 20000}) // invuln_ms, damage%, radius, cooldown_ms
-            .internalCooldownMs(20000)
+            .icon(Material.NETHERITE_SWORD)
+            .iconColor("§4§l")
+            .effectType(Talent.TalentEffectType.DANCING_RUNE_WEAPON)
+            .values(new double[]{15000, 0.30, 0.20, 2000, 90000}) // duration_ms, DR_bonus%, lifesteal_bonus%, bone_regen_ms, cooldown_ms
+            .internalCooldownMs(90000)
             .build());
 
         // 8.5 - EXTINCTION
