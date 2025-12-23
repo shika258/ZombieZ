@@ -26,6 +26,8 @@ import org.bukkit.util.Vector;
 
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.Map;
 import java.util.Random;
@@ -62,6 +64,50 @@ public class CombatListener implements Listener {
 
     public CombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
+        startHealthRegenTask();
+    }
+
+    /**
+     * Tâche de régénération passive de vie basée sur la stat HEALTH_REGEN
+     * S'exécute toutes les secondes et soigne les joueurs selon leur stat
+     */
+    private void startHealthRegenTask() {
+        plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                // Ne pas régénérer si le joueur est mort ou en mode spectateur
+                if (player.isDead() || player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+                    continue;
+                }
+
+                // Récupérer la stat HEALTH_REGEN
+                Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+                double healthRegen = playerStats.getOrDefault(StatType.HEALTH_REGEN, 0.0);
+
+                // Ajouter la regen du SkillTree si disponible
+                var skillManager = plugin.getSkillTreeManager();
+                if (skillManager != null) {
+                    healthRegen += skillManager.getSkillBonus(player,
+                        com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus.HEALTH_REGEN);
+                }
+
+                if (healthRegen > 0) {
+                    double currentHealth = player.getHealth();
+                    double maxHealth = player.getMaxHealth();
+
+                    // Ne pas soigner au-delà du max
+                    if (currentHealth < maxHealth) {
+                        double newHealth = Math.min(maxHealth, currentHealth + healthRegen);
+                        player.setHealth(newHealth);
+
+                        // Effet visuel discret si regen significative (> 0.5 par seconde)
+                        if (healthRegen >= 0.5 && currentHealth < maxHealth - 0.1) {
+                            player.getWorld().spawnParticle(Particle.HEART,
+                                player.getLocation().add(0, 2.2, 0), 1, 0.1, 0, 0.1, 0);
+                        }
+                    }
+                }
+            }
+        }, 20L, 20L); // Toutes les secondes
     }
 
     /**
@@ -189,6 +235,58 @@ public class CombatListener implements Listener {
 
         // Le joueur a pris des dégâts - retirer du set
         playersWithoutDamage.remove(player.getUniqueId());
+    }
+
+    /**
+     * Gère les résistances élémentaires (Feu, Poison, Lightning, Ice)
+     * Réduit les dégâts selon les stats du joueur
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onElementalDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Récupérer les stats de résistance du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        EntityDamageEvent.DamageCause cause = event.getCause();
+        double resistance = 0.0;
+        String resistType = null;
+
+        switch (cause) {
+            case FIRE, FIRE_TICK, LAVA, HOT_FLOOR -> {
+                resistance = playerStats.getOrDefault(StatType.FIRE_RESISTANCE, 0.0);
+                resistType = "§6🔥 Résist. Feu";
+            }
+            case FREEZE -> {
+                resistance = playerStats.getOrDefault(StatType.ICE_RESISTANCE, 0.0);
+                resistType = "§b❄ Résist. Glace";
+            }
+            case LIGHTNING -> {
+                resistance = playerStats.getOrDefault(StatType.LIGHTNING_RESISTANCE, 0.0);
+                resistType = "§e⚡ Résist. Foudre";
+            }
+            case POISON -> {
+                resistance = playerStats.getOrDefault(StatType.POISON_RESISTANCE, 0.0);
+                resistType = "§2☠ Résist. Poison";
+            }
+        }
+
+        // Appliquer la réduction si résistance > 0
+        if (resistance > 0) {
+            // Cap à 80% de réduction
+            double reductionPercent = Math.min(80.0, resistance);
+            double reductionMultiplier = 1.0 - (reductionPercent / 100.0);
+            double originalDamage = event.getDamage();
+            double reducedDamage = originalDamage * reductionMultiplier;
+
+            event.setDamage(reducedDamage);
+
+            // Effet visuel si réduction significative (> 25%)
+            if (reductionPercent >= 25.0 && originalDamage > 1.0) {
+                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
+                    player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+            }
+        }
     }
 
     /**

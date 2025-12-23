@@ -1,12 +1,14 @@
 package com.rinaorc.zombiez.momentum;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import lombok.Getter;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -112,43 +114,71 @@ public class MomentumManager {
 
     /**
      * Obtient le multiplicateur de dégâts
+     * Intègre les stats d'équipement: STREAK_DAMAGE_BONUS, FEVER_DAMAGE_BONUS
      */
     public double getDamageMultiplier(Player player) {
         MomentumData data = playerMomentum.get(player.getUniqueId());
         if (data == null) return 1.0;
-        
+
         double mult = 1.0;
-        
-        // Bonus de combo (+1% par combo, max 50%)
+
+        // Récupérer les stats d'équipement du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de combo de base (+1% par combo, max 50%)
         mult += Math.min(0.5, data.combo * 0.01);
-        
-        // Bonus de streak (+0.5% par streak, max 25%)
-        mult += Math.min(0.25, data.streak * 0.005);
-        
-        // Bonus Fever (x2)
-        if (data.inFever && !isFeverExpired(data)) {
-            mult *= 2.0;
+
+        // Bonus de streak de base (+0.5% par streak, max 25%)
+        // + STREAK_DAMAGE_BONUS: bonus supplémentaire par kill en streak
+        double streakBonusPerKill = playerStats.getOrDefault(StatType.STREAK_DAMAGE_BONUS, 0.0);
+        double totalStreakBonus = data.streak * (0.005 + streakBonusPerKill / 100.0);
+        mult += Math.min(0.75, totalStreakBonus); // Cap plus élevé avec équipement (75%)
+
+        // Bonus Fever (x2 de base + FEVER_DAMAGE_BONUS)
+        if (data.inFever && !isFeverExpired(data, player)) {
+            double baseFeverMult = 2.0;
+            double feverDamageBonus = playerStats.getOrDefault(StatType.FEVER_DAMAGE_BONUS, 0.0);
+            double feverMult = baseFeverMult + (feverDamageBonus / 100.0);
+            mult *= feverMult;
         }
-        
+
         return mult;
     }
 
     /**
      * Obtient le multiplicateur de vitesse
+     * Intègre la stat d'équipement: COMBO_SPEED_BONUS
      */
     public double getSpeedMultiplier(Player player) {
         MomentumData data = playerMomentum.get(player.getUniqueId());
         if (data == null) return 1.0;
-        
-        // Bonus de combo (+2% par combo, max 30%)
-        return 1.0 + Math.min(0.3, data.combo * 0.02);
+
+        // Récupérer les stats d'équipement du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Bonus de combo de base (+2% par combo, max 30%)
+        // + COMBO_SPEED_BONUS: bonus supplémentaire par combo
+        double comboSpeedBonus = playerStats.getOrDefault(StatType.COMBO_SPEED_BONUS, 0.0);
+        double totalComboBonus = data.combo * (0.02 + comboSpeedBonus / 100.0);
+
+        return 1.0 + Math.min(0.6, totalComboBonus); // Cap plus élevé avec équipement (60%)
     }
 
     /**
-     * Vérifie si Fever est expiré
+     * Vérifie si Fever est expiré (sans joueur, utilise durée de base)
      */
     private boolean isFeverExpired(MomentumData data) {
         return System.currentTimeMillis() - data.feverStartTime > FEVER_DURATION;
+    }
+
+    /**
+     * Vérifie si Fever est expiré (avec FEVER_DURATION_BONUS du joueur)
+     */
+    private boolean isFeverExpired(MomentumData data, Player player) {
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double durationBonus = playerStats.getOrDefault(StatType.FEVER_DURATION_BONUS, 0.0);
+        long effectiveDuration = (long) (FEVER_DURATION * (1.0 + durationBonus / 100.0));
+        return System.currentTimeMillis() - data.feverStartTime > effectiveDuration;
     }
 
     /**
@@ -187,34 +217,46 @@ public class MomentumManager {
     }
 
     /**
-     * Vérifie si en Fever
+     * Vérifie si en Fever (prend en compte FEVER_DURATION_BONUS)
      */
     public boolean isInFever(Player player) {
         MomentumData data = playerMomentum.get(player.getUniqueId());
-        return data != null && data.inFever && !isFeverExpired(data);
+        return data != null && data.inFever && !isFeverExpired(data, player);
     }
 
     /**
-     * Obtient le temps restant de Fever en millisecondes
+     * Calcule la durée effective du Fever avec le bonus d'équipement
+     */
+    private long getEffectiveFeverDuration(Player player) {
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double durationBonus = playerStats.getOrDefault(StatType.FEVER_DURATION_BONUS, 0.0);
+        return (long) (FEVER_DURATION * (1.0 + durationBonus / 100.0));
+    }
+
+    /**
+     * Obtient le temps restant de Fever en millisecondes (avec FEVER_DURATION_BONUS)
      */
     public long getFeverTimeRemaining(Player player) {
         MomentumData data = playerMomentum.get(player.getUniqueId());
         if (data == null || !data.inFever) return 0;
 
         long elapsed = System.currentTimeMillis() - data.feverStartTime;
-        long remaining = FEVER_DURATION - elapsed;
+        long effectiveDuration = getEffectiveFeverDuration(player);
+        long remaining = effectiveDuration - elapsed;
         return Math.max(0, remaining);
     }
 
     /**
      * Obtient la progression du Fever (1.0 = début, 0.0 = fin)
+     * Prend en compte FEVER_DURATION_BONUS
      */
     public double getFeverProgress(Player player) {
         MomentumData data = playerMomentum.get(player.getUniqueId());
         if (data == null || !data.inFever) return 0;
 
         long elapsed = System.currentTimeMillis() - data.feverStartTime;
-        double progress = 1.0 - ((double) elapsed / FEVER_DURATION);
+        long effectiveDuration = getEffectiveFeverDuration(player);
+        double progress = 1.0 - ((double) elapsed / effectiveDuration);
         return Math.max(0, Math.min(1.0, progress));
     }
 
@@ -224,27 +266,31 @@ public class MomentumManager {
     private void startDecayTask() {
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             long now = System.currentTimeMillis();
-            
+
             for (Map.Entry<UUID, MomentumData> entry : playerMomentum.entrySet()) {
                 MomentumData data = entry.getValue();
-                
+
                 // Decay combo
                 if (now - data.lastKillTime > COMBO_TIMEOUT && data.combo > 0) {
                     data.combo = 0;
                 }
-                
+
                 // Decay streak
                 if (now - data.lastKillTime > STREAK_TIMEOUT && data.streak > 0) {
                     data.streak = 0;
                 }
-                
-                // End Fever
-                if (data.inFever && isFeverExpired(data)) {
-                    data.inFever = false;
+
+                // End Fever (prend en compte FEVER_DURATION_BONUS du joueur)
+                if (data.inFever) {
                     Player player = plugin.getServer().getPlayer(entry.getKey());
-                    if (player != null) {
-                        MessageUtils.sendTitle(player, "", "§7§l🔥 FEVER TERMINÉ! §8Streak: " + data.streak + " kills", 5, 30, 10);
-                        player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.0f);
+                    boolean expired = (player != null) ? isFeverExpired(data, player) : isFeverExpired(data);
+
+                    if (expired) {
+                        data.inFever = false;
+                        if (player != null) {
+                            MessageUtils.sendTitle(player, "", "§7§l🔥 FEVER TERMINÉ! §8Streak: " + data.streak + " kills", 5, 30, 10);
+                            player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.0f);
+                        }
                     }
                 }
             }
