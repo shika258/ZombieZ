@@ -119,7 +119,7 @@ public class Talent {
         ETERNAL_TREMOR,          // Passive AoE pulse
         BASTION_CHARGE,          // REMPART: Charge + bouclier par ennemi
         BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
-        BLOOD_PACT,              // SANG: Death Strike amélioré + overheal → bouclier
+        BLOOD_PACT,              // SANG: Death Strike amélioré + overheal → Larves de Sang
         REAPER,                  // Auto-kill low HP in range
 
         // === GUERRIER - Tier 8 ===

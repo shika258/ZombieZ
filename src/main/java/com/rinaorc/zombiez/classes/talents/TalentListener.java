@@ -171,6 +171,9 @@ public class TalentListener implements Listener {
     // Épée Dansante - état actif
     private final Map<UUID, Long> dancingRuneWeaponExpiry = new ConcurrentHashMap<>();
 
+    // Pacte de Sang - Larves de Sang (Endermites vampiriques)
+    private final Map<UUID, UUID> bloodLarvaeOwners = new ConcurrentHashMap<>(); // larva UUID -> player UUID
+
     // === SYSTÈME DE MESSAGES TEMPORAIRES POUR ACTIONBAR ===
     // Messages d'événement ponctuels (affichés pendant quelques secondes dans l'ActionBar)
     private final Map<UUID, String> tempEventMessage = new ConcurrentHashMap<>();
@@ -809,15 +812,18 @@ public class TalentListener implements Listener {
                     player.setHealth(currentHealth + healAmount);
                 }
 
-                // Pacte de Sang: overheal devient bouclier
+                // Pacte de Sang: overheal invoque des Larves de Sang
                 if (bloodPact != null && overheal > 0) {
-                    double maxShield = maxHp * bloodPact.getValue(1); // 20% max
-                    double shieldAmount = Math.min(overheal, maxShield);
-                    applyTempShield(player, shieldAmount, (long) bloodPact.getValue(2));
+                    int maxLarvae = (int) bloodPact.getValue(1); // 3 max
+                    long larvaeDuration = (long) bloodPact.getValue(2); // 5000ms
+                    // Nombre de larves basé sur l'overheal (1 larve par 5% PV max d'overheal, max 3)
+                    int larvaeCount = Math.min(maxLarvae, (int) Math.ceil(overheal / (maxHp * 0.05)));
 
-                    // Feedback bouclier
+                    spawnBloodLarvae(player, larvaeCount, larvaeDuration, bloodPact.getValue(3));
+
+                    // Feedback larves
                     if (shouldSendTalentMessage(player)) {
-                        showTempEventMessage(uuid, "§6+" + (int)shieldAmount + " §7bouclier (overheal)");
+                        showTempEventMessage(uuid, "§4+" + larvaeCount + " §7Larves de Sang!");
                     }
                 }
 
@@ -1261,6 +1267,47 @@ public class TalentListener implements Listener {
                 }
             }, 1L);
         }
+    }
+
+    // ==================== LARVES DE SANG (Pacte de Sang) ====================
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBloodLarvaeDamage(EntityDamageByEntityEvent event) {
+        // Vérifier si le damager est une Endermite (larve de sang)
+        if (!(event.getDamager() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Récupérer le propriétaire
+        UUID ownerUuid = bloodLarvaeOwners.get(larvae.getUniqueId());
+        if (ownerUuid == null) return;
+
+        Player owner = Bukkit.getPlayer(ownerUuid);
+        if (owner == null || !owner.isOnline()) return;
+
+        // Soigner le propriétaire
+        Talent bloodPact = getActiveTalentIfHas(owner, Talent.TalentEffectType.BLOOD_PACT);
+        if (bloodPact == null) return;
+
+        double healPercent = bloodPact.getValue(3); // 2% PV max
+        double maxHp = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double healAmount = maxHp * healPercent;
+
+        applyLifesteal(owner, healAmount);
+
+        // Effet visuel: traînée de sang vers le joueur
+        Location larvaePos = larvae.getLocation().add(0, 0.3, 0);
+        Location ownerPos = owner.getLocation().add(0, 1, 0);
+        Vector direction = ownerPos.toVector().subtract(larvaePos.toVector()).normalize();
+        double distance = larvaePos.distance(ownerPos);
+
+        for (double d = 0; d < distance; d += 0.5) {
+            Location particleLoc = larvaePos.clone().add(direction.clone().multiply(d));
+            owner.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.05, 0.05, 0.05, 0,
+                new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.7f));
+        }
+
+        // Son de soin subtil
+        owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
     }
 
     // ==================== KILLS ====================
@@ -4321,9 +4368,10 @@ public class TalentListener implements Listener {
         boneShieldLastRegen.remove(playerUuid);
         boneShieldRotation.remove(playerUuid);
         removeBoneShieldArmorStands(playerUuid); // Supprime les ArmorStands visuels
-        deathAndDecayCenter.remove(playerUuid);
-        deathAndDecayExpiry.remove(playerUuid);
         dancingRuneWeaponExpiry.remove(playerUuid);
+
+        // Nettoyer les Larves de Sang du joueur
+        cleanupBloodLarvae(playerUuid);
 
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
@@ -4574,6 +4622,108 @@ public class TalentListener implements Listener {
 
         if (shouldSendTalentMessage(player)) {
             showTempEventMessage(uuid, "§4§lEPEE DANSANTE! §7Double attaques pendant " + (duration/1000) + "s!");
+        }
+    }
+
+    /**
+     * Invoque des Larves de Sang (Endermites vampiriques) pour le Pacte de Sang
+     */
+    private void spawnBloodLarvae(Player player, int count, long duration, double healPerHit) {
+        UUID playerUuid = player.getUniqueId();
+        Location spawnLoc = player.getLocation();
+        World world = player.getWorld();
+
+        // Son d'invocation
+        world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
+
+        for (int i = 0; i < count; i++) {
+            // Position aléatoire autour du joueur
+            double angle = Math.random() * Math.PI * 2;
+            double distance = 1 + Math.random() * 2;
+            Location larvaeSpawn = spawnLoc.clone().add(
+                distance * Math.cos(angle),
+                0.5,
+                distance * Math.sin(angle)
+            );
+
+            // Invoquer l'Endermite
+            Endermite larvae = world.spawn(larvaeSpawn, Endermite.class, endermite -> {
+                endermite.setCustomName("§4Larve de Sang");
+                endermite.setCustomNameVisible(true);
+                endermite.setPersistent(false);
+                endermite.setRemoveWhenFarAway(true);
+                // Marquer comme larve de sang
+                endermite.addScoreboardTag("zombiez_blood_larvae");
+                endermite.addScoreboardTag("zombiez_owner_" + playerUuid);
+                // Ne pas cibler le joueur propriétaire
+                endermite.setTarget(null);
+            });
+
+            // Enregistrer le propriétaire
+            bloodLarvaeOwners.put(larvae.getUniqueId(), playerUuid);
+
+            // Particules de spawn
+            world.spawnParticle(Particle.DUST, larvaeSpawn, 10, 0.3, 0.3, 0.3, 0,
+                new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+
+            // Tâche pour gérer le comportement de la larve
+            final double healAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPerHit;
+
+            new BukkitRunnable() {
+                int ticks = 0;
+                final int maxTicks = (int) (duration / 50);
+
+                @Override
+                public void run() {
+                    if (ticks++ > maxTicks || !larvae.isValid() || larvae.isDead()) {
+                        // Nettoyer et supprimer
+                        bloodLarvaeOwners.remove(larvae.getUniqueId());
+                        if (larvae.isValid()) {
+                            // Particules de mort
+                            world.spawnParticle(Particle.DUST, larvae.getLocation(), 8, 0.2, 0.2, 0.2, 0,
+                                new Particle.DustOptions(Color.fromRGB(100, 0, 0), 1.0f));
+                            larvae.remove();
+                        }
+                        cancel();
+                        return;
+                    }
+
+                    // Effet visuel périodique (traînée rouge)
+                    if (ticks % 4 == 0) {
+                        world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.2, 0),
+                            2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
+                    }
+
+                    // Chercher une cible proche si pas de cible actuelle
+                    if (larvae.getTarget() == null || !larvae.getTarget().isValid()) {
+                        for (Entity nearby : larvae.getNearbyEntities(8, 4, 8)) {
+                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player)) {
+                                larvae.setTarget(target);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 1L);
+        }
+    }
+
+    /**
+     * Nettoie toutes les Larves de Sang d'un joueur
+     */
+    private void cleanupBloodLarvae(UUID playerUuid) {
+        // Trouver et supprimer toutes les larves du joueur
+        Iterator<Map.Entry<UUID, UUID>> iterator = bloodLarvaeOwners.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, UUID> entry = iterator.next();
+            if (entry.getValue().equals(playerUuid)) {
+                // Supprimer l'entité
+                Entity larvae = Bukkit.getEntity(entry.getKey());
+                if (larvae != null && larvae.isValid()) {
+                    larvae.remove();
+                }
+                iterator.remove();
+            }
         }
     }
 
