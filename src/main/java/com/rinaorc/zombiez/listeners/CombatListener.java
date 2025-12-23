@@ -26,6 +26,8 @@ import org.bukkit.util.Vector;
 
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.Map;
 import java.util.Random;
@@ -62,6 +64,50 @@ public class CombatListener implements Listener {
 
     public CombatListener(ZombieZPlugin plugin) {
         this.plugin = plugin;
+        startHealthRegenTask();
+    }
+
+    /**
+     * Tâche de régénération passive de vie basée sur la stat HEALTH_REGEN
+     * S'exécute toutes les secondes et soigne les joueurs selon leur stat
+     */
+    private void startHealthRegenTask() {
+        plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                // Ne pas régénérer si le joueur est mort ou en mode spectateur
+                if (player.isDead() || player.getGameMode() == org.bukkit.GameMode.SPECTATOR) {
+                    continue;
+                }
+
+                // Récupérer la stat HEALTH_REGEN
+                Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+                double healthRegen = playerStats.getOrDefault(StatType.HEALTH_REGEN, 0.0);
+
+                // Ajouter la regen du SkillTree si disponible
+                var skillManager = plugin.getSkillTreeManager();
+                if (skillManager != null) {
+                    healthRegen += skillManager.getSkillBonus(player,
+                        com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus.HEALTH_REGEN);
+                }
+
+                if (healthRegen > 0) {
+                    double currentHealth = player.getHealth();
+                    double maxHealth = player.getMaxHealth();
+
+                    // Ne pas soigner au-delà du max
+                    if (currentHealth < maxHealth) {
+                        double newHealth = Math.min(maxHealth, currentHealth + healthRegen);
+                        player.setHealth(newHealth);
+
+                        // Effet visuel discret si regen significative (> 0.5 par seconde)
+                        if (healthRegen >= 0.5 && currentHealth < maxHealth - 0.1) {
+                            player.getWorld().spawnParticle(Particle.HEART,
+                                player.getLocation().add(0, 2.2, 0), 1, 0.1, 0, 0.1, 0);
+                        }
+                    }
+                }
+            }
+        }, 20L, 20L); // Toutes les secondes
     }
 
     /**
@@ -189,6 +235,58 @@ public class CombatListener implements Listener {
 
         // Le joueur a pris des dégâts - retirer du set
         playersWithoutDamage.remove(player.getUniqueId());
+    }
+
+    /**
+     * Gère les résistances élémentaires (Feu, Poison, Lightning, Ice)
+     * Réduit les dégâts selon les stats du joueur
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onElementalDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Récupérer les stats de résistance du joueur
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        EntityDamageEvent.DamageCause cause = event.getCause();
+        double resistance = 0.0;
+        String resistType = null;
+
+        switch (cause) {
+            case FIRE, FIRE_TICK, LAVA, HOT_FLOOR -> {
+                resistance = playerStats.getOrDefault(StatType.FIRE_RESISTANCE, 0.0);
+                resistType = "§6🔥 Résist. Feu";
+            }
+            case FREEZE -> {
+                resistance = playerStats.getOrDefault(StatType.ICE_RESISTANCE, 0.0);
+                resistType = "§b❄ Résist. Glace";
+            }
+            case LIGHTNING -> {
+                resistance = playerStats.getOrDefault(StatType.LIGHTNING_RESISTANCE, 0.0);
+                resistType = "§e⚡ Résist. Foudre";
+            }
+            case POISON -> {
+                resistance = playerStats.getOrDefault(StatType.POISON_RESISTANCE, 0.0);
+                resistType = "§2☠ Résist. Poison";
+            }
+        }
+
+        // Appliquer la réduction si résistance > 0
+        if (resistance > 0) {
+            // Cap à 80% de réduction
+            double reductionPercent = Math.min(80.0, resistance);
+            double reductionMultiplier = 1.0 - (reductionPercent / 100.0);
+            double originalDamage = event.getDamage();
+            double reducedDamage = originalDamage * reductionMultiplier;
+
+            event.setDamage(reducedDamage);
+
+            // Effet visuel si réduction significative (> 25%)
+            if (reductionPercent >= 25.0 && originalDamage > 1.0) {
+                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
+                    player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+            }
+        }
     }
 
     /**
@@ -471,6 +569,18 @@ public class CombatListener implements Listener {
             finalDamage += lightningDamage * 2;
         }
 
+        // Poison DoT - applique un effet de poison proportionnel
+        double poisonDamage = playerStats.getOrDefault(StatType.POISON_DAMAGE, 0.0);
+        if (poisonDamage > 0) {
+            // L'amplificateur augmente avec les dégâts poison (0-20 → 0-2 amplifier)
+            int poisonAmplifier = Math.min(2, (int) (poisonDamage / 8));
+            // Durée: 3 secondes de base + 0.1s par point de poison damage
+            int poisonDuration = (int) (60 + poisonDamage * 2);
+            mob.addPotionEffect(new PotionEffect(PotionEffectType.POISON, poisonDuration, poisonAmplifier, false, true));
+            // Particules de poison (optimisées)
+            mob.getWorld().spawnParticle(Particle.ITEM_SLIME, mob.getLocation().add(0, 1, 0), 4, 0.3, 0.4, 0.3, 0.02);
+        }
+
         // ============ 8. LIFESTEAL ============
         double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
         double skillLifesteal = skillManager.getSkillBonus(player, SkillBonus.LIFESTEAL);
@@ -693,12 +803,34 @@ public class CombatListener implements Listener {
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
         var skillManager = plugin.getSkillTreeManager();
 
-        // Réduction de dégâts (items + skills)
+        // ============ ARMURE (réduction asymptotique) ============
+        // Formule: reduction = armor / (armor + 100)
+        // 50 armure = 33% réduction, 100 = 50%, 200 = 66%
+        double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
+        double armorPercent = playerStats.getOrDefault(StatType.ARMOR_PERCENT, 0.0);
+        double totalArmor = armor * (1 + armorPercent / 100.0);
+
+        if (totalArmor > 0) {
+            double armorReduction = totalArmor / (totalArmor + 100.0);
+            finalDamage *= (1 - armorReduction);
+        }
+
+        // ============ RÉDUCTION DE DÉGÂTS % (items + skills) ============
         double damageReduction = playerStats.getOrDefault(StatType.DAMAGE_REDUCTION, 0.0);
         double skillDamageReduction = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_REDUCTION);
         double totalReduction = Math.min(75, damageReduction + skillDamageReduction); // Cap à 75%
 
         finalDamage *= (1 - totalReduction / 100.0);
+
+        // ============ BLOCAGE (chance de réduire 50% des dégâts) ============
+        double blockChance = playerStats.getOrDefault(StatType.BLOCK_CHANCE, 0.0);
+        if (blockChance > 0 && random.nextDouble() * 100 < blockChance) {
+            finalDamage *= 0.5; // Bloque 50% des dégâts
+            player.getWorld().spawnParticle(Particle.CRIT, player.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.05);
+            player.playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 0.6f, 1.2f);
+            // Afficher l'indicateur de blocage flottant (via TextDisplay)
+            PacketDamageIndicator.displayBlock(plugin, player.getLocation(), player);
+        }
 
         // ============ ESQUIVE ============
         double dodgeChance = playerStats.getOrDefault(StatType.DODGE_CHANCE, 0.0);

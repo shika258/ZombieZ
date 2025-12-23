@@ -196,16 +196,16 @@ public enum StatType {
         "{value}%"
     ),
     
-    ARMOR_TOUGHNESS(
-        "Résistance d'armure",
+    BLOCK_CHANCE(
+        "Chance de Blocage",
         "🛡",
-        "§8",
+        "§9",
         StatCategory.DEFENSIVE,
-        true,
         false,
-        Attribute.ARMOR_TOUGHNESS,
-        0, 10,
-        "{value}"
+        true,
+        null,
+        0, 25,
+        "{value}%"
     ),
     
     MAX_HEALTH(
@@ -328,7 +328,7 @@ public enum StatType {
         false,
         true,
         Attribute.MOVEMENT_SPEED,
-        -5, 20,
+        -5, 100,  // Max 100% pour bottes Exalted zone 50
         "{value}%"
     ),
     

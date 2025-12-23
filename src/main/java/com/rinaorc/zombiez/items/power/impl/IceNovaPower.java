@@ -101,8 +101,8 @@ public class IceNovaPower extends Power {
 
                 currentRadius += step;
 
-                // Particules en cercle
-                for (int i = 0; i < 360; i += 10) {
+                // Particules en cercle (optimisées - moins de points, moins de particules par point)
+                for (int i = 0; i < 360; i += 20) {  // Réduit de 10° à 20° (moitié moins de points)
                     double angle = Math.toRadians(i);
                     double x = Math.cos(angle) * currentRadius;
                     double z = Math.sin(angle) * currentRadius;
@@ -111,18 +111,21 @@ public class IceNovaPower extends Power {
                     center.getWorld().spawnParticle(
                         Particle.SNOWFLAKE,
                         particleLoc,
-                        3,
-                        0.1, 0.1, 0.1,
+                        2,  // Réduit de 3 à 2
+                        0.08, 0.08, 0.08,
                         0
                     );
 
-                    center.getWorld().spawnParticle(
-                        Particle.CLOUD,
-                        particleLoc,
-                        1,
-                        0, 0, 0,
-                        0.01
-                    );
+                    // Cloud seulement une fois sur deux
+                    if (i % 40 == 0) {
+                        center.getWorld().spawnParticle(
+                            Particle.CLOUD,
+                            particleLoc,
+                            1,
+                            0, 0, 0,
+                            0.01
+                        );
+                    }
                 }
 
                 // Son de glace
@@ -160,12 +163,12 @@ public class IceNovaPower extends Power {
                         new PotionEffect(PotionEffectType.MINING_FATIGUE, freezeTicks, 2, false, true)
                     );
 
-                    // Effet visuel sur la cible
+                    // Effet visuel sur la cible (optimisé)
                     livingTarget.getWorld().spawnParticle(
                         Particle.SNOWFLAKE,
                         livingTarget.getEyeLocation(),
-                        20,
-                        0.5, 0.5, 0.5,
+                        10,  // Réduit de 20 à 10
+                        0.4, 0.4, 0.4,
                         0
                     );
                 }

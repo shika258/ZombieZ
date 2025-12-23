@@ -260,8 +260,10 @@ public class ItemBuilder {
     }
 
     /**
-     * Ajoute de la résistance d'armure
+     * @deprecated Utilisez blockChance() à la place pour ZombieZ
+     * Ajoute de la résistance d'armure vanilla (non utilisé dans ZombieZ)
      */
+    @Deprecated
     public ItemBuilder armorToughness(double toughness) {
         return attribute(Attribute.ARMOR_TOUGHNESS, toughness, AttributeModifier.Operation.ADD_NUMBER);
     }

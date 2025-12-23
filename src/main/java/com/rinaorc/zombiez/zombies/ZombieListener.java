@@ -306,40 +306,94 @@ public class ZombieListener implements Listener {
                     10, 0.3, 0.3, 0.3, 0.1);
         }
 
-        // Pénétration d'armure (réduit l'armure effective du zombie)
-        // Géré via les attributs et l'IA personnalisée
+        // ============ ARMOR PENETRATION vs ARMORED MOBS ============
+        // Les mobs ARMORED et ARMORED_ELITE ont une réduction de dégâts naturelle
+        // ARMOR_PENETRATION réduit cette défense
+        ZombieType zombieType = zombie.getType();
+        if (zombieType == ZombieType.ARMORED || zombieType == ZombieType.ARMORED_ELITE) {
+            // Défense de base: ARMORED = 25%, ARMORED_ELITE = 40%
+            double baseDefense = (zombieType == ZombieType.ARMORED_ELITE) ? 40.0 : 25.0;
+
+            // Pénétration d'armure du joueur (réduit la défense du mob)
+            double armorPenetration = plugin.getItemManager().getPlayerStat(player, StatType.ARMOR_PENETRATION);
+
+            // La défense effective est réduite par la pénétration (min 0%)
+            double effectiveDefense = Math.max(0.0, baseDefense - armorPenetration);
+
+            // Appliquer la réduction de dégâts
+            double defenseMultiplier = 1.0 - (effectiveDefense / 100.0);
+            damage *= defenseMultiplier;
+
+            // Effet visuel si pénétration significative (> 50% de la défense ignorée)
+            if (armorPenetration > baseDefense / 2) {
+                player.getWorld().spawnParticle(
+                        org.bukkit.Particle.DUST,
+                        zombie.getEntity().getLocation().add(0, 1, 0),
+                        8, 0.3, 0.4, 0.3, 0,
+                        new org.bukkit.Particle.DustOptions(
+                            org.bukkit.Color.fromRGB(200, 50, 50), 0.8f));
+            }
+        }
 
         return damage;
     }
 
     /**
      * Gère les abilities spéciales offensives d'affix
+     * Applique les résistances élémentaires du joueur
      */
     private void handleAffixSpecialAttack(ZombieAffix affix, LivingEntity zombie, Player victim) {
         String ability = affix.getSpecialAbility();
         if (ability == null)
             return;
 
+        // Récupérer les résistances du joueur
+        double fireResist = plugin.getItemManager().getPlayerStat(victim, StatType.FIRE_RESISTANCE);
+        double iceResist = plugin.getItemManager().getPlayerStat(victim, StatType.ICE_RESISTANCE);
+        double lightningResist = plugin.getItemManager().getPlayerStat(victim, StatType.LIGHTNING_RESISTANCE);
+
         switch (ability) {
             case "ignite_on_hit" -> {
-                victim.setFireTicks(60); // 3 secondes de feu
+                // Durée réduite par la résistance au feu (max 80% réduction)
+                double reduction = Math.min(80.0, fireResist) / 100.0;
+                int fireDuration = (int) (60 * (1.0 - reduction)); // 3 secondes de base
+                if (fireDuration > 0) {
+                    victim.setFireTicks(fireDuration);
+                }
             }
             case "freeze_on_hit" -> {
-                // Slowness au lieu du gel visuel (texture gênante pour le joueur)
-                victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 80, 2));
+                // Durée et puissance réduites par la résistance à la glace
+                double reduction = Math.min(80.0, iceResist) / 100.0;
+                int freezeDuration = (int) (80 * (1.0 - reduction));
+                int amplifier = (int) Math.max(0, 2 - (iceResist / 25)); // Réduit l'amplificateur
+                if (freezeDuration > 0) {
+                    victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, freezeDuration, amplifier));
+                }
             }
             case "chain_lightning" -> {
-                // Dégâts aux joueurs proches
-                victim.getWorld().getNearbyEntities(victim.getLocation(), 5, 3, 5).stream()
-                        .filter(e -> e instanceof Player && e != victim)
-                        .limit(2)
-                        .forEach(e -> {
-                            ((Player) e).damage(3, zombie);
-                            victim.getWorld().spawnParticle(
-                                    org.bukkit.Particle.ELECTRIC_SPARK,
-                                    ((Player) e).getLocation().add(0, 1, 0),
-                                    20, 0.3, 0.5, 0.3, 0.1);
-                        });
+                // Dégâts réduits par la résistance à la foudre
+                double reduction = Math.min(80.0, lightningResist) / 100.0;
+                double chainDamage = 3.0 * (1.0 - reduction);
+
+                if (chainDamage > 0.1) {
+                    victim.getWorld().getNearbyEntities(victim.getLocation(), 5, 3, 5).stream()
+                            .filter(e -> e instanceof Player && e != victim)
+                            .limit(2)
+                            .forEach(e -> {
+                                Player target = (Player) e;
+                                // Appliquer aussi la résistance de la cible secondaire
+                                double targetResist = plugin.getItemManager().getPlayerStat(target, StatType.LIGHTNING_RESISTANCE);
+                                double targetReduction = Math.min(80.0, targetResist) / 100.0;
+                                double finalDamage = chainDamage * (1.0 - targetReduction);
+                                if (finalDamage > 0.1) {
+                                    target.damage(finalDamage, zombie);
+                                }
+                                victim.getWorld().spawnParticle(
+                                        org.bukkit.Particle.ELECTRIC_SPARK,
+                                        target.getLocation().add(0, 1, 0),
+                                        20, 0.3, 0.5, 0.3, 0.1);
+                            });
+                }
             }
             case "lifesteal" -> {
                 // Soigner le zombie de 20% des dégâts infligés
@@ -351,12 +405,20 @@ public class ZombieListener implements Listener {
                 // Effet mana drain (effet visuel uniquement)
             }
             case "corruption_spread" -> {
-                // Appliquer wither à tous les joueurs proches
+                // Appliquer wither à tous les joueurs proches (réduit par résistance poison)
                 victim.getWorld().getNearbyEntities(victim.getLocation(), 4, 2, 4).stream()
                         .filter(e -> e instanceof Player)
-                        .forEach(e -> ((Player) e).addPotionEffect(
-                                new org.bukkit.potion.PotionEffect(
-                                        org.bukkit.potion.PotionEffectType.WITHER, 40, 0)));
+                        .forEach(e -> {
+                            Player target = (Player) e;
+                            double poisonResist = plugin.getItemManager().getPlayerStat(target, StatType.POISON_RESISTANCE);
+                            double reduction = Math.min(80.0, poisonResist) / 100.0;
+                            int witherDuration = (int) (40 * (1.0 - reduction));
+                            if (witherDuration > 0) {
+                                target.addPotionEffect(
+                                    new org.bukkit.potion.PotionEffect(
+                                        org.bukkit.potion.PotionEffectType.WITHER, witherDuration, 0));
+                            }
+                        });
             }
         }
     }

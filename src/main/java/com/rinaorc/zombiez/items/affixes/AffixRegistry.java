@@ -512,6 +512,66 @@ public class AffixRegistry {
             .minZone(2)
             .build());
 
+        // ==================== SUFFIXES VITESSE BOTTES ====================
+        // Thème: Mobilité exclusive aux bottes
+        // Calcul: Zone 50 Exalted Tier 5 = base × 3.5 × 1.5 × 1.3 ≈ base × 6.83
+        // Objectif: Max ~100% vitesse pour Tier 5 Zone 50 Exalted
+
+        registerAffix(Affix.builder()
+            .id("of_swift_feet")
+            .displayName("des Pieds Rapides")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_1)
+            .weight(80)
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{2, 4}))
+            .allowedTypes(List.of(ItemType.BOOTS))
+            .minZone(1)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_agility")
+            .displayName("de l'Agilité")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(50)
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{4, 6}))
+            .allowedTypes(List.of(ItemType.BOOTS))
+            .minZone(3)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_wind")
+            .displayName("du Vent")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(30)
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{5, 8}))
+            .allowedTypes(List.of(ItemType.BOOTS))
+            .minZone(5)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_storm")
+            .displayName("de la Tempête")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(12)
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{7, 11}))
+            .allowedTypes(List.of(ItemType.BOOTS))
+            .minZone(7)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_hurricane")
+            .displayName("de l'Ouragan")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_5)
+            .weight(4)
+            .stats(Map.of(StatType.MOVEMENT_SPEED, new double[]{10, 15}))
+            .allowedTypes(List.of(ItemType.BOOTS))
+            .minZone(9)
+            .build());
+
         // ==================== SUFFIXES DÉFENSIFS SPÉCIAUX ====================
         // Thème: Auto-soins / Défense active
 

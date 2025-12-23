@@ -172,13 +172,20 @@ public class ActionBarManager {
 
         bar.append(" §8│ ");
 
-        // DÉFENSE
+        // DÉFENSE (affiche la réduction de dégâts effective en %)
         double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
-        double armorToughness = playerStats.getOrDefault(StatType.ARMOR_TOUGHNESS, 0.0);
+        double armorPercent = playerStats.getOrDefault(StatType.ARMOR_PERCENT, 0.0);
         double damageReduction = playerStats.getOrDefault(StatType.DAMAGE_REDUCTION, 0.0);
-        double totalDefense = armor + (armorToughness * 2) + (damageReduction * 0.5);
+        double blockChance = playerStats.getOrDefault(StatType.BLOCK_CHANCE, 0.0);
+        double totalArmor = armor * (1 + armorPercent / 100.0);
+        // Calcul de la réduction totale effective (armure + réduction %)
+        double armorReductionPercent = totalArmor > 0 ? (totalArmor / (totalArmor + 100.0)) * 100 : 0;
+        double totalDefense = armorReductionPercent + damageReduction;
         String defenseColor = getDefenseColor(totalDefense);
-        bar.append(defenseColor).append("🛡 ").append((int) totalDefense);
+        bar.append(defenseColor).append("🛡 ").append((int) totalDefense).append("%");
+        if (blockChance > 0) {
+            bar.append(" §9(").append((int) blockChance).append("% bloc)");
+        }
 
         bar.append(" §8│ ");
 

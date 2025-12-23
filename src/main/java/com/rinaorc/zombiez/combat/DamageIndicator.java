@@ -226,6 +226,36 @@ public class DamageIndicator {
     }
 
     /**
+     * Affiche un indicateur de blocage
+     */
+    public static void displayBlock(ZombieZPlugin plugin, Location location, Player viewer) {
+        if (location.getWorld() == null) return;
+
+        Location spawnLoc = location.clone().add(0, 1.4, 0);
+
+        location.getWorld().spawn(spawnLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setSeeThrough(false);
+            display.setShadowed(true);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            // Texte de blocage en bleu
+            display.text(Component.text("🛡 BLOQUÉ!", NamedTextColor.BLUE, TextDecoration.BOLD));
+
+            animateStatus(plugin, display, spawnLoc, 21);
+        });
+    }
+
+    /**
+     * Affiche un indicateur de blocage (version legacy)
+     */
+    public static void displayBlock(ZombieZPlugin plugin, Location location) {
+        Player nearestPlayer = findNearestPlayer(location, 50);
+        displayBlock(plugin, location, nearestPlayer);
+    }
+
+    /**
      * Affiche un indicateur de headshot avec dégâts
      */
     public static void displayHeadshot(ZombieZPlugin plugin, Location location, double damage, Player viewer) {

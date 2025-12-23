@@ -90,21 +90,24 @@ public class ChainLightningPower extends Power {
         // Infliger les dégâts
         currentTarget.damage(damage, player);
 
-        // Effets visuels
+        // Effets visuels (optimisés - moins de particules)
         Location targetLoc = currentTarget.getEyeLocation();
         targetLoc.getWorld().spawnParticle(
             Particle.ELECTRIC_SPARK,
             targetLoc,
-            20,
-            0.3, 0.5, 0.3,
-            0.1
+            12,  // Réduit de 20 à 12
+            0.25, 0.4, 0.25,
+            0.08
         );
 
-        targetLoc.getWorld().spawnParticle(
-            Particle.FLASH,
-            targetLoc,
-            1
-        );
+        // Flash seulement au premier impact
+        if (bounceNumber == 0) {
+            targetLoc.getWorld().spawnParticle(
+                Particle.FLASH,
+                targetLoc,
+                1
+            );
+        }
 
         // Son différent selon le rebond
         float pitch = 1.0f + (bounceNumber * 0.15f);
@@ -151,13 +154,13 @@ public class ChainLightningPower extends Power {
 
                     Location boltLoc = new Location(fromLoc.getWorld(), x, y, z);
 
-                    // Particules d'éclair
+                    // Particules d'éclair (optimisées)
                     boltLoc.getWorld().spawnParticle(
                         Particle.ELECTRIC_SPARK,
                         boltLoc,
-                        5,
-                        0.1, 0.1, 0.1,
-                        0.05
+                        3,  // Réduit de 5 à 3
+                        0.08, 0.08, 0.08,
+                        0.03
                     );
 
                     ticks++;
