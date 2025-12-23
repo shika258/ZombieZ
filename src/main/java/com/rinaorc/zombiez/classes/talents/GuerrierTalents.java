@@ -1164,7 +1164,7 @@ public final class GuerrierTalents {
                 "§7- Regenere §f1 charge d'os§7/2s",
                 "",
                 "§4§lVOUS ETES LE BOSS DU COMBAT!",
-                "§8Cooldown: §e90s"
+                "§8Cooldown: §e45s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -1172,8 +1172,8 @@ public final class GuerrierTalents {
             .icon(Material.NETHERITE_SWORD)
             .iconColor("§4§l")
             .effectType(Talent.TalentEffectType.DANCING_RUNE_WEAPON)
-            .values(new double[]{15000, 0.30, 0.20, 2000, 90000}) // duration_ms, DR_bonus%, lifesteal_bonus%, bone_regen_ms, cooldown_ms
-            .internalCooldownMs(90000)
+            .values(new double[]{15000, 0.30, 0.20, 2000, 45000}) // duration_ms, DR_bonus%, lifesteal_bonus%, bone_regen_ms, cooldown_ms
+            .internalCooldownMs(45000)
             .build());
 
         // 8.5 - EXTINCTION
