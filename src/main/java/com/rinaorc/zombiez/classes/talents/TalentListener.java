@@ -163,6 +163,8 @@ public class TalentListener implements Listener {
     // Bouclier d'Os - charges actuelles
     private final Map<UUID, Integer> boneShieldCharges = new ConcurrentHashMap<>();
     private final Map<UUID, Long> boneShieldLastRegen = new ConcurrentHashMap<>();
+    // Bouclier d'Os - ArmorStands visuels (os tournants)
+    private final Map<UUID, List<ArmorStand>> boneShieldArmorStands = new ConcurrentHashMap<>();
 
     // Mort et Décomposition - zone active
     private final Map<UUID, Location> deathAndDecayCenter = new ConcurrentHashMap<>();
@@ -182,8 +184,29 @@ public class TalentListener implements Listener {
         this.talentManager = talentManager;
         // Note: registration handled by ZombieZPlugin, not here
 
+        // Nettoyer les ArmorStands orphelins de sessions précédentes
+        cleanupOrphanBoneShieldArmorStands();
+
         // Taches periodiques
         startPeriodicTasks();
+    }
+
+    /**
+     * Nettoie les ArmorStands orphelins du Bouclier d'Os (appelé au démarrage)
+     */
+    private void cleanupOrphanBoneShieldArmorStands() {
+        int removed = 0;
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (entity instanceof ArmorStand && entity.getScoreboardTags().contains("zombiez_bone_shield")) {
+                    entity.remove();
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            plugin.getLogger().info("[TalentListener] Nettoyé " + removed + " ArmorStands orphelins de Bouclier d'Os");
+        }
     }
 
     private void updateGuerriersCache() {
@@ -963,7 +986,9 @@ public class TalentListener implements Listener {
                 // Consommer une charge si gros dégâts (>10% max HP)
                 double maxHp = player.getAttribute(Attribute.MAX_HEALTH).getValue();
                 if (damage > maxHp * 0.10) {
-                    boneShieldCharges.put(uuid, charges - 1);
+                    int newCharges = charges - 1;
+                    boneShieldCharges.put(uuid, newCharges);
+                    updateBoneShieldArmorStands(player, newCharges); // Mise à jour immédiate des os
                     player.getWorld().spawnParticle(Particle.BLOCK, player.getLocation().add(0, 1, 0),
                         8, 0.3, 0.3, 0.3, 0.05, Material.BONE_BLOCK.createBlockData());
                     player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SKELETON_STEP, 0.5f, 1.2f);
@@ -1010,6 +1035,7 @@ public class TalentListener implements Listener {
 
                     // Consommer les charges
                     boneShieldCharges.put(uuid, 0);
+                    updateBoneShieldArmorStands(player, 0); // Supprimer les os visuels immédiatement
 
                     // Heal
                     double newHealth = Math.min(maxHp, player.getHealth() + totalHeal);
@@ -1666,13 +1692,11 @@ public class TalentListener implements Listener {
                         }
                     }
 
-                    // Bouclier d'Os - Particules tournantes visuelles
+                    // Bouclier d'Os - ArmorStands tournants
                     Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
                     if (boneShieldVisual != null) {
                         int charges = boneShieldCharges.getOrDefault(uuid, 0);
-                        if (charges > 0) {
-                            spawnBoneShieldParticles(player, charges);
-                        }
+                        updateBoneShieldArmorStands(player, charges);
                     }
                 }
             }
@@ -4281,6 +4305,7 @@ public class TalentListener implements Listener {
         boneShieldCharges.remove(playerUuid);
         boneShieldLastRegen.remove(playerUuid);
         boneShieldRotation.remove(playerUuid);
+        removeBoneShieldArmorStands(playerUuid); // Supprime les ArmorStands visuels
         deathAndDecayCenter.remove(playerUuid);
         deathAndDecayExpiry.remove(playerUuid);
         dancingRuneWeaponExpiry.remove(playerUuid);
@@ -4338,50 +4363,130 @@ public class TalentListener implements Listener {
         int current = boneShieldCharges.getOrDefault(uuid, 0);
         int newCharges = Math.min(current + amount, maxCharges);
         boneShieldCharges.put(uuid, newCharges);
+
+        // Mise à jour visuelle immédiate des ArmorStands
+        if (newCharges != current) {
+            updateBoneShieldArmorStands(player, newCharges);
+        }
     }
 
-    // Compteur pour l'angle de rotation des particules d'os
+    // Compteur pour l'angle de rotation des os
     private final Map<UUID, Double> boneShieldRotation = new ConcurrentHashMap<>();
 
     /**
-     * Affiche des particules d'os tournantes autour du joueur
-     * Les os orbitent à hauteur du torse, un par charge active
+     * Met à jour les ArmorStands du Bouclier d'Os autour du joueur
+     * Crée, supprime ou repositionne les os selon le nombre de charges
      */
-    private void spawnBoneShieldParticles(Player player, int charges) {
+    private void updateBoneShieldArmorStands(Player player, int charges) {
         UUID uuid = player.getUniqueId();
-        Location center = player.getLocation().add(0, 1.0, 0);
+        List<ArmorStand> stands = boneShieldArmorStands.computeIfAbsent(uuid, k -> new ArrayList<>());
 
-        // Rotation progressive (avance de 15° à chaque tick = ~0.5s)
+        // Si pas de charges, supprimer tous les ArmorStands
+        if (charges <= 0) {
+            for (ArmorStand stand : stands) {
+                if (stand != null && stand.isValid()) {
+                    stand.remove();
+                }
+            }
+            stands.clear();
+            return;
+        }
+
+        // Ajuster le nombre d'ArmorStands selon les charges
+        while (stands.size() < charges) {
+            ArmorStand newStand = spawnBoneArmorStand(player);
+            if (newStand != null) {
+                stands.add(newStand);
+            }
+        }
+        while (stands.size() > charges) {
+            ArmorStand toRemove = stands.remove(stands.size() - 1);
+            if (toRemove != null && toRemove.isValid()) {
+                toRemove.remove();
+            }
+        }
+
+        // Rotation progressive (avance de 18° à chaque tick = ~0.5s = rotation complète en ~1s)
         double baseAngle = boneShieldRotation.getOrDefault(uuid, 0.0);
-        baseAngle = (baseAngle + 15) % 360;
+        baseAngle = (baseAngle + 18) % 360;
         boneShieldRotation.put(uuid, baseAngle);
 
-        // Rayon orbital
-        double radius = 0.8;
-
-        // Afficher un os par charge, répartis uniformément
+        // Positionner les os autour du joueur
+        double radius = 1.0;
         double angleStep = 360.0 / charges;
-        for (int i = 0; i < charges; i++) {
+        Location playerLoc = player.getLocation();
+
+        for (int i = 0; i < stands.size(); i++) {
+            ArmorStand stand = stands.get(i);
+            if (stand == null || !stand.isValid()) {
+                // Recréer si invalide
+                stands.set(i, spawnBoneArmorStand(player));
+                stand = stands.get(i);
+                if (stand == null) continue;
+            }
+
             double angle = Math.toRadians(baseAngle + (i * angleStep));
             double x = Math.cos(angle) * radius;
             double z = Math.sin(angle) * radius;
 
-            Location particleLoc = center.clone().add(x, 0, z);
+            Location newLoc = playerLoc.clone().add(x, 0.8, z);
+            // Faire tourner l'os sur lui-même aussi
+            newLoc.setYaw((float) (baseAngle + (i * angleStep)));
+            stand.teleport(newLoc);
+        }
+    }
 
-            // Particule principale - bloc d'os
-            player.getWorld().spawnParticle(
-                Particle.BLOCK,
-                particleLoc,
-                2, 0.05, 0.1, 0.05, 0.01,
-                Material.BONE_BLOCK.createBlockData()
-            );
+    /**
+     * Crée un ArmorStand invisible avec un os sur la tête
+     */
+    private ArmorStand spawnBoneArmorStand(Player player) {
+        Location loc = player.getLocation().add(0, 0.8, 0);
+        ArmorStand stand = player.getWorld().spawn(loc, ArmorStand.class, as -> {
+            as.setVisible(false);
+            as.setSmall(true);
+            as.setMarker(true); // Pas de hitbox
+            as.setGravity(false);
+            as.setInvulnerable(true);
+            as.setCanPickupItems(false);
+            as.setBasePlate(false);
+            as.setArms(false);
+            // Mettre un os sur la tête
+            as.getEquipment().setHelmet(new org.bukkit.inventory.ItemStack(Material.BONE));
+            // Tag pour identifier
+            as.addScoreboardTag("zombiez_bone_shield");
+            as.addScoreboardTag("zombiez_bone_owner_" + player.getUniqueId());
+        });
+        return stand;
+    }
 
-            // Petite traînée spectrale
-            player.getWorld().spawnParticle(
-                Particle.SOUL,
-                particleLoc,
-                1, 0.02, 0.02, 0.02, 0.005
-            );
+    /**
+     * Supprime tous les ArmorStands de Bouclier d'Os d'un joueur
+     */
+    private void removeBoneShieldArmorStands(UUID uuid) {
+        List<ArmorStand> stands = boneShieldArmorStands.remove(uuid);
+        if (stands != null) {
+            for (ArmorStand stand : stands) {
+                if (stand != null && stand.isValid()) {
+                    stand.remove();
+                }
+            }
+        }
+    }
+
+    /**
+     * Nettoie tous les ArmorStands de Bouclier d'Os (appelé au reload/disable)
+     */
+    public void cleanupAllBoneShieldArmorStands() {
+        for (UUID uuid : new ArrayList<>(boneShieldArmorStands.keySet())) {
+            removeBoneShieldArmorStands(uuid);
+        }
+        // Aussi nettoyer les ArmorStands orphelins par tag
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (entity instanceof ArmorStand && entity.getScoreboardTags().contains("zombiez_bone_shield")) {
+                    entity.remove();
+                }
+            }
         }
     }
 

@@ -151,6 +151,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.classes.talents.TalentManager talentManager;
     @Getter
+    private com.rinaorc.zombiez.classes.talents.TalentListener talentListener;
+    @Getter
     private com.rinaorc.zombiez.classes.gui.ClassSelectionGUI classSelectionGUI;
     @Getter
     private com.rinaorc.zombiez.classes.gui.ClassInfoGUI classInfoGUI;
@@ -311,6 +313,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (classManager != null) {
             log(Level.INFO, "§7Sauvegarde des données de classe...");
             classManager.shutdown();
+        }
+
+        // Cleanup des ArmorStands visuels (Bouclier d'Os)
+        if (talentListener != null) {
+            log(Level.INFO, "§7Nettoyage des effets visuels de talents...");
+            talentListener.cleanupAllBoneShieldArmorStands();
         }
 
         // Cleanup du système de bêtes
@@ -752,7 +760,8 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Listener système de talents (effets passifs)
         if (talentManager != null) {
-            pm.registerEvents(new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager), this);
+            talentListener = new com.rinaorc.zombiez.classes.talents.TalentListener(this, talentManager);
+            pm.registerEvents(talentListener, this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.ChasseurTalentListener(this, talentManager),
                     this);
             pm.registerEvents(new com.rinaorc.zombiez.classes.talents.OccultisteTalentListener(this, talentManager),
