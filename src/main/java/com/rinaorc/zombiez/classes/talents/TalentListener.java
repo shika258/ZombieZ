@@ -819,7 +819,7 @@ public class TalentListener implements Listener {
 
                     // Feedback bouclier
                     if (shouldSendTalentMessage(player)) {
-                        setTempEventMessage(uuid, "§6+" + (int)shieldAmount + " §7bouclier (overheal)");
+                        showTempEventMessage(uuid, "§6+" + (int)shieldAmount + " §7bouclier (overheal)");
                     }
                 }
 
@@ -883,7 +883,7 @@ public class TalentListener implements Listener {
 
             // Feedback
             if (shouldSendTalentMessage(player)) {
-                setTempEventMessage(uuid, "§f§lMOELLE! §7+" + chargesGained + " os §8(§f" + chargesAfter + "/5§8)");
+                showTempEventMessage(uuid, "§f§lMOELLE! §7+" + chargesGained + " os §8(§f" + chargesAfter + "/5§8)");
             }
         }
 
@@ -1058,7 +1058,7 @@ public class TalentListener implements Listener {
                     setCooldown(uuid, "consumption", (long) consumption.getValue(3));
 
                     if (shouldSendTalentMessage(player)) {
-                        setTempEventMessage(uuid, "§4§lCONSOMMATION! §7" + charges + " charges → §a" + (int)(totalHeal) + " HP");
+                        showTempEventMessage(uuid, "§4§lCONSOMMATION! §7" + charges + " charges → §a" + (int)(totalHeal) + " HP");
                     }
                 }
             }
@@ -4556,7 +4556,7 @@ public class TalentListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
 
         if (shouldSendTalentMessage(player)) {
-            setTempEventMessage(uuid, "§4§lMORT ET DECOMPOSITION! §7Zone active " + (duration/1000) + "s");
+            showTempEventMessage(uuid, "§4§lMORT ET DECOMPOSITION! §7Zone active " + (duration/1000) + "s");
         }
     }
 
@@ -4613,7 +4613,7 @@ public class TalentListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
 
         if (shouldSendTalentMessage(player)) {
-            setTempEventMessage(uuid, "§4§lEPEE DANSANTE! §7Double attaques pendant " + (duration/1000) + "s!");
+            showTempEventMessage(uuid, "§4§lEPEE DANSANTE! §7Double attaques pendant " + (duration/1000) + "s!");
         }
     }
 
