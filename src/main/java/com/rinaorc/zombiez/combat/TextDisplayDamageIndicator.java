@@ -161,6 +161,31 @@ public class TextDisplayDamageIndicator {
     }
 
     /**
+     * Affiche un indicateur de blocage
+     */
+    public static void displayBlock(ZombieZPlugin plugin, Location location, Player viewer) {
+        if (location.getWorld() == null) return;
+
+        Location spawnLoc = location.clone().add(0, 1.4, 0);
+
+        Component text = Component.text("🛡 BLOQUÉ!", NamedTextColor.BLUE, TextDecoration.BOLD);
+
+        try {
+            TextDisplay display = spawnTextDisplay(spawnLoc, text, 0.5f, viewer);
+            if (display != null) {
+                animateStatus(plugin, display, spawnLoc, 21);
+            }
+        } catch (Exception e) {
+            DamageIndicator.displayBlock(plugin, location, viewer);
+        }
+    }
+
+    public static void displayBlock(ZombieZPlugin plugin, Location location) {
+        Player nearestPlayer = findNearestPlayer(location, 50);
+        displayBlock(plugin, location, nearestPlayer);
+    }
+
+    /**
      * Affiche un indicateur de headshot
      */
     public static void displayHeadshot(ZombieZPlugin plugin, Location location, double damage, Player viewer) {

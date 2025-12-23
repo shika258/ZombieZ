@@ -730,7 +730,8 @@ public class CombatListener implements Listener {
             finalDamage *= 0.5; // Bloque 50% des dégâts
             player.getWorld().spawnParticle(Particle.CRIT, player.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.05);
             player.playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 0.6f, 1.2f);
-            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player, "§9§l🛡 BLOQUÉ! §7(-50% dégâts)");
+            // Afficher l'indicateur de blocage flottant (via TextDisplay)
+            PacketDamageIndicator.displayBlock(plugin, player.getLocation(), player);
         }
 
         // ============ ESQUIVE ============
