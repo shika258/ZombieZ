@@ -392,7 +392,7 @@ public class RecycleManager implements Listener {
     }
 
     /**
-     * Démarre la tâche de résumé toutes les minutes
+     * Démarre la tâche de recyclage automatique et résumé toutes les minutes
      */
     private void startSummaryTask() {
         summaryTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -409,6 +409,10 @@ public class RecycleManager implements Listener {
                     continue;
                 }
 
+                // Scanner et recycler les items dans l'inventaire
+                recycleInventoryItems(player, settings);
+
+                // Récupérer les stats de la dernière minute (incluant le recyclage d'inventaire)
                 long[] stats = settings.resetLastMinuteStats();
                 long points = stats[0];
                 long items = stats[1];
@@ -424,6 +428,47 @@ public class RecycleManager implements Listener {
                 }
             }
         }, 20L * 60, 20L * 60); // Toutes les minutes
+    }
+
+    /**
+     * Recycle automatiquement les items dans l'inventaire du joueur
+     * selon ses paramètres de recyclage
+     */
+    private void recycleInventoryItems(Player player, RecycleSettings settings) {
+        ItemStack[] contents = player.getInventory().getStorageContents();
+        int totalRecycled = 0;
+
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack item = contents[i];
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+
+            // Vérifier si c'est un item ZombieZ recyclable
+            if (!ZombieZItem.isZombieZItem(item)) {
+                continue;
+            }
+
+            Rarity rarity = ZombieZItem.getItemRarity(item);
+            if (rarity == null || !settings.shouldRecycle(rarity)) {
+                continue;
+            }
+
+            // Recycler chaque item du stack
+            int amount = item.getAmount();
+            for (int j = 0; j < amount; j++) {
+                recycleItem(player, item);
+                totalRecycled++;
+            }
+
+            // Supprimer l'item de l'inventaire
+            player.getInventory().setItem(i, null);
+        }
+
+        // Feedback si des items ont été recyclés
+        if (totalRecycled > 0) {
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
+        }
     }
 
     /**
