@@ -26,6 +26,8 @@ import org.bukkit.util.Vector;
 
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -347,6 +349,16 @@ public class CombatListener implements Listener {
         // Joueur qui reçoit des dégâts = en combat
         if (victim instanceof Player victimPlayer && plugin.getActionBarManager() != null) {
             plugin.getActionBarManager().markInCombat(victimPlayer.getUniqueId());
+        }
+
+        // ============ BLOQUER DÉGÂTS MÊLÉE AVEC ARC/ARBALÈTE ============
+        // Les arcs et arbalètes ne font pas de dégâts au corps à corps (clic gauche)
+        if (damager instanceof Player meleeAttacker) {
+            ItemStack heldItem = meleeAttacker.getInventory().getItemInMainHand();
+            if (heldItem != null && isRangedWeapon(heldItem.getType())) {
+                event.setCancelled(true);
+                return;
+            }
         }
 
         // PvP
@@ -1259,6 +1271,14 @@ public class CombatListener implements Listener {
      */
     private boolean isZombieZMob(Entity entity) {
         return entity.hasMetadata("zombiez_type") || entity.getScoreboardTags().contains("zombiez_mob");
+    }
+
+    /**
+     * Vérifie si le matériau est une arme à distance (arc, arbalète)
+     * Ces armes ne font pas de dégâts au corps à corps
+     */
+    private boolean isRangedWeapon(Material material) {
+        return material == Material.BOW || material == Material.CROSSBOW;
     }
 
     /**
