@@ -1939,8 +1939,8 @@ public class TalentListener implements Listener {
                                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                 target.damage(auraDamage, player);
 
-                                // Particules de dégâts sur la cible (fumée rouge)
-                                world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                                // Particules de dégâts sur la cible (fumée rouge au sol)
+                                world.spawnParticle(Particle.DUST, target.getLocation().add(0, 0.1, 0),
                                     3, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.2f));
                             }
                         }
