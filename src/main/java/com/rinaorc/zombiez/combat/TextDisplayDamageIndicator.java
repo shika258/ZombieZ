@@ -683,6 +683,74 @@ public class TextDisplayDamageIndicator {
     }
 
     /**
+     * Affiche un indicateur de dégâts pour l'Épée Dansante (couleur violette spéciale)
+     */
+    public static void displayDancingSword(ZombieZPlugin plugin, Location location, double damage, Player viewer) {
+        if (location.getWorld() == null) return;
+
+        Vector offset = calculateAntiStackOffset(location, viewer);
+        Location spawnLoc = location.clone().add(offset.getX() + 0.4, 1.0 + offset.getY(), offset.getZ() + 0.4);
+
+        // Format spécial pour l'épée dansante (violet/magenta)
+        String formattedDamage = FORMAT.format(damage);
+        Component text = Component.text("⚔ ", TextColor.color(0x9932CC), TextDecoration.BOLD)
+            .append(Component.text(formattedDamage, TextColor.color(0xBA55D3), TextDecoration.BOLD));
+
+        try {
+            TextDisplay display = spawnTextDisplay(spawnLoc, text, 0.9f, viewer);
+            if (display != null) {
+                animateDancingSword(plugin, display, spawnLoc);
+            }
+        } catch (Exception e) {
+            // Fallback vers l'affichage standard
+            display(plugin, location, damage, false, viewer);
+        }
+    }
+
+    /**
+     * Animation spéciale pour les dégâts de l'Épée Dansante
+     */
+    private static void animateDancingSword(ZombieZPlugin plugin, TextDisplay display, Location startLoc) {
+        new BukkitRunnable() {
+            private int tick = 0;
+            private final int duration = 18;
+            private final float baseScale = 0.9f;
+
+            @Override
+            public void run() {
+                if (tick >= duration || !display.isValid()) {
+                    if (display.isValid()) {
+                        display.remove();
+                    }
+                    cancel();
+                    return;
+                }
+
+                float progress = (float) tick / duration;
+                float easedProgress = easeOutCubic(progress);
+
+                // Mouvement légèrement diagonal vers le haut-droite
+                float yOffset = easedProgress * 0.8f;
+
+                float scale;
+                if (progress < 0.1f) {
+                    // Pop in effect
+                    scale = baseScale * (0.6f + 0.5f * easeOutBack(progress / 0.1f));
+                } else if (progress > 0.65f) {
+                    // Fade out
+                    float fadeProgress = (progress - 0.65f) / 0.35f;
+                    scale = baseScale * (1 - easeInCubic(fadeProgress) * 0.7f);
+                } else {
+                    scale = baseScale;
+                }
+
+                updateTransformation(display, yOffset, scale);
+                tick++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
      * Nettoie le cache des indicateurs
      */
     public static void cleanup() {

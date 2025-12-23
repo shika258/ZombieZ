@@ -18,6 +18,7 @@ import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -170,6 +171,8 @@ public class TalentListener implements Listener {
 
     // Épée Dansante - état actif
     private final Map<UUID, Long> dancingRuneWeaponExpiry = new ConcurrentHashMap<>();
+    // Épée Dansante - ArmorStand de l'épée fantôme
+    private final Map<UUID, ArmorStand> dancingRuneWeaponStands = new ConcurrentHashMap<>();
 
     // Pacte de Sang - Larves de Sang (Endermites vampiriques)
     private final Map<UUID, UUID> bloodLarvaeOwners = new ConcurrentHashMap<>(); // larva UUID -> player UUID
@@ -911,6 +914,11 @@ public class TalentListener implements Listener {
             if (dancingWeapon != null) {
                 // Double les dégâts (l'épée fantôme frappe aussi)
                 double bonusDamage = damage;
+
+                // Afficher hologramme de dégâts pour l'épée dansante (dégâts bonus)
+                PacketDamageIndicator.displayDancingSword(plugin, target.getLocation().add(0.3, 1.2, 0.3), bonusDamage, player);
+
+                // Infliger les dégâts bonus
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(bonusDamage, player);
 
@@ -918,9 +926,11 @@ public class TalentListener implements Listener {
                 double bonusLifesteal = damage * dancingWeapon.getValue(2); // +20%
                 applyLifesteal(player, bonusLifesteal);
 
-                // Effet visuel épée fantôme
-                Location swordLoc = target.getLocation().add(0.5, 1.5, 0.5);
-                player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, swordLoc, 5, 0.1, 0.3, 0.1, 0.02);
+                // Animation de swing de l'épée fantôme
+                ArmorStand swordStand = dancingRuneWeaponStands.get(uuid);
+                if (swordStand != null && swordStand.isValid()) {
+                    animateSwordSwing(swordStand, target.getLocation());
+                }
             }
         }
 
@@ -1270,6 +1280,28 @@ public class TalentListener implements Listener {
     }
 
     // ==================== LARVES DE SANG (Pacte de Sang) ====================
+
+    /**
+     * Modifie les dégâts des larves pour correspondre aux dégâts du joueur propriétaire
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBloodLarvaeDamageModify(EntityDamageByEntityEvent event) {
+        // Vérifier si le damager est une Endermite (larve de sang)
+        if (!(event.getDamager() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Récupérer les dégâts stockés dans le tag
+        for (String tag : larvae.getScoreboardTags()) {
+            if (tag.startsWith("zombiez_larvae_damage_")) {
+                try {
+                    double playerDamage = Double.parseDouble(tag.substring("zombiez_larvae_damage_".length()));
+                    // Appliquer les dégâts du joueur (50% pour équilibrage)
+                    event.setDamage(playerDamage * 0.5);
+                    break;
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+    }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBloodLarvaeDamage(EntityDamageByEntityEvent event) {
@@ -1653,6 +1685,26 @@ public class TalentListener implements Listener {
     // ==================== TACHES PERIODIQUES OPTIMISEES ====================
 
     private void startPeriodicTasks() {
+        // ULTRA FAST TICK (2L = 0.1s) - Animation fluide des os du Bouclier d'Os
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (activeGuerriers.isEmpty()) return;
+
+                for (UUID uuid : activeGuerriers) {
+                    Player player = Bukkit.getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    // Bouclier d'Os - ArmorStands tournants avec animation ultra-fluide
+                    Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
+                    if (boneShieldVisual != null) {
+                        int charges = boneShieldCharges.getOrDefault(uuid, 0);
+                        updateBoneShieldArmorStands(player, charges);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 2L, 2L);
+
         // FAST TICK (10L = 0.5s) - Execute auras
         new BukkitRunnable() {
             @Override
@@ -1701,13 +1753,6 @@ public class TalentListener implements Listener {
                                 }
                             }
                         }
-                    }
-
-                    // Bouclier d'Os - ArmorStands tournants
-                    Talent boneShieldVisual = getActiveTalentIfHas(player, Talent.TalentEffectType.BONE_SHIELD);
-                    if (boneShieldVisual != null) {
-                        int charges = boneShieldCharges.getOrDefault(uuid, 0);
-                        updateBoneShieldArmorStands(player, charges);
                     }
                 }
             }
@@ -1900,29 +1945,30 @@ public class TalentListener implements Listener {
                             }
                         }
 
-                        // Particules de fumée rouge autour du joueur (aura visuelle)
+                        // Particules d'aura au sol uniquement (pas au niveau de la tête)
                         long tick = world.getGameTime();
                         double rotationOffset = (tick % 40) * (Math.PI * 2 / 40);
 
-                        // Anneau de fumée rouge au sol
+                        // Anneau de particules BLOCK_CRACK au sol (redstone block)
                         for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
                             double x = radius * Math.cos(angle + rotationOffset);
                             double z = radius * Math.sin(angle + rotationOffset);
-                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.2, z),
-                                1, 0.1, 0.05, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
-                            // Fumée sombre
-                            world.spawnParticle(Particle.SMOKE, center.clone().add(x * 0.7, 0.3, z * 0.7),
-                                1, 0.1, 0.2, 0.1, 0.01);
+                            // Particules de redstone block qui se brisent au sol
+                            world.spawnParticle(Particle.BLOCK, center.clone().add(x, 0.1, z),
+                                2, 0.2, 0.05, 0.2, 0.01, Material.REDSTONE_BLOCK.createBlockData());
+                            // Fumée sombre basse
+                            world.spawnParticle(Particle.SMOKE, center.clone().add(x * 0.7, 0.15, z * 0.7),
+                                1, 0.1, 0.1, 0.1, 0.005);
                         }
 
-                        // Particules de fumée rouge montantes aléatoires dans la zone
-                        for (int i = 0; i < 3; i++) {
+                        // Particules BLOCK_CRACK supplémentaires au sol dans la zone
+                        for (int i = 0; i < 4; i++) {
                             double randAngle = Math.random() * Math.PI * 2;
-                            double randDist = Math.random() * radius;
+                            double randDist = Math.random() * radius * 0.8;
                             double x = randDist * Math.cos(randAngle);
                             double z = randDist * Math.sin(randAngle);
-                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.1 + Math.random() * 0.5, z),
-                                2, 0.1, 0.3, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 1.0f));
+                            world.spawnParticle(Particle.BLOCK, center.clone().add(x, 0.05, z),
+                                3, 0.15, 0.02, 0.15, 0.02, Material.REDSTONE_BLOCK.createBlockData());
                         }
                     }
                 }
@@ -4367,6 +4413,11 @@ public class TalentListener implements Listener {
         boneShieldRotation.remove(playerUuid);
         removeBoneShieldArmorStands(playerUuid); // Supprime les ArmorStands visuels
         dancingRuneWeaponExpiry.remove(playerUuid);
+        // Supprimer l'ArmorStand de l'épée dansante
+        ArmorStand dancingSword = dancingRuneWeaponStands.remove(playerUuid);
+        if (dancingSword != null && dancingSword.isValid()) {
+            dancingSword.remove();
+        }
 
         // Nettoyer les Larves de Sang du joueur
         cleanupBloodLarvae(playerUuid);
@@ -4437,6 +4488,7 @@ public class TalentListener implements Listener {
     /**
      * Met à jour les ArmorStands du Bouclier d'Os autour du joueur
      * Crée, supprime ou repositionne les os selon le nombre de charges
+     * Animation fluide: appelée chaque tick pour une rotation smooth
      */
     private void updateBoneShieldArmorStands(Player player, int charges) {
         UUID uuid = player.getUniqueId();
@@ -4467,13 +4519,13 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Rotation progressive (avance de 18° à chaque tick = ~0.5s = rotation complète en ~1s)
+        // Rotation fluide: 3.6° par tick = rotation complète en 100 ticks (5 secondes)
         double baseAngle = boneShieldRotation.getOrDefault(uuid, 0.0);
-        baseAngle = (baseAngle + 18) % 360;
+        baseAngle = (baseAngle + 3.6) % 360;
         boneShieldRotation.put(uuid, baseAngle);
 
-        // Positionner les os autour du joueur
-        double radius = 1.0;
+        // Positionner les os autour du joueur avec mouvement fluide
+        double radius = 1.2;
         double angleStep = 360.0 / charges;
         Location playerLoc = player.getLocation();
 
@@ -4486,19 +4538,28 @@ public class TalentListener implements Listener {
                 if (stand == null) continue;
             }
 
-            double angle = Math.toRadians(baseAngle + (i * angleStep));
-            double x = Math.cos(angle) * radius;
-            double z = Math.sin(angle) * radius;
+            double currentAngle = baseAngle + (i * angleStep);
+            double angleRad = Math.toRadians(currentAngle);
+            double x = Math.cos(angleRad) * radius;
+            double z = Math.sin(angleRad) * radius;
 
-            Location newLoc = playerLoc.clone().add(x, 0.8, z);
-            // Faire tourner l'os sur lui-même aussi
-            newLoc.setYaw((float) (baseAngle + (i * angleStep)));
+            // Légère oscillation verticale pour effet de flottement
+            double yOffset = 0.9 + Math.sin(Math.toRadians(baseAngle * 2 + i * 60)) * 0.1;
+
+            Location newLoc = playerLoc.clone().add(x, yOffset, z);
+            // L'os pointe vers l'extérieur du cercle
+            newLoc.setYaw((float) currentAngle + 90);
+
+            // Mettre à jour la pose pour une rotation fluide sur lui-même
+            double selfRotation = Math.toRadians(baseAngle * 2);
+            stand.setHeadPose(new EulerAngle(Math.toRadians(45), selfRotation, Math.toRadians(45)));
+
             stand.teleport(newLoc);
         }
     }
 
     /**
-     * Crée un ArmorStand invisible avec un os sur la tête
+     * Crée un ArmorStand invisible avec un os sur la tête, en diagonale et glowing
      */
     private ArmorStand spawnBoneArmorStand(Player player) {
         Location loc = player.getLocation().add(0, 0.8, 0);
@@ -4513,6 +4574,10 @@ public class TalentListener implements Listener {
             as.setArms(false);
             // Mettre un os sur la tête
             as.getEquipment().setHelmet(new org.bukkit.inventory.ItemStack(Material.BONE));
+            // Pose diagonale de l'os (45° sur X et Z pour effet incliné)
+            as.setHeadPose(new EulerAngle(Math.toRadians(45), 0, Math.toRadians(45)));
+            // Glowing pour visibilité
+            as.setGlowing(true);
             // Tag pour identifier
             as.addScoreboardTag("zombiez_bone_shield");
             as.addScoreboardTag("zombiez_bone_owner_" + player.getUniqueId());
@@ -4581,6 +4646,12 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, player.getLocation().add(0, 1, 0),
             30, 1, 1, 1, 0.1);
 
+        // Créer l'ArmorStand avec l'épée en netherite (scale x2)
+        ArmorStand swordStand = spawnDancingSwordStand(player);
+        if (swordStand != null) {
+            dancingRuneWeaponStands.put(uuid, swordStand);
+        }
+
         // Tâche périodique pour l'épée fantôme et régén des os
         long boneRegenInterval = (long) talent.getValue(3); // 2000ms
 
@@ -4593,20 +4664,21 @@ public class TalentListener implements Listener {
             public void run() {
                 if (ticks++ > maxTicks || !player.isOnline()) {
                     dancingRuneWeaponExpiry.remove(uuid);
+                    // Supprimer l'ArmorStand de l'épée
+                    ArmorStand stand = dancingRuneWeaponStands.remove(uuid);
+                    if (stand != null && stand.isValid()) {
+                        stand.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, stand.getLocation(), 15, 0.3, 0.3, 0.3, 0.05);
+                        stand.remove();
+                    }
                     player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
                     cancel();
                     return;
                 }
 
-                // Effet visuel de l'épée fantôme qui orbite
-                if (ticks % 2 == 0) {
-                    double angle = (ticks * 10) % 360;
-                    double x = player.getLocation().getX() + 1.5 * Math.cos(Math.toRadians(angle));
-                    double z = player.getLocation().getZ() + 1.5 * Math.sin(Math.toRadians(angle));
-                    double y = player.getLocation().getY() + 1 + 0.3 * Math.sin(Math.toRadians(ticks * 5));
-
-                    player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, x, y, z, 2, 0.1, 0.1, 0.1, 0.01);
-                    player.getWorld().spawnParticle(Particle.END_ROD, x, y, z, 1, 0.05, 0.05, 0.05, 0.01);
+                // Animation fluide de l'épée qui suit le joueur
+                ArmorStand stand = dancingRuneWeaponStands.get(uuid);
+                if (stand != null && stand.isValid()) {
+                    updateDancingSwordPosition(player, stand, ticks);
                 }
 
                 // Régénérer 1 charge d'os périodiquement
@@ -4624,12 +4696,120 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Crée l'ArmorStand de l'Épée Dansante avec scale x2
+     */
+    private ArmorStand spawnDancingSwordStand(Player player) {
+        Location loc = player.getLocation().add(1.5, 1.2, 0);
+        World world = player.getWorld();
+
+        return world.spawn(loc, ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setSmall(false);  // Taille normale = plus grande épée
+            stand.setMarker(true);  // Pas de hitbox
+            stand.setGravity(false);
+            stand.setInvulnerable(true);
+            stand.setCanPickupItems(false);
+            stand.setBasePlate(false);
+            stand.setArms(true);  // Bras visibles pour tenir l'épée
+
+            // Épée en netherite dans la main droite
+            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.NETHERITE_SWORD));
+
+            // Pose de bras pour tenir l'épée en position d'attaque
+            stand.setRightArmPose(new EulerAngle(Math.toRadians(-60), Math.toRadians(0), Math.toRadians(0)));
+
+            // Glowing violet pour effet spectral
+            stand.setGlowing(true);
+
+            // Tags d'identification
+            stand.addScoreboardTag("zombiez_dancing_sword");
+            stand.addScoreboardTag("zombiez_owner_" + player.getUniqueId());
+        });
+    }
+
+    /**
+     * Met à jour la position de l'épée dansante autour du joueur
+     */
+    private void updateDancingSwordPosition(Player player, ArmorStand stand, int ticks) {
+        // Rotation fluide autour du joueur
+        double angle = (ticks * 5) % 360;  // 5° par tick = rotation fluide
+        double radius = 1.8;
+
+        double x = Math.cos(Math.toRadians(angle)) * radius;
+        double z = Math.sin(Math.toRadians(angle)) * radius;
+        // Oscillation verticale pour effet de flottement
+        double yOffset = 1.0 + 0.25 * Math.sin(Math.toRadians(ticks * 4));
+
+        Location newLoc = player.getLocation().add(x, yOffset, z);
+        // L'épée pointe vers le joueur
+        newLoc.setYaw((float) (angle + 90));
+
+        stand.teleport(newLoc);
+
+        // Animation légère du bras (oscillation)
+        double armAngle = -60 + 15 * Math.sin(Math.toRadians(ticks * 8));
+        stand.setRightArmPose(new EulerAngle(Math.toRadians(armAngle), 0, 0));
+
+        // Particules de traînée occasionnelles
+        if (ticks % 4 == 0) {
+            stand.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, stand.getLocation().add(0, 1.5, 0),
+                1, 0.1, 0.1, 0.1, 0.01);
+        }
+    }
+
+    /**
+     * Animation de swing de l'épée dansante vers une cible
+     */
+    private void animateSwordSwing(ArmorStand stand, Location targetLoc) {
+        if (stand == null || !stand.isValid()) return;
+
+        World world = stand.getWorld();
+
+        // Animation rapide de swing (5 ticks)
+        new BukkitRunnable() {
+            int tick = 0;
+            final Location startLoc = stand.getLocation().clone();
+            final EulerAngle startPose = stand.getRightArmPose();
+
+            @Override
+            public void run() {
+                if (tick++ > 5 || !stand.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Swing vers la cible puis retour
+                double progress = tick / 5.0;
+                double swingAngle;
+                if (progress < 0.5) {
+                    // Swing vers le bas
+                    swingAngle = -60 + (-60 * (progress * 2));  // -60 à -120
+                } else {
+                    // Retour en position
+                    swingAngle = -120 + (60 * ((progress - 0.5) * 2));  // -120 à -60
+                }
+
+                stand.setRightArmPose(new EulerAngle(Math.toRadians(swingAngle), 0, Math.toRadians(20)));
+
+                // Effet de slash
+                if (tick == 2) {
+                    world.playSound(stand.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.2f);
+                    world.spawnParticle(Particle.SWEEP_ATTACK, stand.getLocation().add(0, 1.2, 0), 1, 0, 0, 0, 0);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
      * Invoque des Larves de Sang (Endermites vampiriques) pour le Pacte de Sang
      */
     private void spawnBloodLarvae(Player player, int count, long duration, double healPerHit) {
         UUID playerUuid = player.getUniqueId();
         Location spawnLoc = player.getLocation();
         World world = player.getWorld();
+
+        // Calculer les dégâts de base du joueur pour les larves
+        double playerDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
 
         // Son d'invocation
         world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
@@ -4650,9 +4830,12 @@ public class TalentListener implements Listener {
                 endermite.setCustomNameVisible(true);
                 endermite.setPersistent(false);
                 endermite.setRemoveWhenFarAway(true);
-                // Marquer comme larve de sang
+                // Invincible pendant les 3 premières secondes
+                endermite.setInvulnerable(true);
+                // Marquer comme larve de sang avec les dégâts du joueur
                 endermite.addScoreboardTag("zombiez_blood_larvae");
                 endermite.addScoreboardTag("zombiez_owner_" + playerUuid);
+                endermite.addScoreboardTag("zombiez_larvae_damage_" + playerDamage);
                 // Ne pas cibler le joueur propriétaire
                 endermite.setTarget(null);
             });
@@ -4666,6 +4849,7 @@ public class TalentListener implements Listener {
 
             // Tâche pour gérer le comportement de la larve
             final double healAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPerHit;
+            final int invincibilityTicks = 60; // 3 secondes d'invincibilité
 
             new BukkitRunnable() {
                 int ticks = 0;
@@ -4686,19 +4870,39 @@ public class TalentListener implements Listener {
                         return;
                     }
 
-                    // Effet visuel périodique (traînée rouge)
+                    // Désactiver l'invincibilité après 3 secondes
+                    if (ticks == invincibilityTicks) {
+                        larvae.setInvulnerable(false);
+                    }
+
+                    // Effet visuel périodique (traînée rouge + aura d'invincibilité)
                     if (ticks % 4 == 0) {
                         world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.2, 0),
                             2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
+                        // Aura dorée pendant l'invincibilité
+                        if (ticks < invincibilityTicks) {
+                            world.spawnParticle(Particle.END_ROD, larvae.getLocation().add(0, 0.3, 0),
+                                1, 0.15, 0.15, 0.15, 0.01);
+                        }
                     }
 
-                    // Chercher une cible proche si pas de cible actuelle
-                    if (larvae.getTarget() == null || !larvae.getTarget().isValid()) {
-                        for (Entity nearby : larvae.getNearbyEntities(8, 4, 8)) {
-                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player)) {
-                                larvae.setTarget(target);
-                                break;
+                    // Chercher agressivement une cible proche (toutes les 5 ticks)
+                    if (ticks % 5 == 0 && (larvae.getTarget() == null || !larvae.getTarget().isValid() || larvae.getTarget().isDead())) {
+                        LivingEntity closestTarget = null;
+                        double closestDistance = 12.0; // Rayon de recherche augmenté
+
+                        for (Entity nearby : larvae.getNearbyEntities(12, 6, 12)) {
+                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead()) {
+                                double dist = larvae.getLocation().distanceSquared(target.getLocation());
+                                if (dist < closestDistance * closestDistance) {
+                                    closestDistance = Math.sqrt(dist);
+                                    closestTarget = target;
+                                }
                             }
+                        }
+
+                        if (closestTarget != null) {
+                            larvae.setTarget(closestTarget);
                         }
                     }
                 }
