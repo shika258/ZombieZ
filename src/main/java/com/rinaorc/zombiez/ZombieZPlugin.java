@@ -201,6 +201,12 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.managers.ActionBarManager actionBarManager;
 
+    // Système de Recyclage
+    @Getter
+    private com.rinaorc.zombiez.recycling.RecycleManager recycleManager;
+    @Getter
+    private com.rinaorc.zombiez.recycling.RecycleGUI recycleGUI;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -358,6 +364,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (assistManager != null) {
             log(Level.INFO, "§7Arrêt du système d'assists...");
             assistManager.shutdown();
+        }
+
+        // Cleanup du système de recyclage
+        if (recycleManager != null) {
+            log(Level.INFO, "§7Arrêt du système de recyclage...");
+            recycleManager.shutdown();
         }
 
         // Fermeture de la base de données
@@ -583,6 +595,14 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Assist System - Système d'assists pour les kills en équipe
         assistManager = new com.rinaorc.zombiez.dopamine.AssistManager(this);
+
+        // ===== Système de Recyclage =====
+
+        // Recycle Manager - Recyclage automatique d'items en points
+        recycleManager = new com.rinaorc.zombiez.recycling.RecycleManager(this);
+
+        // Recycle GUI - Interface de configuration du recyclage
+        recycleGUI = new com.rinaorc.zombiez.recycling.RecycleGUI(this, recycleManager);
     }
 
     /**
@@ -680,6 +700,11 @@ public class ZombieZPlugin extends JavaPlugin {
                 this);
         getCommand("petadmin").setExecutor(petAdminCmd);
         getCommand("petadmin").setTabCompleter(petAdminCmd);
+
+        // Commandes Joueur - Recyclage
+        com.rinaorc.zombiez.recycling.RecycleCommand recycleCmd = new com.rinaorc.zombiez.recycling.RecycleCommand(this);
+        getCommand("recycle").setExecutor(recycleCmd);
+        getCommand("recycle").setTabCompleter(recycleCmd);
     }
 
     /**

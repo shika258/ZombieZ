@@ -94,6 +94,13 @@ commands:
     permission: zombiez.refuge
     aliases: [refuges, shelter]
 
+  # Commandes Recyclage
+  recycle:
+    description: Système de recyclage automatique d'items
+    usage: /<command> [toggle|hand|all|stats|preview|help]
+    permission: zombiez.recycle
+    aliases: [recycler, recyclage, rec]
+
   # Commandes Économie
   prestige:
     description: Système de prestige
@@ -245,6 +252,7 @@ permissions:
       zombiez.progression: true
       zombiez.class: true
       zombiez.pet.use: true
+      zombiez.recycle: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -288,6 +296,10 @@ permissions:
 
   zombiez.pet.use:
     description: Accès au système de pets
+    default: true
+
+  zombiez.recycle:
+    description: Accès au système de recyclage
     default: true
 
   # Permissions VIP

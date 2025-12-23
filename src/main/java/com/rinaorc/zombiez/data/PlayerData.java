@@ -830,10 +830,16 @@ public class PlayerData {
     public static class BoosterData {
         private final double multiplier;
         private final long expireTime;
-        
+
         public BoosterData(double multiplier, long expireTime) {
             this.multiplier = multiplier;
             this.expireTime = expireTime;
         }
     }
+
+    // ==================== RECYCLAGE ====================
+
+    // Données de recyclage sérialisées
+    @Setter @Getter
+    private String recycleSettingsData = "";
 }
