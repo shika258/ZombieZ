@@ -106,6 +106,13 @@ public class PacketDamageIndicator {
     }
 
     /**
+     * Affiche un indicateur de dégâts pour l'Épée Dansante (couleur violette spéciale)
+     */
+    public static void displayDancingSword(ZombieZPlugin plugin, Location location, double damage, Player viewer) {
+        TextDisplayDamageIndicator.displayDancingSword(plugin, location, damage, viewer);
+    }
+
+    /**
      * Nettoie le cache des indicateurs
      */
     public static void cleanup() {

@@ -171,6 +171,8 @@ public class TalentListener implements Listener {
 
     // Épée Dansante - état actif
     private final Map<UUID, Long> dancingRuneWeaponExpiry = new ConcurrentHashMap<>();
+    // Épée Dansante - ArmorStand de l'épée fantôme
+    private final Map<UUID, ArmorStand> dancingRuneWeaponStands = new ConcurrentHashMap<>();
 
     // Pacte de Sang - Larves de Sang (Endermites vampiriques)
     private final Map<UUID, UUID> bloodLarvaeOwners = new ConcurrentHashMap<>(); // larva UUID -> player UUID
@@ -912,6 +914,11 @@ public class TalentListener implements Listener {
             if (dancingWeapon != null) {
                 // Double les dégâts (l'épée fantôme frappe aussi)
                 double bonusDamage = damage;
+
+                // Afficher hologramme de dégâts pour l'épée dansante (dégâts bonus)
+                PacketDamageIndicator.displayDancingSword(plugin, target.getLocation().add(0.3, 1.2, 0.3), bonusDamage, player);
+
+                // Infliger les dégâts bonus
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(bonusDamage, player);
 
@@ -919,9 +926,11 @@ public class TalentListener implements Listener {
                 double bonusLifesteal = damage * dancingWeapon.getValue(2); // +20%
                 applyLifesteal(player, bonusLifesteal);
 
-                // Effet visuel épée fantôme
-                Location swordLoc = target.getLocation().add(0.5, 1.5, 0.5);
-                player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, swordLoc, 5, 0.1, 0.3, 0.1, 0.02);
+                // Animation de swing de l'épée fantôme
+                ArmorStand swordStand = dancingRuneWeaponStands.get(uuid);
+                if (swordStand != null && swordStand.isValid()) {
+                    animateSwordSwing(swordStand, target.getLocation());
+                }
             }
         }
 
@@ -4404,6 +4413,11 @@ public class TalentListener implements Listener {
         boneShieldRotation.remove(playerUuid);
         removeBoneShieldArmorStands(playerUuid); // Supprime les ArmorStands visuels
         dancingRuneWeaponExpiry.remove(playerUuid);
+        // Supprimer l'ArmorStand de l'épée dansante
+        ArmorStand dancingSword = dancingRuneWeaponStands.remove(playerUuid);
+        if (dancingSword != null && dancingSword.isValid()) {
+            dancingSword.remove();
+        }
 
         // Nettoyer les Larves de Sang du joueur
         cleanupBloodLarvae(playerUuid);
@@ -4632,6 +4646,12 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, player.getLocation().add(0, 1, 0),
             30, 1, 1, 1, 0.1);
 
+        // Créer l'ArmorStand avec l'épée en netherite (scale x2)
+        ArmorStand swordStand = spawnDancingSwordStand(player);
+        if (swordStand != null) {
+            dancingRuneWeaponStands.put(uuid, swordStand);
+        }
+
         // Tâche périodique pour l'épée fantôme et régén des os
         long boneRegenInterval = (long) talent.getValue(3); // 2000ms
 
@@ -4644,20 +4664,21 @@ public class TalentListener implements Listener {
             public void run() {
                 if (ticks++ > maxTicks || !player.isOnline()) {
                     dancingRuneWeaponExpiry.remove(uuid);
+                    // Supprimer l'ArmorStand de l'épée
+                    ArmorStand stand = dancingRuneWeaponStands.remove(uuid);
+                    if (stand != null && stand.isValid()) {
+                        stand.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, stand.getLocation(), 15, 0.3, 0.3, 0.3, 0.05);
+                        stand.remove();
+                    }
                     player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 1.5f);
                     cancel();
                     return;
                 }
 
-                // Effet visuel de l'épée fantôme qui orbite
-                if (ticks % 2 == 0) {
-                    double angle = (ticks * 10) % 360;
-                    double x = player.getLocation().getX() + 1.5 * Math.cos(Math.toRadians(angle));
-                    double z = player.getLocation().getZ() + 1.5 * Math.sin(Math.toRadians(angle));
-                    double y = player.getLocation().getY() + 1 + 0.3 * Math.sin(Math.toRadians(ticks * 5));
-
-                    player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, x, y, z, 2, 0.1, 0.1, 0.1, 0.01);
-                    player.getWorld().spawnParticle(Particle.END_ROD, x, y, z, 1, 0.05, 0.05, 0.05, 0.01);
+                // Animation fluide de l'épée qui suit le joueur
+                ArmorStand stand = dancingRuneWeaponStands.get(uuid);
+                if (stand != null && stand.isValid()) {
+                    updateDancingSwordPosition(player, stand, ticks);
                 }
 
                 // Régénérer 1 charge d'os périodiquement
@@ -4672,6 +4693,111 @@ public class TalentListener implements Listener {
         if (shouldSendTalentMessage(player)) {
             showTempEventMessage(uuid, "§4§lEPEE DANSANTE! §7Double attaques pendant " + (duration/1000) + "s!");
         }
+    }
+
+    /**
+     * Crée l'ArmorStand de l'Épée Dansante avec scale x2
+     */
+    private ArmorStand spawnDancingSwordStand(Player player) {
+        Location loc = player.getLocation().add(1.5, 1.2, 0);
+        World world = player.getWorld();
+
+        return world.spawn(loc, ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setSmall(false);  // Taille normale = plus grande épée
+            stand.setMarker(true);  // Pas de hitbox
+            stand.setGravity(false);
+            stand.setInvulnerable(true);
+            stand.setCanPickupItems(false);
+            stand.setBasePlate(false);
+            stand.setArms(true);  // Bras visibles pour tenir l'épée
+
+            // Épée en netherite dans la main droite
+            stand.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.NETHERITE_SWORD));
+
+            // Pose de bras pour tenir l'épée en position d'attaque
+            stand.setRightArmPose(new EulerAngle(Math.toRadians(-60), Math.toRadians(0), Math.toRadians(0)));
+
+            // Glowing violet pour effet spectral
+            stand.setGlowing(true);
+
+            // Tags d'identification
+            stand.addScoreboardTag("zombiez_dancing_sword");
+            stand.addScoreboardTag("zombiez_owner_" + player.getUniqueId());
+        });
+    }
+
+    /**
+     * Met à jour la position de l'épée dansante autour du joueur
+     */
+    private void updateDancingSwordPosition(Player player, ArmorStand stand, int ticks) {
+        // Rotation fluide autour du joueur
+        double angle = (ticks * 5) % 360;  // 5° par tick = rotation fluide
+        double radius = 1.8;
+
+        double x = Math.cos(Math.toRadians(angle)) * radius;
+        double z = Math.sin(Math.toRadians(angle)) * radius;
+        // Oscillation verticale pour effet de flottement
+        double yOffset = 1.0 + 0.25 * Math.sin(Math.toRadians(ticks * 4));
+
+        Location newLoc = player.getLocation().add(x, yOffset, z);
+        // L'épée pointe vers le joueur
+        newLoc.setYaw((float) (angle + 90));
+
+        stand.teleport(newLoc);
+
+        // Animation légère du bras (oscillation)
+        double armAngle = -60 + 15 * Math.sin(Math.toRadians(ticks * 8));
+        stand.setRightArmPose(new EulerAngle(Math.toRadians(armAngle), 0, 0));
+
+        // Particules de traînée occasionnelles
+        if (ticks % 4 == 0) {
+            stand.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, stand.getLocation().add(0, 1.5, 0),
+                1, 0.1, 0.1, 0.1, 0.01);
+        }
+    }
+
+    /**
+     * Animation de swing de l'épée dansante vers une cible
+     */
+    private void animateSwordSwing(ArmorStand stand, Location targetLoc) {
+        if (stand == null || !stand.isValid()) return;
+
+        World world = stand.getWorld();
+
+        // Animation rapide de swing (5 ticks)
+        new BukkitRunnable() {
+            int tick = 0;
+            final Location startLoc = stand.getLocation().clone();
+            final EulerAngle startPose = stand.getRightArmPose();
+
+            @Override
+            public void run() {
+                if (tick++ > 5 || !stand.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Swing vers la cible puis retour
+                double progress = tick / 5.0;
+                double swingAngle;
+                if (progress < 0.5) {
+                    // Swing vers le bas
+                    swingAngle = -60 + (-60 * (progress * 2));  // -60 à -120
+                } else {
+                    // Retour en position
+                    swingAngle = -120 + (60 * ((progress - 0.5) * 2));  // -120 à -60
+                }
+
+                stand.setRightArmPose(new EulerAngle(Math.toRadians(swingAngle), 0, Math.toRadians(20)));
+
+                // Effet de slash
+                if (tick == 2) {
+                    world.playSound(stand.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.2f);
+                    world.spawnParticle(Particle.SWEEP_ATTACK, stand.getLocation().add(0, 1.2, 0), 1, 0, 0, 0, 0);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
