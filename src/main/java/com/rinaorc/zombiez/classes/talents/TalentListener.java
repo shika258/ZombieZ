@@ -826,11 +826,6 @@ public class TalentListener implements Listener {
                     int larvaeCount = Math.min(maxLarvae, (int) Math.ceil(overheal / (maxHp * 0.05)));
 
                     spawnBloodLarvae(player, larvaeCount, larvaeDuration, aoeRadius, lifestealPercent);
-
-                    // Feedback larves
-                    if (shouldSendTalentMessage(player)) {
-                        showTempEventMessage(uuid, "§4+" + larvaeCount + " §c⚠ §7Larves de Sang!");
-                    }
                 }
 
                 // ICD de 1 seconde
