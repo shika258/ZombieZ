@@ -156,6 +156,9 @@ public class RecycleSettings {
      * Obtient tous les milestones débloqués
      */
     public Set<RecycleMilestone> getUnlockedMilestones() {
+        if (unlockedMilestones.isEmpty()) {
+            return EnumSet.noneOf(RecycleMilestone.class);
+        }
         return EnumSet.copyOf(unlockedMilestones);
     }
 

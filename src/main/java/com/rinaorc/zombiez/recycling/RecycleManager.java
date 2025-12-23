@@ -547,10 +547,65 @@ public class RecycleManager implements Listener {
             } else {
                 long progress = Math.min(currentValue, milestone.getRequiredValue());
                 int percent = (int) ((progress * 100) / milestone.getRequiredValue());
-                status = "§7☐ §8" + milestone.getDisplayName() + " §7(" + percent + "%)";
+                String progressBar = createProgressBar(percent);
+                status = "§7☐ §8" + milestone.getDisplayName() + " " + progressBar + " §7" + milestone.getFormattedRequirement();
             }
 
             lines.add("  " + status + " §8- §e+" + formatPoints(milestone.getBonusPoints()) + " pts");
         }
+    }
+
+    /**
+     * Crée une barre de progression visuelle
+     */
+    private String createProgressBar(int percent) {
+        int filled = percent / 10; // 10 caractères pour 100%
+        int empty = 10 - filled;
+        return "§a" + "▮".repeat(filled) + "§8" + "▯".repeat(empty);
+    }
+
+    /**
+     * Obtient le prochain milestone à débloquer (le plus proche)
+     * @return le milestone le plus proche de déblocage, ou null si tous sont débloqués
+     */
+    public RecycleMilestone getNextMilestone(UUID playerId) {
+        RecycleSettings settings = getSettings(playerId);
+        RecycleMilestone closest = null;
+        double highestProgress = -1;
+
+        for (RecycleMilestone milestone : RecycleMilestone.values()) {
+            if (settings.isMilestoneUnlocked(milestone)) continue;
+
+            long currentValue = switch (milestone.getType()) {
+                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get();
+                case POINTS_EARNED -> settings.getTotalPointsEarned().get();
+                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get();
+                case SINGLE_RECYCLE -> settings.getBestSingleRecycle();
+            };
+
+            double progress = (double) currentValue / milestone.getRequiredValue();
+            if (progress > highestProgress) {
+                highestProgress = progress;
+                closest = milestone;
+            }
+        }
+
+        return closest;
+    }
+
+    /**
+     * Obtient la progression vers un milestone en pourcentage
+     */
+    public int getMilestoneProgress(UUID playerId, RecycleMilestone milestone) {
+        RecycleSettings settings = getSettings(playerId);
+
+        long currentValue = switch (milestone.getType()) {
+            case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get();
+            case POINTS_EARNED -> settings.getTotalPointsEarned().get();
+            case SESSION_ITEMS -> settings.getSessionItemsRecycled().get();
+            case SINGLE_RECYCLE -> settings.getBestSingleRecycle();
+        };
+
+        return (int) Math.min(100, (currentValue * 100) / milestone.getRequiredValue());
     }
 }

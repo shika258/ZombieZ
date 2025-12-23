@@ -187,18 +187,30 @@ public class RecycleGUI implements Listener {
         // Bouton "Milestones" (slot 42)
         int unlockedCount = settings.getUnlockedMilestonesCount();
         int totalCount = settings.getTotalMilestonesCount();
+        RecycleMilestone nextMilestone = recycleManager.getNextMilestone(player.getUniqueId());
+
+        List<String> milestoneLore = new ArrayList<>();
+        milestoneLore.add("");
+        milestoneLore.add("§7Progression: §f" + unlockedCount + "/" + totalCount);
+
+        if (nextMilestone != null) {
+            int progress = recycleManager.getMilestoneProgress(player.getUniqueId(), nextMilestone);
+            milestoneLore.add("");
+            milestoneLore.add("§7Prochain:");
+            milestoneLore.add("  " + nextMilestone.getIcon() + " " + nextMilestone.getColoredName());
+            milestoneLore.add("  §7Progression: §e" + progress + "%");
+            milestoneLore.add("  §7Récompense: §6+" + formatPoints(nextMilestone.getBonusPoints()) + " pts");
+        } else {
+            milestoneLore.add("");
+            milestoneLore.add("§a✓ Tous les milestones débloqués!");
+        }
+
+        milestoneLore.add("");
+        milestoneLore.add("§eClic pour voir les détails");
+
         inv.setItem(42, new ItemBuilder(Material.NETHER_STAR)
             .name("§6§l✦ Milestones")
-            .lore(
-                "",
-                "§7Progression: §f" + unlockedCount + "/" + totalCount,
-                "",
-                "§7Débloquez des milestones en",
-                "§7recyclant des items pour",
-                "§7gagner des §6bonus de points§7!",
-                "",
-                "§eClic pour voir les détails"
-            )
+            .lore(milestoneLore)
             .glow(unlockedCount > 0)
             .build());
 
