@@ -328,7 +328,7 @@ public enum StatType {
         false,
         true,
         Attribute.MOVEMENT_SPEED,
-        -5, 20,
+        -5, 100,  // Max 100% pour bottes Exalted zone 50
         "{value}%"
     ),
     
