@@ -809,25 +809,30 @@ public final class GuerrierTalents {
             .internalCooldownMs(8000)
             .build());
 
-        // 6.3 - REPRESAILLES INFINIES
+        // 6.3 - CYCLONES SANGLANTS
         TALENTS.add(Talent.builder()
-            .id("guerrier_infinite_retaliation")
-            .name("Represailles Infinies")
-            .description("Contre-attaques = +25% degats (max 200%)")
+            .id("guerrier_blood_cyclones")
+            .name("Cyclones Sanglants")
+            .description("Execution = cyclone chasseur (4s)")
             .loreLines(new String[]{
-                "§7Chaque contre-attaque augmente les",
-                "§7degats de contre-attaque de §c+25%§7.",
+                "§4§lLA MORT ENGENDRE LA MORT",
                 "",
-                "§8Max: §c+200%§8 (300% total)",
-                "§8Reinit. apres 10s sans contre-attaque"
+                "§7Executer un ennemi §c(<30% PV)§7",
+                "§7invoque un §4cyclone sanglant§7.",
+                "",
+                "§7Le cyclone §cchasse§7 les ennemis",
+                "§7proches pendant §e4s§7.",
+                "",
+                "§8Degats: §c50%§8 degats de base",
+                "§8Soin: §a1.5%§8 PV max par touche"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.SPECTRAL_ARROW)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.INFINITE_RETALIATION)
-            .values(new double[]{0.25, 2.0, 10000}) // stack%, max_bonus%, reset_ms
+            .icon(Material.DRAGON_BREATH)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.BLOOD_CYCLONES)
+            .values(new double[]{4000, 0.50, 0.015, 3.0}) // duration_ms, damage%, heal%, radius
             .build());
 
         // 6.4 - BASTILLE IMPRENABLE

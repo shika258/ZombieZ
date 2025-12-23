@@ -118,7 +118,7 @@ public class Talent {
         // === GUERRIER - Tier 7 ===
         ETERNAL_TREMOR,          // Passive AoE pulse
         BASTION_CHARGE,          // REMPART: Charge + bouclier par ennemi
-        INFINITE_RETALIATION,    // Riposte scaling
+        BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
         IMPREGNABLE_BASTION,     // Double DR + regen
         REAPER,                  // Auto-kill low HP in range
 

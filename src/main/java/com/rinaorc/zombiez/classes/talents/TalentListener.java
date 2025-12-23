@@ -91,9 +91,8 @@ public class TalentListener implements Listener {
     private final Map<UUID, Long> bulwarkAvatarActiveUntil = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> bulwarkLastMilestone = new ConcurrentHashMap<>();
 
-    // Represailles Infinies - stacks de riposte
-    private final Map<UUID, Integer> retaliationStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> retaliationLastProc = new ConcurrentHashMap<>();
+    // Cyclones Sanglants - tracking des cyclones actifs par joueur
+    private final Map<UUID, Integer> activeBloodCyclones = new ConcurrentHashMap<>();
 
     // Avatar de Vengeance - degats stockes
     private final Map<UUID, Double> storedDamage = new ConcurrentHashMap<>();
@@ -420,14 +419,6 @@ public class TalentListener implements Listener {
             Talent ancestralWrath = getActiveTalentIfHas(player, Talent.TalentEffectType.ANCESTRAL_WRATH);
             if (ancestralWrath != null && System.currentTimeMillis() - buffTime < ancestralWrath.getValue(0)) {
                 double bonus = ancestralWrath.getValue(1);
-
-                // Represailles Infinies - stacks additionnels
-                Talent infiniteRetaliation = getActiveTalentIfHas(player, Talent.TalentEffectType.INFINITE_RETALIATION);
-                if (infiniteRetaliation != null) {
-                    int stacks = retaliationStacks.getOrDefault(uuid, 0);
-                    bonus += stacks * infiniteRetaliation.getValue(0);
-                }
-
                 damage *= (1 + bonus);
                 riposteBuffTime.remove(uuid);
             }
@@ -708,15 +699,6 @@ public class TalentListener implements Listener {
         Talent ancestralWrath = getActiveTalentIfHas(player, Talent.TalentEffectType.ANCESTRAL_WRATH);
         if (ancestralWrath != null) {
             riposteBuffTime.put(uuid, System.currentTimeMillis());
-
-            // Represailles Infinies - stack
-            Talent infiniteRetaliation = getActiveTalentIfHas(player, Talent.TalentEffectType.INFINITE_RETALIATION);
-            if (infiniteRetaliation != null) {
-                retaliationLastProc.put(uuid, System.currentTimeMillis());
-                int maxStacks = (int) (infiniteRetaliation.getValue(1) / infiniteRetaliation.getValue(0));
-                int current = retaliationStacks.getOrDefault(uuid, 0);
-                retaliationStacks.put(uuid, Math.min(current + 1, maxStacks));
-            }
         }
 
         // Titan Immuable
@@ -986,6 +968,12 @@ public class TalentListener implements Listener {
                 // Son d'exécution ultra satisfaisant
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
+
+                // Cyclones Sanglants - spawn sur exécution
+                Talent bloodCyclones = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_CYCLONES);
+                if (bloodCyclones != null) {
+                    spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                }
             }
         }
 
@@ -1215,11 +1203,6 @@ public class TalentListener implements Listener {
                 // Cleanup fury stacks
                 furyLastHit.forEach((uuid, time) -> {
                     if (now - time > 3000) furyStacks.remove(uuid);
-                });
-
-                // Cleanup retaliation stacks
-                retaliationLastProc.forEach((uuid, time) -> {
-                    if (now - time > 10000) retaliationStacks.remove(uuid);
                 });
 
                 // Cleanup blood fervour stacks
@@ -1987,6 +1970,158 @@ public class TalentListener implements Listener {
 
         // Particules de heal
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0);
+    }
+
+    /**
+     * Invoque un Cyclone Sanglant chasseur
+     * Le cyclone traque les ennemis proches et inflige des dégâts tout en soignant le joueur
+     */
+    private void spawnBloodCyclone(Player player, Location spawnLocation, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0);      // 4000ms
+        double damagePercent = talent.getValue(1);      // 0.50 = 50% base damage
+        double healPercent = talent.getValue(2);        // 0.015 = 1.5%
+        double radius = talent.getValue(3);             // 3.0 blocks
+
+        // Incrémenter le compteur de cyclones actifs
+        activeBloodCyclones.merge(uuid, 1, Integer::sum);
+
+        // Son d'invocation
+        spawnLocation.getWorld().playSound(spawnLocation, Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.8f);
+        spawnLocation.getWorld().playSound(spawnLocation, Sound.BLOCK_PORTAL_TRIGGER, 0.4f, 1.5f);
+
+        // Calculer les dégâts de base du joueur
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * damagePercent;
+
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+            private Location currentLocation = spawnLocation.clone();
+            private LivingEntity currentTarget = null;
+
+            @Override
+            public void run() {
+                // Vérifier durée
+                if (ticks * 50 >= duration || !player.isOnline()) {
+                    // Effet de disparition
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        currentLocation.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.5f));
+                    currentLocation.getWorld().playSound(currentLocation, Sound.BLOCK_FIRE_EXTINGUISH, 0.6f, 0.8f);
+
+                    activeBloodCyclones.merge(uuid, -1, Integer::sum);
+                    if (activeBloodCyclones.getOrDefault(uuid, 0) <= 0) {
+                        activeBloodCyclones.remove(uuid);
+                    }
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+                rotationAngle += 0.6;
+
+                // === TROUVER UNE CIBLE ===
+                if (currentTarget == null || currentTarget.isDead() ||
+                    currentTarget.getLocation().distance(currentLocation) > 15) {
+                    currentTarget = findNearestEnemy(currentLocation, 10, player);
+                }
+
+                // === MOUVEMENT VERS LA CIBLE ===
+                if (currentTarget != null && !currentTarget.isDead()) {
+                    Location targetLoc = currentTarget.getLocation();
+                    org.bukkit.util.Vector direction = targetLoc.toVector()
+                        .subtract(currentLocation.toVector()).normalize();
+                    double speed = 0.25; // Vitesse de déplacement
+                    currentLocation.add(direction.multiply(speed));
+                }
+
+                // === ANIMATION DU CYCLONE SANGLANT ===
+                // Structure en spirale rouge/noire
+                for (double y = 0; y < 2.0; y += 0.2) {
+                    double layerRadius = radius * 0.4 * (1 - y / 3.0);
+                    int particlesPerLayer = 6;
+
+                    for (int i = 0; i < particlesPerLayer; i++) {
+                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 1.2);
+                        double x = currentLocation.getX() + layerRadius * Math.cos(angle);
+                        double z = currentLocation.getZ() + layerRadius * Math.sin(angle);
+                        Location particleLoc = new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z);
+
+                        // Couleur dégradée rouge → noir selon hauteur
+                        int red = (int) (180 - y * 40);
+                        int green = 0;
+                        int blue = 0;
+                        currentLocation.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(red, green, blue), 1.0f));
+                    }
+                }
+
+                // Spirale centrale
+                for (double y = 0; y < 1.5; y += 0.1) {
+                    double spiralAngle = rotationAngle * 2.5 + y * 4;
+                    double spiralRadius = 0.15 + y * 0.1;
+                    double x = currentLocation.getX() + spiralRadius * Math.cos(spiralAngle);
+                    double z = currentLocation.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 0.7f)); // Dark red
+                }
+
+                // Particules de sang occasionnelles
+                if (ticks % 4 == 0) {
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        currentLocation.clone().add(0, 0.5, 0), 3, 0.3, 0.2, 0.3, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.RED, 0.8f));
+                }
+
+                // Son ambiant (toutes les 15 ticks)
+                if (ticks % 15 == 0) {
+                    currentLocation.getWorld().playSound(currentLocation,
+                        Sound.ENTITY_VEX_AMBIENT, 0.4f, 0.5f);
+                }
+
+                // === DÉGÂTS AUX ENNEMIS PROCHES ===
+                for (Entity entity : currentLocation.getWorld().getNearbyEntities(currentLocation, radius, radius, radius)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                        // Dégâts
+                        target.setMetadata("zombiez_secondary_damage",
+                            new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                        target.damage(baseDamage, player);
+
+                        // Heal au joueur
+                        if (player.isOnline()) {
+                            double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
+                            applyLifesteal(player, heal);
+                        }
+
+                        // Effet de hit
+                        target.getWorld().spawnParticle(Particle.DUST,
+                            target.getLocation().add(0, 1, 0), 8, 0.2, 0.3, 0.2, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 5L); // Tick toutes les 5 ticks (250ms)
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche dans un rayon donné
+     */
+    private LivingEntity findNearestEnemy(Location center, double radius, Player exclude) {
+        LivingEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && entity != exclude && !(entity instanceof Player)) {
+                double dist = entity.getLocation().distance(center);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = living;
+                }
+            }
+        }
+        return nearest;
     }
 
     /**
@@ -3247,10 +3382,10 @@ public class TalentListener implements Listener {
             bar.append("§b🛡 ").append(String.format("%.0f", shield)).append(timeStr);
         }
 
-        // Représailles stacks
-        int retStacks = retaliationStacks.getOrDefault(uuid, 0);
-        if (retStacks > 0) {
-            bar.append("  §c⚡").append(retStacks).append(" stacks");
+        // Cyclones Sanglants actifs
+        int cyclones = activeBloodCyclones.getOrDefault(uuid, 0);
+        if (cyclones > 0) {
+            bar.append("  §4🌀 x").append(cyclones);
         }
 
         // Dégâts stockés (Avatar Vengeance)
@@ -3329,8 +3464,7 @@ public class TalentListener implements Listener {
         bulwarkDamageBlocked.remove(playerUuid);
         bulwarkAvatarActiveUntil.remove(playerUuid);
         bulwarkLastMilestone.remove(playerUuid);
-        retaliationStacks.remove(playerUuid);
-        retaliationLastProc.remove(playerUuid);
+        activeBloodCyclones.remove(playerUuid);
         storedDamage.remove(playerUuid);
         bloodStolenHp.remove(playerUuid);
         chainExecuteBuff.remove(playerUuid);
