@@ -938,24 +938,28 @@ public final class GuerrierTalents {
             .values(new double[]{6.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
             .build());
 
-        // 7.3 - NEMESIS
+        // 7.3 - FRÉNÉSIE GUERRIÈRE
         TALENTS.add(Talent.builder()
-            .id("guerrier_nemesis")
-            .name("Nemesis")
-            .description("Epines passives: 75% degats renvoyes")
+            .id("guerrier_warrior_frenzy")
+            .name("Frenesie Guerriere")
+            .description("Combo 5 coups en 3s = +150% degats AoE")
             .loreLines(new String[]{
-                "§7Chaque ennemi qui vous touche",
-                "§7prend §c75%§7 des degats renvoyes.",
+                "§7Chaque coup te rapproche de l'extase!",
                 "",
-                "§8Renvoi de degats automatique"
+                "§7Enchaine §e5 coups§7 en §e3 secondes§7",
+                "§7Le §c6eme coup§7 inflige §c+150%§7 degats",
+                "§7et frappe tous les ennemis a §e5 blocs§7!",
+                "",
+                "§6⚡ Combo crescendo avec explosion finale",
+                "§8Synergie: L'AoE peut proc Dechaînement"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(2)
-            .icon(Material.CACTUS)
-            .iconColor("§2")
-            .effectType(Talent.TalentEffectType.NEMESIS)
-            .values(new double[]{0.75}) // reflect%
+            .icon(Material.BLAZE_POWDER)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.WARRIOR_FRENZY)
+            .values(new double[]{5, 3000, 1.50, 5.0}) // combo_hits, timeout_ms, damage_bonus%, aoe_radius
             .build());
 
         // 7.4 - COLOSSE

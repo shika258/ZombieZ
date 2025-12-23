@@ -116,6 +116,11 @@ public class TalentListener implements Listener {
     // Coup de Grâce - tracking dernière exécution pour feedback
     private final Map<UUID, Long> lastMercyStrike = new ConcurrentHashMap<>();
 
+    // Frénésie Guerrière - combo counter
+    private final Map<UUID, Integer> frenzyComboCount = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> frenzyLastHit = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> frenzyReady = new ConcurrentHashMap<>(); // true = prochain coup = explosion
+
     // === SYSTEME SEISME SIMPLIFIE ===
     // Compteur de degats de zone pour proc Apocalypse
     private final Map<UUID, Double> aoeDamageCounter = new ConcurrentHashMap<>();
@@ -572,6 +577,148 @@ public class TalentListener implements Listener {
             }
         }
 
+        // Frénésie Guerrière - combo 5 coups = 6ème coup AoE +150%
+        Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
+        if (warriorFrenzy != null) {
+            int comboRequired = (int) warriorFrenzy.getValue(0);  // 5
+            long timeout = (long) warriorFrenzy.getValue(1);       // 3000ms
+            double damageBonus = warriorFrenzy.getValue(2);        // 1.50 = +150%
+            double aoeRadius = warriorFrenzy.getValue(3);          // 5.0 blocs
+            long now = System.currentTimeMillis();
+
+            // Check if ready to unleash the frenzy (6th hit)
+            if (frenzyReady.getOrDefault(uuid, false)) {
+                // EXPLOSION! +150% damage AoE
+                double aoeDamage = damage * (1 + damageBonus);
+
+                // Apply to main target
+                damage = aoeDamage;
+
+                // AoE to nearby enemies
+                Location center = target.getLocation();
+                int enemiesHit = 0;
+                for (Entity nearby : center.getWorld().getNearbyEntities(center, aoeRadius, aoeRadius, aoeRadius)) {
+                    if (nearby instanceof LivingEntity livingNearby && nearby != target && nearby != player && !nearby.isDead()) {
+                        if (livingNearby instanceof Monster || livingNearby.getScoreboardTags().contains("zombiez_enemy")) {
+                            livingNearby.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                            livingNearby.damage(aoeDamage, player);
+                            enemiesHit++;
+
+                            // Particules sur chaque ennemi touché
+                            livingNearby.getWorld().spawnParticle(
+                                Particle.CRIT,
+                                livingNearby.getLocation().add(0, 1, 0),
+                                15, 0.3, 0.5, 0.3, 0.2
+                            );
+                        }
+                    }
+                }
+
+                // === EXPLOSION VISUELLE ET SONORE ===
+
+                // Son d'explosion satisfaisant (BOOM!)
+                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.5f);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.6f, 1.5f);
+
+                // Explosion orange/jaune
+                center.getWorld().spawnParticle(
+                    Particle.EXPLOSION,
+                    center.add(0, 1, 0),
+                    3, 0.5, 0.5, 0.5, 0.1
+                );
+
+                // Cercle d'éclairs orange
+                for (int i = 0; i < 16; i++) {
+                    double angle = (2 * Math.PI * i) / 16;
+                    double x = Math.cos(angle) * aoeRadius * 0.8;
+                    double z = Math.sin(angle) * aoeRadius * 0.8;
+                    center.getWorld().spawnParticle(
+                        Particle.DUST,
+                        center.clone().add(x, 0, z),
+                        5, 0.1, 0.3, 0.1, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                    );
+                    center.getWorld().spawnParticle(
+                        Particle.ELECTRIC_SPARK,
+                        center.clone().add(x, 0.5, z),
+                        3, 0.1, 0.2, 0.1, 0.05
+                    );
+                }
+
+                // Flash jaune central
+                center.getWorld().spawnParticle(
+                    Particle.DUST,
+                    center,
+                    25, 0.8, 0.8, 0.8, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 2.0f)
+                );
+
+                // Reset combo
+                frenzyComboCount.put(uuid, 0);
+                frenzyReady.put(uuid, false);
+                frenzyLastHit.remove(uuid);
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
+
+            } else {
+                // Building combo
+                Long lastHit = frenzyLastHit.get(uuid);
+
+                // Reset if timeout expired
+                if (lastHit != null && now - lastHit > timeout) {
+                    frenzyComboCount.put(uuid, 0);
+                }
+
+                // Increment combo
+                int currentCombo = frenzyComboCount.merge(uuid, 1, Integer::sum);
+                frenzyLastHit.put(uuid, now);
+
+                // Sons crescendo (do-ré-mi-fa-sol)
+                float[] pitches = {0.5f, 0.6f, 0.75f, 0.9f, 1.0f}; // Notes musicales croissantes
+                if (currentCombo <= comboRequired) {
+                    float pitch = pitches[Math.min(currentCombo - 1, pitches.length - 1)];
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
+
+                    // Éclairs croissants autour du joueur
+                    int sparkCount = currentCombo * 3;
+                    player.getWorld().spawnParticle(
+                        Particle.ELECTRIC_SPARK,
+                        player.getLocation().add(0, 1.2, 0),
+                        sparkCount, 0.4, 0.4, 0.4, 0.05
+                    );
+                }
+
+                // Si combo atteint = prêt pour explosion
+                if (currentCombo >= comboRequired) {
+                    frenzyReady.put(uuid, true);
+
+                    // Son de charge maximale
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+
+                    // Flash lumineux
+                    player.getWorld().spawnParticle(
+                        Particle.FLASH,
+                        player.getLocation().add(0, 1, 0),
+                        1, 0, 0, 0, 0
+                    );
+
+                    // Aura orange
+                    player.getWorld().spawnParticle(
+                        Particle.DUST,
+                        player.getLocation().add(0, 1, 0),
+                        20, 0.6, 0.6, 0.6, 0.1,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                    );
+                }
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
+            }
+        }
+
         // Extinction - first hit instakill (balance: seulement mobs normaux, pas les boss/elite)
         Talent extinction = getActiveTalentIfHas(player, Talent.TalentEffectType.EXTINCTION);
         if (extinction != null) {
@@ -781,13 +928,6 @@ public class TalentListener implements Listener {
             player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.3);
         }
 
-        // Nemesis - thorns
-        Talent nemesis = getActiveTalentIfHas(player, Talent.TalentEffectType.NEMESIS);
-        if (nemesis != null && event.getDamager() instanceof LivingEntity attacker) {
-            double reflect = damage * nemesis.getValue(0);
-            attacker.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-            attacker.damage(reflect, player);
-        }
 
         // Colosse - HP bonus handled elsewhere
         Talent colossus = getActiveTalentIfHas(player, Talent.TalentEffectType.COLOSSUS);
@@ -3388,6 +3528,26 @@ public class TalentListener implements Listener {
             bar.append("  §4🌀 x").append(cyclones);
         }
 
+        // Frénésie Guerrière - combo counter
+        Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
+        if (warriorFrenzy != null) {
+            int comboRequired = (int) warriorFrenzy.getValue(0); // 5
+            long timeout = (long) warriorFrenzy.getValue(1);      // 3000ms
+            Long lastHit = frenzyLastHit.get(uuid);
+            boolean isActive = lastHit != null && System.currentTimeMillis() - lastHit <= timeout;
+
+            if (frenzyReady.getOrDefault(uuid, false)) {
+                // Ready to explode!
+                bar.append("  §c§l⚡ FRÉNÉSIE!");
+            } else if (isActive) {
+                int currentCombo = frenzyComboCount.getOrDefault(uuid, 0);
+                if (currentCombo > 0) {
+                    String color = currentCombo >= comboRequired - 1 ? "§e" : "§6";
+                    bar.append("  ").append(color).append("⚡ ").append(currentCombo).append("/").append(comboRequired);
+                }
+            }
+        }
+
         // Dégâts stockés (Avatar Vengeance)
         double stored = storedDamage.getOrDefault(uuid, 0.0);
         if (stored > 0) {
@@ -3473,6 +3633,9 @@ public class TalentListener implements Listener {
         tempShield.remove(playerUuid);
         tempShieldExpiry.remove(playerUuid);
         lastMercyStrike.remove(playerUuid);
+        frenzyComboCount.remove(playerUuid);
+        frenzyLastHit.remove(playerUuid);
+        frenzyReady.remove(playerUuid);
         aoeDamageCounter.remove(playerUuid);
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);

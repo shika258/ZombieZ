@@ -125,7 +125,7 @@ public class Talent {
         // === GUERRIER - Tier 8 ===
         EARTH_APOCALYPSE,        // Mega earthquake proc
         DEFIANCE_AURA,           // REMPART: Aura -dégâts ennemis + réflexion
-        NEMESIS,                 // Passive thorns
+        WARRIOR_FRENZY,          // FUREUR: Combo 5 coups → +150% dégâts AoE
         COLOSSUS,                // Giant form
         DEATH_ANGEL,             // Death aura
 
