@@ -121,47 +121,47 @@ public class SpawnSystem {
 
             // Calcul du nombre max de zombies et taux de spawn selon l'acte
             if (zoneId <= 10) {
-                // ACTE I - LES DERNIERS JOURS: densité modérée
-                maxZombies = 40 + (zoneId * 4);  // 44-80
-                spawnRate = 8 + (zoneId / 2);     // 8-13
-                minSpawnRadius = 20;
-                maxSpawnRadius = 35 + zoneId;
+                // ACTE I - LES DERNIERS JOURS: densité augmentée pour début de partie dynamique
+                maxZombies = 50 + (zoneId * 5);  // 55-100
+                spawnRate = 18 + (zoneId * 2);    // 20-38 spawns/min (beaucoup plus rapide)
+                minSpawnRadius = 12;              // Plus proche du joueur
+                maxSpawnRadius = 25 + zoneId;     // Rayon réduit pour concentration
             } else if (zoneId <= 20) {
-                // ACTE II - LA CONTAMINATION: densité croissante
-                maxZombies = 60 + ((zoneId - 10) * 4);  // 64-100
-                spawnRate = 10 + ((zoneId - 10) / 2);    // 10-15
-                minSpawnRadius = 18;
-                maxSpawnRadius = 40;
+                // ACTE II - LA CONTAMINATION: densité croissante, transition depuis Act I
+                maxZombies = 70 + ((zoneId - 10) * 4);  // 74-110
+                spawnRate = 25 + ((zoneId - 10));        // 26-35 spawns/min
+                minSpawnRadius = 14;
+                maxSpawnRadius = 35;
             } else if (zoneId <= 30) {
                 // ACTE III - LE CHAOS: haute densité
-                maxZombies = 80 + ((zoneId - 20) * 4);  // 84-120
-                spawnRate = 12 + ((zoneId - 20) / 3);    // 12-15
-                minSpawnRadius = 15;
-                maxSpawnRadius = 38;
+                maxZombies = 90 + ((zoneId - 20) * 4);  // 94-130
+                spawnRate = 20 + ((zoneId - 20) / 2);    // 20-25 spawns/min
+                minSpawnRadius = 14;
+                maxSpawnRadius = 36;
             } else if (zoneId <= 40) {
                 // ACTE IV - L'EXTINCTION: densité décroissante, zombies plus forts
-                maxZombies = 70 + ((zoneId - 30) * 2);  // 72-90
-                spawnRate = 10 + ((zoneId - 30) / 4);    // 10-12
-                minSpawnRadius = 15;
-                maxSpawnRadius = 35;
+                maxZombies = 80 + ((zoneId - 30) * 2);  // 82-100
+                spawnRate = 15 + ((zoneId - 30) / 3);    // 15-18 spawns/min
+                minSpawnRadius = 14;
+                maxSpawnRadius = 34;
             } else {
-                // ACTE V - L'ORIGINE DU MAL: faible densité, zombies très dangereux
-                maxZombies = 50 + ((zoneId - 40) * 2);  // 52-70
-                spawnRate = 7 + ((zoneId - 40) / 3);     // 7-10
+                // ACTE V - L'ORIGINE DU MAL: densité réduite, zombies très dangereux
+                maxZombies = 60 + ((zoneId - 40) * 2);  // 62-80
+                spawnRate = 12 + ((zoneId - 40) / 3);    // 12-15 spawns/min
                 minSpawnRadius = 12;
                 maxSpawnRadius = 30;
             }
 
             // Ajustements spéciaux pour certaines zones
             if (zoneId == 26) {
-                // Zone PVP - moins de zombies
-                maxZombies = 50;
-                spawnRate = 8;
+                // Zone PVP - moins de zombies pour focus sur le PVP
+                maxZombies = 60;
+                spawnRate = 12;
             }
             if (zoneId == 50) {
-                // Zone Boss finale - très peu de zombies mais très dangereux
-                maxZombies = 40;
-                spawnRate = 5;
+                // Zone Boss finale - densité réduite, zombies très dangereux
+                maxZombies = 50;
+                spawnRate = 10;
             }
 
             zoneConfigs.put(zoneId, new ZoneSpawnConfig(
