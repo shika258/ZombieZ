@@ -77,66 +77,66 @@ public class Talent {
         SEISMIC_STRIKE,          // Onde de choc sur attaque
         DEFENSIVE_STANCE,        // REMPART: Blocage passif + riposte
         RISING_FURY,             // Damage stack on hit
-        IRON_SKIN,               // DR mais slow
+        DEATH_STRIKE,            // SANG: Soin basé sur dégâts reçus récemment
         DEVASTATING_CHARGE,      // Bonus apres sprint
 
         // === GUERRIER - Tier 2 ===
         WAR_ECHO,                // Double AoE chance
         PUNISHMENT,              // REMPART: Stacks → buff degats + heal
         BLOOD_FERVOUR,           // FUREUR: Kill stacking damage buff
-        BASTION,                 // Shield on block
+        BONE_SHIELD,             // SANG: Charges d'os protectrices
         UNLEASH,                 // Explosion on multi-kill
 
         // === GUERRIER - Tier 3 ===
         FRACTURE_WAVE,           // Cone AoE after hitting 3 different targets
         VENGEFUL_SHIELD,         // REMPART: Disque pulsant
         ANCESTRAL_WRATH,         // Riposte damage boost
-        IMMOVABLE_TITAN,         // No knockback, DR when still
+        MARROWREND,              // SANG: Régénère charges Bouclier d'os
         EXECUTIONER,             // Bonus damage to low HP
 
         // === GUERRIER - Tier 4 ===
         SEISMIC_RESONANCE,       // AoE leaves damage zone
         FORTIFY,                 // REMPART: Blocages → bouclier absorbant
         MERCY_STRIKE,            // FUREUR: Execute bonus damage + heal on kill
-        FORTRESS,                // Shield explodes on expire
+        VAMPIRIC_WILL,           // SANG: Améliore Death Strike + kills régénèrent os
         BLOODY_HARVEST,          // Execute heal + sprint reset
 
         // === GUERRIER - Tier 5 ===
         CATACLYSM,               // Big AoE every X attacks
         JUDGMENT_HAMMER,         // REMPART: Exécute <15% HP → Marteau géant du ciel
         RAGE_CYCLONE,            // Sprint = spin damage
-        ETERNAL_AEGIS,           // Perfect parry reflect
+        DEATH_AND_DECAY,         // SANG: Zone au sol +dégâts +DR
         WARLORD,                 // Chain execute
 
         // === GUERRIER - Tier 6 (Niveau 25 - Ascension) ===
         SEISMIC_AFTERMATH,       // AoE attacks leave lingering damage zones
         IRON_ECHO,               // REMPART: Blocages/dégâts stockés → onde de choc AoE
         UNSTOPPABLE_RAGE,        // Damage immunity during rage buildup
-        UNYIELDING_WALL,         // Damage reduction scales with stillness
+        CONSUMPTION,             // SANG: Consomme os pour heal massif
         MOMENTUM,                // Sprint damage bonus stacks
 
         // === GUERRIER - Tier 7 ===
         ETERNAL_TREMOR,          // Passive AoE pulse
         BASTION_CHARGE,          // REMPART: Charge + bouclier par ennemi
         BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
-        IMPREGNABLE_BASTION,     // Double DR + regen
+        BLOOD_PACT,              // SANG: Death Strike amélioré + overheal → bouclier
         REAPER,                  // Auto-kill low HP in range
 
         // === GUERRIER - Tier 8 ===
         EARTH_APOCALYPSE,        // Mega earthquake proc
         DEFIANCE_AURA,           // REMPART: Aura -dégâts ennemis + réflexion
         WARRIOR_FRENZY,          // FUREUR: Combo 5 coups → +150% dégâts AoE
-        COLOSSUS,                // Giant form
+        VAMPIRIC_HEART,          // SANG: +lifesteal permanent + réduit cooldowns
         DEATH_ANGEL,             // Death aura
 
         // === GUERRIER - Tier 9 ===
         RAGNAROK,                // Auto mega nuke
         BULWARK_AVATAR,          // REMPART: Transformation ultime défensive
         MEGA_TORNADO,            // FUREUR: Upgrade Cyclone - double sneak = méga tornade aspirante
-        LIVING_CITADEL,          // Invuln then explode
+        DANCING_RUNE_WEAPON,     // SANG: Ultime - épée fantôme qui double les attaques
         EXTINCTION,              // First hit mega damage
 
-        // === GUERRIER - Legacy (anciens talents Sang pour compatibilité) ===
+        // === GUERRIER - Legacy (anciens talents pour compatibilité) ===
         BLOODTHIRST,             // (Legacy) Heal on kill
         FRENETIC,                // (Legacy) Low HP = attack speed + lifesteal
         WAR_VAMPIRE,             // (Legacy) Lifesteal passif
@@ -146,6 +146,16 @@ public class Talent {
         BLOOD_AVATAR,            // (Legacy) Blood bomb on lifesteal cap
         VAMPIRE_LORD,            // (Legacy) Overheal shield
         BLOOD_GOD,               // (Legacy) Reduced damage while attacking
+        // Anciens talents Forteresse (remplacés par Voie du Sang)
+        IRON_SKIN,               // (Legacy) DR mais slow
+        BASTION,                 // (Legacy) Shield on block
+        IMMOVABLE_TITAN,         // (Legacy) No knockback, DR when still
+        FORTRESS,                // (Legacy) Shield explodes on expire
+        ETERNAL_AEGIS,           // (Legacy) Perfect parry reflect
+        UNYIELDING_WALL,         // (Legacy) Damage reduction scales with stillness
+        IMPREGNABLE_BASTION,     // (Legacy) Double DR + regen
+        COLOSSUS,                // (Legacy) Giant form
+        LIVING_CITADEL,          // (Legacy) Invuln then explode
 
         // === CHASSEUR - Tier 1 ===
         MULTI_SHOT,              // Chance extra projectiles

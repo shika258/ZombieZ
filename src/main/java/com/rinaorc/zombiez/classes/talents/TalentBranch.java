@@ -59,17 +59,18 @@ public enum TalentBranch {
     ),
     GUERRIER_FORTERESSE(
         ClassType.GUERRIER, 3,
-        "Forteresse",
-        "§8",
-        Material.IRON_CHESTPLATE,
+        "Sang",
+        "§4",
+        Material.REDSTONE_BLOCK,
         new String[]{
-            "§8§lVOIE DE LA FORTERESSE",
+            "§4§lVOIE DU SANG",
             "",
-            "§7Devenez une muraille impénétrable",
-            "§7absorbant les coups ennemis.",
+            "§7Encaissez les coups et §4volez",
+            "§7la vie§7 de vos ennemis pour",
+            "§7vous régénérer.",
             "",
-            "§8Spécialité: §7Réduction de dégâts",
-            "§8Style: §7Tank incassable"
+            "§8Spécialité: §4Lifesteal, Bouclier d'os",
+            "§8Style: §4Tank Vampire"
         }
     ),
     GUERRIER_CHARGE(
