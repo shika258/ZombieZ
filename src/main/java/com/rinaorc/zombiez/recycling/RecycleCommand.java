@@ -195,6 +195,13 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
+            case "milestones", "milestone", "m", "achievements" -> {
+                List<String> milestones = recycleManager.getMilestonesList(player.getUniqueId());
+                for (String line : milestones) {
+                    player.sendMessage(line);
+                }
+            }
+
             case "help", "aide", "?" -> {
                 sendHelp(player);
             }
@@ -215,6 +222,7 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/recycle hand §7- Recycle l'item en main");
         player.sendMessage("§e/rec all [confirm] §7- Recycle tout l'inventaire");
         player.sendMessage("§e/recycle stats §7- Affiche vos statistiques");
+        player.sendMessage("§e/recycle milestones §7- Voir vos milestones");
         player.sendMessage("§e/recycle preview §7- Aperçu des points par rareté");
         player.sendMessage("");
         player.sendMessage("§7Le recyclage convertit automatiquement");
@@ -228,7 +236,7 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            List<String> options = List.of("toggle", "on", "off", "hand", "all", "stats", "preview", "help");
+            List<String> options = List.of("toggle", "on", "off", "hand", "all", "stats", "milestones", "preview", "help");
             String input = args[0].toLowerCase();
             for (String option : options) {
                 if (option.startsWith(input)) {

@@ -184,6 +184,24 @@ public class RecycleGUI implements Listener {
             )
             .build());
 
+        // Bouton "Milestones" (slot 42)
+        int unlockedCount = settings.getUnlockedMilestonesCount();
+        int totalCount = settings.getTotalMilestonesCount();
+        inv.setItem(42, new ItemBuilder(Material.NETHER_STAR)
+            .name("§6§l✦ Milestones")
+            .lore(
+                "",
+                "§7Progression: §f" + unlockedCount + "/" + totalCount,
+                "",
+                "§7Débloquez des milestones en",
+                "§7recyclant des items pour",
+                "§7gagner des §6bonus de points§7!",
+                "",
+                "§eClic pour voir les détails"
+            )
+            .glow(unlockedCount > 0)
+            .build());
+
         // Bouton "Seulement Common/Uncommon" (slot 43)
         inv.setItem(43, new ItemBuilder(Material.DIAMOND)
             .name("§b§lMode Sécurisé")
@@ -285,6 +303,17 @@ public class RecycleGUI implements Listener {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             player.sendMessage("§c♻ Recyclage désactivé pour toutes les raretés.");
             open(player);
+            return;
+        }
+
+        // Milestones
+        if (slot == 42) {
+            player.closeInventory();
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.5f);
+            List<String> milestones = recycleManager.getMilestonesList(player.getUniqueId());
+            for (String line : milestones) {
+                player.sendMessage(line);
+            }
             return;
         }
 

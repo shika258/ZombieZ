@@ -5,7 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -33,6 +35,13 @@ public class RecycleSettings {
     // Points gagnés dans la dernière minute (pour le résumé)
     private final AtomicLong lastMinutePoints = new AtomicLong(0);
     private final AtomicLong lastMinuteItems = new AtomicLong(0);
+
+    // Milestones débloqués
+    private final Set<RecycleMilestone> unlockedMilestones = EnumSet.noneOf(RecycleMilestone.class);
+
+    // Meilleur recyclage unique (pour milestone SINGLE_RECYCLE)
+    @Setter
+    private int bestSingleRecycle = 0;
 
     public RecycleSettings() {
         this.recycleByRarity = new EnumMap<>(Rarity.class);
@@ -112,9 +121,61 @@ public class RecycleSettings {
         return (int) recycleByRarity.values().stream().filter(Boolean::booleanValue).count();
     }
 
+    // ==================== MILESTONES ====================
+
+    /**
+     * Vérifie si un milestone est débloqué
+     */
+    public boolean isMilestoneUnlocked(RecycleMilestone milestone) {
+        return unlockedMilestones.contains(milestone);
+    }
+
+    /**
+     * Débloque un milestone
+     * @return true si le milestone vient d'être débloqué (était verrouillé avant)
+     */
+    public boolean unlockMilestone(RecycleMilestone milestone) {
+        return unlockedMilestones.add(milestone);
+    }
+
+    /**
+     * Obtient le nombre de milestones débloqués
+     */
+    public int getUnlockedMilestonesCount() {
+        return unlockedMilestones.size();
+    }
+
+    /**
+     * Obtient le nombre total de milestones
+     */
+    public int getTotalMilestonesCount() {
+        return RecycleMilestone.values().length;
+    }
+
+    /**
+     * Obtient tous les milestones débloqués
+     */
+    public Set<RecycleMilestone> getUnlockedMilestones() {
+        return EnumSet.copyOf(unlockedMilestones);
+    }
+
+    /**
+     * Met à jour le meilleur recyclage unique si nécessaire
+     * @return true si c'est un nouveau record
+     */
+    public boolean updateBestSingleRecycle(int points) {
+        if (points > bestSingleRecycle) {
+            bestSingleRecycle = points;
+            return true;
+        }
+        return false;
+    }
+
+    // ==================== SÉRIALISATION ====================
+
     /**
      * Sérialise les paramètres en chaîne pour stockage BDD
-     * Format: "enabled;COMMON:true;UNCOMMON:true;..."
+     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle"
      */
     public String serialize() {
         StringBuilder sb = new StringBuilder();
@@ -125,9 +186,20 @@ public class RecycleSettings {
         sb.append(totalItemsRecycled.get());
         sb.append(";");
 
+        // Raretés
         for (Rarity rarity : Rarity.values()) {
             sb.append(rarity.name()).append(":").append(recycleByRarity.getOrDefault(rarity, false) ? "1" : "0").append(",");
         }
+        sb.append(";");
+
+        // Milestones débloqués
+        for (RecycleMilestone milestone : unlockedMilestones) {
+            sb.append(milestone.getId()).append(",");
+        }
+        sb.append(";");
+
+        // Meilleur recyclage unique
+        sb.append(bestSingleRecycle);
 
         return sb.toString();
     }
@@ -143,21 +215,21 @@ public class RecycleSettings {
         }
 
         try {
-            String[] parts = data.split(";");
+            String[] parts = data.split(";", -1); // -1 pour garder les parties vides
 
             if (parts.length >= 1) {
                 settings.setAutoRecycleEnabled(parts[0].equals("1"));
             }
 
-            if (parts.length >= 2) {
+            if (parts.length >= 2 && !parts[1].isEmpty()) {
                 settings.totalPointsEarned.set(Long.parseLong(parts[1]));
             }
 
-            if (parts.length >= 3) {
+            if (parts.length >= 3 && !parts[2].isEmpty()) {
                 settings.totalItemsRecycled.set(Long.parseLong(parts[2]));
             }
 
-            if (parts.length >= 4) {
+            if (parts.length >= 4 && !parts[3].isEmpty()) {
                 String[] rarityParts = parts[3].split(",");
                 for (String rarityPart : rarityParts) {
                     if (rarityPart.isEmpty()) continue;
@@ -169,6 +241,23 @@ public class RecycleSettings {
                         } catch (IllegalArgumentException ignored) {}
                     }
                 }
+            }
+
+            // Charger les milestones débloqués
+            if (parts.length >= 5 && !parts[4].isEmpty()) {
+                String[] milestoneParts = parts[4].split(",");
+                for (String milestoneId : milestoneParts) {
+                    if (milestoneId.isEmpty()) continue;
+                    RecycleMilestone milestone = RecycleMilestone.fromId(milestoneId);
+                    if (milestone != null) {
+                        settings.unlockedMilestones.add(milestone);
+                    }
+                }
+            }
+
+            // Charger le meilleur recyclage unique
+            if (parts.length >= 6 && !parts[5].isEmpty()) {
+                settings.bestSingleRecycle = Integer.parseInt(parts[5]);
             }
         } catch (Exception e) {
             // En cas d'erreur, retourner les paramètres par défaut

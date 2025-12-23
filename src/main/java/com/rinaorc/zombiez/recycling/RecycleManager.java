@@ -16,6 +16,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -143,9 +145,75 @@ public class RecycleManager implements Listener {
             // Mettre à jour les stats de recyclage
             RecycleSettings settings = getSettings(player.getUniqueId());
             settings.addRecycledItem(points);
+
+            // Vérifier les milestones
+            checkAndAwardMilestones(player, settings, points);
         }
 
         return points;
+    }
+
+    /**
+     * Vérifie et attribue les milestones après un recyclage
+     */
+    private void checkAndAwardMilestones(Player player, RecycleSettings settings, int pointsFromRecycle) {
+        List<RecycleMilestone> newlyUnlocked = new ArrayList<>();
+
+        // Mettre à jour le meilleur recyclage unique
+        settings.updateBestSingleRecycle(pointsFromRecycle);
+
+        for (RecycleMilestone milestone : RecycleMilestone.values()) {
+            // Déjà débloqué ?
+            if (settings.isMilestoneUnlocked(milestone)) {
+                continue;
+            }
+
+            boolean shouldUnlock = switch (milestone.getType()) {
+                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get() >= milestone.getRequiredValue();
+                case POINTS_EARNED -> settings.getTotalPointsEarned().get() >= milestone.getRequiredValue();
+                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get() >= milestone.getRequiredValue();
+                case SINGLE_RECYCLE -> pointsFromRecycle >= milestone.getRequiredValue();
+            };
+
+            if (shouldUnlock && settings.unlockMilestone(milestone)) {
+                newlyUnlocked.add(milestone);
+            }
+        }
+
+        // Notifier le joueur pour chaque nouveau milestone
+        for (RecycleMilestone milestone : newlyUnlocked) {
+            awardMilestone(player, milestone);
+        }
+    }
+
+    /**
+     * Attribue un milestone au joueur avec notification et bonus
+     */
+    private void awardMilestone(Player player, RecycleMilestone milestone) {
+        // Donner les points bonus
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        if (playerData != null) {
+            playerData.addPoints(milestone.getBonusPoints());
+            playerData.addTotalPointsEarned(milestone.getBonusPoints());
+        }
+
+        // Notification visuelle
+        player.sendMessage("");
+        player.sendMessage("§6§l✦ MILESTONE DÉBLOQUÉ! ✦");
+        player.sendMessage(milestone.getIcon() + " " + milestone.getColoredName());
+        player.sendMessage("§7" + milestone.getDescription());
+        player.sendMessage("§6Bonus: §e+" + formatPoints(milestone.getBonusPoints()) + " points!");
+        player.sendMessage("");
+
+        // Notification sonore spéciale
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.2f);
+
+        // Effet de titre
+        player.sendTitle(
+            "§6✦ " + milestone.getColoredName() + " §6✦",
+            "§e+" + formatPoints(milestone.getBonusPoints()) + " points bonus!",
+            10, 40, 20
+        );
     }
 
     /**
@@ -426,7 +494,63 @@ public class RecycleManager implements Listener {
             "  §fItems recyclés: §e" + settings.getTotalItemsRecycled().get(),
             "  §fPoints gagnés: §6" + formatPoints(settings.getTotalPointsEarned().get()),
             "",
-            "§7Raretés recyclées: §f" + settings.getEnabledRaritiesCount() + "/7"
+            "§7Raretés recyclées: §f" + settings.getEnabledRaritiesCount() + "/7",
+            "§6Milestones: §f" + settings.getUnlockedMilestonesCount() + "/" + settings.getTotalMilestonesCount(),
+            "",
+            "§7Utilisez §e/recycle milestones §7pour voir les détails."
         };
+    }
+
+    /**
+     * Obtient la liste des milestones pour un joueur
+     */
+    public List<String> getMilestonesList(UUID playerId) {
+        RecycleSettings settings = getSettings(playerId);
+        List<String> lines = new ArrayList<>();
+
+        lines.add("§6§l✦ Milestones de Recyclage ✦");
+        lines.add("§7Progression: §f" + settings.getUnlockedMilestonesCount() + "/" + settings.getTotalMilestonesCount());
+        lines.add("");
+
+        // Grouper par type
+        lines.add("§a♻ Items Recyclés:");
+        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.ITEMS_RECYCLED, settings.getTotalItemsRecycled().get());
+
+        lines.add("");
+        lines.add("§6⭐ Points Gagnés:");
+        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.POINTS_EARNED, settings.getTotalPointsEarned().get());
+
+        lines.add("");
+        lines.add("§b⚡ Session:");
+        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.SESSION_ITEMS, settings.getSessionItemsRecycled().get());
+
+        lines.add("");
+        lines.add("§d✦ Recyclage Unique:");
+        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.SINGLE_RECYCLE, settings.getBestSingleRecycle());
+
+        return lines;
+    }
+
+    /**
+     * Ajoute les milestones d'un type à la liste
+     */
+    private void addMilestonesByType(List<String> lines, RecycleSettings settings,
+                                      RecycleMilestone.MilestoneType type, long currentValue) {
+        for (RecycleMilestone milestone : RecycleMilestone.values()) {
+            if (milestone.getType() != type) continue;
+
+            boolean unlocked = settings.isMilestoneUnlocked(milestone);
+            String status;
+
+            if (unlocked) {
+                status = "§a✓ " + milestone.getColoredName();
+            } else {
+                long progress = Math.min(currentValue, milestone.getRequiredValue());
+                int percent = (int) ((progress * 100) / milestone.getRequiredValue());
+                status = "§7☐ §8" + milestone.getDisplayName() + " §7(" + percent + "%)";
+            }
+
+            lines.add("  " + status + " §8- §e+" + formatPoints(milestone.getBonusPoints()) + " pts");
+        }
     }
 }
