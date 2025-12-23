@@ -130,13 +130,13 @@ public final class GuerrierTalents {
             .values(new double[]{0.25, 5000, 0.02}) // heal%, window_ms, min_heal%
             .build());
 
-        // 1.5 - FENTE DÉVASTATRICE (VOIE DE LA FENTE)
+        // 1.5 - FENTE DÉVASTATRICE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_lunging_strike")
             .name("Fente Devastatrice")
             .description("Clic droit = dash vers ennemi + degats bonus")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
                 "§6ACTIVATION: §eClic Droit§7 avec arme",
                 "",
@@ -261,13 +261,13 @@ public final class GuerrierTalents {
             .values(new double[]{5, 0.08, 8000}) // max_charges, DR_per_charge, regen_ms
             .build());
 
-        // 2.5 - CRI DE MARQUAGE (VOIE DE LA FENTE)
+        // 2.5 - CRI DE MARQUAGE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_war_cry_mark")
             .name("Cri de Marquage")
             .description("Marque les ennemis, propager les degats")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
                 "§6ACTIVATION: §eShift + Clic Droit",
                 "",
@@ -400,32 +400,36 @@ public final class GuerrierTalents {
             .internalCooldownMs(6000)
             .build());
 
-        // 3.5 - IMPACT SISMIQUE (VOIE DE LA FENTE)
+        // 3.5 - GRIFFES LACÉRANTES (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
-            .id("guerrier_seismic_impact")
-            .name("Impact Sismique")
-            .description("Chaque Fente = tremblement de terre")
+            .id("guerrier_lacerating_claws")
+            .name("Griffes Lacerantes")
+            .description("Chaque Fente applique Saignement")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
-                "§7Chaque §eFente Devastatrice§7 declenche",
-                "§7un §6tremblement de terre§7 au point",
-                "§7d'impact!",
+                "§7Chaque §6Fente§7 lacere votre proie",
+                "§7et applique §c3 stacks de Saignement§7!",
                 "",
-                "§7Zone: §e3 blocs§7 de rayon",
-                "§7Degats: §c60%§7 de vos degats de base",
-                "§7Effet: §8Ralentissement 20%§7 (1s)",
+                "§c§lSAIGNEMENT:",
+                "§7- §c2%§7 PV max/seconde par stack",
+                "§7- Dure §e4 secondes§7",
+                "§7- Cumulable jusqu'a §c10 stacks§7",
                 "",
-                "§6⚡ Le sol tremble sous vos fentes!",
-                "§8Synergie: Toutes vos Fentes"
+                "§7Frapper un ennemi §emarque§7:",
+                "§7→ Propage les saignements aux",
+                "§7  autres ennemis marques!",
+                "",
+                "§4🩸 Dechiquetez vos proies!",
+                "§8Synergie: Cri de Marquage"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
             .slotIndex(4)
-            .icon(Material.CRACKED_DEEPSLATE_BRICKS)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.SEISMIC_IMPACT)
-            .values(new double[]{3.0, 0.60, 0.20, 1000}) // radius, damage%, slow%, slow_duration_ms
+            .icon(Material.PRISMARINE_SHARD)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.LACERATING_CLAWS)
+            .values(new double[]{3, 0.02, 4000, 10}) // stacks_per_hit, damage_per_stack%, duration_ms, max_stacks
             .build());
     }
 
@@ -530,13 +534,13 @@ public final class GuerrierTalents {
             .values(new double[]{0.35, 1}) // upgraded_heal%, charges_on_kill
             .build());
 
-        // 4.5 - ÉLAN FURIEUX (VOIE DE LA FENTE)
+        // 4.5 - ÉLAN FURIEUX (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_furious_momentum")
             .name("Elan Furieux")
             .description("Fentes successives = stacks de puissance")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
                 "§7Chaque §eFente§7 augmente votre",
                 "§7puissance de combat!",
@@ -667,13 +671,13 @@ public final class GuerrierTalents {
             .values(new double[]{6.0, 0.25, 0.15, 0.10}) // radius, damage_bonus%, DR_bonus%, aura_damage%
             .build());
 
-        // 5.5 - CONSOMMATION DE FUREUR (VOIE DE LA FENTE)
+        // 5.5 - CONSOMMATION DE FUREUR (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_fury_consumption")
             .name("Consommation de Fureur")
             .description("Sacrifie PV pour degats x3")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
                 "§6ACTIVATION: §eShift + Fente",
                 "",
@@ -804,13 +808,13 @@ public final class GuerrierTalents {
             .internalCooldownMs(15000)
             .build());
 
-        // 6.5 - PRÉDATEUR INSATIABLE (VOIE DE LA FENTE)
+        // 6.5 - PRÉDATEUR INSATIABLE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_insatiable_predator")
             .name("Predateur Insatiable")
             .description("Kill avec Fente = reset + vitesse")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
                 "§7Eliminer un ennemi avec une §eFente§7:",
                 "§7- §aReset§7 instantane du cooldown",
@@ -953,33 +957,36 @@ public final class GuerrierTalents {
             .values(new double[]{0.40, 3, 5000, 4.0, 0.05}) // max_stored_damage%, max_larvae, larvae_duration_ms, aoe_radius, lifesteal%
             .build());
 
-        // 7.5 - ONDE DE CARNAGE (VOIE DE LA FENTE)
+        // 7.5 - ÉVISCÉRATION (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
-            .id("guerrier_carnage_wave")
-            .name("Onde de Carnage")
-            .description("Toutes les 5 Fentes = onde massive")
+            .id("guerrier_evisceration")
+            .name("Evisceration")
+            .description("Toutes les 5 Fentes = consomme saignements")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE",
+                "§6§lVOIE DU FAUVE",
                 "",
-                "§7Toutes les §e5 Fentes§7, liberez une",
-                "§6onde de carnage devastatrice§7!",
+                "§7Toutes les §e5 Fentes§7, declenchez",
+                "§7une §4§lEVISCERATION§7 devastatrice!",
                 "",
-                "§7L'onde de choc:",
-                "§7- §e8 blocs§7 de rayon",
-                "§7- §c200%§7 de vos degats",
-                "§7- §bKnockback§7 puissant",
-                "§7- §eEtourdissement§7 0.5s",
+                "§c§lEFFET:",
+                "§7Consomme §cTOUS les stacks§7 de",
+                "§7Saignement sur les ennemis proches",
+                "§7(§e8 blocs§7) et inflige les degats",
+                "§7restants §cinstantanement§7!",
                 "",
-                "§6💀 Devastation totale!",
+                "§7Bonus: §a+50%§7 des degats de",
+                "§7saignements consommes en §asoin§7!",
+                "",
+                "§4🩸 DEVOREZ VOS PROIES!",
                 "§8Compteur affiche en ActionBar"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(4)
-            .icon(Material.TNT)
-            .iconColor("§c")
-            .effectType(Talent.TalentEffectType.CARNAGE_WAVE)
-            .values(new double[]{5, 8.0, 2.0, 500}) // lunges_needed, radius, damage%, stun_ms
+            .icon(Material.GHAST_TEAR)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.EVISCERATION)
+            .values(new double[]{5, 8.0, 0.50}) // lunges_needed, radius, heal_percent_of_damage
             .build());
     }
 
@@ -1093,13 +1100,13 @@ public final class GuerrierTalents {
             .values(new double[]{0.08, 500, 2.0}) // lifesteal%, cooldown_reduction_ms, bone_regen_multiplier
             .build());
 
-        // 8.5 - FRÉNÉSIE DE GUERRE (VOIE DE LA FENTE)
+        // 8.5 - FRÉNÉSIE DE GUERRE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_war_frenzy")
             .name("Frenesie de Guerre")
             .description("5 kills en 10s = mode Frenesie")
             .loreLines(new String[]{
-                "§e§lVOIE DE LA FENTE - APEX",
+                "§6§lVOIE DU FAUVE - APEX",
                 "",
                 "§7Eliminez §e5 ennemis§7 en §e10s§7",
                 "§7pour entrer en §c§lFRENESIE§7!",
@@ -1245,7 +1252,7 @@ public final class GuerrierTalents {
             .internalCooldownMs(45000)
             .build());
 
-        // 9.5 - RAGE DU BERSERKER (VOIE DE LA FENTE - ULTIME)
+        // 9.5 - RAGE DU BERSERKER (VOIE DU FAUVE - ULTIME)
         TALENTS.add(Talent.builder()
             .id("guerrier_berserker_rage")
             .name("Rage du Berserker")

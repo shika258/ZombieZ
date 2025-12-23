@@ -95,7 +95,7 @@ public class Talent {
         ANCESTRAL_WRATH,         // Riposte damage boost
         MARROWREND,              // SANG: Régénère charges Bouclier d'os
         EXECUTIONER,             // (Legacy) Bonus damage to low HP
-        SEISMIC_IMPACT,          // FENTE: Chaque fente = tremblement de terre
+        LACERATING_CLAWS,        // FAUVE: Chaque fente applique saignement (DOT)
 
         // === GUERRIER - Tier 4 ===
         SEISMIC_RESONANCE,       // AoE leaves damage zone
@@ -127,7 +127,7 @@ public class Talent {
         BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
         BLOOD_PACT,              // SANG: Death Strike amélioré + overheal → Larves de Sang
         REAPER,                  // (Legacy) Auto-kill low HP in range
-        CARNAGE_WAVE,            // FENTE: Toutes les 5 fentes = onde massive
+        EVISCERATION,            // FAUVE: Toutes les 5 fentes = consomme saignements pour burst
 
         // === GUERRIER - Tier 8 ===
         EARTH_APOCALYPSE,        // Mega earthquake proc

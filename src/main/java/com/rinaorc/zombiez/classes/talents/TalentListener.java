@@ -62,8 +62,14 @@ public class TalentListener implements Listener {
     private final Map<UUID, Integer> furiousMomentumStacks = new ConcurrentHashMap<>();
     private final Map<UUID, Long> furiousMomentumLastLunge = new ConcurrentHashMap<>();
 
-    // Onde de Carnage - compteur de fentes
-    private final Map<UUID, Integer> carnageWaveCounter = new ConcurrentHashMap<>();
+    // Éviscération - compteur de fentes (remplace Onde de Carnage)
+    private final Map<UUID, Integer> eviscerationCounter = new ConcurrentHashMap<>();
+
+    // Griffes Lacérantes - saignements (remplace Impact Sismique)
+    // Structure: playerUUID -> (enemyUUID -> stacks)
+    private final Map<UUID, Map<UUID, Integer>> bleedingStacks = new ConcurrentHashMap<>();
+    // Structure: playerUUID -> (enemyUUID -> expiryTimestamp)
+    private final Map<UUID, Map<UUID, Long>> bleedingExpiry = new ConcurrentHashMap<>();
 
     // Frénésie de Guerre - kills récents et état
     private final Map<UUID, List<Long>> warFrenzyKills = new ConcurrentHashMap<>();
@@ -4725,12 +4731,14 @@ public class TalentListener implements Listener {
         // Nettoyer les Larves de Sang du joueur
         cleanupBloodLarvae(playerUuid);
 
-        // Voie de la Fente
+        // Voie du Fauve (ex-Fente)
         lungingStrikeCooldown.remove(playerUuid);
         lungingStrikeActive.remove(playerUuid);
         furiousMomentumStacks.remove(playerUuid);
         furiousMomentumLastLunge.remove(playerUuid);
-        carnageWaveCounter.remove(playerUuid);
+        eviscerationCounter.remove(playerUuid);
+        bleedingStacks.remove(playerUuid);
+        bleedingExpiry.remove(playerUuid);
         warFrenzyKills.remove(playerUuid);
         warFrenzyActiveUntil.remove(playerUuid);
         predatorDamageBuffExpiry.remove(playerUuid);
@@ -5540,10 +5548,10 @@ public class TalentListener implements Listener {
         lastCombatTime.put(uuid, System.currentTimeMillis());
         plugin.getActionBarManager().markInCombat(uuid);
 
-        // === IMPACT SISMIQUE ===
-        Talent seismicImpact = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_IMPACT);
-        if (seismicImpact != null) {
-            procSeismicImpact(player, target.getLocation(), seismicImpact);
+        // === GRIFFES LACÉRANTES - Appliquer saignement ===
+        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        if (laceratingClaws != null) {
+            procLaceratingClaws(player, target, laceratingClaws);
         }
 
         // === ÉLAN FURIEUX - Ajouter un stack ===
@@ -5570,20 +5578,20 @@ public class TalentListener implements Listener {
             }
         }
 
-        // === ONDE DE CARNAGE - Compteur ===
-        Talent carnageWave = getActiveTalentIfHas(player, Talent.TalentEffectType.CARNAGE_WAVE);
-        if (carnageWave != null) {
-            int count = carnageWaveCounter.getOrDefault(uuid, 0) + 1;
-            int threshold = (int) carnageWave.getValue(0);
+        // === ÉVISCÉRATION - Compteur ===
+        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+        if (evisceration != null) {
+            int count = eviscerationCounter.getOrDefault(uuid, 0) + 1;
+            int threshold = (int) evisceration.getValue(0);
 
             if (count >= threshold) {
-                carnageWaveCounter.put(uuid, 0);
-                procCarnageWave(player, carnageWave);
+                eviscerationCounter.put(uuid, 0);
+                procEvisceration(player, evisceration);
             } else {
-                carnageWaveCounter.put(uuid, count);
+                eviscerationCounter.put(uuid, count);
                 // Feedback du compteur (seulement les derniers)
                 if (count >= threshold - 2 && shouldSendTalentMessage(player)) {
-                    showTempEventMessage(uuid, "§6§l⚡ CARNAGE: §7" + count + "/" + threshold);
+                    showTempEventMessage(uuid, "§4§l🩸 ÉVISCÉRATION: §7" + count + "/" + threshold);
                 }
             }
         }
@@ -5741,47 +5749,152 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Impact Sismique - Tremblement de terre au point d'impact
+     * Griffes Lacérantes - Applique des stacks de saignement à la cible
      */
-    private void procSeismicImpact(Player player, Location center, Talent talent) {
-        double radius = talent.getValue(0); // 3 blocs
-        double damagePercent = talent.getValue(1); // 60%
-        double slowPercent = talent.getValue(2); // 20%
-        long slowDuration = (long) talent.getValue(3); // 1000ms
+    private void procLaceratingClaws(Player player, LivingEntity target, Talent talent) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
 
-        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double aoeDamage = baseDamage * damagePercent;
+        int stacksPerHit = (int) talent.getValue(0); // 3 stacks
+        double damagePerStack = talent.getValue(1); // 0.02 = 2% PV/s
+        long duration = (long) talent.getValue(2); // 4000ms
+        int maxStacks = (int) talent.getValue(3); // 10
 
-        // Effet visuel du tremblement
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
-            for (double r = 0.5; r <= radius; r += 0.5) {
-                double x = Math.cos(angle) * r;
-                double z = Math.sin(angle) * r;
-                Location loc = center.clone().add(x, 0.1, z);
-                player.getWorld().spawnParticle(Particle.BLOCK, loc,
-                    2, 0.1, 0.05, 0.1, 0, Material.DIRT.createBlockData());
-            }
+        // Obtenir ou créer les maps de saignement pour ce joueur
+        Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+        Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+
+        // Ajouter les stacks (jusqu'au max)
+        int currentStacks = playerBleedStacks.getOrDefault(targetUuid, 0);
+        int newStacks = Math.min(currentStacks + stacksPerHit, maxStacks);
+        playerBleedStacks.put(targetUuid, newStacks);
+        playerBleedExpiry.put(targetUuid, System.currentTimeMillis() + duration);
+
+        // Démarrer le DOT si c'est le premier stack
+        if (currentStacks == 0) {
+            startBleedingDOT(player, target, damagePerStack, duration);
         }
 
-        // Particules de choc central
-        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 1, 0, 0, 0, 0);
+        // Effet visuel de lacération
+        target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
+            5 + newStacks, 0.3, 0.4, 0.3, 0.05);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+            3 + newStacks, 0.2, 0.3, 0.2, 0,
+            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 1.2f));
 
-        // Son
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.7f);
+        // Son de lacération
+        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.3f);
+        if (newStacks >= maxStacks) {
+            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.4f, 1.5f);
+        }
 
-        // Dégâts et ralentissement
-        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (!(entity instanceof LivingEntity living)) continue;
-            if (entity == player) continue;
-            if (entity instanceof Player) continue;
-            if (entity instanceof ArmorStand) continue;
+        // Propager aux ennemis marqués si la cible est marquée
+        if (isMarked(targetUuid)) {
+            propagateBleedingToMarked(player, target, stacksPerHit, damagePerStack, duration, maxStacks);
+        }
+    }
 
-            dealAoeDamage(player, living, aoeDamage, true);
+    /**
+     * Démarre le DOT de saignement sur une cible
+     */
+    private void startBleedingDOT(Player player, LivingEntity target, double damagePerStack, long duration) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
 
-            // Ralentissement
-            int slowLevel = (int) (slowPercent * 5); // 20% = niveau 1
-            living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
-                (int) (slowDuration / 50), slowLevel, false, false));
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = (int) (duration / 50); // Convertir ms en ticks
+
+            @Override
+            public void run() {
+                // Vérifier si le saignement est toujours actif
+                Map<UUID, Integer> playerBleedStacks = bleedingStacks.get(playerUuid);
+                Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(playerUuid);
+
+                if (playerBleedStacks == null || playerBleedExpiry == null) {
+                    cancel();
+                    return;
+                }
+
+                Integer stacks = playerBleedStacks.get(targetUuid);
+                Long expiry = playerBleedExpiry.get(targetUuid);
+
+                if (stacks == null || stacks <= 0 || expiry == null || System.currentTimeMillis() > expiry) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                    return;
+                }
+
+                if (!target.isValid() || target.isDead() || !player.isOnline()) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Infliger les dégâts de saignement chaque seconde (20 ticks)
+                if (ticks % 20 == 0) {
+                    double maxHealth = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                    double bleedDamage = maxHealth * damagePerStack * stacks;
+
+                    target.damage(bleedDamage, player);
+
+                    // Particules de sang
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                        stacks * 2, 0.3, 0.4, 0.3, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.0f));
+                }
+
+                // Vérifier expiration
+                if (System.currentTimeMillis() > expiry) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Propage les saignements aux ennemis marqués
+     */
+    private void propagateBleedingToMarked(Player player, LivingEntity source, int stacks, double damagePerStack, long duration, int maxStacks) {
+        UUID playerUuid = player.getUniqueId();
+
+        for (Map.Entry<UUID, Long> entry : warCryMarkedEnemies.entrySet()) {
+            if (System.currentTimeMillis() > entry.getValue()) continue;
+            if (entry.getKey().equals(source.getUniqueId())) continue;
+
+            Entity entity = Bukkit.getEntity(entry.getKey());
+            if (entity instanceof LivingEntity living && living.isValid() && !living.isDead()) {
+                // Appliquer saignement (la moitié des stacks propagés)
+                int propagatedStacks = Math.max(1, stacks / 2);
+
+                Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+                Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+
+                int currentStacks = playerBleedStacks.getOrDefault(entry.getKey(), 0);
+                int newStacks = Math.min(currentStacks + propagatedStacks, maxStacks);
+
+                if (currentStacks == 0) {
+                    startBleedingDOT(player, living, damagePerStack, duration);
+                }
+
+                playerBleedStacks.put(entry.getKey(), newStacks);
+                playerBleedExpiry.put(entry.getKey(), System.currentTimeMillis() + duration);
+
+                // Effet visuel de propagation
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.3, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(200, 50, 50), 0.8f));
+
+                // Ligne de connexion
+                drawParticleLine(source.getLocation().add(0, 1, 0),
+                    living.getLocation().add(0, 1, 0), Particle.DUST, 6);
+            }
         }
     }
 
@@ -5800,42 +5913,91 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Onde de Carnage - Onde de choc massive après 5 fentes
+     * Éviscération - Consomme tous les saignements pour un burst massif + heal
      */
-    private void procCarnageWave(Player player, Talent talent) {
-        UUID uuid = player.getUniqueId();
+    private void procEvisceration(Player player, Talent talent) {
+        UUID playerUuid = player.getUniqueId();
         double radius = talent.getValue(1); // 8 blocs
-        double damagePercent = talent.getValue(2); // 200%
-        long stunDuration = (long) talent.getValue(3); // 500ms
+        double healPercent = talent.getValue(2); // 0.50 = 50% des dégâts en heal
 
         Location center = player.getLocation();
-        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double aoeDamage = baseDamage * damagePercent;
+        Map<UUID, Integer> playerBleedStacks = bleedingStacks.get(playerUuid);
+        Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(playerUuid);
 
-        // Effet visuel épique
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.6f);
-        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.5f);
+        if (playerBleedStacks == null || playerBleedStacks.isEmpty()) {
+            // Pas de saignements à consommer
+            if (shouldSendTalentMessage(player)) {
+                showTempEventMessage(playerUuid, "§c§l🩸 Pas de saignements à consommer!");
+            }
+            return;
+        }
 
-        // Onde expansive
+        double totalDamageDealt = 0;
+        int totalStacksConsumed = 0;
+        int enemiesHit = 0;
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.8f, 1.2f);
+        player.getWorld().playSound(center, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+
+        // Consommer les saignements sur tous les ennemis proches
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            UUID targetUuid = entity.getUniqueId();
+            Integer stacks = playerBleedStacks.get(targetUuid);
+
+            if (stacks != null && stacks > 0) {
+                // Calculer les dégâts restants (2% PV/s * stacks * temps restant ~4s)
+                double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+                double remainingDamage = maxHealth * 0.02 * stacks * 4; // Approximation: 4s de DOT restant
+
+                // Infliger les dégâts instantanément
+                living.damage(remainingDamage, player);
+                totalDamageDealt += remainingDamage;
+                totalStacksConsumed += stacks;
+                enemiesHit++;
+
+                // Retirer les stacks
+                playerBleedStacks.remove(targetUuid);
+                if (playerBleedExpiry != null) {
+                    playerBleedExpiry.remove(targetUuid);
+                }
+
+                // Effet visuel d'éviscération sur la cible
+                living.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, living.getLocation().add(0, 1, 0),
+                    15 + stacks * 3, 0.5, 0.6, 0.5, 0.1);
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1.5, 0),
+                    stacks * 5, 0.4, 0.5, 0.4, 0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
+
+                // Indicateur de dégâts
+                PacketDamageIndicator.displayCrit(plugin, living.getLocation().add(0, 2, 0), remainingDamage, player);
+            }
+        }
+
+        // Effet visuel d'onde de sang
         new BukkitRunnable() {
             double currentRadius = 1;
             int ticks = 0;
 
             @Override
             public void run() {
-                if (currentRadius > radius || ticks > 10) {
+                if (currentRadius > radius || ticks > 8) {
                     cancel();
                     return;
                 }
 
-                // Cercle de particules
-                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                // Cercle de particules de sang
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 10) {
                     double x = Math.cos(angle) * currentRadius;
                     double z = Math.sin(angle) * currentRadius;
-                    Location loc = center.clone().add(x, 0.5, z);
-                    player.getWorld().spawnParticle(Particle.FLAME, loc, 2, 0.1, 0.1, 0.1, 0.02);
-                    player.getWorld().spawnParticle(Particle.DUST, loc, 1, 0.1, 0.1, 0.1, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 100, 0), 2.0f));
+                    Location loc = center.clone().add(x, 0.3, z);
+                    player.getWorld().spawnParticle(Particle.DUST, loc, 2, 0.1, 0.05, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
                 }
 
                 currentRadius += 1.5;
@@ -5843,30 +6005,25 @@ public class TalentListener implements Listener {
             }
         }.runTaskTimer(plugin, 0L, 2L);
 
-        // Dégâts, knockback et stun
-        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (!(entity instanceof LivingEntity living)) continue;
-            if (entity == player) continue;
-            if (entity instanceof Player) continue;
-            if (entity instanceof ArmorStand) continue;
+        // Heal basé sur les dégâts infligés
+        if (totalDamageDealt > 0) {
+            double heal = totalDamageDealt * healPercent;
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double newHealth = Math.min(player.getHealth() + heal, maxHealth);
+            player.setHealth(newHealth);
 
-            dealAoeDamage(player, living, aoeDamage, true);
-
-            // Knockback
-            Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(1.5);
-            knockback.setY(0.5);
-            living.setVelocity(knockback);
-
-            // Stun
-            living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
-                (int) (stunDuration / 50), 10, false, false));
-            living.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,
-                (int) (stunDuration / 50), 0, false, false));
+            // Effet de heal
+            player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0),
+                5, 0.3, 0.3, 0.3, 0);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
         }
 
         if (shouldSendTalentMessage(player)) {
-            showTempEventMessage(uuid, "§c§l💀 ONDE DE CARNAGE!");
+            String healStr = String.format("%.0f", totalDamageDealt * healPercent);
+            showTempEventMessage(playerUuid, "§4§l🩸 ÉVISCÉRATION! §7" + enemiesHit + " proies, " + totalStacksConsumed + " stacks, §a+" + healStr + " PV!");
         }
+
+        plugin.getActionBarManager().markInCombat(playerUuid);
     }
 
     /**
