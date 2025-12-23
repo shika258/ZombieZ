@@ -1914,6 +1914,9 @@ public class TalentListener implements Listener {
         // Doubler la taille du joueur
         player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * targetScale);
 
+        // Glowing rouge pendant la durée
+        applyRedGlow(player, (int) (duration / 50)); // Convertir ms en ticks
+
         // Sons d'activation épiques
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
@@ -2042,6 +2045,9 @@ public class TalentListener implements Listener {
         }
 
         megaTornadoActiveUntil.remove(uuid);
+
+        // Retirer le glowing rouge
+        removeRedGlow(player);
 
         // Effets de fin
         if (player.isOnline()) {
@@ -2439,6 +2445,38 @@ public class TalentListener implements Listener {
     private void removeGoldenGlow(Player player) {
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
         org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_avatar_gold");
+        if (team != null && team.hasEntry(player.getName())) {
+            team.removeEntry(player.getName());
+        }
+    }
+
+    /**
+     * Applique un effet Glowing rouge au joueur via une équipe Scoreboard
+     */
+    private void applyRedGlow(Player player, int durationTicks) {
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
+
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        String teamName = "zz_mega_tornado";
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
+
+        if (team == null) {
+            team = scoreboard.registerNewTeam(teamName);
+            team.setColor(org.bukkit.ChatColor.DARK_RED);
+            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
+                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
+        }
+
+        team.addEntry(player.getName());
+    }
+
+    /**
+     * Retire le glowing rouge du joueur
+     */
+    private void removeRedGlow(Player player) {
+        player.removePotionEffect(PotionEffectType.GLOWING);
+        org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_mega_tornado");
         if (team != null && team.hasEntry(player.getName())) {
             team.removeEntry(player.getName());
         }
@@ -3311,11 +3349,14 @@ public class TalentListener implements Listener {
                 if (!activeGuerrierActionBar.contains(uuid)) {
                     activeGuerrierActionBar.add(uuid);
                     plugin.getActionBarManager().registerClassActionBar(uuid, this::buildActionBar);
+                    // Suffixe pour ActionBar par défaut (hors combat) - cooldown Mega Tornado
+                    plugin.getActionBarManager().registerDefaultBarSuffix(uuid, this::buildMegaTornadoSuffix);
                 }
             } else {
                 if (activeGuerrierActionBar.contains(uuid)) {
                     activeGuerrierActionBar.remove(uuid);
                     plugin.getActionBarManager().unregisterClassActionBar(uuid);
+                    plugin.getActionBarManager().unregisterDefaultBarSuffix(uuid);
                 }
             }
         }
@@ -3693,6 +3734,33 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Suffixe pour l'ActionBar par défaut (hors combat)
+     * Affiche le statut de Mega Tornado si le talent est actif
+     */
+    private String buildMegaTornadoSuffix(Player player) {
+        UUID uuid = player.getUniqueId();
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+
+        if (megaTornado == null) {
+            return "";
+        }
+
+        Long activeUntil = megaTornadoActiveUntil.get(uuid);
+        if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+            // Actif
+            long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
+            return " §8│ §c§l🌪 " + remaining + "s";
+        } else if (isOnCooldown(uuid, "mega_tornado")) {
+            // Cooldown
+            long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+            return " §8│ §8🌪 " + remaining + "s";
+        } else {
+            // Prêt
+            return " §8│ §a🌪";
+        }
+    }
+
+    /**
      * ActionBar générique si pas de spécialisation claire
      */
     private void buildGenericGuerrierActionBar(Player player, StringBuilder bar) {
@@ -3781,6 +3849,7 @@ public class TalentListener implements Listener {
         activeGuerrierActionBar.remove(playerUuid);
         if (plugin.getActionBarManager() != null) {
             plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
+            plugin.getActionBarManager().unregisterDefaultBarSuffix(playerUuid);
         }
     }
 }

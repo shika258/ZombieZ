@@ -34,6 +34,9 @@ public class ActionBarManager {
     // Fournisseurs d'ActionBar de classe par joueur
     private final Map<UUID, Function<Player, String>> classActionBarProviders = new ConcurrentHashMap<>();
 
+    // Suffixes additionnels pour l'ActionBar par défaut (ex: cooldowns de talents)
+    private final Map<UUID, Function<Player, String>> defaultBarSuffixProviders = new ConcurrentHashMap<>();
+
     // Durée avant de revenir à l'ActionBar par défaut (5 secondes)
     private static final long COMBAT_TIMEOUT_MS = 5000;
 
@@ -118,11 +121,27 @@ public class ActionBarManager {
     }
 
     /**
+     * Enregistre un suffixe pour l'ActionBar par défaut (hors combat)
+     * Utilisé pour afficher des cooldowns de talents même hors combat
+     */
+    public void registerDefaultBarSuffix(UUID playerUuid, Function<Player, String> provider) {
+        defaultBarSuffixProviders.put(playerUuid, provider);
+    }
+
+    /**
+     * Retire le suffixe de l'ActionBar par défaut
+     */
+    public void unregisterDefaultBarSuffix(UUID playerUuid) {
+        defaultBarSuffixProviders.remove(playerUuid);
+    }
+
+    /**
      * Nettoie les données d'un joueur (déconnexion)
      */
     public void cleanupPlayer(UUID playerUuid) {
         lastCombatTime.remove(playerUuid);
         classActionBarProviders.remove(playerUuid);
+        defaultBarSuffixProviders.remove(playerUuid);
     }
 
     /**
@@ -174,6 +193,15 @@ public class ActionBarManager {
 
         // BOUSSOLE
         bar.append(buildCompass(player));
+
+        // SUFFIXES ADDITIONNELS (cooldowns de talents, etc.)
+        Function<Player, String> suffixProvider = defaultBarSuffixProviders.get(player.getUniqueId());
+        if (suffixProvider != null) {
+            String suffix = suffixProvider.apply(player);
+            if (suffix != null && !suffix.isEmpty()) {
+                bar.append(suffix);
+            }
+        }
 
         return bar.toString();
     }
