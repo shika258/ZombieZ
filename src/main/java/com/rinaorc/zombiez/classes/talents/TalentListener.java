@@ -76,6 +76,9 @@ public class TalentListener implements Listener {
     // Prédateur Insatiable - buff de dégâts après kill marqué
     private final Map<UUID, Long> predatorDamageBuffExpiry = new ConcurrentHashMap<>();
 
+    // Tracking dernière Fente réussie (pour kill tracking)
+    private final Map<UUID, Long> lastLungingStrikeHit = new ConcurrentHashMap<>();
+
     // Dechainement - tracking multi-kills
     private final Map<UUID, List<Long>> recentKills = new ConcurrentHashMap<>();
 
@@ -1585,6 +1588,127 @@ public class TalentListener implements Listener {
         // === TIER 6 ===
 
         // Faucheur - auto execute (checked in periodic task)
+
+        // === VOIE DE LA FENTE - Kill tracking ===
+
+        // Vérifier si le kill a été fait avec une Fente (dans les 500ms)
+        Long lastLungeHit = lastLungingStrikeHit.get(uuid);
+        boolean killWithLunge = lastLungeHit != null && (System.currentTimeMillis() - lastLungeHit) < 500;
+
+        if (killWithLunge) {
+            // === PRÉDATEUR INSATIABLE (T6) ===
+            Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
+            if (predator != null) {
+                // Reset du cooldown de Fente
+                cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>()).remove("lunging_strike");
+
+                // Bonus de vitesse de mouvement
+                double speedBonus = predator.getValue(0); // 0.25 = 25%
+                long speedDuration = (long) predator.getValue(1); // 2000ms
+                int speedLevel = (int) (speedBonus * 4); // 25% = niveau 1
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED,
+                    (int) (speedDuration / 50), speedLevel, false, false));
+
+                // Bonus de dégâts si kill sur ennemi marqué
+                if (isMarked(target.getUniqueId())) {
+                    long buffDuration = (long) predator.getValue(3); // 4000ms
+                    predatorDamageBuffExpiry.put(uuid, System.currentTimeMillis() + buffDuration);
+
+                    // Effet visuel spécial
+                    player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+                        15, 0.5, 0.5, 0.5, 0.05);
+                    player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 0.6f, 1.4f);
+
+                    if (shouldSendTalentMessage(player)) {
+                        showTempEventMessage(uuid, "§e§l🎯 PROIE MARQUÉE! §c+15%§7 dégâts pendant 4s!");
+                    }
+                }
+
+                // Effet de reset
+                player.getWorld().spawnParticle(Particle.CRIT_MAGIC, player.getLocation().add(0, 1, 0),
+                    8, 0.3, 0.3, 0.3, 0.1);
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
+            }
+
+            // === FRÉNÉSIE DE GUERRE (T8) - Compteur de kills ===
+            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (warFrenzy != null && !isWarFrenzyActive(uuid)) {
+                int killsNeeded = (int) warFrenzy.getValue(0); // 5
+                long window = (long) warFrenzy.getValue(1); // 10000ms
+
+                List<Long> kills = warFrenzyKills.computeIfAbsent(uuid, k -> new ArrayList<>());
+                kills.add(System.currentTimeMillis());
+
+                // Nettoyer les vieux kills
+                kills.removeIf(t -> System.currentTimeMillis() - t > window);
+
+                // Vérifier si on active la Frénésie
+                if (kills.size() >= killsNeeded) {
+                    kills.clear();
+                    activateWarFrenzy(player, warFrenzy);
+                } else {
+                    // Feedback du compteur
+                    if (shouldSendTalentMessage(player)) {
+                        showTempEventMessage(uuid, "§c§l⚔ FRENÉSIE: §7" + kills.size() + "/" + killsNeeded + " kills");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Active le mode Frénésie de Guerre
+     */
+    private void activateWarFrenzy(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(2); // 8000ms
+        double attackSpeedBonus = talent.getValue(3); // 0.50 = 50%
+
+        warFrenzyActiveUntil.put(uuid, System.currentTimeMillis() + duration);
+
+        // Effets de vitesse d'attaque
+        int hasteLevel = (int) (attackSpeedBonus * 5); // 50% = niveau 2-3
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE,
+            (int) (duration / 50), Math.min(hasteLevel, 2), false, false));
+
+        // Sons d'activation
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.7f, 1.3f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
+
+        // Particules de feu
+        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+            30, 0.5, 0.5, 0.5, 0.1);
+
+        // Aura de feu pendant la durée
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead() || !isWarFrenzyActive(uuid)) {
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Particules de feu autour du joueur
+                if (ticks % 5 == 0) {
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                        double x = Math.cos(angle + ticks * 0.15) * 1.0;
+                        double z = Math.sin(angle + ticks * 0.15) * 1.0;
+                        player.getWorld().spawnParticle(Particle.FLAME,
+                            player.getLocation().add(x, 0.3, z), 1, 0, 0.1, 0, 0.01);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        if (shouldSendTalentMessage(player)) {
+            showTempEventMessage(uuid, "§c§l🔥 FRÉNÉSIE DE GUERRE! §7Fentes sans cooldown pendant " + (duration/1000) + "s!");
+        }
+
+        plugin.getActionBarManager().markInCombat(uuid);
     }
 
     // ==================== SPRINT ====================
@@ -4610,6 +4734,7 @@ public class TalentListener implements Listener {
         warFrenzyKills.remove(playerUuid);
         warFrenzyActiveUntil.remove(playerUuid);
         predatorDamageBuffExpiry.remove(playerUuid);
+        lastLungingStrikeHit.remove(playerUuid);
 
         // Berserker Rage - restaurer la taille
         Double berserkerScale = berserkerOriginalScale.remove(playerUuid);
@@ -5306,9 +5431,16 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Élan Furieux - bonus de stacks
+        // Élan Furieux - bonus de stacks (avec decay)
         Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
         if (momentum != null) {
+            // Vérifier decay - reset si plus de 3s sans Fente
+            long resetTime = (long) momentum.getValue(3); // 3000ms
+            Long lastLunge = furiousMomentumLastLunge.get(uuid);
+            if (lastLunge != null && (System.currentTimeMillis() - lastLunge) > resetTime) {
+                furiousMomentumStacks.remove(uuid);
+            }
+
             int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
             damageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
         }
@@ -5393,6 +5525,9 @@ public class TalentListener implements Listener {
         // Infliger les dégâts
         target.damage(finalDamage, player);
 
+        // Enregistrer le hit pour le kill tracking (Prédateur Insatiable, Frénésie de Guerre)
+        lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
+
         // Son et effets visuels
         player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
         player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
@@ -5416,13 +5551,23 @@ public class TalentListener implements Listener {
         if (momentum != null) {
             int maxStacks = (int) momentum.getValue(2);
             int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            int newStacks = stacks;
             if (stacks < maxStacks) {
-                furiousMomentumStacks.put(uuid, stacks + 1);
+                newStacks = stacks + 1;
+                furiousMomentumStacks.put(uuid, newStacks);
             }
             furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
 
             // Appliquer le bonus de vitesse d'attaque
-            applyMomentumSpeedBoost(player, stacks + 1, momentum);
+            applyMomentumSpeedBoost(player, newStacks, momentum);
+
+            // Feedback visuel des stacks
+            if (newStacks >= maxStacks) {
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+            } else {
+                float pitch = 0.8f + (newStacks * 0.15f);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.4f, pitch);
+            }
         }
 
         // === ONDE DE CARNAGE - Compteur ===
@@ -5436,6 +5581,10 @@ public class TalentListener implements Listener {
                 procCarnageWave(player, carnageWave);
             } else {
                 carnageWaveCounter.put(uuid, count);
+                // Feedback du compteur (seulement les derniers)
+                if (count >= threshold - 2 && shouldSendTalentMessage(player)) {
+                    showTempEventMessage(uuid, "§6§l⚡ CARNAGE: §7" + count + "/" + threshold);
+                }
             }
         }
 
