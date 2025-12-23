@@ -4,7 +4,6 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
-import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -43,8 +42,7 @@ public class RecycleManager implements Listener {
     private BukkitTask summaryTask;
 
     // Points de base par rareté (équilibrage progressif)
-    @Getter
-    private static final int[] BASE_POINTS_BY_RARITY = {
+    public static final int[] BASE_POINTS_BY_RARITY = {
         2,      // COMMON (60% drop) - Points faibles mais fréquents
         5,      // UNCOMMON (25% drop) - 2.5x common
         15,     // RARE (10% drop) - 3x uncommon
