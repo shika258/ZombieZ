@@ -234,6 +234,11 @@ public class ClassManager {
                 player.sendMessage("§cChangement possible dans " + remainingHours + "h!");
                 return false;
             }
+
+            // Nettoyer les effets visuels de l'ancienne classe (ArmorStands, etc.)
+            if (plugin.getTalentListener() != null) {
+                plugin.getTalentListener().cleanupPlayer(player.getUniqueId());
+            }
         }
 
         data.changeClass(classType);

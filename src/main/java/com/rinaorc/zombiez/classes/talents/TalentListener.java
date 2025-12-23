@@ -815,19 +815,17 @@ public class TalentListener implements Listener {
                     player.setHealth(currentHealth + healAmount);
                 }
 
-                // Pacte de Sang: overheal invoque des Larves de Sang
+                // Pacte de Sang: overheal invoque des Larves de Sang kamikazes
                 if (bloodPact != null && overheal > 0) {
                     int maxLarvae = (int) bloodPact.getValue(1); // 3 max
                     long larvaeDuration = (long) bloodPact.getValue(2); // 5000ms
+                    double aoeRadius = bloodPact.getValue(3); // 4 blocs
+                    double lifestealPercent = bloodPact.getValue(4); // 5%
+
                     // Nombre de larves basé sur l'overheal (1 larve par 5% PV max d'overheal, max 3)
                     int larvaeCount = Math.min(maxLarvae, (int) Math.ceil(overheal / (maxHp * 0.05)));
 
-                    spawnBloodLarvae(player, larvaeCount, larvaeDuration, bloodPact.getValue(3));
-
-                    // Feedback larves
-                    if (shouldSendTalentMessage(player)) {
-                        showTempEventMessage(uuid, "§4+" + larvaeCount + " §7Larves de Sang!");
-                    }
+                    spawnBloodLarvae(player, larvaeCount, larvaeDuration, aoeRadius, lifestealPercent);
                 }
 
                 // ICD de 1 seconde
@@ -1280,70 +1278,11 @@ public class TalentListener implements Listener {
     }
 
     // ==================== LARVES DE SANG (Pacte de Sang) ====================
+    // Les larves sont des entités kamikazes qui se ruent sur le mob le plus proche
+    // et explosent en AoE (4 blocs), soignant le propriétaire de 5% des dégâts causés
 
     /**
-     * Modifie les dégâts des larves pour correspondre aux dégâts du joueur propriétaire
-     */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onBloodLarvaeDamageModify(EntityDamageByEntityEvent event) {
-        // Vérifier si le damager est une Endermite (larve de sang)
-        if (!(event.getDamager() instanceof Endermite larvae)) return;
-        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
-
-        // Récupérer les dégâts stockés dans le tag
-        for (String tag : larvae.getScoreboardTags()) {
-            if (tag.startsWith("zombiez_larvae_damage_")) {
-                try {
-                    double playerDamage = Double.parseDouble(tag.substring("zombiez_larvae_damage_".length()));
-                    // Appliquer les dégâts du joueur (50% pour équilibrage)
-                    event.setDamage(playerDamage * 0.5);
-                    break;
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onBloodLarvaeDamage(EntityDamageByEntityEvent event) {
-        // Vérifier si le damager est une Endermite (larve de sang)
-        if (!(event.getDamager() instanceof Endermite larvae)) return;
-        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
-
-        // Récupérer le propriétaire
-        UUID ownerUuid = bloodLarvaeOwners.get(larvae.getUniqueId());
-        if (ownerUuid == null) return;
-
-        Player owner = Bukkit.getPlayer(ownerUuid);
-        if (owner == null || !owner.isOnline()) return;
-
-        // Soigner le propriétaire
-        Talent bloodPact = getActiveTalentIfHas(owner, Talent.TalentEffectType.BLOOD_PACT);
-        if (bloodPact == null) return;
-
-        double healPercent = bloodPact.getValue(3); // 2% PV max
-        double maxHp = owner.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double healAmount = maxHp * healPercent;
-
-        applyLifesteal(owner, healAmount);
-
-        // Effet visuel: traînée de sang vers le joueur
-        Location larvaePos = larvae.getLocation().add(0, 0.3, 0);
-        Location ownerPos = owner.getLocation().add(0, 1, 0);
-        Vector direction = ownerPos.toVector().subtract(larvaePos.toVector()).normalize();
-        double distance = larvaePos.distance(ownerPos);
-
-        for (double d = 0; d < distance; d += 0.5) {
-            Location particleLoc = larvaePos.clone().add(direction.clone().multiply(d));
-            owner.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0.05, 0.05, 0.05, 0,
-                new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.7f));
-        }
-
-        // Son de soin subtil
-        owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
-    }
-
-    /**
-     * Empêche les larves de sang d'attaquer les joueurs (y compris leur propriétaire)
+     * Empêche les larves de sang d'attaquer les joueurs (elles ne font que de l'AoE explosion)
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onBloodLarvaeAttackPlayer(EntityDamageByEntityEvent event) {
@@ -1351,12 +1290,8 @@ public class TalentListener implements Listener {
         if (!(event.getDamager() instanceof Endermite larvae)) return;
         if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
 
-        // Annuler les dégâts sur tous les joueurs
-        if (event.getEntity() instanceof Player) {
-            event.setCancelled(true);
-            // Reset la cible pour éviter qu'elle continue à suivre le joueur
-            larvae.setTarget(null);
-        }
+        // Annuler tous les dégâts directs des larves (elles ne font que de l'AoE explosion)
+        event.setCancelled(true);
     }
 
     /**
@@ -1372,6 +1307,89 @@ public class TalentListener implements Listener {
         if (event.getTarget() instanceof Player) {
             event.setCancelled(true);
         }
+    }
+
+    /**
+     * Déclenche l'explosion de sang AoE d'une larve
+     * @param larvae La larve qui explose
+     * @param owner Le joueur propriétaire
+     * @param playerDamage Les dégâts de base du joueur
+     * @param aoeRadius Rayon de l'explosion (4 blocs)
+     * @param lifestealPercent Pourcentage de lifesteal (5%)
+     */
+    private void triggerBloodLarvaeExplosion(Endermite larvae, Player owner, double playerDamage, double aoeRadius, double lifestealPercent) {
+        Location explosionLoc = larvae.getLocation();
+        World world = larvae.getWorld();
+
+        // Dégâts de l'explosion = 100% des dégâts du joueur
+        double explosionDamage = playerDamage;
+        double totalDamageDealt = 0;
+
+        // Récupérer toutes les entités dans le rayon (sauf joueurs)
+        for (Entity nearby : world.getNearbyEntities(explosionLoc, aoeRadius, aoeRadius, aoeRadius)) {
+            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead()) {
+                // Vérifier la distance réelle (sphère)
+                if (explosionLoc.distanceSquared(target.getLocation()) <= aoeRadius * aoeRadius) {
+                    // Calculer les dégâts réels (avant mort)
+                    double actualDamage = Math.min(explosionDamage, target.getHealth());
+                    target.damage(explosionDamage, owner);
+                    totalDamageDealt += actualDamage;
+
+                    // Effet de sang sur chaque cible touchée
+                    world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0,
+                        new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.2f));
+                }
+            }
+        }
+
+        // === Effets visuels de l'explosion ===
+
+        // Particules d'explosion de sang (cercle au sol)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            for (double r = 0.5; r <= aoeRadius; r += 0.5) {
+                double x = r * Math.cos(angle);
+                double z = r * Math.sin(angle);
+                Location particleLoc = explosionLoc.clone().add(x, 0.2, z);
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+            }
+        }
+
+        // Particules centrales (explosion)
+        world.spawnParticle(Particle.DUST, explosionLoc.clone().add(0, 0.5, 0), 30, 0.8, 0.5, 0.8, 0.05,
+            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 2.0f));
+        world.spawnParticle(Particle.CRIMSON_SPORE, explosionLoc.clone().add(0, 1, 0), 20, 1.0, 0.5, 1.0, 0.02);
+
+        // Son d'explosion sanglante
+        world.playSound(explosionLoc, Sound.ENTITY_SLIME_SQUISH, 1.5f, 0.6f);
+        world.playSound(explosionLoc, Sound.ITEM_TOTEM_USE, 0.4f, 1.8f);
+
+        // === Lifesteal 5% des dégâts infligés ===
+        if (totalDamageDealt > 0) {
+            double healAmount = totalDamageDealt * lifestealPercent;
+            applyLifesteal(owner, healAmount);
+
+            // Effet visuel de soin: traînée de sang vers le joueur
+            Location ownerPos = owner.getLocation().add(0, 1, 0);
+            Vector direction = ownerPos.toVector().subtract(explosionLoc.toVector()).normalize();
+            double distance = explosionLoc.distance(ownerPos);
+
+            for (double d = 0; d < distance; d += 0.4) {
+                Location particleLoc = explosionLoc.clone().add(direction.clone().multiply(d));
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0.05, 0.05, 0.05, 0,
+                    new Particle.DustOptions(Color.fromRGB(200, 50, 50), 0.8f));
+            }
+
+            // Feedback soin
+            if (shouldSendTalentMessage(owner)) {
+                showTempEventMessage(owner.getUniqueId(), "§4❤ §c+" + String.format("%.1f", healAmount) + " §7(Explosion)");
+            }
+            owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.2f);
+        }
+
+        // Supprimer la larve
+        bloodLarvaeOwners.remove(larvae.getUniqueId());
+        larvae.remove();
     }
 
     // ==================== KILLS ====================
@@ -4833,10 +4851,17 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Invoque des Larves de Sang (Endermites vampiriques) pour le Pacte de Sang
-     * Maximum 3 larves actives par joueur
+     * Invoque des Larves de Sang kamikazes pour le Pacte de Sang
+     * Les larves se ruent sur le mob le plus proche et explosent en AoE (4 blocs)
+     * Le joueur est soigné de 5% des dégâts causés par l'explosion
+     *
+     * @param player Le joueur propriétaire
+     * @param count Nombre de larves à invoquer
+     * @param duration Durée de vie max (ms) avant auto-destruction
+     * @param aoeRadius Rayon de l'explosion AoE (4 blocs)
+     * @param lifestealPercent Pourcentage de lifesteal (0.05 = 5%)
      */
-    private void spawnBloodLarvae(Player player, int count, long duration, double healPerHit) {
+    private void spawnBloodLarvae(Player player, int count, long duration, double aoeRadius, double lifestealPercent) {
         UUID playerUuid = player.getUniqueId();
         Location spawnLoc = player.getLocation();
         World world = player.getWorld();
@@ -4857,35 +4882,35 @@ public class TalentListener implements Listener {
         }
         int actualCount = Math.min(count, availableSlots);
 
-        // Calculer les dégâts de base du joueur pour les larves
+        // Calculer les dégâts de base du joueur pour les explosions
         double playerDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
 
         // Son d'invocation
         world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
+        world.playSound(spawnLoc, Sound.ENTITY_WARDEN_HEARTBEAT, 0.5f, 1.5f);
 
         for (int i = 0; i < actualCount; i++) {
             // Position aléatoire autour du joueur
             double angle = Math.random() * Math.PI * 2;
-            double distance = 1 + Math.random() * 2;
+            double dist = 1 + Math.random() * 2;
             Location larvaeSpawn = spawnLoc.clone().add(
-                distance * Math.cos(angle),
+                dist * Math.cos(angle),
                 0.5,
-                distance * Math.sin(angle)
+                dist * Math.sin(angle)
             );
 
             // Invoquer l'Endermite
             Endermite larvae = world.spawn(larvaeSpawn, Endermite.class, endermite -> {
-                endermite.setCustomName("§4Larve de Sang");
+                endermite.setCustomName("§4§l⚠ §4Larve de Sang");
                 endermite.setCustomNameVisible(true);
                 endermite.setPersistent(false);
                 endermite.setRemoveWhenFarAway(true);
-                // Invincible pendant les 3 premières secondes
+                // Invincible - kamikaze
                 endermite.setInvulnerable(true);
-                // Marquer comme larve de sang avec les dégâts du joueur
+                // Marquer comme larve de sang
                 endermite.addScoreboardTag("zombiez_blood_larvae");
                 endermite.addScoreboardTag("zombiez_owner_" + playerUuid);
-                endermite.addScoreboardTag("zombiez_larvae_damage_" + playerDamage);
-                // Ne pas cibler le joueur propriétaire
+                // Ne pas cibler le joueur
                 endermite.setTarget(null);
             });
 
@@ -4893,23 +4918,24 @@ public class TalentListener implements Listener {
             bloodLarvaeOwners.put(larvae.getUniqueId(), playerUuid);
 
             // Particules de spawn
-            world.spawnParticle(Particle.DUST, larvaeSpawn, 10, 0.3, 0.3, 0.3, 0,
+            world.spawnParticle(Particle.DUST, larvaeSpawn, 15, 0.4, 0.4, 0.4, 0,
                 new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+            world.spawnParticle(Particle.CRIMSON_SPORE, larvaeSpawn, 8, 0.3, 0.3, 0.3, 0.01);
 
-            // Tâche pour gérer le comportement de la larve
-            final double healAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPerHit;
-
+            // Tâche pour gérer le comportement kamikaze de la larve
             new BukkitRunnable() {
                 int ticks = 0;
                 final int maxTicks = (int) (duration / 50);
+                LivingEntity currentTarget = null;
 
                 @Override
                 public void run() {
+                    // Vérifier si la larve est morte ou expirée
                     if (ticks++ > maxTicks || !larvae.isValid() || larvae.isDead()) {
                         // Nettoyer et supprimer
                         bloodLarvaeOwners.remove(larvae.getUniqueId());
                         if (larvae.isValid()) {
-                            // Particules de mort
+                            // Particules de dissipation (pas d'explosion si timeout)
                             world.spawnParticle(Particle.DUST, larvae.getLocation(), 8, 0.2, 0.2, 0.2, 0,
                                 new Particle.DustOptions(Color.fromRGB(100, 0, 0), 1.0f));
                             larvae.remove();
@@ -4923,34 +4949,75 @@ public class TalentListener implements Listener {
                         larvae.setInvulnerable(true);
                     }
 
-                    // Effet visuel périodique (traînée rouge)
-                    if (ticks % 4 == 0) {
-                        world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.2, 0),
-                            2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
-                    }
+                    // === Chercher une cible toutes les 3 ticks ===
+                    if (ticks % 3 == 0 || currentTarget == null || !currentTarget.isValid() || currentTarget.isDead()) {
+                        currentTarget = null;
+                        double closestDistSq = 15.0 * 15.0; // Rayon de recherche = 15 blocs
 
-                    // Chercher agressivement une cible proche (toutes les 5 ticks)
-                    // Exclure les joueurs - cibler uniquement les mobs
-                    if (ticks % 5 == 0 && (larvae.getTarget() == null || !larvae.getTarget().isValid() || larvae.getTarget().isDead() || larvae.getTarget() instanceof Player)) {
-                        LivingEntity closestTarget = null;
-                        double closestDistance = 12.0; // Rayon de recherche
+                        for (Entity nearby : larvae.getNearbyEntities(15, 8, 15)) {
+                            // Exclure les joueurs et autres larves
+                            if (nearby instanceof LivingEntity target &&
+                                !(nearby instanceof Player) &&
+                                !target.isDead() &&
+                                !target.getScoreboardTags().contains("zombiez_blood_larvae")) {
 
-                        for (Entity nearby : larvae.getNearbyEntities(12, 6, 12)) {
-                            // Exclure les joueurs, cibler uniquement les mobs
-                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead()) {
-                                double dist = larvae.getLocation().distanceSquared(target.getLocation());
-                                if (dist < closestDistance * closestDistance) {
-                                    closestDistance = Math.sqrt(dist);
-                                    closestTarget = target;
+                                double distSq = larvae.getLocation().distanceSquared(target.getLocation());
+                                if (distSq < closestDistSq) {
+                                    closestDistSq = distSq;
+                                    currentTarget = target;
                                 }
                             }
                         }
+                    }
 
-                        if (closestTarget != null) {
-                            larvae.setTarget(closestTarget);
-                        } else {
-                            // Pas de cible valide, reset la cible
-                            larvae.setTarget(null);
+                    // === Si on a une cible, se ruer dessus ===
+                    if (currentTarget != null && currentTarget.isValid() && !currentTarget.isDead()) {
+                        Location larvaePos = larvae.getLocation();
+                        Location targetPos = currentTarget.getLocation().add(0, 0.5, 0);
+                        double distanceToTarget = larvaePos.distance(targetPos);
+
+                        // === EXPLOSION si assez proche (< 1.5 blocs) ===
+                        if (distanceToTarget < 1.5) {
+                            Player owner = Bukkit.getPlayer(playerUuid);
+                            if (owner != null && owner.isOnline()) {
+                                triggerBloodLarvaeExplosion(larvae, owner, playerDamage, aoeRadius, lifestealPercent);
+                            } else {
+                                // Propriétaire déconnecté, juste supprimer
+                                bloodLarvaeOwners.remove(larvae.getUniqueId());
+                                larvae.remove();
+                            }
+                            cancel();
+                            return;
+                        }
+
+                        // === Propulser la larve vers la cible ===
+                        Vector direction = targetPos.toVector().subtract(larvaePos.toVector()).normalize();
+                        // Vitesse de ruée: 0.6 blocs/tick (très rapide)
+                        double speed = 0.6;
+                        larvae.setVelocity(direction.multiply(speed));
+
+                        // Effet visuel: traînée de sang derrière la larve
+                        if (ticks % 2 == 0) {
+                            world.spawnParticle(Particle.DUST, larvaePos.add(0, 0.2, 0), 3, 0.1, 0.1, 0.1, 0,
+                                new Particle.DustOptions(Color.fromRGB(180, 20, 20), 1.0f));
+                        }
+
+                        // Particules autour de la larve (tourbillon de sang)
+                        if (ticks % 4 == 0) {
+                            double spinAngle = (ticks * 0.5) % (Math.PI * 2);
+                            for (int j = 0; j < 2; j++) {
+                                double offsetAngle = spinAngle + (j * Math.PI);
+                                double xOff = 0.3 * Math.cos(offsetAngle);
+                                double zOff = 0.3 * Math.sin(offsetAngle);
+                                world.spawnParticle(Particle.DUST, larvaePos.clone().add(xOff, 0.3, zOff), 1, 0, 0, 0, 0,
+                                    new Particle.DustOptions(Color.fromRGB(200, 0, 0), 0.8f));
+                            }
+                        }
+                    } else {
+                        // Pas de cible - la larve flotte sur place avec effet visuel
+                        if (ticks % 10 == 0) {
+                            world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.3, 0),
+                                2, 0.15, 0.15, 0.15, 0, new Particle.DustOptions(Color.fromRGB(150, 0, 0), 0.7f));
                         }
                     }
                 }
