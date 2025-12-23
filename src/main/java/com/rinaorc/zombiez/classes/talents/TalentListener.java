@@ -1914,29 +1914,30 @@ public class TalentListener implements Listener {
                             }
                         }
 
-                        // Particules de fumée rouge autour du joueur (aura visuelle)
+                        // Particules d'aura au sol uniquement (pas au niveau de la tête)
                         long tick = world.getGameTime();
                         double rotationOffset = (tick % 40) * (Math.PI * 2 / 40);
 
-                        // Anneau de fumée rouge au sol
+                        // Anneau de particules BLOCK_CRACK au sol (redstone block)
                         for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
                             double x = radius * Math.cos(angle + rotationOffset);
                             double z = radius * Math.sin(angle + rotationOffset);
-                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.2, z),
-                                1, 0.1, 0.05, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
-                            // Fumée sombre
-                            world.spawnParticle(Particle.SMOKE, center.clone().add(x * 0.7, 0.3, z * 0.7),
-                                1, 0.1, 0.2, 0.1, 0.01);
+                            // Particules de redstone block qui se brisent au sol
+                            world.spawnParticle(Particle.BLOCK, center.clone().add(x, 0.1, z),
+                                2, 0.2, 0.05, 0.2, 0.01, Material.REDSTONE_BLOCK.createBlockData());
+                            // Fumée sombre basse
+                            world.spawnParticle(Particle.SMOKE, center.clone().add(x * 0.7, 0.15, z * 0.7),
+                                1, 0.1, 0.1, 0.1, 0.005);
                         }
 
-                        // Particules de fumée rouge montantes aléatoires dans la zone
-                        for (int i = 0; i < 3; i++) {
+                        // Particules BLOCK_CRACK supplémentaires au sol dans la zone
+                        for (int i = 0; i < 4; i++) {
                             double randAngle = Math.random() * Math.PI * 2;
-                            double randDist = Math.random() * radius;
+                            double randDist = Math.random() * radius * 0.8;
                             double x = randDist * Math.cos(randAngle);
                             double z = randDist * Math.sin(randAngle);
-                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.1 + Math.random() * 0.5, z),
-                                2, 0.1, 0.3, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 1.0f));
+                            world.spawnParticle(Particle.BLOCK, center.clone().add(x, 0.05, z),
+                                3, 0.15, 0.02, 0.15, 0.02, Material.REDSTONE_BLOCK.createBlockData());
                         }
                     }
                 }
