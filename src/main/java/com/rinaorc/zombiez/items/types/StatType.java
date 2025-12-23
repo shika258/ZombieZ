@@ -321,7 +321,7 @@ public enum StatType {
     // ==================== STATS UTILITAIRES ====================
     
     MOVEMENT_SPEED(
-        "Vitesse",
+        "Vitesse de déplacement",
         "➜",
         "§f",
         StatCategory.UTILITY,
