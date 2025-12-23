@@ -1843,11 +1843,20 @@ public class TalentListener implements Listener {
     }
 
     private void startRageCyclone(Player player, Talent talent) {
+        // Son d'activation puissant
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_FLAP, 1.0f, 1.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, 0.8f, 0.8f);
+
         new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+
             @Override
             public void run() {
                 if (!activeCyclones.contains(player.getUniqueId()) || !player.isSprinting()) {
                     activeCyclones.remove(player.getUniqueId());
+                    // Son de fin
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 0.8f, 0.6f);
                     cancel();
                     return;
                 }
@@ -1855,24 +1864,87 @@ public class TalentListener implements Listener {
                 Location center = player.getLocation();
                 double damage = 5 * talent.getValue(1);
                 double radius = talent.getValue(2);
+                ticks++;
+                rotationAngle += 0.5; // Rotation progressive
 
-                // Particules tornado
-                for (double y = 0; y < 2; y += 0.3) {
-                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-                        double r = radius * (1 - y/3);
-                        double x = center.getX() + r * Math.cos(angle + y);
-                        double z = center.getZ() + r * Math.sin(angle + y);
-                        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
-                            new Location(player.getWorld(), x, center.getY() + y, z), 1);
+                // Intensité croissante (plus le cyclone dure, plus il est intense)
+                double intensity = Math.min(1.0 + (ticks / 40.0), 2.0);
+
+                // === TORNADO VISUELLE ===
+                // Couche 1: Base du cyclone (large, rouge/orange)
+                for (double y = 0; y < 2.5; y += 0.25) {
+                    double layerRadius = radius * (1 - y / 4.0) * intensity;
+                    int particlesPerLayer = (int) (8 + (2.5 - y) * 4);
+
+                    for (int i = 0; i < particlesPerLayer; i++) {
+                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 0.8);
+                        double x = center.getX() + layerRadius * Math.cos(angle);
+                        double z = center.getZ() + layerRadius * Math.sin(angle);
+                        Location particleLoc = new Location(player.getWorld(), x, center.getY() + y, z);
+
+                        // Alternance de particules selon la hauteur
+                        if (y < 0.8) {
+                            // Base: Dust rouge/orange
+                            player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                                new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 69, 0), 1.2f));
+                        } else if (y < 1.6) {
+                            // Milieu: Sweep + Flame
+                            if (i % 2 == 0) {
+                                player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, particleLoc, 1, 0, 0, 0, 0);
+                            } else {
+                                player.getWorld().spawnParticle(Particle.FLAME, particleLoc, 1, 0.05, 0.05, 0.05, 0.01);
+                            }
+                        } else {
+                            // Sommet: Crit + Dust orange
+                            player.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0.1, 0.1, 0.1, 0.05);
+                        }
                     }
                 }
 
+                // Couche 2: Spirale centrale ascendante
+                for (double y = 0; y < 2; y += 0.15) {
+                    double spiralAngle = rotationAngle * 2 + y * 3;
+                    double spiralRadius = 0.3 + y * 0.2;
+                    double x = center.getX() + spiralRadius * Math.cos(spiralAngle);
+                    double z = center.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    player.getWorld().spawnParticle(Particle.DUST,
+                        new Location(player.getWorld(), x, center.getY() + y, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 0.8f));
+                }
+
+                // Son de vent périodique (toutes les 10 ticks)
+                if (ticks % 10 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_BREEZE_IDLE_AIR, 0.6f, 1.2f + (float)(Math.random() * 0.3));
+                }
+
+                // === DÉGÂTS ET EFFETS SUR ENNEMIS ===
+                int enemiesHit = 0;
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
-                        // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                        // Marquer comme dégâts secondaires
                         target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                        target.damage(damage, player);
+                        target.damage(damage * intensity, player);
+                        enemiesHit++;
+
+                        // Effet de hit sur l'ennemi
+                        target.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
+                            target.getLocation().add(0, 1, 0), 2, 0.3, 0.3, 0.3, 0);
+                        target.getWorld().spawnParticle(Particle.DUST,
+                            target.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+
+                        // Léger knockback rotatif (aspiration vers le centre)
+                        if (ticks % 4 == 0) {
+                            org.bukkit.util.Vector toCenter = center.toVector().subtract(target.getLocation().toVector()).normalize();
+                            target.setVelocity(target.getVelocity().add(toCenter.multiply(0.15).setY(0.1)));
+                        }
                     }
+                }
+
+                // Son de hit quand on touche des ennemis
+                if (enemiesHit > 0 && ticks % 5 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.0f + (float)(Math.random() * 0.4));
                 }
             }
         }.runTaskTimer(plugin, 0L, (long)(talent.getValue(0) / 50));
