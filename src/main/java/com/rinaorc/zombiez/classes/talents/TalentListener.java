@@ -4177,20 +4177,6 @@ public class TalentListener implements Listener {
             }
         }
 
-        // === MORT ET DECOMPOSITION (Zone active) ===
-        Location dadCenter = deathAndDecayCenter.get(uuid);
-        Long dadExpiry = deathAndDecayExpiry.get(uuid);
-        if (dadCenter != null && dadExpiry != null && System.currentTimeMillis() < dadExpiry) {
-            long remaining = (dadExpiry - System.currentTimeMillis()) / 1000;
-            boolean inZone = player.getWorld().equals(dadCenter.getWorld()) &&
-                             player.getLocation().distance(dadCenter) <= 6.0;
-            if (inZone) {
-                bar.append("  §4§l☠ ZONE §e").append(remaining).append("s");
-            } else {
-                bar.append("  §8☠ ").append(remaining).append("s §c(hors zone!)");
-            }
-        }
-
         // === DÉGÂTS RÉCENTS (pour Death Strike feedback) ===
         Talent deathStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_STRIKE);
         if (deathStrike != null) {
