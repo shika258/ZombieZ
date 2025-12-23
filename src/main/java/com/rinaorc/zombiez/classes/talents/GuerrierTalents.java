@@ -609,22 +609,22 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_death_and_decay")
             .name("Mort et Decomposition")
-            .description("Zone de sang au sol")
+            .description("Aura de mort permanente autour de vous")
             .loreLines(new String[]{
-                "§4§lVOIE DU SANG - ZONE VAMPIRIQUE",
+                "§4§lVOIE DU SANG - AURA DE MORT",
                 "",
-                "§6ACTIVATION: §eDouble Sneak",
+                "§6§lTOUJOURS ACTIF",
                 "",
-                "§7Cree une §4flaque de sang§7 de §e6 blocs§7",
-                "§7pendant §e10 secondes§7.",
+                "§7Une §4aura de decomposition§7 vous entoure",
+                "§7en permanence (§e6 blocs§7).",
                 "",
-                "§7Dans la zone:",
+                "§7Effets dans l'aura:",
+                "§7- §c10%§7 de vos degats/seconde aux ennemis",
                 "§7- §c+25%§7 degats infliges",
                 "§7- §a+15%§7 reduction degats",
                 "§7- Attaques touchent §ctous§7 les ennemis",
                 "",
-                "§c§lRESTEZ DANS LA ZONE!",
-                "§8Cooldown: §e25s"
+                "§4§lLA MORT VOUS ACCOMPAGNE!"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -632,8 +632,7 @@ public final class GuerrierTalents {
             .icon(Material.CRIMSON_NYLIUM)
             .iconColor("§4")
             .effectType(Talent.TalentEffectType.DEATH_AND_DECAY)
-            .values(new double[]{6.0, 10000, 0.25, 0.15, 25000}) // radius, duration_ms, damage_bonus%, DR_bonus%, cooldown_ms
-            .internalCooldownMs(25000)
+            .values(new double[]{6.0, 0.25, 0.15, 0.10}) // radius, damage_bonus%, DR_bonus%, aura_damage%
             .build());
 
         // 5.5 - SEIGNEUR DE GUERRE

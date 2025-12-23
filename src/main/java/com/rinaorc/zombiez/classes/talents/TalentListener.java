@@ -166,9 +166,7 @@ public class TalentListener implements Listener {
     // Bouclier d'Os - ArmorStands visuels (os tournants)
     private final Map<UUID, List<ArmorStand>> boneShieldArmorStands = new ConcurrentHashMap<>();
 
-    // Mort et Décomposition - zone active
-    private final Map<UUID, Location> deathAndDecayCenter = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> deathAndDecayExpiry = new ConcurrentHashMap<>();
+    // Mort et Décomposition - maintenant PASSIF (pas besoin de maps)
 
     // Épée Dansante - état actif
     private final Map<UUID, Long> dancingRuneWeaponExpiry = new ConcurrentHashMap<>();
@@ -920,32 +918,21 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Mort et Décomposition (SANG) - bonus dégâts si dans la zone
-        Location dadCenter = deathAndDecayCenter.get(uuid);
-        Long dadExpiry = deathAndDecayExpiry.get(uuid);
-        if (dadCenter != null && dadExpiry != null && System.currentTimeMillis() < dadExpiry) {
-            Talent deathDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
-            if (deathDecay != null) {
-                double radius = deathDecay.getValue(0);
+        // Mort et Décomposition (SANG) - PASSIF: bonus dégâts + AoE permanent
+        Talent deathDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
+        if (deathDecay != null) {
+            double radius = deathDecay.getValue(0); // 6.0
 
-                // Vérifier même monde avant de calculer la distance
-                if (player.getWorld().equals(dadCenter.getWorld()) &&
-                    player.getLocation().distance(dadCenter) <= radius) {
+            // Bonus dégâts permanent (+25%)
+            damage *= (1 + deathDecay.getValue(1));
 
-                    // Bonus dégâts dans la zone
-                    damage *= (1 + deathDecay.getValue(2)); // +25%
-
-                    // AoE: touche tous les ennemis dans la zone (dégâts réduits)
-                    double baseDamage = damage; // Stocker avant AoE pour éviter amplification
-                    for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                        if (entity instanceof LivingEntity nearbyTarget && entity != target && entity != player) {
-                            if (nearbyTarget.getLocation().distance(dadCenter) <= radius) {
-                                double aoeDamage = baseDamage * 0.35; // 35% aux autres cibles (réduit de 50%)
-                                nearbyTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                                nearbyTarget.damage(aoeDamage, player);
-                            }
-                        }
-                    }
+            // AoE: touche tous les ennemis autour du joueur (dégâts réduits)
+            double baseDamage = damage;
+            for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+                if (entity instanceof LivingEntity nearbyTarget && entity != target && entity != player) {
+                    double aoeDamage = baseDamage * 0.35; // 35% aux autres cibles
+                    nearbyTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                    nearbyTarget.damage(aoeDamage, player);
                 }
             }
         }
@@ -1005,17 +992,10 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Mort et Décomposition (SANG) - DR bonus si dans la zone
-        Location dadCenter = deathAndDecayCenter.get(uuid);
-        Long dadExpiry = deathAndDecayExpiry.get(uuid);
-        if (dadCenter != null && dadExpiry != null && System.currentTimeMillis() < dadExpiry) {
-            Talent deathDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
-            if (deathDecay != null) {
-                double radius = deathDecay.getValue(0);
-                if (player.getLocation().distance(dadCenter) <= radius) {
-                    damage *= (1 - deathDecay.getValue(3)); // -15% DR
-                }
-            }
+        // Mort et Décomposition (SANG) - PASSIF: DR bonus permanent
+        Talent deathDecayDr = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
+        if (deathDecayDr != null) {
+            damage *= (1 - deathDecayDr.getValue(2)); // -15% DR permanent
         }
 
         // Consommation (SANG) - auto-heal si sous 30% HP
@@ -1558,23 +1538,7 @@ public class TalentListener implements Listener {
 
         // === VOIE DU SANG - Activations double sneak ===
 
-        // Mort et Décomposition (SANG) - zone au sol
-        Talent deathDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
-        if (deathDecay != null) {
-            Long activeUntil = deathAndDecayExpiry.get(uuid);
-            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
-                return;
-            }
-
-            if (!isOnCooldown(uuid, "death_and_decay")) {
-                procDeathAndDecay(player, deathDecay);
-                setCooldown(uuid, "death_and_decay", (long) deathDecay.getValue(4));
-            } else {
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
-            }
-            return;
-        }
+        // Mort et Décomposition est maintenant PASSIF (toujours actif)
 
         // Épée Dansante (SANG) - ultime
         Talent dancingWeapon = getActiveTalentIfHas(player, Talent.TalentEffectType.DANCING_RUNE_WEAPON);
@@ -1861,6 +1825,57 @@ public class TalentListener implements Listener {
                         if (!boneShieldCharges.containsKey(uuid)) {
                             int maxCharges = (int) boneShield.getValue(0);
                             boneShieldCharges.put(uuid, maxCharges);
+                        }
+                    }
+
+                    // === VOIE DU SANG - Mort et Décomposition (PASSIF - toujours actif) ===
+                    Talent deathAndDecay = getActiveTalentIfHas(player, Talent.TalentEffectType.DEATH_AND_DECAY);
+                    if (deathAndDecay != null) {
+                        double radius = deathAndDecay.getValue(0); // 6.0
+                        double auraDamagePercent = deathAndDecay.getValue(3); // 10% des dégâts de base
+                        Location center = player.getLocation();
+                        World world = player.getWorld();
+
+                        // Calculer les dégâts basés sur l'attaque du joueur
+                        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+                        double auraDamage = baseDamage * auraDamagePercent;
+
+                        // Infliger des dégâts aux ennemis dans la zone
+                        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player)) {
+                                // Marquer comme dégâts secondaires pour éviter les cascades
+                                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                                target.damage(auraDamage, player);
+
+                                // Particules de dégâts sur la cible (fumée rouge)
+                                world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                                    3, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.2f));
+                            }
+                        }
+
+                        // Particules de fumée rouge autour du joueur (aura visuelle)
+                        long tick = world.getGameTime();
+                        double rotationOffset = (tick % 40) * (Math.PI * 2 / 40);
+
+                        // Anneau de fumée rouge au sol
+                        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+                            double x = radius * Math.cos(angle + rotationOffset);
+                            double z = radius * Math.sin(angle + rotationOffset);
+                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.2, z),
+                                1, 0.1, 0.05, 0.1, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+                            // Fumée sombre
+                            world.spawnParticle(Particle.SMOKE, center.clone().add(x * 0.7, 0.3, z * 0.7),
+                                1, 0.1, 0.2, 0.1, 0.01);
+                        }
+
+                        // Particules de fumée rouge montantes aléatoires dans la zone
+                        for (int i = 0; i < 3; i++) {
+                            double randAngle = Math.random() * Math.PI * 2;
+                            double randDist = Math.random() * radius;
+                            double x = randDist * Math.cos(randAngle);
+                            double z = randDist * Math.sin(randAngle);
+                            world.spawnParticle(Particle.DUST, center.clone().add(x, 0.1 + Math.random() * 0.5, z),
+                                2, 0.1, 0.3, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 1.0f));
                         }
                     }
                 }
@@ -4503,62 +4518,7 @@ public class TalentListener implements Listener {
         }
     }
 
-    /**
-     * Active Mort et Décomposition (zone au sol)
-     */
-    private void procDeathAndDecay(Player player, Talent talent) {
-        UUID uuid = player.getUniqueId();
-        Location center = player.getLocation().clone();
-        double radius = talent.getValue(0);
-        long duration = (long) talent.getValue(1);
-
-        // Stocker la zone
-        deathAndDecayCenter.put(uuid, center);
-        deathAndDecayExpiry.put(uuid, System.currentTimeMillis() + duration);
-
-        // Effets visuels initiaux
-        player.getWorld().playSound(center, Sound.ENTITY_WITHER_AMBIENT, 1.0f, 0.5f);
-
-        // Particules de zone
-        for (int i = 0; i < 360; i += 15) {
-            double x = center.getX() + radius * Math.cos(Math.toRadians(i));
-            double z = center.getZ() + radius * Math.sin(Math.toRadians(i));
-            player.getWorld().spawnParticle(Particle.BLOCK, x, center.getY() + 0.1, z,
-                3, 0.2, 0.1, 0.2, 0.01, Material.REDSTONE_BLOCK.createBlockData());
-        }
-
-        // Tâche périodique pour les effets visuels de la zone
-        new BukkitRunnable() {
-            int ticks = 0;
-            final int maxTicks = (int) (duration / 50);
-
-            @Override
-            public void run() {
-                if (ticks++ > maxTicks || !player.isOnline()) {
-                    deathAndDecayCenter.remove(uuid);
-                    deathAndDecayExpiry.remove(uuid);
-                    cancel();
-                    return;
-                }
-
-                // Particules au sol toutes les 10 ticks
-                if (ticks % 10 == 0) {
-                    for (int i = 0; i < 8; i++) {
-                        double angle = Math.random() * 2 * Math.PI;
-                        double dist = Math.random() * radius;
-                        double x = center.getX() + dist * Math.cos(angle);
-                        double z = center.getZ() + dist * Math.sin(angle);
-                        player.getWorld().spawnParticle(Particle.BLOCK, x, center.getY() + 0.1, z,
-                            2, 0.1, 0.05, 0.1, 0.01, Material.REDSTONE_BLOCK.createBlockData());
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        if (shouldSendTalentMessage(player)) {
-            showTempEventMessage(uuid, "§4§lMORT ET DECOMPOSITION! §7Zone active " + (duration/1000) + "s");
-        }
-    }
+    // Note: procDeathAndDecay supprimé - le talent est maintenant PASSIF et géré dans le tick périodique
 
     /**
      * Active l'Épée Dansante (ultime)
