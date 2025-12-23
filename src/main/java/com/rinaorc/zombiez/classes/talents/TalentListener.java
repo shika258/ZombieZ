@@ -10,11 +10,14 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -42,9 +45,36 @@ public class TalentListener implements Listener {
     private final Map<UUID, Integer> furyStacks = new ConcurrentHashMap<>();
     private final Map<UUID, Long> furyLastHit = new ConcurrentHashMap<>();
 
-    // Charge Devastatrice - tracking sprint
+    // Charge Devastatrice - tracking sprint (LEGACY)
     private final Map<UUID, Long> sprintStartTime = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> chargeReady = new ConcurrentHashMap<>();
+
+    // === VOIE DE LA FENTE - Tracking ===
+
+    // Fente Dévastatrice - cooldown et état
+    private final Map<UUID, Long> lungingStrikeCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> lungingStrikeActive = new ConcurrentHashMap<>(); // true = en cours de dash
+
+    // Cri de Marquage - ennemis marqués (UUID ennemi -> timestamp expiration)
+    private final Map<UUID, Long> warCryMarkedEnemies = new ConcurrentHashMap<>();
+
+    // Élan Furieux - stacks de puissance
+    private final Map<UUID, Integer> furiousMomentumStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> furiousMomentumLastLunge = new ConcurrentHashMap<>();
+
+    // Onde de Carnage - compteur de fentes
+    private final Map<UUID, Integer> carnageWaveCounter = new ConcurrentHashMap<>();
+
+    // Frénésie de Guerre - kills récents et état
+    private final Map<UUID, List<Long>> warFrenzyKills = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> warFrenzyActiveUntil = new ConcurrentHashMap<>();
+
+    // Rage du Berserker - état de transformation
+    private final Map<UUID, Long> berserkerRageActiveUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> berserkerOriginalScale = new ConcurrentHashMap<>();
+
+    // Prédateur Insatiable - buff de dégâts après kill marqué
+    private final Map<UUID, Long> predatorDamageBuffExpiry = new ConcurrentHashMap<>();
 
     // Dechainement - tracking multi-kills
     private final Map<UUID, List<Long>> recentKills = new ConcurrentHashMap<>();
@@ -1593,6 +1623,86 @@ public class TalentListener implements Listener {
         }
     }
 
+    // ==================== CLIC DROIT - VOIE DE LA FENTE ====================
+
+    @EventHandler
+    public void onRightClick(PlayerInteractEvent event) {
+        // Ignorer main gauche pour éviter double proc
+        if (event.getHand() != EquipmentSlot.HAND) return;
+
+        // Seulement clic droit
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
+        Player player = event.getPlayer();
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
+
+        // Vérifier si le joueur tient une arme de mêlée
+        if (!isMeleeWeapon(player.getInventory().getItemInMainHand().getType())) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // Shift + Clic Droit = Cri de Marquage (prioritaire)
+        if (player.isSneaking()) {
+            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
+            if (warCry != null && !isOnCooldown(uuid, "war_cry_mark")) {
+                procWarCryMark(player, warCry);
+                setCooldown(uuid, "war_cry_mark", (long) warCry.getValue(3));
+                event.setCancelled(true);
+                return;
+            }
+
+            // Shift + Fente = Consommation de Fureur (si le talent est actif)
+            Talent furyConsumption = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+            if (furyConsumption != null) {
+                // Fente avec sacrifice de vie
+                procLungingStrike(player, true);
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        // Clic Droit normal = Fente Dévastatrice
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike != null) {
+            // Vérifier cooldown (sauf si Berserker Rage ou War Frenzy actifs)
+            boolean ignoreCooldown = isBerserkerRageActive(uuid) || isWarFrenzyActive(uuid);
+            if (ignoreCooldown || !isOnCooldown(uuid, "lunging_strike")) {
+                procLungingStrike(player, false);
+                if (!ignoreCooldown) {
+                    setCooldown(uuid, "lunging_strike", (long) lungingStrike.getValue(3));
+                }
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    /**
+     * Vérifie si le matériau est une arme de mêlée
+     */
+    private boolean isMeleeWeapon(Material material) {
+        return material.name().endsWith("_SWORD") ||
+               material.name().endsWith("_AXE") ||
+               material == Material.TRIDENT ||
+               material == Material.MACE;
+    }
+
+    /**
+     * Vérifie si Berserker Rage est actif
+     */
+    private boolean isBerserkerRageActive(UUID uuid) {
+        Long activeUntil = berserkerRageActiveUntil.get(uuid);
+        return activeUntil != null && System.currentTimeMillis() < activeUntil;
+    }
+
+    /**
+     * Vérifie si War Frenzy est actif
+     */
+    private boolean isWarFrenzyActive(UUID uuid) {
+        Long activeUntil = warFrenzyActiveUntil.get(uuid);
+        return activeUntil != null && System.currentTimeMillis() < activeUntil;
+    }
+
     // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
 
     @EventHandler
@@ -1660,6 +1770,25 @@ public class TalentListener implements Listener {
             } else {
                 // Feedback cooldown
                 long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            }
+            return;
+        }
+
+        // Rage du Berserker - L'ULTIME du Guerrier Fente
+        Talent berserkerRage = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+        if (berserkerRage != null) {
+            // Vérifier si pas déjà actif
+            Long activeUntil = berserkerRageActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                return;
+            }
+
+            if (!isOnCooldown(uuid, "berserker_rage")) {
+                procBerserkerRage(player, berserkerRage);
+                setCooldown(uuid, "berserker_rage", (long) berserkerRage.getValue(4));
+            } else {
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return;
@@ -4472,6 +4601,26 @@ public class TalentListener implements Listener {
         // Nettoyer les Larves de Sang du joueur
         cleanupBloodLarvae(playerUuid);
 
+        // Voie de la Fente
+        lungingStrikeCooldown.remove(playerUuid);
+        lungingStrikeActive.remove(playerUuid);
+        furiousMomentumStacks.remove(playerUuid);
+        furiousMomentumLastLunge.remove(playerUuid);
+        carnageWaveCounter.remove(playerUuid);
+        warFrenzyKills.remove(playerUuid);
+        warFrenzyActiveUntil.remove(playerUuid);
+        predatorDamageBuffExpiry.remove(playerUuid);
+
+        // Berserker Rage - restaurer la taille
+        Double berserkerScale = berserkerOriginalScale.remove(playerUuid);
+        if (berserkerScale != null) {
+            Player player = plugin.getServer().getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                player.getAttribute(Attribute.SCALE).setBaseValue(berserkerScale);
+            }
+        }
+        berserkerRageActiveUntil.remove(playerUuid);
+
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
         activeGuerrierActionBar.remove(playerUuid);
@@ -5094,5 +5243,583 @@ public class TalentListener implements Listener {
                 }
             }
         }
+    }
+
+    // ==================== VOIE DE LA FENTE - METHODES DE PROC ====================
+
+    /**
+     * Fente Dévastatrice - Dash vers l'ennemi le plus proche et frappe
+     * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
+     */
+    private void procLungingStrike(Player player, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike == null) return;
+
+        double baseRange = lungingStrike.getValue(0); // 8 blocs
+        double baseBonus = lungingStrike.getValue(1); // 0.50 = +50%
+        double perBlockBonus = lungingStrike.getValue(2); // 0.05 = +5% par bloc
+
+        // Bonus de portée si Berserker Rage actif
+        if (isBerserkerRageActive(uuid)) {
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                baseRange += berserker.getValue(3); // +4 blocs
+            }
+        }
+
+        // Trouver l'ennemi le plus proche dans la direction du regard
+        LivingEntity target = findNearestEnemyInDirection(player, baseRange);
+        if (target == null) {
+            // Pas de cible - petit feedback
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
+        }
+
+        Location startLoc = player.getLocation();
+        Location targetLoc = target.getLocation();
+        double distance = startLoc.distance(targetLoc);
+
+        // Consommation de Fureur - sacrifice de vie
+        double damageMultiplier = 1.0 + baseBonus + (distance * perBlockBonus);
+        if (withFuryConsumption) {
+            Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+            if (fury != null) {
+                double hpCost = player.getAttribute(Attribute.MAX_HEALTH).getValue() * fury.getValue(0); // 15%
+                double currentHp = player.getHealth();
+                if (currentHp > hpCost + 1) { // Sécurité: ne pas se suicider
+                    player.setHealth(currentHp - hpCost);
+                    damageMultiplier *= fury.getValue(1); // x3
+                    // Effet visuel de sacrifice
+                    player.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, player.getLocation().add(0, 1, 0),
+                        5, 0.3, 0.3, 0.3, 0.1);
+                    player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 0.6f, 1.2f);
+                }
+            }
+        }
+
+        // Berserker Rage = x2 dégâts
+        if (isBerserkerRageActive(uuid)) {
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                damageMultiplier *= berserker.getValue(1); // x2
+            }
+        }
+
+        // Élan Furieux - bonus de stacks
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            damageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
+        }
+
+        // Prédateur Insatiable - buff de dégâts
+        Long predatorExpiry = predatorDamageBuffExpiry.get(uuid);
+        if (predatorExpiry != null && System.currentTimeMillis() < predatorExpiry) {
+            Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
+            if (predator != null) {
+                damageMultiplier *= (1 + predator.getValue(2)); // +15%
+            }
+        }
+
+        // Frénésie de Guerre active - bonus de dégâts
+        if (isWarFrenzyActive(uuid)) {
+            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (warFrenzy != null) {
+                damageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
+            }
+        }
+
+        final double finalDamageMultiplier = damageMultiplier;
+
+        // Animation du dash - téléportation progressive
+        lungingStrikeActive.put(uuid, true);
+
+        // Téléporter vers la cible avec effet visuel
+        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
+        Location dashEnd = targetLoc.clone().subtract(direction.clone().multiply(1.5)); // S'arrêter juste devant
+        dashEnd.setY(targetLoc.getY());
+
+        // Particules de traînée
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.add(0, 1, 0), 1, 0, 0, 0, 0);
+
+        // Téléportation rapide (animation fluide en 3 étapes)
+        new BukkitRunnable() {
+            int step = 0;
+            final int totalSteps = 3;
+            final Location start = startLoc.clone();
+            final Location end = dashEnd.clone();
+
+            @Override
+            public void run() {
+                if (step >= totalSteps || !player.isOnline()) {
+                    lungingStrikeActive.put(uuid, false);
+                    cancel();
+                    return;
+                }
+
+                step++;
+                double progress = (double) step / totalSteps;
+                Location midPoint = start.clone().add(
+                    end.toVector().subtract(start.toVector()).multiply(progress)
+                );
+                midPoint.setYaw(player.getLocation().getYaw());
+                midPoint.setPitch(player.getLocation().getPitch());
+                player.teleport(midPoint);
+
+                // Particules de dash
+                player.getWorld().spawnParticle(Particle.DUST, midPoint.add(0, 1, 0),
+                    3, 0.2, 0.3, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
+
+                if (step >= totalSteps) {
+                    // Arrivée - infliger les dégâts
+                    finishLungingStrike(player, target, finalDamageMultiplier, withFuryConsumption);
+                    lungingStrikeActive.put(uuid, false);
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Finalise la Fente - inflige les dégâts et applique les effets
+     */
+    private void finishLungingStrike(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double finalDamage = baseDamage * damageMultiplier;
+
+        // Infliger les dégâts
+        target.damage(finalDamage, player);
+
+        // Son et effets visuels
+        player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+        player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+            10, 0.3, 0.3, 0.3, 0.2);
+
+        // Indicateur de dégâts
+        PacketDamageIndicator.displayCrit(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, player);
+
+        // Marquer en combat
+        lastCombatTime.put(uuid, System.currentTimeMillis());
+        plugin.getActionBarManager().markInCombat(uuid);
+
+        // === IMPACT SISMIQUE ===
+        Talent seismicImpact = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_IMPACT);
+        if (seismicImpact != null) {
+            procSeismicImpact(player, target.getLocation(), seismicImpact);
+        }
+
+        // === ÉLAN FURIEUX - Ajouter un stack ===
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            int maxStacks = (int) momentum.getValue(2);
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            if (stacks < maxStacks) {
+                furiousMomentumStacks.put(uuid, stacks + 1);
+            }
+            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+
+            // Appliquer le bonus de vitesse d'attaque
+            applyMomentumSpeedBoost(player, stacks + 1, momentum);
+        }
+
+        // === ONDE DE CARNAGE - Compteur ===
+        Talent carnageWave = getActiveTalentIfHas(player, Talent.TalentEffectType.CARNAGE_WAVE);
+        if (carnageWave != null) {
+            int count = carnageWaveCounter.getOrDefault(uuid, 0) + 1;
+            int threshold = (int) carnageWave.getValue(0);
+
+            if (count >= threshold) {
+                carnageWaveCounter.put(uuid, 0);
+                procCarnageWave(player, carnageWave);
+            } else {
+                carnageWaveCounter.put(uuid, count);
+            }
+        }
+
+        // === PROPAGATION DE DÉGÂTS SI CIBLE MARQUÉE ===
+        if (isMarked(target.getUniqueId())) {
+            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
+            if (warCry != null) {
+                propagateMarkedDamage(player, target, finalDamage, warCry);
+            }
+        }
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche dans la direction du regard du joueur
+     */
+    private LivingEntity findNearestEnemyInDirection(Player player, double range) {
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+        LivingEntity nearest = null;
+        double nearestDist = range + 1;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(player.getLocation(), range, range, range)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue; // Pas les joueurs
+            if (entity instanceof ArmorStand) continue;
+
+            Location entityLoc = entity.getLocation().add(0, 1, 0);
+            Vector toEntity = entityLoc.toVector().subtract(eyeLoc.toVector());
+            double distance = toEntity.length();
+
+            // Vérifier angle (90° devant)
+            if (distance > range) continue;
+            double angle = toEntity.angle(direction);
+            if (angle > Math.PI / 2) continue; // Plus de 90°
+
+            if (distance < nearestDist) {
+                nearestDist = distance;
+                nearest = living;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Cri de Marquage - Marque tous les ennemis proches
+     */
+    private void procWarCryMark(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        double radius = talent.getValue(0); // 8 blocs
+        long markDuration = (long) talent.getValue(2); // 6000ms
+
+        Location center = player.getLocation();
+        long expiryTime = System.currentTimeMillis() + markDuration;
+        int marked = 0;
+
+        // Marquer tous les ennemis proches
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            warCryMarkedEnemies.put(entity.getUniqueId(), expiryTime);
+            marked++;
+
+            // Effet visuel sur la cible
+            living.getWorld().spawnParticle(Particle.ENCHANT, living.getLocation().add(0, 1.5, 0),
+                10, 0.3, 0.3, 0.3, 0.5);
+            // Glowing temporaire
+            applyGlowingEffect(living, (int) (markDuration / 50));
+        }
+
+        // Effet du cri
+        player.getWorld().playSound(center, Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.2f);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.add(0, 1, 0), 1, 0, 0, 0, 0);
+
+        // Cercle de particules
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            player.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.1, z),
+                2, 0.1, 0, 0.1, 0,
+                new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.5f));
+        }
+
+        if (shouldSendTalentMessage(player)) {
+            showTempEventMessage(uuid, "§e§lCRI DE GUERRE! §7" + marked + " ennemis marques!");
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est marqué
+     */
+    private boolean isMarked(UUID entityUuid) {
+        Long expiry = warCryMarkedEnemies.get(entityUuid);
+        if (expiry == null) return false;
+        if (System.currentTimeMillis() > expiry) {
+            warCryMarkedEnemies.remove(entityUuid);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Propage les dégâts aux autres ennemis marqués
+     */
+    private void propagateMarkedDamage(Player player, LivingEntity hitTarget, double damage, Talent talent) {
+        double propagationPercent = talent.getValue(1); // 40%
+        double propagatedDamage = damage * propagationPercent;
+
+        int propagated = 0;
+        for (Map.Entry<UUID, Long> entry : warCryMarkedEnemies.entrySet()) {
+            if (System.currentTimeMillis() > entry.getValue()) continue;
+            if (entry.getKey().equals(hitTarget.getUniqueId())) continue;
+
+            // Trouver l'entité
+            Entity entity = Bukkit.getEntity(entry.getKey());
+            if (entity instanceof LivingEntity living && living.isValid() && !living.isDead()) {
+                // Infliger les dégâts propagés
+                living.damage(propagatedDamage, player);
+                propagated++;
+
+                // Effet visuel
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.2, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 100, 0), 1.0f));
+
+                // Ligne de connexion entre cibles
+                drawParticleLine(hitTarget.getLocation().add(0, 1, 0),
+                    living.getLocation().add(0, 1, 0), Particle.ELECTRIC_SPARK, 8);
+            }
+        }
+
+        if (propagated > 0) {
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 1.5f);
+        }
+    }
+
+    /**
+     * Dessine une ligne de particules entre deux points
+     */
+    private void drawParticleLine(Location from, Location to, Particle particle, int points) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double length = direction.length();
+        direction.normalize();
+
+        for (int i = 0; i < points; i++) {
+            double progress = (double) i / points;
+            Location point = from.clone().add(direction.clone().multiply(length * progress));
+            from.getWorld().spawnParticle(particle, point, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Impact Sismique - Tremblement de terre au point d'impact
+     */
+    private void procSeismicImpact(Player player, Location center, Talent talent) {
+        double radius = talent.getValue(0); // 3 blocs
+        double damagePercent = talent.getValue(1); // 60%
+        double slowPercent = talent.getValue(2); // 20%
+        long slowDuration = (long) talent.getValue(3); // 1000ms
+
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double aoeDamage = baseDamage * damagePercent;
+
+        // Effet visuel du tremblement
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+            for (double r = 0.5; r <= radius; r += 0.5) {
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                Location loc = center.clone().add(x, 0.1, z);
+                player.getWorld().spawnParticle(Particle.BLOCK, loc,
+                    2, 0.1, 0.05, 0.1, 0, Material.DIRT.createBlockData());
+            }
+        }
+
+        // Particules de choc central
+        player.getWorld().spawnParticle(Particle.EXPLOSION, center, 1, 0, 0, 0, 0);
+
+        // Son
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 0.7f);
+
+        // Dégâts et ralentissement
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            dealAoeDamage(player, living, aoeDamage, true);
+
+            // Ralentissement
+            int slowLevel = (int) (slowPercent * 5); // 20% = niveau 1
+            living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
+                (int) (slowDuration / 50), slowLevel, false, false));
+        }
+    }
+
+    /**
+     * Applique le bonus de vitesse d'attaque de l'Élan Furieux
+     */
+    private void applyMomentumSpeedBoost(Player player, int stacks, Talent talent) {
+        double speedPerStack = talent.getValue(1); // 10%
+        int totalBoost = (int) (stacks * speedPerStack * 100); // En pourcentage
+
+        // Appliquer vitesse d'attaque via un effet de haste léger
+        int hasteLevel = Math.min(stacks - 1, 2); // Max niveau 2
+        if (hasteLevel >= 0) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 80, hasteLevel, false, false));
+        }
+    }
+
+    /**
+     * Onde de Carnage - Onde de choc massive après 5 fentes
+     */
+    private void procCarnageWave(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        double radius = talent.getValue(1); // 8 blocs
+        double damagePercent = talent.getValue(2); // 200%
+        long stunDuration = (long) talent.getValue(3); // 500ms
+
+        Location center = player.getLocation();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double aoeDamage = baseDamage * damagePercent;
+
+        // Effet visuel épique
+        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.6f);
+        player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.5f);
+
+        // Onde expansive
+        new BukkitRunnable() {
+            double currentRadius = 1;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > radius || ticks > 10) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                    double x = Math.cos(angle) * currentRadius;
+                    double z = Math.sin(angle) * currentRadius;
+                    Location loc = center.clone().add(x, 0.5, z);
+                    player.getWorld().spawnParticle(Particle.FLAME, loc, 2, 0.1, 0.1, 0.1, 0.02);
+                    player.getWorld().spawnParticle(Particle.DUST, loc, 1, 0.1, 0.1, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 100, 0), 2.0f));
+                }
+
+                currentRadius += 1.5;
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+
+        // Dégâts, knockback et stun
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            dealAoeDamage(player, living, aoeDamage, true);
+
+            // Knockback
+            Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(1.5);
+            knockback.setY(0.5);
+            living.setVelocity(knockback);
+
+            // Stun
+            living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS,
+                (int) (stunDuration / 50), 10, false, false));
+            living.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS,
+                (int) (stunDuration / 50), 0, false, false));
+        }
+
+        if (shouldSendTalentMessage(player)) {
+            showTempEventMessage(uuid, "§c§l💀 ONDE DE CARNAGE!");
+        }
+    }
+
+    /**
+     * Rage du Berserker - Transformation en berserker géant
+     */
+    private void procBerserkerRage(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0); // 12000ms
+        double sizeBonus = talent.getValue(2); // 0.50 = +50%
+
+        // Sauvegarder le scale original
+        double originalScale = player.getAttribute(Attribute.SCALE).getValue();
+        berserkerOriginalScale.put(uuid, originalScale);
+        berserkerRageActiveUntil.put(uuid, System.currentTimeMillis() + duration);
+
+        // Augmenter la taille
+        player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * (1 + sizeBonus));
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 0.8f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1.0f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
+
+        // Glowing orange
+        applyRedGlow(player, (int) (duration / 50));
+
+        // Immunité knockback
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, (int) (duration / 50), 0, false, false));
+
+        // Effet d'aura
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead()) {
+                    endBerserkerRage(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                Long activeUntil = berserkerRageActiveUntil.get(uuid);
+                if (activeUntil == null || System.currentTimeMillis() >= activeUntil) {
+                    endBerserkerRage(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Aura de feu
+                if (ticks % 5 == 0) {
+                    Location loc = player.getLocation();
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                        double x = Math.cos(angle + ticks * 0.1) * 1.5;
+                        double z = Math.sin(angle + ticks * 0.1) * 1.5;
+                        player.getWorld().spawnParticle(Particle.FLAME, loc.clone().add(x, 0.5, z),
+                            1, 0.1, 0.2, 0.1, 0.01);
+                    }
+                }
+
+                // Particules de rage
+                if (ticks % 10 == 0) {
+                    player.getWorld().spawnParticle(Particle.LAVA, player.getLocation().add(0, 1, 0),
+                        2, 0.3, 0.3, 0.3, 0);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        if (shouldSendTalentMessage(player)) {
+            showTempEventMessage(uuid, "§c§l🔥 RAGE DU BERSERKER! §7Destruction totale pendant " + (duration/1000) + "s!");
+        }
+
+        plugin.getActionBarManager().markInCombat(uuid);
+    }
+
+    /**
+     * Fin de la Rage du Berserker
+     */
+    private void endBerserkerRage(Player player, UUID uuid) {
+        Double originalScale = berserkerOriginalScale.remove(uuid);
+        if (originalScale != null && player.isOnline()) {
+            player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+        }
+        berserkerRageActiveUntil.remove(uuid);
+
+        if (player.isOnline()) {
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 0.6f, 0.8f);
+            player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0),
+                20, 0.5, 0.5, 0.5, 0.1);
+        }
+    }
+
+    /**
+     * Applique un effet de Glowing à une entité
+     */
+    private void applyGlowingEffect(LivingEntity entity, int ticks) {
+        entity.setGlowing(true);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (entity.isValid()) {
+                entity.setGlowing(false);
+            }
+        }, ticks);
     }
 }
