@@ -33,6 +33,12 @@ public class RecycleManager implements Listener {
     // Cache des paramètres de recyclage par joueur
     private final Map<UUID, RecycleSettings> playerSettings;
 
+    // Cooldown pour le rappel d'inventaire plein (évite le spam)
+    private final Map<UUID, Long> inventoryFullReminderCooldown;
+
+    // Durée du cooldown en millisecondes (30 secondes)
+    private static final long REMINDER_COOLDOWN_MS = 30_000L;
+
     // Tâche de résumé toutes les minutes
     private BukkitTask summaryTask;
 
@@ -51,6 +57,7 @@ public class RecycleManager implements Listener {
     public RecycleManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.playerSettings = new ConcurrentHashMap<>();
+        this.inventoryFullReminderCooldown = new ConcurrentHashMap<>();
 
         // Enregistrer les événements
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -227,6 +234,73 @@ public class RecycleManager implements Listener {
             // Annuler le ramassage - l'item a été recyclé
             event.setCancelled(true);
             event.getItem().remove();
+        } else {
+            // L'item n'a pas été recyclé - vérifier si l'inventaire est presque plein
+            checkInventoryFullReminder(player);
+        }
+    }
+
+    /**
+     * Vérifie si l'inventaire est presque plein et envoie un rappel
+     */
+    private void checkInventoryFullReminder(Player player) {
+        int emptySlots = countEmptySlots(player);
+
+        // Si 3 slots ou moins disponibles, envoyer un rappel
+        if (emptySlots <= 3) {
+            sendInventoryFullReminder(player, emptySlots);
+        }
+    }
+
+    /**
+     * Compte les slots vides dans l'inventaire du joueur (hors armure et offhand)
+     */
+    private int countEmptySlots(Player player) {
+        int empty = 0;
+        ItemStack[] contents = player.getInventory().getStorageContents();
+        for (ItemStack item : contents) {
+            if (item == null || item.getType().isAir()) {
+                empty++;
+            }
+        }
+        return empty;
+    }
+
+    /**
+     * Envoie un rappel pour le recyclage si le cooldown est passé
+     */
+    private void sendInventoryFullReminder(Player player, int emptySlots) {
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Vérifier le cooldown
+        Long lastReminder = inventoryFullReminderCooldown.get(playerId);
+        if (lastReminder != null && (now - lastReminder) < REMINDER_COOLDOWN_MS) {
+            return; // Encore en cooldown
+        }
+
+        // Mettre à jour le cooldown
+        inventoryFullReminderCooldown.put(playerId, now);
+
+        // Vérifier si le recyclage auto est déjà activé
+        RecycleSettings settings = getSettings(playerId);
+
+        if (emptySlots == 0) {
+            // Inventaire complètement plein
+            player.sendMessage("§c§l⚠ §cInventaire plein!");
+            if (!settings.isAutoRecycleEnabled()) {
+                player.sendMessage("§7Activez le recyclage automatique avec §e/recycle §7pour libérer de l'espace!");
+            } else {
+                player.sendMessage("§7Configurez plus de raretés à recycler avec §e/recycle§7!");
+            }
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.5f);
+        } else {
+            // Presque plein (1-3 slots)
+            player.sendMessage("§6§l⚠ §eInventaire presque plein! §7(" + emptySlots + " slots restants)");
+            if (!settings.isAutoRecycleEnabled()) {
+                player.sendMessage("§7Utilisez §e/recycle §7pour activer le recyclage automatique.");
+            }
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.5f, 1.0f);
         }
     }
 
@@ -240,8 +314,9 @@ public class RecycleManager implements Listener {
         // Sauvegarder les settings dans PlayerData avant déconnexion
         syncToPlayerData(playerId);
 
-        // Nettoyer le cache (les données sont dans PlayerData)
+        // Nettoyer les caches
         playerSettings.remove(playerId);
+        inventoryFullReminderCooldown.remove(playerId);
     }
 
     /**
