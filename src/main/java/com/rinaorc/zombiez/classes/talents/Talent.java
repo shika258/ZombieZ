@@ -97,7 +97,7 @@ public class Talent {
         // === GUERRIER - Tier 4 ===
         SEISMIC_RESONANCE,       // AoE leaves damage zone
         FORTIFY,                 // REMPART: Blocages → bouclier absorbant
-        BURNING_VENGEANCE,       // Fire DoT on riposte
+        MERCY_STRIKE,            // FUREUR: Execute bonus damage + heal on kill
         FORTRESS,                // Shield explodes on expire
         BLOODY_HARVEST,          // Execute heal + sprint reset
 

@@ -114,8 +114,8 @@ public class TalentListener implements Listener {
     private final Map<UUID, Double> tempShield = new ConcurrentHashMap<>();
     private final Map<UUID, Long> tempShieldExpiry = new ConcurrentHashMap<>();
 
-    // Vengeance Ardente - burning stacks
-    private final Map<UUID, Integer> burningStacks = new ConcurrentHashMap<>();
+    // Coup de Grâce - tracking dernière exécution pour feedback
+    private final Map<UUID, Long> lastMercyStrike = new ConcurrentHashMap<>();
 
     // === SYSTEME SEISME SIMPLIFIE ===
     // Compteur de degats de zone pour proc Apocalypse
@@ -430,12 +430,6 @@ public class TalentListener implements Listener {
 
                 damage *= (1 + bonus);
                 riposteBuffTime.remove(uuid);
-
-                // Vengeance Ardente
-                Talent burningVengeance = getActiveTalentIfHas(player, Talent.TalentEffectType.BURNING_VENGEANCE);
-                if (burningVengeance != null) {
-                    burningStacks.put(uuid, (int) burningVengeance.getValue(0));
-                }
             }
         }
 
@@ -451,12 +445,38 @@ public class TalentListener implements Listener {
 
         // === TIER 4 ===
 
-        // Vengeance Ardente - attaques brulantes
-        if (burningStacks.getOrDefault(uuid, 0) > 0) {
-            Talent burning = getActiveTalentIfHas(player, Talent.TalentEffectType.BURNING_VENGEANCE);
-            if (burning != null) {
-                target.setFireTicks((int)(burning.getValue(2) / 50));
-                burningStacks.merge(uuid, -1, Integer::sum);
+        // Coup de Grâce - bonus dégâts sur cibles faibles
+        Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+        if (mercyStrike != null && target instanceof LivingEntity) {
+            double threshold = mercyStrike.getValue(0); // 0.30 = 30%
+            double maxTargetHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double targetHpPercent = target.getHealth() / maxTargetHp;
+
+            if (targetHpPercent < threshold) {
+                double damageBonus = mercyStrike.getValue(1); // 0.80 = 80%
+                damage *= (1 + damageBonus);
+
+                // Feedback visuel - slash doré/rouge
+                target.getWorld().spawnParticle(
+                    Particle.SWEEP_ATTACK,
+                    target.getLocation().add(0, 1, 0),
+                    3, 0.3, 0.3, 0.3, 0.1
+                );
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1, 0),
+                    15, 0.4, 0.4, 0.4, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.2f) // Gold
+                );
+
+                // Son métallique satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+
+                // Tracker pour ActionBar
+                lastMercyStrike.put(uuid, System.currentTimeMillis());
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
             }
         }
 
@@ -935,6 +955,39 @@ public class TalentListener implements Listener {
         }
 
         // === TIER 4 ===
+
+        // Coup de Grâce - heal au kill sur cible faible
+        Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+        if (mercyStrike != null) {
+            double threshold = mercyStrike.getValue(0); // 0.30 = 30%
+            double maxTargetHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+
+            // Si la cible était sous le seuil (exécution réussie)
+            if (target.getHealth() / maxTargetHp < threshold) {
+                double healPercent = mercyStrike.getValue(2); // 0.05 = 5%
+                double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
+                applyLifesteal(player, heal);
+
+                // Effets d'exécution satisfaisants
+                // Explosion de particules (tête qui explose)
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1.5, 0),
+                    25, 0.3, 0.3, 0.3, 0.15,
+                    new Particle.DustOptions(org.bukkit.Color.RED, 1.5f)
+                );
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1.5, 0),
+                    15, 0.3, 0.3, 0.3, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.3f) // Gold
+                );
+
+                // Son d'exécution ultra satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
+            }
+        }
 
         // Moisson Sanglante
         Talent bloodyHarvest = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOODY_HARVEST);
@@ -3066,6 +3119,18 @@ public class TalentListener implements Listener {
             }
         }
 
+        // Coup de Grâce - indicateur d'exécution récente
+        Long mercyTime = lastMercyStrike.get(uuid);
+        if (mercyTime != null && System.currentTimeMillis() - mercyTime < 2000) {
+            bar.append("  §4§l⚔ EXÉCUTION!");
+        } else {
+            // Afficher indicateur si talent actif (rappel au joueur)
+            Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+            if (mercyStrike != null) {
+                bar.append("  §8⚔<30%");
+            }
+        }
+
         // Déchaînement (multi-kills)
         List<Long> kills = recentKills.get(uuid);
         if (kills != null && !kills.isEmpty()) {
@@ -3200,7 +3265,7 @@ public class TalentListener implements Listener {
         lastCombatTime.remove(playerUuid);
         tempShield.remove(playerUuid);
         tempShieldExpiry.remove(playerUuid);
-        burningStacks.remove(playerUuid);
+        lastMercyStrike.remove(playerUuid);
         aoeDamageCounter.remove(playerUuid);
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);

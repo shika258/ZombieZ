@@ -440,25 +440,27 @@ public final class GuerrierTalents {
             .values(new double[]{0.10, 5, 5000}) // hp_bonus_per_stack, max_stacks, duration_ms
             .build());
 
-        // 4.3 - VENGEANCE ARDENTE
+        // 4.3 - COUP DE GRÂCE
         TALENTS.add(Talent.builder()
-            .id("guerrier_burning_vengeance")
-            .name("Vengeance Ardente")
-            .description("Contre-attaque = 3 prochaines attaques brulent")
+            .id("guerrier_mercy_strike")
+            .name("Coup de Grace")
+            .description("Ennemis < 30% PV = +80% degats, heal au kill")
             .loreLines(new String[]{
-                "§7Apres une contre-attaque, les §e3§7",
-                "§7prochaines attaques brulent",
-                "§7les ennemis.",
+                "§4§lLES FAIBLES NE MERITENT PAS DE VIVRE",
                 "",
-                "§8Brulure: §c40%§8 sur 2s"
+                "§7Contre les ennemis a §c< 30%§7 PV:",
+                "§7- §c+80%§7 de degats",
+                "§7- Kill = heal §a5%§7 PV max",
+                "",
+                "§8Finisher ultime"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
             .slotIndex(2)
-            .icon(Material.FIRE_CHARGE)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.BURNING_VENGEANCE)
-            .values(new double[]{3, 0.40, 2000}) // stacks, burn_damage%, burn_duration_ms
+            .icon(Material.NETHERITE_AXE)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.MERCY_STRIKE)
+            .values(new double[]{0.30, 0.80, 0.05}) // threshold%, damage_bonus%, heal%
             .build());
 
         // 4.4 - FORTERESSE
