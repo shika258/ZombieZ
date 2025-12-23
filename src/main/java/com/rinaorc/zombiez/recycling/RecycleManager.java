@@ -392,7 +392,7 @@ public class RecycleManager implements Listener {
     }
 
     /**
-     * Démarre la tâche de résumé toutes les minutes
+     * Démarre la tâche de recyclage automatique et résumé toutes les minutes
      */
     private void startSummaryTask() {
         summaryTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -409,6 +409,10 @@ public class RecycleManager implements Listener {
                     continue;
                 }
 
+                // Scanner et recycler les items dans l'inventaire
+                recycleInventoryItems(player, settings);
+
+                // Récupérer les stats de la dernière minute (incluant le recyclage d'inventaire)
                 long[] stats = settings.resetLastMinuteStats();
                 long points = stats[0];
                 long items = stats[1];
@@ -424,6 +428,108 @@ public class RecycleManager implements Listener {
                 }
             }
         }, 20L * 60, 20L * 60); // Toutes les minutes
+    }
+
+    /**
+     * Recycle automatiquement les items dans l'inventaire du joueur
+     * selon ses paramètres de recyclage
+     *
+     * OPTIMISÉ: Calcul batch par stack au lieu de par item
+     */
+    private void recycleInventoryItems(Player player, RecycleSettings settings) {
+        ItemStack[] contents = player.getInventory().getStorageContents();
+
+        // Pré-charger PlayerData une seule fois
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        if (playerData == null) {
+            return;
+        }
+
+        double vipMultiplier = playerData.getPointsMultiplier();
+        int totalRecycled = 0;
+        int totalPoints = 0;
+        int bestSingleRecycle = 0;
+
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack item = contents[i];
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+
+            // Vérifier si c'est un item ZombieZ recyclable
+            if (!ZombieZItem.isZombieZItem(item)) {
+                continue;
+            }
+
+            Rarity rarity = ZombieZItem.getItemRarity(item);
+            if (rarity == null || !settings.shouldRecycle(rarity)) {
+                continue;
+            }
+
+            // Calculer les points UNE SEULE FOIS pour le stack entier
+            int zoneLevel = ZombieZItem.getItemZoneLevel(item);
+            int pointsPerItem = calculateRecyclePoints(rarity, zoneLevel);
+            pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+
+            int amount = item.getAmount();
+            int stackPoints = pointsPerItem * amount;
+
+            totalPoints += stackPoints;
+            totalRecycled += amount;
+
+            // Tracker le meilleur recyclage unique (par item, pas par stack)
+            if (pointsPerItem > bestSingleRecycle) {
+                bestSingleRecycle = pointsPerItem;
+            }
+
+            // Supprimer l'item de l'inventaire
+            player.getInventory().setItem(i, null);
+        }
+
+        // Appliquer tous les points en une seule fois
+        if (totalRecycled > 0) {
+            playerData.addPoints(totalPoints);
+            playerData.addTotalPointsEarned(totalPoints);
+
+            // Mettre à jour les stats de recyclage en batch
+            settings.addRecycledItemsBatch(totalRecycled, totalPoints);
+            settings.updateBestSingleRecycle(bestSingleRecycle);
+
+            // Vérifier les milestones UNE SEULE FOIS à la fin
+            checkMilestonesAfterBatch(player, settings, bestSingleRecycle);
+
+            // Feedback sonore
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
+        }
+    }
+
+    /**
+     * Vérifie les milestones après un recyclage batch (optimisé)
+     */
+    private void checkMilestonesAfterBatch(Player player, RecycleSettings settings, int bestSingleRecycle) {
+        List<RecycleMilestone> newlyUnlocked = new ArrayList<>();
+
+        for (RecycleMilestone milestone : RecycleMilestone.values()) {
+            if (settings.isMilestoneUnlocked(milestone)) {
+                continue;
+            }
+
+            boolean shouldUnlock = switch (milestone.getType()) {
+                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get() >= milestone.getRequiredValue();
+                case POINTS_EARNED -> settings.getTotalPointsEarned().get() >= milestone.getRequiredValue();
+                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get() >= milestone.getRequiredValue();
+                case SINGLE_RECYCLE -> bestSingleRecycle >= milestone.getRequiredValue();
+            };
+
+            if (shouldUnlock && settings.unlockMilestone(milestone)) {
+                newlyUnlocked.add(milestone);
+            }
+        }
+
+        // Notifier le joueur pour chaque nouveau milestone
+        for (RecycleMilestone milestone : newlyUnlocked) {
+            awardMilestone(player, milestone);
+        }
     }
 
     /**

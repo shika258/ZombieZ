@@ -1342,6 +1342,38 @@ public class TalentListener implements Listener {
         owner.playSound(owner.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
     }
 
+    /**
+     * Empêche les larves de sang d'attaquer les joueurs (y compris leur propriétaire)
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onBloodLarvaeAttackPlayer(EntityDamageByEntityEvent event) {
+        // Vérifier si le damager est une larve de sang
+        if (!(event.getDamager() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Annuler les dégâts sur tous les joueurs
+        if (event.getEntity() instanceof Player) {
+            event.setCancelled(true);
+            // Reset la cible pour éviter qu'elle continue à suivre le joueur
+            larvae.setTarget(null);
+        }
+    }
+
+    /**
+     * Empêche les larves de cibler les joueurs via l'IA
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onBloodLarvaeTargetPlayer(org.bukkit.event.entity.EntityTargetLivingEntityEvent event) {
+        // Vérifier si c'est une larve de sang qui cible
+        if (!(event.getEntity() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Annuler le ciblage des joueurs
+        if (event.getTarget() instanceof Player) {
+            event.setCancelled(true);
+        }
+    }
+
     // ==================== KILLS ====================
 
     @EventHandler
@@ -1939,8 +1971,8 @@ public class TalentListener implements Listener {
                                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                 target.damage(auraDamage, player);
 
-                                // Particules de dégâts sur la cible (fumée rouge)
-                                world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                                // Particules de dégâts sur la cible (fumée rouge au sol)
+                                world.spawnParticle(Particle.DUST, target.getLocation().add(0, 0.1, 0),
                                     3, 0.3, 0.3, 0.3, 0, new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.2f));
                             }
                         }
@@ -4802,11 +4834,28 @@ public class TalentListener implements Listener {
 
     /**
      * Invoque des Larves de Sang (Endermites vampiriques) pour le Pacte de Sang
+     * Maximum 3 larves actives par joueur
      */
     private void spawnBloodLarvae(Player player, int count, long duration, double healPerHit) {
         UUID playerUuid = player.getUniqueId();
         Location spawnLoc = player.getLocation();
         World world = player.getWorld();
+
+        // Compter les larves existantes du joueur
+        int existingLarvae = 0;
+        for (UUID ownerUuid : bloodLarvaeOwners.values()) {
+            if (ownerUuid.equals(playerUuid)) {
+                existingLarvae++;
+            }
+        }
+
+        // Limiter à 3 larves maximum
+        final int MAX_LARVAE = 3;
+        int availableSlots = MAX_LARVAE - existingLarvae;
+        if (availableSlots <= 0) {
+            return; // Déjà 3 larves actives
+        }
+        int actualCount = Math.min(count, availableSlots);
 
         // Calculer les dégâts de base du joueur pour les larves
         double playerDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
@@ -4814,7 +4863,7 @@ public class TalentListener implements Listener {
         // Son d'invocation
         world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < actualCount; i++) {
             // Position aléatoire autour du joueur
             double angle = Math.random() * Math.PI * 2;
             double distance = 1 + Math.random() * 2;
@@ -4849,7 +4898,6 @@ public class TalentListener implements Listener {
 
             // Tâche pour gérer le comportement de la larve
             final double healAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPerHit;
-            final int invincibilityTicks = 60; // 3 secondes d'invincibilité
 
             new BukkitRunnable() {
                 int ticks = 0;
@@ -4870,28 +4918,25 @@ public class TalentListener implements Listener {
                         return;
                     }
 
-                    // Désactiver l'invincibilité après 3 secondes
-                    if (ticks == invincibilityTicks) {
-                        larvae.setInvulnerable(false);
+                    // S'assurer que la larve reste invincible
+                    if (!larvae.isInvulnerable()) {
+                        larvae.setInvulnerable(true);
                     }
 
-                    // Effet visuel périodique (traînée rouge + aura d'invincibilité)
+                    // Effet visuel périodique (traînée rouge)
                     if (ticks % 4 == 0) {
                         world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.2, 0),
                             2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
-                        // Aura dorée pendant l'invincibilité
-                        if (ticks < invincibilityTicks) {
-                            world.spawnParticle(Particle.END_ROD, larvae.getLocation().add(0, 0.3, 0),
-                                1, 0.15, 0.15, 0.15, 0.01);
-                        }
                     }
 
                     // Chercher agressivement une cible proche (toutes les 5 ticks)
-                    if (ticks % 5 == 0 && (larvae.getTarget() == null || !larvae.getTarget().isValid() || larvae.getTarget().isDead())) {
+                    // Exclure les joueurs - cibler uniquement les mobs
+                    if (ticks % 5 == 0 && (larvae.getTarget() == null || !larvae.getTarget().isValid() || larvae.getTarget().isDead() || larvae.getTarget() instanceof Player)) {
                         LivingEntity closestTarget = null;
-                        double closestDistance = 12.0; // Rayon de recherche augmenté
+                        double closestDistance = 12.0; // Rayon de recherche
 
                         for (Entity nearby : larvae.getNearbyEntities(12, 6, 12)) {
+                            // Exclure les joueurs, cibler uniquement les mobs
                             if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead()) {
                                 double dist = larvae.getLocation().distanceSquared(target.getLocation());
                                 if (dist < closestDistance * closestDistance) {
@@ -4903,6 +4948,9 @@ public class TalentListener implements Listener {
 
                         if (closestTarget != null) {
                             larvae.setTarget(closestTarget);
+                        } else {
+                            // Pas de cible valide, reset la cible
+                            larvae.setTarget(null);
                         }
                     }
                 }
