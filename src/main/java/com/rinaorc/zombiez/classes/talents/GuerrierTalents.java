@@ -978,7 +978,7 @@ public final class GuerrierTalents {
                 "§7saignements consommes en §asoin§7!",
                 "",
                 "§4🩸 DEVOREZ VOS PROIES!",
-                "§8Compteur affiche en ActionBar"
+                "§8Synergie: Griffes Lacerantes"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -1118,7 +1118,7 @@ public final class GuerrierTalents {
                 "§7- §eParticules de feu§7",
                 "",
                 "§c🔥 DEVENEZ INARRETABLE!",
-                "§8Compteur de kills affiche"
+                "§8Synergie: Predateur Insatiable"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)

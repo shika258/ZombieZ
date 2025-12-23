@@ -1436,6 +1436,18 @@ public class TalentListener implements Listener {
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
         if (!(event.getEntity() instanceof LivingEntity target)) return;
+
+        // Cleanup: retirer l'entité morte des marquages et saignements
+        UUID targetUuid = target.getUniqueId();
+        warCryMarkedEnemies.remove(targetUuid);
+        // Nettoyer les saignements pour tous les joueurs
+        for (Map<UUID, Integer> playerStacks : bleedingStacks.values()) {
+            playerStacks.remove(targetUuid);
+        }
+        for (Map<UUID, Long> playerExpiry : bleedingExpiry.values()) {
+            playerExpiry.remove(targetUuid);
+        }
+
         if (!(target.getKiller() instanceof Player player)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
