@@ -2884,30 +2884,31 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Rempart (Slot 1) - Tank/Défense
-     * Format optimisé inspiré de ShadowManager
-     * Affiche: Absorption, Châtiment, Bouclier Vengeur, Charge, Avatar
+     * Format unifié avec les autres spécialisations
+     * Affiche: Header 🛡, Absorption, Châtiment, Bouclier Vengeur, Charge, Avatar
      */
     private void buildRempartActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
 
-        // === ABSORPTION VISUELLE (comme les points d'ombre) ===
-        double absorption = player.getAbsorptionAmount();
-        int absHearts = Math.min((int) Math.ceil(absorption / 2.0), 5); // Max 5 symboles
-        bar.append("§6§l[§r ");
-        for (int i = 0; i < 5; i++) {
-            if (i < absHearts) {
-                bar.append("§6◆ "); // Coeur plein (doré)
-            } else {
-                bar.append("§8◇ "); // Coeur vide
-            }
-        }
-        bar.append("§6§l]§r");
+        // === HEADER REMPART ===
+        bar.append("§6§l[§e🛡§6§l] ");
 
         // === AVATAR ACTIF - Mode prioritaire ===
         if (isBulwarkAvatar(player)) {
             long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
-            bar.append("  §6§l✦ AVATAR §e").append(remaining).append("s");
+            bar.append("§6§l✦ AVATAR §e").append(remaining).append("s");
+            // Absorption pendant Avatar
+            double absorption = player.getAbsorptionAmount();
+            if (absorption > 0) {
+                bar.append("  §6◆").append(String.format("%.0f", absorption));
+            }
             return; // Affichage simplifié pendant l'Avatar
+        }
+
+        // === ABSORPTION (compacte) ===
+        double absorption = player.getAbsorptionAmount();
+        if (absorption > 0) {
+            bar.append("§6◆").append(String.format("%.0f", absorption));
         }
 
         // === CHÂTIMENT (3 stacks = buff prêt) ===
@@ -2927,7 +2928,8 @@ public class TalentListener implements Listener {
         if (vengefulShield != null) {
             int hits = vengefulShieldCounter.getOrDefault(uuid, 0);
             if (hits > 0) {
-                bar.append("  §7Disque: §e").append(hits).append("§7/4");
+                String color = hits >= 4 ? "§a§l" : "§e";
+                bar.append("  ").append(color).append("⚔").append(hits).append("§7/4");
             }
         }
 
@@ -2936,21 +2938,39 @@ public class TalentListener implements Listener {
         if (bastionCharge != null) {
             long remaining = getCooldownRemaining(uuid, "bastion_charge");
             if (remaining > 0) {
-                bar.append("  §7Charge: §c").append(String.format("%.1f", remaining / 1000.0)).append("s");
+                bar.append("  §7⚡§c").append(String.format("%.1f", remaining / 1000.0)).append("s");
             } else {
-                bar.append("  §7Charge: §aPRÊT");
+                bar.append("  §a⚡PRÊT");
             }
         }
 
-        // === PROGRESSION AVATAR (si talent actif et > 25%) ===
+        // === PROGRESSION AVATAR (si talent actif) ===
         Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
         if (bulwarkAvatar != null) {
             double threshold = bulwarkAvatar.getValue(0);
             double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
             int percent = (int) ((blocked / threshold) * 100);
+            percent = Math.min(percent, 100);
             if (percent >= 25) {
-                bar.append("  §6Avatar §e").append(percent).append("%");
+                String color = percent >= 100 ? "§6§l" : (percent >= 75 ? "§e" : "§7");
+                bar.append("  ").append(color).append("✦").append(percent).append("%");
             }
+        }
+
+        // === FORTIFICATION ACTIVE (stacks + timer) ===
+        Long fortEnd = fortifyExpireTime.get(uuid);
+        if (fortEnd != null && fortEnd > System.currentTimeMillis()) {
+            int stacks = fortifyStacks.getOrDefault(uuid, 0);
+            long remaining = (fortEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §b⛨").append(stacks).append(" §7(").append(remaining).append("s)");
+        }
+
+        // === ÉCHO DE FER (dégâts stockés) ===
+        double storedEcho = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+        if (storedEcho > 0) {
+            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+            String echoColor = echoStacks >= 5 ? "§c§l" : (echoStacks >= 3 ? "§6" : "§e");
+            bar.append("  ").append(echoColor).append("🔃").append(echoStacks);
         }
     }
 
