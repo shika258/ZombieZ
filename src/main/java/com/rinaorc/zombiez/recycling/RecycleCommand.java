@@ -59,6 +59,9 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
                 boolean newState = subCommand.equals("on") || (subCommand.equals("toggle") && !settings.isAutoRecycleEnabled());
                 settings.setAutoRecycleEnabled(newState);
 
+                // Synchroniser vers PlayerData
+                recycleManager.syncToPlayerData(player.getUniqueId());
+
                 if (newState) {
                     player.sendMessage("§a§l♻ §aRecyclage automatique §lactivé§a!");
                     player.sendMessage("§7Les items des raretés sélectionnées seront recyclés au ramassage.");
@@ -107,7 +110,8 @@ public class RecycleCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage("§6§l♻ Aperçu des Points de Recyclage");
                 player.sendMessage("");
 
-                int currentZone = plugin.getPlayerDataManager().getPlayer(player.getUniqueId()).getCurrentZone().get();
+                com.rinaorc.zombiez.data.PlayerData pData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+                int currentZone = pData != null ? pData.getCurrentZone().get() : 1;
 
                 for (Rarity rarity : Rarity.values()) {
                     int points = recycleManager.calculateRecyclePoints(rarity, currentZone);

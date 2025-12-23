@@ -218,6 +218,9 @@ public class RecycleGUI implements Listener {
             boolean newState = !settings.isAutoRecycleEnabled();
             settings.setAutoRecycleEnabled(newState);
 
+            // Synchroniser immédiatement vers PlayerData
+            recycleManager.syncToPlayerData(player.getUniqueId());
+
             player.playSound(player.getLocation(),
                 newState ? Sound.BLOCK_NOTE_BLOCK_PLING : Sound.BLOCK_NOTE_BLOCK_BASS,
                 0.7f, newState ? 1.5f : 0.8f);
@@ -239,6 +242,9 @@ public class RecycleGUI implements Listener {
             if (slot == RARITY_SLOTS[i]) {
                 Rarity rarity = Rarity.values()[i];
                 boolean newState = settings.toggleRecycleRarity(rarity);
+
+                // Synchroniser immédiatement vers PlayerData
+                recycleManager.syncToPlayerData(player.getUniqueId());
 
                 player.playSound(player.getLocation(),
                     newState ? Sound.BLOCK_NOTE_BLOCK_PLING : Sound.BLOCK_NOTE_BLOCK_BASS,
@@ -262,6 +268,7 @@ public class RecycleGUI implements Listener {
             for (Rarity rarity : Rarity.values()) {
                 settings.setRecycleRarity(rarity, true);
             }
+            recycleManager.syncToPlayerData(player.getUniqueId());
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
             player.sendMessage("§a♻ Toutes les raretés sont maintenant recyclées automatiquement!");
             player.sendMessage("§c⚠ Attention: Cela inclut les items Légendaires, Mythiques et Exaltés!");
@@ -274,6 +281,7 @@ public class RecycleGUI implements Listener {
             for (Rarity rarity : Rarity.values()) {
                 settings.setRecycleRarity(rarity, false);
             }
+            recycleManager.syncToPlayerData(player.getUniqueId());
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             player.sendMessage("§c♻ Recyclage désactivé pour toutes les raretés.");
             open(player);
@@ -285,6 +293,7 @@ public class RecycleGUI implements Listener {
             for (Rarity rarity : Rarity.values()) {
                 settings.setRecycleRarity(rarity, rarity == Rarity.COMMON || rarity == Rarity.UNCOMMON);
             }
+            recycleManager.syncToPlayerData(player.getUniqueId());
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.2f);
             player.sendMessage("§b♻ Mode sécurisé activé: seuls §fCommun §7et §aPeu Commun §7seront recyclés.");
             open(player);

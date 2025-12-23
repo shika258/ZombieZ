@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
 import lombok.Getter;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -167,10 +169,41 @@ public class RecycleManager implements Listener {
         if (points > 0) {
             // Feedback sonore discret
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
+
+            // Particules de recyclage (vert pour les items communs, couleur de rareté pour les autres)
+            spawnRecycleParticles(player, rarity);
+
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * Spawn des particules de recyclage avec couleur basée sur la rareté
+     */
+    private void spawnRecycleParticles(Player player, Rarity rarity) {
+        Color color = switch (rarity) {
+            case COMMON -> Color.WHITE;
+            case UNCOMMON -> Color.LIME;
+            case RARE -> Color.AQUA;
+            case EPIC -> Color.PURPLE;
+            case LEGENDARY -> Color.ORANGE;
+            case MYTHIC -> Color.FUCHSIA;
+            case EXALTED -> Color.RED;
+        };
+
+        Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1.0f);
+        player.spawnParticle(
+            Particle.DUST,
+            player.getLocation().add(0, 1, 0),
+            8,      // count
+            0.3,    // offsetX
+            0.3,    // offsetY
+            0.3,    // offsetZ
+            0,      // speed
+            dustOptions
+        );
     }
 
     /**
@@ -198,12 +231,56 @@ public class RecycleManager implements Listener {
     }
 
     /**
-     * Nettoie les données du joueur à la déconnexion
+     * Sauvegarde et nettoie les données du joueur à la déconnexion
      */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Les données sont sauvegardées via PlayerData, on peut garder le cache
-        // pour une éventuelle reconnexion rapide
+        UUID playerId = event.getPlayer().getUniqueId();
+
+        // Sauvegarder les settings dans PlayerData avant déconnexion
+        syncToPlayerData(playerId);
+
+        // Nettoyer le cache (les données sont dans PlayerData)
+        playerSettings.remove(playerId);
+    }
+
+    /**
+     * Charge les paramètres depuis PlayerData au login
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+        // Chargement différé pour s'assurer que PlayerData est chargé
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            syncFromPlayerData(event.getPlayer().getUniqueId());
+        }, 5L);
+    }
+
+    /**
+     * Synchronise les settings depuis PlayerData vers le cache
+     */
+    public void syncFromPlayerData(UUID playerId) {
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(playerId);
+        if (playerData != null && playerData.getRecycleSettingsData() != null) {
+            String data = playerData.getRecycleSettingsData();
+            if (!data.isEmpty()) {
+                RecycleSettings settings = RecycleSettings.deserialize(data);
+                playerSettings.put(playerId, settings);
+            }
+        }
+    }
+
+    /**
+     * Synchronise les settings du cache vers PlayerData
+     */
+    public void syncToPlayerData(UUID playerId) {
+        RecycleSettings settings = playerSettings.get(playerId);
+        if (settings != null) {
+            PlayerData playerData = plugin.getPlayerDataManager().getPlayer(playerId);
+            if (playerData != null) {
+                playerData.setRecycleSettingsData(settings.serialize());
+                playerData.markDirty();
+            }
+        }
     }
 
     /**
@@ -213,7 +290,14 @@ public class RecycleManager implements Listener {
         summaryTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 RecycleSettings settings = playerSettings.get(player.getUniqueId());
-                if (settings == null || !settings.isAutoRecycleEnabled()) {
+                if (settings == null) {
+                    continue;
+                }
+
+                // Synchroniser vers PlayerData périodiquement
+                syncToPlayerData(player.getUniqueId());
+
+                if (!settings.isAutoRecycleEnabled()) {
                     continue;
                 }
 
@@ -252,6 +336,22 @@ public class RecycleManager implements Listener {
     public void shutdown() {
         if (summaryTask != null) {
             summaryTask.cancel();
+        }
+
+        // Sauvegarder tous les settings avant arrêt
+        for (UUID playerId : playerSettings.keySet()) {
+            syncToPlayerData(playerId);
+        }
+        playerSettings.clear();
+    }
+
+    /**
+     * Synchronise tous les joueurs en ligne vers PlayerData
+     * Appelé périodiquement pour éviter la perte de données
+     */
+    public void syncAllToPlayerData() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            syncToPlayerData(player.getUniqueId());
         }
     }
 
