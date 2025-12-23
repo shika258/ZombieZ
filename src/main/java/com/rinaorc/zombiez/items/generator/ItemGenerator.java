@@ -267,20 +267,22 @@ public class ItemGenerator {
             stats.put(StatType.ATTACK_SPEED, Math.round(finalSpeed * 100) / 100.0);
 
         } else if (itemType.isArmor()) {
-            // Armure: Armure + Résistance
+            // Armure: Armure + Chance de Blocage
             double baseArmor = itemType.getBaseStat1ForTier(tier);
-            double baseToughness = itemType.getBaseStat2ForTier(tier);
+            double baseBlockChance = itemType.getBaseStat2ForTier(tier);
 
             double armorVariation = 0.9 + random.nextDouble() * 0.3;
 
             // Appliquer ZONE SCALING (facteur PRINCIPAL) puis qualité (léger bonus)
             double finalArmor = baseArmor * armorVariation * zoneMultiplier * (1 + qualityBonus);
-            double finalToughness = baseToughness * zoneMultiplier * (1 + qualityBonus);
+            // La chance de blocage ne scale pas avec la zone, mais avec la qualité
+            double finalBlockChance = baseBlockChance * (1 + qualityBonus * 0.5);
 
             stats.put(StatType.ARMOR, Math.round(finalArmor * 10) / 10.0);
 
-            if (baseToughness > 0) {
-                stats.put(StatType.ARMOR_TOUGHNESS, Math.round(finalToughness * 10) / 10.0);
+            if (baseBlockChance > 0) {
+                // Cap la chance de blocage à 25%
+                stats.put(StatType.BLOCK_CHANCE, Math.min(25, Math.round(finalBlockChance * 10) / 10.0));
             }
         }
 

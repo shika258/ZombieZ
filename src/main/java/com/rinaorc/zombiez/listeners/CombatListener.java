@@ -705,12 +705,33 @@ public class CombatListener implements Listener {
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
         var skillManager = plugin.getSkillTreeManager();
 
-        // Réduction de dégâts (items + skills)
+        // ============ ARMURE (réduction asymptotique) ============
+        // Formule: reduction = armor / (armor + 100)
+        // 50 armure = 33% réduction, 100 = 50%, 200 = 66%
+        double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
+        double armorPercent = playerStats.getOrDefault(StatType.ARMOR_PERCENT, 0.0);
+        double totalArmor = armor * (1 + armorPercent / 100.0);
+
+        if (totalArmor > 0) {
+            double armorReduction = totalArmor / (totalArmor + 100.0);
+            finalDamage *= (1 - armorReduction);
+        }
+
+        // ============ RÉDUCTION DE DÉGÂTS % (items + skills) ============
         double damageReduction = playerStats.getOrDefault(StatType.DAMAGE_REDUCTION, 0.0);
         double skillDamageReduction = skillManager.getSkillBonus(player, SkillBonus.DAMAGE_REDUCTION);
         double totalReduction = Math.min(75, damageReduction + skillDamageReduction); // Cap à 75%
 
         finalDamage *= (1 - totalReduction / 100.0);
+
+        // ============ BLOCAGE (chance de réduire 50% des dégâts) ============
+        double blockChance = playerStats.getOrDefault(StatType.BLOCK_CHANCE, 0.0);
+        if (blockChance > 0 && random.nextDouble() * 100 < blockChance) {
+            finalDamage *= 0.5; // Bloque 50% des dégâts
+            player.getWorld().spawnParticle(Particle.CRIT, player.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.05);
+            player.playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 0.6f, 1.2f);
+            com.rinaorc.zombiez.utils.MessageUtils.sendActionBar(player, "§9§l🛡 BLOQUÉ! §7(-50% dégâts)");
+        }
 
         // ============ ESQUIVE ============
         double dodgeChance = playerStats.getOrDefault(StatType.DODGE_CHANCE, 0.0);

@@ -196,16 +196,16 @@ public enum StatType {
         "{value}%"
     ),
     
-    ARMOR_TOUGHNESS(
-        "Résistance d'armure",
+    BLOCK_CHANCE(
+        "Chance de Blocage",
         "🛡",
-        "§8",
+        "§9",
         StatCategory.DEFENSIVE,
-        true,
         false,
-        Attribute.ARMOR_TOUGHNESS,
-        0, 10,
-        "{value}"
+        true,
+        null,
+        0, 25,
+        "{value}%"
     ),
     
     MAX_HEALTH(
