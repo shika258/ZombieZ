@@ -1272,6 +1272,28 @@ public class TalentListener implements Listener {
 
     // ==================== LARVES DE SANG (Pacte de Sang) ====================
 
+    /**
+     * Modifie les dégâts des larves pour correspondre aux dégâts du joueur propriétaire
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBloodLarvaeDamageModify(EntityDamageByEntityEvent event) {
+        // Vérifier si le damager est une Endermite (larve de sang)
+        if (!(event.getDamager() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Récupérer les dégâts stockés dans le tag
+        for (String tag : larvae.getScoreboardTags()) {
+            if (tag.startsWith("zombiez_larvae_damage_")) {
+                try {
+                    double playerDamage = Double.parseDouble(tag.substring("zombiez_larvae_damage_".length()));
+                    // Appliquer les dégâts du joueur (50% pour équilibrage)
+                    event.setDamage(playerDamage * 0.5);
+                    break;
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBloodLarvaeDamage(EntityDamageByEntityEvent event) {
         // Vérifier si le damager est une Endermite (larve de sang)
@@ -4660,6 +4682,9 @@ public class TalentListener implements Listener {
         Location spawnLoc = player.getLocation();
         World world = player.getWorld();
 
+        // Calculer les dégâts de base du joueur pour les larves
+        double playerDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+
         // Son d'invocation
         world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
 
@@ -4679,9 +4704,12 @@ public class TalentListener implements Listener {
                 endermite.setCustomNameVisible(true);
                 endermite.setPersistent(false);
                 endermite.setRemoveWhenFarAway(true);
-                // Marquer comme larve de sang
+                // Invincible pendant les 3 premières secondes
+                endermite.setInvulnerable(true);
+                // Marquer comme larve de sang avec les dégâts du joueur
                 endermite.addScoreboardTag("zombiez_blood_larvae");
                 endermite.addScoreboardTag("zombiez_owner_" + playerUuid);
+                endermite.addScoreboardTag("zombiez_larvae_damage_" + playerDamage);
                 // Ne pas cibler le joueur propriétaire
                 endermite.setTarget(null);
             });
@@ -4695,6 +4723,7 @@ public class TalentListener implements Listener {
 
             // Tâche pour gérer le comportement de la larve
             final double healAmount = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPerHit;
+            final int invincibilityTicks = 60; // 3 secondes d'invincibilité
 
             new BukkitRunnable() {
                 int ticks = 0;
@@ -4715,19 +4744,39 @@ public class TalentListener implements Listener {
                         return;
                     }
 
-                    // Effet visuel périodique (traînée rouge)
+                    // Désactiver l'invincibilité après 3 secondes
+                    if (ticks == invincibilityTicks) {
+                        larvae.setInvulnerable(false);
+                    }
+
+                    // Effet visuel périodique (traînée rouge + aura d'invincibilité)
                     if (ticks % 4 == 0) {
                         world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.2, 0),
                             2, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
+                        // Aura dorée pendant l'invincibilité
+                        if (ticks < invincibilityTicks) {
+                            world.spawnParticle(Particle.END_ROD, larvae.getLocation().add(0, 0.3, 0),
+                                1, 0.15, 0.15, 0.15, 0.01);
+                        }
                     }
 
-                    // Chercher une cible proche si pas de cible actuelle
-                    if (larvae.getTarget() == null || !larvae.getTarget().isValid()) {
-                        for (Entity nearby : larvae.getNearbyEntities(8, 4, 8)) {
-                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player)) {
-                                larvae.setTarget(target);
-                                break;
+                    // Chercher agressivement une cible proche (toutes les 5 ticks)
+                    if (ticks % 5 == 0 && (larvae.getTarget() == null || !larvae.getTarget().isValid() || larvae.getTarget().isDead())) {
+                        LivingEntity closestTarget = null;
+                        double closestDistance = 12.0; // Rayon de recherche augmenté
+
+                        for (Entity nearby : larvae.getNearbyEntities(12, 6, 12)) {
+                            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead()) {
+                                double dist = larvae.getLocation().distanceSquared(target.getLocation());
+                                if (dist < closestDistance * closestDistance) {
+                                    closestDistance = Math.sqrt(dist);
+                                    closestTarget = target;
+                                }
                             }
+                        }
+
+                        if (closestTarget != null) {
+                            larvae.setTarget(closestTarget);
                         }
                     }
                 }
