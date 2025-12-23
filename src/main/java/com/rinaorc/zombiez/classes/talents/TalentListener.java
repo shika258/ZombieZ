@@ -1624,10 +1624,6 @@ public class TalentListener implements Listener {
                     player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
                         15, 0.5, 0.5, 0.5, 0.05);
                     player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 0.6f, 1.4f);
-
-                    if (shouldSendTalentMessage(player)) {
-                        showTempEventMessage(uuid, "§e§l🎯 PROIE MARQUÉE! §c+15%§7 dégâts pendant 4s!");
-                    }
                 }
 
                 // Effet de reset
@@ -1652,11 +1648,6 @@ public class TalentListener implements Listener {
                 if (kills.size() >= killsNeeded) {
                     kills.clear();
                     activateWarFrenzy(player, warFrenzy);
-                } else {
-                    // Feedback du compteur
-                    if (shouldSendTalentMessage(player)) {
-                        showTempEventMessage(uuid, "§c§l⚔ FRENÉSIE: §7" + kills.size() + "/" + killsNeeded + " kills");
-                    }
                 }
             }
         }
@@ -1709,10 +1700,6 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
-
-        if (shouldSendTalentMessage(player)) {
-            showTempEventMessage(uuid, "§c§l🔥 FRÉNÉSIE DE GUERRE! §7Fentes sans cooldown pendant " + (duration/1000) + "s!");
-        }
 
         plugin.getActionBarManager().markInCombat(uuid);
     }
@@ -5589,10 +5576,6 @@ public class TalentListener implements Listener {
                 procEvisceration(player, evisceration);
             } else {
                 eviscerationCounter.put(uuid, count);
-                // Feedback du compteur (seulement les derniers)
-                if (count >= threshold - 2 && shouldSendTalentMessage(player)) {
-                    showTempEventMessage(uuid, "§4§l🩸 ÉVISCÉRATION: §7" + count + "/" + threshold);
-                }
             }
         }
 
@@ -5678,10 +5661,6 @@ public class TalentListener implements Listener {
             player.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.1, z),
                 2, 0.1, 0, 0.1, 0,
                 new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.5f));
-        }
-
-        if (shouldSendTalentMessage(player)) {
-            showTempEventMessage(uuid, "§e§lCRI DE GUERRE! §7" + marked + " ennemis marques!");
         }
     }
 
@@ -5925,10 +5904,7 @@ public class TalentListener implements Listener {
         Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(playerUuid);
 
         if (playerBleedStacks == null || playerBleedStacks.isEmpty()) {
-            // Pas de saignements à consommer
-            if (shouldSendTalentMessage(player)) {
-                showTempEventMessage(playerUuid, "§c§l🩸 Pas de saignements à consommer!");
-            }
+            // Pas de saignements à consommer - skip silently
             return;
         }
 
@@ -6018,11 +5994,6 @@ public class TalentListener implements Listener {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
         }
 
-        if (shouldSendTalentMessage(player)) {
-            String healStr = String.format("%.0f", totalDamageDealt * healPercent);
-            showTempEventMessage(playerUuid, "§4§l🩸 ÉVISCÉRATION! §7" + enemiesHit + " proies, " + totalStacksConsumed + " stacks, §a+" + healStr + " PV!");
-        }
-
         plugin.getActionBarManager().markInCombat(playerUuid);
     }
 
@@ -6092,10 +6063,6 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
-
-        if (shouldSendTalentMessage(player)) {
-            showTempEventMessage(uuid, "§c§l🔥 RAGE DU BERSERKER! §7Destruction totale pendant " + (duration/1000) + "s!");
-        }
 
         plugin.getActionBarManager().markInCombat(uuid);
     }
