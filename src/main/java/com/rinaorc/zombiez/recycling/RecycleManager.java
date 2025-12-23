@@ -6,8 +6,6 @@ import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
 import lombok.Getter;
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -176,41 +174,10 @@ public class RecycleManager implements Listener {
         if (points > 0) {
             // Feedback sonore discret
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
-
-            // Particules de recyclage (vert pour les items communs, couleur de rareté pour les autres)
-            spawnRecycleParticles(player, rarity);
-
             return true;
         }
 
         return false;
-    }
-
-    /**
-     * Spawn des particules de recyclage avec couleur basée sur la rareté
-     */
-    private void spawnRecycleParticles(Player player, Rarity rarity) {
-        Color color = switch (rarity) {
-            case COMMON -> Color.WHITE;
-            case UNCOMMON -> Color.LIME;
-            case RARE -> Color.AQUA;
-            case EPIC -> Color.PURPLE;
-            case LEGENDARY -> Color.ORANGE;
-            case MYTHIC -> Color.FUCHSIA;
-            case EXALTED -> Color.RED;
-        };
-
-        Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1.0f);
-        player.spawnParticle(
-            Particle.DUST,
-            player.getLocation().add(0, 1, 0),
-            8,      // count
-            0.3,    // offsetX
-            0.3,    // offsetY
-            0.3,    // offsetZ
-            0,      // speed
-            dustOptions
-        );
     }
 
     /**
