@@ -687,10 +687,12 @@ public class ItemListener implements Listener {
     // Clés uniques pour les modifiers ZombieZ
     private static final NamespacedKey ZOMBIEZ_HEALTH_KEY = new NamespacedKey("zombiez", "max_health_bonus");
     private static final NamespacedKey ZOMBIEZ_ATTACK_SPEED_KEY = new NamespacedKey("zombiez", "attack_speed_bonus");
+    private static final NamespacedKey ZOMBIEZ_MOVEMENT_SPEED_KEY = new NamespacedKey("zombiez", "movement_speed_bonus");
 
     /**
      * Applique les attributs du joueur basés sur son équipement ZombieZ
-     * Notamment le bonus de vie maximale (MAX_HEALTH) et vitesse d'attaque (ATTACK_SPEED)
+     * Notamment le bonus de vie maximale (MAX_HEALTH), vitesse d'attaque (ATTACK_SPEED)
+     * et vitesse de déplacement (MOVEMENT_SPEED)
      */
     public void applyPlayerAttributes(Player player) {
         Map<StatType, Double> stats = plugin.getItemManager().calculatePlayerStats(player);
@@ -704,6 +706,10 @@ public class ItemListener implements Listener {
         double attackSpeedFlat = stats.getOrDefault(StatType.ATTACK_SPEED, 0.0);
         double attackSpeedPercent = stats.getOrDefault(StatType.ATTACK_SPEED_PERCENT, 0.0);
         applyAttackSpeedBonus(player, attackSpeedFlat, attackSpeedPercent);
+
+        // Appliquer le bonus de vitesse de déplacement
+        double movementSpeedPercent = stats.getOrDefault(StatType.MOVEMENT_SPEED, 0.0);
+        applyMovementSpeedBonus(player, movementSpeedPercent);
     }
 
     /**
@@ -774,6 +780,41 @@ public class ItemListener implements Listener {
     }
 
     /**
+     * Applique le bonus de vitesse de déplacement au joueur
+     * La stat MOVEMENT_SPEED est un pourcentage (ex: 20 = +20% de vitesse)
+     * La vitesse de base d'un joueur Minecraft est 0.1
+     *
+     * @param player Le joueur
+     * @param percentBonus Bonus en pourcentage (ex: 20 = +20%)
+     */
+    private void applyMovementSpeedBonus(Player player, double percentBonus) {
+        AttributeInstance movementSpeedAttr = player.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (movementSpeedAttr == null) return;
+
+        // Supprimer l'ancien modifier ZombieZ s'il existe
+        movementSpeedAttr.getModifiers().stream()
+            .filter(mod -> mod.getKey().equals(ZOMBIEZ_MOVEMENT_SPEED_KEY))
+            .findFirst()
+            .ifPresent(movementSpeedAttr::removeModifier);
+
+        // Calculer le bonus
+        // La vitesse de base d'un joueur est 0.1 (sans effets)
+        // Un bonus de 50% = 0.1 * 0.5 = +0.05 de vitesse
+        double baseSpeed = movementSpeedAttr.getBaseValue(); // Normalement 0.1
+        double bonusValue = baseSpeed * (percentBonus / 100.0);
+
+        // Ajouter le nouveau modifier si le bonus est non-nul
+        if (Math.abs(bonusValue) > 0.0001) {
+            AttributeModifier modifier = new AttributeModifier(
+                ZOMBIEZ_MOVEMENT_SPEED_KEY,
+                bonusValue,
+                AttributeModifier.Operation.ADD_NUMBER
+            );
+            movementSpeedAttr.addModifier(modifier);
+        }
+    }
+
+    /**
      * Supprime tous les modifiers ZombieZ d'un joueur (pour cleanup)
      */
     public void removeAllModifiers(Player player) {
@@ -791,6 +832,14 @@ public class ItemListener implements Listener {
                 .filter(mod -> mod.getKey().equals(ZOMBIEZ_ATTACK_SPEED_KEY))
                 .findFirst()
                 .ifPresent(attackSpeedAttr::removeModifier);
+        }
+
+        AttributeInstance movementSpeedAttr = player.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (movementSpeedAttr != null) {
+            movementSpeedAttr.getModifiers().stream()
+                .filter(mod -> mod.getKey().equals(ZOMBIEZ_MOVEMENT_SPEED_KEY))
+                .findFirst()
+                .ifPresent(movementSpeedAttr::removeModifier);
         }
     }
 

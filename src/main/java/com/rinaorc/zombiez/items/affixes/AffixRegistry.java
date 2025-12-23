@@ -551,8 +551,8 @@ public class AffixRegistry {
             .build());
 
         registerAffix(Affix.builder()
-            .id("of_the_storm")
-            .displayName("de la Tempête")
+            .id("of_the_gale")
+            .displayName("de la Bourrasque")
             .type(Affix.AffixType.SUFFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(12)
