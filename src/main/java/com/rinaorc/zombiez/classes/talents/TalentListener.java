@@ -2328,7 +2328,7 @@ public class TalentListener implements Listener {
                     Location targetLoc = currentTarget.getLocation();
                     org.bukkit.util.Vector direction = targetLoc.toVector()
                         .subtract(currentLocation.toVector()).normalize();
-                    double speed = 0.375; // Vitesse +50%
+                    double speed = 0.75; // Vitesse doublée
                     currentLocation.add(direction.multiply(speed));
                 }
 
