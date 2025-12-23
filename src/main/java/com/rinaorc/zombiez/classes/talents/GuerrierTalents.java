@@ -198,24 +198,27 @@ public final class GuerrierTalents {
             .values(new double[]{3, 6000, 0.80, 0.05}) // stacks_needed, window_ms, damage_bonus%, heal%
             .build());
 
-        // 2.3 - MASSE D'ARMES
+        // 2.3 - FERVEUR SANGUINAIRE
         TALENTS.add(Talent.builder()
-            .id("guerrier_mace_impact")
-            .name("Masse d'Armes")
-            .description("Critiques = projection de 3 blocs")
+            .id("guerrier_blood_fervour")
+            .name("Ferveur Sanguinaire")
+            .description("Kills = +15% degats, stack 3x")
             .loreLines(new String[]{
-                "§7Les coups critiques projettent",
-                "§7les ennemis en arriere.",
+                "§c§lSOIF DE SANG!",
                 "",
-                "§8Distance: §e3§8 blocs"
+                "§7Chaque elimination donne",
+                "§c+15%§7 de degats pendant §e4s§7.",
+                "",
+                "§8Cumulable §c3x§8 (max +45%)",
+                "§8Chaque kill refresh la duree"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
             .slotIndex(2)
-            .icon(Material.MACE)
-            .iconColor("§7")
-            .effectType(Talent.TalentEffectType.MACE_IMPACT)
-            .values(new double[]{3.0}) // knockback_blocks
+            .icon(Material.REDSTONE)
+            .iconColor("§c")
+            .effectType(Talent.TalentEffectType.BLOOD_FERVOUR)
+            .values(new double[]{0.15, 4000, 3}) // damage_bonus%, duration_ms, max_stacks
             .build());
 
         // 2.4 - BASTION
@@ -437,25 +440,27 @@ public final class GuerrierTalents {
             .values(new double[]{0.10, 5, 5000}) // hp_bonus_per_stack, max_stacks, duration_ms
             .build());
 
-        // 4.3 - VENGEANCE ARDENTE
+        // 4.3 - COUP DE GRÂCE
         TALENTS.add(Talent.builder()
-            .id("guerrier_burning_vengeance")
-            .name("Vengeance Ardente")
-            .description("Contre-attaque = 3 prochaines attaques brulent")
+            .id("guerrier_mercy_strike")
+            .name("Coup de Grace")
+            .description("Ennemis < 30% PV = +80% degats, heal au kill")
             .loreLines(new String[]{
-                "§7Apres une contre-attaque, les §e3§7",
-                "§7prochaines attaques brulent",
-                "§7les ennemis.",
+                "§4§lLES FAIBLES NE MERITENT PAS DE VIVRE",
                 "",
-                "§8Brulure: §c40%§8 sur 2s"
+                "§7Contre les ennemis a §c< 30%§7 PV:",
+                "§7- §c+80%§7 de degats",
+                "§7- Kill = heal §a5%§7 PV max",
+                "",
+                "§8Finisher ultime"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
             .slotIndex(2)
-            .icon(Material.FIRE_CHARGE)
-            .iconColor("§6")
-            .effectType(Talent.TalentEffectType.BURNING_VENGEANCE)
-            .values(new double[]{3, 0.40, 2000}) // stacks, burn_damage%, burn_duration_ms
+            .icon(Material.NETHERITE_AXE)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.MERCY_STRIKE)
+            .values(new double[]{0.30, 0.80, 0.05}) // threshold%, damage_bonus%, heal%
             .build());
 
         // 4.4 - FORTERESSE
@@ -804,25 +809,30 @@ public final class GuerrierTalents {
             .internalCooldownMs(8000)
             .build());
 
-        // 6.3 - REPRESAILLES INFINIES
+        // 6.3 - CYCLONES SANGLANTS
         TALENTS.add(Talent.builder()
-            .id("guerrier_infinite_retaliation")
-            .name("Represailles Infinies")
-            .description("Contre-attaques = +25% degats (max 200%)")
+            .id("guerrier_blood_cyclones")
+            .name("Cyclones Sanglants")
+            .description("Execution = cyclone chasseur (4s)")
             .loreLines(new String[]{
-                "§7Chaque contre-attaque augmente les",
-                "§7degats de contre-attaque de §c+25%§7.",
+                "§4§lLA MORT ENGENDRE LA MORT",
                 "",
-                "§8Max: §c+200%§8 (300% total)",
-                "§8Reinit. apres 10s sans contre-attaque"
+                "§7Executer un ennemi §c(<30% PV)§7",
+                "§7invoque un §4cyclone sanglant§7.",
+                "",
+                "§7Le cyclone §cchasse§7 les ennemis",
+                "§7proches pendant §e4s§7.",
+                "",
+                "§8Degats: §c50%§8 degats de base",
+                "§8Soin: §a1.5%§8 PV max par touche"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(2)
-            .icon(Material.SPECTRAL_ARROW)
-            .iconColor("§e")
-            .effectType(Talent.TalentEffectType.INFINITE_RETALIATION)
-            .values(new double[]{0.25, 2.0, 10000}) // stack%, max_bonus%, reset_ms
+            .icon(Material.DRAGON_BREATH)
+            .iconColor("§4")
+            .effectType(Talent.TalentEffectType.BLOOD_CYCLONES)
+            .values(new double[]{4000, 0.50, 0.015, 3.0}) // duration_ms, damage%, heal%, radius
             .build());
 
         // 6.4 - BASTILLE IMPRENABLE
@@ -928,24 +938,28 @@ public final class GuerrierTalents {
             .values(new double[]{6.0, 0.20, 0.30}) // radius, damage_reduction%, reflect%
             .build());
 
-        // 7.3 - NEMESIS
+        // 7.3 - FRÉNÉSIE GUERRIÈRE
         TALENTS.add(Talent.builder()
-            .id("guerrier_nemesis")
-            .name("Nemesis")
-            .description("Epines passives: 75% degats renvoyes")
+            .id("guerrier_warrior_frenzy")
+            .name("Frenesie Guerriere")
+            .description("Combo 5 coups en 3s = +150% degats AoE")
             .loreLines(new String[]{
-                "§7Chaque ennemi qui vous touche",
-                "§7prend §c75%§7 des degats renvoyes.",
+                "§7Chaque coup te rapproche de l'extase!",
                 "",
-                "§8Renvoi de degats automatique"
+                "§7Enchaine §e5 coups§7 en §e3 secondes§7",
+                "§7Le §c6eme coup§7 inflige §c+150%§7 degats",
+                "§7et frappe tous les ennemis a §e5 blocs§7!",
+                "",
+                "§6⚡ Combo crescendo avec explosion finale",
+                "§8Synergie: L'AoE peut proc Dechaînement"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(2)
-            .icon(Material.CACTUS)
-            .iconColor("§2")
-            .effectType(Talent.TalentEffectType.NEMESIS)
-            .values(new double[]{0.75}) // reflect%
+            .icon(Material.BLAZE_POWDER)
+            .iconColor("§6")
+            .effectType(Talent.TalentEffectType.WARRIOR_FRENZY)
+            .values(new double[]{5, 3000, 1.50, 5.0}) // combo_hits, timeout_ms, damage_bonus%, aoe_radius
             .build());
 
         // 7.4 - COLOSSE
@@ -1057,28 +1071,31 @@ public final class GuerrierTalents {
             .values(new double[]{300, 10000, 1.0, 0.50, 2.0}) // damage_threshold, duration_ms, block_chance, damage_bonus%, disc_frequency_mult
             .build());
 
-        // 8.3 - AVATAR DE VENGEANCE
+        // 8.3 - MÉGA TORNADE
         TALENTS.add(Talent.builder()
-            .id("guerrier_vengeance_avatar")
-            .name("Avatar de Vengeance")
-            .description("Stocke degats recus, liberation massive")
+            .id("guerrier_mega_tornado")
+            .name("Mega Tornade")
+            .description("Double sneak = transformation en mega tornade")
             .loreLines(new String[]{
                 "§6§lTALENT LEGENDAIRE",
                 "",
-                "§7Les degats recus sont stockes",
-                "§7(cap §c500%§7 PV max).",
+                "§7Upgrade du §cCyclone de Rage§7:",
+                "§7Double sneak = §c§lMEGA TORNADE§7!",
                 "",
-                "§8Crouch + Attack = Explosion",
-                "§8Degats: §c100%§8 du stocke",
-                "§8Rayon: §e6§8 blocs"
+                "§7Vous doublez de taille et aspirez",
+                "§7les mobs vers vous en courant,",
+                "§7infligeant de §clourds degats§7.",
+                "",
+                "§8Duree: §e10s§8 | Cooldown: §e35s",
+                "§8Rayon d'aspiration: §e8§8 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
             .slotIndex(2)
-            .icon(Material.NETHERITE_BLOCK)
-            .iconColor("§5§l")
-            .effectType(Talent.TalentEffectType.VENGEANCE_AVATAR)
-            .values(new double[]{5.0, 1.0, 6.0}) // max_stored_multiplier, release_damage%, radius
+            .icon(Material.BREEZE_ROD)
+            .iconColor("§c§l")
+            .effectType(Talent.TalentEffectType.MEGA_TORNADO)
+            .values(new double[]{10000, 35000, 8.0, 2.0, 0.75}) // duration_ms, cooldown_ms, radius, scale, damage%_per_tick
             .build());
 
         // 8.4 - CITADELLE VIVANTE

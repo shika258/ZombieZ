@@ -83,7 +83,7 @@ public class Talent {
         // === GUERRIER - Tier 2 ===
         WAR_ECHO,                // Double AoE chance
         PUNISHMENT,              // REMPART: Stacks → buff degats + heal
-        MACE_IMPACT,             // Knockback on crit
+        BLOOD_FERVOUR,           // FUREUR: Kill stacking damage buff
         BASTION,                 // Shield on block
         UNLEASH,                 // Explosion on multi-kill
 
@@ -97,7 +97,7 @@ public class Talent {
         // === GUERRIER - Tier 4 ===
         SEISMIC_RESONANCE,       // AoE leaves damage zone
         FORTIFY,                 // REMPART: Blocages → bouclier absorbant
-        BURNING_VENGEANCE,       // Fire DoT on riposte
+        MERCY_STRIKE,            // FUREUR: Execute bonus damage + heal on kill
         FORTRESS,                // Shield explodes on expire
         BLOODY_HARVEST,          // Execute heal + sprint reset
 
@@ -118,21 +118,21 @@ public class Talent {
         // === GUERRIER - Tier 7 ===
         ETERNAL_TREMOR,          // Passive AoE pulse
         BASTION_CHARGE,          // REMPART: Charge + bouclier par ennemi
-        INFINITE_RETALIATION,    // Riposte scaling
+        BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
         IMPREGNABLE_BASTION,     // Double DR + regen
         REAPER,                  // Auto-kill low HP in range
 
         // === GUERRIER - Tier 8 ===
         EARTH_APOCALYPSE,        // Mega earthquake proc
         DEFIANCE_AURA,           // REMPART: Aura -dégâts ennemis + réflexion
-        NEMESIS,                 // Passive thorns
+        WARRIOR_FRENZY,          // FUREUR: Combo 5 coups → +150% dégâts AoE
         COLOSSUS,                // Giant form
         DEATH_ANGEL,             // Death aura
 
         // === GUERRIER - Tier 9 ===
         RAGNAROK,                // Auto mega nuke
         BULWARK_AVATAR,          // REMPART: Transformation ultime défensive
-        VENGEANCE_AVATAR,        // Stored damage release
+        MEGA_TORNADO,            // FUREUR: Upgrade Cyclone - double sneak = méga tornade aspirante
         LIVING_CITADEL,          // Invuln then explode
         EXTINCTION,              // First hit mega damage
 

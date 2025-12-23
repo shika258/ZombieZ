@@ -51,6 +51,10 @@ public class TalentListener implements Listener {
     // Colere des Ancetres - riposte buff
     private final Map<UUID, Long> riposteBuffTime = new ConcurrentHashMap<>();
 
+    // Ferveur Sanguinaire - stacks de kills
+    private final Map<UUID, Integer> bloodFervourStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> bloodFervourExpiry = new ConcurrentHashMap<>();
+
     // Cataclysme - compteur d'attaques
     private final Map<UUID, Integer> attackCounter = new ConcurrentHashMap<>();
 
@@ -87,12 +91,12 @@ public class TalentListener implements Listener {
     private final Map<UUID, Long> bulwarkAvatarActiveUntil = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> bulwarkLastMilestone = new ConcurrentHashMap<>();
 
-    // Represailles Infinies - stacks de riposte
-    private final Map<UUID, Integer> retaliationStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> retaliationLastProc = new ConcurrentHashMap<>();
+    // Cyclones Sanglants - tracking des cyclones actifs par joueur
+    private final Map<UUID, Integer> activeBloodCyclones = new ConcurrentHashMap<>();
 
-    // Avatar de Vengeance - degats stockes
-    private final Map<UUID, Double> storedDamage = new ConcurrentHashMap<>();
+    // Méga Tornade - état actif et expiration
+    private final Map<UUID, Long> megaTornadoActiveUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> megaTornadoOriginalScale = new ConcurrentHashMap<>();
 
     // Avatar de Sang - HP volés cumulés
     private final Map<UUID, Double> bloodStolenHp = new ConcurrentHashMap<>();
@@ -110,8 +114,13 @@ public class TalentListener implements Listener {
     private final Map<UUID, Double> tempShield = new ConcurrentHashMap<>();
     private final Map<UUID, Long> tempShieldExpiry = new ConcurrentHashMap<>();
 
-    // Vengeance Ardente - burning stacks
-    private final Map<UUID, Integer> burningStacks = new ConcurrentHashMap<>();
+    // Coup de Grâce - tracking dernière exécution pour feedback
+    private final Map<UUID, Long> lastMercyStrike = new ConcurrentHashMap<>();
+
+    // Frénésie Guerrière - combo counter
+    private final Map<UUID, Integer> frenzyComboCount = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> frenzyLastHit = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> frenzyReady = new ConcurrentHashMap<>(); // true = prochain coup = explosion
 
     // === SYSTEME SEISME SIMPLIFIE ===
     // Compteur de degats de zone pour proc Apocalypse
@@ -296,13 +305,18 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Masse d'Armes - knockback on crit
-        Talent maceImpact = getActiveTalentIfHas(player, Talent.TalentEffectType.MACE_IMPACT);
-        if (maceImpact != null && event.isCritical()) {
-            double knockbackPower = maceImpact.getValue(0);
-            Vector direction = target.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
-            target.setVelocity(direction.multiply(knockbackPower * 0.5).setY(0.3));
-            target.getWorld().playSound(target.getLocation(), Sound.ITEM_MACE_SMASH_GROUND, 1.0f, 0.8f);
+        // Ferveur Sanguinaire - bonus de dégâts basé sur les stacks
+        Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+        if (bloodFervour != null) {
+            Long expiry = bloodFervourExpiry.get(uuid);
+            if (expiry != null && System.currentTimeMillis() < expiry) {
+                int stacks = bloodFervourStacks.getOrDefault(uuid, 0);
+                if (stacks > 0) {
+                    double bonusPerStack = bloodFervour.getValue(0); // 0.15 = 15%
+                    double totalBonus = stacks * bonusPerStack;
+                    damage *= (1 + totalBonus);
+                }
+            }
         }
 
         // === TIER 3 ===
@@ -411,22 +425,8 @@ public class TalentListener implements Listener {
             Talent ancestralWrath = getActiveTalentIfHas(player, Talent.TalentEffectType.ANCESTRAL_WRATH);
             if (ancestralWrath != null && System.currentTimeMillis() - buffTime < ancestralWrath.getValue(0)) {
                 double bonus = ancestralWrath.getValue(1);
-
-                // Represailles Infinies - stacks additionnels
-                Talent infiniteRetaliation = getActiveTalentIfHas(player, Talent.TalentEffectType.INFINITE_RETALIATION);
-                if (infiniteRetaliation != null) {
-                    int stacks = retaliationStacks.getOrDefault(uuid, 0);
-                    bonus += stacks * infiniteRetaliation.getValue(0);
-                }
-
                 damage *= (1 + bonus);
                 riposteBuffTime.remove(uuid);
-
-                // Vengeance Ardente
-                Talent burningVengeance = getActiveTalentIfHas(player, Talent.TalentEffectType.BURNING_VENGEANCE);
-                if (burningVengeance != null) {
-                    burningStacks.put(uuid, (int) burningVengeance.getValue(0));
-                }
             }
         }
 
@@ -442,12 +442,38 @@ public class TalentListener implements Listener {
 
         // === TIER 4 ===
 
-        // Vengeance Ardente - attaques brulantes
-        if (burningStacks.getOrDefault(uuid, 0) > 0) {
-            Talent burning = getActiveTalentIfHas(player, Talent.TalentEffectType.BURNING_VENGEANCE);
-            if (burning != null) {
-                target.setFireTicks((int)(burning.getValue(2) / 50));
-                burningStacks.merge(uuid, -1, Integer::sum);
+        // Coup de Grâce - bonus dégâts sur cibles faibles
+        Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+        if (mercyStrike != null && target instanceof LivingEntity) {
+            double threshold = mercyStrike.getValue(0); // 0.30 = 30%
+            double maxTargetHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double targetHpPercent = target.getHealth() / maxTargetHp;
+
+            if (targetHpPercent < threshold) {
+                double damageBonus = mercyStrike.getValue(1); // 0.80 = 80%
+                damage *= (1 + damageBonus);
+
+                // Feedback visuel - slash doré/rouge
+                target.getWorld().spawnParticle(
+                    Particle.SWEEP_ATTACK,
+                    target.getLocation().add(0, 1, 0),
+                    3, 0.3, 0.3, 0.3, 0.1
+                );
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1, 0),
+                    15, 0.4, 0.4, 0.4, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.2f) // Gold
+                );
+
+                // Son métallique satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.3f);
+
+                // Tracker pour ActionBar
+                lastMercyStrike.put(uuid, System.currentTimeMillis());
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
             }
         }
 
@@ -542,13 +568,145 @@ public class TalentListener implements Listener {
 
         // Dieu du Sang - tracking (handled in damage received)
 
-        // Avatar de Vengeance - crouch + attack release
-        Talent vengeanceAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEANCE_AVATAR);
-        if (vengeanceAvatar != null && player.isSneaking()) {
-            double stored = storedDamage.getOrDefault(uuid, 0.0);
-            if (stored > 0) {
-                procVengeanceRelease(player, stored, vengeanceAvatar.getValue(2));
-                storedDamage.put(uuid, 0.0);
+        // Frénésie Guerrière - combo 5 coups = 6ème coup AoE +150%
+        Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
+        if (warriorFrenzy != null) {
+            int comboRequired = (int) warriorFrenzy.getValue(0);  // 5
+            long timeout = (long) warriorFrenzy.getValue(1);       // 3000ms
+            double damageBonus = warriorFrenzy.getValue(2);        // 1.50 = +150%
+            double aoeRadius = warriorFrenzy.getValue(3);          // 5.0 blocs
+            long now = System.currentTimeMillis();
+
+            // Check if ready to unleash the frenzy (6th hit)
+            if (frenzyReady.getOrDefault(uuid, false)) {
+                // EXPLOSION! +150% damage AoE
+                double aoeDamage = damage * (1 + damageBonus);
+
+                // Apply to main target
+                damage = aoeDamage;
+
+                // AoE to nearby enemies
+                Location center = target.getLocation();
+                int enemiesHit = 0;
+                for (Entity nearby : center.getWorld().getNearbyEntities(center, aoeRadius, aoeRadius, aoeRadius)) {
+                    if (nearby instanceof LivingEntity livingNearby && nearby != target && nearby != player && !nearby.isDead()) {
+                        if (livingNearby instanceof Monster || livingNearby.getScoreboardTags().contains("zombiez_enemy")) {
+                            livingNearby.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                            livingNearby.damage(aoeDamage, player);
+                            enemiesHit++;
+
+                            // Particules sur chaque ennemi touché
+                            livingNearby.getWorld().spawnParticle(
+                                Particle.CRIT,
+                                livingNearby.getLocation().add(0, 1, 0),
+                                15, 0.3, 0.5, 0.3, 0.2
+                            );
+                        }
+                    }
+                }
+
+                // === EXPLOSION VISUELLE ET SONORE ===
+
+                // Son d'explosion satisfaisant (BOOM!)
+                player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.5f);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.6f, 1.5f);
+
+                // Explosion orange/jaune
+                center.getWorld().spawnParticle(
+                    Particle.EXPLOSION,
+                    center.add(0, 1, 0),
+                    3, 0.5, 0.5, 0.5, 0.1
+                );
+
+                // Cercle d'éclairs orange
+                for (int i = 0; i < 16; i++) {
+                    double angle = (2 * Math.PI * i) / 16;
+                    double x = Math.cos(angle) * aoeRadius * 0.8;
+                    double z = Math.sin(angle) * aoeRadius * 0.8;
+                    center.getWorld().spawnParticle(
+                        Particle.DUST,
+                        center.clone().add(x, 0, z),
+                        5, 0.1, 0.3, 0.1, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                    );
+                    center.getWorld().spawnParticle(
+                        Particle.ELECTRIC_SPARK,
+                        center.clone().add(x, 0.5, z),
+                        3, 0.1, 0.2, 0.1, 0.05
+                    );
+                }
+
+                // Flash jaune central
+                center.getWorld().spawnParticle(
+                    Particle.DUST,
+                    center,
+                    25, 0.8, 0.8, 0.8, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 2.0f)
+                );
+
+                // Reset combo
+                frenzyComboCount.put(uuid, 0);
+                frenzyReady.put(uuid, false);
+                frenzyLastHit.remove(uuid);
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
+
+            } else {
+                // Building combo
+                Long lastHit = frenzyLastHit.get(uuid);
+
+                // Reset if timeout expired
+                if (lastHit != null && now - lastHit > timeout) {
+                    frenzyComboCount.put(uuid, 0);
+                }
+
+                // Increment combo
+                int currentCombo = frenzyComboCount.merge(uuid, 1, Integer::sum);
+                frenzyLastHit.put(uuid, now);
+
+                // Sons crescendo (do-ré-mi-fa-sol)
+                float[] pitches = {0.5f, 0.6f, 0.75f, 0.9f, 1.0f}; // Notes musicales croissantes
+                if (currentCombo <= comboRequired) {
+                    float pitch = pitches[Math.min(currentCombo - 1, pitches.length - 1)];
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 0.7f, pitch);
+
+                    // Éclairs croissants autour du joueur
+                    int sparkCount = currentCombo * 3;
+                    player.getWorld().spawnParticle(
+                        Particle.ELECTRIC_SPARK,
+                        player.getLocation().add(0, 1.2, 0),
+                        sparkCount, 0.4, 0.4, 0.4, 0.05
+                    );
+                }
+
+                // Si combo atteint = prêt pour explosion
+                if (currentCombo >= comboRequired) {
+                    frenzyReady.put(uuid, true);
+
+                    // Son de charge maximale
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+
+                    // Flash lumineux
+                    player.getWorld().spawnParticle(
+                        Particle.FLASH,
+                        player.getLocation().add(0, 1, 0),
+                        1, 0, 0, 0, 0
+                    );
+
+                    // Aura orange
+                    player.getWorld().spawnParticle(
+                        Particle.DUST,
+                        player.getLocation().add(0, 1, 0),
+                        20, 0.6, 0.6, 0.6, 0.1,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.5f)
+                    );
+                }
+
+                // Marquer en combat
+                plugin.getActionBarManager().markInCombat(uuid);
             }
         }
 
@@ -679,15 +837,6 @@ public class TalentListener implements Listener {
         Talent ancestralWrath = getActiveTalentIfHas(player, Talent.TalentEffectType.ANCESTRAL_WRATH);
         if (ancestralWrath != null) {
             riposteBuffTime.put(uuid, System.currentTimeMillis());
-
-            // Represailles Infinies - stack
-            Talent infiniteRetaliation = getActiveTalentIfHas(player, Talent.TalentEffectType.INFINITE_RETALIATION);
-            if (infiniteRetaliation != null) {
-                retaliationLastProc.put(uuid, System.currentTimeMillis());
-                int maxStacks = (int) (infiniteRetaliation.getValue(1) / infiniteRetaliation.getValue(0));
-                int current = retaliationStacks.getOrDefault(uuid, 0);
-                retaliationStacks.put(uuid, Math.min(current + 1, maxStacks));
-            }
         }
 
         // Titan Immuable
@@ -770,13 +919,6 @@ public class TalentListener implements Listener {
             player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0.3);
         }
 
-        // Nemesis - thorns
-        Talent nemesis = getActiveTalentIfHas(player, Talent.TalentEffectType.NEMESIS);
-        if (nemesis != null && event.getDamager() instanceof LivingEntity attacker) {
-            double reflect = damage * nemesis.getValue(0);
-            attacker.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-            attacker.damage(reflect, player);
-        }
 
         // Colosse - HP bonus handled elsewhere
         Talent colossus = getActiveTalentIfHas(player, Talent.TalentEffectType.COLOSSUS);
@@ -794,15 +936,6 @@ public class TalentListener implements Listener {
                 double dr = Math.min(bloodGod.getValue(1), 0.50); // Cap standardise a 50% pour toutes les classes
                 damage *= (1 - dr);
             }
-        }
-
-        // Avatar de Vengeance - stockage
-        Talent vengeance = getActiveTalentIfHas(player, Talent.TalentEffectType.VENGEANCE_AVATAR);
-        if (vengeance != null) {
-            double maxHp = player.getAttribute(Attribute.MAX_HEALTH).getValue();
-            double maxStore = maxHp * vengeance.getValue(0);
-            double current = storedDamage.getOrDefault(uuid, 0.0);
-            storedDamage.put(uuid, Math.min(maxStore, current + damage));
         }
 
         // Citadelle Vivante
@@ -884,7 +1017,87 @@ public class TalentListener implements Listener {
             }
         }
 
+        // Ferveur Sanguinaire - stack on kill
+        Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+        if (bloodFervour != null) {
+            double bonusPerStack = bloodFervour.getValue(0); // 0.15 = 15%
+            long duration = (long) bloodFervour.getValue(1); // 4000ms
+            int maxStacks = (int) bloodFervour.getValue(2);  // 3
+
+            int currentStacks = bloodFervourStacks.getOrDefault(uuid, 0);
+            int newStacks = Math.min(currentStacks + 1, maxStacks);
+            bloodFervourStacks.put(uuid, newStacks);
+            bloodFervourExpiry.put(uuid, System.currentTimeMillis() + duration);
+
+            // Feedback visuel et sonore selon les stacks
+            float pitch = 0.8f + (newStacks * 0.2f); // Son plus aigu avec plus de stacks
+            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, pitch);
+
+            // Particules de sang
+            player.getWorld().spawnParticle(
+                Particle.DUST,
+                player.getLocation().add(0, 1, 0),
+                10 * newStacks,
+                0.5, 0.5, 0.5, 0.1,
+                new Particle.DustOptions(org.bukkit.Color.RED, 1.2f)
+            );
+
+            // Aura croissante à max stacks
+            if (newStacks >= maxStacks) {
+                player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.6f, 1.5f);
+                player.getWorld().spawnParticle(
+                    Particle.DUST,
+                    player.getLocation().add(0, 1, 0),
+                    30,
+                    0.8, 0.8, 0.8, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 1.5f) // Dark red
+                );
+            }
+
+            // Marquer en combat pour l'ActionBar
+            plugin.getActionBarManager().markInCombat(uuid);
+        }
+
         // === TIER 4 ===
+
+        // Coup de Grâce - heal au kill sur cible faible
+        Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+        if (mercyStrike != null) {
+            double threshold = mercyStrike.getValue(0); // 0.30 = 30%
+            double maxTargetHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+
+            // Si la cible était sous le seuil (exécution réussie)
+            if (target.getHealth() / maxTargetHp < threshold) {
+                double healPercent = mercyStrike.getValue(2); // 0.05 = 5%
+                double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
+                applyLifesteal(player, heal);
+
+                // Effets d'exécution satisfaisants
+                // Explosion de particules (tête qui explose)
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1.5, 0),
+                    25, 0.3, 0.3, 0.3, 0.15,
+                    new Particle.DustOptions(org.bukkit.Color.RED, 1.5f)
+                );
+                target.getWorld().spawnParticle(
+                    Particle.DUST,
+                    target.getLocation().add(0, 1.5, 0),
+                    15, 0.3, 0.3, 0.3, 0.1,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.3f) // Gold
+                );
+
+                // Son d'exécution ultra satisfaisant
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 1.5f);
+
+                // Cyclones Sanglants - spawn sur exécution
+                Talent bloodCyclones = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_CYCLONES);
+                if (bloodCyclones != null) {
+                    spawnBloodCyclone(player, target.getLocation(), bloodCyclones);
+                }
+            }
+        }
 
         // Moisson Sanglante
         Talent bloodyHarvest = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOODY_HARVEST);
@@ -997,6 +1210,28 @@ public class TalentListener implements Listener {
             if (!isOnCooldown(uuid, "ragnarok")) {
                 procRagnarok(player, ragnarok);
                 setCooldown(uuid, "ragnarok", (long) ragnarok.getValue(0));
+            }
+            return; // Ne pas activer Mega Tornade si on a Ragnarok
+        }
+
+        // Méga Tornade - L'ULTIME du Guerrier Fureur
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+        if (megaTornado != null) {
+            // Vérifier si pas déjà actif
+            Long activeUntil = megaTornadoActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                // Déjà actif - feedback
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                return;
+            }
+
+            if (!isOnCooldown(uuid, "mega_tornado")) {
+                procMegaTornado(player, megaTornado);
+                setCooldown(uuid, "mega_tornado", (long) megaTornado.getValue(1));
+            } else {
+                // Feedback cooldown
+                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
         }
     }
@@ -1114,9 +1349,12 @@ public class TalentListener implements Listener {
                     if (now - time > 3000) furyStacks.remove(uuid);
                 });
 
-                // Cleanup retaliation stacks
-                retaliationLastProc.forEach((uuid, time) -> {
-                    if (now - time > 10000) retaliationStacks.remove(uuid);
+                // Cleanup blood fervour stacks
+                bloodFervourExpiry.forEach((uuid, expiry) -> {
+                    if (now > expiry) {
+                        bloodFervourStacks.remove(uuid);
+                        bloodFervourExpiry.remove(uuid);
+                    }
                 });
 
                 for (UUID uuid : activeGuerriers) {
@@ -1652,26 +1890,185 @@ public class TalentListener implements Listener {
         }
     }
 
-    private void procVengeanceRelease(Player player, double damage, double radius) {
-        Location center = player.getLocation();
+    /**
+     * Mega Tornade - transformation en tornade géante aspirante
+     */
+    private void procMegaTornado(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0);      // 10000ms
+        double radius = talent.getValue(2);              // 8.0 blocs
+        double targetScale = talent.getValue(3);         // 2.0 (double taille)
+        double damagePercent = talent.getValue(4);       // 0.75 = 75% par tick
 
-        // Liberation de rage - effet intense mais compact
-        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, center, 15, radius/3, 0.5, radius/3, 0);
-        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 1);
-        player.getWorld().spawnParticle(Particle.DUST, center, 20, radius/2, 0.8, radius/2, 0,
-            new Particle.DustOptions(Color.fromRGB(180, 50, 50), 2.0f));
-        player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 0.6f);
+        // Sauvegarder le scale original
+        double originalScale = player.getAttribute(Attribute.SCALE).getValue();
+        megaTornadoOriginalScale.put(uuid, originalScale);
+        megaTornadoActiveUntil.put(uuid, System.currentTimeMillis() + duration);
 
-        for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player) {
-                // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
-                target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                target.damage(damage, player);
-            }
+        // Doubler la taille du joueur
+        player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * targetScale);
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 0.6f, 0.8f);
+
+        // Message
+        if (shouldSendTalentMessage(player)) {
+            player.sendMessage("§c§l🌪 MEGA TORNADE! §7Vous devenez une force de destruction!");
         }
 
-        if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ VENGEANCE! §7Vous liberez toute votre rage accumulee!");
+        // Marquer en combat
+        plugin.getActionBarManager().markInCombat(uuid);
+
+        // Calculer les dégâts de base
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * damagePercent;
+
+        // Task pour l'effet de tornade
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+
+            @Override
+            public void run() {
+                // Vérifier si le joueur est toujours en ligne
+                if (!player.isOnline() || player.isDead()) {
+                    endMegaTornado(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                // Vérifier si la durée est écoulée
+                Long activeUntil = megaTornadoActiveUntil.get(uuid);
+                if (activeUntil == null || System.currentTimeMillis() >= activeUntil) {
+                    endMegaTornado(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+                rotationAngle += 0.5;
+                Location center = player.getLocation();
+
+                // === EFFET VISUEL - MEGA TORNADE ===
+
+                // Base de la tornade (rouge sombre)
+                for (int layer = 0; layer < 8; layer++) {
+                    double height = layer * 0.5;
+                    double layerRadius = 1.0 + (layer * 0.4);
+
+                    for (int i = 0; i < 8; i++) {
+                        double angle = rotationAngle + (2 * Math.PI * i / 8) + (layer * 0.3);
+                        double x = Math.cos(angle) * layerRadius;
+                        double z = Math.sin(angle) * layerRadius;
+
+                        center.getWorld().spawnParticle(
+                            Particle.DUST,
+                            center.clone().add(x, height, z),
+                            1, 0, 0, 0, 0,
+                            new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f)
+                        );
+                    }
+                }
+
+                // Spirale externe (orange/jaune)
+                for (int i = 0; i < 16; i++) {
+                    double angle = rotationAngle * 2 + (2 * Math.PI * i / 16);
+                    double spiralRadius = radius * 0.6;
+                    double x = Math.cos(angle) * spiralRadius;
+                    double z = Math.sin(angle) * spiralRadius;
+                    double y = (i % 4) * 0.5;
+
+                    center.getWorld().spawnParticle(
+                        Particle.DUST,
+                        center.clone().add(x, y + 0.5, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(Color.ORANGE, 1.5f)
+                    );
+                }
+
+                // Flammes et éclairs
+                center.getWorld().spawnParticle(Particle.FLAME, center.add(0, 2, 0), 10, 1.5, 1.5, 1.5, 0.05);
+                center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 5, 2, 2, 2, 0.1);
+
+                // Son ambiant (vent)
+                if (ticks % 4 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_PHANTOM_FLAP, 0.5f, 0.5f);
+                }
+
+                // === ASPIRATION ET DEGATS (seulement si le joueur court) ===
+                if (player.isSprinting()) {
+                    for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+                        if (entity instanceof LivingEntity target && entity != player && !entity.isDead()) {
+                            if (target instanceof Monster || target.getScoreboardTags().contains("zombiez_enemy")) {
+                                // Aspiration vers le joueur
+                                Vector direction = center.toVector().subtract(target.getLocation().toVector());
+                                double distance = direction.length();
+
+                                if (distance > 1.5) {
+                                    // Plus fort quand plus loin
+                                    double pullStrength = Math.min(0.8, (radius - distance) / radius + 0.3);
+                                    direction.normalize().multiply(pullStrength);
+                                    target.setVelocity(target.getVelocity().add(direction));
+                                }
+
+                                // Dégâts (tous les 5 ticks = 4x/sec)
+                                if (ticks % 5 == 0) {
+                                    target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                                    target.damage(baseDamage, player);
+
+                                    // Particules sur la cible
+                                    target.getWorld().spawnParticle(
+                                        Particle.CRIT,
+                                        target.getLocation().add(0, 1, 0),
+                                        5, 0.3, 0.3, 0.3, 0.1
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    // Son de vent intense pendant le sprint
+                    if (ticks % 10 == 0) {
+                        player.getWorld().playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 0.6f, 1.2f);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
+     * Termine la Mega Tornade et restaure le scale
+     */
+    private void endMegaTornado(Player player, UUID uuid) {
+        // Restaurer le scale original
+        Double originalScale = megaTornadoOriginalScale.remove(uuid);
+        if (originalScale != null && player.isOnline()) {
+            player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+        }
+
+        megaTornadoActiveUntil.remove(uuid);
+
+        // Effets de fin
+        if (player.isOnline()) {
+            Location center = player.getLocation();
+
+            // Explosion finale
+            center.getWorld().spawnParticle(Particle.EXPLOSION, center.add(0, 1, 0), 3, 1, 1, 1, 0.1);
+            center.getWorld().spawnParticle(
+                Particle.DUST,
+                center,
+                30, 2, 2, 2, 0.1,
+                new Particle.DustOptions(Color.RED, 2.0f)
+            );
+
+            // Sons de fin
+            player.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.8f);
+            player.getWorld().playSound(center, Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
+
+            if (shouldSendTalentMessage(player)) {
+                player.sendMessage("§7La §c§lMega Tornade§7 se dissipe...");
+            }
         }
     }
 
@@ -1732,11 +2129,20 @@ public class TalentListener implements Listener {
     }
 
     private void startRageCyclone(Player player, Talent talent) {
+        // Son d'activation puissant
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_FLAP, 1.0f, 1.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, 0.8f, 0.8f);
+
         new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+
             @Override
             public void run() {
                 if (!activeCyclones.contains(player.getUniqueId()) || !player.isSprinting()) {
                     activeCyclones.remove(player.getUniqueId());
+                    // Son de fin
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 0.8f, 0.6f);
                     cancel();
                     return;
                 }
@@ -1744,24 +2150,88 @@ public class TalentListener implements Listener {
                 Location center = player.getLocation();
                 double damage = 5 * talent.getValue(1);
                 double radius = talent.getValue(2);
+                ticks++;
+                rotationAngle += 0.5; // Rotation progressive
 
-                // Particules tornado
-                for (double y = 0; y < 2; y += 0.3) {
-                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-                        double r = radius * (1 - y/3);
-                        double x = center.getX() + r * Math.cos(angle + y);
-                        double z = center.getZ() + r * Math.sin(angle + y);
-                        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK,
-                            new Location(player.getWorld(), x, center.getY() + y, z), 1);
+                // Intensité croissante (plus le cyclone dure, plus il est intense)
+                double intensity = Math.min(1.0 + (ticks / 40.0), 2.0);
+
+                // === TORNADO VISUELLE ===
+                // Couche 1: Base du cyclone (large, rouge/orange)
+                for (double y = 0; y < 2.5; y += 0.25) {
+                    double layerRadius = radius * (1 - y / 4.0) * intensity;
+                    int particlesPerLayer = (int) (8 + (2.5 - y) * 4);
+
+                    for (int i = 0; i < particlesPerLayer; i++) {
+                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 0.8);
+                        double x = center.getX() + layerRadius * Math.cos(angle);
+                        double z = center.getZ() + layerRadius * Math.sin(angle);
+                        Location particleLoc = new Location(player.getWorld(), x, center.getY() + y, z);
+
+                        // Alternance de particules selon la hauteur
+                        if (y < 0.8) {
+                            // Base: Dust rouge/orange
+                            player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                                new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 69, 0), 1.2f));
+                        } else if (y < 1.6) {
+                            // Milieu: Flame + Dust jaune
+                            if (i % 2 == 0) {
+                                player.getWorld().spawnParticle(Particle.FLAME, particleLoc, 1, 0.05, 0.05, 0.05, 0.02);
+                            } else {
+                                player.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                                    new Particle.DustOptions(org.bukkit.Color.YELLOW, 0.9f));
+                            }
+                        } else {
+                            // Sommet: Crit
+                            player.getWorld().spawnParticle(Particle.CRIT, particleLoc, 1, 0.1, 0.1, 0.1, 0.05);
+                        }
                     }
                 }
 
+                // Couche 2: Spirale centrale ascendante
+                for (double y = 0; y < 2; y += 0.15) {
+                    double spiralAngle = rotationAngle * 2 + y * 3;
+                    double spiralRadius = 0.3 + y * 0.2;
+                    double x = center.getX() + spiralRadius * Math.cos(spiralAngle);
+                    double z = center.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    player.getWorld().spawnParticle(Particle.DUST,
+                        new Location(player.getWorld(), x, center.getY() + y, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(org.bukkit.Color.ORANGE, 0.8f));
+                }
+
+                // Son de vent périodique (toutes les 10 ticks)
+                if (ticks % 10 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_BREEZE_IDLE_AIR, 0.6f, 1.2f + (float)(Math.random() * 0.3));
+                }
+
+                // === DÉGÂTS ET EFFETS SUR ENNEMIS ===
+                int enemiesHit = 0;
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
                     if (entity instanceof LivingEntity target && entity != player) {
-                        // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+                        // Marquer comme dégâts secondaires
                         target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                        target.damage(damage, player);
+                        target.damage(damage * intensity, player);
+                        enemiesHit++;
+
+                        // Effet de hit sur l'ennemi
+                        target.getWorld().spawnParticle(Particle.CRIT,
+                            target.getLocation().add(0, 1, 0), 4, 0.2, 0.3, 0.2, 0.1);
+                        target.getWorld().spawnParticle(Particle.DUST,
+                            target.getLocation().add(0, 1, 0), 6, 0.25, 0.25, 0.25, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 0.9f));
+
+                        // Léger knockback rotatif (aspiration vers le centre)
+                        if (ticks % 4 == 0) {
+                            org.bukkit.util.Vector toCenter = center.toVector().subtract(target.getLocation().toVector()).normalize();
+                            target.setVelocity(target.getVelocity().add(toCenter.multiply(0.15).setY(0.1)));
+                        }
                     }
+                }
+
+                // Son de hit quand on touche des ennemis
+                if (enemiesHit > 0 && ticks % 5 == 0) {
+                    player.getWorld().playSound(center, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.0f + (float)(Math.random() * 0.4));
                 }
             }
         }.runTaskTimer(plugin, 0L, (long)(talent.getValue(0) / 50));
@@ -1803,6 +2273,158 @@ public class TalentListener implements Listener {
 
         // Particules de heal
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0);
+    }
+
+    /**
+     * Invoque un Cyclone Sanglant chasseur
+     * Le cyclone traque les ennemis proches et inflige des dégâts tout en soignant le joueur
+     */
+    private void spawnBloodCyclone(Player player, Location spawnLocation, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0);      // 4000ms
+        double damagePercent = talent.getValue(1);      // 0.50 = 50% base damage
+        double healPercent = talent.getValue(2);        // 0.015 = 1.5%
+        double radius = talent.getValue(3);             // 3.0 blocks
+
+        // Incrémenter le compteur de cyclones actifs
+        activeBloodCyclones.merge(uuid, 1, Integer::sum);
+
+        // Son d'invocation
+        spawnLocation.getWorld().playSound(spawnLocation, Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.8f);
+        spawnLocation.getWorld().playSound(spawnLocation, Sound.BLOCK_PORTAL_TRIGGER, 0.4f, 1.5f);
+
+        // Calculer les dégâts de base du joueur
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * damagePercent;
+
+        new BukkitRunnable() {
+            private int ticks = 0;
+            private double rotationAngle = 0;
+            private Location currentLocation = spawnLocation.clone();
+            private LivingEntity currentTarget = null;
+
+            @Override
+            public void run() {
+                // Vérifier durée
+                if (ticks * 50 >= duration || !player.isOnline()) {
+                    // Effet de disparition
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        currentLocation.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 0, 0), 1.5f));
+                    currentLocation.getWorld().playSound(currentLocation, Sound.BLOCK_FIRE_EXTINGUISH, 0.6f, 0.8f);
+
+                    activeBloodCyclones.merge(uuid, -1, Integer::sum);
+                    if (activeBloodCyclones.getOrDefault(uuid, 0) <= 0) {
+                        activeBloodCyclones.remove(uuid);
+                    }
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+                rotationAngle += 0.6;
+
+                // === TROUVER UNE CIBLE ===
+                if (currentTarget == null || currentTarget.isDead() ||
+                    currentTarget.getLocation().distance(currentLocation) > 15) {
+                    currentTarget = findNearestEnemy(currentLocation, 10, player);
+                }
+
+                // === MOUVEMENT VERS LA CIBLE ===
+                if (currentTarget != null && !currentTarget.isDead()) {
+                    Location targetLoc = currentTarget.getLocation();
+                    org.bukkit.util.Vector direction = targetLoc.toVector()
+                        .subtract(currentLocation.toVector()).normalize();
+                    double speed = 0.25; // Vitesse de déplacement
+                    currentLocation.add(direction.multiply(speed));
+                }
+
+                // === ANIMATION DU CYCLONE SANGLANT ===
+                // Structure en spirale rouge/noire
+                for (double y = 0; y < 2.0; y += 0.2) {
+                    double layerRadius = radius * 0.4 * (1 - y / 3.0);
+                    int particlesPerLayer = 6;
+
+                    for (int i = 0; i < particlesPerLayer; i++) {
+                        double angle = rotationAngle + (Math.PI * 2 * i / particlesPerLayer) + (y * 1.2);
+                        double x = currentLocation.getX() + layerRadius * Math.cos(angle);
+                        double z = currentLocation.getZ() + layerRadius * Math.sin(angle);
+                        Location particleLoc = new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z);
+
+                        // Couleur dégradée rouge → noir selon hauteur
+                        int red = (int) (180 - y * 40);
+                        int green = 0;
+                        int blue = 0;
+                        currentLocation.getWorld().spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(red, green, blue), 1.0f));
+                    }
+                }
+
+                // Spirale centrale
+                for (double y = 0; y < 1.5; y += 0.1) {
+                    double spiralAngle = rotationAngle * 2.5 + y * 4;
+                    double spiralRadius = 0.15 + y * 0.1;
+                    double x = currentLocation.getX() + spiralRadius * Math.cos(spiralAngle);
+                    double z = currentLocation.getZ() + spiralRadius * Math.sin(spiralAngle);
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        new Location(currentLocation.getWorld(), x, currentLocation.getY() + y, z),
+                        1, 0, 0, 0, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 0.7f)); // Dark red
+                }
+
+                // Particules de sang occasionnelles
+                if (ticks % 4 == 0) {
+                    currentLocation.getWorld().spawnParticle(Particle.DUST,
+                        currentLocation.clone().add(0, 0.5, 0), 3, 0.3, 0.2, 0.3, 0.05,
+                        new Particle.DustOptions(org.bukkit.Color.RED, 0.8f));
+                }
+
+                // Son ambiant (toutes les 15 ticks)
+                if (ticks % 15 == 0) {
+                    currentLocation.getWorld().playSound(currentLocation,
+                        Sound.ENTITY_VEX_AMBIENT, 0.4f, 0.5f);
+                }
+
+                // === DÉGÂTS AUX ENNEMIS PROCHES ===
+                for (Entity entity : currentLocation.getWorld().getNearbyEntities(currentLocation, radius, radius, radius)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player)) {
+                        // Dégâts
+                        target.setMetadata("zombiez_secondary_damage",
+                            new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                        target.damage(baseDamage, player);
+
+                        // Heal au joueur
+                        if (player.isOnline()) {
+                            double heal = player.getAttribute(Attribute.MAX_HEALTH).getValue() * healPercent;
+                            applyLifesteal(player, heal);
+                        }
+
+                        // Effet de hit
+                        target.getWorld().spawnParticle(Particle.DUST,
+                            target.getLocation().add(0, 1, 0), 8, 0.2, 0.3, 0.2, 0.1,
+                            new Particle.DustOptions(org.bukkit.Color.RED, 1.0f));
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 5L); // Tick toutes les 5 ticks (250ms)
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche dans un rayon donné
+     */
+    private LivingEntity findNearestEnemy(Location center, double radius, Player exclude) {
+        LivingEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && entity != exclude && !(entity instanceof Player)) {
+                double dist = entity.getLocation().distance(center);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = living;
+                }
+            }
+        }
+        return nearest;
     }
 
     /**
@@ -2884,30 +3506,31 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Rempart (Slot 1) - Tank/Défense
-     * Format optimisé inspiré de ShadowManager
-     * Affiche: Absorption, Châtiment, Bouclier Vengeur, Charge, Avatar
+     * Format unifié avec les autres spécialisations
+     * Affiche: Header 🛡, Absorption, Châtiment, Bouclier Vengeur, Charge, Avatar
      */
     private void buildRempartActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
 
-        // === ABSORPTION VISUELLE (comme les points d'ombre) ===
-        double absorption = player.getAbsorptionAmount();
-        int absHearts = Math.min((int) Math.ceil(absorption / 2.0), 5); // Max 5 symboles
-        bar.append("§6§l[§r ");
-        for (int i = 0; i < 5; i++) {
-            if (i < absHearts) {
-                bar.append("§6◆ "); // Coeur plein (doré)
-            } else {
-                bar.append("§8◇ "); // Coeur vide
-            }
-        }
-        bar.append("§6§l]§r");
+        // === HEADER REMPART ===
+        bar.append("§6§l[§e🛡§6§l] ");
 
         // === AVATAR ACTIF - Mode prioritaire ===
         if (isBulwarkAvatar(player)) {
             long remaining = (bulwarkAvatarActiveUntil.get(uuid) - System.currentTimeMillis()) / 1000;
-            bar.append("  §6§l✦ AVATAR §e").append(remaining).append("s");
+            bar.append("§6§l✦ AVATAR §e").append(remaining).append("s");
+            // Absorption pendant Avatar
+            double absorption = player.getAbsorptionAmount();
+            if (absorption > 0) {
+                bar.append("  §6◆").append(String.format("%.0f", absorption));
+            }
             return; // Affichage simplifié pendant l'Avatar
+        }
+
+        // === ABSORPTION (compacte) ===
+        double absorption = player.getAbsorptionAmount();
+        if (absorption > 0) {
+            bar.append("§6◆").append(String.format("%.0f", absorption));
         }
 
         // === CHÂTIMENT (3 stacks = buff prêt) ===
@@ -2927,7 +3550,8 @@ public class TalentListener implements Listener {
         if (vengefulShield != null) {
             int hits = vengefulShieldCounter.getOrDefault(uuid, 0);
             if (hits > 0) {
-                bar.append("  §7Disque: §e").append(hits).append("§7/4");
+                String color = hits >= 4 ? "§a§l" : "§e";
+                bar.append("  ").append(color).append("⚔").append(hits).append("§7/4");
             }
         }
 
@@ -2936,21 +3560,39 @@ public class TalentListener implements Listener {
         if (bastionCharge != null) {
             long remaining = getCooldownRemaining(uuid, "bastion_charge");
             if (remaining > 0) {
-                bar.append("  §7Charge: §c").append(String.format("%.1f", remaining / 1000.0)).append("s");
+                bar.append("  §7⚡§c").append(String.format("%.1f", remaining / 1000.0)).append("s");
             } else {
-                bar.append("  §7Charge: §aPRÊT");
+                bar.append("  §a⚡PRÊT");
             }
         }
 
-        // === PROGRESSION AVATAR (si talent actif et > 25%) ===
+        // === PROGRESSION AVATAR (si talent actif) ===
         Talent bulwarkAvatar = getActiveTalentIfHas(player, Talent.TalentEffectType.BULWARK_AVATAR);
         if (bulwarkAvatar != null) {
             double threshold = bulwarkAvatar.getValue(0);
             double blocked = bulwarkDamageBlocked.getOrDefault(uuid, 0.0);
             int percent = (int) ((blocked / threshold) * 100);
+            percent = Math.min(percent, 100);
             if (percent >= 25) {
-                bar.append("  §6Avatar §e").append(percent).append("%");
+                String color = percent >= 100 ? "§6§l" : (percent >= 75 ? "§e" : "§7");
+                bar.append("  ").append(color).append("✦").append(percent).append("%");
             }
+        }
+
+        // === FORTIFICATION ACTIVE (stacks + timer) ===
+        Long fortEnd = fortifyExpireTime.get(uuid);
+        if (fortEnd != null && fortEnd > System.currentTimeMillis()) {
+            int stacks = fortifyStacks.getOrDefault(uuid, 0);
+            long remaining = (fortEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §b⛨").append(stacks).append(" §7(").append(remaining).append("s)");
+        }
+
+        // === ÉCHO DE FER (dégâts stockés) ===
+        double storedEcho = ironEchoStoredDamage.getOrDefault(uuid, 0.0);
+        if (storedEcho > 0) {
+            int echoStacks = ironEchoStacks.getOrDefault(uuid, 0);
+            String echoColor = echoStacks >= 5 ? "§c§l" : (echoStacks >= 3 ? "§6" : "§e");
+            bar.append("  ").append(echoColor).append("🔃").append(echoStacks);
         }
     }
 
@@ -2969,6 +3611,35 @@ public class TalentListener implements Listener {
             double currentBonus = fury * risingFury.getValue(0) * 100;
             String color = currentBonus >= maxBonus ? "§c§l" : (currentBonus >= maxBonus * 0.5 ? "§6" : "§e");
             bar.append(color).append("🔥 +").append(String.format("%.0f", currentBonus)).append("%");
+        }
+
+        // Ferveur Sanguinaire - stacks de kills
+        Long bloodExpiry = bloodFervourExpiry.get(uuid);
+        if (bloodExpiry != null && System.currentTimeMillis() < bloodExpiry) {
+            int bloodStacks = bloodFervourStacks.getOrDefault(uuid, 0);
+            if (bloodStacks > 0) {
+                Talent bloodFervour = getActiveTalentIfHas(player, Talent.TalentEffectType.BLOOD_FERVOUR);
+                if (bloodFervour != null) {
+                    int maxStacks = (int) bloodFervour.getValue(2);
+                    double bonusPercent = bloodStacks * bloodFervour.getValue(0) * 100;
+                    String color = bloodStacks >= maxStacks ? "§c§l" : (bloodStacks >= 2 ? "§c" : "§4");
+                    long remaining = (bloodExpiry - System.currentTimeMillis()) / 1000;
+                    bar.append("  ").append(color).append("🩸 x").append(bloodStacks);
+                    bar.append(" §7(+").append(String.format("%.0f", bonusPercent)).append("% ").append(remaining).append("s)");
+                }
+            }
+        }
+
+        // Coup de Grâce - indicateur d'exécution récente
+        Long mercyTime = lastMercyStrike.get(uuid);
+        if (mercyTime != null && System.currentTimeMillis() - mercyTime < 2000) {
+            bar.append("  §4§l⚔ EXÉCUTION!");
+        } else {
+            // Afficher indicateur si talent actif (rappel au joueur)
+            Talent mercyStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.MERCY_STRIKE);
+            if (mercyStrike != null) {
+                bar.append("  §8⚔<30%");
+            }
         }
 
         // Déchaînement (multi-kills)
@@ -3014,16 +3685,48 @@ public class TalentListener implements Listener {
             bar.append("§b🛡 ").append(String.format("%.0f", shield)).append(timeStr);
         }
 
-        // Représailles stacks
-        int retStacks = retaliationStacks.getOrDefault(uuid, 0);
-        if (retStacks > 0) {
-            bar.append("  §c⚡").append(retStacks).append(" stacks");
+        // Cyclones Sanglants actifs
+        int cyclones = activeBloodCyclones.getOrDefault(uuid, 0);
+        if (cyclones > 0) {
+            bar.append("  §4🌀 x").append(cyclones);
         }
 
-        // Dégâts stockés (Avatar Vengeance)
-        double stored = storedDamage.getOrDefault(uuid, 0.0);
-        if (stored > 0) {
-            bar.append("  §4Stocké: §c").append(String.format("%.0f", stored));
+        // Frénésie Guerrière - combo counter
+        Talent warriorFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WARRIOR_FRENZY);
+        if (warriorFrenzy != null) {
+            int comboRequired = (int) warriorFrenzy.getValue(0); // 5
+            long timeout = (long) warriorFrenzy.getValue(1);      // 3000ms
+            Long lastHit = frenzyLastHit.get(uuid);
+            boolean isActive = lastHit != null && System.currentTimeMillis() - lastHit <= timeout;
+
+            if (frenzyReady.getOrDefault(uuid, false)) {
+                // Ready to explode!
+                bar.append("  §c§l⚡ FRÉNÉSIE!");
+            } else if (isActive) {
+                int currentCombo = frenzyComboCount.getOrDefault(uuid, 0);
+                if (currentCombo > 0) {
+                    String color = currentCombo >= comboRequired - 1 ? "§e" : "§6";
+                    bar.append("  ").append(color).append("⚡ ").append(currentCombo).append("/").append(comboRequired);
+                }
+            }
+        }
+
+        // Méga Tornade - affichage durée restante ou cooldown
+        Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
+        if (megaTornado != null) {
+            Long activeUntil = megaTornadoActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                // Actif - afficher durée restante
+                long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
+                bar.append("  §c§l🌪 MEGA! §e").append(remaining).append("s");
+            } else if (isOnCooldown(uuid, "mega_tornado")) {
+                // En cooldown
+                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                bar.append("  §8🌪 ").append(remaining).append("s");
+            } else {
+                // Prêt!
+                bar.append("  §a🌪 PRÊT");
+            }
         }
 
         // HP volés (Avatar de Sang)
@@ -3071,6 +3774,15 @@ public class TalentListener implements Listener {
      * Nettoie les données d'un joueur (déconnexion)
      */
     public void cleanupPlayer(UUID playerUuid) {
+        // Restaurer le scale si Mega Tornade était active
+        Double originalScale = megaTornadoOriginalScale.get(playerUuid);
+        if (originalScale != null) {
+            Player player = plugin.getServer().getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+            }
+        }
+
         // Cleanup tracking data
         furyStacks.remove(playerUuid);
         furyLastHit.remove(playerUuid);
@@ -3078,6 +3790,8 @@ public class TalentListener implements Listener {
         chargeReady.remove(playerUuid);
         recentKills.remove(playerUuid);
         riposteBuffTime.remove(playerUuid);
+        bloodFervourStacks.remove(playerUuid);
+        bloodFervourExpiry.remove(playerUuid);
         attackCounter.remove(playerUuid);
         immortalLastProc.remove(playerUuid);
         activeCyclones.remove(playerUuid);
@@ -3094,16 +3808,19 @@ public class TalentListener implements Listener {
         bulwarkDamageBlocked.remove(playerUuid);
         bulwarkAvatarActiveUntil.remove(playerUuid);
         bulwarkLastMilestone.remove(playerUuid);
-        retaliationStacks.remove(playerUuid);
-        retaliationLastProc.remove(playerUuid);
-        storedDamage.remove(playerUuid);
+        activeBloodCyclones.remove(playerUuid);
+        megaTornadoActiveUntil.remove(playerUuid);
+        megaTornadoOriginalScale.remove(playerUuid);
         bloodStolenHp.remove(playerUuid);
         chainExecuteBuff.remove(playerUuid);
         lastDamageDealt.remove(playerUuid);
         lastCombatTime.remove(playerUuid);
         tempShield.remove(playerUuid);
         tempShieldExpiry.remove(playerUuid);
-        burningStacks.remove(playerUuid);
+        lastMercyStrike.remove(playerUuid);
+        frenzyComboCount.remove(playerUuid);
+        frenzyLastHit.remove(playerUuid);
+        frenzyReady.remove(playerUuid);
         aoeDamageCounter.remove(playerUuid);
         lastApocalypseMilestone.remove(playerUuid);
         lastSneakTime.remove(playerUuid);
