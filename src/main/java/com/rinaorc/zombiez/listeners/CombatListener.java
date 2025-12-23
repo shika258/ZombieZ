@@ -87,7 +87,7 @@ public class CombatListener implements Listener {
                 var skillManager = plugin.getSkillTreeManager();
                 if (skillManager != null) {
                     healthRegen += skillManager.getSkillBonus(player,
-                        com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus.HEALTH_REGEN);
+                        com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus.REGEN);
                 }
 
                 if (healthRegen > 0) {

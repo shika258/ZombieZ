@@ -326,12 +326,15 @@ public class ZombieListener implements Listener {
 
             // Effet visuel si pénétration significative (> 50% de la défense ignorée)
             if (armorPenetration > baseDefense / 2) {
-                player.getWorld().spawnParticle(
-                        org.bukkit.Particle.DUST,
-                        zombie.getEntity().getLocation().add(0, 1, 0),
-                        8, 0.3, 0.4, 0.3, 0,
-                        new org.bukkit.Particle.DustOptions(
-                            org.bukkit.Color.fromRGB(200, 50, 50), 0.8f));
+                Entity zombieEntity = plugin.getServer().getEntity(zombie.getEntityId());
+                if (zombieEntity != null) {
+                    player.getWorld().spawnParticle(
+                            org.bukkit.Particle.DUST,
+                            zombieEntity.getLocation().add(0, 1, 0),
+                            8, 0.3, 0.4, 0.3, 0,
+                            new org.bukkit.Particle.DustOptions(
+                                org.bukkit.Color.fromRGB(200, 50, 50), 0.8f));
+                }
             }
         }
 
