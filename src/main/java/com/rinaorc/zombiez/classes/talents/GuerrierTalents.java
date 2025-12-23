@@ -609,22 +609,22 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_death_and_decay")
             .name("Mort et Decomposition")
-            .description("Zone de sang au sol")
+            .description("Aura de mort permanente autour de vous")
             .loreLines(new String[]{
-                "§4§lVOIE DU SANG - ZONE VAMPIRIQUE",
+                "§4§lVOIE DU SANG - AURA DE MORT",
                 "",
-                "§6ACTIVATION: §eDouble Sneak",
+                "§6§lTOUJOURS ACTIF",
                 "",
-                "§7Cree une §4flaque de sang§7 de §e6 blocs§7",
-                "§7pendant §e10 secondes§7.",
+                "§7Une §4aura de decomposition§7 vous entoure",
+                "§7en permanence (§e6 blocs§7).",
                 "",
-                "§7Dans la zone:",
+                "§7Effets dans l'aura:",
+                "§7- §c10%§7 de vos degats/seconde aux ennemis",
                 "§7- §c+25%§7 degats infliges",
                 "§7- §a+15%§7 reduction degats",
                 "§7- Attaques touchent §ctous§7 les ennemis",
                 "",
-                "§c§lRESTEZ DANS LA ZONE!",
-                "§8Cooldown: §e25s"
+                "§4§lLA MORT VOUS ACCOMPAGNE!"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -632,8 +632,7 @@ public final class GuerrierTalents {
             .icon(Material.CRIMSON_NYLIUM)
             .iconColor("§4")
             .effectType(Talent.TalentEffectType.DEATH_AND_DECAY)
-            .values(new double[]{6.0, 10000, 0.25, 0.15, 25000}) // radius, duration_ms, damage_bonus%, DR_bonus%, cooldown_ms
-            .internalCooldownMs(25000)
+            .values(new double[]{6.0, 0.25, 0.15, 0.10}) // radius, damage_bonus%, DR_bonus%, aura_damage%
             .build());
 
         // 5.5 - SEIGNEUR DE GUERRE
@@ -878,7 +877,7 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_blood_pact")
             .name("Pacte de Sang")
-            .description("Death Strike ameliore + overheal = bouclier")
+            .description("Death Strike ameliore + invoque des Larves de Sang")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
@@ -886,18 +885,23 @@ public final class GuerrierTalents {
                 "§7stocker jusqu'a §c40%§7 de vos PV max",
                 "§7en degats recus (au lieu de 25%).",
                 "",
-                "§7§aOVERHEAL§7: L'exces de soin devient",
-                "§7un §6bouclier temporaire§7 (5s)!",
+                "§4§lLARVES DE SANG§7: L'exces de soin",
+                "§7invoque des §4larves vampiriques§7!",
                 "",
-                "§8Max bouclier: §620%§8 PV max"
+                "§7Les larves:",
+                "§7- Attaquent les ennemis proches",
+                "§7- Vous §asoignent§7 de §c2%§7 PV/touche",
+                "§7- Durent §e5 secondes§7",
+                "",
+                "§8Max: §43 larves§8 par overheal"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
             .slotIndex(3)
-            .icon(Material.GHAST_TEAR)
+            .icon(Material.FERMENTED_SPIDER_EYE)
             .iconColor("§4")
             .effectType(Talent.TalentEffectType.BLOOD_PACT)
-            .values(new double[]{0.40, 0.20, 5000}) // max_stored_damage%, max_shield%, shield_duration_ms
+            .values(new double[]{0.40, 3, 5000, 0.02}) // max_stored_damage%, max_larvae, larvae_duration_ms, heal_per_hit%
             .build());
 
         // 6.5 - FAUCHEUR
@@ -1165,7 +1169,7 @@ public final class GuerrierTalents {
                 "§7- Regenere §f1 charge d'os§7/2s",
                 "",
                 "§4§lVOUS ETES LE BOSS DU COMBAT!",
-                "§8Cooldown: §e90s"
+                "§8Cooldown: §e45s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -1173,8 +1177,8 @@ public final class GuerrierTalents {
             .icon(Material.NETHERITE_SWORD)
             .iconColor("§4§l")
             .effectType(Talent.TalentEffectType.DANCING_RUNE_WEAPON)
-            .values(new double[]{15000, 0.30, 0.20, 2000, 90000}) // duration_ms, DR_bonus%, lifesteal_bonus%, bone_regen_ms, cooldown_ms
-            .internalCooldownMs(90000)
+            .values(new double[]{15000, 0.30, 0.20, 2000, 45000}) // duration_ms, DR_bonus%, lifesteal_bonus%, bone_regen_ms, cooldown_ms
+            .internalCooldownMs(45000)
             .build());
 
         // 8.5 - EXTINCTION
