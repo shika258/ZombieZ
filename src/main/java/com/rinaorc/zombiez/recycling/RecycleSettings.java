@@ -85,7 +85,7 @@ public class RecycleSettings {
     }
 
     /**
-     * Ajoute des points aux statistiques de recyclage
+     * Ajoute des points aux statistiques de recyclage (1 item)
      */
     public void addRecycledItem(long points) {
         sessionPointsEarned.addAndGet(points);
@@ -94,6 +94,20 @@ public class RecycleSettings {
         totalItemsRecycled.incrementAndGet();
         lastMinutePoints.addAndGet(points);
         lastMinuteItems.incrementAndGet();
+    }
+
+    /**
+     * Ajoute des points aux statistiques de recyclage en batch (optimisé)
+     * @param itemCount Nombre d'items recyclés
+     * @param totalPoints Points totaux gagnés
+     */
+    public void addRecycledItemsBatch(int itemCount, long totalPoints) {
+        sessionPointsEarned.addAndGet(totalPoints);
+        sessionItemsRecycled.addAndGet(itemCount);
+        totalPointsEarned.addAndGet(totalPoints);
+        totalItemsRecycled.addAndGet(itemCount);
+        lastMinutePoints.addAndGet(totalPoints);
+        lastMinuteItems.addAndGet(itemCount);
     }
 
     /**
