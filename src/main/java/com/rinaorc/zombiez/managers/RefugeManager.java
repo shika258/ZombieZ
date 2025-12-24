@@ -3,10 +3,21 @@ package com.rinaorc.zombiez.managers;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.zones.Refuge;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Display;
+import org.bukkit.entity.TextDisplay;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.io.File;
 import java.util.*;
@@ -16,6 +27,7 @@ import java.util.logging.Level;
 /**
  * Gestionnaire des refuges (points de sauvegarde et téléportation)
  * Charge et gère les refuges depuis refuges.yml
+ * Affiche des TextDisplay informatifs au-dessus des beacons
  */
 public class RefugeManager {
 
@@ -27,8 +39,15 @@ public class RefugeManager {
     // Cache pour recherche rapide par position de beacon
     private final Map<String, Refuge> refugesByBeaconPos = new ConcurrentHashMap<>();
 
+    // TextDisplays au-dessus des beacons (refuge ID -> TextDisplay)
+    private final Map<Integer, TextDisplay> beaconDisplays = new ConcurrentHashMap<>();
+
     @Getter
     private FileConfiguration refugesConfig;
+
+    // Configuration des hologrammes
+    private static final float HOLOGRAM_SCALE = 0.8f;
+    private static final double HOLOGRAM_HEIGHT_OFFSET = 2.5; // Blocs au-dessus du beacon
 
     public RefugeManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -76,6 +95,9 @@ public class RefugeManager {
         }
 
         plugin.log(Level.INFO, "§a✓ " + loaded + " refuges chargés");
+
+        // Spawn les hologrammes après un court délai (attendre que les chunks soient chargés)
+        Bukkit.getScheduler().runTaskLater(plugin, this::spawnAllBeaconDisplays, 40L); // 2 secondes
     }
 
     /**
@@ -232,6 +254,134 @@ public class RefugeManager {
      * Recharge les refuges depuis le fichier
      */
     public void reloadRefuges() {
+        removeAllBeaconDisplays();
         loadRefuges();
+    }
+
+    // ==================== SYSTÈME DE TEXTDISPLAY ====================
+
+    /**
+     * Spawn tous les hologrammes au-dessus des beacons
+     */
+    public void spawnAllBeaconDisplays() {
+        removeAllBeaconDisplays(); // Nettoyer d'abord
+
+        World world = Bukkit.getWorlds().get(0); // Monde principal
+        if (world == null) return;
+
+        for (Refuge refuge : refugesById.values()) {
+            spawnBeaconDisplay(refuge, world);
+        }
+
+        plugin.log(Level.INFO, "§a✓ " + beaconDisplays.size() + " hologrammes de refuge créés");
+    }
+
+    /**
+     * Spawn un hologramme au-dessus du beacon d'un refuge
+     */
+    private void spawnBeaconDisplay(Refuge refuge, World world) {
+        Location beaconLoc = new Location(world,
+            refuge.getBeaconX() + 0.5,
+            refuge.getBeaconY() + HOLOGRAM_HEIGHT_OFFSET,
+            refuge.getBeaconZ() + 0.5
+        );
+
+        // Vérifier si le chunk est chargé
+        if (!beaconLoc.getChunk().isLoaded()) {
+            return; // On ne force pas le chargement
+        }
+
+        try {
+            TextDisplay display = world.spawn(beaconLoc, TextDisplay.class, td -> {
+                // Texte multi-lignes
+                Component text = createRefugeHologramText(refuge);
+                td.text(text);
+
+                // Billboard - toujours face au joueur
+                td.setBillboard(Display.Billboard.CENTER);
+
+                // Style
+                td.setBackgroundColor(Color.fromARGB(180, 0, 0, 0)); // Fond semi-transparent
+                td.setDefaultBackground(false);
+                td.setShadowed(true);
+                td.setSeeThrough(false);
+                td.setAlignment(TextDisplay.TextAlignment.CENTER);
+
+                // Échelle
+                td.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(HOLOGRAM_SCALE, HOLOGRAM_SCALE, HOLOGRAM_SCALE),
+                    new AxisAngle4f(0, 0, 0, 1)
+                ));
+
+                // Distance de vue
+                td.setViewRange(0.5f); // Visible à ~32 blocs
+
+                // Persistance
+                td.setPersistent(false); // Ne pas sauvegarder dans le monde
+            });
+
+            beaconDisplays.put(refuge.getId(), display);
+
+        } catch (Exception e) {
+            plugin.log(Level.WARNING, "§eImpossible de créer l'hologramme pour " + refuge.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Crée le texte de l'hologramme pour un refuge
+     */
+    private Component createRefugeHologramText(Refuge refuge) {
+        // Ligne 1: Nom du refuge
+        Component line1 = Component.text("§e§l🏠 " + refuge.getName())
+            .color(NamedTextColor.YELLOW)
+            .decoration(TextDecoration.BOLD, true);
+
+        // Ligne 2: Instruction
+        Component line2 = Component.text("§7[Clic droit] §fDébloquer")
+            .color(NamedTextColor.WHITE);
+
+        // Ligne 3: Coût et niveau
+        Component line3 = Component.text("§6" + EconomyManager.formatPoints(refuge.getCost()) + " §7| §eNiv. " + refuge.getRequiredLevel())
+            .color(NamedTextColor.GOLD);
+
+        // Combiner avec des retours à la ligne
+        return line1
+            .append(Component.newline())
+            .append(line2)
+            .append(Component.newline())
+            .append(line3);
+    }
+
+    /**
+     * Supprime tous les hologrammes de beacon
+     */
+    public void removeAllBeaconDisplays() {
+        for (TextDisplay display : beaconDisplays.values()) {
+            if (display != null && display.isValid()) {
+                display.remove();
+            }
+        }
+        beaconDisplays.clear();
+    }
+
+    /**
+     * Met à jour un hologramme spécifique (si le joueur a débloqué le refuge)
+     */
+    public void updateBeaconDisplay(int refugeId) {
+        TextDisplay display = beaconDisplays.get(refugeId);
+        Refuge refuge = refugesById.get(refugeId);
+
+        if (display != null && display.isValid() && refuge != null) {
+            display.text(createRefugeHologramText(refuge));
+        }
+    }
+
+    /**
+     * Appelé lors du shutdown du plugin pour nettoyer
+     */
+    public void shutdown() {
+        removeAllBeaconDisplays();
     }
 }

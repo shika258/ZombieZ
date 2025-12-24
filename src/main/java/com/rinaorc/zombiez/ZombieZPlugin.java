@@ -287,6 +287,12 @@ public class ZombieZPlugin extends JavaPlugin {
             itemManager.cleanup();
         }
 
+        // Cleanup des hologrammes de refuge
+        if (refugeManager != null) {
+            log(Level.INFO, "§7Nettoyage des hologrammes de refuge...");
+            refugeManager.shutdown();
+        }
+
         // Cleanup du système de boss bars dynamiques
         if (dynamicBossBarManager != null) {
             log(Level.INFO, "§7Nettoyage des boss bars dynamiques...");
