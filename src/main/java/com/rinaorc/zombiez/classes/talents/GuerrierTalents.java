@@ -1268,7 +1268,7 @@ public final class GuerrierTalents {
                 "§7- §c+50%§7 taille (geant)",
                 "§7- §c×2§7 multiplicateur de degats",
                 "§7- §aFente gratuite§7 (0 cooldown)",
-                "§7- §e+4 blocs§7 de portee Fente",
+                "§7- §e+12 blocs§7 de portee Fente (24 total)",
                 "§7- §6Aura de feu§7 orange",
                 "§7- §bImmunite knockback§7",
                 "",
@@ -1281,7 +1281,7 @@ public final class GuerrierTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§c§l")
             .effectType(Talent.TalentEffectType.BERSERKER_RAGE)
-            .values(new double[]{12000, 2.0, 0.50, 4.0, 60000}) // duration_ms, damage_multiplier, size_bonus%, range_bonus, cooldown_ms
+            .values(new double[]{12000, 2.0, 0.50, 12.0, 60000}) // duration_ms, damage_multiplier, size_bonus%, range_bonus, cooldown_ms
             .internalCooldownMs(60000)
             .build());
     }
