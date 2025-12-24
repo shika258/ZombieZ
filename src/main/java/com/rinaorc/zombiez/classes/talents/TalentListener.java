@@ -71,9 +71,10 @@ public class TalentListener implements Listener {
     // Structure: playerUUID -> (enemyUUID -> expiryTimestamp)
     private final Map<UUID, Map<UUID, Long>> bleedingExpiry = new ConcurrentHashMap<>();
 
-    // Frénésie de Guerre - kills récents et état
-    private final Map<UUID, List<Long>> warFrenzyKills = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> warFrenzyActiveUntil = new ConcurrentHashMap<>();
+    // Chaîne de Carnage - stacks et decay
+    private final Map<UUID, Integer> carnageStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> carnageLastKill = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> carnageExplosionReady = new ConcurrentHashMap<>();
 
     // Rage du Berserker - état de transformation
     private final Map<UUID, Long> berserkerRageActiveUntil = new ConcurrentHashMap<>();
@@ -1647,76 +1648,50 @@ public class TalentListener implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
             }
 
-            // === FRÉNÉSIE DE GUERRE (T8) - Compteur de kills ===
-            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
-            if (warFrenzy != null && !isWarFrenzyActive(uuid)) {
-                int killsNeeded = (int) warFrenzy.getValue(0); // 5
-                long window = (long) warFrenzy.getValue(1); // 10000ms
+            // === CHAÎNE DE CARNAGE (T8) - Stacks de Carnage ===
+            Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (carnageChain != null) {
+                int maxStacks = (int) carnageChain.getValue(0); // 5
+                long decayTime = (long) carnageChain.getValue(2); // 4000ms
 
-                List<Long> kills = warFrenzyKills.computeIfAbsent(uuid, k -> new ArrayList<>());
-                kills.add(System.currentTimeMillis());
+                // Vérifier decay
+                Long lastKill = carnageLastKill.get(uuid);
+                if (lastKill != null && System.currentTimeMillis() - lastKill > decayTime) {
+                    carnageStacks.put(uuid, 0);
+                    carnageExplosionReady.put(uuid, false);
+                }
 
-                // Nettoyer les vieux kills
-                kills.removeIf(t -> System.currentTimeMillis() - t > window);
+                // Ajouter un stack
+                int currentStacks = carnageStacks.getOrDefault(uuid, 0);
+                int newStacks = Math.min(currentStacks + 1, maxStacks);
+                carnageStacks.put(uuid, newStacks);
+                carnageLastKill.put(uuid, System.currentTimeMillis());
 
-                // Vérifier si on active la Frénésie
-                if (kills.size() >= killsNeeded) {
-                    kills.clear();
-                    activateWarFrenzy(player, warFrenzy);
+                // Feedback visuel des stacks
+                float pitch = 0.8f + (newStacks * 0.12f);
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, pitch);
+
+                // Particules de sang qui montent avec les stacks
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                    3 + newStacks * 2, 0.3, 0.4, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.0f + (newStacks * 0.2f)));
+
+                // À 5 stacks - Préparer l'explosion pour la prochaine Fente
+                if (newStacks >= maxStacks && !carnageExplosionReady.getOrDefault(uuid, false)) {
+                    carnageExplosionReady.put(uuid, true);
+
+                    // Effet épique d'annonce
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.6f, 1.2f);
+                    player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0),
+                        25, 0.6, 0.8, 0.6, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
+
+                    // Message au joueur
+                    player.sendActionBar(net.kyori.adventure.text.Component.text("§4§l🩸 CARNAGE PRÊT! §c§lProchaine Fente = EXPLOSION!"));
                 }
             }
         }
-    }
-
-    /**
-     * Active le mode Frénésie de Guerre
-     */
-    private void activateWarFrenzy(Player player, Talent talent) {
-        UUID uuid = player.getUniqueId();
-        long duration = (long) talent.getValue(2); // 8000ms
-        double attackSpeedBonus = talent.getValue(3); // 0.50 = 50%
-
-        warFrenzyActiveUntil.put(uuid, System.currentTimeMillis() + duration);
-
-        // Effets de vitesse d'attaque
-        int hasteLevel = (int) (attackSpeedBonus * 5); // 50% = niveau 2-3
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE,
-            (int) (duration / 50), Math.min(hasteLevel, 2), false, false));
-
-        // Sons d'activation
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.7f, 1.3f);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
-
-        // Particules de feu
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
-            30, 0.5, 0.5, 0.5, 0.1);
-
-        // Aura de feu pendant la durée
-        new BukkitRunnable() {
-            int ticks = 0;
-
-            @Override
-            public void run() {
-                if (!player.isOnline() || player.isDead() || !isWarFrenzyActive(uuid)) {
-                    cancel();
-                    return;
-                }
-
-                ticks++;
-
-                // Particules de feu autour du joueur
-                if (ticks % 5 == 0) {
-                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
-                        double x = Math.cos(angle + ticks * 0.15) * 1.0;
-                        double z = Math.sin(angle + ticks * 0.15) * 1.0;
-                        player.getWorld().spawnParticle(Particle.FLAME,
-                            player.getLocation().add(x, 0.3, z), 1, 0, 0.1, 0, 0.01);
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        plugin.getActionBarManager().markInCombat(uuid);
     }
 
     // ==================== SPRINT ====================
@@ -1797,8 +1772,8 @@ public class TalentListener implements Listener {
         // Clic Droit normal = Fente Dévastatrice
         Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
         if (lungingStrike != null) {
-            // Vérifier cooldown (sauf si Berserker Rage ou War Frenzy actifs)
-            boolean ignoreCooldown = isBerserkerRageActive(uuid) || isWarFrenzyActive(uuid);
+            // Vérifier cooldown (sauf si Berserker Rage actif)
+            boolean ignoreCooldown = isBerserkerRageActive(uuid);
             if (ignoreCooldown || !isOnCooldown(uuid, "lunging_strike")) {
                 procLungingStrike(player, false);
                 if (!ignoreCooldown) {
@@ -1828,11 +1803,16 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Vérifie si War Frenzy est actif
+     * Obtient le nombre de stacks de Carnage d'un joueur (avec vérification du decay)
      */
-    private boolean isWarFrenzyActive(UUID uuid) {
-        Long activeUntil = warFrenzyActiveUntil.get(uuid);
-        return activeUntil != null && System.currentTimeMillis() < activeUntil;
+    private int getCarnageStacks(UUID uuid, long decayTime) {
+        Long lastKill = carnageLastKill.get(uuid);
+        if (lastKill == null || System.currentTimeMillis() - lastKill > decayTime) {
+            carnageStacks.put(uuid, 0);
+            carnageExplosionReady.put(uuid, false);
+            return 0;
+        }
+        return carnageStacks.getOrDefault(uuid, 0);
     }
 
     // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
@@ -4741,8 +4721,9 @@ public class TalentListener implements Listener {
         eviscerationCounter.remove(playerUuid);
         bleedingStacks.remove(playerUuid);
         bleedingExpiry.remove(playerUuid);
-        warFrenzyKills.remove(playerUuid);
-        warFrenzyActiveUntil.remove(playerUuid);
+        carnageStacks.remove(playerUuid);
+        carnageLastKill.remove(playerUuid);
+        carnageExplosionReady.remove(playerUuid);
         predatorDamageBuffExpiry.remove(playerUuid);
         lastLungingStrikeHit.remove(playerUuid);
 
@@ -5517,13 +5498,23 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Frénésie de Guerre active - bonus de dégâts
-        if (isWarFrenzyActive(uuid)) {
-            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
-            if (warFrenzy != null) {
-                baseDamageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
+        // Chaîne de Carnage - bonus de dégâts par stack
+        Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+        boolean triggerCarnageExplosion = false;
+        if (carnageChain != null) {
+            long decayTime = (long) carnageChain.getValue(2); // 4000ms
+            int stacks = getCarnageStacks(uuid, decayTime);
+            if (stacks > 0) {
+                double damagePerStack = carnageChain.getValue(1); // 0.15 = 15%
+                baseDamageMultiplier *= (1 + stacks * damagePerStack);
+            }
+            // Vérifier si l'explosion est prête
+            if (carnageExplosionReady.getOrDefault(uuid, false)) {
+                triggerCarnageExplosion = true;
             }
         }
+        final boolean shouldTriggerCarnageExplosion = triggerCarnageExplosion;
+        final Talent carnageTalent = carnageChain;
 
         final double finalBaseDamageMultiplier = baseDamageMultiplier;
         final double finalPerBlockBonus = perBlockBonus;
@@ -5607,6 +5598,11 @@ public class TalentListener implements Listener {
                         }
                     }
 
+                    // === CHAÎNE DE CARNAGE - Explosion sanglante à 5 stacks ===
+                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
+                        triggerCarnageExplosion(player, carnageTalent);
+                    }
+
                     cancel();
                     return;
                 }
@@ -5632,6 +5628,11 @@ public class TalentListener implements Listener {
                             long trailDuration = (long) fury.getValue(3);
                             spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
                         }
+                    }
+
+                    // Explosion de Carnage même si interrompu
+                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
+                        triggerCarnageExplosion(player, carnageTalent);
                     }
 
                     cancel();
@@ -6127,6 +6128,125 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Déclenche l'Explosion de Carnage (Chaîne de Carnage à 5 stacks)
+     * Applique des saignements massifs et soigne le joueur
+     */
+    private void triggerCarnageExplosion(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        double explosionRadius = talent.getValue(3); // 6.0 blocs
+        int bleedStacksToApply = (int) talent.getValue(4); // 5 stacks
+        double healPercent = talent.getValue(5); // 0.25 = 25%
+
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Reset des stacks et de l'explosion
+        carnageStacks.put(uuid, 0);
+        carnageExplosionReady.put(uuid, false);
+        carnageLastKill.remove(uuid);
+
+        // Sons épiques
+        world.playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.0f, 0.8f);
+        world.playSound(center, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+        world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.2f);
+
+        double totalDamageDealt = 0;
+        int enemiesHit = 0;
+
+        // Obtenir le talent Griffes Lacérantes pour les saignements
+        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        double damagePerStack = 0.01; // 1% par défaut
+        long bleedDuration = 4000; // 4s par défaut
+        int maxBleedStacks = 10;
+
+        if (laceratingClaws != null) {
+            damagePerStack = laceratingClaws.getValue(1);
+            bleedDuration = (long) laceratingClaws.getValue(2);
+            maxBleedStacks = (int) laceratingClaws.getValue(3);
+        }
+
+        // Appliquer saignements à tous les ennemis dans le rayon
+        for (Entity entity : world.getNearbyEntities(center, explosionRadius, explosionRadius, explosionRadius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            UUID targetUuid = entity.getUniqueId();
+            enemiesHit++;
+
+            // Appliquer les stacks de saignement
+            Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+            Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+
+            int currentStacks = playerBleedStacks.getOrDefault(targetUuid, 0);
+            int newStacks = Math.min(currentStacks + bleedStacksToApply, maxBleedStacks);
+            playerBleedStacks.put(targetUuid, newStacks);
+            playerBleedExpiry.put(targetUuid, System.currentTimeMillis() + bleedDuration);
+
+            // Démarrer le DOT si premier stack
+            if (currentStacks == 0) {
+                startBleedingDOT(player, living, damagePerStack, bleedDuration);
+            }
+
+            // Calculer les dégâts potentiels pour le soin
+            double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+            totalDamageDealt += maxHealth * damagePerStack * newStacks * 4;
+
+            // Effet visuel sur chaque cible
+            world.spawnParticle(Particle.DAMAGE_INDICATOR, living.getLocation().add(0, 1, 0),
+                10, 0.3, 0.5, 0.3, 0.1);
+            world.spawnParticle(Particle.DUST, living.getLocation().add(0, 1.2, 0),
+                8, 0.3, 0.4, 0.3, 0,
+                new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+        }
+
+        // Soigner le joueur (25% des dégâts potentiels)
+        if (totalDamageDealt > 0) {
+            double healAmount = totalDamageDealt * healPercent;
+            double currentHealth = player.getHealth();
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            player.setHealth(Math.min(currentHealth + healAmount, maxHealth));
+
+            // Indicateur de soin
+            world.spawnParticle(Particle.HEART, player.getLocation().add(0, 2, 0),
+                5, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Onde de sang visuelle (cercle qui s'étend)
+        new BukkitRunnable() {
+            double currentRadius = 1;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > explosionRadius || ticks > 10) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules de sang
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                    double x = Math.cos(angle) * currentRadius;
+                    double z = Math.sin(angle) * currentRadius;
+                    Location loc = center.clone().add(x, 0.3, z);
+                    world.spawnParticle(Particle.DUST, loc, 2, 0.1, 0.05, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.8f));
+                    world.spawnParticle(Particle.DAMAGE_INDICATOR, loc, 1, 0.1, 0.1, 0.1, 0.02);
+                }
+
+                currentRadius += 0.8;
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Message au joueur
+        player.sendActionBar(net.kyori.adventure.text.Component.text(
+            "§4§l🩸 EXPLOSION DE CARNAGE! §c" + enemiesHit + " ennemis saignent!"
+        ));
     }
 
     /**

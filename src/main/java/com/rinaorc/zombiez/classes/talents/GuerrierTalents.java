@@ -1104,33 +1104,37 @@ public final class GuerrierTalents {
             .values(new double[]{0.08, 500, 2.0}) // lifesteal%, cooldown_reduction_ms, bone_regen_multiplier
             .build());
 
-        // 8.5 - FRÉNÉSIE DE GUERRE (VOIE DU FAUVE)
+        // 8.5 - CHAÎNE DE CARNAGE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
-            .id("guerrier_war_frenzy")
-            .name("Frenesie de Guerre")
-            .description("5 kills en 10s = mode Frenesie")
+            .id("guerrier_carnage_chain")
+            .name("Chaine de Carnage")
+            .description("Kills avec Fente = stacks de Carnage")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE - APEX",
                 "",
-                "§7Eliminez §e5 ennemis§7 en §e10s§7",
-                "§7pour entrer en §c§lFRENESIE§7!",
+                "§7Chaque §ckill avec Fente§7 donne",
+                "§7un stack de §4§lCARNAGE§7! (max 5)",
                 "",
-                "§6MODE FRENESIE§7 (8s):",
-                "§7- §c+50%§7 vitesse d'attaque",
-                "§7- §c+30%§7 degats infliges",
-                "§7- §aFente = 0 cooldown§7",
-                "§7- §eParticules de feu§7",
+                "§c§lSTACKS DE CARNAGE:",
+                "§7- §c+15%§7 degats par stack",
+                "§7- Decay apres §e4s§7 sans kill",
                 "",
-                "§c🔥 DEVENEZ INARRETABLE!",
-                "§8Synergie: Predateur Insatiable"
+                "§4§lA 5 STACKS - EXPLOSION!",
+                "§7Votre prochaine Fente declenche",
+                "§7une §4onde sanglante§7 (6 blocs):",
+                "§7→ Applique §c5 stacks saignement§7",
+                "§7→ §a+25%§7 de vos degats en soin",
+                "",
+                "§4🩸 ENCHAINEZ LES VICTIMES!",
+                "§8Synergie: Griffes Lacerantes"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.BLAZE_POWDER)
-            .iconColor("§c")
+            .icon(Material.REDSTONE)
+            .iconColor("§4")
             .effectType(Talent.TalentEffectType.WAR_FRENZY)
-            .values(new double[]{5, 10000, 8000, 0.50, 0.30}) // kills_needed, window_ms, frenzy_duration_ms, attack_speed_bonus%, damage_bonus%
+            .values(new double[]{5, 0.15, 4000, 6.0, 5, 0.25}) // max_stacks, damage_per_stack%, decay_ms, explosion_radius, bleed_stacks, heal_percent
             .build());
     }
 
