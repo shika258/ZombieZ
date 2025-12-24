@@ -6022,6 +6022,13 @@ public class TalentListener implements Listener {
                     // Infliger les dégâts
                     double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
                     double finalDamage = baseDamage * tornadoDamageMultiplier;
+
+                    // Metadata pour bypass CombatListener et affichage indicateur
+                    living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, uuid.toString()));
+
                     living.damage(finalDamage, player);
 
                     // Enregistrer le hit pour le kill tracking
@@ -6040,9 +6047,6 @@ public class TalentListener implements Listener {
                     // Effets visuels sur la cible
                     world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.2);
                     world.spawnParticle(Particle.CLOUD, living.getLocation(), 8, 0.2, 0.4, 0.2, 0.1);
-
-                    // Indicateur de dégâts
-                    PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0), finalDamage, true, player);
 
                     // === GRIFFES LACÉRANTES - Appliquer saignement ===
                     Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
@@ -6115,7 +6119,13 @@ public class TalentListener implements Listener {
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
         double finalDamage = baseDamage * damageMultiplier;
 
-        // Infliger les dégâts
+        // Metadata pour bypass CombatListener (dégâts déjà calculés) et affichage indicateur
+        target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Fente = toujours crit visuel
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, uuid.toString()));
+
+        // Infliger les dégâts (le handler MONITOR affichera l'indicateur avec event.getDamage())
         target.damage(finalDamage, player);
 
         // Enregistrer le hit pour le kill tracking
@@ -6126,9 +6136,6 @@ public class TalentListener implements Listener {
             5, 0.2, 0.2, 0.2, 0.1);
         player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 0.8, 0),
             1, 0, 0, 0, 0);
-
-        // Indicateur de dégâts (critique)
-        PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
 
         // Marquer en combat
         lastCombatTime.put(uuid, System.currentTimeMillis());
@@ -6441,6 +6448,12 @@ public class TalentListener implements Listener {
 
                             hitThisTick.add(entity.getUniqueId());
 
+                            // Metadata pour bypass CombatListener et affichage indicateur
+                            living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                            living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                            living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+                            living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
                             // Infliger les dégâts de feu
                             living.damage(trailDamage, player);
                             living.setFireTicks(20); // Enflammer pendant 1 seconde
@@ -6448,10 +6461,6 @@ public class TalentListener implements Listener {
                             // Effet visuel de brûlure
                             world.spawnParticle(Particle.LAVA, living.getLocation().add(0, 0.5, 0),
                                 3, 0.2, 0.3, 0.2, 0);
-
-                            // Indicateur de dégâts
-                            PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0),
-                                trailDamage, false, player);
                         }
                     }
 
@@ -6744,6 +6753,12 @@ public class TalentListener implements Listener {
                 double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
                 double remainingDamage = maxHealth * 0.01 * stacks * 4; // 1% PV/s * stacks * 4s
 
+                // Metadata pour bypass CombatListener et affichage indicateur
+                living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Éviscération = crit
+                living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, playerUuid.toString()));
+
                 // Infliger les dégâts instantanément
                 living.damage(remainingDamage, player);
                 totalDamageDealt += remainingDamage;
@@ -6762,9 +6777,6 @@ public class TalentListener implements Listener {
                 living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1.5, 0),
                     stacks * 5, 0.4, 0.5, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
-
-                // Indicateur de dégâts (critique)
-                PacketDamageIndicator.display(plugin, living.getLocation().add(0, 2, 0), remainingDamage, true, player);
             }
         }
 
