@@ -120,7 +120,7 @@ public class InteractListener implements Listener {
 
     /**
      * Gère l'interaction avec un beacon de refuge
-     * Affiche les informations du refuge et ouvre le menu
+     * Affiche les informations du refuge, débloque si possible, et ouvre le menu
      */
     private void handleRefugeBeacon(Player player, Block block, PlayerInteractEvent event) {
         event.setCancelled(true);
@@ -145,13 +145,95 @@ public class InteractListener implements Listener {
             return;
         }
 
+        // Tenter de débloquer le refuge si ce n'est pas déjà fait
+        boolean justUnlocked = tryUnlockRefuge(player, data, refuge);
+
         // Afficher les informations du refuge dans le chat
         sendRefugeInfo(player, data, refuge);
 
         // Ouvrir le menu refuge après un court délai
+        final Refuge finalRefuge = refuge;
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             new RefugeGUI(plugin, player).open();
-        }, 5L);
+        }, justUnlocked ? 20L : 5L); // Délai plus long si débloqué pour laisser le temps au joueur de voir le message
+    }
+
+    /**
+     * Tente de débloquer un refuge si le joueur remplit toutes les conditions
+     * @return true si le refuge vient d'être débloqué
+     */
+    private boolean tryUnlockRefuge(Player player, PlayerData data, Refuge refuge) {
+        int currentCheckpoint = data.getCurrentCheckpoint().get();
+        int refugeId = refuge.getId();
+        int playerLevel = data.getLevel().get();
+        long playerPoints = data.getPoints().get();
+
+        // Déjà débloqué ?
+        if (currentCheckpoint >= refugeId) {
+            return false;
+        }
+
+        // Vérifier la progression séquentielle : on ne peut débloquer que le prochain refuge
+        // Le refuge 1 peut être débloqué si currentCheckpoint == 0
+        // Le refuge N peut être débloqué si currentCheckpoint == N-1
+        if (currentCheckpoint != refugeId - 1) {
+            MessageUtils.send(player, "§c✖ Vous devez d'abord débloquer les refuges précédents!");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+            return false;
+        }
+
+        // Vérifier le niveau requis
+        if (playerLevel < refuge.getRequiredLevel()) {
+            MessageUtils.send(player, "§c✖ Niveau insuffisant!");
+            MessageUtils.send(player, "§7Niveau requis: §e" + refuge.getRequiredLevel() + " §7(Vous: §c" + playerLevel + "§7)");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+            return false;
+        }
+
+        // Vérifier les points requis
+        long cost = refuge.getCost();
+        if (playerPoints < cost) {
+            MessageUtils.send(player, "§c✖ Points insuffisants!");
+            MessageUtils.send(player, "§7Coût: §6" + EconomyManager.formatPoints(cost) + " §7(Vous: §c" + EconomyManager.formatPoints(playerPoints) + "§7)");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+            return false;
+        }
+
+        // Toutes les conditions sont remplies : débloquer le refuge !
+        data.removePoints(cost);
+        data.setCheckpoint(refugeId);
+
+        // Feedback visuel et sonore
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.2f);
+
+        // Particules autour du beacon
+        player.getWorld().spawnParticle(
+            org.bukkit.Particle.TOTEM_OF_UNDYING,
+            player.getLocation().add(0, 1, 0),
+            50, 0.5, 1, 0.5, 0.1
+        );
+
+        // Messages de confirmation
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "§a§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §a§l✓ REFUGE DÉBLOQUÉ!");
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §e§l🏠 " + refuge.getName());
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §7Checkpoint activé! Vous réapparaîtrez");
+        MessageUtils.sendRaw(player, "  §7ici en cas de mort.");
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §6-" + EconomyManager.formatPoints(cost) + " Points");
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "§a§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "");
+
+        // Title pour plus d'impact
+        MessageUtils.sendTitle(player, "§a§l✓ REFUGE DÉBLOQUÉ", "§e" + refuge.getName(), 10, 40, 10);
+
+        return true;
     }
 
     /**
