@@ -2,8 +2,11 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.utils.MessageUtils;
+import com.rinaorc.zombiez.zones.Refuge;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -36,6 +39,9 @@ public class PlayerMoveListener implements Listener {
 
     // Accumulateur de distance parcourue (en blocs)
     private final Map<UUID, Double> distanceAccumulator = new ConcurrentHashMap<>();
+
+    // Cache du refuge actuel (null si hors refuge)
+    private final Map<UUID, Integer> playerRefugeCache = new ConcurrentHashMap<>();
 
     // Seuil pour mettre à jour les missions/achievements (100 blocs)
     private static final double DISTANCE_UPDATE_THRESHOLD = 100.0;
@@ -73,6 +79,9 @@ public class PlayerMoveListener implements Listener {
         // ============ TRACKING DISTANCE PARCOURUE ============
         trackDistanceTraveled(player, uuid, from, to);
 
+        // ============ DÉTECTION ENTRÉE/SORTIE REFUGE ============
+        checkRefugeEntry(player, uuid, to);
+
         // Vérifier si on doit faire une vérification de zone
         Integer lastZ = lastZCache.get(uuid);
 
@@ -87,6 +96,44 @@ public class PlayerMoveListener implements Listener {
             // On peut forcer une vérification immédiate si nécessaire
             // plugin.getZoneManager().checkPlayerZone(player);
         }
+    }
+
+    /**
+     * Vérifie si le joueur entre ou sort d'un refuge
+     */
+    private void checkRefugeEntry(Player player, UUID uuid, Location to) {
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager == null) return;
+
+        // Obtenir le refuge actuel (s'il y en a un)
+        Refuge currentRefuge = refugeManager.getRefugeAt(to);
+        Integer cachedRefugeId = playerRefugeCache.get(uuid);
+
+        int currentRefugeId = currentRefuge != null ? currentRefuge.getId() : -1;
+        int previousRefugeId = cachedRefugeId != null ? cachedRefugeId : -1;
+
+        // Le joueur a changé de refuge?
+        if (currentRefugeId != previousRefugeId) {
+            // Entrée dans un refuge
+            if (currentRefuge != null) {
+                playerRefugeCache.put(uuid, currentRefugeId);
+                sendRefugeEntryTitle(player, currentRefuge);
+            } else {
+                // Sortie d'un refuge
+                playerRefugeCache.remove(uuid);
+            }
+        }
+    }
+
+    /**
+     * Affiche le title d'entrée dans un refuge
+     */
+    private void sendRefugeEntryTitle(Player player, Refuge refuge) {
+        String title = "§a§l🏠 REFUGE";
+        String subtitle = "§e" + refuge.getName();
+
+        MessageUtils.sendTitle(player, title, subtitle, 10, 40, 10);
+        MessageUtils.playSound(player, Sound.BLOCK_BEACON_ACTIVATE, 0.5f, 1.2f);
     }
 
     /**
@@ -204,6 +251,7 @@ public class PlayerMoveListener implements Listener {
         lastZCache.remove(uuid);
         lastPositionCache.remove(uuid);
         distanceAccumulator.remove(uuid);
+        playerRefugeCache.remove(uuid);
     }
 
     /**
