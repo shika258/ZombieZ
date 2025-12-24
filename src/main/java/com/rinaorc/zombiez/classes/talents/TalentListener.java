@@ -1693,9 +1693,6 @@ public class TalentListener implements Listener {
                     player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0),
                         25, 0.6, 0.8, 0.6, 0,
                         new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
-
-                    // Message au joueur
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§4§l🩸 CARNAGE PRÊT! §c§lProchaine Fente = EXPLOSION!"));
                 }
             }
         }
@@ -3292,31 +3289,33 @@ public class TalentListener implements Listener {
      * Applique un effet Glowing rouge au joueur via une équipe Scoreboard
      */
     private void applyRedGlow(Player player, int durationTicks) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
-
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        String teamName = "zz_mega_tornado";
+        String teamName = "zz_berserker_red";
         org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
 
         if (team == null) {
             team = scoreboard.registerNewTeam(teamName);
-            team.setColor(org.bukkit.ChatColor.DARK_RED);
-            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
-                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
         }
 
-        team.addEntry(player.getName());
+        // Couleur rouge via Adventure API (comme ShadowManager)
+        team.color(net.kyori.adventure.text.format.NamedTextColor.DARK_RED);
+        team.prefix(net.kyori.adventure.text.Component.empty());
+        team.suffix(net.kyori.adventure.text.Component.empty());
+
+        // Ajouter le joueur à l'équipe et activer le glow
+        team.addEntity(player);
+        player.setGlowing(true);
     }
 
     /**
      * Retire le glowing rouge du joueur
      */
     private void removeRedGlow(Player player) {
-        player.removePotionEffect(PotionEffectType.GLOWING);
+        player.setGlowing(false);
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_mega_tornado");
-        if (team != null && team.hasEntry(player.getName())) {
-            team.removeEntry(player.getName());
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_berserker_red");
+        if (team != null) {
+            team.removeEntity(player);
         }
     }
 
@@ -4893,12 +4892,13 @@ public class TalentListener implements Listener {
         predatorDamageBuffExpiry.remove(playerUuid);
         lastLungingStrikeHit.remove(playerUuid);
 
-        // Berserker Rage - restaurer la taille
+        // Berserker Rage - restaurer la taille et retirer le glow
         Double berserkerScale = berserkerOriginalScale.remove(playerUuid);
         if (berserkerScale != null) {
             Player player = plugin.getServer().getPlayer(playerUuid);
             if (player != null && player.isOnline()) {
                 player.getAttribute(Attribute.SCALE).setBaseValue(berserkerScale);
+                removeRedGlow(player);
             }
         }
         berserkerRageActiveUntil.remove(playerUuid);
@@ -5857,7 +5857,6 @@ public class TalentListener implements Listener {
                         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 0.8f, 1.5f);
                         player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 1, 0),
                             15, 0.5, 0.3, 0.5, 0.1);
-                        showTempEventMessage(uuid, "§b§l⚔ TEMPÊTE PRÊTE! §7Fente → §bTORNADE!");
                     } else {
                         // Stack accumulé
                         float pitch = 1.0f + (newStacks * 0.2f);
@@ -5865,7 +5864,6 @@ public class TalentListener implements Listener {
                         player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
                             8, 0.3, 0.2, 0.3, 0,
                             new Particle.DustOptions(Color.fromRGB(150, 200, 255), 1.0f));
-                        showTempEventMessage(uuid, "§b⚔ Tempête §7[" + newStacks + "/" + STEEL_TEMPEST_MAX_STACKS + "]");
                     }
 
                     // Appliquer les effets bonus
@@ -6022,6 +6020,13 @@ public class TalentListener implements Listener {
                     // Infliger les dégâts
                     double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
                     double finalDamage = baseDamage * tornadoDamageMultiplier;
+
+                    // Metadata pour bypass CombatListener et affichage indicateur
+                    living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true));
+                    living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, uuid.toString()));
+
                     living.damage(finalDamage, player);
 
                     // Enregistrer le hit pour le kill tracking
@@ -6041,9 +6046,6 @@ public class TalentListener implements Listener {
                     world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.2);
                     world.spawnParticle(Particle.CLOUD, living.getLocation(), 8, 0.2, 0.4, 0.2, 0.1);
 
-                    // Indicateur de dégâts
-                    PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0), finalDamage, true, player);
-
                     // === GRIFFES LACÉRANTES - Appliquer saignement ===
                     Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
                     if (laceratingClaws != null) {
@@ -6058,9 +6060,6 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
-
-        // Message de feedback
-        showTempEventMessage(uuid, "§b§l🌪 TEMPÊTE D'ACIER!");
     }
 
     /**
@@ -6115,7 +6114,13 @@ public class TalentListener implements Listener {
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
         double finalDamage = baseDamage * damageMultiplier;
 
-        // Infliger les dégâts
+        // Metadata pour bypass CombatListener (dégâts déjà calculés) et affichage indicateur
+        target.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+        target.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Fente = toujours crit visuel
+        target.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, uuid.toString()));
+
+        // Infliger les dégâts (le handler MONITOR affichera l'indicateur avec event.getDamage())
         target.damage(finalDamage, player);
 
         // Enregistrer le hit pour le kill tracking
@@ -6126,9 +6131,6 @@ public class TalentListener implements Listener {
             5, 0.2, 0.2, 0.2, 0.1);
         player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 0.8, 0),
             1, 0, 0, 0, 0);
-
-        // Indicateur de dégâts (critique)
-        PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
 
         // Marquer en combat
         lastCombatTime.put(uuid, System.currentTimeMillis());
@@ -6441,6 +6443,12 @@ public class TalentListener implements Listener {
 
                             hitThisTick.add(entity.getUniqueId());
 
+                            // Metadata pour bypass CombatListener et affichage indicateur
+                            living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                            living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                            living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, false));
+                            living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
                             // Infliger les dégâts de feu
                             living.damage(trailDamage, player);
                             living.setFireTicks(20); // Enflammer pendant 1 seconde
@@ -6448,10 +6456,6 @@ public class TalentListener implements Listener {
                             // Effet visuel de brûlure
                             world.spawnParticle(Particle.LAVA, living.getLocation().add(0, 0.5, 0),
                                 3, 0.2, 0.3, 0.2, 0);
-
-                            // Indicateur de dégâts
-                            PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0),
-                                trailDamage, false, player);
                         }
                     }
 
@@ -6744,6 +6748,12 @@ public class TalentListener implements Listener {
                 double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
                 double remainingDamage = maxHealth * 0.01 * stacks * 4; // 1% PV/s * stacks * 4s
 
+                // Metadata pour bypass CombatListener et affichage indicateur
+                living.setMetadata("zombiez_talent_damage", new FixedMetadataValue(plugin, true));
+                living.setMetadata("zombiez_show_indicator", new FixedMetadataValue(plugin, true));
+                living.setMetadata("zombiez_damage_critical", new FixedMetadataValue(plugin, true)); // Éviscération = crit
+                living.setMetadata("zombiez_damage_viewer", new FixedMetadataValue(plugin, playerUuid.toString()));
+
                 // Infliger les dégâts instantanément
                 living.damage(remainingDamage, player);
                 totalDamageDealt += remainingDamage;
@@ -6762,9 +6772,6 @@ public class TalentListener implements Listener {
                 living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1.5, 0),
                     stacks * 5, 0.4, 0.5, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
-
-                // Indicateur de dégâts (critique)
-                PacketDamageIndicator.display(plugin, living.getLocation().add(0, 2, 0), remainingDamage, true, player);
             }
         }
 
@@ -6831,7 +6838,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1.0f);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
 
-        // Glowing orange
+        // Glowing rouge
         applyRedGlow(player, (int) (duration / 50));
 
         // Immunité knockback
@@ -6891,6 +6898,9 @@ public class TalentListener implements Listener {
         berserkerRageActiveUntil.remove(uuid);
 
         if (player.isOnline()) {
+            // Retirer le glow rouge
+            removeRedGlow(player);
+
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 0.6f, 0.8f);
             player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0),
                 20, 0.5, 0.5, 0.5, 0.1);
