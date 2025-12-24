@@ -27,19 +27,37 @@ import java.util.Map;
 
 /**
  * GUI des refuges - Affiche tous les refuges avec possibilité de téléportation
+ *
+ * Layout symétrique (54 slots = 6 lignes de 9):
+ * ┌─────────────────────────────────┐
+ * │ [▪][▪][▪][▪][ℹ][▪][▪][▪][▪]    │ Ligne 0: Bordure + Info
+ * │ [▪][·][①][②][③][④][⑤][·][▪]    │ Ligne 1: Refuges 1-5
+ * │ [▪][·][⑥][⑦][⑧][⑨][⑩][·][▪]    │ Ligne 2: Refuges 6-10
+ * │ [▪][·][·][·][⚓][·][·][·][▪]    │ Ligne 3: Checkpoint actuel
+ * │ [▪][·][·][·][·][·][·][·][▪]    │ Ligne 4: Espace
+ * │ [▪][▪][▪][▪][✖][▪][▪][▪][▪]    │ Ligne 5: Bordure + Fermer
+ * └─────────────────────────────────┘
  */
 public class RefugeGUI implements InventoryHolder {
 
     private static final int SIZE = 54;
     private static final String TITLE = "§8§l🏠 Refuges";
 
-    // Slots pour les refuges (2 lignes de 5)
-    private static final int[] REFUGE_SLOTS = {10, 11, 12, 13, 14, 19, 20, 21, 22, 23};
+    // Slots pour les refuges (2 lignes de 5, parfaitement centrées)
+    // Ligne 1: slots 11, 12, 13, 14, 15 (refuges 1-5)
+    // Ligne 2: slots 20, 21, 22, 23, 24 (refuges 6-10)
+    private static final int[] REFUGE_SLOTS = {11, 12, 13, 14, 15, 20, 21, 22, 23, 24};
 
-    // Slots spéciaux
+    // Slots spéciaux (tous centrés sur la colonne 4)
     private static final int SLOT_INFO = 4;
     private static final int SLOT_CURRENT_CHECKPOINT = 31;
     private static final int SLOT_CLOSE = 49;
+
+    // Bordures latérales (colonne 0 et 8)
+    private static final int[] SIDE_BORDER_SLOTS = {9, 17, 18, 26, 27, 35, 36, 44};
+
+    // Décoration intérieure (colonnes 1 et 7)
+    private static final int[] INNER_DECOR_SLOTS = {10, 16, 19, 25, 28, 29, 30, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
 
     private final ZombieZPlugin plugin;
     private final Player player;
@@ -58,23 +76,34 @@ public class RefugeGUI implements InventoryHolder {
     }
 
     private void setupGUI() {
-        // Fond noir
-        ItemStack filler = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
+        // Fond gris foncé pour l'intérieur
+        ItemStack filler = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
         for (int i = 0; i < SIZE; i++) {
             inventory.setItem(i, filler);
         }
 
-        // Bordure décorative
+        // Bordure jaune (ligne du haut et du bas)
         ItemStack border = ItemBuilder.placeholder(Material.YELLOW_STAINED_GLASS_PANE);
         for (int i = 0; i < 9; i++) {
-            inventory.setItem(i, border);
-            inventory.setItem(SIZE - 9 + i, border);
+            inventory.setItem(i, border);           // Ligne 0
+            inventory.setItem(SIZE - 9 + i, border); // Ligne 5
         }
 
-        // Info header
+        // Bordures latérales jaunes (colonnes 0 et 8)
+        for (int slot : SIDE_BORDER_SLOTS) {
+            inventory.setItem(slot, border);
+        }
+
+        // Décoration intérieure (noir pour contraste)
+        ItemStack innerDecor = ItemBuilder.placeholder(Material.BLACK_STAINED_GLASS_PANE);
+        for (int slot : INNER_DECOR_SLOTS) {
+            inventory.setItem(slot, innerDecor);
+        }
+
+        // Info header (centre de la ligne 0)
         inventory.setItem(SLOT_INFO, createInfoItem());
 
-        // Afficher les refuges
+        // Afficher les refuges (parfaitement centrés)
         var refugeManager = plugin.getRefugeManager();
         if (refugeManager != null) {
             List<Refuge> refuges = refugeManager.getRefugesSorted();
@@ -90,10 +119,10 @@ public class RefugeGUI implements InventoryHolder {
             }
         }
 
-        // Checkpoint actuel
+        // Checkpoint actuel (centre de la ligne 3)
         inventory.setItem(SLOT_CURRENT_CHECKPOINT, createCurrentCheckpointItem());
 
-        // Bouton fermer
+        // Bouton fermer (centre de la ligne 5)
         inventory.setItem(SLOT_CLOSE, new ItemBuilder(Material.BARRIER)
             .name("§c✖ Fermer")
             .lore("", "§7Cliquez pour fermer le menu")
