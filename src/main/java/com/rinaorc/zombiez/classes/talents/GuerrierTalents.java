@@ -140,13 +140,13 @@ public final class GuerrierTalents {
                 "",
                 "§6ACTIVATION: §eClic Droit§7 avec arme",
                 "",
-                "§7Bondissez vers l'ennemi le plus",
-                "§7proche (§e8 blocs§7 max) et frappez!",
+                "§7Foncez en ligne droite sur §e12 blocs§7",
+                "§7et §ctraversez§7 tous les ennemis!",
                 "",
                 "§7Degats: §c+50%§7 de base",
                 "§7Bonus: §c+5%§7 par bloc parcouru",
                 "",
-                "§e⚡ Mobilite extreme entre les cibles",
+                "§e⚔ Charge traversante multi-cibles!",
                 "§8Cooldown: §e0.8s"
             })
             .classType(ClassType.GUERRIER)
@@ -155,7 +155,7 @@ public final class GuerrierTalents {
             .icon(Material.NETHERITE_SWORD)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.LUNGING_STRIKE)
-            .values(new double[]{8.0, 0.50, 0.05, 800}) // range, base_bonus%, per_block_bonus%, cooldown_ms
+            .values(new double[]{12.0, 0.50, 0.05, 800}) // range, base_bonus%, per_block_bonus%, cooldown_ms
             .internalCooldownMs(800)
             .build());
     }
@@ -412,7 +412,7 @@ public final class GuerrierTalents {
                 "§7et applique §c3 stacks de Saignement§7!",
                 "",
                 "§c§lSAIGNEMENT:",
-                "§7- §c2%§7 PV max/seconde par stack",
+                "§7- §c1%§7 PV max/seconde par stack",
                 "§7- Dure §e4 secondes§7",
                 "§7- Cumulable jusqu'a §c10 stacks§7",
                 "",
@@ -429,7 +429,7 @@ public final class GuerrierTalents {
             .icon(Material.PRISMARINE_SHARD)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.LACERATING_CLAWS)
-            .values(new double[]{3, 0.02, 4000, 10}) // stacks_per_hit, damage_per_stack%, duration_ms, max_stacks
+            .values(new double[]{3, 0.01, 4000, 10}) // stacks_per_hit, damage_per_stack%, duration_ms, max_stacks
             .build());
     }
 
@@ -675,7 +675,7 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fury_consumption")
             .name("Consommation de Fureur")
-            .description("Sacrifie PV pour degats x3")
+            .description("Sacrifie PV pour degats x3 + trainee de feu")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
@@ -686,11 +686,15 @@ public final class GuerrierTalents {
                 "",
                 "§7Cette Fente speciale:",
                 "§7- §c×3§7 multiplicateur de degats",
-                "§7- Ignore le cooldown normal",
-                "§7- §6Onde de choc§7 garantie",
+                "§7- §6Trainee de flammes§7 sur la trajectoire",
                 "",
-                "§c⚠ Risque = Recompense!",
-                "§8Synergie: Lifesteal recommande"
+                "§6§lTRAINEE DE FLAMMES:",
+                "§7- Reste au sol §e3 secondes§7",
+                "§7- Inflige §c75%§7 degats/seconde",
+                "§7- §c3 applications§7 de degats",
+                "",
+                "§c🔥 Embrasez votre passage!",
+                "§8Synergie: Griffes Lacerantes"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -698,7 +702,7 @@ public final class GuerrierTalents {
             .icon(Material.DRAGON_BREATH)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.FURY_CONSUMPTION)
-            .values(new double[]{0.15, 3.0}) // hp_cost%, damage_multiplier
+            .values(new double[]{0.15, 3.0, 0.75, 3000}) // hp_cost%, damage_multiplier, trail_damage%, trail_duration_ms
             .build());
     }
 
@@ -1100,33 +1104,37 @@ public final class GuerrierTalents {
             .values(new double[]{0.08, 500, 2.0}) // lifesteal%, cooldown_reduction_ms, bone_regen_multiplier
             .build());
 
-        // 8.5 - FRÉNÉSIE DE GUERRE (VOIE DU FAUVE)
+        // 8.5 - CHAÎNE DE CARNAGE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
-            .id("guerrier_war_frenzy")
-            .name("Frenesie de Guerre")
-            .description("5 kills en 10s = mode Frenesie")
+            .id("guerrier_carnage_chain")
+            .name("Chaine de Carnage")
+            .description("Kills avec Fente = stacks de Carnage")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE - APEX",
                 "",
-                "§7Eliminez §e5 ennemis§7 en §e10s§7",
-                "§7pour entrer en §c§lFRENESIE§7!",
+                "§7Chaque §ckill avec Fente§7 donne",
+                "§7un stack de §4§lCARNAGE§7! (max 5)",
                 "",
-                "§6MODE FRENESIE§7 (8s):",
-                "§7- §c+50%§7 vitesse d'attaque",
-                "§7- §c+30%§7 degats infliges",
-                "§7- §aFente = 0 cooldown§7",
-                "§7- §eParticules de feu§7",
+                "§c§lSTACKS DE CARNAGE:",
+                "§7- §c+15%§7 degats par stack",
+                "§7- Decay apres §e4s§7 sans kill",
                 "",
-                "§c🔥 DEVENEZ INARRETABLE!",
-                "§8Synergie: Predateur Insatiable"
+                "§4§lA 5 STACKS - EXPLOSION!",
+                "§7Votre prochaine Fente declenche",
+                "§7une §4onde sanglante§7 (6 blocs):",
+                "§7→ Applique §c5 stacks saignement§7",
+                "§7→ §a+25%§7 de vos degats en soin",
+                "",
+                "§4🩸 ENCHAINEZ LES VICTIMES!",
+                "§8Synergie: Griffes Lacerantes"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
             .slotIndex(4)
-            .icon(Material.BLAZE_POWDER)
-            .iconColor("§c")
+            .icon(Material.REDSTONE)
+            .iconColor("§4")
             .effectType(Talent.TalentEffectType.WAR_FRENZY)
-            .values(new double[]{5, 10000, 8000, 0.50, 0.30}) // kills_needed, window_ms, frenzy_duration_ms, attack_speed_bonus%, damage_bonus%
+            .values(new double[]{5, 0.15, 4000, 6.0, 5, 0.25}) // max_stacks, damage_per_stack%, decay_ms, explosion_radius, bleed_stacks, heal_percent
             .build());
     }
 
@@ -1265,10 +1273,11 @@ public final class GuerrierTalents {
                 "§7Transformez-vous en §c§lBERSERKER§7!",
                 "",
                 "§6RAGE DU BERSERKER§7 (12s):",
-                "§7- §c+50%§7 taille (geant)",
+                "§7- §c+75%§7 taille (geant!)",
                 "§7- §c×2§7 multiplicateur de degats",
-                "§7- §aFente gratuite§7 (0 cooldown)",
-                "§7- §e+4 blocs§7 de portee Fente",
+                "§7- §aFente ultra-rapide§7 (0.1s cooldown)",
+                "§7- §e+12 blocs§7 de portee Fente (24 total)",
+                "§7- §4Glowing rouge§7 intimidant",
                 "§7- §6Aura de feu§7 orange",
                 "§7- §bImmunite knockback§7",
                 "",
@@ -1281,7 +1290,7 @@ public final class GuerrierTalents {
             .icon(Material.NETHER_STAR)
             .iconColor("§c§l")
             .effectType(Talent.TalentEffectType.BERSERKER_RAGE)
-            .values(new double[]{12000, 2.0, 0.50, 4.0, 60000}) // duration_ms, damage_multiplier, size_bonus%, range_bonus, cooldown_ms
+            .values(new double[]{12000, 2.0, 0.75, 12.0, 60000}) // duration_ms, damage_multiplier, size_bonus%, range_bonus, cooldown_ms
             .internalCooldownMs(60000)
             .build());
     }

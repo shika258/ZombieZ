@@ -71,9 +71,10 @@ public class TalentListener implements Listener {
     // Structure: playerUUID -> (enemyUUID -> expiryTimestamp)
     private final Map<UUID, Map<UUID, Long>> bleedingExpiry = new ConcurrentHashMap<>();
 
-    // Frénésie de Guerre - kills récents et état
-    private final Map<UUID, List<Long>> warFrenzyKills = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> warFrenzyActiveUntil = new ConcurrentHashMap<>();
+    // Chaîne de Carnage - stacks et decay
+    private final Map<UUID, Integer> carnageStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> carnageLastKill = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> carnageExplosionReady = new ConcurrentHashMap<>();
 
     // Rage du Berserker - état de transformation
     private final Map<UUID, Long> berserkerRageActiveUntil = new ConcurrentHashMap<>();
@@ -1647,76 +1648,50 @@ public class TalentListener implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
             }
 
-            // === FRÉNÉSIE DE GUERRE (T8) - Compteur de kills ===
-            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
-            if (warFrenzy != null && !isWarFrenzyActive(uuid)) {
-                int killsNeeded = (int) warFrenzy.getValue(0); // 5
-                long window = (long) warFrenzy.getValue(1); // 10000ms
+            // === CHAÎNE DE CARNAGE (T8) - Stacks de Carnage ===
+            Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (carnageChain != null) {
+                int maxStacks = (int) carnageChain.getValue(0); // 5
+                long decayTime = (long) carnageChain.getValue(2); // 4000ms
 
-                List<Long> kills = warFrenzyKills.computeIfAbsent(uuid, k -> new ArrayList<>());
-                kills.add(System.currentTimeMillis());
+                // Vérifier decay
+                Long lastKill = carnageLastKill.get(uuid);
+                if (lastKill != null && System.currentTimeMillis() - lastKill > decayTime) {
+                    carnageStacks.put(uuid, 0);
+                    carnageExplosionReady.put(uuid, false);
+                }
 
-                // Nettoyer les vieux kills
-                kills.removeIf(t -> System.currentTimeMillis() - t > window);
+                // Ajouter un stack
+                int currentStacks = carnageStacks.getOrDefault(uuid, 0);
+                int newStacks = Math.min(currentStacks + 1, maxStacks);
+                carnageStacks.put(uuid, newStacks);
+                carnageLastKill.put(uuid, System.currentTimeMillis());
 
-                // Vérifier si on active la Frénésie
-                if (kills.size() >= killsNeeded) {
-                    kills.clear();
-                    activateWarFrenzy(player, warFrenzy);
+                // Feedback visuel des stacks
+                float pitch = 0.8f + (newStacks * 0.12f);
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.6f, pitch);
+
+                // Particules de sang qui montent avec les stacks
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                    3 + newStacks * 2, 0.3, 0.4, 0.3, 0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.0f + (newStacks * 0.2f)));
+
+                // À 5 stacks - Préparer l'explosion pour la prochaine Fente
+                if (newStacks >= maxStacks && !carnageExplosionReady.getOrDefault(uuid, false)) {
+                    carnageExplosionReady.put(uuid, true);
+
+                    // Effet épique d'annonce
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.6f, 1.2f);
+                    player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0),
+                        25, 0.6, 0.8, 0.6, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
+
+                    // Message au joueur
+                    player.sendActionBar(net.kyori.adventure.text.Component.text("§4§l🩸 CARNAGE PRÊT! §c§lProchaine Fente = EXPLOSION!"));
                 }
             }
         }
-    }
-
-    /**
-     * Active le mode Frénésie de Guerre
-     */
-    private void activateWarFrenzy(Player player, Talent talent) {
-        UUID uuid = player.getUniqueId();
-        long duration = (long) talent.getValue(2); // 8000ms
-        double attackSpeedBonus = talent.getValue(3); // 0.50 = 50%
-
-        warFrenzyActiveUntil.put(uuid, System.currentTimeMillis() + duration);
-
-        // Effets de vitesse d'attaque
-        int hasteLevel = (int) (attackSpeedBonus * 5); // 50% = niveau 2-3
-        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE,
-            (int) (duration / 50), Math.min(hasteLevel, 2), false, false));
-
-        // Sons d'activation
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.7f, 1.3f);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
-
-        // Particules de feu
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
-            30, 0.5, 0.5, 0.5, 0.1);
-
-        // Aura de feu pendant la durée
-        new BukkitRunnable() {
-            int ticks = 0;
-
-            @Override
-            public void run() {
-                if (!player.isOnline() || player.isDead() || !isWarFrenzyActive(uuid)) {
-                    cancel();
-                    return;
-                }
-
-                ticks++;
-
-                // Particules de feu autour du joueur
-                if (ticks % 5 == 0) {
-                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
-                        double x = Math.cos(angle + ticks * 0.15) * 1.0;
-                        double z = Math.sin(angle + ticks * 0.15) * 1.0;
-                        player.getWorld().spawnParticle(Particle.FLAME,
-                            player.getLocation().add(x, 0.3, z), 1, 0, 0.1, 0, 0.01);
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        plugin.getActionBarManager().markInCombat(uuid);
     }
 
     // ==================== SPRINT ====================
@@ -1797,13 +1772,12 @@ public class TalentListener implements Listener {
         // Clic Droit normal = Fente Dévastatrice
         Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
         if (lungingStrike != null) {
-            // Vérifier cooldown (sauf si Berserker Rage ou War Frenzy actifs)
-            boolean ignoreCooldown = isBerserkerRageActive(uuid) || isWarFrenzyActive(uuid);
-            if (ignoreCooldown || !isOnCooldown(uuid, "lunging_strike")) {
+            // Vérifier cooldown (réduit à 100ms si Berserker Rage actif)
+            boolean berserkerActive = isBerserkerRageActive(uuid);
+            if (!isOnCooldown(uuid, "lunging_strike")) {
                 procLungingStrike(player, false);
-                if (!ignoreCooldown) {
-                    setCooldown(uuid, "lunging_strike", (long) lungingStrike.getValue(3));
-                }
+                long cooldownMs = berserkerActive ? 100L : (long) lungingStrike.getValue(3);
+                setCooldown(uuid, "lunging_strike", cooldownMs);
                 event.setCancelled(true);
             }
         }
@@ -1828,11 +1802,16 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Vérifie si War Frenzy est actif
+     * Obtient le nombre de stacks de Carnage d'un joueur (avec vérification du decay)
      */
-    private boolean isWarFrenzyActive(UUID uuid) {
-        Long activeUntil = warFrenzyActiveUntil.get(uuid);
-        return activeUntil != null && System.currentTimeMillis() < activeUntil;
+    private int getCarnageStacks(UUID uuid, long decayTime) {
+        Long lastKill = carnageLastKill.get(uuid);
+        if (lastKill == null || System.currentTimeMillis() - lastKill > decayTime) {
+            carnageStacks.put(uuid, 0);
+            carnageExplosionReady.put(uuid, false);
+            return 0;
+        }
+        return carnageStacks.getOrDefault(uuid, 0);
     }
 
     // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
@@ -4243,6 +4222,7 @@ public class TalentListener implements Listener {
             case 1 -> buildRempartActionBar(player, bar);
             case 2 -> buildFureurActionBar(player, bar);
             case 3 -> buildTitanActionBar(player, bar);
+            case 4 -> buildFauveActionBar(player, bar);
             default -> buildGenericGuerrierActionBar(player, bar);
         }
 
@@ -4271,11 +4251,11 @@ public class TalentListener implements Listener {
      */
     private int detectDominantSpecialization(Player player) {
         List<Talent> activeTalents = talentManager.getActiveTalents(player);
-        int[] specCounts = new int[4]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan
+        int[] specCounts = new int[5]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan, 4=Fauve
 
         for (Talent talent : activeTalents) {
             int slot = talent.getSlotIndex();
-            if (slot >= 0 && slot < 4) {
+            if (slot >= 0 && slot < 5) {
                 specCounts[slot]++;
             }
         }
@@ -4283,7 +4263,7 @@ public class TalentListener implements Listener {
         // Trouver le slot avec le plus de talents
         int maxCount = 0;
         int dominantSpec = -1;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             if (specCounts[i] > maxCount) {
                 maxCount = specCounts[i];
                 dominantSpec = i;
@@ -4591,6 +4571,101 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * ActionBar pour Voie du Fauve (Slot 4) - Prédateur / Fente
+     * Affiche: Carnage stacks, Berserker Rage, Élan Furieux, Saignement, Cooldowns
+     */
+    private void buildFauveActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§6§l[§c🐺§6§l] ");
+
+        // === CHAÎNE DE CARNAGE - Stacks visuels ===
+        Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+        if (carnageChain != null) {
+            long decayTime = (long) carnageChain.getValue(2); // 4000ms
+            int stacks = getCarnageStacks(uuid, decayTime);
+            int maxStacks = (int) carnageChain.getValue(0);
+            boolean explosionReady = carnageExplosionReady.getOrDefault(uuid, false);
+
+            if (explosionReady) {
+                // Explosion prête - animation clignotante
+                bar.append("§4§l⚡CARNAGE⚡ ");
+            } else {
+                // Affichage des stacks
+                for (int i = 0; i < maxStacks; i++) {
+                    if (i < stacks) {
+                        bar.append("§c◆"); // Stack plein
+                    } else {
+                        bar.append("§8◇"); // Stack vide
+                    }
+                }
+                if (stacks > 0) {
+                    double bonusPercent = stacks * carnageChain.getValue(1) * 100;
+                    bar.append(" §7+").append(String.format("%.0f", bonusPercent)).append("%");
+                }
+            }
+        }
+
+        // === RAGE DU BERSERKER - Timer si actif ===
+        Long berserkerEnd = berserkerRageActiveUntil.get(uuid);
+        if (berserkerEnd != null && System.currentTimeMillis() < berserkerEnd) {
+            long remaining = (berserkerEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §c§lBERSERKER §e").append(remaining).append("s");
+        } else {
+            // Cooldown Berserker
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                if (isOnCooldown(uuid, "berserker_rage")) {
+                    long remaining = getCooldownRemaining(uuid, "berserker_rage") / 1000;
+                    bar.append("  §8🔥 ").append(remaining).append("s");
+                } else {
+                    bar.append("  §a🔥");
+                }
+            }
+        }
+
+        // === ÉLAN FURIEUX - Stacks ===
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            if (stacks > 0) {
+                int maxStacks = (int) momentum.getValue(2);
+                double bonusPercent = stacks * momentum.getValue(0) * 100;
+                String color = stacks >= maxStacks ? "§a§l" : (stacks >= maxStacks / 2 ? "§e" : "§7");
+                bar.append("  ").append(color).append("⚡").append(stacks).append(" §7+").append(String.format("%.0f", bonusPercent)).append("%");
+            }
+        }
+
+        // === SAIGNEMENT SUR DERNIÈRE CIBLE ===
+        UUID lastTarget = lastLungingStrikeHit.get(uuid);
+        if (lastTarget != null) {
+            Integer stacks = bleedingStacks.get(lastTarget);
+            Long expiry = bleedingExpiry.get(lastTarget);
+            if (stacks != null && stacks > 0 && expiry != null && System.currentTimeMillis() < expiry) {
+                Talent claws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+                if (claws != null) {
+                    int maxStacks = (int) claws.getValue(3);
+                    String color = stacks >= maxStacks ? "§4§l" : (stacks >= 5 ? "§c" : "§4");
+                    bar.append("  ").append(color).append("🩸x").append(stacks);
+                }
+            }
+        }
+
+        // === COOLDOWN FENTE (si pas en Berserker) ===
+        if (berserkerEnd == null || System.currentTimeMillis() >= berserkerEnd) {
+            if (isOnCooldown(uuid, "lunging_strike")) {
+                // Afficher le cooldown restant en décimales
+                long remainingMs = getCooldownRemaining(uuid, "lunging_strike");
+                bar.append("  §8⚔ ").append(String.format("%.1f", remainingMs / 1000.0)).append("s");
+            } else {
+                Talent lunging = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+                if (lunging != null) {
+                    bar.append("  §a⚔");
+                }
+            }
+        }
+    }
+
+    /**
      * Génère l'affichage visuel des charges d'os
      * Exemple: ●●●○○ pour 3/5 charges
      */
@@ -4741,8 +4816,9 @@ public class TalentListener implements Listener {
         eviscerationCounter.remove(playerUuid);
         bleedingStacks.remove(playerUuid);
         bleedingExpiry.remove(playerUuid);
-        warFrenzyKills.remove(playerUuid);
-        warFrenzyActiveUntil.remove(playerUuid);
+        carnageStacks.remove(playerUuid);
+        carnageLastKill.remove(playerUuid);
+        carnageExplosionReady.remove(playerUuid);
         predatorDamageBuffExpiry.remove(playerUuid);
         lastLungingStrikeHit.remove(playerUuid);
 
@@ -5439,7 +5515,7 @@ public class TalentListener implements Listener {
     // ==================== VOIE DE LA FENTE - METHODES DE PROC ====================
 
     /**
-     * Fente Dévastatrice - Dash vers l'ennemi le plus proche et frappe
+     * Fente Dévastatrice - Dash linéaire traversant qui frappe tous les mobs sur le chemin
      * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
      */
     private void procLungingStrike(Player player, boolean withFuryConsumption) {
@@ -5447,7 +5523,7 @@ public class TalentListener implements Listener {
         Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
         if (lungingStrike == null) return;
 
-        double baseRange = lungingStrike.getValue(0); // 8 blocs
+        double baseRange = lungingStrike.getValue(0); // 12 blocs
         double baseBonus = lungingStrike.getValue(1); // 0.50 = +50%
         double perBlockBonus = lungingStrike.getValue(2); // 0.05 = +5% par bloc
 
@@ -5459,20 +5535,20 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Trouver l'ennemi le plus proche dans la direction du regard
-        LivingEntity target = findNearestEnemyInDirection(player, baseRange);
-        if (target == null) {
-            // Pas de cible - petit feedback
+        Location startLoc = player.getLocation().clone();
+        Vector direction = player.getEyeLocation().getDirection().setY(0).normalize();
+
+        // Vérifier qu'il y a au moins un ennemi dans le couloir de charge
+        boolean hasTargets = hasEnemiesInCorridor(player, direction, baseRange, 1.8);
+        if (!hasTargets) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             return;
         }
 
-        Location startLoc = player.getLocation();
-        Location targetLoc = target.getLocation();
-        double distance = startLoc.distance(targetLoc);
+        // Calculer multiplicateur de dégâts de base (sans bonus distance - sera ajouté par mob)
+        double baseDamageMultiplier = 1.0 + baseBonus;
 
         // Consommation de Fureur - sacrifice de vie
-        double damageMultiplier = 1.0 + baseBonus + (distance * perBlockBonus);
         if (withFuryConsumption) {
             Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
             if (fury != null) {
@@ -5480,8 +5556,7 @@ public class TalentListener implements Listener {
                 double currentHp = player.getHealth();
                 if (currentHp > hpCost + 1) { // Sécurité: ne pas se suicider
                     player.setHealth(currentHp - hpCost);
-                    damageMultiplier *= fury.getValue(1); // x3
-                    // Effet visuel de sacrifice
+                    baseDamageMultiplier *= fury.getValue(1); // x3
                     player.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, player.getLocation().add(0, 1, 0),
                         5, 0.3, 0.3, 0.3, 0.1);
                     player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 0.6f, 1.2f);
@@ -5493,22 +5568,20 @@ public class TalentListener implements Listener {
         if (isBerserkerRageActive(uuid)) {
             Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
             if (berserker != null) {
-                damageMultiplier *= berserker.getValue(1); // x2
+                baseDamageMultiplier *= berserker.getValue(1); // x2
             }
         }
 
         // Élan Furieux - bonus de stacks (avec decay)
         Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
         if (momentum != null) {
-            // Vérifier decay - reset si plus de 3s sans Fente
             long resetTime = (long) momentum.getValue(3); // 3000ms
             Long lastLunge = furiousMomentumLastLunge.get(uuid);
             if (lastLunge != null && (System.currentTimeMillis() - lastLunge) > resetTime) {
                 furiousMomentumStacks.remove(uuid);
             }
-
             int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-            damageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
+            baseDamageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
         }
 
         // Prédateur Insatiable - buff de dégâts
@@ -5516,35 +5589,54 @@ public class TalentListener implements Listener {
         if (predatorExpiry != null && System.currentTimeMillis() < predatorExpiry) {
             Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
             if (predator != null) {
-                damageMultiplier *= (1 + predator.getValue(2)); // +15%
+                baseDamageMultiplier *= (1 + predator.getValue(2)); // +15%
             }
         }
 
-        // Frénésie de Guerre active - bonus de dégâts
-        if (isWarFrenzyActive(uuid)) {
-            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
-            if (warFrenzy != null) {
-                damageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
+        // Chaîne de Carnage - bonus de dégâts par stack
+        Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+        boolean triggerCarnageExplosion = false;
+        if (carnageChain != null) {
+            long decayTime = (long) carnageChain.getValue(2); // 4000ms
+            int stacks = getCarnageStacks(uuid, decayTime);
+            if (stacks > 0) {
+                double damagePerStack = carnageChain.getValue(1); // 0.15 = 15%
+                baseDamageMultiplier *= (1 + stacks * damagePerStack);
+            }
+            // Vérifier si l'explosion est prête
+            if (carnageExplosionReady.getOrDefault(uuid, false)) {
+                triggerCarnageExplosion = true;
             }
         }
+        final boolean shouldTriggerCarnageExplosion = triggerCarnageExplosion;
+        final Talent carnageTalent = carnageChain;
 
-        final double finalDamageMultiplier = damageMultiplier;
+        final double finalBaseDamageMultiplier = baseDamageMultiplier;
+        final double finalPerBlockBonus = perBlockBonus;
+        final double finalRange = baseRange;
 
-        // Animation du dash - téléportation progressive
+        // Animation du dash - téléportation progressive traversante
         lungingStrikeActive.put(uuid, true);
 
-        // Téléporter vers la cible avec effet visuel
-        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
-        Location dashEnd = targetLoc.clone().subtract(direction.clone().multiply(1.5)); // S'arrêter juste devant
-        dashEnd.setY(targetLoc.getY());
+        // Calculer destination finale (direction × portée)
+        Location dashEnd = startLoc.clone().add(direction.clone().multiply(finalRange));
+        dashEnd.setY(startLoc.getY());
 
-        // Particules de traînée
-        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.add(0, 1, 0), 1, 0, 0, 0, 0);
+        // Particules de départ
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 1, 0, 0, 0, 0);
+        player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
 
-        // Téléportation rapide (animation fluide en 3 étapes)
+        // Set des mobs déjà frappés (pour éviter les doublons)
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // Liste des positions pour la traînée de flammes (si Consommation de Fureur)
+        List<Location> flameTrailPositions = new ArrayList<>();
+        final boolean spawnFlameTrail = withFuryConsumption;
+
+        // Téléportation progressive traversante (6 étapes pour plus de fluidité)
         new BukkitRunnable() {
             int step = 0;
-            final int totalSteps = 3;
+            final int totalSteps = 6;
             final Location start = startLoc.clone();
             final Location end = dashEnd.clone();
 
@@ -5552,38 +5644,168 @@ public class TalentListener implements Listener {
             public void run() {
                 if (step >= totalSteps || !player.isOnline()) {
                     lungingStrikeActive.put(uuid, false);
+                    // Son final et effets si au moins un mob touché
+                    if (!hitEntities.isEmpty()) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+
+                        // === ÉLAN FURIEUX - Ajouter un stack à la fin de la Fente ===
+                        Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+                        if (momentumTalent != null) {
+                            int maxStacks = (int) momentumTalent.getValue(2);
+                            int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+                            if (currentStacks < maxStacks) {
+                                furiousMomentumStacks.put(uuid, currentStacks + 1);
+                            }
+                            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+                            applyMomentumSpeedBoost(player, furiousMomentumStacks.get(uuid), momentumTalent);
+
+                            // Feedback visuel des stacks
+                            int newStacks = furiousMomentumStacks.get(uuid);
+                            if (newStacks >= maxStacks) {
+                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+                            } else {
+                                float pitch = 0.8f + (newStacks * 0.15f);
+                                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
+                            }
+                        }
+
+                        // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
+                        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+                        if (evisceration != null) {
+                            int lungesNeeded = (int) evisceration.getValue(0);
+                            int counter = eviscerationCounter.getOrDefault(uuid, 0) + 1;
+                            if (counter >= lungesNeeded) {
+                                procEvisceration(player, evisceration);
+                                eviscerationCounter.put(uuid, 0);
+                            } else {
+                                eviscerationCounter.put(uuid, counter);
+                            }
+                        }
+                    }
+
+                    // === CONSOMMATION DE FUREUR - Traînée de flammes ===
+                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
+                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+                        if (fury != null) {
+                            double trailDamagePercent = fury.getValue(2); // 0.75 = 75%
+                            long trailDuration = (long) fury.getValue(3); // 3000ms
+                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
+                        }
+                    }
+
+                    // === CHAÎNE DE CARNAGE - Explosion sanglante à 5 stacks ===
+                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
+                        triggerCarnageExplosion(player, carnageTalent);
+                    }
+
                     cancel();
                     return;
                 }
 
                 step++;
                 double progress = (double) step / totalSteps;
-                Location midPoint = start.clone().add(
+                Location currentPos = start.clone().add(
                     end.toVector().subtract(start.toVector()).multiply(progress)
                 );
-                midPoint.setYaw(player.getLocation().getYaw());
-                midPoint.setPitch(player.getLocation().getPitch());
-                player.teleport(midPoint);
+                currentPos.setYaw(player.getLocation().getYaw());
+                currentPos.setPitch(player.getLocation().getPitch());
 
-                // Particules de dash
-                player.getWorld().spawnParticle(Particle.DUST, midPoint.add(0, 1, 0),
+                // Vérifier si la destination est solide (arrêter le dash si mur)
+                if (currentPos.getBlock().getType().isSolid()) {
+                    lungingStrikeActive.put(uuid, false);
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+
+                    // Spawner la traînée de flammes même si interrompu
+                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
+                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+                        if (fury != null) {
+                            double trailDamagePercent = fury.getValue(2);
+                            long trailDuration = (long) fury.getValue(3);
+                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
+                        }
+                    }
+
+                    // Explosion de Carnage même si interrompu
+                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
+                        triggerCarnageExplosion(player, carnageTalent);
+                    }
+
+                    cancel();
+                    return;
+                }
+
+                player.teleport(currentPos);
+
+                // Stocker la position pour la traînée de flammes
+                if (spawnFlameTrail) {
+                    flameTrailPositions.add(currentPos.clone());
+                }
+
+                // Particules de dash + traînée
+                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 1, 0),
                     3, 0.2, 0.3, 0.2, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
+                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.5, 0),
+                    2, 0.1, 0.2, 0.1, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.6f));
+                player.getWorld().spawnParticle(Particle.CRIT, currentPos.clone().add(0, 0.8, 0),
+                    1, 0.15, 0.15, 0.15, 0.02);
 
-                if (step >= totalSteps) {
-                    // Arrivée - infliger les dégâts
-                    finishLungingStrike(player, target, finalDamageMultiplier, withFuryConsumption);
+                // Frapper tous les mobs à proximité (rayon 1.8 blocs)
+                double hitRadius = 1.8;
+                double distanceFromStart = start.distance(currentPos);
+
+                for (Entity entity : player.getWorld().getNearbyEntities(currentPos, hitRadius, hitRadius, hitRadius)) {
+                    if (!(entity instanceof LivingEntity living)) continue;
+                    if (entity == player) continue;
+                    if (entity instanceof Player) continue;
+                    if (entity instanceof ArmorStand) continue;
+                    if (hitEntities.contains(entity.getUniqueId())) continue;
+
+                    // Marquer comme frappé
+                    hitEntities.add(entity.getUniqueId());
+
+                    // Calculer dégâts avec bonus distance
+                    double distanceBonus = distanceFromStart * finalPerBlockBonus;
+                    double damageMultiplier = finalBaseDamageMultiplier + distanceBonus;
+
+                    // Frapper le mob
+                    hitLungingStrikeTarget(player, living, damageMultiplier, withFuryConsumption);
+                }
+
+                // Effet sweep à chaque étape si on a touché quelqu'un ce step
+                if (step == totalSteps) {
                     lungingStrikeActive.put(uuid, false);
-                    cancel();
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
-     * Finalise la Fente - inflige les dégâts et applique les effets
+     * Vérifie s'il y a des ennemis dans un couloir devant le joueur
      */
-    private void finishLungingStrike(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
+    private boolean hasEnemiesInCorridor(Player player, Vector direction, double range, double width) {
+        Location start = player.getLocation();
+        for (Entity entity : player.getWorld().getNearbyEntities(start, range, range, range)) {
+            if (!(entity instanceof LivingEntity)) continue;
+            if (entity == player || entity instanceof Player || entity instanceof ArmorStand) continue;
+
+            Vector toEntity = entity.getLocation().toVector().subtract(start.toVector());
+            double distAlongDir = toEntity.dot(direction);
+            if (distAlongDir < 0 || distAlongDir > range) continue;
+
+            Vector perpendicular = toEntity.clone().subtract(direction.clone().multiply(distAlongDir));
+            if (perpendicular.length() <= width) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Frappe une cible pendant la Fente traversante
+     */
+    private void hitLungingStrikeTarget(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
         UUID uuid = player.getUniqueId();
         double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
         double finalDamage = baseDamage * damageMultiplier;
@@ -5591,13 +5813,14 @@ public class TalentListener implements Listener {
         // Infliger les dégâts
         target.damage(finalDamage, player);
 
-        // Enregistrer le hit pour le kill tracking (Prédateur Insatiable, Frénésie de Guerre)
+        // Enregistrer le hit pour le kill tracking
         lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
 
-        // Son et effets visuels
-        player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+        // Effets visuels par cible (légers pour éviter le spam)
         player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
-            10, 0.3, 0.3, 0.3, 0.2);
+            5, 0.2, 0.2, 0.2, 0.1);
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 0.8, 0),
+            1, 0, 0, 0, 0);
 
         // Indicateur de dégâts (critique)
         PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
@@ -5612,51 +5835,8 @@ public class TalentListener implements Listener {
             procLaceratingClaws(player, target, laceratingClaws);
         }
 
-        // === ÉLAN FURIEUX - Ajouter un stack ===
-        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
-        if (momentum != null) {
-            int maxStacks = (int) momentum.getValue(2);
-            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-            int newStacks = stacks;
-            if (stacks < maxStacks) {
-                newStacks = stacks + 1;
-                furiousMomentumStacks.put(uuid, newStacks);
-            }
-            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
-
-            // Appliquer le bonus de vitesse d'attaque
-            applyMomentumSpeedBoost(player, newStacks, momentum);
-
-            // Feedback visuel des stacks
-            if (newStacks >= maxStacks) {
-                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
-            } else {
-                float pitch = 0.8f + (newStacks * 0.15f);
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.4f, pitch);
-            }
-        }
-
-        // === ÉVISCÉRATION - Compteur ===
-        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
-        if (evisceration != null) {
-            int count = eviscerationCounter.getOrDefault(uuid, 0) + 1;
-            int threshold = (int) evisceration.getValue(0);
-
-            if (count >= threshold) {
-                eviscerationCounter.put(uuid, 0);
-                procEvisceration(player, evisceration);
-            } else {
-                eviscerationCounter.put(uuid, count);
-            }
-        }
-
-        // === PROPAGATION DE DÉGÂTS SI CIBLE MARQUÉE ===
-        if (isMarked(target.getUniqueId())) {
-            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
-            if (warCry != null) {
-                propagateMarkedDamage(player, target, finalDamage, warCry);
-            }
-        }
+        // === ÉLAN FURIEUX - Ajouter un stack (une seule fois par Fente, fait dans la méthode finish) ===
+        // Note: Les stacks sont ajoutés une seule fois à la fin de la Fente, pas par cible
     }
 
     /**
@@ -5825,23 +6005,160 @@ public class TalentListener implements Listener {
             startBleedingDOT(player, target, damagePerStack, duration);
         }
 
-        // Effet visuel de lacération
-        target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
-            5 + newStacks, 0.3, 0.4, 0.3, 0.05);
-        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
-            3 + newStacks, 0.2, 0.3, 0.2, 0,
-            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 1.2f));
+        // Effet visuel de lacération - 3 griffures animées
+        spawnClawSlashEffect(target, player);
 
         // Son de lacération
-        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.3f);
+        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
         if (newStacks >= maxStacks) {
-            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.4f, 1.5f);
+            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.3f, 1.6f);
         }
 
         // Propager aux ennemis marqués si la cible est marquée
         if (isMarked(targetUuid)) {
             propagateBleedingToMarked(player, target, stacksPerHit, damagePerStack, duration, maxStacks);
         }
+    }
+
+    /**
+     * Crée un effet visuel de 3 griffures animées sur la cible
+     */
+    private void spawnClawSlashEffect(LivingEntity target, Player player) {
+        Location center = target.getLocation().add(0, 1.2, 0);
+        World world = target.getWorld();
+
+        // Direction du joueur vers la cible pour orienter les griffures
+        Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+        Vector perpendicular = new Vector(-toTarget.getZ(), 0, toTarget.getX()).normalize();
+
+        // Animation des 3 griffures en séquence rapide
+        new BukkitRunnable() {
+            int slashIndex = 0;
+
+            @Override
+            public void run() {
+                if (slashIndex >= 3 || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Décalage vertical pour chaque griffure (diagonale descendante)
+                double yOffset = 0.4 - (slashIndex * 0.25);
+                double xOffset = -0.3 + (slashIndex * 0.3);
+
+                // Dessiner une ligne de griffure (5 particules par griffe)
+                for (int i = 0; i < 5; i++) {
+                    double progress = i / 4.0;
+                    double x = xOffset + (progress * 0.5);
+                    double y = yOffset - (progress * 0.4);
+
+                    Location particleLoc = center.clone().add(
+                        perpendicular.clone().multiply(x)
+                    ).add(0, y, 0);
+
+                    // Particules rouge-orange dégradé
+                    int red = 255;
+                    int green = (int) (80 + (slashIndex * 40)); // Orange vers rouge
+                    int blue = 0;
+
+                    world.spawnParticle(Particle.DUST, particleLoc,
+                        1, 0.02, 0.02, 0.02, 0,
+                        new Particle.DustOptions(Color.fromRGB(red, green, blue), 0.8f));
+                }
+
+                // Petite particule de crit au bout de chaque griffure
+                Location endLoc = center.clone().add(perpendicular.clone().multiply(xOffset + 0.5)).add(0, yOffset - 0.4, 0);
+                world.spawnParticle(Particle.CRIT, endLoc, 1, 0.05, 0.05, 0.05, 0.02);
+
+                slashIndex++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L); // 1 tick entre chaque griffure
+    }
+
+    /**
+     * Crée une traînée de flammes persistante sur la trajectoire de la Fente (Consommation de Fureur)
+     * @param positions Liste des positions de la trajectoire
+     * @param damagePercent Pourcentage des dégâts du joueur (0.75 = 75%)
+     * @param durationMs Durée de la traînée en ms (3000 = 3s)
+     */
+    private void spawnFuryFlameTrail(Player player, List<Location> positions, double damagePercent, long durationMs) {
+        if (positions.isEmpty()) return;
+
+        World world = positions.get(0).getWorld();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double trailDamage = baseDamage * damagePercent;
+        double hitRadius = 1.5;
+
+        // Set des mobs déjà touchés ce tick (reset chaque seconde)
+        Set<UUID> hitThisTick = new HashSet<>();
+
+        // Son d'embrasement initial
+        player.playSound(positions.get(0), Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.8f);
+
+        // Traînée de flammes pendant 3 secondes (60 ticks), dégâts chaque seconde (20 ticks)
+        new BukkitRunnable() {
+            int tickCount = 0;
+            final int maxTicks = (int) (durationMs / 50); // Convertir ms en ticks
+            final int damageInterval = 20; // Dégâts toutes les 20 ticks (1 seconde)
+
+            @Override
+            public void run() {
+                if (tickCount >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Afficher les particules de feu sur toute la trajectoire
+                for (Location pos : positions) {
+                    // Flammes au sol
+                    world.spawnParticle(Particle.FLAME, pos.clone().add(0, 0.2, 0),
+                        2, 0.4, 0.1, 0.4, 0.02);
+                    world.spawnParticle(Particle.SMALL_FLAME, pos.clone().add(0, 0.3, 0),
+                        1, 0.3, 0.15, 0.3, 0.01);
+
+                    // Fumée légère
+                    if (tickCount % 5 == 0) {
+                        world.spawnParticle(Particle.SMOKE, pos.clone().add(0, 0.5, 0),
+                            1, 0.2, 0.2, 0.2, 0.01);
+                    }
+                }
+
+                // Infliger des dégâts toutes les secondes
+                if (tickCount % damageInterval == 0) {
+                    hitThisTick.clear();
+
+                    for (Location pos : positions) {
+                        for (Entity entity : world.getNearbyEntities(pos, hitRadius, hitRadius, hitRadius)) {
+                            if (!(entity instanceof LivingEntity living)) continue;
+                            if (entity instanceof Player) continue;
+                            if (entity instanceof ArmorStand) continue;
+                            if (hitThisTick.contains(entity.getUniqueId())) continue;
+
+                            hitThisTick.add(entity.getUniqueId());
+
+                            // Infliger les dégâts de feu
+                            living.damage(trailDamage, player);
+                            living.setFireTicks(20); // Enflammer pendant 1 seconde
+
+                            // Effet visuel de brûlure
+                            world.spawnParticle(Particle.LAVA, living.getLocation().add(0, 0.5, 0),
+                                3, 0.2, 0.3, 0.2, 0);
+
+                            // Indicateur de dégâts
+                            PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0),
+                                trailDamage, false, player);
+                        }
+                    }
+
+                    // Son de brûlure si des mobs sont touchés
+                    if (!hitThisTick.isEmpty()) {
+                        world.playSound(positions.get(positions.size() / 2), Sound.BLOCK_FIRE_AMBIENT, 0.6f, 1.2f);
+                    }
+                }
+
+                tickCount++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**
@@ -5906,6 +6223,125 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Déclenche l'Explosion de Carnage (Chaîne de Carnage à 5 stacks)
+     * Applique des saignements massifs et soigne le joueur
+     */
+    private void triggerCarnageExplosion(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        double explosionRadius = talent.getValue(3); // 6.0 blocs
+        int bleedStacksToApply = (int) talent.getValue(4); // 5 stacks
+        double healPercent = talent.getValue(5); // 0.25 = 25%
+
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Reset des stacks et de l'explosion
+        carnageStacks.put(uuid, 0);
+        carnageExplosionReady.put(uuid, false);
+        carnageLastKill.remove(uuid);
+
+        // Sons épiques
+        world.playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.0f, 0.8f);
+        world.playSound(center, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+        world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.2f);
+
+        double totalDamageDealt = 0;
+        int enemiesHit = 0;
+
+        // Obtenir le talent Griffes Lacérantes pour les saignements
+        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        double damagePerStack = 0.01; // 1% par défaut
+        long bleedDuration = 4000; // 4s par défaut
+        int maxBleedStacks = 10;
+
+        if (laceratingClaws != null) {
+            damagePerStack = laceratingClaws.getValue(1);
+            bleedDuration = (long) laceratingClaws.getValue(2);
+            maxBleedStacks = (int) laceratingClaws.getValue(3);
+        }
+
+        // Appliquer saignements à tous les ennemis dans le rayon
+        for (Entity entity : world.getNearbyEntities(center, explosionRadius, explosionRadius, explosionRadius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            UUID targetUuid = entity.getUniqueId();
+            enemiesHit++;
+
+            // Appliquer les stacks de saignement
+            Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+            Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+
+            int currentStacks = playerBleedStacks.getOrDefault(targetUuid, 0);
+            int newStacks = Math.min(currentStacks + bleedStacksToApply, maxBleedStacks);
+            playerBleedStacks.put(targetUuid, newStacks);
+            playerBleedExpiry.put(targetUuid, System.currentTimeMillis() + bleedDuration);
+
+            // Démarrer le DOT si premier stack
+            if (currentStacks == 0) {
+                startBleedingDOT(player, living, damagePerStack, bleedDuration);
+            }
+
+            // Calculer les dégâts potentiels pour le soin
+            double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+            totalDamageDealt += maxHealth * damagePerStack * newStacks * 4;
+
+            // Effet visuel sur chaque cible
+            world.spawnParticle(Particle.DAMAGE_INDICATOR, living.getLocation().add(0, 1, 0),
+                10, 0.3, 0.5, 0.3, 0.1);
+            world.spawnParticle(Particle.DUST, living.getLocation().add(0, 1.2, 0),
+                8, 0.3, 0.4, 0.3, 0,
+                new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+        }
+
+        // Soigner le joueur (25% des dégâts potentiels)
+        if (totalDamageDealt > 0) {
+            double healAmount = totalDamageDealt * healPercent;
+            double currentHealth = player.getHealth();
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            player.setHealth(Math.min(currentHealth + healAmount, maxHealth));
+
+            // Indicateur de soin
+            world.spawnParticle(Particle.HEART, player.getLocation().add(0, 2, 0),
+                5, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Onde de sang visuelle (cercle qui s'étend)
+        new BukkitRunnable() {
+            double currentRadius = 1;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > explosionRadius || ticks > 10) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules de sang
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                    double x = Math.cos(angle) * currentRadius;
+                    double z = Math.sin(angle) * currentRadius;
+                    Location loc = center.clone().add(x, 0.3, z);
+                    world.spawnParticle(Particle.DUST, loc, 2, 0.1, 0.05, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.8f));
+                    world.spawnParticle(Particle.DAMAGE_INDICATOR, loc, 1, 0.1, 0.1, 0.1, 0.02);
+                }
+
+                currentRadius += 0.8;
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Message au joueur
+        player.sendActionBar(net.kyori.adventure.text.Component.text(
+            "§4§l🩸 EXPLOSION DE CARNAGE! §c" + enemiesHit + " ennemis saignent!"
+        ));
     }
 
     /**
@@ -5998,9 +6434,10 @@ public class TalentListener implements Listener {
             Integer stacks = playerBleedStacks.get(targetUuid);
 
             if (stacks != null && stacks > 0) {
-                // Calculer les dégâts restants (2% PV/s * stacks * temps restant ~4s)
+                // Calculer les dégâts restants (1% PV/s * stacks * 4s)
+                // Cohérent avec Griffes Lacérantes (0.01 = 1% PV/sec par stack)
                 double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
-                double remainingDamage = maxHealth * 0.02 * stacks * 4; // Approximation: 4s de DOT restant
+                double remainingDamage = maxHealth * 0.01 * stacks * 4; // 1% PV/s * stacks * 4s
 
                 // Infliger les dégâts instantanément
                 living.damage(remainingDamage, player);
