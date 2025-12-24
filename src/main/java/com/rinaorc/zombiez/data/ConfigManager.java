@@ -33,7 +33,7 @@ public class ConfigManager {
     @Getter private FileConfiguration zombiesConfig;
     @Getter private FileConfiguration lootConfig;
     @Getter private FileConfiguration economyConfig;
-    @Getter private FileConfiguration powersConfig;
+    @Getter private FileConfiguration awakensConfig;
     @Getter private FileConfiguration eventsConfig;
 
     // Paramètres de jeu (cache pour accès rapide)
@@ -69,7 +69,7 @@ public class ConfigManager {
         zombiesConfig = loadConfig("zombies.yml");
         lootConfig = loadConfig("loot.yml");
         economyConfig = loadConfig("economy.yml");
-        powersConfig = loadConfig("powers.yml");
+        awakensConfig = loadConfig("awakens.yml");
         eventsConfig = loadConfig("events.yml");
 
         // Cache des paramètres fréquemment utilisés

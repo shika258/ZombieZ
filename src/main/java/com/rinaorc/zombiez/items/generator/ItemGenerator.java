@@ -120,8 +120,9 @@ public class ItemGenerator {
         String baseName = nameGenerator.getBaseName(itemType);
         String generatedName = nameGenerator.generateFullName(baseName, affixes, rarity);
 
-        // Déterminer si l'item a un pouvoir (sera appliqué plus tard par l'ItemManager)
-        String powerId = null; // Sera assigné par l'ItemManager si nécessaire
+        // Les éveils sont gérés séparément par l'AwakenManager
+        // Sera assigné par l'ItemManager lors de la création finale
+        String awakenId = null;
 
         // Générer un armor trim pour les armures
         String trimPatternKey = null;
@@ -150,7 +151,7 @@ public class ItemGenerator {
             .createdAt(System.currentTimeMillis())
             .identified(true)
             .itemLevel(itemLevel)
-            .powerId(powerId)
+            .awakenId(awakenId)
             .trimPatternKey(trimPatternKey)
             .trimMaterialKey(trimMaterialKey)
             .build();

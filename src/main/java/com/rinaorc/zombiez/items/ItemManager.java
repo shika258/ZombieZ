@@ -212,36 +212,48 @@ public class ItemManager {
     }
 
     /**
-     * Applique un pouvoir à un item si éligible
+     * Applique un éveil à un item si éligible (remplace l'ancien système de pouvoirs)
      */
+    private ItemStack applyAwakenIfEligible(ZombieZItem zItem) {
+        // Vérifier si le plugin a un AwakenManager
+        var awakenManager = plugin.getAwakenManager();
+        if (awakenManager == null || !awakenManager.isEnabled()) {
+            return zItem.toItemStack();
+        }
+
+        // Seules les armes peuvent avoir des éveils
+        if (!zItem.getItemType().getCategory().equals(
+                com.rinaorc.zombiez.items.types.ItemType.ItemCategory.WEAPON)) {
+            return zItem.toItemStack();
+        }
+
+        // Vérifier si l'item devrait avoir un éveil (ultra rare)
+        if (!awakenManager.shouldHaveAwaken(zItem.getRarity(), zItem.getZoneLevel(), 0.0)) {
+            return zItem.toItemStack();
+        }
+
+        // Générer un éveil aléatoire
+        var awaken = awakenManager.generateAwaken(zItem.getRarity(), zItem.getZoneLevel());
+        if (awaken == null) {
+            return zItem.toItemStack();
+        }
+
+        // Appliquer l'éveil
+        zItem.setAwakenId(awaken.getId());
+
+        // Créer l'ItemStack et stocker l'éveil dans le PDC
+        ItemStack itemStack = zItem.toItemStack();
+        awakenManager.storeAwakenInItem(itemStack, awaken);
+
+        return itemStack;
+    }
+
+    /**
+     * @deprecated Utilisez {@link #applyAwakenIfEligible} à la place
+     */
+    @Deprecated
     private ItemStack applyPowerIfEligible(ZombieZItem zItem) {
-        // Vérifier si le plugin a un PowerManager
-        var powerManager = plugin.getPowerManager();
-        if (powerManager == null || !powerManager.isEnabled()) {
-            return zItem.toItemStack();
-        }
-
-        // Vérifier si l'item devrait avoir un pouvoir
-        if (!powerManager.shouldHavePower(zItem.getRarity(), 0.0)) {
-            return zItem.toItemStack();
-        }
-
-        // Sélectionner un pouvoir aléatoire
-        var power = powerManager.selectRandomPower(zItem.getRarity());
-        if (power == null) {
-            return zItem.toItemStack();
-        }
-
-        // Appliquer le pouvoir
-        zItem.setPowerId(power.getId());
-
-        // Créer l'ItemStack avec le pouvoir
-        var powerListener = plugin.getPowerTriggerListener();
-        if (powerListener != null) {
-            return zItem.toItemStackWithPower(powerListener, power);
-        }
-
-        return zItem.toItemStack();
+        return applyAwakenIfEligible(zItem);
     }
 
     /**
