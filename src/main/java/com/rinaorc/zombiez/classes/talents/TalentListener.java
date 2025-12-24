@@ -1639,7 +1639,7 @@ public class TalentListener implements Listener {
                 }
 
                 // Effet de reset
-                player.getWorld().spawnParticle(Particle.CRIT_MAGIC, player.getLocation().add(0, 1, 0),
+                player.getWorld().spawnParticle(Particle.ENCHANTED_HIT, player.getLocation().add(0, 1, 0),
                     8, 0.3, 0.3, 0.3, 0.1);
                 player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
             }
@@ -5540,8 +5540,8 @@ public class TalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
             10, 0.3, 0.3, 0.3, 0.2);
 
-        // Indicateur de dégâts
-        PacketDamageIndicator.displayCrit(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, player);
+        // Indicateur de dégâts (critique)
+        PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
 
         // Marquer en combat
         lastCombatTime.put(uuid, System.currentTimeMillis());
@@ -5962,8 +5962,8 @@ public class TalentListener implements Listener {
                     stacks * 5, 0.4, 0.5, 0.4, 0,
                     new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
 
-                // Indicateur de dégâts
-                PacketDamageIndicator.displayCrit(plugin, living.getLocation().add(0, 2, 0), remainingDamage, player);
+                // Indicateur de dégâts (critique)
+                PacketDamageIndicator.display(plugin, living.getLocation().add(0, 2, 0), remainingDamage, true, player);
             }
         }
 
