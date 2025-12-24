@@ -5543,6 +5543,10 @@ public class TalentListener implements Listener {
         // Set des mobs déjà frappés (pour éviter les doublons)
         Set<UUID> hitEntities = new HashSet<>();
 
+        // Liste des positions pour la traînée de flammes (si Consommation de Fureur)
+        List<Location> flameTrailPositions = new ArrayList<>();
+        final boolean spawnFlameTrail = withFuryConsumption;
+
         // Téléportation progressive traversante (6 étapes pour plus de fluidité)
         new BukkitRunnable() {
             int step = 0;
@@ -5592,6 +5596,17 @@ public class TalentListener implements Listener {
                             }
                         }
                     }
+
+                    // === CONSOMMATION DE FUREUR - Traînée de flammes ===
+                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
+                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+                        if (fury != null) {
+                            double trailDamagePercent = fury.getValue(2); // 0.75 = 75%
+                            long trailDuration = (long) fury.getValue(3); // 3000ms
+                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
+                        }
+                    }
+
                     cancel();
                     return;
                 }
@@ -5608,11 +5623,27 @@ public class TalentListener implements Listener {
                 if (currentPos.getBlock().getType().isSolid()) {
                     lungingStrikeActive.put(uuid, false);
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+
+                    // Spawner la traînée de flammes même si interrompu
+                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
+                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+                        if (fury != null) {
+                            double trailDamagePercent = fury.getValue(2);
+                            long trailDuration = (long) fury.getValue(3);
+                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
+                        }
+                    }
+
                     cancel();
                     return;
                 }
 
                 player.teleport(currentPos);
+
+                // Stocker la position pour la traînée de flammes
+                if (spawnFlameTrail) {
+                    flameTrailPositions.add(currentPos.clone());
+                }
 
                 // Particules de dash + traînée
                 player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 1, 0),
@@ -6025,6 +6056,92 @@ public class TalentListener implements Listener {
                 slashIndex++;
             }
         }.runTaskTimer(plugin, 0L, 1L); // 1 tick entre chaque griffure
+    }
+
+    /**
+     * Crée une traînée de flammes persistante sur la trajectoire de la Fente (Consommation de Fureur)
+     * @param positions Liste des positions de la trajectoire
+     * @param damagePercent Pourcentage des dégâts du joueur (0.75 = 75%)
+     * @param durationMs Durée de la traînée en ms (3000 = 3s)
+     */
+    private void spawnFuryFlameTrail(Player player, List<Location> positions, double damagePercent, long durationMs) {
+        if (positions.isEmpty()) return;
+
+        World world = positions.get(0).getWorld();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double trailDamage = baseDamage * damagePercent;
+        double hitRadius = 1.5;
+
+        // Set des mobs déjà touchés ce tick (reset chaque seconde)
+        Set<UUID> hitThisTick = new HashSet<>();
+
+        // Son d'embrasement initial
+        player.playSound(positions.get(0), Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.8f);
+
+        // Traînée de flammes pendant 3 secondes (60 ticks), dégâts chaque seconde (20 ticks)
+        new BukkitRunnable() {
+            int tickCount = 0;
+            final int maxTicks = (int) (durationMs / 50); // Convertir ms en ticks
+            final int damageInterval = 20; // Dégâts toutes les 20 ticks (1 seconde)
+
+            @Override
+            public void run() {
+                if (tickCount >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Afficher les particules de feu sur toute la trajectoire
+                for (Location pos : positions) {
+                    // Flammes au sol
+                    world.spawnParticle(Particle.FLAME, pos.clone().add(0, 0.2, 0),
+                        2, 0.4, 0.1, 0.4, 0.02);
+                    world.spawnParticle(Particle.SMALL_FLAME, pos.clone().add(0, 0.3, 0),
+                        1, 0.3, 0.15, 0.3, 0.01);
+
+                    // Fumée légère
+                    if (tickCount % 5 == 0) {
+                        world.spawnParticle(Particle.SMOKE, pos.clone().add(0, 0.5, 0),
+                            1, 0.2, 0.2, 0.2, 0.01);
+                    }
+                }
+
+                // Infliger des dégâts toutes les secondes
+                if (tickCount % damageInterval == 0) {
+                    hitThisTick.clear();
+
+                    for (Location pos : positions) {
+                        for (Entity entity : world.getNearbyEntities(pos, hitRadius, hitRadius, hitRadius)) {
+                            if (!(entity instanceof LivingEntity living)) continue;
+                            if (entity instanceof Player) continue;
+                            if (entity instanceof ArmorStand) continue;
+                            if (hitThisTick.contains(entity.getUniqueId())) continue;
+
+                            hitThisTick.add(entity.getUniqueId());
+
+                            // Infliger les dégâts de feu
+                            living.damage(trailDamage, player);
+                            living.setFireTicks(20); // Enflammer pendant 1 seconde
+
+                            // Effet visuel de brûlure
+                            world.spawnParticle(Particle.LAVA, living.getLocation().add(0, 0.5, 0),
+                                3, 0.2, 0.3, 0.2, 0);
+
+                            // Indicateur de dégâts
+                            PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0),
+                                trailDamage, false, player);
+                        }
+                    }
+
+                    // Son de brûlure si des mobs sont touchés
+                    if (!hitThisTick.isEmpty()) {
+                        world.playSound(positions.get(positions.size() / 2), Sound.BLOCK_FIRE_AMBIENT, 0.6f, 1.2f);
+                    }
+                }
+
+                tickCount++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     /**

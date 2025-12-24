@@ -675,7 +675,7 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fury_consumption")
             .name("Consommation de Fureur")
-            .description("Sacrifie PV pour degats x3")
+            .description("Sacrifie PV pour degats x3 + trainee de feu")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
@@ -686,11 +686,15 @@ public final class GuerrierTalents {
                 "",
                 "§7Cette Fente speciale:",
                 "§7- §c×3§7 multiplicateur de degats",
-                "§7- Ignore le cooldown normal",
-                "§7- §6Onde de choc§7 garantie",
+                "§7- §6Trainee de flammes§7 sur la trajectoire",
                 "",
-                "§c⚠ Risque = Recompense!",
-                "§8Synergie: Lifesteal recommande"
+                "§6§lTRAINEE DE FLAMMES:",
+                "§7- Reste au sol §e3 secondes§7",
+                "§7- Inflige §c75%§7 degats/seconde",
+                "§7- §c3 applications§7 de degats",
+                "",
+                "§c🔥 Embrasez votre passage!",
+                "§8Synergie: Griffes Lacerantes"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -698,7 +702,7 @@ public final class GuerrierTalents {
             .icon(Material.DRAGON_BREATH)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.FURY_CONSUMPTION)
-            .values(new double[]{0.15, 3.0}) // hp_cost%, damage_multiplier
+            .values(new double[]{0.15, 3.0, 0.75, 3000}) // hp_cost%, damage_multiplier, trail_damage%, trail_duration_ms
             .build());
     }
 
