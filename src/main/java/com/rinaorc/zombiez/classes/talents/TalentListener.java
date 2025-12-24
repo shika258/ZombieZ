@@ -5529,6 +5529,7 @@ public class TalentListener implements Listener {
 
     /**
      * Fente Dévastatrice - Dash linéaire traversant qui frappe tous les mobs sur le chemin
+     * Utilise la vélocité pour un mouvement fluide au lieu de téléportations saccadées
      * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
      */
     private void procLungingStrike(Player player, boolean withFuryConsumption) {
@@ -5628,14 +5629,10 @@ public class TalentListener implements Listener {
         final double finalPerBlockBonus = perBlockBonus;
         final double finalRange = baseRange;
 
-        // Animation du dash - téléportation progressive traversante
+        // Animation du dash - mouvement fluide via vélocité
         lungingStrikeActive.put(uuid, true);
 
-        // Calculer destination finale (direction × portée)
-        Location dashEnd = startLoc.clone().add(direction.clone().multiply(finalRange));
-        dashEnd.setY(startLoc.getY());
-
-        // Particules de départ
+        // Particules de départ + son
         player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 1, 0, 0, 0, 0);
         player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
 
@@ -5646,127 +5643,78 @@ public class TalentListener implements Listener {
         List<Location> flameTrailPositions = new ArrayList<>();
         final boolean spawnFlameTrail = withFuryConsumption;
 
-        // Téléportation progressive traversante (6 étapes pour plus de fluidité)
+        // Configuration du dash fluide via vélocité
+        // Durée totale: ~400ms (8 ticks) pour une charge responsive mais fluide
+        final int dashDurationTicks = 8;
+        // Vitesse par tick = distance / durée (avec léger surplus pour compenser la friction)
+        final double velocityStrength = (finalRange / dashDurationTicks) * 1.15;
+        final Vector dashVelocity = direction.clone().multiply(velocityStrength);
+
+        // Appliquer l'impulsion initiale
+        player.setVelocity(dashVelocity);
+
+        // Tracking du dash avec vélocité maintenue
         new BukkitRunnable() {
-            int step = 0;
-            final int totalSteps = 6;
+            int tick = 0;
             final Location start = startLoc.clone();
-            final Location end = dashEnd.clone();
+            Location lastPos = startLoc.clone();
 
             @Override
             public void run() {
-                if (step >= totalSteps || !player.isOnline()) {
-                    lungingStrikeActive.put(uuid, false);
-                    // Son final et effets si au moins un mob touché
-                    if (!hitEntities.isEmpty()) {
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
-
-                        // === ÉLAN FURIEUX - Ajouter un stack à la fin de la Fente ===
-                        Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
-                        if (momentumTalent != null) {
-                            int maxStacks = (int) momentumTalent.getValue(2);
-                            int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-                            if (currentStacks < maxStacks) {
-                                furiousMomentumStacks.put(uuid, currentStacks + 1);
-                            }
-                            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
-                            applyMomentumSpeedBoost(player, furiousMomentumStacks.get(uuid), momentumTalent);
-
-                            // Feedback visuel des stacks
-                            int newStacks = furiousMomentumStacks.get(uuid);
-                            if (newStacks >= maxStacks) {
-                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
-                            } else {
-                                float pitch = 0.8f + (newStacks * 0.15f);
-                                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
-                            }
-                        }
-
-                        // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
-                        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
-                        if (evisceration != null) {
-                            int lungesNeeded = (int) evisceration.getValue(0);
-                            int counter = eviscerationCounter.getOrDefault(uuid, 0) + 1;
-                            if (counter >= lungesNeeded) {
-                                procEvisceration(player, evisceration);
-                                eviscerationCounter.put(uuid, 0);
-                            } else {
-                                eviscerationCounter.put(uuid, counter);
-                            }
-                        }
-                    }
-
-                    // === CONSOMMATION DE FUREUR - Traînée de flammes ===
-                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
-                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
-                        if (fury != null) {
-                            double trailDamagePercent = fury.getValue(2); // 0.75 = 75%
-                            long trailDuration = (long) fury.getValue(3); // 3000ms
-                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
-                        }
-                    }
-
-                    // === CHAÎNE DE CARNAGE - Explosion sanglante à 5 stacks ===
-                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
-                        triggerCarnageExplosion(player, carnageTalent);
-                    }
-
+                // Fin du dash ou joueur déconnecté
+                if (tick >= dashDurationTicks || !player.isOnline()) {
+                    finishLunge();
                     cancel();
                     return;
                 }
 
-                step++;
-                double progress = (double) step / totalSteps;
-                Location currentPos = start.clone().add(
-                    end.toVector().subtract(start.toVector()).multiply(progress)
-                );
-                currentPos.setYaw(player.getLocation().getYaw());
-                currentPos.setPitch(player.getLocation().getPitch());
+                tick++;
+                Location currentPos = player.getLocation();
+                double distanceFromStart = start.distance(currentPos);
 
-                // Vérifier si la destination est solide (arrêter le dash si mur)
-                if (currentPos.getBlock().getType().isSolid()) {
-                    lungingStrikeActive.put(uuid, false);
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
-
-                    // Spawner la traînée de flammes même si interrompu
-                    if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
-                        Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
-                        if (fury != null) {
-                            double trailDamagePercent = fury.getValue(2);
-                            long trailDuration = (long) fury.getValue(3);
-                            spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
-                        }
-                    }
-
-                    // Explosion de Carnage même si interrompu
-                    if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
-                        triggerCarnageExplosion(player, carnageTalent);
-                    }
-
+                // Vérifier collision avec bloc solide
+                Location checkAhead = currentPos.clone().add(direction.clone().multiply(0.5));
+                if (checkAhead.getBlock().getType().isSolid() ||
+                    currentPos.clone().add(0, 1, 0).getBlock().getType().isSolid()) {
+                    // Arrêter le joueur
+                    player.setVelocity(new Vector(0, player.getVelocity().getY() * 0.3, 0));
+                    finishLunge();
                     cancel();
                     return;
                 }
 
-                player.teleport(currentPos);
+                // Vérifier si on a atteint la portée max
+                if (distanceFromStart >= finalRange) {
+                    player.setVelocity(new Vector(0, player.getVelocity().getY() * 0.3, 0));
+                    finishLunge();
+                    cancel();
+                    return;
+                }
+
+                // Maintenir la vélocité horizontale (courbe ease-out pour un arrêt naturel)
+                double progress = (double) tick / dashDurationTicks;
+                double easeOut = 1.0 - (progress * progress * 0.3); // Légère décélération vers la fin
+                Vector maintainedVelocity = dashVelocity.clone().multiply(easeOut);
+                maintainedVelocity.setY(Math.min(player.getVelocity().getY(), 0.1)); // Garder la gravité légère
+                player.setVelocity(maintainedVelocity);
 
                 // Stocker la position pour la traînée de flammes
-                if (spawnFlameTrail) {
+                if (spawnFlameTrail && lastPos.distance(currentPos) > 1.0) {
                     flameTrailPositions.add(currentPos.clone());
+                    lastPos = currentPos.clone();
                 }
 
-                // Particules de dash + traînée
-                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 1, 0),
-                    3, 0.2, 0.3, 0.2, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
-                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.5, 0),
-                    2, 0.1, 0.2, 0.1, 0,
-                    new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.6f));
-                player.getWorld().spawnParticle(Particle.CRIT, currentPos.clone().add(0, 0.8, 0),
-                    1, 0.15, 0.15, 0.15, 0.02);
+                // Particules de dash fluides (moins intenses pour éviter le spam)
+                if (tick % 2 == 0) {
+                    player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.8, 0),
+                        2, 0.15, 0.2, 0.15, 0,
+                        new Particle.DustOptions(Color.fromRGB(255, 200, 0), 0.9f));
+                    player.getWorld().spawnParticle(Particle.CRIT, currentPos.clone().add(0, 0.6, 0),
+                        1, 0.1, 0.1, 0.1, 0.01);
+                }
 
                 // Frapper tous les mobs à proximité (rayon 1.8 blocs)
                 double hitRadius = 1.8;
-                double distanceFromStart = start.distance(currentPos);
 
                 for (Entity entity : player.getWorld().getNearbyEntities(currentPos, hitRadius, hitRadius, hitRadius)) {
                     if (!(entity instanceof LivingEntity living)) continue;
@@ -5785,10 +5733,63 @@ public class TalentListener implements Listener {
                     // Frapper le mob
                     hitLungingStrikeTarget(player, living, damageMultiplier, withFuryConsumption);
                 }
+            }
 
-                // Effet sweep à chaque étape si on a touché quelqu'un ce step
-                if (step == totalSteps) {
-                    lungingStrikeActive.put(uuid, false);
+            private void finishLunge() {
+                lungingStrikeActive.put(uuid, false);
+
+                // Son final et effets si au moins un mob touché
+                if (!hitEntities.isEmpty()) {
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+
+                    // === ÉLAN FURIEUX - Ajouter un stack à la fin de la Fente ===
+                    Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+                    if (momentumTalent != null) {
+                        int maxStacks = (int) momentumTalent.getValue(2);
+                        int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+                        if (currentStacks < maxStacks) {
+                            furiousMomentumStacks.put(uuid, currentStacks + 1);
+                        }
+                        furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+                        applyMomentumSpeedBoost(player, furiousMomentumStacks.get(uuid), momentumTalent);
+
+                        // Feedback visuel des stacks
+                        int newStacks = furiousMomentumStacks.get(uuid);
+                        if (newStacks >= maxStacks) {
+                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+                        } else {
+                            float pitch = 0.8f + (newStacks * 0.15f);
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
+                        }
+                    }
+
+                    // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
+                    Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+                    if (evisceration != null) {
+                        int lungesNeeded = (int) evisceration.getValue(0);
+                        int counter = eviscerationCounter.getOrDefault(uuid, 0) + 1;
+                        if (counter >= lungesNeeded) {
+                            procEvisceration(player, evisceration);
+                            eviscerationCounter.put(uuid, 0);
+                        } else {
+                            eviscerationCounter.put(uuid, counter);
+                        }
+                    }
+                }
+
+                // === CONSOMMATION DE FUREUR - Traînée de flammes ===
+                if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
+                    Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+                    if (fury != null) {
+                        double trailDamagePercent = fury.getValue(2); // 0.75 = 75%
+                        long trailDuration = (long) fury.getValue(3); // 3000ms
+                        spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
+                    }
+                }
+
+                // === CHAÎNE DE CARNAGE - Explosion sanglante à 5 stacks ===
+                if (shouldTriggerCarnageExplosion && carnageTalent != null && !hitEntities.isEmpty()) {
+                    triggerCarnageExplosion(player, carnageTalent);
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
