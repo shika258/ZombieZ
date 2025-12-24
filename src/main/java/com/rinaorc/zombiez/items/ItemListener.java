@@ -78,10 +78,8 @@ public class ItemListener implements Listener {
             return;
         }
 
-        // Obtenir les infos de l'item
+        // Obtenir la rareté de l'item
         Rarity rarity = ZombieZItem.getItemRarity(item);
-        int itemScore = ZombieZItem.getItemScore(item);
-
         if (rarity == null) return;
 
         // ============ MISSIONS DE COLLECTION ============
@@ -127,13 +125,6 @@ public class ItemListener implements Listener {
             if (rarity == Rarity.MYTHIC || rarity == Rarity.EXALTED) {
                 achievementManager.incrementProgress(player, "mythic_finder", 1);
             }
-        }
-
-        // Message selon rareté
-        if (rarity.isAtLeast(Rarity.RARE)) {
-            String message = rarity.getChatColor() + "✦ " + rarity.getDisplayName() +
-                " §7ramassé! §8[" + itemScore + " IS]";
-            MessageUtils.sendActionBar(player, message);
         }
 
         // Son différent selon rareté
