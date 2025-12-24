@@ -125,15 +125,26 @@ public class SpawnSystem {
      * Vérifie si une location est dans la zone de spawn protégée
      */
     private boolean isInProtectedSpawnArea(Location loc) {
-        if (!protectedAreaEnabled) return false;
+        // Vérifier la zone de spawn principale
+        if (protectedAreaEnabled) {
+            int x = loc.getBlockX();
+            int y = loc.getBlockY();
+            int z = loc.getBlockZ();
 
-        int x = loc.getBlockX();
-        int y = loc.getBlockY();
-        int z = loc.getBlockZ();
+            if (x >= protectedMinX && x <= protectedMaxX &&
+                y >= protectedMinY && y <= protectedMaxY &&
+                z >= protectedMinZ && z <= protectedMaxZ) {
+                return true;
+            }
+        }
 
-        return x >= protectedMinX && x <= protectedMaxX &&
-               y >= protectedMinY && y <= protectedMaxY &&
-               z >= protectedMinZ && z <= protectedMaxZ;
+        // Vérifier les zones de refuges protégées
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager != null && refugeManager.isInAnyRefugeProtectedArea(loc)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

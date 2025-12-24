@@ -1,0 +1,124 @@
+#######################################
+#   ZOMBIEZ - Configuration Refuges   #
+#   Points de sauvegarde & teleport   #
+#######################################
+
+# Les refuges sont des zones securisees ou les joueurs peuvent:
+# - Activer un checkpoint (clic droit sur le beacon)
+# - Se teleporter depuis d'autres refuges debloques
+# - Etre proteges des spawns de zombies
+
+# Structure d'un refuge:
+# - name: Nom affiche du refuge
+# - protected-area: Zone protegee contre le spawn de zombies (2 corners)
+# - beacon: Position du beacon pour activer le checkpoint
+# - spawn-point: Point de teleportation (x, y, z, yaw, pitch)
+# - cost: Cout en points pour activer ce refuge
+# - required-level: Niveau minimum requis pour debloquer
+
+refuges:
+
+  # ========================================
+  # REFUGE 1 - Fort Havregris (Zone 4-5)
+  # ========================================
+  1:
+    name: "Fort Havregris"
+    description: "Un ancien fort reconverti en refuge pour survivants"
+    protected-area:
+      corner1:
+        x: 768
+        y: 150
+        z: 9236
+      corner2:
+        x: 576
+        y: 0
+        z: 9114
+    beacon:
+      x: 675
+      y: 90
+      z: 9174
+    spawn-point:
+      x: 675.5
+      y: 90
+      z: 9171.5
+      yaw: -180
+      pitch: 0
+    cost: 50
+    required-level: 1
+
+  # ========================================
+  # REFUGE 2 - (A configurer)
+  # ========================================
+  # 2:
+  #   name: "Nom du refuge"
+  #   description: "Description"
+  #   protected-area:
+  #     corner1:
+  #       x: 0
+  #       y: 150
+  #       z: 0
+  #     corner2:
+  #       x: 0
+  #       y: 0
+  #       z: 0
+  #   beacon:
+  #     x: 0
+  #     y: 0
+  #     z: 0
+  #   spawn-point:
+  #     x: 0.5
+  #     y: 0
+  #     z: 0.5
+  #     yaw: 0
+  #     pitch: 0
+  #   cost: 100
+  #   required-level: 5
+
+  # ========================================
+  # REFUGE 3 - (A configurer)
+  # ========================================
+  # 3:
+  #   name: "Nom du refuge"
+  #   ...
+
+  # ========================================
+  # REFUGE 4 - (A configurer)
+  # ========================================
+  # 4:
+  #   ...
+
+  # ========================================
+  # REFUGE 5 - (A configurer)
+  # ========================================
+  # 5:
+  #   ...
+
+  # ========================================
+  # REFUGE 6 - (A configurer)
+  # ========================================
+  # 6:
+  #   ...
+
+  # ========================================
+  # REFUGE 7 - (A configurer)
+  # ========================================
+  # 7:
+  #   ...
+
+  # ========================================
+  # REFUGE 8 - (A configurer)
+  # ========================================
+  # 8:
+  #   ...
+
+  # ========================================
+  # REFUGE 9 - (A configurer)
+  # ========================================
+  # 9:
+  #   ...
+
+  # ========================================
+  # REFUGE 10 - (A configurer)
+  # ========================================
+  # 10:
+  #   ...

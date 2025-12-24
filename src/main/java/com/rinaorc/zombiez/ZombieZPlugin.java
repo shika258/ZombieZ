@@ -53,6 +53,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private ZoneManager zoneManager;
     @Getter
+    private RefugeManager refugeManager;
+    @Getter
     private PlayerDataManager playerDataManager;
     @Getter
     private EconomyManager economyManager;
@@ -406,6 +408,10 @@ public class ZombieZPlugin extends JavaPlugin {
         // Zone Manager - Gestion des zones et détection
         zoneManager = new ZoneManager(this);
         zoneManager.loadZones();
+
+        // Refuge Manager - Gestion des refuges (checkpoints et téléportation)
+        refugeManager = new RefugeManager(this);
+        refugeManager.loadRefuges();
 
         // Player Data Manager - Cache et persistance des données joueurs
         playerDataManager = new PlayerDataManager(this);
@@ -908,6 +914,11 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Recharger les zones
         zoneManager.loadZones();
+
+        // Recharger les refuges
+        if (refugeManager != null) {
+            refugeManager.reloadRefuges();
+        }
 
         // Recharger le système de performance
         if (performanceManager != null) {
