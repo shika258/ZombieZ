@@ -3,6 +3,8 @@ package com.rinaorc.zombiez.classes.talents;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.items.awaken.AwakenContext;
+import com.rinaorc.zombiez.items.awaken.AwakenHelper;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
@@ -189,10 +191,17 @@ public class ChasseurTalentListener implements Listener {
             // Executeur de Primes
             Talent bountyExecutioner = getActiveTalentIfHas(player, Talent.TalentEffectType.BOUNTY_EXECUTIONER);
             if (bountyExecutioner != null) {
+                // Contexte d'éveil pour ce talent
+                AwakenContext awakenCtx = AwakenHelper.getContext(plugin, player, bountyExecutioner, target);
+
+                // Seuil HP (peut être augmenté par THRESHOLD_BONUS: 15% -> 20%)
                 double threshold = bountyExecutioner.getValue(0);
+                threshold = AwakenHelper.calculateFinalThreshold(awakenCtx, threshold * 100) / 100;
+
                 double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
                 if (target.getHealth() / maxHp < threshold) {
                     damage = target.getHealth() + 1000; // Instakill
+                    AwakenHelper.applyBonusEffects(awakenCtx);
                 }
             }
         }

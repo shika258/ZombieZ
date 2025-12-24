@@ -3,6 +3,8 @@ package com.rinaorc.zombiez.classes.talents;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.combat.PacketDamageIndicator;
+import com.rinaorc.zombiez.items.awaken.AwakenContext;
+import com.rinaorc.zombiez.items.awaken.AwakenHelper;
 import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
@@ -304,10 +306,24 @@ public class TalentListener implements Listener {
         // Frappe Sismique - GARANTI: chaque attaque = onde de choc (cible incluse dans l'AoE)
         Talent seismicStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.SEISMIC_STRIKE);
         if (seismicStrike != null && !isOnCooldown(uuid, "seismic_strike")) {
+            // Créer le contexte d'éveil pour ce talent
+            AwakenContext awakenCtx = AwakenHelper.getContext(plugin, player, seismicStrike, target);
+
+            // Appliquer les modificateurs d'éveil
             double aoeDamage = damage * seismicStrike.getValue(0);
+            aoeDamage = AwakenHelper.calculateFinalDamage(awakenCtx, aoeDamage);
+
             double radius = seismicStrike.getValue(1);
+            radius = AwakenHelper.calculateFinalRadius(awakenCtx, radius);
+
+            long cooldown = seismicStrike.getInternalCooldownMs();
+            cooldown = AwakenHelper.calculateFinalCooldown(awakenCtx, cooldown);
+
             procSeismicStrike(player, target.getLocation(), aoeDamage, radius);
-            setCooldown(uuid, "seismic_strike", seismicStrike.getInternalCooldownMs());
+            setCooldown(uuid, "seismic_strike", cooldown);
+
+            // Appliquer les effets bonus (slow, heal, etc.)
+            AwakenHelper.applyBonusEffects(awakenCtx);
 
             // Accumuler pour Apocalypse Terrestre
             trackAoeDamage(player, aoeDamage);
@@ -424,7 +440,12 @@ public class TalentListener implements Listener {
         // Onde de Fracture - tous les 4 coups = onde sismique en cone
         Talent fractureWave = getActiveTalentIfHas(player, Talent.TalentEffectType.FRACTURE_WAVE);
         if (fractureWave != null && target instanceof LivingEntity) {
+            // Contexte d'éveil pour ce talent
+            AwakenContext awakenCtx = AwakenHelper.getContext(plugin, player, fractureWave, target);
+
+            // Seuil de coups (peut être réduit par REDUCED_THRESHOLD)
             int hitsNeeded = (int) fractureWave.getValue(0);  // 4 coups
+            hitsNeeded = Math.max(1, hitsNeeded - awakenCtx.getThresholdReduction());
 
             // Incrementer le compteur de coups
             int currentHits = fractureWaveHitCounter.merge(uuid, 1, Integer::sum);
@@ -433,13 +454,21 @@ public class TalentListener implements Listener {
             if (currentHits >= hitsNeeded) {
                 // Proc l'Onde de Fracture!
                 double baseDamage = damage * fractureWave.getValue(1);  // 150%
+                baseDamage = AwakenHelper.calculateFinalDamage(awakenCtx, baseDamage);
+
                 double bonusPerHit = fractureWave.getValue(2);           // +25% par ennemi
                 double range = fractureWave.getValue(3);                 // 4 blocs
+                range = AwakenHelper.calculateFinalRadius(awakenCtx, range);
+
                 double coneAngle = fractureWave.getValue(4);             // 60 degres
                 double slowPercent = fractureWave.getValue(5);           // 30%
                 long slowDurationMs = (long) fractureWave.getValue(6);   // 1500ms
+                slowDurationMs = AwakenHelper.calculateFinalDuration(awakenCtx, slowDurationMs);
 
                 procFractureWave(player, baseDamage, bonusPerHit, range, coneAngle, slowPercent, slowDurationMs);
+
+                // Appliquer les effets bonus d'éveil
+                AwakenHelper.applyBonusEffects(awakenCtx);
 
                 // Reset le compteur
                 fractureWaveHitCounter.put(uuid, 0);
