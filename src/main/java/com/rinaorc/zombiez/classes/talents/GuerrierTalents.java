@@ -130,11 +130,11 @@ public final class GuerrierTalents {
             .values(new double[]{0.25, 5000, 0.02}) // heal%, window_ms, min_heal%
             .build());
 
-        // 1.5 - FENTE DÉVASTATRICE (VOIE DU FAUVE)
+        // 1.5 - FENTE DÉVASTATRICE (VOIE DU FAUVE) - Style Yasuo
         TALENTS.add(Talent.builder()
             .id("guerrier_lunging_strike")
             .name("Fente Devastatrice")
-            .description("Clic droit = dash vers ennemi + degats bonus")
+            .description("Dash traversant + Tempete d'Acier!")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
@@ -146,7 +146,17 @@ public final class GuerrierTalents {
                 "§7Degats: §c+50%§7 de base",
                 "§7Bonus: §c+5%§7 par bloc parcouru",
                 "",
-                "§e⚔ Charge traversante multi-cibles!",
+                "§b§lTEMPÊTE D'ACIER:",
+                "§7Chaque Fente reussie octroie un",
+                "§7effet §bTempete menaçante§7 (§e6s§7).",
+                "",
+                "§7A §e2 stacks§7, la prochaine Fente",
+                "§7declenche une §b§lTORNADE§7 qui:",
+                "§7- §c×2§7 degats de base",
+                "§7- §bProjette§7 les ennemis en l'air!",
+                "§7- Voyage sur §e16 blocs§7",
+                "",
+                "§b🌪 HASAGI!",
                 "§8Cooldown: §e0.8s"
             })
             .classType(ClassType.GUERRIER)
