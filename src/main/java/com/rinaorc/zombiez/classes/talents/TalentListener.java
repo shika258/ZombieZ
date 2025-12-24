@@ -3289,31 +3289,33 @@ public class TalentListener implements Listener {
      * Applique un effet Glowing rouge au joueur via une équipe Scoreboard
      */
     private void applyRedGlow(Player player, int durationTicks) {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, durationTicks, 0, false, false));
-
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        String teamName = "zz_mega_tornado";
+        String teamName = "zz_berserker_red";
         org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
 
         if (team == null) {
             team = scoreboard.registerNewTeam(teamName);
-            team.setColor(org.bukkit.ChatColor.DARK_RED);
-            team.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY,
-                          org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
         }
 
-        team.addEntry(player.getName());
+        // Couleur rouge via Adventure API (comme ShadowManager)
+        team.color(net.kyori.adventure.text.format.NamedTextColor.DARK_RED);
+        team.prefix(net.kyori.adventure.text.Component.empty());
+        team.suffix(net.kyori.adventure.text.Component.empty());
+
+        // Ajouter le joueur à l'équipe et activer le glow
+        team.addEntity(player);
+        player.setGlowing(true);
     }
 
     /**
      * Retire le glowing rouge du joueur
      */
     private void removeRedGlow(Player player) {
-        player.removePotionEffect(PotionEffectType.GLOWING);
+        player.setGlowing(false);
         org.bukkit.scoreboard.Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
-        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_mega_tornado");
-        if (team != null && team.hasEntry(player.getName())) {
-            team.removeEntry(player.getName());
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam("zz_berserker_red");
+        if (team != null) {
+            team.removeEntity(player);
         }
     }
 
@@ -4890,12 +4892,13 @@ public class TalentListener implements Listener {
         predatorDamageBuffExpiry.remove(playerUuid);
         lastLungingStrikeHit.remove(playerUuid);
 
-        // Berserker Rage - restaurer la taille
+        // Berserker Rage - restaurer la taille et retirer le glow
         Double berserkerScale = berserkerOriginalScale.remove(playerUuid);
         if (berserkerScale != null) {
             Player player = plugin.getServer().getPlayer(playerUuid);
             if (player != null && player.isOnline()) {
                 player.getAttribute(Attribute.SCALE).setBaseValue(berserkerScale);
+                removeRedGlow(player);
             }
         }
         berserkerRageActiveUntil.remove(playerUuid);
@@ -6895,6 +6898,9 @@ public class TalentListener implements Listener {
         berserkerRageActiveUntil.remove(uuid);
 
         if (player.isOnline()) {
+            // Retirer le glow rouge
+            removeRedGlow(player);
+
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 0.6f, 0.8f);
             player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0),
                 20, 0.5, 0.5, 0.5, 0.1);
