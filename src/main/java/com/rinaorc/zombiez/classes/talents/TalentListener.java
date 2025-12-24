@@ -6835,7 +6835,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1.0f);
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
 
-        // Glowing orange
+        // Glowing rouge
         applyRedGlow(player, (int) (duration / 50));
 
         // Immunité knockback
