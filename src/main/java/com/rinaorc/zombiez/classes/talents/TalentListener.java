@@ -1772,13 +1772,12 @@ public class TalentListener implements Listener {
         // Clic Droit normal = Fente Dévastatrice
         Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
         if (lungingStrike != null) {
-            // Vérifier cooldown (sauf si Berserker Rage actif)
-            boolean ignoreCooldown = isBerserkerRageActive(uuid);
-            if (ignoreCooldown || !isOnCooldown(uuid, "lunging_strike")) {
+            // Vérifier cooldown (réduit à 100ms si Berserker Rage actif)
+            boolean berserkerActive = isBerserkerRageActive(uuid);
+            if (!isOnCooldown(uuid, "lunging_strike")) {
                 procLungingStrike(player, false);
-                if (!ignoreCooldown) {
-                    setCooldown(uuid, "lunging_strike", (long) lungingStrike.getValue(3));
-                }
+                long cooldownMs = berserkerActive ? 100L : (long) lungingStrike.getValue(3);
+                setCooldown(uuid, "lunging_strike", cooldownMs);
                 event.setCancelled(true);
             }
         }
