@@ -103,10 +103,32 @@ refuges:
     required-level: 10
 
   # ========================================
-  # REFUGE 4 - (A configurer)
+  # REFUGE 4 - Coyote Town (Zone 19-20)
   # ========================================
-  # 4:
-  #   ...
+  4:
+    name: "Coyote Town"
+    description: "Une ville de l'ouest abandonnee"
+    protected-area:
+      corner1:
+        x: 449
+        y: 200
+        z: 6336
+      corner2:
+        x: 310
+        y: 0
+        z: 6149
+    beacon:
+      x: 385
+      y: 86
+      z: 6227
+    spawn-point:
+      x: 385.5
+      y: 86
+      z: 6224.5
+      yaw: 180
+      pitch: 0
+    cost: 350
+    required-level: 15
 
   # ========================================
   # REFUGE 5 - (A configurer)
