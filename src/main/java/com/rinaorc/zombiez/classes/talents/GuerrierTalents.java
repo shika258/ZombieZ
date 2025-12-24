@@ -141,7 +141,7 @@ public final class GuerrierTalents {
                 "§6ACTIVATION: §eClic Droit§7 avec arme",
                 "",
                 "§7Bondissez vers l'ennemi le plus",
-                "§7proche (§e8 blocs§7 max) et frappez!",
+                "§7proche (§e12 blocs§7 max) et frappez!",
                 "",
                 "§7Degats: §c+50%§7 de base",
                 "§7Bonus: §c+5%§7 par bloc parcouru",
@@ -155,7 +155,7 @@ public final class GuerrierTalents {
             .icon(Material.NETHERITE_SWORD)
             .iconColor("§e")
             .effectType(Talent.TalentEffectType.LUNGING_STRIKE)
-            .values(new double[]{8.0, 0.50, 0.05, 800}) // range, base_bonus%, per_block_bonus%, cooldown_ms
+            .values(new double[]{12.0, 0.50, 0.05, 800}) // range, base_bonus%, per_block_bonus%, cooldown_ms
             .internalCooldownMs(800)
             .build());
     }

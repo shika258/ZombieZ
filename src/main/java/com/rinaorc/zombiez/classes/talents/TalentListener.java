@@ -5565,10 +5565,17 @@ public class TalentListener implements Listener {
                 midPoint.setPitch(player.getLocation().getPitch());
                 player.teleport(midPoint);
 
-                // Particules de dash
+                // Particules de dash + légère traînée
                 player.getWorld().spawnParticle(Particle.DUST, midPoint.add(0, 1, 0),
                     3, 0.2, 0.3, 0.2, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
+
+                // Traînée légère de particules
+                player.getWorld().spawnParticle(Particle.DUST, midPoint.clone().add(0, 0.5, 0),
+                    2, 0.1, 0.2, 0.1, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.6f));
+                player.getWorld().spawnParticle(Particle.CRIT, midPoint.clone().add(0, 0.8, 0),
+                    1, 0.15, 0.15, 0.15, 0.02);
 
                 if (step >= totalSteps) {
                     // Arrivée - infliger les dégâts
