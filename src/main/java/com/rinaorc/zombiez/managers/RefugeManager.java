@@ -62,7 +62,7 @@ public class RefugeManager {
     private FileConfiguration refugesConfig;
 
     // Configuration des hologrammes
-    private static final float HOLOGRAM_SCALE = 0.8f;
+    private static final float HOLOGRAM_SCALE = 2.4f; // Échelle x3 pour meilleure visibilité
     private static final double HOLOGRAM_HEIGHT_OFFSET = 2.5; // Blocs au-dessus du beacon
 
     public RefugeManager(ZombieZPlugin plugin) {
@@ -372,7 +372,7 @@ public class RefugeManager {
                 td.setBillboard(Display.Billboard.CENTER);
 
                 // Style
-                td.setBackgroundColor(Color.fromARGB(180, 0, 0, 0)); // Fond semi-transparent
+                td.setBackgroundColor(Color.fromARGB(0, 0, 0, 0)); // Fond transparent
                 td.setDefaultBackground(false);
                 td.setShadowed(true);
                 td.setSeeThrough(false);
