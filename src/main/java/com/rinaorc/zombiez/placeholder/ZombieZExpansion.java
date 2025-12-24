@@ -3,9 +3,15 @@ package com.rinaorc.zombiez.placeholder;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.classes.beasts.BeastManager;
+import com.rinaorc.zombiez.classes.beasts.BeastType;
 import com.rinaorc.zombiez.classes.mutations.DailyMutation;
+import com.rinaorc.zombiez.classes.perforation.PerforationManager;
+import com.rinaorc.zombiez.classes.poison.PoisonManager;
 import com.rinaorc.zombiez.classes.seasons.SeasonManager;
+import com.rinaorc.zombiez.classes.shadow.ShadowManager;
 import com.rinaorc.zombiez.classes.talents.Talent;
+import com.rinaorc.zombiez.classes.talents.TalentBranch;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ItemManager;
@@ -20,6 +26,7 @@ import com.rinaorc.zombiez.recycling.RecycleSettings;
 import com.rinaorc.zombiez.zones.Zone;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -555,6 +562,29 @@ public class ZombieZExpansion extends PlaceholderExpansion {
             case "ilvl_chest" -> String.valueOf(getItemIlvl(player.getInventory().getChestplate()));
             case "ilvl_legs" -> String.valueOf(getItemIlvl(player.getInventory().getLeggings()));
             case "ilvl_boots" -> String.valueOf(getItemIlvl(player.getInventory().getBoots()));
+            // Legacy class branch placeholders
+            case "class_branch" -> getBranchPlaceholder(player, new String[]{"class", "branch"});
+            case "class_branch_name" -> getBranchPlaceholder(player, new String[]{"class", "branch", "name"});
+            case "class_branch_id" -> getBranchPlaceholder(player, new String[]{"class", "branch", "id"});
+            case "class_branch_formatted" -> getBranchPlaceholder(player, new String[]{"class", "branch", "formatted"});
+            case "class_branch_color" -> getBranchPlaceholder(player, new String[]{"class", "branch", "color"});
+            // Legacy shadow placeholders
+            case "class_shadow_points" -> getShadowPlaceholder(player, new String[]{"class", "shadow", "points"});
+            case "class_shadow_points_bar" -> getShadowPlaceholder(player, new String[]{"class", "shadow", "points_bar"});
+            case "class_shadow_avatar" -> getShadowPlaceholder(player, new String[]{"class", "shadow", "avatar"});
+            case "class_shadow_blades" -> getShadowPlaceholder(player, new String[]{"class", "shadow", "blades"});
+            // Legacy frost placeholders
+            case "class_frost_charge" -> getFrostPlaceholder(player, new String[]{"class", "frost", "charge"});
+            case "class_frost_charge_bar" -> getFrostPlaceholder(player, new String[]{"class", "frost", "charge_bar"});
+            case "class_frost_hypothermia" -> getFrostPlaceholder(player, new String[]{"class", "frost", "hypothermia"});
+            case "class_frost_blizzard" -> getFrostPlaceholder(player, new String[]{"class", "frost", "blizzard"});
+            // Legacy beast placeholders
+            case "class_beast_count" -> getBeastPlaceholder(player, new String[]{"class", "beast", "count"});
+            case "class_beast_list" -> getBeastPlaceholder(player, new String[]{"class", "beast", "list"});
+            // Legacy poison placeholders
+            case "class_poison_virulence" -> getPoisonPlaceholder(player, new String[]{"class", "poison", "virulence"});
+            case "class_poison_virulence_bar" -> getPoisonPlaceholder(player, new String[]{"class", "poison", "virulence_bar"});
+            case "class_poison_avatar" -> getPoisonPlaceholder(player, new String[]{"class", "poison", "avatar"});
 
             default -> null;
         };
@@ -1338,8 +1368,272 @@ public class ZombieZExpansion extends PlaceholderExpansion {
                 }
                 yield "-";
             }
+            // ========== BRANCHE ==========
+            case "branch" -> getBranchPlaceholder(player, parts);
+            // ========== OMBRE (Shadow) ==========
+            case "shadow", "ombre" -> getShadowPlaceholder(player, parts);
+            // ========== GIVRE (Frost/Perforation) ==========
+            case "frost", "givre" -> getFrostPlaceholder(player, parts);
+            // ========== BÊTES (Beast) ==========
+            case "beast", "bete" -> getBeastPlaceholder(player, parts);
+            // ========== POISON (Virulence) ==========
+            case "poison", "virulence" -> getPoisonPlaceholder(player, parts);
             default -> getClassName(player);
         };
+    }
+
+    // ==================== BRANCH PLACEHOLDERS ====================
+
+    private String getBranchPlaceholder(Player player, String[] parts) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return "-";
+
+        if (parts.length < 3) {
+            return getBranchName(data);
+        }
+
+        return switch (parts[2]) {
+            case "name" -> getBranchName(data);
+            case "id" -> data.getSelectedBranchId() != null ? data.getSelectedBranchId() : "none";
+            case "formatted" -> getBranchFormatted(data);
+            case "color" -> getBranchColor(data);
+            case "has" -> data.hasBranch() ? "true" : "false";
+            case "cooldown" -> {
+                if (data.isOnBranchChangeCooldown()) {
+                    long remaining = data.getBranchChangeCooldownRemaining() / 1000;
+                    yield formatTime(remaining);
+                }
+                yield "0";
+            }
+            default -> getBranchName(data);
+        };
+    }
+
+    private String getBranchName(ClassData data) {
+        if (!data.hasBranch()) return "Aucune";
+        TalentBranch branch = TalentBranch.fromId(data.getSelectedBranchId());
+        return branch != null ? branch.getDisplayName() : data.getSelectedBranchId();
+    }
+
+    private String getBranchFormatted(ClassData data) {
+        if (!data.hasBranch()) return "&7Aucune";
+        TalentBranch branch = TalentBranch.fromId(data.getSelectedBranchId());
+        return branch != null ? branch.getColoredName() : "&7" + data.getSelectedBranchId();
+    }
+
+    private String getBranchColor(ClassData data) {
+        if (!data.hasBranch()) return "&7";
+        TalentBranch branch = TalentBranch.fromId(data.getSelectedBranchId());
+        return branch != null ? branch.getColor() : "&7";
+    }
+
+    // ==================== SHADOW PLACEHOLDERS ====================
+
+    private String getShadowPlaceholder(Player player, String[] parts) {
+        ShadowManager shadowManager = plugin.getShadowManager();
+        if (shadowManager == null) return "0";
+
+        if (parts.length < 3) {
+            return String.valueOf(shadowManager.getShadowPoints(player.getUniqueId()));
+        }
+
+        return switch (parts[2]) {
+            case "points" -> String.valueOf(shadowManager.getShadowPoints(player.getUniqueId()));
+            case "points_max" -> String.valueOf(ShadowManager.MAX_SHADOW_POINTS);
+            case "points_bar" -> getShadowPointsBar(shadowManager, player);
+            case "avatar" -> {
+                if (parts.length > 3 && parts[3].equals("active")) {
+                    yield shadowManager.isAvatarActive(player.getUniqueId()) ? "&5&lACTIF" : "&7Inactif";
+                }
+                yield shadowManager.isAvatarActive(player.getUniqueId()) ? "true" : "false";
+            }
+            case "avatar_time" -> {
+                if (shadowManager.isAvatarActive(player.getUniqueId())) {
+                    // Avatar dure 15s de base
+                    yield "Actif";
+                }
+                yield "0s";
+            }
+            case "blades", "lames" -> {
+                if (parts.length > 3 && parts[3].equals("time")) {
+                    long remaining = shadowManager.getBladesRemainingTime(player.getUniqueId());
+                    yield (remaining / 1000) + "s";
+                }
+                yield shadowManager.hasActiveBlades(player.getUniqueId()) ? "&5&lACTIF" : "&7Inactif";
+            }
+            case "danse", "danse_macabre" -> shadowManager.isDanseMacabreActive(player.getUniqueId()) ? "&5&lACTIF" : "&7Inactif";
+            case "execution_cost" -> {
+                int cost = shadowManager.getPreparedExecutionCost(player.getUniqueId());
+                yield cost > 0 ? String.valueOf(cost) : "5";
+            }
+            case "is_shadow" -> shadowManager.isShadowPlayer(player) ? "true" : "false";
+            default -> String.valueOf(shadowManager.getShadowPoints(player.getUniqueId()));
+        };
+    }
+
+    private String getShadowPointsBar(ShadowManager manager, Player player) {
+        int points = manager.getShadowPoints(player.getUniqueId());
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < ShadowManager.MAX_SHADOW_POINTS; i++) {
+            if (i < points) {
+                bar.append("&5◆");
+            } else {
+                bar.append("&8◇");
+            }
+        }
+        return bar.toString();
+    }
+
+    // ==================== FROST/GIVRE PLACEHOLDERS ====================
+
+    private String getFrostPlaceholder(Player player, String[] parts) {
+        PerforationManager perfoManager = plugin.getPerforationManager();
+        if (perfoManager == null) return "0";
+
+        if (parts.length < 3) {
+            return String.valueOf(perfoManager.getFrostCharge(player.getUniqueId()));
+        }
+
+        return switch (parts[2]) {
+            case "charge" -> String.valueOf(perfoManager.getFrostCharge(player.getUniqueId()));
+            case "charge_max" -> "5";
+            case "charge_bar" -> getFrostChargeBar(perfoManager, player);
+            case "glacial" -> perfoManager.isGlacialShot(player.getUniqueId()) ? "&b&lPRÊT" : "&7Non";
+            case "hypothermia", "hypo" -> {
+                double hypo = perfoManager.getHypothermiaLevel(player.getUniqueId());
+                yield decimalFormat.format(hypo * 100) + "%";
+            }
+            case "hypothermia_bar", "hypo_bar" -> getHypothermiaBar(perfoManager, player);
+            case "hypothermia_max", "hypo_max" -> perfoManager.isHypothermiaMax(player.getUniqueId()) ? "&b&lMAX" : "&7Non";
+            case "blizzard", "tempete" -> perfoManager.isBlizzardActive(player.getUniqueId()) ? "&9&lACTIF" : "&7Inactif";
+            case "eternal", "hiver" -> perfoManager.isEternalWinterActive(player.getUniqueId()) ? "&b&lACTIF" : "&7Inactif";
+            case "is_frost" -> perfoManager.isPerforationPlayer(player) ? "true" : "false";
+            default -> String.valueOf(perfoManager.getFrostCharge(player.getUniqueId()));
+        };
+    }
+
+    private String getFrostChargeBar(PerforationManager manager, Player player) {
+        int charge = manager.getFrostCharge(player.getUniqueId());
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < 5; i++) {
+            if (i < charge) {
+                bar.append("&b❄");
+            } else {
+                bar.append("&8○");
+            }
+        }
+        return bar.toString();
+    }
+
+    private String getHypothermiaBar(PerforationManager manager, Player player) {
+        double hypo = manager.getHypothermiaLevel(player.getUniqueId());
+        int filled = (int) (hypo * 10);
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < 10; i++) {
+            if (i < filled) {
+                bar.append("&b█");
+            } else {
+                bar.append("&8░");
+            }
+        }
+        return bar.toString();
+    }
+
+    // ==================== BEAST PLACEHOLDERS ====================
+
+    private String getBeastPlaceholder(Player player, String[] parts) {
+        BeastManager beastManager = plugin.getBeastManager();
+        if (beastManager == null) return "0";
+
+        if (parts.length < 3) {
+            return String.valueOf(beastManager.getPlayerBeasts(player).size());
+        }
+
+        return switch (parts[2]) {
+            case "count" -> String.valueOf(beastManager.getPlayerBeasts(player).size());
+            case "max" -> "4"; // Max configurable via talents
+            case "list" -> getBeastList(beastManager, player);
+            case "wolf", "loup" -> beastManager.hasBeast(player, BeastType.WOLF) ? "&a&lACTIF" : "&7-";
+            case "fox", "renard" -> beastManager.hasBeast(player, BeastType.FOX) ? "&6&lACTIF" : "&7-";
+            case "bee", "abeille" -> beastManager.hasBeast(player, BeastType.BEE) ? "&e&lACTIF" : "&7-";
+            case "axolotl" -> beastManager.hasBeast(player, BeastType.AXOLOTL) ? "&d&lACTIF" : "&7-";
+            case "is_beast" -> isBeastPlayer(player) ? "true" : "false";
+            case "focus" -> hasBeastFocusTarget(beastManager, player) ? "&c&lFOCUS" : "&7Aucun";
+            default -> String.valueOf(beastManager.getPlayerBeasts(player).size());
+        };
+    }
+
+    private boolean isBeastPlayer(Player player) {
+        ClassData data = getClassData(player);
+        if (data == null || !data.hasClass()) return false;
+        if (data.getSelectedClass() != ClassType.CHASSEUR) return false;
+        String branch = data.getSelectedBranchId();
+        return branch != null && branch.toLowerCase().contains("bete");
+    }
+
+    private boolean hasBeastFocusTarget(BeastManager manager, Player player) {
+        // Vérifier si le joueur a des bêtes actives et un ennemi ciblé
+        return !manager.getPlayerBeasts(player).isEmpty();
+    }
+
+    private String getBeastList(BeastManager manager, Player player) {
+        StringBuilder sb = new StringBuilder();
+        for (BeastType type : BeastType.values()) {
+            if (manager.hasBeast(player, type)) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(type.getColoredName());
+            }
+        }
+        return sb.length() > 0 ? sb.toString() : "&7Aucune";
+    }
+
+    // ==================== POISON PLACEHOLDERS ====================
+
+    private String getPoisonPlaceholder(Player player, String[] parts) {
+        PoisonManager poisonManager = plugin.getPoisonManager();
+        if (poisonManager == null) return "0";
+
+        if (parts.length < 3) {
+            return String.valueOf(poisonManager.getVirulence(player.getUniqueId()));
+        }
+
+        return switch (parts[2]) {
+            case "virulence" -> String.valueOf(poisonManager.getVirulence(player.getUniqueId()));
+            case "virulence_bar" -> getVirulenceBar(poisonManager, player);
+            case "virulence_percent" -> poisonManager.getVirulence(player.getUniqueId()) + "%";
+            case "avatar", "plague" -> poisonManager.isPlagueAvatarActive(player.getUniqueId()) ? "&2&lACTIF" : "&7Inactif";
+            case "targets" -> countPoisonedTargets(poisonManager, player);
+            case "is_poison" -> poisonManager.isPoisonPlayer(player) ? "true" : "false";
+            default -> String.valueOf(poisonManager.getVirulence(player.getUniqueId()));
+        };
+    }
+
+    private String countPoisonedTargets(PoisonManager manager, Player player) {
+        // Compter les entités empoisonnées par ce joueur dans un rayon de 20 blocs
+        int count = 0;
+        for (org.bukkit.entity.Entity entity : player.getNearbyEntities(20, 20, 20)) {
+            if (entity instanceof LivingEntity living) {
+                if (manager.isPoisoned(living.getUniqueId()) &&
+                    player.getUniqueId().equals(manager.getPoisonOwner(living.getUniqueId()))) {
+                    count++;
+                }
+            }
+        }
+        return String.valueOf(count);
+    }
+
+    private String getVirulenceBar(PoisonManager manager, Player player) {
+        int virulence = manager.getVirulence(player.getUniqueId());
+        int filled = virulence / 10;
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < 10; i++) {
+            if (i < filled) {
+                bar.append("&2█");
+            } else {
+                bar.append("&8░");
+            }
+        }
+        return bar.toString();
     }
 
     private ClassData getClassData(Player player) {
