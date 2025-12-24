@@ -102,9 +102,11 @@ gameplay:
   # Point de spawn
   spawn:
     world: world
-    x: 621
-    y: 70
-    z: 10300
+    x: 728.5
+    y: 94.0
+    z: 9979.5
+    yaw: 180.0
+    pitch: 0.0
   
   # Régénération naturelle désactivée
   disable-natural-regen: true
