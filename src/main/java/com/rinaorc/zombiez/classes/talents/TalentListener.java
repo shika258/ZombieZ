@@ -1374,18 +1374,21 @@ public class TalentListener implements Listener {
                     target.damage(explosionDamage, owner);
                     totalDamageDealt += actualDamage;
 
-                    // Effet de sang sur chaque cible touchée
-                    world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0,
-                        new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.2f));
+                    // Afficher les dégâts en TextDisplay (visible par le propriétaire)
+                    PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), explosionDamage, false, owner);
+
+                    // Effet de sang sur chaque cible touchée (réduit)
+                    world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0,
+                        new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.0f));
                 }
             }
         }
 
-        // === Effets visuels de l'explosion ===
+        // === Effets visuels de l'explosion (réduits) ===
 
-        // Particules d'explosion de sang (cercle au sol)
-        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
-            for (double r = 0.5; r <= aoeRadius; r += 0.5) {
+        // Particules d'explosion de sang (cercle au sol simplifié)
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+            for (double r = 1.0; r <= aoeRadius; r += 1.5) {
                 double x = r * Math.cos(angle);
                 double z = r * Math.sin(angle);
                 Location particleLoc = explosionLoc.clone().add(x, 0.2, z);
@@ -1394,10 +1397,10 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Particules centrales (explosion)
-        world.spawnParticle(Particle.DUST, explosionLoc.clone().add(0, 0.5, 0), 30, 0.8, 0.5, 0.8, 0.05,
-            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 2.0f));
-        world.spawnParticle(Particle.CRIMSON_SPORE, explosionLoc.clone().add(0, 1, 0), 20, 1.0, 0.5, 1.0, 0.02);
+        // Particules centrales (explosion - réduites)
+        world.spawnParticle(Particle.DUST, explosionLoc.clone().add(0, 0.5, 0), 12, 0.6, 0.4, 0.6, 0.03,
+            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 1.8f));
+        world.spawnParticle(Particle.CRIMSON_SPORE, explosionLoc.clone().add(0, 1, 0), 8, 0.8, 0.4, 0.8, 0.01);
 
         // Son d'explosion sanglante
         world.playSound(explosionLoc, Sound.ENTITY_SLIME_SQUISH, 1.5f, 0.6f);
@@ -1408,15 +1411,15 @@ public class TalentListener implements Listener {
             double healAmount = totalDamageDealt * lifestealPercent;
             applyLifesteal(owner, healAmount);
 
-            // Effet visuel de soin: traînée de sang vers le joueur
+            // Effet visuel de soin: traînée de sang vers le joueur (réduit)
             Location ownerPos = owner.getLocation().add(0, 1, 0);
             Vector direction = ownerPos.toVector().subtract(explosionLoc.toVector()).normalize();
             double distance = explosionLoc.distance(ownerPos);
 
-            for (double d = 0; d < distance; d += 0.4) {
+            for (double d = 0; d < distance; d += 1.0) {
                 Location particleLoc = explosionLoc.clone().add(direction.clone().multiply(d));
-                world.spawnParticle(Particle.DUST, particleLoc, 1, 0.05, 0.05, 0.05, 0,
-                    new Particle.DustOptions(Color.fromRGB(200, 50, 50), 0.8f));
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0.03, 0.03, 0.03, 0,
+                    new Particle.DustOptions(Color.fromRGB(200, 50, 50), 0.6f));
             }
 
             // Feedback soin
@@ -5170,17 +5173,21 @@ public class TalentListener implements Listener {
         world.playSound(spawnLoc, Sound.ENTITY_ENDERMITE_AMBIENT, 1.0f, 0.5f);
         world.playSound(spawnLoc, Sound.ENTITY_WARDEN_HEARTBEAT, 0.5f, 1.5f);
 
-        for (int i = 0; i < actualCount; i++) {
-            // Position aléatoire autour du joueur
-            double angle = Math.random() * Math.PI * 2;
-            double dist = 1 + Math.random() * 2;
-            Location larvaeSpawn = spawnLoc.clone().add(
-                dist * Math.cos(angle),
-                0.5,
-                dist * Math.sin(angle)
-            );
+        // Constantes pour l'animation
+        final double EJECT_RADIUS = 8.0; // Rayon d'éjection final (8 blocs)
+        final int EJECT_TICKS = 15; // Durée de l'éjection (0.75 secondes)
+        final int WAIT_TICKS = 40; // Attente avant poursuite (2 secondes)
 
-            // Invoquer l'Endermite
+        for (int i = 0; i < actualCount; i++) {
+            // Spawn au centre du joueur (dans le corps)
+            Location larvaeSpawn = spawnLoc.clone().add(0, 1.0, 0);
+
+            // Direction d'éjection aléatoire
+            final double ejectAngle = Math.random() * Math.PI * 2;
+            final double ejectX = Math.cos(ejectAngle);
+            final double ejectZ = Math.sin(ejectAngle);
+
+            // Invoquer l'Endermite au centre du joueur
             Endermite larvae = world.spawn(larvaeSpawn, Endermite.class, endermite -> {
                 endermite.setCustomName("§4§l⚠ §4Larve de Sang");
                 endermite.setCustomNameVisible(true);
@@ -5198,16 +5205,19 @@ public class TalentListener implements Listener {
             // Enregistrer le propriétaire
             bloodLarvaeOwners.put(larvae.getUniqueId(), playerUuid);
 
-            // Particules de spawn
-            world.spawnParticle(Particle.DUST, larvaeSpawn, 15, 0.4, 0.4, 0.4, 0,
-                new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
-            world.spawnParticle(Particle.CRIMSON_SPORE, larvaeSpawn, 8, 0.3, 0.3, 0.3, 0.01);
+            // Particules de naissance (réduites)
+            world.spawnParticle(Particle.DUST, larvaeSpawn, 5, 0.2, 0.2, 0.2, 0,
+                new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.2f));
 
-            // Tâche pour gérer le comportement kamikaze de la larve
+            // Tâche pour gérer le comportement de la larve (éjection + attente + poursuite)
             new BukkitRunnable() {
                 int ticks = 0;
-                final int maxTicks = (int) (duration / 50);
+                final int maxTicks = (int) (duration / 50) + EJECT_TICKS + WAIT_TICKS;
                 LivingEntity currentTarget = null;
+
+                // Phases: 0 = éjection, 1 = attente, 2 = poursuite
+                int phase = 0;
+                final Location ejectOrigin = spawnLoc.clone();
 
                 @Override
                 public void run() {
@@ -5216,9 +5226,9 @@ public class TalentListener implements Listener {
                         // Nettoyer et supprimer
                         bloodLarvaeOwners.remove(larvae.getUniqueId());
                         if (larvae.isValid()) {
-                            // Particules de dissipation (pas d'explosion si timeout)
-                            world.spawnParticle(Particle.DUST, larvae.getLocation(), 8, 0.2, 0.2, 0.2, 0,
-                                new Particle.DustOptions(Color.fromRGB(100, 0, 0), 1.0f));
+                            // Particules de dissipation (réduites)
+                            world.spawnParticle(Particle.DUST, larvae.getLocation(), 4, 0.2, 0.2, 0.2, 0,
+                                new Particle.DustOptions(Color.fromRGB(100, 0, 0), 0.8f));
                             larvae.remove();
                         }
                         cancel();
@@ -5230,7 +5240,69 @@ public class TalentListener implements Listener {
                         larvae.setInvulnerable(true);
                     }
 
-                    // === Chercher une cible toutes les 3 ticks ===
+                    // === PHASE 0: ÉJECTION DU CORPS ===
+                    if (phase == 0) {
+                        if (ticks <= EJECT_TICKS) {
+                            // Calculer la progression de l'éjection (0 à 1)
+                            double progress = (double) ticks / EJECT_TICKS;
+                            // Courbe d'éasing (ralentissement à la fin)
+                            double easedProgress = 1 - Math.pow(1 - progress, 3);
+
+                            // Position interpolée
+                            double currentDist = EJECT_RADIUS * easedProgress;
+                            Location targetPos = ejectOrigin.clone().add(
+                                ejectX * currentDist,
+                                0.5 + (1.5 * progress * (1 - progress)), // Arc parabolique
+                                ejectZ * currentDist
+                            );
+
+                            // Téléporter la larve vers la position (mouvement fluide)
+                            Vector velocity = targetPos.toVector().subtract(larvae.getLocation().toVector());
+                            larvae.setVelocity(velocity);
+
+                            // Traînée de sang pendant l'éjection (réduite)
+                            if (ticks % 3 == 0) {
+                                world.spawnParticle(Particle.DUST, larvae.getLocation(), 2, 0.1, 0.1, 0.1, 0,
+                                    new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
+                            }
+                        } else {
+                            // Fin de l'éjection, passer à la phase d'attente
+                            phase = 1;
+                            larvae.setVelocity(new Vector(0, 0, 0)); // Arrêter le mouvement
+                            // Son de positionnement
+                            world.playSound(larvae.getLocation(), Sound.ENTITY_ENDERMITE_HURT, 0.6f, 1.2f);
+                        }
+                        return;
+                    }
+
+                    // === PHASE 1: ATTENTE (2 secondes) ===
+                    if (phase == 1) {
+                        int waitTick = ticks - EJECT_TICKS;
+                        if (waitTick < WAIT_TICKS) {
+                            // La larve flotte sur place, pulsation menaçante
+                            larvae.setVelocity(new Vector(0, 0, 0));
+
+                            // Pulsation visuelle (réduites, toutes les 8 ticks)
+                            if (waitTick % 8 == 0) {
+                                world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.3, 0),
+                                    2, 0.2, 0.2, 0.2, 0,
+                                    new Particle.DustOptions(Color.fromRGB(200, 0, 0), 0.6f));
+                            }
+
+                            // Son de "charge" vers la fin de l'attente
+                            if (waitTick == WAIT_TICKS - 10) {
+                                world.playSound(larvae.getLocation(), Sound.ENTITY_WARDEN_ANGRY, 0.4f, 2.0f);
+                            }
+                        } else {
+                            // Fin de l'attente, passer à la phase de poursuite
+                            phase = 2;
+                        }
+                        return;
+                    }
+
+                    // === PHASE 2: POURSUITE (comportement original) ===
+
+                    // Chercher une cible toutes les 3 ticks
                     if (ticks % 3 == 0 || currentTarget == null || !currentTarget.isValid() || currentTarget.isDead()) {
                         currentTarget = null;
                         double closestDistSq = 15.0 * 15.0; // Rayon de recherche = 15 blocs
@@ -5251,13 +5323,13 @@ public class TalentListener implements Listener {
                         }
                     }
 
-                    // === Si on a une cible, se ruer dessus ===
+                    // Si on a une cible, se ruer dessus
                     if (currentTarget != null && currentTarget.isValid() && !currentTarget.isDead()) {
                         Location larvaePos = larvae.getLocation();
                         Location targetPos = currentTarget.getLocation().add(0, 0.5, 0);
                         double distanceToTarget = larvaePos.distance(targetPos);
 
-                        // === EXPLOSION si assez proche (< 1.5 blocs) ===
+                        // EXPLOSION si assez proche (< 1.5 blocs)
                         if (distanceToTarget < 1.5) {
                             Player owner = Bukkit.getPlayer(playerUuid);
                             if (owner != null && owner.isOnline()) {
@@ -5271,34 +5343,21 @@ public class TalentListener implements Listener {
                             return;
                         }
 
-                        // === Propulser la larve vers la cible ===
+                        // Propulser la larve vers la cible
                         Vector direction = targetPos.toVector().subtract(larvaePos.toVector()).normalize();
-                        // Vitesse de ruée: 0.6 blocs/tick (très rapide)
                         double speed = 0.6;
                         larvae.setVelocity(direction.multiply(speed));
 
-                        // Effet visuel: traînée de sang derrière la larve
-                        if (ticks % 2 == 0) {
-                            world.spawnParticle(Particle.DUST, larvaePos.add(0, 0.2, 0), 3, 0.1, 0.1, 0.1, 0,
-                                new Particle.DustOptions(Color.fromRGB(180, 20, 20), 1.0f));
-                        }
-
-                        // Particules autour de la larve (tourbillon de sang)
+                        // Effet visuel: traînée de sang (réduite - toutes les 4 ticks)
                         if (ticks % 4 == 0) {
-                            double spinAngle = (ticks * 0.5) % (Math.PI * 2);
-                            for (int j = 0; j < 2; j++) {
-                                double offsetAngle = spinAngle + (j * Math.PI);
-                                double xOff = 0.3 * Math.cos(offsetAngle);
-                                double zOff = 0.3 * Math.sin(offsetAngle);
-                                world.spawnParticle(Particle.DUST, larvaePos.clone().add(xOff, 0.3, zOff), 1, 0, 0, 0, 0,
-                                    new Particle.DustOptions(Color.fromRGB(200, 0, 0), 0.8f));
-                            }
+                            world.spawnParticle(Particle.DUST, larvaePos.add(0, 0.2, 0), 1, 0.05, 0.05, 0.05, 0,
+                                new Particle.DustOptions(Color.fromRGB(180, 20, 20), 0.8f));
                         }
                     } else {
-                        // Pas de cible - la larve flotte sur place avec effet visuel
-                        if (ticks % 10 == 0) {
+                        // Pas de cible - la larve flotte sur place (particules réduites)
+                        if (ticks % 15 == 0) {
                             world.spawnParticle(Particle.DUST, larvae.getLocation().add(0, 0.3, 0),
-                                2, 0.15, 0.15, 0.15, 0, new Particle.DustOptions(Color.fromRGB(150, 0, 0), 0.7f));
+                                1, 0.1, 0.1, 0.1, 0, new Particle.DustOptions(Color.fromRGB(150, 0, 0), 0.5f));
                         }
                     }
                 }
