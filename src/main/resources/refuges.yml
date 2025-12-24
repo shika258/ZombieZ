@@ -159,10 +159,32 @@ refuges:
     required-level: 20
 
   # ========================================
-  # REFUGE 6 - (A configurer)
+  # REFUGE 6 - Castlerock (Zone 29-30)
   # ========================================
-  # 6:
-  #   ...
+  6:
+    name: "Castlerock"
+    description: "Une forteresse taillee dans la roche"
+    protected-area:
+      corner1:
+        x: 749
+        y: 218
+        z: 4199
+      corner2:
+        x: 587
+        y: 0
+        z: 4050
+    beacon:
+      x: 656
+      y: 132
+      z: 4158
+    spawn-point:
+      x: 656.5
+      y: 132
+      z: 4155.5
+      yaw: 180
+      pitch: 0
+    cost: 750
+    required-level: 25
 
   # ========================================
   # REFUGE 7 - (A configurer)
