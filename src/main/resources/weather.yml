@@ -16,8 +16,8 @@ weather:
   enabled: true
 
   # Intervalle entre les changements de meteo (en secondes)
-  min-interval-seconds: 480    # 8 minutes minimum
-  max-interval-seconds: 1200   # 20 minutes maximum
+  min-interval-seconds: 960    # 16 minutes minimum
+  max-interval-seconds: 2400   # 40 minutes maximum
 
   # Nombre minimum de joueurs en ligne pour declencher la meteo
   min-players: 1

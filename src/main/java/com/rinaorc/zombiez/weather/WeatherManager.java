@@ -44,8 +44,8 @@ public class WeatherManager {
     // Configuration
     @Getter
     private boolean enabled = true;
-    private int minWeatherInterval = 20 * 60 * 8;     // 8 minutes min entre changements
-    private int maxWeatherInterval = 20 * 60 * 20;    // 20 minutes max
+    private int minWeatherInterval = 20 * 60 * 16;    // 16 minutes min entre changements
+    private int maxWeatherInterval = 20 * 60 * 40;    // 40 minutes max
     private int minPlayersForWeather = 1;              // Min joueurs pour déclencher la météo
     private double clearWeatherChance = 0.35;          // 35% chance de temps clair
     private boolean nightOnlyBloodMoon = true;         // Lune de sang uniquement la nuit
@@ -100,8 +100,8 @@ public class WeatherManager {
         ConfigurationSection globalSection = config.getConfigurationSection("weather");
         if (globalSection != null) {
             enabled = globalSection.getBoolean("enabled", true);
-            minWeatherInterval = globalSection.getInt("min-interval-seconds", 480) * 20;
-            maxWeatherInterval = globalSection.getInt("max-interval-seconds", 1200) * 20;
+            minWeatherInterval = globalSection.getInt("min-interval-seconds", 960) * 20;  // 16 min
+            maxWeatherInterval = globalSection.getInt("max-interval-seconds", 2400) * 20; // 40 min
             minPlayersForWeather = globalSection.getInt("min-players", 1);
             clearWeatherChance = globalSection.getDouble("clear-weather-chance", 0.35);
             nightOnlyBloodMoon = globalSection.getBoolean("night-only-blood-moon", true);
