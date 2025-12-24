@@ -271,7 +271,29 @@ refuges:
     required-level: 40
 
   # ========================================
-  # REFUGE 10 - (A configurer)
+  # REFUGE 10 - Citadelle Libre (Zone 49-50)
   # ========================================
-  # 10:
-  #   ...
+  10:
+    name: "Citadelle Libre"
+    description: "La derniere forteresse de l'humanite"
+    protected-area:
+      corner1:
+        x: 802
+        y: 250
+        z: 174
+      corner2:
+        x: 500
+        y: 0
+        z: -26
+    beacon:
+      x: 653
+      y: 69
+      z: 135
+    spawn-point:
+      x: 653.5
+      y: 69
+      z: 138.5
+      yaw: 180
+      pitch: 0
+    cost: 3000
+    required-level: 45
