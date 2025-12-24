@@ -238,8 +238,19 @@ public class ItemManager {
             return zItem.toItemStack();
         }
 
-        // Appliquer l'éveil
+        // Appliquer l'éveil et ses données d'affichage
         zItem.setAwakenId(awaken.getId());
+
+        // Remplir les données d'affichage de l'éveil
+        if (awaken.getRequiredClass() != null) {
+            zItem.setAwakenClassName(awaken.getRequiredClass().getColoredName());
+        }
+        if (awaken.getRequiredBranch() != null) {
+            zItem.setAwakenBranchName(awaken.getRequiredBranch().getColoredName());
+        }
+        if (awaken.getEffectDescription() != null) {
+            zItem.setAwakenEffectDesc(awaken.getEffectDescription());
+        }
 
         // Créer l'ItemStack et stocker l'éveil dans le PDC
         ItemStack itemStack = zItem.toItemStack();
