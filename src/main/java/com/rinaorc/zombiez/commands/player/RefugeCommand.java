@@ -2,18 +2,31 @@ package com.rinaorc.zombiez.commands.player;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import com.rinaorc.zombiez.zones.Refuge;
 import com.rinaorc.zombiez.zones.Zone;
+import com.rinaorc.zombiez.zones.gui.RefugeGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Commande /refuge - Affiche les informations sur les refuges
+ * Commande /refuge - Ouvre le menu des refuges ou affiche des informations
+ * Usage:
+ *   /refuge - Ouvre le menu GUI
+ *   /refuge list - Liste tous les refuges
+ *   /refuge info [id] - Affiche les infos d'un refuge
+ *   /refuge tp <id> - Téléporte vers un refuge débloqué
  */
-public class RefugeCommand implements CommandExecutor {
+public class RefugeCommand implements CommandExecutor, TabCompleter {
 
     private final ZombieZPlugin plugin;
 
@@ -29,98 +42,245 @@ public class RefugeCommand implements CommandExecutor {
             return true;
         }
 
-        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
-        Zone currentZone = plugin.getZoneManager().getPlayerZone(player);
-        int playerZ = player.getLocation().getBlockZ();
-
-        player.sendMessage("");
-        player.sendMessage("§8§m                                              ");
-        player.sendMessage("         §e§l🏠 REFUGES");
-        player.sendMessage("");
-        player.sendMessage("  §7Les refuges offrent:");
-        player.sendMessage("  §a✓ §7Zone sécurisée (pas de zombies)");
-        player.sendMessage("  §a✓ §7Activation de checkpoint");
-        player.sendMessage("  §a✓ §7Marchands et services");
-        player.sendMessage("  §a✓ §7Stockage personnel");
-        player.sendMessage("");
-
-        // Refuge le plus proche vers le nord
-        Zone nearestNorth = findNearestRefugeNorth(playerZ);
-        // Refuge le plus proche vers le sud
-        Zone nearestSouth = findNearestRefugeSouth(playerZ);
-
-        if (nearestNorth != null) {
-            int distance = playerZ - nearestNorth.getMaxZ();
-            player.sendMessage("  §a↑ Nord: " + nearestNorth.getColoredName());
-            player.sendMessage("    §7Distance: §e" + distance + " blocs");
+        // Sans arguments, ouvrir le menu GUI
+        if (args.length == 0) {
+            openRefugeMenu(player);
+            return true;
         }
 
-        if (nearestSouth != null && nearestSouth != nearestNorth) {
-            int distance = nearestSouth.getMinZ() - playerZ;
-            player.sendMessage("  §c↓ Sud: " + nearestSouth.getColoredName());
-            player.sendMessage("    §7Distance: §e" + distance + " blocs");
-        }
+        String subCommand = args[0].toLowerCase();
 
-        // Afficher si le joueur est dans un refuge
-        if (currentZone != null && currentZone.getRefugeId() > 0) {
-            player.sendMessage("");
-            player.sendMessage("  §a✓ §7Vous êtes près du §aRefuge " + currentZone.getRefugeId());
-            player.sendMessage("  §7Cherchez le §ebeacon §7pour activer");
-            player.sendMessage("  §7le checkpoint!");
-        }
-
-        player.sendMessage("");
-        player.sendMessage("§8§m                                              ");
-        player.sendMessage("");
-
-        // Envoyer la direction via la boussole (si possible)
-        if (nearestNorth != null) {
-            MessageUtils.sendActionBar(player, "§a↑ Refuge le plus proche: §e" +
-                (playerZ - nearestNorth.getMaxZ()) + " §ablocs au nord");
+        switch (subCommand) {
+            case "list" -> showRefugeList(player);
+            case "info" -> {
+                if (args.length >= 2) {
+                    try {
+                        int id = Integer.parseInt(args[1]);
+                        showRefugeInfo(player, id);
+                    } catch (NumberFormatException e) {
+                        MessageUtils.send(player, "§cUsage: /refuge info <id>");
+                    }
+                } else {
+                    showNearbyRefugeInfo(player);
+                }
+            }
+            case "tp", "teleport" -> {
+                if (args.length >= 2) {
+                    try {
+                        int id = Integer.parseInt(args[1]);
+                        teleportToRefuge(player, id);
+                    } catch (NumberFormatException e) {
+                        MessageUtils.send(player, "§cUsage: /refuge tp <id>");
+                    }
+                } else {
+                    MessageUtils.send(player, "§cUsage: /refuge tp <id>");
+                }
+            }
+            case "help" -> showHelp(player);
+            default -> {
+                // Essayer de parser comme un ID de refuge
+                try {
+                    int id = Integer.parseInt(subCommand);
+                    showRefugeInfo(player, id);
+                } catch (NumberFormatException e) {
+                    openRefugeMenu(player);
+                }
+            }
         }
 
         return true;
     }
 
     /**
-     * Trouve le refuge le plus proche vers le nord (Z décroissant)
+     * Ouvre le menu GUI des refuges
      */
-    private Zone findNearestRefugeNorth(int currentZ) {
-        Zone nearest = null;
-        int nearestDistance = Integer.MAX_VALUE;
-
-        for (Zone zone : plugin.getZoneManager().getAllZones()) {
-            // Nord = Z plus faible
-            if (zone.getRefugeId() > 0 && zone.getMaxZ() < currentZ) {
-                int distance = currentZ - zone.getMaxZ();
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearest = zone;
-                }
-            }
-        }
-
-        return nearest;
+    private void openRefugeMenu(Player player) {
+        new RefugeGUI(plugin, player).open();
     }
 
     /**
-     * Trouve le refuge le plus proche vers le sud (Z croissant)
+     * Affiche la liste de tous les refuges
      */
-    private Zone findNearestRefugeSouth(int currentZ) {
-        Zone nearest = null;
-        int nearestDistance = Integer.MAX_VALUE;
+    private void showRefugeList(Player player) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        int currentCheckpoint = data != null ? data.getCurrentCheckpoint().get() : 0;
 
-        for (Zone zone : plugin.getZoneManager().getAllZones()) {
-            // Sud = Z plus élevé
-            if (zone.getRefugeId() > 0 && zone.getMinZ() > currentZ) {
-                int distance = zone.getMinZ() - currentZ;
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearest = zone;
+        player.sendMessage("");
+        player.sendMessage("§8§m                                              ");
+        player.sendMessage("         §e§l🏠 LISTE DES REFUGES");
+        player.sendMessage("");
+
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager == null || refugeManager.getAllRefuges().isEmpty()) {
+            player.sendMessage("  §7Aucun refuge configuré.");
+        } else {
+            for (Refuge refuge : refugeManager.getRefugesSorted()) {
+                String status = currentCheckpoint >= refuge.getId() ? "§a✓" : "§c✖";
+                String checkpoint = currentCheckpoint == refuge.getId() ? " §7[ACTIF]" : "";
+                player.sendMessage("  " + status + " §e" + refuge.getId() + ". §f" + refuge.getName() + checkpoint);
+            }
+        }
+
+        player.sendMessage("");
+        player.sendMessage("  §7Checkpoint actuel: §e" + (currentCheckpoint > 0 ? "#" + currentCheckpoint : "Aucun"));
+        player.sendMessage("  §7Utilisez §e/refuge §7pour ouvrir le menu!");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                              ");
+    }
+
+    /**
+     * Affiche les informations d'un refuge spécifique
+     */
+    private void showRefugeInfo(Player player, int refugeId) {
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager == null) {
+            MessageUtils.send(player, "§cErreur: Système de refuges non initialisé.");
+            return;
+        }
+
+        Refuge refuge = refugeManager.getRefugeById(refugeId);
+        if (refuge == null) {
+            MessageUtils.send(player, "§cRefuge #" + refugeId + " introuvable.");
+            return;
+        }
+
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        int currentCheckpoint = data != null ? data.getCurrentCheckpoint().get() : 0;
+        boolean isUnlocked = currentCheckpoint >= refugeId;
+
+        player.sendMessage("");
+        player.sendMessage("§8§m                                              ");
+        player.sendMessage("  §e§l🏠 " + refuge.getName().toUpperCase());
+        player.sendMessage("");
+
+        if (refuge.getDescription() != null && !refuge.getDescription().isEmpty()) {
+            player.sendMessage("  §7§o\"" + refuge.getDescription() + "\"");
+            player.sendMessage("");
+        }
+
+        player.sendMessage("  §7Statut: " + (isUnlocked ? "§a✓ Débloqué" : "§c✖ Verrouillé"));
+        if (currentCheckpoint == refugeId) {
+            player.sendMessage("  §a§l→ CHECKPOINT ACTIF");
+        }
+        player.sendMessage("");
+        player.sendMessage("  §7Coût d'activation: §6" + EconomyManager.formatPoints(refuge.getCost()));
+        player.sendMessage("  §7Niveau requis: §e" + refuge.getRequiredLevel());
+        player.sendMessage("");
+        player.sendMessage("  §7Zone protégée:");
+        player.sendMessage("    §8X: " + refuge.getProtectedMinX() + " → " + refuge.getProtectedMaxX());
+        player.sendMessage("    §8Y: " + refuge.getProtectedMinY() + " → " + refuge.getProtectedMaxY());
+        player.sendMessage("    §8Z: " + refuge.getProtectedMinZ() + " → " + refuge.getProtectedMaxZ());
+        player.sendMessage("");
+
+        if (isUnlocked) {
+            player.sendMessage("  §aTip: §7/refuge tp " + refugeId + " §7pour vous téléporter!");
+        }
+
+        player.sendMessage("§8§m                                              ");
+    }
+
+    /**
+     * Affiche les infos du refuge le plus proche
+     */
+    private void showNearbyRefugeInfo(Player player) {
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager == null) {
+            MessageUtils.send(player, "§cErreur: Système de refuges non initialisé.");
+            return;
+        }
+
+        // Trouver le refuge dans lequel le joueur se trouve
+        Refuge currentRefuge = refugeManager.getRefugeAt(player.getLocation());
+        if (currentRefuge != null) {
+            showRefugeInfo(player, currentRefuge.getId());
+            return;
+        }
+
+        // Sinon afficher la liste
+        showRefugeList(player);
+    }
+
+    /**
+     * Téléporte le joueur vers un refuge débloqué
+     */
+    private void teleportToRefuge(Player player, int refugeId) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        int currentCheckpoint = data != null ? data.getCurrentCheckpoint().get() : 0;
+
+        // Vérifier que le refuge est débloqué
+        if (currentCheckpoint < refugeId) {
+            MessageUtils.send(player, "§c✖ Ce refuge n'est pas encore débloqué!");
+            MessageUtils.send(player, "§7Trouvez le beacon dans le refuge pour l'activer.");
+            MessageUtils.playSoundError(player);
+            return;
+        }
+
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager == null) {
+            MessageUtils.send(player, "§cErreur: Système de refuges non initialisé.");
+            return;
+        }
+
+        Refuge refuge = refugeManager.getRefugeById(refugeId);
+        if (refuge == null) {
+            MessageUtils.send(player, "§cRefuge #" + refugeId + " introuvable.");
+            return;
+        }
+
+        // Téléporter
+        org.bukkit.Location spawnLoc = refuge.getSpawnLocation(player.getWorld());
+        player.teleport(spawnLoc);
+
+        MessageUtils.sendTitle(player, "§e§l" + refuge.getName(), "§7Téléportation réussie!", 10, 30, 10);
+        MessageUtils.send(player, "§a✓ Téléporté vers §e" + refuge.getName() + "§a!");
+        MessageUtils.playSoundSuccess(player);
+    }
+
+    /**
+     * Affiche l'aide de la commande
+     */
+    private void showHelp(Player player) {
+        player.sendMessage("");
+        player.sendMessage("§e§l🏠 Aide - Commande /refuge");
+        player.sendMessage("");
+        player.sendMessage("§e/refuge §7- Ouvre le menu des refuges");
+        player.sendMessage("§e/refuge list §7- Liste tous les refuges");
+        player.sendMessage("§e/refuge info [id] §7- Infos d'un refuge");
+        player.sendMessage("§e/refuge tp <id> §7- Téléportation vers un refuge");
+        player.sendMessage("§e/refuge help §7- Affiche cette aide");
+        player.sendMessage("");
+    }
+
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                                @NotNull String alias, @NotNull String[] args) {
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            completions.add("list");
+            completions.add("info");
+            completions.add("tp");
+            completions.add("help");
+            // Ajouter les IDs de refuges
+            var refugeManager = plugin.getRefugeManager();
+            if (refugeManager != null) {
+                for (Refuge refuge : refugeManager.getAllRefuges()) {
+                    completions.add(String.valueOf(refuge.getId()));
+                }
+            }
+        } else if (args.length == 2 && (args[0].equalsIgnoreCase("info") || args[0].equalsIgnoreCase("tp"))) {
+            var refugeManager = plugin.getRefugeManager();
+            if (refugeManager != null) {
+                for (Refuge refuge : refugeManager.getAllRefuges()) {
+                    completions.add(String.valueOf(refuge.getId()));
                 }
             }
         }
 
-        return nearest;
+        // Filtrer par ce que l'utilisateur a déjà tapé
+        String input = args[args.length - 1].toLowerCase();
+        return completions.stream()
+            .filter(s -> s.toLowerCase().startsWith(input))
+            .toList();
     }
 }

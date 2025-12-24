@@ -53,6 +53,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private ZoneManager zoneManager;
     @Getter
+    private RefugeManager refugeManager;
+    @Getter
     private PlayerDataManager playerDataManager;
     @Getter
     private EconomyManager economyManager;
@@ -285,6 +287,12 @@ public class ZombieZPlugin extends JavaPlugin {
             itemManager.cleanup();
         }
 
+        // Cleanup des hologrammes de refuge
+        if (refugeManager != null) {
+            log(Level.INFO, "§7Nettoyage des hologrammes de refuge...");
+            refugeManager.shutdown();
+        }
+
         // Cleanup du système de boss bars dynamiques
         if (dynamicBossBarManager != null) {
             log(Level.INFO, "§7Nettoyage des boss bars dynamiques...");
@@ -406,6 +414,10 @@ public class ZombieZPlugin extends JavaPlugin {
         // Zone Manager - Gestion des zones et détection
         zoneManager = new ZoneManager(this);
         zoneManager.loadZones();
+
+        // Refuge Manager - Gestion des refuges (checkpoints et téléportation)
+        refugeManager = new RefugeManager(this);
+        refugeManager.loadRefuges();
 
         // Player Data Manager - Cache et persistance des données joueurs
         playerDataManager = new PlayerDataManager(this);
@@ -658,7 +670,9 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("zone").setExecutor(zoneCmd);
         getCommand("zone").setTabCompleter(zoneCmd);
         getCommand("checkpoint").setExecutor(new CheckpointCommand(this));
-        getCommand("refuge").setExecutor(new RefugeCommand(this));
+        RefugeCommand refugeCmd = new RefugeCommand(this);
+        getCommand("refuge").setExecutor(refugeCmd);
+        getCommand("refuge").setTabCompleter(refugeCmd);
 
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
@@ -829,6 +843,7 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système zone wiki GUI
         pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneWikiGUI.GUIListener(this), this);
         pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneDetailGUI.GUIListener(this), this);
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.RefugeGUI.RefugeGUIListener(this), this);
 
         // Listener système dopamine - Low Health Heartbeat
         if (lowHealthHeartbeatManager != null) {
@@ -908,6 +923,11 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Recharger les zones
         zoneManager.loadZones();
+
+        // Recharger les refuges
+        if (refugeManager != null) {
+            refugeManager.reloadRefuges();
+        }
 
         // Recharger le système de performance
         if (performanceManager != null) {

@@ -119,15 +119,16 @@ public class InteractListener implements Listener {
      */
     private void handleRefugeBeacon(Player player, Block block, PlayerInteractEvent event) {
         event.setCancelled(true);
-        
+
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
-        // Déterminer quel refuge c'est basé sur la position
-        var zone = plugin.getZoneManager().getZoneAt(block.getLocation());
-        
-        if (zone != null && zone.getRefugeId() > 0) {
-            int refugeId = zone.getRefugeId();
+        // Trouver le refuge par la position exacte du beacon
+        var refugeManager = plugin.getRefugeManager();
+        var refuge = refugeManager != null ? refugeManager.getRefugeAtBeacon(block.getLocation()) : null;
+
+        if (refuge != null) {
+            int refugeId = refuge.getId();
             int currentCheckpoint = data.getCurrentCheckpoint().get();
 
             if (currentCheckpoint == refugeId) {
@@ -135,30 +136,67 @@ public class InteractListener implements Listener {
                 return;
             }
 
-            // Coût d'activation basé sur la zone
-            long cost = getCheckpointCost(refugeId);
-            
+            // Vérifier le niveau requis
+            int playerLevel = data.getLevel().get();
+            if (playerLevel < refuge.getRequiredLevel()) {
+                MessageUtils.send(player, "§cNiveau insuffisant! §7(Requis: niveau " + refuge.getRequiredLevel() + ")");
+                MessageUtils.playSoundError(player);
+                return;
+            }
+
+            // Coût d'activation depuis la config du refuge
+            long cost = refuge.getCost();
+
             if (data.hasPoints(cost)) {
                 data.removePoints(cost);
                 data.setCheckpoint(refugeId);
-                
-                MessageUtils.sendTitle(player, "§a§lCHECKPOINT", "§7Refuge " + refugeId + " activé!", 10, 40, 10);
-                MessageUtils.send(player, "§aCheckpoint activé! §7(-" + 
+
+                MessageUtils.sendTitle(player, "§a§lCHECKPOINT", "§e" + refuge.getName() + " §7activé!", 10, 40, 10);
+                MessageUtils.send(player, "§aCheckpoint §e" + refuge.getName() + " §aactivé! §7(-" +
                     com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + " Points)");
                 MessageUtils.playSoundSuccess(player);
             } else {
-                MessageUtils.send(player, "§cPoints insuffisants! §7(Requis: " + 
+                MessageUtils.send(player, "§cPoints insuffisants! §7(Requis: " +
                     com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + ")");
                 MessageUtils.playSoundError(player);
+            }
+        } else {
+            // Fallback: utiliser l'ancien système basé sur la zone
+            var zone = plugin.getZoneManager().getZoneAt(block.getLocation());
+
+            if (zone != null && zone.getRefugeId() > 0) {
+                int refugeId = zone.getRefugeId();
+                int currentCheckpoint = data.getCurrentCheckpoint().get();
+
+                if (currentCheckpoint == refugeId) {
+                    MessageUtils.send(player, "§7Ce checkpoint est déjà activé!");
+                    return;
+                }
+
+                long cost = getCheckpointCost(refugeId);
+
+                if (data.hasPoints(cost)) {
+                    data.removePoints(cost);
+                    data.setCheckpoint(refugeId);
+
+                    MessageUtils.sendTitle(player, "§a§lCHECKPOINT", "§7Refuge " + refugeId + " activé!", 10, 40, 10);
+                    MessageUtils.send(player, "§aCheckpoint activé! §7(-" +
+                        com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + " Points)");
+                    MessageUtils.playSoundSuccess(player);
+                } else {
+                    MessageUtils.send(player, "§cPoints insuffisants! §7(Requis: " +
+                        com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + ")");
+                    MessageUtils.playSoundError(player);
+                }
             }
         }
     }
 
     /**
-     * Obtient le coût d'activation d'un checkpoint
+     * Obtient le coût d'activation d'un checkpoint (fallback)
      */
     private long getCheckpointCost(int refugeId) {
-        // Coût croissant selon le refuge
+        // Coût croissant selon le refuge (utilisé si le refuge n'est pas dans refuges.yml)
         return switch (refugeId) {
             case 1 -> 50;
             case 2 -> 100;

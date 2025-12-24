@@ -30,8 +30,8 @@ zones:
     name: spawn
     display-name: "Zone de Spawn"
     description: "Zone securisee pour les nouveaux survivants"
-    min-z: 10000
-    max-z: 10200
+    min-z: 9938
+    max-z: 10102
     difficulty: 0
     stars: 0
     biome: PLAINS

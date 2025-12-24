@@ -1,0 +1,299 @@
+#######################################
+#   ZOMBIEZ - Configuration Refuges   #
+#   Points de sauvegarde & teleport   #
+#######################################
+
+# Les refuges sont des zones securisees ou les joueurs peuvent:
+# - Activer un checkpoint (clic droit sur le beacon)
+# - Se teleporter depuis d'autres refuges debloques
+# - Etre proteges des spawns de zombies
+
+# Structure d'un refuge:
+# - name: Nom affiche du refuge
+# - protected-area: Zone protegee contre le spawn de zombies (2 corners)
+# - beacon: Position du beacon pour activer le checkpoint
+# - spawn-point: Point de teleportation (x, y, z, yaw, pitch)
+# - cost: Cout en points pour activer ce refuge
+# - required-level: Niveau minimum requis pour debloquer
+
+refuges:
+
+  # ========================================
+  # REFUGE 1 - Fort Havregris (Zone 4-5)
+  # ========================================
+  1:
+    name: "Fort Havregris"
+    description: "Un ancien fort reconverti en refuge pour survivants"
+    protected-area:
+      corner1:
+        x: 768
+        y: 150
+        z: 9236
+      corner2:
+        x: 576
+        y: 0
+        z: 9114
+    beacon:
+      x: 675
+      y: 90
+      z: 9174
+    spawn-point:
+      x: 675.5
+      y: 90
+      z: 9171.5
+      yaw: -180
+      pitch: 0
+    cost: 50
+    required-level: 1
+
+  # ========================================
+  # REFUGE 2 - Maraisville (Zone 9-10)
+  # ========================================
+  2:
+    name: "Maraisville"
+    description: "Un village construit sur les marais"
+    protected-area:
+      corner1:
+        x: 783
+        y: 92
+        z: 8277
+      corner2:
+        x: 644
+        y: 0
+        z: 8122
+    beacon:
+      x: 704
+      y: 91
+      z: 8219
+    spawn-point:
+      x: 704.5
+      y: 92
+      z: 8212.5
+      yaw: 180
+      pitch: 0
+    cost: 100
+    required-level: 5
+
+  # ========================================
+  # REFUGE 3 - Camp Baobab (Zone 14-15)
+  # ========================================
+  3:
+    name: "Camp Baobab"
+    description: "Un campement fortifie autour d'un arbre geant"
+    protected-area:
+      corner1:
+        x: 901
+        y: 200
+        z: 7369
+      corner2:
+        x: 715
+        y: 0
+        z: 7185
+    beacon:
+      x: 803
+      y: 92
+      z: 7286
+    spawn-point:
+      x: 803.5
+      y: 92
+      z: 7283.5
+      yaw: 180
+      pitch: 0
+    cost: 200
+    required-level: 10
+
+  # ========================================
+  # REFUGE 4 - Coyote Town (Zone 19-20)
+  # ========================================
+  4:
+    name: "Coyote Town"
+    description: "Une ville de l'ouest abandonnee"
+    protected-area:
+      corner1:
+        x: 449
+        y: 200
+        z: 6336
+      corner2:
+        x: 310
+        y: 0
+        z: 6149
+    beacon:
+      x: 385
+      y: 86
+      z: 6227
+    spawn-point:
+      x: 385.5
+      y: 86
+      z: 6224.5
+      yaw: 180
+      pitch: 0
+    cost: 350
+    required-level: 15
+
+  # ========================================
+  # REFUGE 5 - Tiki Village (Zone 24-25)
+  # ========================================
+  5:
+    name: "Tiki Village"
+    description: "Un village tropical aux totems mysterieux"
+    protected-area:
+      corner1:
+        x: 1019
+        y: 200
+        z: 5201
+      corner2:
+        x: 808
+        y: 0
+        z: 5011
+    beacon:
+      x: 944
+      y: 93
+      z: 5055
+    spawn-point:
+      x: 944.5
+      y: 93
+      z: 5052.5
+      yaw: 180
+      pitch: 0
+    cost: 500
+    required-level: 20
+
+  # ========================================
+  # REFUGE 6 - Castlerock (Zone 29-30)
+  # ========================================
+  6:
+    name: "Castlerock"
+    description: "Une forteresse taillee dans la roche"
+    protected-area:
+      corner1:
+        x: 749
+        y: 218
+        z: 4199
+      corner2:
+        x: 587
+        y: 0
+        z: 4050
+    beacon:
+      x: 656
+      y: 132
+      z: 4158
+    spawn-point:
+      x: 656.5
+      y: 132
+      z: 4155.5
+      yaw: 180
+      pitch: 0
+    cost: 750
+    required-level: 25
+
+  # ========================================
+  # REFUGE 7 - Bastion Ironfrost (Zone 34-35)
+  # ========================================
+  7:
+    name: "Bastion Ironfrost"
+    description: "Un bastion fortifie dans les terres gelees"
+    protected-area:
+      corner1:
+        x: 675
+        y: 200
+        z: 3204
+      corner2:
+        x: 326
+        y: 0
+        z: 2995
+    beacon:
+      x: 464
+      y: 70
+      z: 3091
+    spawn-point:
+      x: 464.5
+      y: 70
+      z: 3088.5
+      yaw: 180
+      pitch: 0
+    cost: 1000
+    required-level: 30
+
+  # ========================================
+  # REFUGE 8 - Eclatbourg (Zone 39-40)
+  # ========================================
+  8:
+    name: "Eclatbourg"
+    description: "Une cite en ruines aux eclats de cristal"
+    protected-area:
+      corner1:
+        x: 554
+        y: 200
+        z: 2187
+      corner2:
+        x: 322
+        y: 0
+        z: 2046
+    beacon:
+      x: 432
+      y: 70
+      z: 2090
+    spawn-point:
+      x: 432.5
+      y: 70
+      z: 2087.5
+      yaw: 180
+      pitch: 0
+    cost: 1500
+    required-level: 35
+
+  # ========================================
+  # REFUGE 9 - Hameau de Jade (Zone 44-45)
+  # ========================================
+  9:
+    name: "Hameau de Jade"
+    description: "Un paisible hameau cache dans les montagnes de jade"
+    protected-area:
+      corner1:
+        x: 577
+        y: 200
+        z: 1124
+      corner2:
+        x: 344
+        y: 0
+        z: 987
+    beacon:
+      x: 448
+      y: 60
+      z: 1072
+    spawn-point:
+      x: 448.5
+      y: 60
+      z: 1069.5
+      yaw: 180
+      pitch: 0
+    cost: 2000
+    required-level: 40
+
+  # ========================================
+  # REFUGE 10 - Citadelle Libre (Zone 49-50)
+  # ========================================
+  10:
+    name: "Citadelle Libre"
+    description: "La derniere forteresse de l'humanite"
+    protected-area:
+      corner1:
+        x: 802
+        y: 250
+        z: 174
+      corner2:
+        x: 500
+        y: 0
+        z: -26
+    beacon:
+      x: 653
+      y: 69
+      z: 135
+    spawn-point:
+      x: 653.5
+      y: 69
+      z: 138.5
+      yaw: 180
+      pitch: 0
+    cost: 3000
+    required-level: 45

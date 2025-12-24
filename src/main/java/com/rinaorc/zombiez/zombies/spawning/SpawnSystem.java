@@ -75,6 +75,12 @@ public class SpawnSystem {
     @Getter
     private double spawnMultiplier = 1.0;
 
+    // Zone de spawn protégée (aucun zombie ne spawn dans cette zone)
+    private boolean protectedAreaEnabled = false;
+    private int protectedMinX, protectedMaxX;
+    private int protectedMinY, protectedMaxY;
+    private int protectedMinZ, protectedMaxZ;
+
     // Tick spread pour les joueurs - distribue sur 4 ticks (250ms chacun)
     private static final int PLAYER_SPREAD = 4;
     private int playerTickCounter = 0;
@@ -86,10 +92,59 @@ public class SpawnSystem {
         this.zoneConfigs = new HashMap<>();
         this.weightedTables = new HashMap<>();
         this.playerSpawnCooldowns = new ConcurrentHashMap<>();
-        
+
         initializeZoneConfigs();
         initializeWeightedTables(); // Précalculer les tables
+        loadProtectedSpawnArea(); // Charger la zone de spawn protégée
         startSpawnTask();
+    }
+
+    /**
+     * Charge la configuration de la zone de spawn protégée depuis config.yml
+     */
+    private void loadProtectedSpawnArea() {
+        var config = plugin.getConfig();
+        protectedAreaEnabled = config.getBoolean("gameplay.protected-spawn-area.enabled", false);
+
+        if (protectedAreaEnabled) {
+            protectedMinX = config.getInt("gameplay.protected-spawn-area.min-x", 0);
+            protectedMaxX = config.getInt("gameplay.protected-spawn-area.max-x", 0);
+            protectedMinY = config.getInt("gameplay.protected-spawn-area.min-y", 0);
+            protectedMaxY = config.getInt("gameplay.protected-spawn-area.max-y", 256);
+            protectedMinZ = config.getInt("gameplay.protected-spawn-area.min-z", 0);
+            protectedMaxZ = config.getInt("gameplay.protected-spawn-area.max-z", 0);
+
+            plugin.log(java.util.logging.Level.INFO,
+                "§a✓ Zone de spawn protégée chargée: X[" + protectedMinX + "-" + protectedMaxX +
+                "] Y[" + protectedMinY + "-" + protectedMaxY +
+                "] Z[" + protectedMinZ + "-" + protectedMaxZ + "]");
+        }
+    }
+
+    /**
+     * Vérifie si une location est dans la zone de spawn protégée
+     */
+    private boolean isInProtectedSpawnArea(Location loc) {
+        // Vérifier la zone de spawn principale
+        if (protectedAreaEnabled) {
+            int x = loc.getBlockX();
+            int y = loc.getBlockY();
+            int z = loc.getBlockZ();
+
+            if (x >= protectedMinX && x <= protectedMaxX &&
+                y >= protectedMinY && y <= protectedMaxY &&
+                z >= protectedMinZ && z <= protectedMaxZ) {
+                return true;
+            }
+        }
+
+        // Vérifier les zones de refuges protégées
+        var refugeManager = plugin.getRefugeManager();
+        if (refugeManager != null && refugeManager.isInAnyRefugeProtectedArea(loc)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -572,6 +627,9 @@ public class SpawnSystem {
     private boolean isValidSpawnLocation(Location loc, Player player) {
         World world = loc.getWorld();
         if (world == null) return false;
+
+        // Vérifier si la location est dans la zone de spawn protégée
+        if (isInProtectedSpawnArea(loc)) return false;
 
         Block block = loc.getBlock();
         Block below = block.getRelative(BlockFace.DOWN);
