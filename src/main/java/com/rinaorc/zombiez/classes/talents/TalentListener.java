@@ -5744,85 +5744,6 @@ public class TalentListener implements Listener {
     }
 
     /**
-     * Finalise la Fente - inflige les dégâts et applique les effets
-     */
-    private void finishLungingStrike(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
-        UUID uuid = player.getUniqueId();
-        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
-        double finalDamage = baseDamage * damageMultiplier;
-
-        // Infliger les dégâts
-        target.damage(finalDamage, player);
-
-        // Enregistrer le hit pour le kill tracking (Prédateur Insatiable, Frénésie de Guerre)
-        lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
-
-        // Son et effets visuels
-        player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
-        player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
-            10, 0.3, 0.3, 0.3, 0.2);
-
-        // Indicateur de dégâts (critique)
-        PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
-
-        // Marquer en combat
-        lastCombatTime.put(uuid, System.currentTimeMillis());
-        plugin.getActionBarManager().markInCombat(uuid);
-
-        // === GRIFFES LACÉRANTES - Appliquer saignement ===
-        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
-        if (laceratingClaws != null) {
-            procLaceratingClaws(player, target, laceratingClaws);
-        }
-
-        // === ÉLAN FURIEUX - Ajouter un stack ===
-        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
-        if (momentum != null) {
-            int maxStacks = (int) momentum.getValue(2);
-            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-            int newStacks = stacks;
-            if (stacks < maxStacks) {
-                newStacks = stacks + 1;
-                furiousMomentumStacks.put(uuid, newStacks);
-            }
-            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
-
-            // Appliquer le bonus de vitesse d'attaque
-            applyMomentumSpeedBoost(player, newStacks, momentum);
-
-            // Feedback visuel des stacks
-            if (newStacks >= maxStacks) {
-                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
-            } else {
-                float pitch = 0.8f + (newStacks * 0.15f);
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.4f, pitch);
-            }
-        }
-
-        // === ÉVISCÉRATION - Compteur ===
-        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
-        if (evisceration != null) {
-            int count = eviscerationCounter.getOrDefault(uuid, 0) + 1;
-            int threshold = (int) evisceration.getValue(0);
-
-            if (count >= threshold) {
-                eviscerationCounter.put(uuid, 0);
-                procEvisceration(player, evisceration);
-            } else {
-                eviscerationCounter.put(uuid, count);
-            }
-        }
-
-        // === PROPAGATION DE DÉGÂTS SI CIBLE MARQUÉE ===
-        if (isMarked(target.getUniqueId())) {
-            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
-            if (warCry != null) {
-                propagateMarkedDamage(player, target, finalDamage, warCry);
-            }
-        }
-    }
-
-    /**
      * Trouve l'ennemi le plus proche dans la direction du regard du joueur
      */
     private LivingEntity findNearestEnemyInDirection(Player player, double range) {
@@ -6298,9 +6219,10 @@ public class TalentListener implements Listener {
             Integer stacks = playerBleedStacks.get(targetUuid);
 
             if (stacks != null && stacks > 0) {
-                // Calculer les dégâts restants (2% PV/s * stacks * temps restant ~4s)
+                // Calculer les dégâts restants (1% PV/s * stacks * 4s)
+                // Cohérent avec Griffes Lacérantes (0.01 = 1% PV/sec par stack)
                 double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
-                double remainingDamage = maxHealth * 0.02 * stacks * 4; // Approximation: 4s de DOT restant
+                double remainingDamage = maxHealth * 0.01 * stacks * 4; // 1% PV/s * stacks * 4s
 
                 // Infliger les dégâts instantanément
                 living.damage(remainingDamage, player);
