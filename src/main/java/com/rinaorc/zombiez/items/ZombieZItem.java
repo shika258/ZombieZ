@@ -74,6 +74,8 @@ public class ZombieZItem {
     @Setter
     private String awakenBranchName;  // Nom coloré de la voie (ex: "§6Rempart")
     @Setter
+    private String awakenTalentName;  // Nom du talent ciblé (ex: "Tir Multiple")
+    @Setter
     private String awakenEffectDesc;  // Description de l'effet (ex: "+25% dégâts")
 
     // Armor Trim (optionnel, pour les armures uniquement)
@@ -344,6 +346,9 @@ public class ZombieZItem {
             if (awakenBranchName != null && !awakenBranchName.isEmpty()) {
                 lore.add("§7Voie: " + awakenBranchName);
             }
+            if (awakenTalentName != null && !awakenTalentName.isEmpty()) {
+                lore.add("§7Talent: §e" + awakenTalentName);
+            }
             if (awakenEffectDesc != null && !awakenEffectDesc.isEmpty()) {
                 lore.add("§7Effet: §a" + awakenEffectDesc);
             }
@@ -438,6 +443,7 @@ public class ZombieZItem {
             // Stocker les données d'affichage de l'éveil
             NamespacedKey keyAwakenClassName = new NamespacedKey("zombiez", "awaken_class_name");
             NamespacedKey keyAwakenBranchName = new NamespacedKey("zombiez", "awaken_branch_name");
+            NamespacedKey keyAwakenTalentName = new NamespacedKey("zombiez", "awaken_talent_name");
             NamespacedKey keyAwakenEffectDesc = new NamespacedKey("zombiez", "awaken_effect_desc");
 
             if (awakenClassName != null) {
@@ -445,6 +451,9 @@ public class ZombieZItem {
             }
             if (awakenBranchName != null) {
                 pdc.set(keyAwakenBranchName, PersistentDataType.STRING, awakenBranchName);
+            }
+            if (awakenTalentName != null) {
+                pdc.set(keyAwakenTalentName, PersistentDataType.STRING, awakenTalentName);
             }
             if (awakenEffectDesc != null) {
                 pdc.set(keyAwakenEffectDesc, PersistentDataType.STRING, awakenEffectDesc);
@@ -671,9 +680,11 @@ public class ZombieZItem {
         // Lire les données d'affichage de l'éveil
         NamespacedKey keyAwakenClassName = new NamespacedKey("zombiez", "awaken_class_name");
         NamespacedKey keyAwakenBranchName = new NamespacedKey("zombiez", "awaken_branch_name");
+        NamespacedKey keyAwakenTalentName = new NamespacedKey("zombiez", "awaken_talent_name");
         NamespacedKey keyAwakenEffectDesc = new NamespacedKey("zombiez", "awaken_effect_desc");
         String awakenClassName = pdc.get(keyAwakenClassName, PersistentDataType.STRING);
         String awakenBranchName = pdc.get(keyAwakenBranchName, PersistentDataType.STRING);
+        String awakenTalentName = pdc.get(keyAwakenTalentName, PersistentDataType.STRING);
         String awakenEffectDesc = pdc.get(keyAwakenEffectDesc, PersistentDataType.STRING);
 
         // Lire les données d'armor trim
@@ -756,6 +767,7 @@ public class ZombieZItem {
             .awakenId(awakenId)
             .awakenClassName(awakenClassName)
             .awakenBranchName(awakenBranchName)
+            .awakenTalentName(awakenTalentName)
             .awakenEffectDesc(awakenEffectDesc)
             .trimPatternKey(trimPattern)
             .trimMaterialKey(trimMaterial)

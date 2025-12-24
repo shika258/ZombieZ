@@ -248,6 +248,13 @@ public class ItemManager {
         if (awaken.getRequiredBranch() != null) {
             zItem.setAwakenBranchName(awaken.getRequiredBranch().getColoredName());
         }
+        // Récupérer le nom du talent ciblé
+        if (awaken.getTargetTalentId() != null && plugin.getTalentManager() != null) {
+            var talent = plugin.getTalentManager().getTalent(awaken.getTargetTalentId());
+            if (talent != null) {
+                zItem.setAwakenTalentName(talent.getName());
+            }
+        }
         if (awaken.getEffectDescription() != null) {
             zItem.setAwakenEffectDesc(awaken.getEffectDescription());
         }
