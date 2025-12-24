@@ -664,7 +664,9 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("zone").setExecutor(zoneCmd);
         getCommand("zone").setTabCompleter(zoneCmd);
         getCommand("checkpoint").setExecutor(new CheckpointCommand(this));
-        getCommand("refuge").setExecutor(new RefugeCommand(this));
+        RefugeCommand refugeCmd = new RefugeCommand(this);
+        getCommand("refuge").setExecutor(refugeCmd);
+        getCommand("refuge").setTabCompleter(refugeCmd);
 
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
@@ -835,6 +837,7 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listeners système zone wiki GUI
         pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneWikiGUI.GUIListener(this), this);
         pm.registerEvents(new com.rinaorc.zombiez.zones.gui.ZoneDetailGUI.GUIListener(this), this);
+        pm.registerEvents(new com.rinaorc.zombiez.zones.gui.RefugeGUI.RefugeGUIListener(this), this);
 
         // Listener système dopamine - Low Health Heartbeat
         if (lowHealthHeartbeatManager != null) {
