@@ -75,11 +75,32 @@ refuges:
     required-level: 5
 
   # ========================================
-  # REFUGE 3 - (A configurer)
+  # REFUGE 3 - Camp Baobab (Zone 14-15)
   # ========================================
-  # 3:
-  #   name: "Nom du refuge"
-  #   ...
+  3:
+    name: "Camp Baobab"
+    description: "Un campement fortifie autour d'un arbre geant"
+    protected-area:
+      corner1:
+        x: 901
+        y: 200
+        z: 7369
+      corner2:
+        x: 715
+        y: 0
+        z: 7185
+    beacon:
+      x: 803
+      y: 92
+      z: 7286
+    spawn-point:
+      x: 803.5
+      y: 92
+      z: 7283.5
+      yaw: 180
+      pitch: 0
+    cost: 200
+    required-level: 10
 
   # ========================================
   # REFUGE 4 - (A configurer)
