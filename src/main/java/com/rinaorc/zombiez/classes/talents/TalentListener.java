@@ -25,6 +25,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

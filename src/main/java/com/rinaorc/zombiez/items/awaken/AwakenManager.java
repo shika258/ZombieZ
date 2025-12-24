@@ -390,6 +390,7 @@ public class AwakenManager {
             case PROC_CHANCE_BONUS -> "Fréquent";
             case EXTRA_STACKS -> "Cumulatif";
             case REDUCED_THRESHOLD -> "Optimal";
+            case THRESHOLD_BONUS -> "Optimisé";
             case APPLY_SLOW -> "Entravant";
             case APPLY_VULNERABILITY -> "Perçant";
             case SPEED_BUFF -> "Véloce";
