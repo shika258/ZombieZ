@@ -4635,17 +4635,30 @@ public class TalentListener implements Listener {
             }
         }
 
-        // === SAIGNEMENT SUR DERNIÈRE CIBLE ===
-        UUID lastTarget = lastLungingStrikeHit.get(uuid);
-        if (lastTarget != null) {
-            Integer stacks = bleedingStacks.get(lastTarget);
-            Long expiry = bleedingExpiry.get(lastTarget);
-            if (stacks != null && stacks > 0 && expiry != null && System.currentTimeMillis() < expiry) {
-                Talent claws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
-                if (claws != null) {
-                    int maxStacks = (int) claws.getValue(3);
-                    String color = stacks >= maxStacks ? "§4§l" : (stacks >= 5 ? "§c" : "§4");
-                    bar.append("  ").append(color).append("🩸x").append(stacks);
+        // === SAIGNEMENT ACTIF (plus haut stack) ===
+        Talent claws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        if (claws != null) {
+            Map<UUID, Integer> playerBleedStacks = bleedingStacks.get(uuid);
+            Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(uuid);
+
+            if (playerBleedStacks != null && playerBleedExpiry != null) {
+                int maxStacks = (int) claws.getValue(3);
+                int highestStacks = 0;
+                long now = System.currentTimeMillis();
+
+                for (Map.Entry<UUID, Integer> entry : playerBleedStacks.entrySet()) {
+                    UUID targetUuid = entry.getKey();
+                    Integer stacks = entry.getValue();
+                    Long expiry = playerBleedExpiry.get(targetUuid);
+
+                    if (stacks != null && stacks > 0 && expiry != null && now < expiry) {
+                        highestStacks = Math.max(highestStacks, stacks);
+                    }
+                }
+
+                if (highestStacks > 0) {
+                    String color = highestStacks >= maxStacks ? "§4§l" : (highestStacks >= 5 ? "§c" : "§4");
+                    bar.append("  ").append(color).append("🩸x").append(highestStacks);
                 }
             }
         }
