@@ -967,16 +967,16 @@ public class ZombieZExpansion extends PlaceholderExpansion {
 
     private String getEventPlaceholder(Player player, String[] parts) {
         if (parts.length < 2) {
-            return isEventActive() ? "&a&lACTIF" : "&7Aucun";
+            return getEventActiveStatus();
         }
 
         return switch (parts[1]) {
-            case "active" -> isEventActive() ? "&a&lACTIF" : "&7Aucun";
+            case "active" -> getEventActiveStatus();
             case "name" -> getActiveEventName();
             case "count" -> getActiveEventCount();
             case "micro" -> {
                 if (parts.length > 2 && parts[2].equals("active")) {
-                    yield isMicroEventActive() ? "&a&lACTIF" : "&7Aucun";
+                    yield getMicroEventActiveStatus();
                 }
                 yield getActiveMicroEventName();
             }
@@ -984,9 +984,13 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         };
     }
 
-    private String isEventActive() {
-        if (plugin.getDynamicEventManager() == null) return "&7Aucun";
-        return !plugin.getDynamicEventManager().getActiveEvents().isEmpty() ? "&a&lACTIF" : "&7Aucun";
+    private boolean isEventActive() {
+        if (plugin.getDynamicEventManager() == null) return false;
+        return !plugin.getDynamicEventManager().getActiveEvents().isEmpty();
+    }
+
+    private String getEventActiveStatus() {
+        return isEventActive() ? "&a&lACTIF" : "&7Aucun";
     }
 
     private String getActiveEventName() {
@@ -1001,9 +1005,13 @@ public class ZombieZExpansion extends PlaceholderExpansion {
         return String.valueOf(plugin.getDynamicEventManager().getActiveEvents().size());
     }
 
-    private String isMicroEventActive() {
-        if (plugin.getMicroEventManager() == null) return "&7Aucun";
-        return !plugin.getMicroEventManager().getActiveEvents().isEmpty() ? "&a&lACTIF" : "&7Aucun";
+    private boolean isMicroEventActive() {
+        if (plugin.getMicroEventManager() == null) return false;
+        return !plugin.getMicroEventManager().getActiveEvents().isEmpty();
+    }
+
+    private String getMicroEventActiveStatus() {
+        return isMicroEventActive() ? "&a&lACTIF" : "&7Aucun";
     }
 
     private String getActiveMicroEventName() {
@@ -1183,20 +1191,16 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     }
 
     private int getItemIlvl(org.bukkit.inventory.ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return 0;
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return 0;
         var meta = item.getItemMeta();
-        if (meta == null || !meta.hasLore()) return 0;
+        if (meta == null) return 0;
 
-        for (String line : meta.getLore()) {
-            String stripped = line.replaceAll("§[0-9a-fk-or]", "");
-            if (stripped.contains("Item Level:") || stripped.contains("iLvl:")) {
-                try {
-                    String numStr = stripped.replaceAll("[^0-9]", "");
-                    return Integer.parseInt(numStr);
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        return 0;
+        // Lire l'item level depuis le PDC (stocké par ZombieZItem)
+        org.bukkit.persistence.PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        org.bukkit.NamespacedKey keyItemLevel = new org.bukkit.NamespacedKey("zombiez", "item_level");
+        Integer itemLevel = pdc.get(keyItemLevel, org.bukkit.persistence.PersistentDataType.INTEGER);
+
+        return itemLevel != null ? itemLevel : 0;
     }
 
     private String formatVipRank(String rank) {
