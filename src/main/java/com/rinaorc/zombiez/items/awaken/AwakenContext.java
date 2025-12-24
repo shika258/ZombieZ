@@ -182,7 +182,7 @@ public class AwakenContext {
     }
 
     /**
-     * Obtient la réduction de seuil
+     * Obtient la réduction de seuil (compteurs: stacks, kills)
      *
      * @return Réduction (0 si pas applicable)
      */
@@ -193,6 +193,37 @@ public class AwakenContext {
             return activeAwaken.getModifierValueAsInt();
         }
         return 0;
+    }
+
+    /**
+     * Obtient le bonus de seuil en pourcentage (HP, Surchauffe, Virulence)
+     * Ex: Execute <15% HP avec +5% bonus → <20% HP
+     *
+     * @return Bonus de seuil en % (0 si pas applicable)
+     */
+    public double getThresholdBonus() {
+        if (!isAwakenForCurrentTalent()) return 0;
+
+        if (activeAwaken.getModifierType() == AwakenModifierType.THRESHOLD_BONUS) {
+            return activeAwaken.getModifierValue();
+        }
+        return 0;
+    }
+
+    /**
+     * Applique le bonus de seuil à un seuil HP en pourcentage
+     * Ex: applyThresholdBonus(15.0) avec +5% → 20.0
+     *
+     * @param baseThreshold Seuil de base (ex: 15.0 pour 15% HP)
+     * @return Seuil modifié
+     */
+    public double applyThresholdBonus(double baseThreshold) {
+        if (!isAwakenForCurrentTalent()) return baseThreshold;
+
+        if (activeAwaken.getModifierType() == AwakenModifierType.THRESHOLD_BONUS) {
+            return baseThreshold + activeAwaken.getModifierValue();
+        }
+        return baseThreshold;
     }
 
     /**

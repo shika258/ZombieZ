@@ -317,6 +317,22 @@ public class AwakenHelper {
     }
 
     /**
+     * Calcule le seuil HP/% avec le modificateur d'éveil
+     * Utilisé pour les talents d'exécution (Coup de Grâce, Déchirure, etc.)
+     *
+     * @param ctx Le contexte d'éveil
+     * @param baseThreshold Seuil de base en % (ex: 15.0 pour 15% HP)
+     * @return Seuil final (ex: 20.0 avec +5% bonus)
+     */
+    public static double calculateFinalThreshold(AwakenContext ctx, double baseThreshold) {
+        if (ctx == null || !ctx.hasAwaken() || !ctx.isAwakenForCurrentTalent()) {
+            return baseThreshold;
+        }
+
+        return ctx.applyThresholdBonus(baseThreshold);
+    }
+
+    /**
      * Affiche une notification d'éveil au joueur
      *
      * @param player Le joueur

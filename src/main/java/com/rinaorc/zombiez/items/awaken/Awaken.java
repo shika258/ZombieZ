@@ -198,6 +198,9 @@ public class Awaken {
                  EXTRA_STACKS, REDUCED_THRESHOLD ->
                 baseValue + modifierValue;
 
+            case THRESHOLD_BONUS ->
+                baseValue + modifierValue; // Ajoute au seuil HP (15% -> 20%)
+
             case APPLY_SLOW -> modifierValue; // Durée du slow
 
             case UNIQUE_EFFECT -> modifierValue; // Dépend du talent
