@@ -174,7 +174,7 @@ public class DeathListener implements Listener {
             }
         }
 
-        // Fallback au spawn du monde
-        return player.getWorld().getSpawnLocation();
+        // Fallback au spawn configuré dans config.yml
+        return plugin.getZoneManager().getSpawnPoint();
     }
 }
