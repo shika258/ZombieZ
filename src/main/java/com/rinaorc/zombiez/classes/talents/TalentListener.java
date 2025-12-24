@@ -1693,9 +1693,6 @@ public class TalentListener implements Listener {
                     player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.5, 0),
                         25, 0.6, 0.8, 0.6, 0,
                         new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
-
-                    // Message au joueur
-                    player.sendActionBar(net.kyori.adventure.text.Component.text("§4§l🩸 CARNAGE PRÊT! §c§lProchaine Fente = EXPLOSION!"));
                 }
             }
         }
@@ -5857,7 +5854,6 @@ public class TalentListener implements Listener {
                         player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 0.8f, 1.5f);
                         player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 1, 0),
                             15, 0.5, 0.3, 0.5, 0.1);
-                        showTempEventMessage(uuid, "§b§l⚔ TEMPÊTE PRÊTE! §7Fente → §bTORNADE!");
                     } else {
                         // Stack accumulé
                         float pitch = 1.0f + (newStacks * 0.2f);
@@ -5865,7 +5861,6 @@ public class TalentListener implements Listener {
                         player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
                             8, 0.3, 0.2, 0.3, 0,
                             new Particle.DustOptions(Color.fromRGB(150, 200, 255), 1.0f));
-                        showTempEventMessage(uuid, "§b⚔ Tempête §7[" + newStacks + "/" + STEEL_TEMPEST_MAX_STACKS + "]");
                     }
 
                     // Appliquer les effets bonus
@@ -6062,9 +6057,6 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
-
-        // Message de feedback
-        showTempEventMessage(uuid, "§b§l🌪 TEMPÊTE D'ACIER!");
     }
 
     /**
