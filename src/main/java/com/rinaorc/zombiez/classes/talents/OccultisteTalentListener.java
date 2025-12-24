@@ -3,6 +3,8 @@ package com.rinaorc.zombiez.classes.talents;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.classes.ClassType;
+import com.rinaorc.zombiez.items.awaken.AwakenContext;
+import com.rinaorc.zombiez.items.awaken.AwakenHelper;
 import com.rinaorc.zombiez.items.generator.ArmorTrimGenerator;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;

@@ -80,6 +80,14 @@ public class TalentManager {
     }
 
     /**
+     * Obtient tous les IDs de talents enregistrés
+     * Utilisé pour l'auto-complétion des commandes
+     */
+    public List<String> getAllTalentIds() {
+        return new ArrayList<>(talentsById.keySet());
+    }
+
+    /**
      * Obtient tous les talents actifs d'un joueur
      * Ne retourne que les talents sélectionnés ET activés (pas dans disabledTalents)
      */

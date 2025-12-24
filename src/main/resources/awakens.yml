@@ -1,0 +1,342 @@
+# ==================================================
+# ZOMBIEZ - SYSTÈME D'ÉVEILS (AWAKEN)
+# ==================================================
+# Les éveils sont des bonus ultra-rares attachés aux armes
+# qui amplifient un talent spécifique de la classe du porteur.
+#
+# 3 classes × 5 spécialisations × 9 talents = 135 éveils potentiels
+# ==================================================
+
+# Activer/désactiver le système d'éveils
+enabled: true
+
+# ==================================================
+# CHANCES D'ÉVEIL PAR RARETÉ
+# ==================================================
+# Les éveils sont ULTRA RARES - entre 0.5% et 10%
+# Ces valeurs sont des probabilités (0.0 à 1.0)
+awaken-chances:
+  common: 0.005      # 0.5% - Très rare même sur les items communs
+  uncommon: 0.01     # 1.0%
+  rare: 0.02         # 2.0%
+  epic: 0.035        # 3.5%
+  legendary: 0.05    # 5.0%
+  mythic: 0.075      # 7.5%
+  exalted: 0.10      # 10% - Le plus haut taux
+
+# ==================================================
+# BONUS DE ZONE
+# ==================================================
+# Bonus de chance par niveau de zone
+# zone-chance-bonus × zone_level = bonus additionnel
+zone-chance-bonus: 0.001   # +0.1% par zone (zone 50 = +5%)
+max-zone-for-bonus: 50     # Plafond de zone pour le bonus
+
+# ==================================================
+# ÉQUILIBRAGE - BUDGETS DE PUISSANCE
+# ==================================================
+# Chaque type de modificateur a un "budget" de puissance de 1.0
+# Les valeurs ci-dessous définissent les plages de valeurs
+modifier-values:
+
+  # +N invocations (bêtes, clones, projectiles)
+  EXTRA_SUMMON:
+    min: 1.0
+    max: 2.0
+    budget: 1.0
+
+  # +X% dégâts du talent
+  DAMAGE_BONUS:
+    min: 15.0
+    max: 35.0
+    budget: 1.0
+
+  # +X% dégâts critiques
+  CRIT_DAMAGE_BONUS:
+    min: 25.0
+    max: 50.0
+    budget: 1.0
+
+  # +X% chance de critique
+  CRIT_CHANCE_BONUS:
+    min: 10.0
+    max: 20.0
+    budget: 1.0
+
+  # -X% cooldown du talent
+  COOLDOWN_REDUCTION:
+    min: 15.0
+    max: 25.0
+    budget: 1.0
+
+  # +X% durée des effets
+  DURATION_EXTENSION:
+    min: 20.0
+    max: 40.0
+    budget: 1.0
+
+  # +X% rayon/zone d'effet
+  RADIUS_BONUS:
+    min: 15.0
+    max: 35.0
+    budget: 1.0
+
+  # +N projectiles supplémentaires
+  EXTRA_PROJECTILE:
+    min: 1.0
+    max: 2.0
+    budget: 1.0
+
+  # +N rebonds supplémentaires
+  EXTRA_BOUNCE:
+    min: 1.0
+    max: 2.0
+    budget: 1.0
+
+  # +X% chance de proc
+  PROC_CHANCE_BONUS:
+    min: 15.0
+    max: 25.0
+    budget: 1.0
+
+  # +N stacks générés
+  EXTRA_STACKS:
+    min: 1.0
+    max: 3.0
+    budget: 1.0
+
+  # -N stacks requis pour déclencher
+  REDUCED_THRESHOLD:
+    min: 1.0
+    max: 2.0
+    budget: 1.0
+
+  # Applique un slow (durée en secondes)
+  APPLY_SLOW:
+    min: 1.5
+    max: 2.5
+    budget: 0.8
+
+  # Applique une vulnérabilité (+X% dégâts subis)
+  APPLY_VULNERABILITY:
+    min: 8.0
+    max: 15.0
+    budget: 0.9
+
+  # +X% vitesse temporaire
+  SPEED_BUFF:
+    min: 15.0
+    max: 25.0
+    budget: 0.7
+
+  # Soin à l'activation (% PV max)
+  HEAL_ON_PROC:
+    min: 3.0
+    max: 7.0
+    budget: 0.8
+
+  # Bouclier à l'activation (% PV max)
+  SHIELD_ON_PROC:
+    min: 8.0
+    max: 15.0
+    budget: 0.9
+
+  # +X% XP sur les kills affectés
+  XP_BONUS:
+    min: 10.0
+    max: 20.0
+    budget: 0.6
+
+  # +X% loot sur les kills affectés
+  LOOT_BONUS:
+    min: 8.0
+    max: 15.0
+    budget: 0.6
+
+# ==================================================
+# EXEMPLE: ÉVEILS CHASSEUR - BRANCHE BÊTES
+# ==================================================
+# Format des éveils personnalisés:
+#
+# awakens:
+#   <awaken_id>:
+#     class: CHASSEUR
+#     branch: CHASSEUR_BETE
+#     talent: chasseur_beast_bat
+#     modifier: EXTRA_SUMMON
+#     min: 1.0
+#     max: 2.0
+#     description: "Invoque %s Chauve-souris supplémentaire(s)"
+#
+# Note: Les éveils sont générés automatiquement à partir des templates.
+# Cette section permet de personnaliser certains éveils spécifiques.
+
+awakens:
+
+  # ══════════════════════════════════════════════════════
+  # CHASSEUR - BRANCHE BÊTES (9 talents = 9 éveils)
+  # ══════════════════════════════════════════════════════
+
+  # Tier 1: Chauve-souris (BEAST_BAT)
+  # Invoque une chauve-souris qui envoie des ultrasons
+  awaken_chasseur_beast_bat_extra:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_bat
+    modifier: EXTRA_SUMMON
+    min: 1
+    max: 1
+    description: "Invoque +1 Chauve-souris supplémentaire"
+
+  awaken_chasseur_beast_bat_damage:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_bat
+    modifier: DAMAGE_BONUS
+    min: 20
+    max: 35
+    description: "Les ultrasons infligent +%.0f%% de dégâts"
+
+  # Tier 2: Endermite (BEAST_ENDERMITE)
+  # Invoque un endermite qui téléporte les ennemis
+  awaken_chasseur_beast_endermite:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_endermite
+    modifier: EXTRA_SUMMON
+    min: 1
+    max: 2
+    description: "Invoque +%s Endermite(s)"
+
+  # Tier 3: Loup (BEAST_WOLF)
+  # Invoque un loup loyal
+  awaken_chasseur_beast_wolf:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_wolf
+    modifier: DAMAGE_BONUS
+    min: 25
+    max: 40
+    description: "Vos loups infligent +%.0f%% de dégâts"
+
+  # Tier 4: Axolotl (BEAST_AXOLOTL)
+  # Invoque un axolotl qui régénère le joueur
+  awaken_chasseur_beast_axolotl:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_axolotl
+    modifier: HEAL_ON_PROC
+    min: 5
+    max: 10
+    description: "Votre axolotl soigne %.0f%% PV de plus"
+
+  # Tier 5: Vache (BEAST_COW)
+  # Invoque une vache qui envoie des bouses explosives
+  awaken_chasseur_beast_cow:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_cow
+    modifier: EXTRA_PROJECTILE
+    min: 1
+    max: 2
+    description: "La vache lance +%s bouse(s) explosive(s)"
+
+  # Tier 6: Lama (BEAST_LLAMA)
+  # Invoque un lama qui crache sur les ennemis
+  awaken_chasseur_beast_llama:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_llama
+    modifier: APPLY_SLOW
+    min: 2
+    max: 3
+    description: "Le crachat du lama ralentit %.0fs"
+
+  # Tier 7: Renard (BEAST_FOX)
+  # Invoque un renard agile qui attaque furtivement
+  awaken_chasseur_beast_fox:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_fox
+    modifier: CRIT_CHANCE_BONUS
+    min: 15
+    max: 25
+    description: "Le renard a +%.0f%% de chance de critique"
+
+  # Tier 8: Abeille (BEAST_BEE)
+  # Invoque une abeille qui empoisonne les ennemis
+  awaken_chasseur_beast_bee:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_bee
+    modifier: EXTRA_SUMMON
+    min: 2
+    max: 3
+    description: "Invoque +%s Abeille(s) supplémentaire(s)"
+
+  # Tier 9: Golem de Fer (BEAST_IRON_GOLEM)
+  # Invoque un puissant Golem de Fer comme ultime
+  awaken_chasseur_beast_golem:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_iron_golem
+    modifier: DURATION_EXTENSION
+    min: 30
+    max: 50
+    description: "Le Golem reste actif +%.0f%% plus longtemps"
+
+  awaken_chasseur_beast_golem_damage:
+    class: CHASSEUR
+    branch: CHASSEUR_BETE
+    talent: chasseur_beast_iron_golem
+    modifier: DAMAGE_BONUS
+    min: 30
+    max: 50
+    description: "Le Golem inflige +%.0f%% de dégâts"
+
+# ==================================================
+# RÈGLES D'ÉQUILIBRAGE
+# ==================================================
+#
+# 1. UN ÉVEIL PAR ITEM - Pas de cumul
+#
+# 2. CAPS PAR TYPE:
+#    - EXTRA_SUMMON: max +2 entités
+#    - DAMAGE_BONUS: max +50% (ultimes exceptés)
+#    - COOLDOWN_REDUCTION: max -30%
+#    - DURATION: max +50%
+#    - RADIUS: max +40%
+#    - PROJECTILES: max +2
+#
+# 3. INTERDITS:
+#    - Pas d'effet "perma-CC" (slow/stun infini)
+#    - Pas de scaling infini (les valeurs sont fixes)
+#    - Pas de combo auto-win (1 éveil = 1 bonus)
+#
+# 4. CONTEXTE:
+#    - L'éveil n'est actif QUE si:
+#      * Le joueur porte l'arme en main principale
+#      * Le joueur est de la bonne classe
+#      * Le joueur a le talent correspondant actif
+#    - Sinon, l'éveil apparaît comme "INACTIF" dans le lore
+
+# ==================================================
+# LORE DYNAMIQUE
+# ==================================================
+# Format d'affichage dans le lore de l'item:
+#
+# §8§m
+# §d§l✦ ÉVEIL §8- §a✔ ACTIF
+# §d[Nom de l'éveil]
+# §7Talent: §e[Nom du talent]
+# §7Effet: §a[Description de l'effet]
+# §8§m
+#
+# Si inactif:
+# §8§m
+# §d§l✦ ÉVEIL §8- §c✖ INACTIF
+# §8[Nom de l'éveil]
+# §7Talent: §8[Nom du talent]
+# §7Effet: §8[Description de l'effet]
+# §c✖ Classe: [Classe requise]
+# §8§m

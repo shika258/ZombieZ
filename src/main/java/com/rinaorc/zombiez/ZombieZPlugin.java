@@ -103,11 +103,9 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.zones.SecretZoneManager secretZoneManager;
 
-    // Système de Pouvoirs et Item Level
+    // Système d'Éveils (remplace l'ancien système de Pouvoirs)
     @Getter
-    private com.rinaorc.zombiez.items.power.PowerManager powerManager;
-    @Getter
-    private com.rinaorc.zombiez.items.power.PowerTriggerListener powerTriggerListener;
+    private com.rinaorc.zombiez.items.awaken.AwakenManager awakenManager;
 
     // Listeners stockés pour accès externe
     @Getter
@@ -432,13 +430,6 @@ public class ZombieZPlugin extends JavaPlugin {
         // Set Bonus Manager - Bonus des sets d'équipement
         setBonusManager = new SetBonusManager(this);
 
-        // Power Manager - Système de pouvoirs et Item Level
-        powerManager = new com.rinaorc.zombiez.items.power.PowerManager(this);
-        powerManager.loadFromConfig(configManager.getPowersConfig());
-
-        // Power Trigger Listener - Écoute les événements pour déclencher les pouvoirs
-        powerTriggerListener = new com.rinaorc.zombiez.items.power.PowerTriggerListener(this, powerManager);
-
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
 
@@ -570,6 +561,12 @@ public class ZombieZPlugin extends JavaPlugin {
         // Perforation Manager - Système de la branche Perforation du Chasseur (Calibre, Surchauffe, Jugement)
         perforationManager = new com.rinaorc.zombiez.classes.perforation.PerforationManager(this, talentManager);
 
+        // ===== Système d'Éveils (Awaken) =====
+
+        // Awaken Manager - Système d'éveils sur les items (dépend de TalentManager)
+        awakenManager = new com.rinaorc.zombiez.items.awaken.AwakenManager(this);
+        awakenManager.loadFromConfig(configManager.loadConfig("awakens.yml"));
+
         // ActionBar Manager - Système centralisé d'ActionBar (gestion combat/hors-combat)
         actionBarManager = new com.rinaorc.zombiez.managers.ActionBarManager(this);
 
@@ -663,6 +660,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("zzclassadmin").setExecutor(classAdminCmd);
         getCommand("zzclassadmin").setTabCompleter(classAdminCmd);
 
+        // Commandes Admin Éveils
+        com.rinaorc.zombiez.commands.admin.AwakenAdminCommand awakenCmd = new com.rinaorc.zombiez.commands.admin.AwakenAdminCommand(this);
+        getCommand("awaken").setExecutor(awakenCmd);
+        getCommand("awaken").setTabCompleter(awakenCmd);
+
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
         getCommand("stats").setExecutor(new StatsCommand(this));
@@ -746,10 +748,8 @@ public class ZombieZPlugin extends JavaPlugin {
         bowListener = new BowListener(this);
         pm.registerEvents(bowListener, this);
 
-        // Listener système de pouvoirs
-        if (powerTriggerListener != null) {
-            pm.registerEvents(powerTriggerListener, this);
-        }
+        // Le système d'éveils n'a pas de listener dédié
+        // Les éveils sont gérés via le TalentListener existant
 
         // Listener système de zombies
         pm.registerEvents(new ZombieListener(this), this);

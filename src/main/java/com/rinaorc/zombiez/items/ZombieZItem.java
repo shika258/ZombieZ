@@ -64,9 +64,9 @@ public class ZombieZItem {
     // Item Level (ILVL) - Système de puissance
     private final int itemLevel;
 
-    // Pouvoir associé (optionnel)
+    // Éveil associé (optionnel) - remplace l'ancien système de pouvoirs
     @Setter
-    private String powerId;
+    private String awakenId;
 
     // Armor Trim (optionnel, pour les armures uniquement)
     @Setter
@@ -170,8 +170,8 @@ public class ZombieZItem {
         List<String> lore = buildLore();
         builder.lore(lore);
 
-        // Glow pour rare+
-        if (rarity.isAtLeast(Rarity.RARE)) {
+        // Glow UNIQUEMENT pour les items avec éveil (rend les éveils visuellement distincts)
+        if (awakenId != null && !awakenId.isEmpty()) {
             builder.glow();
         }
 
@@ -229,18 +229,10 @@ public class ZombieZItem {
     }
 
     /**
-     * Convertit l'item en ItemStack avec le pouvoir appliqué
-     * Cette méthode doit être utilisée avec PowerTriggerListener.applyPowerToItem
+     * Vérifie si l'item possède un éveil
      */
-    public ItemStack toItemStackWithPower(com.rinaorc.zombiez.items.power.PowerTriggerListener powerListener,
-                                          com.rinaorc.zombiez.items.power.Power power) {
-        ItemStack item = toItemStack();
-
-        if (power != null && powerListener != null) {
-            powerListener.applyPowerToItem(item, power, itemLevel, zoneLevel, rarity);
-        }
-
-        return item;
+    public boolean hasAwaken() {
+        return awakenId != null && !awakenId.isEmpty();
     }
 
     /**
@@ -329,6 +321,17 @@ public class ZombieZItem {
             }
         }
 
+        // ═══════════════════════════════════════
+        // ÉVEIL (si présent)
+        // ═══════════════════════════════════════
+        if (awakenId != null && !awakenId.isEmpty()) {
+            lore.add("");
+            lore.add("§8§m                    ");
+            lore.add("§d§l✦ ÉVEIL");
+            lore.add("§7(Équipez l'arme pour voir les détails)");
+            lore.add("§8§m                    ");
+        }
+
         return lore;
     }
 
@@ -397,8 +400,7 @@ public class ZombieZItem {
         NamespacedKey keyCreated = new NamespacedKey("zombiez", "created");
         NamespacedKey keyAffixes = new NamespacedKey("zombiez", "affixes");
         NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
-        NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
-        NamespacedKey keyHasPower = new NamespacedKey("zombiez", "has_power");
+        NamespacedKey keyAwakenId = new NamespacedKey("zombiez", "awaken_id");
         NamespacedKey keyBaseStats = new NamespacedKey("zombiez", "base_stats");
         NamespacedKey keyAffixStats = new NamespacedKey("zombiez", "affix_stats");
 
@@ -410,10 +412,9 @@ public class ZombieZItem {
         pdc.set(keyCreated, PersistentDataType.LONG, createdAt);
         pdc.set(keyItemLevel, PersistentDataType.INTEGER, itemLevel);
 
-        // Stocker le pouvoir si présent
-        if (powerId != null && !powerId.isEmpty()) {
-            pdc.set(keyHasPower, PersistentDataType.BYTE, (byte) 1);
-            pdc.set(keyPowerId, PersistentDataType.STRING, powerId);
+        // Stocker l'éveil si présent
+        if (awakenId != null && !awakenId.isEmpty()) {
+            pdc.set(keyAwakenId, PersistentDataType.STRING, awakenId);
         }
 
         // Sérialiser les stats de base (format: "STAT_TYPE:value;STAT_TYPE:value")
@@ -621,7 +622,7 @@ public class ZombieZItem {
         NamespacedKey keyZone = new NamespacedKey("zombiez", "zone");
         NamespacedKey keyCreated = new NamespacedKey("zombiez", "created");
         NamespacedKey keyItemLevel = new NamespacedKey("zombiez", "item_level");
-        NamespacedKey keyPowerId = new NamespacedKey("zombiez", "power_id");
+        NamespacedKey keyAwakenId = new NamespacedKey("zombiez", "awaken_id");
         NamespacedKey keyBaseStats = new NamespacedKey("zombiez", "base_stats");
         NamespacedKey keyAffixes = new NamespacedKey("zombiez", "affixes");
 
@@ -631,7 +632,7 @@ public class ZombieZItem {
         Integer zone = pdc.get(keyZone, PersistentDataType.INTEGER);
         Long created = pdc.get(keyCreated, PersistentDataType.LONG);
         Integer ilvl = pdc.get(keyItemLevel, PersistentDataType.INTEGER);
-        String power = pdc.get(keyPowerId, PersistentDataType.STRING);
+        String awakenId = pdc.get(keyAwakenId, PersistentDataType.STRING);
 
         // Lire les données d'armor trim
         NamespacedKey keyTrimPattern = new NamespacedKey("zombiez", "trim_pattern");
@@ -710,7 +711,7 @@ public class ZombieZItem {
             .createdAt(created != null ? created : System.currentTimeMillis())
             .identified(true)
             .itemLevel(ilvl != null ? ilvl : 1)
-            .powerId(power)
+            .awakenId(awakenId)
             .trimPatternKey(trimPattern)
             .trimMaterialKey(trimMaterial)
             .build();
