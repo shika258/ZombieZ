@@ -430,10 +430,6 @@ public class ZombieZPlugin extends JavaPlugin {
         // Set Bonus Manager - Bonus des sets d'équipement
         setBonusManager = new SetBonusManager(this);
 
-        // Awaken Manager - Système d'éveils (remplace l'ancien système de pouvoirs)
-        awakenManager = new com.rinaorc.zombiez.items.awaken.AwakenManager(this);
-        awakenManager.loadFromConfig(configManager.loadConfig("awakens.yml"));
-
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
 
@@ -564,6 +560,12 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Perforation Manager - Système de la branche Perforation du Chasseur (Calibre, Surchauffe, Jugement)
         perforationManager = new com.rinaorc.zombiez.classes.perforation.PerforationManager(this, talentManager);
+
+        // ===== Système d'Éveils (Awaken) =====
+
+        // Awaken Manager - Système d'éveils sur les items (dépend de TalentManager)
+        awakenManager = new com.rinaorc.zombiez.items.awaken.AwakenManager(this);
+        awakenManager.loadFromConfig(configManager.loadConfig("awakens.yml"));
 
         // ActionBar Manager - Système centralisé d'ActionBar (gestion combat/hors-combat)
         actionBarManager = new com.rinaorc.zombiez.managers.ActionBarManager(this);
