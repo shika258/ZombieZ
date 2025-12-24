@@ -107,6 +107,16 @@ gameplay:
     z: 9979.5
     yaw: 180.0
     pitch: 0.0
+
+  # Zone de spawn protégée (aucun zombie ne spawn dans cette zone)
+  protected-spawn-area:
+    enabled: true
+    min-x: 624
+    max-x: 839
+    min-y: 0
+    max-y: 150
+    min-z: 9938
+    max-z: 10102
   
   # Régénération naturelle désactivée
   disable-natural-regen: true
