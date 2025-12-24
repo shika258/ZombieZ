@@ -10,11 +10,14 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -42,9 +45,45 @@ public class TalentListener implements Listener {
     private final Map<UUID, Integer> furyStacks = new ConcurrentHashMap<>();
     private final Map<UUID, Long> furyLastHit = new ConcurrentHashMap<>();
 
-    // Charge Devastatrice - tracking sprint
+    // Charge Devastatrice - tracking sprint (LEGACY)
     private final Map<UUID, Long> sprintStartTime = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> chargeReady = new ConcurrentHashMap<>();
+
+    // === VOIE DE LA FENTE - Tracking ===
+
+    // Fente Dévastatrice - cooldown et état
+    private final Map<UUID, Long> lungingStrikeCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> lungingStrikeActive = new ConcurrentHashMap<>(); // true = en cours de dash
+
+    // Cri de Marquage - ennemis marqués (UUID ennemi -> timestamp expiration)
+    private final Map<UUID, Long> warCryMarkedEnemies = new ConcurrentHashMap<>();
+
+    // Élan Furieux - stacks de puissance
+    private final Map<UUID, Integer> furiousMomentumStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> furiousMomentumLastLunge = new ConcurrentHashMap<>();
+
+    // Éviscération - compteur de fentes (remplace Onde de Carnage)
+    private final Map<UUID, Integer> eviscerationCounter = new ConcurrentHashMap<>();
+
+    // Griffes Lacérantes - saignements (remplace Impact Sismique)
+    // Structure: playerUUID -> (enemyUUID -> stacks)
+    private final Map<UUID, Map<UUID, Integer>> bleedingStacks = new ConcurrentHashMap<>();
+    // Structure: playerUUID -> (enemyUUID -> expiryTimestamp)
+    private final Map<UUID, Map<UUID, Long>> bleedingExpiry = new ConcurrentHashMap<>();
+
+    // Frénésie de Guerre - kills récents et état
+    private final Map<UUID, List<Long>> warFrenzyKills = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> warFrenzyActiveUntil = new ConcurrentHashMap<>();
+
+    // Rage du Berserker - état de transformation
+    private final Map<UUID, Long> berserkerRageActiveUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> berserkerOriginalScale = new ConcurrentHashMap<>();
+
+    // Prédateur Insatiable - buff de dégâts après kill marqué
+    private final Map<UUID, Long> predatorDamageBuffExpiry = new ConcurrentHashMap<>();
+
+    // Tracking dernière Fente réussie (pour kill tracking)
+    private final Map<UUID, Long> lastLungingStrikeHit = new ConcurrentHashMap<>();
 
     // Dechainement - tracking multi-kills
     private final Map<UUID, List<Long>> recentKills = new ConcurrentHashMap<>();
@@ -1397,6 +1436,18 @@ public class TalentListener implements Listener {
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
         if (!(event.getEntity() instanceof LivingEntity target)) return;
+
+        // Cleanup: retirer l'entité morte des marquages et saignements
+        UUID targetUuid = target.getUniqueId();
+        warCryMarkedEnemies.remove(targetUuid);
+        // Nettoyer les saignements pour tous les joueurs
+        for (Map<UUID, Integer> playerStacks : bleedingStacks.values()) {
+            playerStacks.remove(targetUuid);
+        }
+        for (Map<UUID, Long> playerExpiry : bleedingExpiry.values()) {
+            playerExpiry.remove(targetUuid);
+        }
+
         if (!(target.getKiller() instanceof Player player)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
@@ -1555,6 +1606,114 @@ public class TalentListener implements Listener {
         // === TIER 6 ===
 
         // Faucheur - auto execute (checked in periodic task)
+
+        // === VOIE DE LA FENTE - Kill tracking ===
+
+        // Vérifier si le kill a été fait avec une Fente (dans les 500ms)
+        Long lastLungeHit = lastLungingStrikeHit.get(uuid);
+        boolean killWithLunge = lastLungeHit != null && (System.currentTimeMillis() - lastLungeHit) < 500;
+
+        if (killWithLunge) {
+            // === PRÉDATEUR INSATIABLE (T6) ===
+            Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
+            if (predator != null) {
+                // Reset du cooldown de Fente
+                cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>()).remove("lunging_strike");
+
+                // Bonus de vitesse de mouvement
+                double speedBonus = predator.getValue(0); // 0.25 = 25%
+                long speedDuration = (long) predator.getValue(1); // 2000ms
+                int speedLevel = (int) (speedBonus * 4); // 25% = niveau 1
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED,
+                    (int) (speedDuration / 50), speedLevel, false, false));
+
+                // Bonus de dégâts si kill sur ennemi marqué
+                if (isMarked(target.getUniqueId())) {
+                    long buffDuration = (long) predator.getValue(3); // 4000ms
+                    predatorDamageBuffExpiry.put(uuid, System.currentTimeMillis() + buffDuration);
+
+                    // Effet visuel spécial
+                    player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+                        15, 0.5, 0.5, 0.5, 0.05);
+                    player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 0.6f, 1.4f);
+                }
+
+                // Effet de reset
+                player.getWorld().spawnParticle(Particle.CRIT_MAGIC, player.getLocation().add(0, 1, 0),
+                    8, 0.3, 0.3, 0.3, 0.1);
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.2f);
+            }
+
+            // === FRÉNÉSIE DE GUERRE (T8) - Compteur de kills ===
+            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (warFrenzy != null && !isWarFrenzyActive(uuid)) {
+                int killsNeeded = (int) warFrenzy.getValue(0); // 5
+                long window = (long) warFrenzy.getValue(1); // 10000ms
+
+                List<Long> kills = warFrenzyKills.computeIfAbsent(uuid, k -> new ArrayList<>());
+                kills.add(System.currentTimeMillis());
+
+                // Nettoyer les vieux kills
+                kills.removeIf(t -> System.currentTimeMillis() - t > window);
+
+                // Vérifier si on active la Frénésie
+                if (kills.size() >= killsNeeded) {
+                    kills.clear();
+                    activateWarFrenzy(player, warFrenzy);
+                }
+            }
+        }
+    }
+
+    /**
+     * Active le mode Frénésie de Guerre
+     */
+    private void activateWarFrenzy(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(2); // 8000ms
+        double attackSpeedBonus = talent.getValue(3); // 0.50 = 50%
+
+        warFrenzyActiveUntil.put(uuid, System.currentTimeMillis() + duration);
+
+        // Effets de vitesse d'attaque
+        int hasteLevel = (int) (attackSpeedBonus * 5); // 50% = niveau 2-3
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE,
+            (int) (duration / 50), Math.min(hasteLevel, 2), false, false));
+
+        // Sons d'activation
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.7f, 1.3f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
+
+        // Particules de feu
+        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+            30, 0.5, 0.5, 0.5, 0.1);
+
+        // Aura de feu pendant la durée
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead() || !isWarFrenzyActive(uuid)) {
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Particules de feu autour du joueur
+                if (ticks % 5 == 0) {
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+                        double x = Math.cos(angle + ticks * 0.15) * 1.0;
+                        double z = Math.sin(angle + ticks * 0.15) * 1.0;
+                        player.getWorld().spawnParticle(Particle.FLAME,
+                            player.getLocation().add(x, 0.3, z), 1, 0, 0.1, 0, 0.01);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        plugin.getActionBarManager().markInCombat(uuid);
     }
 
     // ==================== SPRINT ====================
@@ -1591,6 +1750,86 @@ public class TalentListener implements Listener {
 
             activeCyclones.remove(uuid);
         }
+    }
+
+    // ==================== CLIC DROIT - VOIE DE LA FENTE ====================
+
+    @EventHandler
+    public void onRightClick(PlayerInteractEvent event) {
+        // Ignorer main gauche pour éviter double proc
+        if (event.getHand() != EquipmentSlot.HAND) return;
+
+        // Seulement clic droit
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
+        Player player = event.getPlayer();
+        ClassData data = plugin.getClassManager().getClassData(player);
+        if (!data.hasClass() || data.getSelectedClass() != com.rinaorc.zombiez.classes.ClassType.GUERRIER) return;
+
+        // Vérifier si le joueur tient une arme de mêlée
+        if (!isMeleeWeapon(player.getInventory().getItemInMainHand().getType())) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // Shift + Clic Droit = Cri de Marquage (prioritaire)
+        if (player.isSneaking()) {
+            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
+            if (warCry != null && !isOnCooldown(uuid, "war_cry_mark")) {
+                procWarCryMark(player, warCry);
+                setCooldown(uuid, "war_cry_mark", (long) warCry.getValue(3));
+                event.setCancelled(true);
+                return;
+            }
+
+            // Shift + Fente = Consommation de Fureur (si le talent est actif)
+            Talent furyConsumption = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+            if (furyConsumption != null) {
+                // Fente avec sacrifice de vie
+                procLungingStrike(player, true);
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        // Clic Droit normal = Fente Dévastatrice
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike != null) {
+            // Vérifier cooldown (sauf si Berserker Rage ou War Frenzy actifs)
+            boolean ignoreCooldown = isBerserkerRageActive(uuid) || isWarFrenzyActive(uuid);
+            if (ignoreCooldown || !isOnCooldown(uuid, "lunging_strike")) {
+                procLungingStrike(player, false);
+                if (!ignoreCooldown) {
+                    setCooldown(uuid, "lunging_strike", (long) lungingStrike.getValue(3));
+                }
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    /**
+     * Vérifie si le matériau est une arme de mêlée
+     */
+    private boolean isMeleeWeapon(Material material) {
+        return material.name().endsWith("_SWORD") ||
+               material.name().endsWith("_AXE") ||
+               material == Material.TRIDENT ||
+               material == Material.MACE;
+    }
+
+    /**
+     * Vérifie si Berserker Rage est actif
+     */
+    private boolean isBerserkerRageActive(UUID uuid) {
+        Long activeUntil = berserkerRageActiveUntil.get(uuid);
+        return activeUntil != null && System.currentTimeMillis() < activeUntil;
+    }
+
+    /**
+     * Vérifie si War Frenzy est actif
+     */
+    private boolean isWarFrenzyActive(UUID uuid) {
+        Long activeUntil = warFrenzyActiveUntil.get(uuid);
+        return activeUntil != null && System.currentTimeMillis() < activeUntil;
     }
 
     // ==================== DOUBLE SNEAK - ACTIVATIONS MANUELLES ====================
@@ -1660,6 +1899,25 @@ public class TalentListener implements Listener {
             } else {
                 // Feedback cooldown
                 long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            }
+            return;
+        }
+
+        // Rage du Berserker - L'ULTIME du Guerrier Fente
+        Talent berserkerRage = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+        if (berserkerRage != null) {
+            // Vérifier si pas déjà actif
+            Long activeUntil = berserkerRageActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                return;
+            }
+
+            if (!isOnCooldown(uuid, "berserker_rage")) {
+                procBerserkerRage(player, berserkerRage);
+                setCooldown(uuid, "berserker_rage", (long) berserkerRage.getValue(4));
+            } else {
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             }
             return;
@@ -4472,6 +4730,29 @@ public class TalentListener implements Listener {
         // Nettoyer les Larves de Sang du joueur
         cleanupBloodLarvae(playerUuid);
 
+        // Voie du Fauve (ex-Fente)
+        lungingStrikeCooldown.remove(playerUuid);
+        lungingStrikeActive.remove(playerUuid);
+        furiousMomentumStacks.remove(playerUuid);
+        furiousMomentumLastLunge.remove(playerUuid);
+        eviscerationCounter.remove(playerUuid);
+        bleedingStacks.remove(playerUuid);
+        bleedingExpiry.remove(playerUuid);
+        warFrenzyKills.remove(playerUuid);
+        warFrenzyActiveUntil.remove(playerUuid);
+        predatorDamageBuffExpiry.remove(playerUuid);
+        lastLungingStrikeHit.remove(playerUuid);
+
+        // Berserker Rage - restaurer la taille
+        Double berserkerScale = berserkerOriginalScale.remove(playerUuid);
+        if (berserkerScale != null) {
+            Player player = plugin.getServer().getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                player.getAttribute(Attribute.SCALE).setBaseValue(berserkerScale);
+            }
+        }
+        berserkerRageActiveUntil.remove(playerUuid);
+
         // Unregister ActionBar
         activeGuerriers.remove(playerUuid);
         activeGuerrierActionBar.remove(playerUuid);
@@ -5094,5 +5375,736 @@ public class TalentListener implements Listener {
                 }
             }
         }
+    }
+
+    // ==================== VOIE DE LA FENTE - METHODES DE PROC ====================
+
+    /**
+     * Fente Dévastatrice - Dash vers l'ennemi le plus proche et frappe
+     * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
+     */
+    private void procLungingStrike(Player player, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike == null) return;
+
+        double baseRange = lungingStrike.getValue(0); // 8 blocs
+        double baseBonus = lungingStrike.getValue(1); // 0.50 = +50%
+        double perBlockBonus = lungingStrike.getValue(2); // 0.05 = +5% par bloc
+
+        // Bonus de portée si Berserker Rage actif
+        if (isBerserkerRageActive(uuid)) {
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                baseRange += berserker.getValue(3); // +4 blocs
+            }
+        }
+
+        // Trouver l'ennemi le plus proche dans la direction du regard
+        LivingEntity target = findNearestEnemyInDirection(player, baseRange);
+        if (target == null) {
+            // Pas de cible - petit feedback
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
+        }
+
+        Location startLoc = player.getLocation();
+        Location targetLoc = target.getLocation();
+        double distance = startLoc.distance(targetLoc);
+
+        // Consommation de Fureur - sacrifice de vie
+        double damageMultiplier = 1.0 + baseBonus + (distance * perBlockBonus);
+        if (withFuryConsumption) {
+            Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
+            if (fury != null) {
+                double hpCost = player.getAttribute(Attribute.MAX_HEALTH).getValue() * fury.getValue(0); // 15%
+                double currentHp = player.getHealth();
+                if (currentHp > hpCost + 1) { // Sécurité: ne pas se suicider
+                    player.setHealth(currentHp - hpCost);
+                    damageMultiplier *= fury.getValue(1); // x3
+                    // Effet visuel de sacrifice
+                    player.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, player.getLocation().add(0, 1, 0),
+                        5, 0.3, 0.3, 0.3, 0.1);
+                    player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 0.6f, 1.2f);
+                }
+            }
+        }
+
+        // Berserker Rage = x2 dégâts
+        if (isBerserkerRageActive(uuid)) {
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                damageMultiplier *= berserker.getValue(1); // x2
+            }
+        }
+
+        // Élan Furieux - bonus de stacks (avec decay)
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            // Vérifier decay - reset si plus de 3s sans Fente
+            long resetTime = (long) momentum.getValue(3); // 3000ms
+            Long lastLunge = furiousMomentumLastLunge.get(uuid);
+            if (lastLunge != null && (System.currentTimeMillis() - lastLunge) > resetTime) {
+                furiousMomentumStacks.remove(uuid);
+            }
+
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            damageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
+        }
+
+        // Prédateur Insatiable - buff de dégâts
+        Long predatorExpiry = predatorDamageBuffExpiry.get(uuid);
+        if (predatorExpiry != null && System.currentTimeMillis() < predatorExpiry) {
+            Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
+            if (predator != null) {
+                damageMultiplier *= (1 + predator.getValue(2)); // +15%
+            }
+        }
+
+        // Frénésie de Guerre active - bonus de dégâts
+        if (isWarFrenzyActive(uuid)) {
+            Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+            if (warFrenzy != null) {
+                damageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
+            }
+        }
+
+        final double finalDamageMultiplier = damageMultiplier;
+
+        // Animation du dash - téléportation progressive
+        lungingStrikeActive.put(uuid, true);
+
+        // Téléporter vers la cible avec effet visuel
+        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
+        Location dashEnd = targetLoc.clone().subtract(direction.clone().multiply(1.5)); // S'arrêter juste devant
+        dashEnd.setY(targetLoc.getY());
+
+        // Particules de traînée
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.add(0, 1, 0), 1, 0, 0, 0, 0);
+
+        // Téléportation rapide (animation fluide en 3 étapes)
+        new BukkitRunnable() {
+            int step = 0;
+            final int totalSteps = 3;
+            final Location start = startLoc.clone();
+            final Location end = dashEnd.clone();
+
+            @Override
+            public void run() {
+                if (step >= totalSteps || !player.isOnline()) {
+                    lungingStrikeActive.put(uuid, false);
+                    cancel();
+                    return;
+                }
+
+                step++;
+                double progress = (double) step / totalSteps;
+                Location midPoint = start.clone().add(
+                    end.toVector().subtract(start.toVector()).multiply(progress)
+                );
+                midPoint.setYaw(player.getLocation().getYaw());
+                midPoint.setPitch(player.getLocation().getPitch());
+                player.teleport(midPoint);
+
+                // Particules de dash
+                player.getWorld().spawnParticle(Particle.DUST, midPoint.add(0, 1, 0),
+                    3, 0.2, 0.3, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
+
+                if (step >= totalSteps) {
+                    // Arrivée - infliger les dégâts
+                    finishLungingStrike(player, target, finalDamageMultiplier, withFuryConsumption);
+                    lungingStrikeActive.put(uuid, false);
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Finalise la Fente - inflige les dégâts et applique les effets
+     */
+    private void finishLungingStrike(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double finalDamage = baseDamage * damageMultiplier;
+
+        // Infliger les dégâts
+        target.damage(finalDamage, player);
+
+        // Enregistrer le hit pour le kill tracking (Prédateur Insatiable, Frénésie de Guerre)
+        lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
+
+        // Son et effets visuels
+        player.getWorld().playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+        player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+            10, 0.3, 0.3, 0.3, 0.2);
+
+        // Indicateur de dégâts
+        PacketDamageIndicator.displayCrit(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, player);
+
+        // Marquer en combat
+        lastCombatTime.put(uuid, System.currentTimeMillis());
+        plugin.getActionBarManager().markInCombat(uuid);
+
+        // === GRIFFES LACÉRANTES - Appliquer saignement ===
+        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        if (laceratingClaws != null) {
+            procLaceratingClaws(player, target, laceratingClaws);
+        }
+
+        // === ÉLAN FURIEUX - Ajouter un stack ===
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            int maxStacks = (int) momentum.getValue(2);
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            int newStacks = stacks;
+            if (stacks < maxStacks) {
+                newStacks = stacks + 1;
+                furiousMomentumStacks.put(uuid, newStacks);
+            }
+            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+
+            // Appliquer le bonus de vitesse d'attaque
+            applyMomentumSpeedBoost(player, newStacks, momentum);
+
+            // Feedback visuel des stacks
+            if (newStacks >= maxStacks) {
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+            } else {
+                float pitch = 0.8f + (newStacks * 0.15f);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.4f, pitch);
+            }
+        }
+
+        // === ÉVISCÉRATION - Compteur ===
+        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+        if (evisceration != null) {
+            int count = eviscerationCounter.getOrDefault(uuid, 0) + 1;
+            int threshold = (int) evisceration.getValue(0);
+
+            if (count >= threshold) {
+                eviscerationCounter.put(uuid, 0);
+                procEvisceration(player, evisceration);
+            } else {
+                eviscerationCounter.put(uuid, count);
+            }
+        }
+
+        // === PROPAGATION DE DÉGÂTS SI CIBLE MARQUÉE ===
+        if (isMarked(target.getUniqueId())) {
+            Talent warCry = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_CRY_MARK);
+            if (warCry != null) {
+                propagateMarkedDamage(player, target, finalDamage, warCry);
+            }
+        }
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche dans la direction du regard du joueur
+     */
+    private LivingEntity findNearestEnemyInDirection(Player player, double range) {
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+        LivingEntity nearest = null;
+        double nearestDist = range + 1;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(player.getLocation(), range, range, range)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue; // Pas les joueurs
+            if (entity instanceof ArmorStand) continue;
+
+            Location entityLoc = entity.getLocation().add(0, 1, 0);
+            Vector toEntity = entityLoc.toVector().subtract(eyeLoc.toVector());
+            double distance = toEntity.length();
+
+            // Vérifier angle (90° devant)
+            if (distance > range) continue;
+            double angle = toEntity.angle(direction);
+            if (angle > Math.PI / 2) continue; // Plus de 90°
+
+            if (distance < nearestDist) {
+                nearestDist = distance;
+                nearest = living;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Cri de Marquage - Marque tous les ennemis proches
+     */
+    private void procWarCryMark(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        double radius = talent.getValue(0); // 8 blocs
+        long markDuration = (long) talent.getValue(2); // 6000ms
+
+        Location center = player.getLocation();
+        long expiryTime = System.currentTimeMillis() + markDuration;
+        int marked = 0;
+
+        // Marquer tous les ennemis proches
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            warCryMarkedEnemies.put(entity.getUniqueId(), expiryTime);
+            marked++;
+
+            // Effet visuel sur la cible
+            living.getWorld().spawnParticle(Particle.ENCHANT, living.getLocation().add(0, 1.5, 0),
+                10, 0.3, 0.3, 0.3, 0.5);
+            // Glowing temporaire
+            applyGlowingEffect(living, (int) (markDuration / 50));
+        }
+
+        // Effet du cri
+        player.getWorld().playSound(center, Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.2f);
+        player.getWorld().spawnParticle(Particle.SONIC_BOOM, center.add(0, 1, 0), 1, 0, 0, 0, 0);
+
+        // Cercle de particules
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            player.getWorld().spawnParticle(Particle.DUST, center.clone().add(x, 0.1, z),
+                2, 0.1, 0, 0.1, 0,
+                new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.5f));
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est marqué
+     */
+    private boolean isMarked(UUID entityUuid) {
+        Long expiry = warCryMarkedEnemies.get(entityUuid);
+        if (expiry == null) return false;
+        if (System.currentTimeMillis() > expiry) {
+            warCryMarkedEnemies.remove(entityUuid);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Propage les dégâts aux autres ennemis marqués
+     */
+    private void propagateMarkedDamage(Player player, LivingEntity hitTarget, double damage, Talent talent) {
+        double propagationPercent = talent.getValue(1); // 40%
+        double propagatedDamage = damage * propagationPercent;
+
+        int propagated = 0;
+        for (Map.Entry<UUID, Long> entry : warCryMarkedEnemies.entrySet()) {
+            if (System.currentTimeMillis() > entry.getValue()) continue;
+            if (entry.getKey().equals(hitTarget.getUniqueId())) continue;
+
+            // Trouver l'entité
+            Entity entity = Bukkit.getEntity(entry.getKey());
+            if (entity instanceof LivingEntity living && living.isValid() && !living.isDead()) {
+                // Infliger les dégâts propagés
+                living.damage(propagatedDamage, player);
+                propagated++;
+
+                // Effet visuel
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.2, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(255, 100, 0), 1.0f));
+
+                // Ligne de connexion entre cibles
+                drawParticleLine(hitTarget.getLocation().add(0, 1, 0),
+                    living.getLocation().add(0, 1, 0), Particle.ELECTRIC_SPARK, 8);
+            }
+        }
+
+        if (propagated > 0) {
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.4f, 1.5f);
+        }
+    }
+
+    /**
+     * Dessine une ligne de particules entre deux points
+     */
+    private void drawParticleLine(Location from, Location to, Particle particle, int points) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double length = direction.length();
+        direction.normalize();
+
+        for (int i = 0; i < points; i++) {
+            double progress = (double) i / points;
+            Location point = from.clone().add(direction.clone().multiply(length * progress));
+            from.getWorld().spawnParticle(particle, point, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Griffes Lacérantes - Applique des stacks de saignement à la cible
+     */
+    private void procLaceratingClaws(Player player, LivingEntity target, Talent talent) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        int stacksPerHit = (int) talent.getValue(0); // 3 stacks
+        double damagePerStack = talent.getValue(1); // 0.02 = 2% PV/s
+        long duration = (long) talent.getValue(2); // 4000ms
+        int maxStacks = (int) talent.getValue(3); // 10
+
+        // Obtenir ou créer les maps de saignement pour ce joueur
+        Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+        Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+
+        // Ajouter les stacks (jusqu'au max)
+        int currentStacks = playerBleedStacks.getOrDefault(targetUuid, 0);
+        int newStacks = Math.min(currentStacks + stacksPerHit, maxStacks);
+        playerBleedStacks.put(targetUuid, newStacks);
+        playerBleedExpiry.put(targetUuid, System.currentTimeMillis() + duration);
+
+        // Démarrer le DOT si c'est le premier stack
+        if (currentStacks == 0) {
+            startBleedingDOT(player, target, damagePerStack, duration);
+        }
+
+        // Effet visuel de lacération
+        target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
+            5 + newStacks, 0.3, 0.4, 0.3, 0.05);
+        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+            3 + newStacks, 0.2, 0.3, 0.2, 0,
+            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 1.2f));
+
+        // Son de lacération
+        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.3f);
+        if (newStacks >= maxStacks) {
+            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.4f, 1.5f);
+        }
+
+        // Propager aux ennemis marqués si la cible est marquée
+        if (isMarked(targetUuid)) {
+            propagateBleedingToMarked(player, target, stacksPerHit, damagePerStack, duration, maxStacks);
+        }
+    }
+
+    /**
+     * Démarre le DOT de saignement sur une cible
+     */
+    private void startBleedingDOT(Player player, LivingEntity target, double damagePerStack, long duration) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = (int) (duration / 50); // Convertir ms en ticks
+
+            @Override
+            public void run() {
+                // Vérifier si le saignement est toujours actif
+                Map<UUID, Integer> playerBleedStacks = bleedingStacks.get(playerUuid);
+                Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(playerUuid);
+
+                if (playerBleedStacks == null || playerBleedExpiry == null) {
+                    cancel();
+                    return;
+                }
+
+                Integer stacks = playerBleedStacks.get(targetUuid);
+                Long expiry = playerBleedExpiry.get(targetUuid);
+
+                if (stacks == null || stacks <= 0 || expiry == null || System.currentTimeMillis() > expiry) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                    return;
+                }
+
+                if (!target.isValid() || target.isDead() || !player.isOnline()) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Infliger les dégâts de saignement chaque seconde (20 ticks)
+                if (ticks % 20 == 0) {
+                    double maxHealth = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+                    double bleedDamage = maxHealth * damagePerStack * stacks;
+
+                    target.damage(bleedDamage, player);
+
+                    // Particules de sang
+                    target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
+                        stacks * 2, 0.3, 0.4, 0.3, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.0f));
+                }
+
+                // Vérifier expiration
+                if (System.currentTimeMillis() > expiry) {
+                    playerBleedStacks.remove(targetUuid);
+                    playerBleedExpiry.remove(targetUuid);
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Propage les saignements aux ennemis marqués
+     */
+    private void propagateBleedingToMarked(Player player, LivingEntity source, int stacks, double damagePerStack, long duration, int maxStacks) {
+        UUID playerUuid = player.getUniqueId();
+
+        for (Map.Entry<UUID, Long> entry : warCryMarkedEnemies.entrySet()) {
+            if (System.currentTimeMillis() > entry.getValue()) continue;
+            if (entry.getKey().equals(source.getUniqueId())) continue;
+
+            Entity entity = Bukkit.getEntity(entry.getKey());
+            if (entity instanceof LivingEntity living && living.isValid() && !living.isDead()) {
+                // Appliquer saignement (la moitié des stacks propagés)
+                int propagatedStacks = Math.max(1, stacks / 2);
+
+                Map<UUID, Integer> playerBleedStacks = bleedingStacks.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+                Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+
+                int currentStacks = playerBleedStacks.getOrDefault(entry.getKey(), 0);
+                int newStacks = Math.min(currentStacks + propagatedStacks, maxStacks);
+
+                if (currentStacks == 0) {
+                    startBleedingDOT(player, living, damagePerStack, duration);
+                }
+
+                playerBleedStacks.put(entry.getKey(), newStacks);
+                playerBleedExpiry.put(entry.getKey(), System.currentTimeMillis() + duration);
+
+                // Effet visuel de propagation
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1, 0),
+                    5, 0.2, 0.3, 0.2, 0,
+                    new Particle.DustOptions(Color.fromRGB(200, 50, 50), 0.8f));
+
+                // Ligne de connexion
+                drawParticleLine(source.getLocation().add(0, 1, 0),
+                    living.getLocation().add(0, 1, 0), Particle.DUST, 6);
+            }
+        }
+    }
+
+    /**
+     * Applique le bonus de vitesse d'attaque de l'Élan Furieux
+     */
+    private void applyMomentumSpeedBoost(Player player, int stacks, Talent talent) {
+        double speedPerStack = talent.getValue(1); // 10%
+        int totalBoost = (int) (stacks * speedPerStack * 100); // En pourcentage
+
+        // Appliquer vitesse d'attaque via un effet de haste léger
+        int hasteLevel = Math.min(stacks - 1, 2); // Max niveau 2
+        if (hasteLevel >= 0) {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 80, hasteLevel, false, false));
+        }
+    }
+
+    /**
+     * Éviscération - Consomme tous les saignements pour un burst massif + heal
+     */
+    private void procEvisceration(Player player, Talent talent) {
+        UUID playerUuid = player.getUniqueId();
+        double radius = talent.getValue(1); // 8 blocs
+        double healPercent = talent.getValue(2); // 0.50 = 50% des dégâts en heal
+
+        Location center = player.getLocation();
+        Map<UUID, Integer> playerBleedStacks = bleedingStacks.get(playerUuid);
+        Map<UUID, Long> playerBleedExpiry = bleedingExpiry.get(playerUuid);
+
+        if (playerBleedStacks == null || playerBleedStacks.isEmpty()) {
+            // Pas de saignements à consommer - skip silently
+            return;
+        }
+
+        double totalDamageDealt = 0;
+        int totalStacksConsumed = 0;
+        int enemiesHit = 0;
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.8f, 1.2f);
+        player.getWorld().playSound(center, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+
+        // Consommer les saignements sur tous les ennemis proches
+        for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity == player) continue;
+            if (entity instanceof Player) continue;
+            if (entity instanceof ArmorStand) continue;
+
+            UUID targetUuid = entity.getUniqueId();
+            Integer stacks = playerBleedStacks.get(targetUuid);
+
+            if (stacks != null && stacks > 0) {
+                // Calculer les dégâts restants (2% PV/s * stacks * temps restant ~4s)
+                double maxHealth = living.getAttribute(Attribute.MAX_HEALTH).getValue();
+                double remainingDamage = maxHealth * 0.02 * stacks * 4; // Approximation: 4s de DOT restant
+
+                // Infliger les dégâts instantanément
+                living.damage(remainingDamage, player);
+                totalDamageDealt += remainingDamage;
+                totalStacksConsumed += stacks;
+                enemiesHit++;
+
+                // Retirer les stacks
+                playerBleedStacks.remove(targetUuid);
+                if (playerBleedExpiry != null) {
+                    playerBleedExpiry.remove(targetUuid);
+                }
+
+                // Effet visuel d'éviscération sur la cible
+                living.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, living.getLocation().add(0, 1, 0),
+                    15 + stacks * 3, 0.5, 0.6, 0.5, 0.1);
+                living.getWorld().spawnParticle(Particle.DUST, living.getLocation().add(0, 1.5, 0),
+                    stacks * 5, 0.4, 0.5, 0.4, 0,
+                    new Particle.DustOptions(Color.fromRGB(139, 0, 0), 2.0f));
+
+                // Indicateur de dégâts
+                PacketDamageIndicator.displayCrit(plugin, living.getLocation().add(0, 2, 0), remainingDamage, player);
+            }
+        }
+
+        // Effet visuel d'onde de sang
+        new BukkitRunnable() {
+            double currentRadius = 1;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > radius || ticks > 8) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules de sang
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 10) {
+                    double x = Math.cos(angle) * currentRadius;
+                    double z = Math.sin(angle) * currentRadius;
+                    Location loc = center.clone().add(x, 0.3, z);
+                    player.getWorld().spawnParticle(Particle.DUST, loc, 2, 0.1, 0.05, 0.1, 0,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f));
+                }
+
+                currentRadius += 1.5;
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L);
+
+        // Heal basé sur les dégâts infligés
+        if (totalDamageDealt > 0) {
+            double heal = totalDamageDealt * healPercent;
+            double maxHealth = player.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double newHealth = Math.min(player.getHealth() + heal, maxHealth);
+            player.setHealth(newHealth);
+
+            // Effet de heal
+            player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0),
+                5, 0.3, 0.3, 0.3, 0);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+        }
+
+        plugin.getActionBarManager().markInCombat(playerUuid);
+    }
+
+    /**
+     * Rage du Berserker - Transformation en berserker géant
+     */
+    private void procBerserkerRage(Player player, Talent talent) {
+        UUID uuid = player.getUniqueId();
+        long duration = (long) talent.getValue(0); // 12000ms
+        double sizeBonus = talent.getValue(2); // 0.50 = +50%
+
+        // Sauvegarder le scale original
+        double originalScale = player.getAttribute(Attribute.SCALE).getValue();
+        berserkerOriginalScale.put(uuid, originalScale);
+        berserkerRageActiveUntil.put(uuid, System.currentTimeMillis() + duration);
+
+        // Augmenter la taille
+        player.getAttribute(Attribute.SCALE).setBaseValue(originalScale * (1 + sizeBonus));
+
+        // Sons d'activation épiques
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 0.8f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1.0f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 1.0f, 0.8f);
+
+        // Glowing orange
+        applyRedGlow(player, (int) (duration / 50));
+
+        // Immunité knockback
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, (int) (duration / 50), 0, false, false));
+
+        // Effet d'aura
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead()) {
+                    endBerserkerRage(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                Long activeUntil = berserkerRageActiveUntil.get(uuid);
+                if (activeUntil == null || System.currentTimeMillis() >= activeUntil) {
+                    endBerserkerRage(player, uuid);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Aura de feu
+                if (ticks % 5 == 0) {
+                    Location loc = player.getLocation();
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                        double x = Math.cos(angle + ticks * 0.1) * 1.5;
+                        double z = Math.sin(angle + ticks * 0.1) * 1.5;
+                        player.getWorld().spawnParticle(Particle.FLAME, loc.clone().add(x, 0.5, z),
+                            1, 0.1, 0.2, 0.1, 0.01);
+                    }
+                }
+
+                // Particules de rage
+                if (ticks % 10 == 0) {
+                    player.getWorld().spawnParticle(Particle.LAVA, player.getLocation().add(0, 1, 0),
+                        2, 0.3, 0.3, 0.3, 0);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        plugin.getActionBarManager().markInCombat(uuid);
+    }
+
+    /**
+     * Fin de la Rage du Berserker
+     */
+    private void endBerserkerRage(Player player, UUID uuid) {
+        Double originalScale = berserkerOriginalScale.remove(uuid);
+        if (originalScale != null && player.isOnline()) {
+            player.getAttribute(Attribute.SCALE).setBaseValue(originalScale);
+        }
+        berserkerRageActiveUntil.remove(uuid);
+
+        if (player.isOnline()) {
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_DEATH, 0.6f, 0.8f);
+            player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0),
+                20, 0.5, 0.5, 0.5, 0.1);
+        }
+    }
+
+    /**
+     * Applique un effet de Glowing à une entité
+     */
+    private void applyGlowingEffect(LivingEntity entity, int ticks) {
+        entity.setGlowing(true);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (entity.isValid()) {
+                entity.setGlowing(false);
+            }
+        }, ticks);
     }
 }

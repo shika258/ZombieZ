@@ -78,63 +78,72 @@ public class Talent {
         DEFENSIVE_STANCE,        // REMPART: Blocage passif + riposte
         RISING_FURY,             // Damage stack on hit
         DEATH_STRIKE,            // SANG: Soin basé sur dégâts reçus récemment
-        DEVASTATING_CHARGE,      // Bonus apres sprint
+        DEVASTATING_CHARGE,      // (Legacy) Bonus apres sprint
+        LUNGING_STRIKE,          // FENTE: Dash vers cible + dégâts bonus distance
 
         // === GUERRIER - Tier 2 ===
         WAR_ECHO,                // Double AoE chance
         PUNISHMENT,              // REMPART: Stacks → buff degats + heal
         BLOOD_FERVOUR,           // FUREUR: Kill stacking damage buff
         BONE_SHIELD,             // SANG: Charges d'os protectrices
-        UNLEASH,                 // Explosion on multi-kill
+        UNLEASH,                 // (Legacy) Explosion on multi-kill
+        WAR_CRY_MARK,            // FENTE: Cri de marquage - dégâts propagés
 
         // === GUERRIER - Tier 3 ===
         FRACTURE_WAVE,           // Cone AoE after hitting 3 different targets
         VENGEFUL_SHIELD,         // REMPART: Disque pulsant
         ANCESTRAL_WRATH,         // Riposte damage boost
         MARROWREND,              // SANG: Régénère charges Bouclier d'os
-        EXECUTIONER,             // Bonus damage to low HP
+        EXECUTIONER,             // (Legacy) Bonus damage to low HP
+        LACERATING_CLAWS,        // FAUVE: Chaque fente applique saignement (DOT)
 
         // === GUERRIER - Tier 4 ===
         SEISMIC_RESONANCE,       // AoE leaves damage zone
         FORTIFY,                 // REMPART: Blocages → bouclier absorbant
         MERCY_STRIKE,            // FUREUR: Execute bonus damage + heal on kill
         VAMPIRIC_WILL,           // SANG: Améliore Death Strike + kills régénèrent os
-        BLOODY_HARVEST,          // Execute heal + sprint reset
+        BLOODY_HARVEST,          // (Legacy) Execute heal + sprint reset
+        FURIOUS_MOMENTUM,        // FENTE: Fentes successives = stacks vitesse/dégâts
 
         // === GUERRIER - Tier 5 ===
         CATACLYSM,               // Big AoE every X attacks
         JUDGMENT_HAMMER,         // REMPART: Exécute <15% HP → Marteau géant du ciel
         RAGE_CYCLONE,            // Sprint = spin damage
         DEATH_AND_DECAY,         // SANG: Zone au sol +dégâts +DR
-        WARLORD,                 // Chain execute
+        WARLORD,                 // (Legacy) Chain execute
+        FURY_CONSUMPTION,        // FENTE: Sacrifie PV pour x3 dégâts
 
         // === GUERRIER - Tier 6 (Niveau 25 - Ascension) ===
         SEISMIC_AFTERMATH,       // AoE attacks leave lingering damage zones
         IRON_ECHO,               // REMPART: Blocages/dégâts stockés → onde de choc AoE
         UNSTOPPABLE_RAGE,        // Damage immunity during rage buildup
         CONSUMPTION,             // SANG: Consomme os pour heal massif
-        MOMENTUM,                // Sprint damage bonus stacks
+        MOMENTUM,                // (Legacy) Sprint damage bonus stacks
+        INSATIABLE_PREDATOR,     // FENTE: Kill = reset cooldown + vitesse
 
         // === GUERRIER - Tier 7 ===
         ETERNAL_TREMOR,          // Passive AoE pulse
         BASTION_CHARGE,          // REMPART: Charge + bouclier par ennemi
         BLOOD_CYCLONES,          // FUREUR: Exécution spawns hunting blood cyclone
         BLOOD_PACT,              // SANG: Death Strike amélioré + overheal → Larves de Sang
-        REAPER,                  // Auto-kill low HP in range
+        REAPER,                  // (Legacy) Auto-kill low HP in range
+        EVISCERATION,            // FAUVE: Toutes les 5 fentes = consomme saignements pour burst
 
         // === GUERRIER - Tier 8 ===
         EARTH_APOCALYPSE,        // Mega earthquake proc
         DEFIANCE_AURA,           // REMPART: Aura -dégâts ennemis + réflexion
         WARRIOR_FRENZY,          // FUREUR: Combo 5 coups → +150% dégâts AoE
         VAMPIRIC_HEART,          // SANG: +lifesteal permanent + réduit cooldowns
-        DEATH_ANGEL,             // Death aura
+        DEATH_ANGEL,             // (Legacy) Death aura
+        WAR_FRENZY,              // FENTE: 5 kills en 10s = mode frénésie
 
         // === GUERRIER - Tier 9 ===
         RAGNAROK,                // Auto mega nuke
         BULWARK_AVATAR,          // REMPART: Transformation ultime défensive
         MEGA_TORNADO,            // FUREUR: Upgrade Cyclone - double sneak = méga tornade aspirante
         DANCING_RUNE_WEAPON,     // SANG: Ultime - épée fantôme qui double les attaques
-        EXTINCTION,              // First hit mega damage
+        EXTINCTION,              // (Legacy) First hit mega damage
+        BERSERKER_RAGE,          // FENTE: Ultime - Transformation berserker géant
 
         // === GUERRIER - Legacy (anciens talents pour compatibilité) ===
         BLOODTHIRST,             // (Legacy) Heal on kill

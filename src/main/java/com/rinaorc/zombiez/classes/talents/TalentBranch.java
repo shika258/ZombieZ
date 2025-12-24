@@ -75,17 +75,19 @@ public enum TalentBranch {
     ),
     GUERRIER_CHARGE(
         ClassType.GUERRIER, 4,
-        "Charge",
-        "§e",
-        Material.LEATHER_BOOTS,
+        "Fauve",
+        "§6",
+        Material.NETHERITE_SWORD,
         new String[]{
-            "§e§lVOIE DE LA CHARGE",
+            "§6§lVOIE DU FAUVE",
             "",
-            "§7Foncez sur vos ennemis avec",
-            "§7une puissance dévastatrice.",
+            "§7Bondissez de cible en cible",
+            "§7comme un prédateur déchaîné.",
+            "§7Vos griffes lacèrent et font",
+            "§7saigner vos proies!",
             "",
-            "§8Spécialité: §eMobilité, Étourdissement",
-            "§8Style: §eAssaut éclair"
+            "§8Spécialité: §6Dash, Marquage, Saignement",
+            "§8Style: §6Prédateur agile"
         }
     ),
 
