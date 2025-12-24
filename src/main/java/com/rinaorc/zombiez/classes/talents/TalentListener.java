@@ -1374,6 +1374,9 @@ public class TalentListener implements Listener {
                     target.damage(explosionDamage, owner);
                     totalDamageDealt += actualDamage;
 
+                    // Afficher les dégâts en TextDisplay (visible par le propriétaire)
+                    PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), explosionDamage, false, owner);
+
                     // Effet de sang sur chaque cible touchée (réduit)
                     world.spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0,
                         new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.0f));
