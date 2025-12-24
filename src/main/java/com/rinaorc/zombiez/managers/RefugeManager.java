@@ -403,21 +403,35 @@ public class RefugeManager {
     /**
      * Crée le texte de l'hologramme pour un refuge
      * Le texte est générique car visible par tous les joueurs
+     * Design amélioré avec plusieurs lignes informatives
      */
     private Component createRefugeHologramText(Refuge refuge) {
-        // Ligne 1: Nom du refuge (jaune, gras)
-        Component line1 = Component.text("🏠 " + refuge.getName())
+        // Ligne 1: Icône REFUGE (vert, gras)
+        Component line1 = Component.text("🏠 REFUGE")
+            .color(NamedTextColor.GREEN)
+            .decoration(TextDecoration.BOLD, true);
+
+        // Ligne 2: Nom du refuge (jaune, gras)
+        Component line2 = Component.text(refuge.getName())
             .color(NamedTextColor.YELLOW)
             .decoration(TextDecoration.BOLD, true);
 
-        // Ligne 2: Instruction simple (gris)
-        Component line2 = Component.text("Clic droit = Checkpoint")
-            .color(NamedTextColor.GRAY);
+        // Ligne 3: Séparateur
+        Component line3 = Component.text("─────────")
+            .color(NamedTextColor.DARK_GRAY);
 
-        // Combiner avec un retour à la ligne
+        // Ligne 4: Instruction (blanc)
+        Component line4 = Component.text("▶ Clic droit")
+            .color(NamedTextColor.WHITE);
+
+        // Combiner avec des retours à la ligne
         return line1
             .append(Component.newline())
-            .append(line2);
+            .append(line2)
+            .append(Component.newline())
+            .append(line3)
+            .append(Component.newline())
+            .append(line4);
     }
 
     /**

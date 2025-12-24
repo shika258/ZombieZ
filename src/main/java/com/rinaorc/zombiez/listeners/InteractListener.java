@@ -2,8 +2,12 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import com.rinaorc.zombiez.zones.Refuge;
+import com.rinaorc.zombiez.zones.gui.RefugeGUI;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -116,6 +120,7 @@ public class InteractListener implements Listener {
 
     /**
      * Gère l'interaction avec un beacon de refuge
+     * Affiche les informations du refuge et ouvre le menu
      */
     private void handleRefugeBeacon(Player player, Block block, PlayerInteractEvent event) {
         event.setCancelled(true);
@@ -125,71 +130,91 @@ public class InteractListener implements Listener {
 
         // Trouver le refuge par la position exacte du beacon
         var refugeManager = plugin.getRefugeManager();
-        var refuge = refugeManager != null ? refugeManager.getRefugeAtBeacon(block.getLocation()) : null;
+        Refuge refuge = refugeManager != null ? refugeManager.getRefugeAtBeacon(block.getLocation()) : null;
 
-        if (refuge != null) {
-            int refugeId = refuge.getId();
-            int currentCheckpoint = data.getCurrentCheckpoint().get();
-
-            if (currentCheckpoint == refugeId) {
-                MessageUtils.send(player, "§7Ce checkpoint est déjà activé!");
-                return;
-            }
-
-            // Vérifier le niveau requis
-            int playerLevel = data.getLevel().get();
-            if (playerLevel < refuge.getRequiredLevel()) {
-                MessageUtils.send(player, "§cNiveau insuffisant! §7(Requis: niveau " + refuge.getRequiredLevel() + ")");
-                MessageUtils.playSoundError(player);
-                return;
-            }
-
-            // Coût d'activation depuis la config du refuge
-            long cost = refuge.getCost();
-
-            if (data.hasPoints(cost)) {
-                data.removePoints(cost);
-                data.setCheckpoint(refugeId);
-
-                MessageUtils.sendTitle(player, "§a§lCHECKPOINT", "§e" + refuge.getName() + " §7activé!", 10, 40, 10);
-                MessageUtils.send(player, "§aCheckpoint §e" + refuge.getName() + " §aactivé! §7(-" +
-                    com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + " Points)");
-                MessageUtils.playSoundSuccess(player);
-            } else {
-                MessageUtils.send(player, "§cPoints insuffisants! §7(Requis: " +
-                    com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + ")");
-                MessageUtils.playSoundError(player);
-            }
-        } else {
+        if (refuge == null) {
             // Fallback: utiliser l'ancien système basé sur la zone
             var zone = plugin.getZoneManager().getZoneAt(block.getLocation());
-
             if (zone != null && zone.getRefugeId() > 0) {
-                int refugeId = zone.getRefugeId();
-                int currentCheckpoint = data.getCurrentCheckpoint().get();
-
-                if (currentCheckpoint == refugeId) {
-                    MessageUtils.send(player, "§7Ce checkpoint est déjà activé!");
-                    return;
-                }
-
-                long cost = getCheckpointCost(refugeId);
-
-                if (data.hasPoints(cost)) {
-                    data.removePoints(cost);
-                    data.setCheckpoint(refugeId);
-
-                    MessageUtils.sendTitle(player, "§a§lCHECKPOINT", "§7Refuge " + refugeId + " activé!", 10, 40, 10);
-                    MessageUtils.send(player, "§aCheckpoint activé! §7(-" +
-                        com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + " Points)");
-                    MessageUtils.playSoundSuccess(player);
-                } else {
-                    MessageUtils.send(player, "§cPoints insuffisants! §7(Requis: " +
-                        com.rinaorc.zombiez.managers.EconomyManager.formatPoints(cost) + ")");
-                    MessageUtils.playSoundError(player);
-                }
+                refuge = refugeManager != null ? refugeManager.getRefugeById(zone.getRefugeId()) : null;
             }
         }
+
+        if (refuge == null) {
+            MessageUtils.send(player, "§7Ce beacon n'est pas configuré comme refuge.");
+            return;
+        }
+
+        // Afficher les informations du refuge dans le chat
+        sendRefugeInfo(player, data, refuge);
+
+        // Ouvrir le menu refuge après un court délai
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            new RefugeGUI(plugin, player).open();
+        }, 5L);
+    }
+
+    /**
+     * Affiche les informations détaillées d'un refuge dans le chat
+     */
+    private void sendRefugeInfo(Player player, PlayerData data, Refuge refuge) {
+        int currentCheckpoint = data.getCurrentCheckpoint().get();
+        int playerLevel = data.getLevel().get();
+        long playerPoints = data.getPoints().get();
+
+        boolean isUnlocked = currentCheckpoint >= refuge.getId();
+        boolean isCurrentCheckpoint = currentCheckpoint == refuge.getId();
+        boolean canUnlock = playerLevel >= refuge.getRequiredLevel();
+        boolean canAfford = playerPoints >= refuge.getCost();
+
+        // Son selon le statut
+        if (isUnlocked) {
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.5f, 1.2f);
+        } else {
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.5f, 0.8f);
+        }
+
+        // Header
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "§e§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §6§l🏠 " + refuge.getName().toUpperCase());
+
+        // Description
+        if (refuge.getDescription() != null && !refuge.getDescription().isEmpty()) {
+            MessageUtils.sendRaw(player, "  §7§o\"" + refuge.getDescription() + "\"");
+        }
+        MessageUtils.sendRaw(player, "");
+
+        // Statut de déverrouillage
+        if (isCurrentCheckpoint) {
+            MessageUtils.sendRaw(player, "  §a§l✓ CHECKPOINT ACTIF");
+            MessageUtils.sendRaw(player, "  §7Vous réapparaîtrez ici en cas de mort.");
+        } else if (isUnlocked) {
+            MessageUtils.sendRaw(player, "  §a✓ Débloqué");
+            MessageUtils.sendRaw(player, "  §7Vous pouvez vous téléporter ici.");
+        } else {
+            MessageUtils.sendRaw(player, "  §c✖ Verrouillé");
+
+            // Raison du verrouillage
+            if (!canUnlock) {
+                MessageUtils.sendRaw(player, "  §c⚠ Niveau requis: §e" + refuge.getRequiredLevel() + " §7(Vous: §c" + playerLevel + "§7)");
+            } else if (!canAfford) {
+                MessageUtils.sendRaw(player, "  §c⚠ Points requis: §6" + EconomyManager.formatPoints(refuge.getCost()));
+                MessageUtils.sendRaw(player, "  §7Vos points: §c" + EconomyManager.formatPoints(playerPoints));
+            } else {
+                MessageUtils.sendRaw(player, "  §7Coût: §6" + EconomyManager.formatPoints(refuge.getCost()) + " Points");
+                MessageUtils.sendRaw(player, "  §a➤ Utilisez le menu pour débloquer!");
+            }
+        }
+
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "  §7Coût d'activation: §6" + EconomyManager.formatPoints(refuge.getCost()) + " Points");
+        MessageUtils.sendRaw(player, "  §7Niveau minimum: §e" + refuge.getRequiredLevel());
+        MessageUtils.sendRaw(player, "");
+        MessageUtils.sendRaw(player, "§e§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "  §8§oOuverture du menu des refuges...");
+        MessageUtils.sendRaw(player, "");
     }
 
     /**
