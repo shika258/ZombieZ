@@ -131,10 +131,32 @@ refuges:
     required-level: 15
 
   # ========================================
-  # REFUGE 5 - (A configurer)
+  # REFUGE 5 - Tiki Village (Zone 24-25)
   # ========================================
-  # 5:
-  #   ...
+  5:
+    name: "Tiki Village"
+    description: "Un village tropical aux totems mysterieux"
+    protected-area:
+      corner1:
+        x: 1019
+        y: 200
+        z: 5201
+      corner2:
+        x: 808
+        y: 0
+        z: 5011
+    beacon:
+      x: 944
+      y: 93
+      z: 5055
+    spawn-point:
+      x: 944.5
+      y: 93
+      z: 5052.5
+      yaw: 180
+      pitch: 0
+    cost: 500
+    required-level: 20
 
   # ========================================
   # REFUGE 6 - (A configurer)
