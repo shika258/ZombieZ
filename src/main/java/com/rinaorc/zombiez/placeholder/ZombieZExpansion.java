@@ -8,7 +8,6 @@ import com.rinaorc.zombiez.classes.beasts.BeastType;
 import com.rinaorc.zombiez.classes.mutations.DailyMutation;
 import com.rinaorc.zombiez.classes.perforation.PerforationManager;
 import com.rinaorc.zombiez.classes.poison.PoisonManager;
-import com.rinaorc.zombiez.classes.seasons.SeasonManager;
 import com.rinaorc.zombiez.classes.shadow.ShadowManager;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentBranch;
@@ -184,7 +183,7 @@ public class ZombieZExpansion extends PlaceholderExpansion {
             case "kd", "kdr", "ratio" -> decimalFormat.format(data.getKDRatio());
             case "killstreak", "streak" -> String.valueOf(data.getKillStreak().get());
             case "beststreak" -> String.valueOf(data.getBestKillStreak().get());
-            case "headshots" -> formatNumber(data.getHeadshots().get());
+            case "headshots" -> formatNumber(data.getStat("headshots"));
             case "assists" -> getAssists(player);
 
             // Kills par type
@@ -213,8 +212,8 @@ public class ZombieZExpansion extends PlaceholderExpansion {
                     yield switch (parts[1]) {
                         case "kills" -> formatNumber(data.getSessionKills().get());
                         case "time" -> formatTime(data.getSessionDuration());
-                        case "xp" -> formatNumber(data.getSessionXp().get());
-                        case "points" -> formatNumber(data.getSessionPoints().get());
+                        case "xp" -> formatNumber(data.getStat("session_xp"));
+                        case "points" -> formatNumber(data.getStat("session_points"));
                         default -> "0";
                     };
                 }
@@ -940,27 +939,23 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     }
 
     private String getSeasonNumber() {
-        if (plugin.getClassManager() == null) return "1";
-        SeasonManager sm = plugin.getClassManager().getSeasonManager();
-        return sm != null ? String.valueOf(sm.getCurrentSeasonNumber()) : "1";
+        // SeasonManager non implémenté - retourne valeur par défaut
+        return "1";
     }
 
     private String getSeasonTheme() {
-        if (plugin.getClassManager() == null) return "Saison 1";
-        SeasonManager sm = plugin.getClassManager().getSeasonManager();
-        return sm != null ? sm.getSeasonTheme() : "Saison 1";
+        // SeasonManager non implémenté - retourne valeur par défaut
+        return "Saison 1";
     }
 
     private String getSeasonDaysRemaining() {
-        if (plugin.getClassManager() == null) return "0";
-        SeasonManager sm = plugin.getClassManager().getSeasonManager();
-        return sm != null ? String.valueOf(sm.getDaysRemaining()) : "0";
+        // SeasonManager non implémenté - retourne valeur par défaut
+        return "0";
     }
 
     private String getSeasonProgress() {
-        if (plugin.getClassManager() == null) return "0%";
-        SeasonManager sm = plugin.getClassManager().getSeasonManager();
-        return sm != null ? decimalFormat.format(sm.getSeasonProgress()) + "%" : "0%";
+        // SeasonManager non implémenté - retourne valeur par défaut
+        return "0%";
     }
 
     // ==================== EVENT PLACEHOLDERS ====================
@@ -1026,24 +1021,23 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     private String getAwakenPlaceholder(Player player, String[] parts) {
         if (plugin.getAwakenManager() == null) return "-";
 
-        ClassData classData = getClassData(player);
-        if (classData == null) return "-";
+        // Les awakens sont sur les items, pas sur les joueurs directement
+        // Utiliser AwakenManager.getActiveAwaken() pour obtenir l'awaken de l'arme équipée
+        com.rinaorc.zombiez.items.awaken.Awaken activeAwaken = plugin.getAwakenManager().getActiveAwaken(player);
 
         if (parts.length < 2) {
-            return classData.getEquippedAwaken() != null ? classData.getEquippedAwaken().getName() : "-";
+            return activeAwaken != null ? activeAwaken.getDisplayName() : "-";
         }
 
         return switch (parts[1]) {
-            case "equipped", "name" -> classData.getEquippedAwaken() != null ? classData.getEquippedAwaken().getName() : "-";
-            case "effect" -> classData.getEquippedAwaken() != null ? classData.getEquippedAwaken().getEffect().getDisplayName() : "-";
-            case "rarity" -> classData.getEquippedAwaken() != null ? classData.getEquippedAwaken().getRarity().getColoredName() : "-";
-            case "count" -> String.valueOf(classData.getUnlockedAwakens().size());
-            case "formatted" -> {
-                if (classData.getEquippedAwaken() != null) {
-                    yield classData.getEquippedAwaken().getRarity().getColor() + classData.getEquippedAwaken().getName();
-                }
-                yield "&7-";
-            }
+            case "equipped", "name" -> activeAwaken != null ? activeAwaken.getDisplayName() : "-";
+            case "effect" -> activeAwaken != null ? activeAwaken.getModifierType().getDisplayName() : "-";
+            case "rarity" -> "-"; // Les awakens n'ont pas de rareté directe
+            case "count" -> "0"; // Pas de système de collection d'awakens
+            case "formatted" -> activeAwaken != null ? "&d" + activeAwaken.getDisplayName() : "&7-";
+            case "active" -> activeAwaken != null ? "&a&lACTIF" : "&7Inactif";
+            case "talent" -> activeAwaken != null && activeAwaken.getTargetTalentId() != null ? activeAwaken.getTargetTalentId() : "-";
+            case "bonus" -> activeAwaken != null ? decimalFormat.format(activeAwaken.getModifierValue()) : "0";
             default -> "-";
         };
     }
