@@ -4730,29 +4730,51 @@ public class TalentListener implements Listener {
 
     /**
      * Suffixe pour l'ActionBar par défaut (hors combat)
-     * Affiche le statut de Mega Tornado si le talent est actif
+     * Affiche: Tempête d'Acier (stacks), Mega Tornado si actifs
      */
     private String buildMegaTornadoSuffix(Player player) {
         UUID uuid = player.getUniqueId();
+        StringBuilder suffix = new StringBuilder();
+
+        // === TEMPÊTE D'ACIER - Stacks de Fente (prioritaire car plus fréquent) ===
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike != null) {
+            Long tempestExpiry = steelTempestExpiry.get(uuid);
+            int tempestStacks = 0;
+            if (tempestExpiry != null && System.currentTimeMillis() <= tempestExpiry) {
+                tempestStacks = steelTempestStacks.getOrDefault(uuid, 0);
+            }
+
+            if (tempestStacks >= STEEL_TEMPEST_MAX_STACKS) {
+                suffix.append(" §8│ §b§l🌪TORNADE!");
+            } else if (tempestStacks > 0) {
+                suffix.append(" §8│ §b⚔");
+                for (int i = 0; i < STEEL_TEMPEST_MAX_STACKS; i++) {
+                    if (i < tempestStacks) {
+                        suffix.append("●");
+                    } else {
+                        suffix.append("§8○");
+                    }
+                }
+            }
+        }
+
+        // === MEGA TORNADO - Si le talent est équipé ===
         Talent megaTornado = getActiveTalentIfHas(player, Talent.TalentEffectType.MEGA_TORNADO);
-
-        if (megaTornado == null) {
-            return "";
+        if (megaTornado != null) {
+            Long activeUntil = megaTornadoActiveUntil.get(uuid);
+            if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
+                long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
+                suffix.append(" §8│ §c§l🌪 ").append(remaining).append("s");
+            } else if (isOnCooldown(uuid, "mega_tornado")) {
+                long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
+                suffix.append(" §8│ §8🌪 ").append(remaining).append("s");
+            } else {
+                suffix.append(" §8│ §a🌪");
+            }
         }
 
-        Long activeUntil = megaTornadoActiveUntil.get(uuid);
-        if (activeUntil != null && System.currentTimeMillis() < activeUntil) {
-            // Actif
-            long remaining = (activeUntil - System.currentTimeMillis()) / 1000;
-            return " §8│ §c§l🌪 " + remaining + "s";
-        } else if (isOnCooldown(uuid, "mega_tornado")) {
-            // Cooldown
-            long remaining = getCooldownRemaining(uuid, "mega_tornado") / 1000;
-            return " §8│ §8🌪 " + remaining + "s";
-        } else {
-            // Prêt
-            return " §8│ §a🌪";
-        }
+        return suffix.toString();
     }
 
     /**
