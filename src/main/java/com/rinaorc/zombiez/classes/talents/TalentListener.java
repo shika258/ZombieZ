@@ -4222,6 +4222,7 @@ public class TalentListener implements Listener {
             case 1 -> buildRempartActionBar(player, bar);
             case 2 -> buildFureurActionBar(player, bar);
             case 3 -> buildTitanActionBar(player, bar);
+            case 4 -> buildFauveActionBar(player, bar);
             default -> buildGenericGuerrierActionBar(player, bar);
         }
 
@@ -4250,11 +4251,11 @@ public class TalentListener implements Listener {
      */
     private int detectDominantSpecialization(Player player) {
         List<Talent> activeTalents = talentManager.getActiveTalents(player);
-        int[] specCounts = new int[4]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan
+        int[] specCounts = new int[5]; // 0=Briseur, 1=Rempart, 2=Fureur, 3=Titan, 4=Fauve
 
         for (Talent talent : activeTalents) {
             int slot = talent.getSlotIndex();
-            if (slot >= 0 && slot < 4) {
+            if (slot >= 0 && slot < 5) {
                 specCounts[slot]++;
             }
         }
@@ -4262,7 +4263,7 @@ public class TalentListener implements Listener {
         // Trouver le slot avec le plus de talents
         int maxCount = 0;
         int dominantSpec = -1;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             if (specCounts[i] > maxCount) {
                 maxCount = specCounts[i];
                 dominantSpec = i;
@@ -4565,6 +4566,101 @@ public class TalentListener implements Listener {
                 bar.append("  §8⚔ ").append(remaining).append("s");
             } else {
                 bar.append("  §a⚔ PRÊT");
+            }
+        }
+    }
+
+    /**
+     * ActionBar pour Voie du Fauve (Slot 4) - Prédateur / Fente
+     * Affiche: Carnage stacks, Berserker Rage, Élan Furieux, Saignement, Cooldowns
+     */
+    private void buildFauveActionBar(Player player, StringBuilder bar) {
+        UUID uuid = player.getUniqueId();
+        bar.append("§6§l[§c🐺§6§l] ");
+
+        // === CHAÎNE DE CARNAGE - Stacks visuels ===
+        Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
+        if (carnageChain != null) {
+            long decayTime = (long) carnageChain.getValue(2); // 4000ms
+            int stacks = getCarnageStacks(uuid, decayTime);
+            int maxStacks = (int) carnageChain.getValue(0);
+            boolean explosionReady = carnageExplosionReady.getOrDefault(uuid, false);
+
+            if (explosionReady) {
+                // Explosion prête - animation clignotante
+                bar.append("§4§l⚡CARNAGE⚡ ");
+            } else {
+                // Affichage des stacks
+                for (int i = 0; i < maxStacks; i++) {
+                    if (i < stacks) {
+                        bar.append("§c◆"); // Stack plein
+                    } else {
+                        bar.append("§8◇"); // Stack vide
+                    }
+                }
+                if (stacks > 0) {
+                    double bonusPercent = stacks * carnageChain.getValue(1) * 100;
+                    bar.append(" §7+").append(String.format("%.0f", bonusPercent)).append("%");
+                }
+            }
+        }
+
+        // === RAGE DU BERSERKER - Timer si actif ===
+        Long berserkerEnd = berserkerRageActiveUntil.get(uuid);
+        if (berserkerEnd != null && System.currentTimeMillis() < berserkerEnd) {
+            long remaining = (berserkerEnd - System.currentTimeMillis()) / 1000;
+            bar.append("  §c§lBERSERKER §e").append(remaining).append("s");
+        } else {
+            // Cooldown Berserker
+            Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
+            if (berserker != null) {
+                if (isOnCooldown(uuid, "berserker_rage")) {
+                    long remaining = getCooldownRemaining(uuid, "berserker_rage") / 1000;
+                    bar.append("  §8🔥 ").append(remaining).append("s");
+                } else {
+                    bar.append("  §a🔥");
+                }
+            }
+        }
+
+        // === ÉLAN FURIEUX - Stacks ===
+        Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentum != null) {
+            int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            if (stacks > 0) {
+                int maxStacks = (int) momentum.getValue(2);
+                double bonusPercent = stacks * momentum.getValue(0) * 100;
+                String color = stacks >= maxStacks ? "§a§l" : (stacks >= maxStacks / 2 ? "§e" : "§7");
+                bar.append("  ").append(color).append("⚡").append(stacks).append(" §7+").append(String.format("%.0f", bonusPercent)).append("%");
+            }
+        }
+
+        // === SAIGNEMENT SUR DERNIÈRE CIBLE ===
+        UUID lastTarget = lastLungingStrikeHit.get(uuid);
+        if (lastTarget != null) {
+            Integer stacks = bleedingStacks.get(lastTarget);
+            Long expiry = bleedingExpiry.get(lastTarget);
+            if (stacks != null && stacks > 0 && expiry != null && System.currentTimeMillis() < expiry) {
+                Talent claws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+                if (claws != null) {
+                    int maxStacks = (int) claws.getValue(3);
+                    String color = stacks >= maxStacks ? "§4§l" : (stacks >= 5 ? "§c" : "§4");
+                    bar.append("  ").append(color).append("🩸x").append(stacks);
+                }
+            }
+        }
+
+        // === COOLDOWN FENTE (si pas en Berserker) ===
+        if (berserkerEnd == null || System.currentTimeMillis() >= berserkerEnd) {
+            if (isOnCooldown(uuid, "lunging_strike")) {
+                // Afficher le cooldown restant en décimales
+                long remainingMs = getCooldownRemaining(uuid, "lunging_strike");
+                bar.append("  §8⚔ ").append(String.format("%.1f", remainingMs / 1000.0)).append("s");
+            } else {
+                Talent lunging = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+                if (lunging != null) {
+                    bar.append("  §a⚔");
+                }
             }
         }
     }
