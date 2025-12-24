@@ -140,13 +140,13 @@ public final class GuerrierTalents {
                 "",
                 "§6ACTIVATION: §eClic Droit§7 avec arme",
                 "",
-                "§7Bondissez vers l'ennemi le plus",
-                "§7proche (§e12 blocs§7 max) et frappez!",
+                "§7Foncez en ligne droite sur §e12 blocs§7",
+                "§7et §ctraversez§7 tous les ennemis!",
                 "",
                 "§7Degats: §c+50%§7 de base",
                 "§7Bonus: §c+5%§7 par bloc parcouru",
                 "",
-                "§e⚡ Mobilite extreme entre les cibles",
+                "§e⚔ Charge traversante multi-cibles!",
                 "§8Cooldown: §e0.8s"
             })
             .classType(ClassType.GUERRIER)

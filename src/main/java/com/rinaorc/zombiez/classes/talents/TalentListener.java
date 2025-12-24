@@ -5439,7 +5439,7 @@ public class TalentListener implements Listener {
     // ==================== VOIE DE LA FENTE - METHODES DE PROC ====================
 
     /**
-     * Fente Dévastatrice - Dash vers l'ennemi le plus proche et frappe
+     * Fente Dévastatrice - Dash linéaire traversant qui frappe tous les mobs sur le chemin
      * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
      */
     private void procLungingStrike(Player player, boolean withFuryConsumption) {
@@ -5447,7 +5447,7 @@ public class TalentListener implements Listener {
         Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
         if (lungingStrike == null) return;
 
-        double baseRange = lungingStrike.getValue(0); // 8 blocs
+        double baseRange = lungingStrike.getValue(0); // 12 blocs
         double baseBonus = lungingStrike.getValue(1); // 0.50 = +50%
         double perBlockBonus = lungingStrike.getValue(2); // 0.05 = +5% par bloc
 
@@ -5459,20 +5459,20 @@ public class TalentListener implements Listener {
             }
         }
 
-        // Trouver l'ennemi le plus proche dans la direction du regard
-        LivingEntity target = findNearestEnemyInDirection(player, baseRange);
-        if (target == null) {
-            // Pas de cible - petit feedback
+        Location startLoc = player.getLocation().clone();
+        Vector direction = player.getEyeLocation().getDirection().setY(0).normalize();
+
+        // Vérifier qu'il y a au moins un ennemi dans le couloir de charge
+        boolean hasTargets = hasEnemiesInCorridor(player, direction, baseRange, 1.8);
+        if (!hasTargets) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             return;
         }
 
-        Location startLoc = player.getLocation();
-        Location targetLoc = target.getLocation();
-        double distance = startLoc.distance(targetLoc);
+        // Calculer multiplicateur de dégâts de base (sans bonus distance - sera ajouté par mob)
+        double baseDamageMultiplier = 1.0 + baseBonus;
 
         // Consommation de Fureur - sacrifice de vie
-        double damageMultiplier = 1.0 + baseBonus + (distance * perBlockBonus);
         if (withFuryConsumption) {
             Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
             if (fury != null) {
@@ -5480,8 +5480,7 @@ public class TalentListener implements Listener {
                 double currentHp = player.getHealth();
                 if (currentHp > hpCost + 1) { // Sécurité: ne pas se suicider
                     player.setHealth(currentHp - hpCost);
-                    damageMultiplier *= fury.getValue(1); // x3
-                    // Effet visuel de sacrifice
+                    baseDamageMultiplier *= fury.getValue(1); // x3
                     player.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, player.getLocation().add(0, 1, 0),
                         5, 0.3, 0.3, 0.3, 0.1);
                     player.playSound(player.getLocation(), Sound.ENTITY_WITHER_HURT, 0.6f, 1.2f);
@@ -5493,22 +5492,20 @@ public class TalentListener implements Listener {
         if (isBerserkerRageActive(uuid)) {
             Talent berserker = getActiveTalentIfHas(player, Talent.TalentEffectType.BERSERKER_RAGE);
             if (berserker != null) {
-                damageMultiplier *= berserker.getValue(1); // x2
+                baseDamageMultiplier *= berserker.getValue(1); // x2
             }
         }
 
         // Élan Furieux - bonus de stacks (avec decay)
         Talent momentum = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
         if (momentum != null) {
-            // Vérifier decay - reset si plus de 3s sans Fente
             long resetTime = (long) momentum.getValue(3); // 3000ms
             Long lastLunge = furiousMomentumLastLunge.get(uuid);
             if (lastLunge != null && (System.currentTimeMillis() - lastLunge) > resetTime) {
                 furiousMomentumStacks.remove(uuid);
             }
-
             int stacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-            damageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
+            baseDamageMultiplier *= (1 + stacks * momentum.getValue(0)); // +8% par stack
         }
 
         // Prédateur Insatiable - buff de dégâts
@@ -5516,7 +5513,7 @@ public class TalentListener implements Listener {
         if (predatorExpiry != null && System.currentTimeMillis() < predatorExpiry) {
             Talent predator = getActiveTalentIfHas(player, Talent.TalentEffectType.INSATIABLE_PREDATOR);
             if (predator != null) {
-                damageMultiplier *= (1 + predator.getValue(2)); // +15%
+                baseDamageMultiplier *= (1 + predator.getValue(2)); // +15%
             }
         }
 
@@ -5524,27 +5521,32 @@ public class TalentListener implements Listener {
         if (isWarFrenzyActive(uuid)) {
             Talent warFrenzy = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
             if (warFrenzy != null) {
-                damageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
+                baseDamageMultiplier *= (1 + warFrenzy.getValue(4)); // +30%
             }
         }
 
-        final double finalDamageMultiplier = damageMultiplier;
+        final double finalBaseDamageMultiplier = baseDamageMultiplier;
+        final double finalPerBlockBonus = perBlockBonus;
+        final double finalRange = baseRange;
 
-        // Animation du dash - téléportation progressive
+        // Animation du dash - téléportation progressive traversante
         lungingStrikeActive.put(uuid, true);
 
-        // Téléporter vers la cible avec effet visuel
-        Vector direction = targetLoc.toVector().subtract(startLoc.toVector()).normalize();
-        Location dashEnd = targetLoc.clone().subtract(direction.clone().multiply(1.5)); // S'arrêter juste devant
-        dashEnd.setY(targetLoc.getY());
+        // Calculer destination finale (direction × portée)
+        Location dashEnd = startLoc.clone().add(direction.clone().multiply(finalRange));
+        dashEnd.setY(startLoc.getY());
 
-        // Particules de traînée
-        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.add(0, 1, 0), 1, 0, 0, 0, 0);
+        // Particules de départ
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 1, 0, 0, 0, 0);
+        player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
 
-        // Téléportation rapide (animation fluide en 3 étapes)
+        // Set des mobs déjà frappés (pour éviter les doublons)
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // Téléportation progressive traversante (6 étapes pour plus de fluidité)
         new BukkitRunnable() {
             int step = 0;
-            final int totalSteps = 3;
+            final int totalSteps = 6;
             final Location start = startLoc.clone();
             final Location end = dashEnd.clone();
 
@@ -5552,39 +5554,162 @@ public class TalentListener implements Listener {
             public void run() {
                 if (step >= totalSteps || !player.isOnline()) {
                     lungingStrikeActive.put(uuid, false);
+                    // Son final et effets si au moins un mob touché
+                    if (!hitEntities.isEmpty()) {
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+
+                        // === ÉLAN FURIEUX - Ajouter un stack à la fin de la Fente ===
+                        Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+                        if (momentumTalent != null) {
+                            int maxStacks = (int) momentumTalent.getValue(2);
+                            int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+                            if (currentStacks < maxStacks) {
+                                furiousMomentumStacks.put(uuid, currentStacks + 1);
+                            }
+                            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+                            applyMomentumSpeedBoost(player, furiousMomentumStacks.get(uuid), momentumTalent);
+
+                            // Feedback visuel des stacks
+                            int newStacks = furiousMomentumStacks.get(uuid);
+                            if (newStacks >= maxStacks) {
+                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+                            } else {
+                                float pitch = 0.8f + (newStacks * 0.15f);
+                                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
+                            }
+                        }
+
+                        // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
+                        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+                        if (evisceration != null) {
+                            int lungesNeeded = (int) evisceration.getValue(0);
+                            int counter = eviscerationCounter.getOrDefault(uuid, 0) + 1;
+                            if (counter >= lungesNeeded) {
+                                procEvisceration(player, evisceration);
+                                eviscerationCounter.put(uuid, 0);
+                            } else {
+                                eviscerationCounter.put(uuid, counter);
+                            }
+                        }
+                    }
                     cancel();
                     return;
                 }
 
                 step++;
                 double progress = (double) step / totalSteps;
-                Location midPoint = start.clone().add(
+                Location currentPos = start.clone().add(
                     end.toVector().subtract(start.toVector()).multiply(progress)
                 );
-                midPoint.setYaw(player.getLocation().getYaw());
-                midPoint.setPitch(player.getLocation().getPitch());
-                player.teleport(midPoint);
+                currentPos.setYaw(player.getLocation().getYaw());
+                currentPos.setPitch(player.getLocation().getPitch());
 
-                // Particules de dash + légère traînée
-                player.getWorld().spawnParticle(Particle.DUST, midPoint.add(0, 1, 0),
+                // Vérifier si la destination est solide (arrêter le dash si mur)
+                if (currentPos.getBlock().getType().isSolid()) {
+                    lungingStrikeActive.put(uuid, false);
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
+                    cancel();
+                    return;
+                }
+
+                player.teleport(currentPos);
+
+                // Particules de dash + traînée
+                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 1, 0),
                     3, 0.2, 0.3, 0.2, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 200, 0), 1.0f));
-
-                // Traînée légère de particules
-                player.getWorld().spawnParticle(Particle.DUST, midPoint.clone().add(0, 0.5, 0),
+                player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.5, 0),
                     2, 0.1, 0.2, 0.1, 0,
                     new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.6f));
-                player.getWorld().spawnParticle(Particle.CRIT, midPoint.clone().add(0, 0.8, 0),
+                player.getWorld().spawnParticle(Particle.CRIT, currentPos.clone().add(0, 0.8, 0),
                     1, 0.15, 0.15, 0.15, 0.02);
 
-                if (step >= totalSteps) {
-                    // Arrivée - infliger les dégâts
-                    finishLungingStrike(player, target, finalDamageMultiplier, withFuryConsumption);
+                // Frapper tous les mobs à proximité (rayon 1.8 blocs)
+                double hitRadius = 1.8;
+                double distanceFromStart = start.distance(currentPos);
+
+                for (Entity entity : player.getWorld().getNearbyEntities(currentPos, hitRadius, hitRadius, hitRadius)) {
+                    if (!(entity instanceof LivingEntity living)) continue;
+                    if (entity == player) continue;
+                    if (entity instanceof Player) continue;
+                    if (entity instanceof ArmorStand) continue;
+                    if (hitEntities.contains(entity.getUniqueId())) continue;
+
+                    // Marquer comme frappé
+                    hitEntities.add(entity.getUniqueId());
+
+                    // Calculer dégâts avec bonus distance
+                    double distanceBonus = distanceFromStart * finalPerBlockBonus;
+                    double damageMultiplier = finalBaseDamageMultiplier + distanceBonus;
+
+                    // Frapper le mob
+                    hitLungingStrikeTarget(player, living, damageMultiplier, withFuryConsumption);
+                }
+
+                // Effet sweep à chaque étape si on a touché quelqu'un ce step
+                if (step == totalSteps) {
                     lungingStrikeActive.put(uuid, false);
-                    cancel();
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Vérifie s'il y a des ennemis dans un couloir devant le joueur
+     */
+    private boolean hasEnemiesInCorridor(Player player, Vector direction, double range, double width) {
+        Location start = player.getLocation();
+        for (Entity entity : player.getWorld().getNearbyEntities(start, range, range, range)) {
+            if (!(entity instanceof LivingEntity)) continue;
+            if (entity == player || entity instanceof Player || entity instanceof ArmorStand) continue;
+
+            Vector toEntity = entity.getLocation().toVector().subtract(start.toVector());
+            double distAlongDir = toEntity.dot(direction);
+            if (distAlongDir < 0 || distAlongDir > range) continue;
+
+            Vector perpendicular = toEntity.clone().subtract(direction.clone().multiply(distAlongDir));
+            if (perpendicular.length() <= width) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Frappe une cible pendant la Fente traversante
+     */
+    private void hitLungingStrikeTarget(Player player, LivingEntity target, double damageMultiplier, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+        double finalDamage = baseDamage * damageMultiplier;
+
+        // Infliger les dégâts
+        target.damage(finalDamage, player);
+
+        // Enregistrer le hit pour le kill tracking
+        lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
+
+        // Effets visuels par cible (légers pour éviter le spam)
+        player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+            5, 0.2, 0.2, 0.2, 0.1);
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, target.getLocation().add(0, 0.8, 0),
+            1, 0, 0, 0, 0);
+
+        // Indicateur de dégâts (critique)
+        PacketDamageIndicator.display(plugin, target.getLocation().add(0, 1.5, 0), finalDamage, true, player);
+
+        // Marquer en combat
+        lastCombatTime.put(uuid, System.currentTimeMillis());
+        plugin.getActionBarManager().markInCombat(uuid);
+
+        // === GRIFFES LACÉRANTES - Appliquer saignement ===
+        Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+        if (laceratingClaws != null) {
+            procLaceratingClaws(player, target, laceratingClaws);
+        }
+
+        // === ÉLAN FURIEUX - Ajouter un stack (une seule fois par Fente, fait dans la méthode finish) ===
+        // Note: Les stacks sont ajoutés une seule fois à la fin de la Fente, pas par cible
     }
 
     /**
