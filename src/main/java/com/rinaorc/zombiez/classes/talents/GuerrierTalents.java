@@ -412,7 +412,7 @@ public final class GuerrierTalents {
                 "§7et applique §c3 stacks de Saignement§7!",
                 "",
                 "§c§lSAIGNEMENT:",
-                "§7- §c2%§7 PV max/seconde par stack",
+                "§7- §c1%§7 PV max/seconde par stack",
                 "§7- Dure §e4 secondes§7",
                 "§7- Cumulable jusqu'a §c10 stacks§7",
                 "",
@@ -429,7 +429,7 @@ public final class GuerrierTalents {
             .icon(Material.PRISMARINE_SHARD)
             .iconColor("§c")
             .effectType(Talent.TalentEffectType.LACERATING_CLAWS)
-            .values(new double[]{3, 0.02, 4000, 10}) // stacks_per_hit, damage_per_stack%, duration_ms, max_stacks
+            .values(new double[]{3, 0.01, 4000, 10}) // stacks_per_hit, damage_per_stack%, duration_ms, max_stacks
             .build());
     }
 

@@ -5957,23 +5957,74 @@ public class TalentListener implements Listener {
             startBleedingDOT(player, target, damagePerStack, duration);
         }
 
-        // Effet visuel de lacération
-        target.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0),
-            5 + newStacks, 0.3, 0.4, 0.3, 0.05);
-        target.getWorld().spawnParticle(Particle.DUST, target.getLocation().add(0, 1, 0),
-            3 + newStacks, 0.2, 0.3, 0.2, 0,
-            new Particle.DustOptions(Color.fromRGB(180, 0, 0), 1.2f));
+        // Effet visuel de lacération - 3 griffures animées
+        spawnClawSlashEffect(target, player);
 
         // Son de lacération
-        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.3f);
+        player.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
         if (newStacks >= maxStacks) {
-            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.4f, 1.5f);
+            player.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.3f, 1.6f);
         }
 
         // Propager aux ennemis marqués si la cible est marquée
         if (isMarked(targetUuid)) {
             propagateBleedingToMarked(player, target, stacksPerHit, damagePerStack, duration, maxStacks);
         }
+    }
+
+    /**
+     * Crée un effet visuel de 3 griffures animées sur la cible
+     */
+    private void spawnClawSlashEffect(LivingEntity target, Player player) {
+        Location center = target.getLocation().add(0, 1.2, 0);
+        World world = target.getWorld();
+
+        // Direction du joueur vers la cible pour orienter les griffures
+        Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+        Vector perpendicular = new Vector(-toTarget.getZ(), 0, toTarget.getX()).normalize();
+
+        // Animation des 3 griffures en séquence rapide
+        new BukkitRunnable() {
+            int slashIndex = 0;
+
+            @Override
+            public void run() {
+                if (slashIndex >= 3 || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Décalage vertical pour chaque griffure (diagonale descendante)
+                double yOffset = 0.4 - (slashIndex * 0.25);
+                double xOffset = -0.3 + (slashIndex * 0.3);
+
+                // Dessiner une ligne de griffure (5 particules par griffe)
+                for (int i = 0; i < 5; i++) {
+                    double progress = i / 4.0;
+                    double x = xOffset + (progress * 0.5);
+                    double y = yOffset - (progress * 0.4);
+
+                    Location particleLoc = center.clone().add(
+                        perpendicular.clone().multiply(x)
+                    ).add(0, y, 0);
+
+                    // Particules rouge-orange dégradé
+                    int red = 255;
+                    int green = (int) (80 + (slashIndex * 40)); // Orange vers rouge
+                    int blue = 0;
+
+                    world.spawnParticle(Particle.DUST, particleLoc,
+                        1, 0.02, 0.02, 0.02, 0,
+                        new Particle.DustOptions(Color.fromRGB(red, green, blue), 0.8f));
+                }
+
+                // Petite particule de crit au bout de chaque griffure
+                Location endLoc = center.clone().add(perpendicular.clone().multiply(xOffset + 0.5)).add(0, yOffset - 0.4, 0);
+                world.spawnParticle(Particle.CRIT, endLoc, 1, 0.05, 0.05, 0.05, 0.02);
+
+                slashIndex++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L); // 1 tick entre chaque griffure
     }
 
     /**
