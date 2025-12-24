@@ -215,10 +215,32 @@ refuges:
     required-level: 30
 
   # ========================================
-  # REFUGE 8 - (A configurer)
+  # REFUGE 8 - Eclatbourg (Zone 39-40)
   # ========================================
-  # 8:
-  #   ...
+  8:
+    name: "Eclatbourg"
+    description: "Une cite en ruines aux eclats de cristal"
+    protected-area:
+      corner1:
+        x: 554
+        y: 200
+        z: 2187
+      corner2:
+        x: 322
+        y: 0
+        z: 2046
+    beacon:
+      x: 432
+      y: 70
+      z: 2090
+    spawn-point:
+      x: 432.5
+      y: 70
+      z: 2087.5
+      yaw: 180
+      pitch: 0
+    cost: 1500
+    required-level: 35
 
   # ========================================
   # REFUGE 9 - (A configurer)
