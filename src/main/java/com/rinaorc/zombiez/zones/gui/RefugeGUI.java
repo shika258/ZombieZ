@@ -15,15 +15,17 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * GUI des refuges - Affiche tous les refuges avec possibilité de téléportation
@@ -333,9 +335,12 @@ public class RefugeGUI implements InventoryHolder {
 
         private final ZombieZPlugin plugin;
 
-        // Cooldown pour éviter le spam de téléportation
-        private final Map<Player, Long> teleportCooldowns = new HashMap<>();
+        // Cooldown pour éviter le spam de téléportation (UUID -> timestamp)
+        private final Map<UUID, Long> teleportCooldowns = new ConcurrentHashMap<>();
         private static final long TELEPORT_COOLDOWN_MS = 3000; // 3 secondes
+
+        // Durée minimale hors combat pour pouvoir se téléporter (en ms)
+        private static final long COMBAT_COOLDOWN_MS = 5000; // 5 secondes
 
         public RefugeGUIListener(ZombieZPlugin plugin) {
             this.plugin = plugin;
@@ -404,19 +409,26 @@ public class RefugeGUI implements InventoryHolder {
         }
 
         private void handleTeleport(Player player, Refuge refuge, PlayerData playerData) {
-            // Vérifier le cooldown
-            Long lastTeleport = teleportCooldowns.get(player);
+            UUID playerUuid = player.getUniqueId();
             long now = System.currentTimeMillis();
 
+            // Vérifier si le joueur est en combat
+            var actionBarManager = plugin.getActionBarManager();
+            if (actionBarManager != null && actionBarManager.isInCombat(playerUuid)) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+                MessageUtils.send(player, "§c✖ Impossible de se téléporter en combat!");
+                MessageUtils.send(player, "§7Attendez §e5s §7après votre dernier combat.");
+                return;
+            }
+
+            // Vérifier le cooldown de téléportation
+            Long lastTeleport = teleportCooldowns.get(playerUuid);
             if (lastTeleport != null && now - lastTeleport < TELEPORT_COOLDOWN_MS) {
                 long remaining = (TELEPORT_COOLDOWN_MS - (now - lastTeleport)) / 1000 + 1;
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
                 MessageUtils.send(player, "§c✖ Veuillez patienter §e" + remaining + "s §cavant de vous téléporter!");
                 return;
             }
-
-            // Vérifier si le joueur est en combat (optionnel)
-            // TODO: Implémenter la vérification de combat
 
             // Particules avant téléportation
             player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1);
@@ -437,7 +449,7 @@ public class RefugeGUI implements InventoryHolder {
                 MessageUtils.sendTitle(player, "§e§l" + refuge.getName(), "§7Téléportation réussie!", 10, 30, 10);
                 MessageUtils.send(player, "§a✓ Téléporté vers §e" + refuge.getName() + "§a!");
 
-                teleportCooldowns.put(player, System.currentTimeMillis());
+                teleportCooldowns.put(player.getUniqueId(), System.currentTimeMillis());
             }, 10L); // 0.5 secondes
         }
 
@@ -467,6 +479,15 @@ public class RefugeGUI implements InventoryHolder {
             if (event.getInventory().getHolder() instanceof RefugeGUI) {
                 event.setCancelled(true);
             }
+        }
+
+        /**
+         * Nettoie les données du joueur lors de la déconnexion
+         * pour éviter les fuites mémoire
+         */
+        @EventHandler
+        public void onPlayerQuit(PlayerQuitEvent event) {
+            teleportCooldowns.remove(event.getPlayer().getUniqueId());
         }
     }
 }

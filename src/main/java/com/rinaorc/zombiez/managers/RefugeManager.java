@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -15,6 +16,11 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -42,6 +48,16 @@ public class RefugeManager {
     // TextDisplays au-dessus des beacons (refuge ID -> TextDisplay)
     private final Map<Integer, TextDisplay> beaconDisplays = new ConcurrentHashMap<>();
 
+    // Cache des chunks contenant des beacons de refuge (chunkKey -> Set<refugeId>)
+    private final Map<Long, Set<Integer>> chunkToRefuges = new ConcurrentHashMap<>();
+
+    // Cache des chunks qui intersectent des zones protégées (chunkKey -> Set<refugeId>)
+    // Utilisé pour optimiser isInAnyRefugeProtectedArea
+    private final Map<Long, Set<Integer>> protectedChunks = new ConcurrentHashMap<>();
+
+    // Listener pour gérer le chargement des chunks
+    private ChunkListener chunkListener;
+
     @Getter
     private FileConfiguration refugesConfig;
 
@@ -59,6 +75,8 @@ public class RefugeManager {
     public void loadRefuges() {
         refugesById.clear();
         refugesByBeaconPos.clear();
+        chunkToRefuges.clear();
+        protectedChunks.clear();
 
         // Charger le fichier refuges.yml
         File refugesFile = new File(plugin.getDataFolder(), "refuges.yml");
@@ -95,6 +113,12 @@ public class RefugeManager {
         }
 
         plugin.log(Level.INFO, "§a✓ " + loaded + " refuges chargés");
+
+        // Enregistrer le listener de chunks si pas encore fait
+        if (chunkListener == null) {
+            chunkListener = new ChunkListener();
+            Bukkit.getPluginManager().registerEvents(chunkListener, plugin);
+        }
 
         // Spawn les hologrammes après un court délai (attendre que les chunks soient chargés)
         Bukkit.getScheduler().runTaskLater(plugin, this::spawnAllBeaconDisplays, 40L); // 2 secondes
@@ -164,8 +188,32 @@ public class RefugeManager {
         String beaconKey = getBeaconKey(refuge.getBeaconX(), refuge.getBeaconY(), refuge.getBeaconZ());
         refugesByBeaconPos.put(beaconKey, refuge);
 
+        // Indexer par chunk pour réactivation des hologrammes
+        long beaconChunkKey = getChunkKey(refuge.getBeaconX() >> 4, refuge.getBeaconZ() >> 4);
+        chunkToRefuges.computeIfAbsent(beaconChunkKey, k -> ConcurrentHashMap.newKeySet()).add(refuge.getId());
+
+        // Indexer tous les chunks de la zone protégée pour optimisation de isInAnyRefugeProtectedArea
+        int minChunkX = refuge.getProtectedMinX() >> 4;
+        int maxChunkX = refuge.getProtectedMaxX() >> 4;
+        int minChunkZ = refuge.getProtectedMinZ() >> 4;
+        int maxChunkZ = refuge.getProtectedMaxZ() >> 4;
+
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                long chunkKey = getChunkKey(cx, cz);
+                protectedChunks.computeIfAbsent(chunkKey, k -> ConcurrentHashMap.newKeySet()).add(refuge.getId());
+            }
+        }
+
         plugin.log(Level.INFO, "§7  - Refuge " + refuge.getId() + ": §e" + refuge.getName() +
             " §7(" + refuge.getProtectedAreaInfo() + ")");
+    }
+
+    /**
+     * Génère une clé unique pour un chunk (x, z)
+     */
+    private long getChunkKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL);
     }
 
     /**
@@ -200,22 +248,30 @@ public class RefugeManager {
 
     /**
      * Vérifie si une location est dans une zone protégée de refuge
+     * Optimisé avec cache de chunks pour éviter les itérations inutiles
      */
     public boolean isInAnyRefugeProtectedArea(Location loc) {
-        for (Refuge refuge : refugesById.values()) {
-            if (refuge.isInProtectedArea(loc)) {
-                return true;
-            }
-        }
-        return false;
+        return isInAnyRefugeProtectedArea(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
     }
 
     /**
      * Vérifie si une position est dans une zone protégée de refuge
+     * Optimisé avec cache de chunks pour éviter les itérations inutiles
      */
     public boolean isInAnyRefugeProtectedArea(int x, int y, int z) {
-        for (Refuge refuge : refugesById.values()) {
-            if (refuge.isInProtectedArea(x, y, z)) {
+        // Lookup rapide par chunk - O(1) au lieu de O(n)
+        long chunkKey = getChunkKey(x >> 4, z >> 4);
+        Set<Integer> refugeIds = protectedChunks.get(chunkKey);
+
+        // Si le chunk ne contient aucune zone protégée, retour rapide
+        if (refugeIds == null || refugeIds.isEmpty()) {
+            return false;
+        }
+
+        // Vérifier uniquement les refuges qui intersectent ce chunk
+        for (int refugeId : refugeIds) {
+            Refuge refuge = refugesById.get(refugeId);
+            if (refuge != null && refuge.isInProtectedArea(x, y, z)) {
                 return true;
             }
         }
@@ -224,10 +280,25 @@ public class RefugeManager {
 
     /**
      * Obtient le refuge contenant une location (dans sa zone protégée)
+     * Optimisé avec cache de chunks
      */
     public Refuge getRefugeAt(Location loc) {
-        for (Refuge refuge : refugesById.values()) {
-            if (refuge.isInProtectedArea(loc)) {
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+
+        // Lookup rapide par chunk
+        long chunkKey = getChunkKey(x >> 4, z >> 4);
+        Set<Integer> refugeIds = protectedChunks.get(chunkKey);
+
+        if (refugeIds == null || refugeIds.isEmpty()) {
+            return null;
+        }
+
+        // Vérifier uniquement les refuges qui intersectent ce chunk
+        for (int refugeId : refugeIds) {
+            Refuge refuge = refugesById.get(refugeId);
+            if (refuge != null && refuge.isInProtectedArea(x, y, z)) {
                 return refuge;
             }
         }
@@ -378,5 +449,49 @@ public class RefugeManager {
      */
     public void shutdown() {
         removeAllBeaconDisplays();
+
+        // Désenregistrer le listener de chunks
+        if (chunkListener != null) {
+            HandlerList.unregisterAll(chunkListener);
+            chunkListener = null;
+        }
+    }
+
+    // ==================== LISTENER DE CHUNKS ====================
+
+    /**
+     * Listener interne pour gérer le chargement des chunks
+     * et respawn les hologrammes de beacon si nécessaire
+     */
+    private class ChunkListener implements Listener {
+
+        @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+        public void onChunkLoad(ChunkLoadEvent event) {
+            Chunk chunk = event.getChunk();
+            long chunkKey = getChunkKey(chunk.getX(), chunk.getZ());
+
+            // Vérifier si ce chunk contient des beacons de refuge
+            Set<Integer> refugeIds = chunkToRefuges.get(chunkKey);
+            if (refugeIds == null || refugeIds.isEmpty()) {
+                return;
+            }
+
+            // Respawn les hologrammes manquants pour les refuges dans ce chunk
+            World world = chunk.getWorld();
+            for (int refugeId : refugeIds) {
+                TextDisplay existingDisplay = beaconDisplays.get(refugeId);
+
+                // Si l'hologramme n'existe pas ou n'est plus valide, le respawn
+                if (existingDisplay == null || !existingDisplay.isValid()) {
+                    Refuge refuge = refugesById.get(refugeId);
+                    if (refuge != null) {
+                        // Petit délai pour laisser le chunk se charger complètement
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            spawnBeaconDisplay(refuge, world);
+                        }, 5L);
+                    }
+                }
+            }
+        }
     }
 }

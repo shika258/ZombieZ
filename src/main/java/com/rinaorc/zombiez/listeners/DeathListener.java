@@ -2,7 +2,9 @@ package com.rinaorc.zombiez.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.managers.RefugeManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import com.rinaorc.zombiez.zones.Refuge;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
@@ -160,20 +162,16 @@ public class DeathListener implements Listener {
      */
     private Location getRespawnLocation(Player player, PlayerData data) {
         int checkpointId = data.getCurrentCheckpoint().get();
-        
-        if (checkpointId > 0) {
-            // Chercher le refuge correspondant au checkpoint
-            Zone zone = plugin.getZoneManager().getZoneById(checkpointId);
-            
-            if (zone != null && zone.getRefugeLocation() != null) {
-                return zone.getRefugeLocation();
-            }
-        }
 
-        // Respawn par défaut au spawn
-        Zone spawnZone = plugin.getZoneManager().getSpawnZone();
-        if (spawnZone != null && spawnZone.getRefugeLocation() != null) {
-            return spawnZone.getRefugeLocation();
+        if (checkpointId > 0) {
+            // Utiliser RefugeManager pour obtenir le point de spawn du refuge
+            RefugeManager refugeManager = plugin.getRefugeManager();
+            if (refugeManager != null) {
+                Refuge refuge = refugeManager.getRefugeById(checkpointId);
+                if (refuge != null) {
+                    return refuge.getSpawnLocation(player.getWorld());
+                }
+            }
         }
 
         // Fallback au spawn du monde
