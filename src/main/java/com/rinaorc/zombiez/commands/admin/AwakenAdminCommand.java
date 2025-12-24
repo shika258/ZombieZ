@@ -180,6 +180,24 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
             com.rinaorc.zombiez.items.types.ItemType.SWORD, 0.5);
         zombieItem.setAwakenId(awaken.getId());
 
+        // Remplir les données d'affichage de l'éveil
+        if (awaken.getRequiredClass() != null) {
+            zombieItem.setAwakenClassName(awaken.getRequiredClass().getColoredName());
+        }
+        if (awaken.getRequiredBranch() != null) {
+            zombieItem.setAwakenBranchName(awaken.getRequiredBranch().getColoredName());
+        }
+        // Récupérer le nom du talent ciblé
+        if (awaken.getTargetTalentId() != null && plugin.getTalentManager() != null) {
+            var talent = plugin.getTalentManager().getTalent(awaken.getTargetTalentId());
+            if (talent != null) {
+                zombieItem.setAwakenTalentName(talent.getName());
+            }
+        }
+        if (awaken.getEffectDescription() != null) {
+            zombieItem.setAwakenEffectDesc(awaken.getEffectDescription());
+        }
+
         ItemStack item = zombieItem.toItemStack();
 
         // Stocker l'éveil dans le PDC
@@ -234,6 +252,24 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
 
         // Mettre à jour l'éveil
         zombieItem.setAwakenId(newAwaken.getId());
+
+        // Remplir les données d'affichage de l'éveil
+        if (newAwaken.getRequiredClass() != null) {
+            zombieItem.setAwakenClassName(newAwaken.getRequiredClass().getColoredName());
+        }
+        if (newAwaken.getRequiredBranch() != null) {
+            zombieItem.setAwakenBranchName(newAwaken.getRequiredBranch().getColoredName());
+        }
+        // Récupérer le nom du talent ciblé
+        if (newAwaken.getTargetTalentId() != null && plugin.getTalentManager() != null) {
+            var talent = plugin.getTalentManager().getTalent(newAwaken.getTargetTalentId());
+            if (talent != null) {
+                zombieItem.setAwakenTalentName(talent.getName());
+            }
+        }
+        if (newAwaken.getEffectDescription() != null) {
+            zombieItem.setAwakenEffectDesc(newAwaken.getEffectDescription());
+        }
 
         // Recréer l'item
         ItemStack newItem = zombieItem.toItemStack();
