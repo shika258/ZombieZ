@@ -987,7 +987,7 @@ public final class OccultisteTalents {
                 "§7et appliquez §310 stacks§7 a chacun.",
                 "",
                 "§8A la fin: §bBrisure Glaciale§8 auto",
-                "§8Cooldown: §e120s"
+                "§8Cooldown: §e90s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -995,7 +995,7 @@ public final class OccultisteTalents {
             .icon(Material.CLOCK)
             .iconColor("§3")
             .effectType(Talent.TalentEffectType.TIME_STASIS)
-            .values(new double[]{120000, 3000, 10}) // cooldown_ms, duration_ms, stacks_applied
+            .values(new double[]{90000, 3000, 10}) // cooldown_ms, duration_ms, stacks_applied
             .build());
 
         // 9.3 - JUGEMENT DIVIN (NERFÉ: 300% → 200% pour équilibrage)

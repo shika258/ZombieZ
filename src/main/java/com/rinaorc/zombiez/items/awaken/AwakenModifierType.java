@@ -154,6 +154,18 @@ public enum AwakenModifierType {
         1.0, 2.0
     ),
 
+    /**
+     * +X% au seuil d'activation (HP, Surchauffe, Virulence)
+     * Ex: Execute <15% HP → <20% HP avec +5%
+     * Budget: +5% seuil = 100%
+     */
+    THRESHOLD_BONUS(
+        "Seuil Étendu",
+        "+%.0f%% au seuil d'activation",
+        1.0,
+        5.0, 10.0 // +5% à +10% de seuil supplémentaire
+    ),
+
     // ==================== DEBUFFS ====================
     /**
      * Applique un debuff léger en plus
@@ -295,5 +307,19 @@ public enum AwakenModifierType {
         return this == EXTRA_SUMMON || this == EXTRA_PROJECTILE ||
                this == EXTRA_BOUNCE || this == EXTRA_STACKS ||
                this == REDUCED_THRESHOLD;
+    }
+
+    /**
+     * Vérifie si ce type est un seuil de compteur (stacks, charges)
+     */
+    public boolean isCounterThreshold() {
+        return this == REDUCED_THRESHOLD;
+    }
+
+    /**
+     * Vérifie si ce type est un seuil de pourcentage (HP, Surchauffe)
+     */
+    public boolean isPercentThreshold() {
+        return this == THRESHOLD_BONUS;
     }
 }

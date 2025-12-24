@@ -54,246 +54,328 @@ public class AwakenRegistry {
 
     /**
      * Enregistre les templates par défaut pour chaque type d'effet
+     * REFACTORÉ: Utilise les templates spécialisés par voie pour un meilleur équilibrage
      */
     private void registerDefaultTemplates() {
-        // === TALENTS D'INVOCATION (BÊTES) ===
-        registerSummonTemplates();
+        // === GUERRIER - VOIE DU SÉISME ===
+        registerGuerrierSeismeTemplates();
 
-        // === TALENTS DE DÉGÂTS ===
-        registerDamageTemplates();
+        // === GUERRIER - VOIE DU REMPART ===
+        registerGuerrierRempartTemplates();
 
-        // === TALENTS DE PROJECTILES ===
-        registerProjectileTemplates();
+        // === GUERRIER - VOIE DE LA RAGE ===
+        registerGuerrierRageTemplates();
 
-        // === TALENTS DE ZONE ===
-        registerAoETemplates();
+        // === GUERRIER - VOIE DU SANG ===
+        registerGuerrierSangTemplates();
 
-        // === TALENTS DE DOT ===
-        registerDoTTemplates();
+        // === GUERRIER - VOIE DU FAUVE ===
+        registerGuerrierFauveTemplates();
 
-        // === TALENTS DE STACKS ===
-        registerStackTemplates();
+        // === CHASSEUR - VOIE DU BARRAGE ===
+        registerChasseurBarrageTemplates();
 
-        // === TALENTS DE CONTRÔLE ===
-        registerControlTemplates();
+        // === CHASSEUR - VOIE DES BÊTES ===
+        registerChasseurBetesTemplates();
 
-        // === TALENTS DÉFENSIFS ===
-        registerDefensiveTemplates();
+        // === CHASSEUR - VOIE DE L'OMBRE ===
+        registerChasseurOmbreTemplates();
 
-        // === TALENTS ULTIMES ===
+        // === CHASSEUR - VOIE DU POISON ===
+        registerChasseurPoisonTemplates();
+
+        // === CHASSEUR - VOIE DU GIVRE ===
+        registerChasseurGivreTemplates();
+
+        // === OCCULTISTE - VOIE DU FEU ===
+        registerOccultisteFeuTemplates();
+
+        // === OCCULTISTE - VOIE DE LA GLACE ===
+        registerOccultisteGlaceTemplates();
+
+        // === OCCULTISTE - VOIE DE LA FOUDRE ===
+        registerOccultisteFoudreTemplates();
+
+        // === OCCULTISTE - VOIE DE L'ÂME ===
+        registerOccultisteAmeTemplates();
+
+        // === OCCULTISTE - VOIE DU VIDE ===
+        registerOccultisteVideTemplates();
+
+        // === TALENTS ULTIMES (override avec bonus CDR accrus) ===
         registerUltimateTemplates();
     }
 
-    private void registerSummonTemplates() {
-        // Bêtes du Chasseur
-        for (var effect : List.of(
-            Talent.TalentEffectType.BEAST_BAT,
-            Talent.TalentEffectType.BEAST_ENDERMITE,
-            Talent.TalentEffectType.BEAST_WOLF,
-            Talent.TalentEffectType.BEAST_AXOLOTL,
-            Talent.TalentEffectType.BEAST_COW,
-            Talent.TalentEffectType.BEAST_LLAMA,
-            Talent.TalentEffectType.BEAST_FOX,
-            Talent.TalentEffectType.BEAST_BEE,
-            Talent.TalentEffectType.BEAST_IRON_GOLEM
-        )) {
-            templatesByEffect.put(effect, AwakenTemplate.forSummonTalent(effect));
-        }
+    // ==================== GUERRIER ====================
 
-        // Clones et invocations
-        templatesByEffect.put(Talent.TalentEffectType.SHADOW_CLONE, AwakenTemplate.forSummonTalent(Talent.TalentEffectType.SHADOW_CLONE));
-        templatesByEffect.put(Talent.TalentEffectType.SHADOW_AVATAR, AwakenTemplate.forSummonTalent(Talent.TalentEffectType.SHADOW_AVATAR));
-        templatesByEffect.put(Talent.TalentEffectType.NECROMANCER, AwakenTemplate.forSummonTalent(Talent.TalentEffectType.NECROMANCER));
-        templatesByEffect.put(Talent.TalentEffectType.LORD_OF_THE_DEAD, AwakenTemplate.forSummonTalent(Talent.TalentEffectType.LORD_OF_THE_DEAD));
-        templatesByEffect.put(Talent.TalentEffectType.IMMORTAL_ARMY, AwakenTemplate.forSummonTalent(Talent.TalentEffectType.IMMORTAL_ARMY));
-    }
-
-    private void registerDamageTemplates() {
+    private void registerGuerrierSeismeTemplates() {
+        // Voie du Séisme - AoE & Contrôle (slot 0)
         for (var effect : List.of(
-            // Guerrier
-            Talent.TalentEffectType.SEISMIC_STRIKE,
-            Talent.TalentEffectType.RISING_FURY,
-            Talent.TalentEffectType.LUNGING_STRIKE,
-            Talent.TalentEffectType.BLOOD_FERVOUR,
-            Talent.TalentEffectType.MERCY_STRIKE,
-            Talent.TalentEffectType.WARRIOR_FRENZY,
-            Talent.TalentEffectType.FURY_CONSUMPTION,
-            // Chasseur
-            Talent.TalentEffectType.SHADOW_SHOT,
-            Talent.TalentEffectType.EXECUTION,
-            Talent.TalentEffectType.SHADOW_STORM,
-            // Occultiste
-            Talent.TalentEffectType.IGNITE,
-            Talent.TalentEffectType.CHAIN_LIGHTNING,
-            Talent.TalentEffectType.OVERCHARGE,
-            Talent.TalentEffectType.MJOLNIR,
-            Talent.TalentEffectType.DIVINE_JUDGMENT
+            Talent.TalentEffectType.SEISMIC_STRIKE,      // T1
+            Talent.TalentEffectType.WAR_ECHO,            // T2
+            Talent.TalentEffectType.FRACTURE_WAVE,       // T3 - compteur!
+            Talent.TalentEffectType.SEISMIC_RESONANCE,   // T4
+            Talent.TalentEffectType.CATACLYSM,           // T5 - compteur!
+            Talent.TalentEffectType.SEISMIC_AFTERMATH,   // T6
+            Talent.TalentEffectType.ETERNAL_TREMOR,      // T7
+            Talent.TalentEffectType.EARTH_APOCALYPSE     // T8 - compteur!
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forDamageTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forSeismeTalent(effect));
         }
     }
 
-    private void registerProjectileTemplates() {
+    private void registerGuerrierRempartTemplates() {
+        // Voie du Rempart - Défense & Riposte (slot 1)
         for (var effect : List.of(
-            Talent.TalentEffectType.MULTI_SHOT,
-            Talent.TalentEffectType.BURST_SHOT,
-            Talent.TalentEffectType.PIERCING_ARROWS,
-            Talent.TalentEffectType.CALIBER,
-            Talent.TalentEffectType.CHAIN_PERFORATION,
-            Talent.TalentEffectType.RICOCHET
+            Talent.TalentEffectType.DEFENSIVE_STANCE,    // T1
+            Talent.TalentEffectType.PUNISHMENT,          // T2
+            Talent.TalentEffectType.VENGEFUL_SHIELD,     // T3
+            Talent.TalentEffectType.FORTIFY,             // T4
+            Talent.TalentEffectType.JUDGMENT_HAMMER,     // T5 - seuil HP!
+            Talent.TalentEffectType.IRON_ECHO,           // T6
+            Talent.TalentEffectType.BASTION_CHARGE,      // T7
+            Talent.TalentEffectType.DEFIANCE_AURA        // T8
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forProjectileTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forRempartTalent(effect));
         }
     }
 
-    private void registerAoETemplates() {
+    private void registerGuerrierRageTemplates() {
+        // Voie de la Rage - Stacking & Berserker (slot 2)
         for (var effect : List.of(
-            // Guerrier
-            Talent.TalentEffectType.WAR_ECHO,
-            Talent.TalentEffectType.FRACTURE_WAVE,
-            Talent.TalentEffectType.SEISMIC_RESONANCE,
-            Talent.TalentEffectType.CATACLYSM,
-            Talent.TalentEffectType.SEISMIC_AFTERMATH,
-            Talent.TalentEffectType.ETERNAL_TREMOR,
-            Talent.TalentEffectType.EARTH_APOCALYPSE,
-            Talent.TalentEffectType.RAGNAROK,
-            Talent.TalentEffectType.RAGE_CYCLONE,
-            Talent.TalentEffectType.BLOOD_CYCLONES,
-            Talent.TalentEffectType.MEGA_TORNADO,
-            // Chasseur
-            Talent.TalentEffectType.ARROW_RAIN,
-            Talent.TalentEffectType.DELUGE,
-            Talent.TalentEffectType.STEEL_STORM,
-            Talent.TalentEffectType.BARRAGE_FURY,
-            Talent.TalentEffectType.CYCLONE_EYE,
-            Talent.TalentEffectType.DEVASTATING_SWARM,
-            Talent.TalentEffectType.ORBITAL_STRIKE,
-            // Occultiste
-            Talent.TalentEffectType.FIRESTORM,
-            Talent.TalentEffectType.BLIZZARD,
-            Talent.TalentEffectType.LIGHTNING_STORM,
-            Talent.TalentEffectType.FIRE_AVATAR,
-            Talent.TalentEffectType.INFERNO,
-            Talent.TalentEffectType.BLACK_SUN,
-            Talent.TalentEffectType.METEOR_RAIN,
-            Talent.TalentEffectType.IMPLOSION,
-            Talent.TalentEffectType.SINGULARITY,
-            Talent.TalentEffectType.BLACK_HOLE
+            Talent.TalentEffectType.RISING_FURY,         // T1
+            Talent.TalentEffectType.BLOOD_FERVOUR,       // T2
+            Talent.TalentEffectType.ANCESTRAL_WRATH,     // T3
+            Talent.TalentEffectType.MERCY_STRIKE,        // T4 - seuil HP!
+            Talent.TalentEffectType.RAGE_CYCLONE,        // T5
+            Talent.TalentEffectType.UNSTOPPABLE_RAGE,    // T6 - compteur!
+            Talent.TalentEffectType.BLOOD_CYCLONES,      // T7
+            Talent.TalentEffectType.WARRIOR_FRENZY       // T8 - compteur!
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forAoETalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forRageTalent(effect));
         }
     }
 
-    private void registerDoTTemplates() {
+    private void registerGuerrierSangTemplates() {
+        // Voie du Sang - Vampirisme & Os (slot 3)
         for (var effect : List.of(
-            Talent.TalentEffectType.VENOMOUS_STRIKE,
-            Talent.TalentEffectType.CORROSIVE_VENOM,
-            Talent.TalentEffectType.DEADLY_TOXINS,
-            Talent.TalentEffectType.PANDEMIC,
-            Talent.TalentEffectType.EPIDEMIC,
-            Talent.TalentEffectType.TOXIC_SYNERGY,
-            Talent.TalentEffectType.BLACK_PLAGUE,
-            Talent.TalentEffectType.BLIGHT,
-            Talent.TalentEffectType.PLAGUE_AVATAR,
-            Talent.TalentEffectType.LACERATING_CLAWS,
-            Talent.TalentEffectType.FIRE_SPREAD,
-            Talent.TalentEffectType.PYROCLASM,
-            Talent.TalentEffectType.DEATH_AND_DECAY
+            Talent.TalentEffectType.DEATH_STRIKE,        // T1
+            Talent.TalentEffectType.BONE_SHIELD,         // T2
+            Talent.TalentEffectType.MARROWREND,          // T3
+            Talent.TalentEffectType.VAMPIRIC_WILL,       // T4
+            Talent.TalentEffectType.DEATH_AND_DECAY,     // T5
+            Talent.TalentEffectType.CONSUMPTION,         // T6 - seuil HP!
+            Talent.TalentEffectType.BLOOD_PACT,          // T7
+            Talent.TalentEffectType.VAMPIRIC_HEART       // T8
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forDoTTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forSangTalent(effect));
         }
     }
 
-    private void registerStackTemplates() {
+    private void registerGuerrierFauveTemplates() {
+        // Voie du Fauve - Dash & Saignement (slot 4)
         for (var effect : List.of(
-            Talent.TalentEffectType.SHADOW_BLADE,
-            Talent.TalentEffectType.SHADOW_STEP,
-            Talent.TalentEffectType.DEATH_MARK,
-            Talent.TalentEffectType.DANSE_MACABRE,
-            Talent.TalentEffectType.OVERHEAT,
-            Talent.TalentEffectType.HUNTER_MOMENTUM,
-            Talent.TalentEffectType.FATAL_TRAJECTORY,
-            Talent.TalentEffectType.ABSOLUTE_PERFORATION,
-            Talent.TalentEffectType.DEVASTATION,
-            Talent.TalentEffectType.DEFENSIVE_STANCE,
-            Talent.TalentEffectType.PUNISHMENT,
-            Talent.TalentEffectType.FORTIFY,
-            Talent.TalentEffectType.IRON_ECHO,
-            Talent.TalentEffectType.FURIOUS_MOMENTUM,
-            Talent.TalentEffectType.INSATIABLE_PREDATOR,
-            Talent.TalentEffectType.WAR_FRENZY,
-            Talent.TalentEffectType.SOUL_SIPHON,
-            Talent.TalentEffectType.SOUL_RESERVOIR,
-            Talent.TalentEffectType.SOUL_PACT,
-            Talent.TalentEffectType.SOUL_LEGION,
-            Talent.TalentEffectType.SOUL_BOND
+            Talent.TalentEffectType.LUNGING_STRIKE,      // T1
+            Talent.TalentEffectType.WAR_CRY_MARK,        // T2
+            Talent.TalentEffectType.LACERATING_CLAWS,    // T3
+            Talent.TalentEffectType.FURIOUS_MOMENTUM,    // T4
+            Talent.TalentEffectType.FURY_CONSUMPTION,    // T5
+            Talent.TalentEffectType.INSATIABLE_PREDATOR, // T6
+            Talent.TalentEffectType.EVISCERATION,        // T7 - compteur!
+            Talent.TalentEffectType.WAR_FRENZY           // T8
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forStackTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forFauveTalent(effect));
         }
     }
 
-    private void registerControlTemplates() {
+    // ==================== CHASSEUR ====================
+
+    private void registerChasseurBarrageTemplates() {
+        // Voie du Barrage - Multi-projectiles & Pluies (slot 0)
         for (var effect : List.of(
-            Talent.TalentEffectType.FROST_BITE,
-            Talent.TalentEffectType.FROZEN_HEART,
-            Talent.TalentEffectType.FROST_LORD,
-            Talent.TalentEffectType.PERMAFROST,
-            Talent.TalentEffectType.ICE_AGE,
-            Talent.TalentEffectType.ETERNAL_WINTER,
-            Talent.TalentEffectType.TIME_STASIS,
-            Talent.TalentEffectType.JUDGMENT,
-            Talent.TalentEffectType.ABSOLUTE_ZERO,
-            Talent.TalentEffectType.DARK_GRAVITY,
-            Talent.TalentEffectType.GRAVITY_WELL,
-            Talent.TalentEffectType.DIMENSIONAL_RIFT,
-            Talent.TalentEffectType.WAR_CRY_MARK
+            Talent.TalentEffectType.MULTI_SHOT,          // T1
+            Talent.TalentEffectType.BURST_SHOT,          // T2 - compteur!
+            Talent.TalentEffectType.ARROW_RAIN,          // T3
+            Talent.TalentEffectType.DELUGE,              // T4
+            Talent.TalentEffectType.STEEL_STORM,         // T5
+            Talent.TalentEffectType.BARRAGE_FURY,        // T6 - compteur!
+            Talent.TalentEffectType.CYCLONE_EYE,         // T7
+            Talent.TalentEffectType.DEVASTATING_SWARM    // T8
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forControlTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forBarrageTalent(effect));
         }
     }
 
-    private void registerDefensiveTemplates() {
+    private void registerChasseurBetesTemplates() {
+        // Voie des Bêtes - Invocations & Meute (slot 1)
         for (var effect : List.of(
-            Talent.TalentEffectType.DEATH_STRIKE,
-            Talent.TalentEffectType.BONE_SHIELD,
-            Talent.TalentEffectType.MARROWREND,
-            Talent.TalentEffectType.VAMPIRIC_WILL,
-            Talent.TalentEffectType.CONSUMPTION,
-            Talent.TalentEffectType.BLOOD_PACT,
-            Talent.TalentEffectType.VAMPIRIC_HEART,
-            Talent.TalentEffectType.DANCING_RUNE_WEAPON,
-            Talent.TalentEffectType.VENGEFUL_SHIELD,
-            Talent.TalentEffectType.JUDGMENT_HAMMER,
-            Talent.TalentEffectType.BASTION_CHARGE,
-            Talent.TalentEffectType.DEFIANCE_AURA,
-            Talent.TalentEffectType.BULWARK_AVATAR,
-            Talent.TalentEffectType.AGILE_HUNTER,
-            Talent.TalentEffectType.CONDUCTOR,
-            Talent.TalentEffectType.ETERNAL_HARVEST,
-            Talent.TalentEffectType.PHOENIX_FLAME
+            Talent.TalentEffectType.BEAST_BAT,           // T1
+            Talent.TalentEffectType.BEAST_ENDERMITE,     // T2
+            Talent.TalentEffectType.BEAST_WOLF,          // T3
+            Talent.TalentEffectType.BEAST_AXOLOTL,       // T4
+            Talent.TalentEffectType.BEAST_COW,           // T5
+            Talent.TalentEffectType.BEAST_LLAMA,         // T6
+            Talent.TalentEffectType.BEAST_FOX,           // T7
+            Talent.TalentEffectType.BEAST_BEE            // T8
         )) {
-            templatesByEffect.put(effect, AwakenTemplate.forDefensiveTalent(effect));
+            templatesByEffect.put(effect, AwakenTemplate.forBetesTalent(effect));
         }
     }
+
+    private void registerChasseurOmbreTemplates() {
+        // Voie de l'Ombre - Points d'Ombre & Exécution (slot 2)
+        for (var effect : List.of(
+            Talent.TalentEffectType.SHADOW_BLADE,        // T1
+            Talent.TalentEffectType.SHADOW_SHOT,         // T2
+            Talent.TalentEffectType.SHADOW_STEP,         // T3
+            Talent.TalentEffectType.DEATH_MARK,          // T4
+            Talent.TalentEffectType.EXECUTION,           // T5 - compteur!
+            Talent.TalentEffectType.DANSE_MACABRE,       // T6
+            Talent.TalentEffectType.SHADOW_CLONE,        // T7
+            Talent.TalentEffectType.SHADOW_STORM         // T8
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forOmbreTalent(effect));
+        }
+    }
+
+    private void registerChasseurPoisonTemplates() {
+        // Voie du Poison - Virulence & DoT (slot 3)
+        for (var effect : List.of(
+            Talent.TalentEffectType.VENOMOUS_STRIKE,     // T1
+            Talent.TalentEffectType.CORROSIVE_VENOM,     // T2
+            Talent.TalentEffectType.DEADLY_TOXINS,       // T3
+            Talent.TalentEffectType.PANDEMIC,            // T4
+            Talent.TalentEffectType.EPIDEMIC,            // T5 - seuil virulence!
+            Talent.TalentEffectType.TOXIC_SYNERGY,       // T6
+            Talent.TalentEffectType.BLACK_PLAGUE,        // T7
+            Talent.TalentEffectType.BLIGHT               // T8 - seuil virulence!
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forPoisonTalent(effect));
+        }
+    }
+
+    private void registerChasseurGivreTemplates() {
+        // Voie du Givre - Rebonds & Gel (slot 4) - CRITIQUE: 4 compteurs!
+        for (var effect : List.of(
+            Talent.TalentEffectType.PIERCING_ARROWS,     // T1
+            Talent.TalentEffectType.CALIBER,             // T2 - compteur!
+            Talent.TalentEffectType.FATAL_TRAJECTORY,    // T3
+            Talent.TalentEffectType.OVERHEAT,            // T4 - compteur! (Hypothermie)
+            Talent.TalentEffectType.ABSOLUTE_PERFORATION,// T5
+            Talent.TalentEffectType.HUNTER_MOMENTUM,     // T6 - compteur! (Tempête de Neige)
+            Talent.TalentEffectType.CHAIN_PERFORATION,   // T7
+            Talent.TalentEffectType.DEVASTATION          // T8 - compteur! (Hiver Éternel)
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forGivreTalent(effect));
+        }
+    }
+
+    // ==================== OCCULTISTE ====================
+
+    private void registerOccultisteFeuTemplates() {
+        // Voie du Feu - Surchauffe & Météores (slot 0)
+        for (var effect : List.of(
+            Talent.TalentEffectType.IGNITE,              // T1
+            Talent.TalentEffectType.FIRE_SPREAD,         // T2
+            Talent.TalentEffectType.FIRESTORM,           // T3
+            Talent.TalentEffectType.PHOENIX_FLAME,       // T4 - seuil Surchauffe!
+            Talent.TalentEffectType.FIRE_AVATAR,         // T5
+            Talent.TalentEffectType.PYROCLASM,           // T6
+            Talent.TalentEffectType.INFERNO,             // T7
+            Talent.TalentEffectType.BLACK_SUN            // T8
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forFeuTalent(effect));
+        }
+    }
+
+    private void registerOccultisteGlaceTemplates() {
+        // Voie de la Glace - Stacks de Givre & Brisure (slot 1)
+        for (var effect : List.of(
+            Talent.TalentEffectType.FROST_BITE,          // T1
+            Talent.TalentEffectType.FROZEN_HEART,        // T2
+            Talent.TalentEffectType.BLIZZARD,            // T3
+            Talent.TalentEffectType.ABSOLUTE_ZERO,       // T4 - compteur stacks!
+            Talent.TalentEffectType.FROST_LORD,          // T5
+            Talent.TalentEffectType.PERMAFROST,          // T6
+            Talent.TalentEffectType.ICE_AGE,             // T7 - compteur stacks!
+            Talent.TalentEffectType.ETERNAL_WINTER       // T8
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forGlaceTalent(effect));
+        }
+    }
+
+    private void registerOccultisteFoudreTemplates() {
+        // Voie de la Foudre - Chaînes & Multi-strikes (slot 2)
+        for (var effect : List.of(
+            Talent.TalentEffectType.CHAIN_LIGHTNING,     // T1
+            Talent.TalentEffectType.OVERCHARGE,          // T2
+            Talent.TalentEffectType.LIGHTNING_STORM,     // T3
+            Talent.TalentEffectType.CONDUCTOR,           // T4
+            Talent.TalentEffectType.THUNDER_GOD,         // T5
+            Talent.TalentEffectType.STATIC_FIELD,        // T6
+            Talent.TalentEffectType.PERPETUAL_STORM,     // T7
+            Talent.TalentEffectType.MJOLNIR              // T8 - compteur strikes!
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forFoudreTalent(effect));
+        }
+    }
+
+    private void registerOccultisteAmeTemplates() {
+        // Voie de l'Âme - Orbes & Invocations (slot 3)
+        for (var effect : List.of(
+            Talent.TalentEffectType.SOUL_SIPHON,         // T1
+            Talent.TalentEffectType.SOUL_RESERVOIR,      // T2
+            Talent.TalentEffectType.SOUL_PACT,           // T3
+            Talent.TalentEffectType.ETERNAL_HARVEST,     // T4
+            Talent.TalentEffectType.SOUL_LEGION,         // T5
+            Talent.TalentEffectType.SOUL_BOND,           // T6
+            Talent.TalentEffectType.NECROMANCER,         // T7 - invocations!
+            Talent.TalentEffectType.LORD_OF_THE_DEAD     // T8 - invocations!
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forAmeTalent(effect));
+        }
+    }
+
+    private void registerOccultisteVideTemplates() {
+        // Voie du Vide - DOTs & Gravité (slot 4)
+        for (var effect : List.of(
+            Talent.TalentEffectType.SHADOW_WORD,         // T1
+            Talent.TalentEffectType.VAMPIRIC_TOUCH,      // T2
+            Talent.TalentEffectType.SHADOWY_APPARITIONS, // T3
+            Talent.TalentEffectType.DARK_GRAVITY,        // T4
+            Talent.TalentEffectType.IMPLOSION,           // T5
+            Talent.TalentEffectType.GRAVITY_WELL,        // T6
+            Talent.TalentEffectType.SINGULARITY,         // T7 - compteur kills!
+            Talent.TalentEffectType.DIMENSIONAL_RIFT     // T8 - seuil HP!
+        )) {
+            templatesByEffect.put(effect, AwakenTemplate.forVideTalent(effect));
+        }
+    }
+
+    // ==================== TALENTS ULTIMES (TIER 9) ====================
 
     private void registerUltimateTemplates() {
-        // Les talents de Tier 9 utilisent des templates ultimes avec des bonus plus forts
+        // Les talents de Tier 9 utilisent des templates ultimes avec des bonus CDR accrus
+        // Ces templates OVERRIDE les templates par voie pour les T9
         for (var effect : List.of(
-            Talent.TalentEffectType.RAGNAROK,
-            Talent.TalentEffectType.BULWARK_AVATAR,
-            Talent.TalentEffectType.MEGA_TORNADO,
-            Talent.TalentEffectType.DANCING_RUNE_WEAPON,
-            Talent.TalentEffectType.BERSERKER_RAGE,
-            Talent.TalentEffectType.ORBITAL_STRIKE,
-            Talent.TalentEffectType.BEAST_IRON_GOLEM,
-            Talent.TalentEffectType.SHADOW_AVATAR,
-            Talent.TalentEffectType.PLAGUE_AVATAR,
-            Talent.TalentEffectType.JUDGMENT,
-            Talent.TalentEffectType.METEOR_RAIN,
-            Talent.TalentEffectType.TIME_STASIS,
-            Talent.TalentEffectType.DIVINE_JUDGMENT,
-            Talent.TalentEffectType.IMMORTAL_ARMY,
-            Talent.TalentEffectType.BLACK_HOLE
+            // Guerrier
+            Talent.TalentEffectType.RAGNAROK,            // Séisme T9
+            Talent.TalentEffectType.BULWARK_AVATAR,      // Rempart T9
+            Talent.TalentEffectType.MEGA_TORNADO,        // Rage T9
+            Talent.TalentEffectType.DANCING_RUNE_WEAPON, // Sang T9
+            Talent.TalentEffectType.BERSERKER_RAGE,      // Fauve T9
+            // Chasseur
+            Talent.TalentEffectType.ORBITAL_STRIKE,      // Barrage T9
+            Talent.TalentEffectType.BEAST_IRON_GOLEM,    // Bêtes T9
+            Talent.TalentEffectType.SHADOW_AVATAR,       // Ombre T9
+            Talent.TalentEffectType.PLAGUE_AVATAR,       // Poison T9
+            Talent.TalentEffectType.JUDGMENT,            // Givre T9 (Zéro Absolu)
+            // Occultiste
+            Talent.TalentEffectType.METEOR_RAIN,         // Feu T9
+            Talent.TalentEffectType.TIME_STASIS,         // Glace T9 - CDR CRITIQUE!
+            Talent.TalentEffectType.DIVINE_JUDGMENT,     // Foudre T9
+            Talent.TalentEffectType.IMMORTAL_ARMY,       // Âme T9
+            Talent.TalentEffectType.BLACK_HOLE           // Vide T9
         )) {
             templatesByEffect.put(effect, AwakenTemplate.forUltimateTalent(effect));
         }

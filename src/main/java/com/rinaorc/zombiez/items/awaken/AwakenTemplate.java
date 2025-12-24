@@ -160,6 +160,7 @@ public class AwakenTemplate {
             case PROC_CHANCE_BONUS -> "Fréquent";
             case EXTRA_STACKS -> "Cumulatif";
             case REDUCED_THRESHOLD -> "Optimal";
+            case THRESHOLD_BONUS -> "Élargi";
             case APPLY_SLOW -> "Entravant";
             case APPLY_VULNERABILITY -> "Perçant";
             case SPEED_BUFF -> "Véloce";
@@ -347,6 +348,283 @@ public class AwakenTemplate {
         weights.put(AwakenModifierType.COOLDOWN_REDUCTION, 0.9);
         weights.put(AwakenModifierType.DURATION_EXTENSION, 0.8);
         weights.put(AwakenModifierType.PROC_CHANCE_BONUS, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    // ==================== TEMPLATES SPÉCIALISÉS PAR VOIE ====================
+
+    // ==================== GUERRIER ====================
+
+    /**
+     * Template pour la Voie du Séisme (Guerrier) - AoE & Contrôle
+     * Priorité: REDUCED_THRESHOLD (compteurs), RADIUS_BONUS, DAMAGE_BONUS
+     */
+    public static AwakenTemplate forSeismeTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.4); // Critique pour compteurs
+        weights.put(AwakenModifierType.RADIUS_BONUS, 1.2);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 1.0);
+        weights.put(AwakenModifierType.COOLDOWN_REDUCTION, 0.8);
+        weights.put(AwakenModifierType.PROC_CHANCE_BONUS, 0.6);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Rempart (Guerrier) - Défense & Riposte
+     * Priorité: SHIELD_ON_PROC, EXTRA_STACKS, REDUCED_THRESHOLD, PROC_CHANCE
+     */
+    public static AwakenTemplate forRempartTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.SHIELD_ON_PROC, 1.3);
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.2);
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.0);
+        weights.put(AwakenModifierType.PROC_CHANCE_BONUS, 0.9);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie de la Rage (Guerrier) - Stacking & Berserker
+     * Priorité: EXTRA_STACKS, REDUCED_THRESHOLD, DAMAGE_BONUS, DURATION
+     */
+    public static AwakenTemplate forRageTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.4);
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.3); // Critique pour les seuils de stacks
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 1.0);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.8);
+        weights.put(AwakenModifierType.THRESHOLD_BONUS, 0.7); // Pour Coup de Grâce (<30% HP)
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Sang (Guerrier) - Vampirisme & Os
+     * Priorité: HEAL_ON_PROC, EXTRA_STACKS (charges), THRESHOLD_BONUS (HP), DURATION
+     */
+    public static AwakenTemplate forSangTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 1.4);
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.2); // Charges d'os
+        weights.put(AwakenModifierType.THRESHOLD_BONUS, 1.0); // Seuils HP (Consommation)
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.9);
+        weights.put(AwakenModifierType.COOLDOWN_REDUCTION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Fauve (Guerrier) - Dash & Saignement
+     * Priorité: DAMAGE_BONUS, EXTRA_STACKS (bleed), REDUCED_THRESHOLD, SPEED_BUFF
+     */
+    public static AwakenTemplate forFauveTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 1.3);
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.2); // Stacks bleed
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.0); // Éviscération (5→4 Fentes)
+        weights.put(AwakenModifierType.SPEED_BUFF, 0.9);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    // ==================== CHASSEUR ====================
+
+    /**
+     * Template pour la Voie du Barrage (Chasseur) - Multi-projectiles & Pluies
+     * Priorité: EXTRA_PROJECTILE, REDUCED_THRESHOLD (charges), PROC_CHANCE, RADIUS
+     */
+    public static AwakenTemplate forBarrageTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_PROJECTILE, 1.4);
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.2); // Rafale (8→6), Furie (5→4)
+        weights.put(AwakenModifierType.PROC_CHANCE_BONUS, 1.0);
+        weights.put(AwakenModifierType.RADIUS_BONUS, 0.9);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie des Bêtes (Chasseur) - Invocations & Meute
+     * Priorité: EXTRA_SUMMON, DAMAGE_BONUS, COOLDOWN_REDUCTION, DURATION
+     */
+    public static AwakenTemplate forBetesTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_SUMMON, 1.5); // Priorité maximale!
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 1.1);
+        weights.put(AwakenModifierType.COOLDOWN_REDUCTION, 0.9);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.8);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie de l'Ombre (Chasseur) - Points d'Ombre & Exécution
+     * Priorité: EXTRA_STACKS (points), REDUCED_THRESHOLD (5→4 points), DAMAGE_BONUS
+     */
+    public static AwakenTemplate forOmbreTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.3); // +Points d'Ombre
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.3); // Exécution 5→4 points
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 1.0);
+        weights.put(AwakenModifierType.PROC_CHANCE_BONUS, 0.8);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Poison (Chasseur) - Virulence & DoT
+     * Priorité: EXTRA_STACKS (virulence), THRESHOLD_BONUS (seuils 70%/100%), DURATION, DAMAGE
+     */
+    public static AwakenTemplate forPoisonTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.3); // +Virulence appliquée
+        weights.put(AwakenModifierType.THRESHOLD_BONUS, 1.2); // Nécrose 100%→90%
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 1.0);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 0.9);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.7); // Peste Noire lifesteal
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Givre (Chasseur) - Rebonds & Gel
+     * Priorité: EXTRA_BOUNCE, REDUCED_THRESHOLD (compteurs critiques), EXTRA_STACKS
+     */
+    public static AwakenTemplate forGivreTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_BOUNCE, 1.4); // Critique pour toute la voie
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.3); // 4 compteurs critiques!
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.0); // +Givre
+        weights.put(AwakenModifierType.RADIUS_BONUS, 0.8);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    // ==================== OCCULTISTE ====================
+
+    /**
+     * Template pour la Voie du Feu (Occultiste) - Surchauffe & Météores
+     * Priorité: EXTRA_PROJECTILE (météores), THRESHOLD_BONUS (Surchauffe), DURATION, RADIUS
+     */
+    public static AwakenTemplate forFeuTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_PROJECTILE, 1.3); // +Météores
+        weights.put(AwakenModifierType.THRESHOLD_BONUS, 1.2); // Phoenix: Surchauffe 8s→6s
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 1.0); // Durée du feu
+        weights.put(AwakenModifierType.RADIUS_BONUS, 0.9);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 0.8);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie de la Glace (Occultiste) - Stacks de Givre & Brisure
+     * Priorité: EXTRA_STACKS (givre), REDUCED_THRESHOLD (5→4 stacks), RADIUS, DURATION
+     */
+    public static AwakenTemplate forGlaceTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.4); // +Stacks de givre
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.3); // Zéro Absolu/Ère Glaciaire 5→4
+        weights.put(AwakenModifierType.RADIUS_BONUS, 1.0);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.8);
+        weights.put(AwakenModifierType.COOLDOWN_REDUCTION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie de la Foudre (Occultiste) - Chaînes & Multi-strikes
+     * Priorité: EXTRA_BOUNCE (chaînes), EXTRA_STACKS (strikes Mjolnir), CRIT_CHANCE, RADIUS
+     */
+    public static AwakenTemplate forFoudreTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_BOUNCE, 1.4); // +Cibles chaîne
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.2); // Mjolnir +1 strike
+        weights.put(AwakenModifierType.CRIT_CHANCE_BONUS, 1.0); // Surcharge synergie
+        weights.put(AwakenModifierType.RADIUS_BONUS, 0.9);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.7); // Conducteur
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie de l'Âme (Occultiste) - Orbes & Invocations
+     * Priorité: EXTRA_STACKS (orbes), EXTRA_SUMMON (squelettes), HEAL_ON_PROC, DURATION
+     */
+    public static AwakenTemplate forAmeTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.EXTRA_STACKS, 1.4); // +Orbes d'âme
+        weights.put(AwakenModifierType.EXTRA_SUMMON, 1.3); // +Squelettes/Serviteurs
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 1.0);
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 0.8);
+        weights.put(AwakenModifierType.DAMAGE_BONUS, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(effectType)
+            .modifierWeights(weights)
+            .build();
+    }
+
+    /**
+     * Template pour la Voie du Vide (Occultiste) - DOTs & Gravité
+     * Priorité: DURATION (DOTs), REDUCED_THRESHOLD (kills), THRESHOLD_BONUS (HP), RADIUS
+     */
+    public static AwakenTemplate forVideTalent(Talent.TalentEffectType effectType) {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.DURATION_EXTENSION, 1.3); // DOTs plus longs
+        weights.put(AwakenModifierType.REDUCED_THRESHOLD, 1.2); // Singularité 3→2 kills
+        weights.put(AwakenModifierType.THRESHOLD_BONUS, 1.1); // Déchirure <15%→<20%
+        weights.put(AwakenModifierType.RADIUS_BONUS, 0.9);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.7); // Toucher Vampirique
 
         return AwakenTemplate.builder()
             .effectType(effectType)
