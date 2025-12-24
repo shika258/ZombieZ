@@ -47,32 +47,32 @@ refuges:
     required-level: 1
 
   # ========================================
-  # REFUGE 2 - (A configurer)
+  # REFUGE 2 - Maraisville (Zone 9-10)
   # ========================================
-  # 2:
-  #   name: "Nom du refuge"
-  #   description: "Description"
-  #   protected-area:
-  #     corner1:
-  #       x: 0
-  #       y: 150
-  #       z: 0
-  #     corner2:
-  #       x: 0
-  #       y: 0
-  #       z: 0
-  #   beacon:
-  #     x: 0
-  #     y: 0
-  #     z: 0
-  #   spawn-point:
-  #     x: 0.5
-  #     y: 0
-  #     z: 0.5
-  #     yaw: 0
-  #     pitch: 0
-  #   cost: 100
-  #   required-level: 5
+  2:
+    name: "Maraisville"
+    description: "Un village construit sur les marais"
+    protected-area:
+      corner1:
+        x: 783
+        y: 92
+        z: 8277
+      corner2:
+        x: 644
+        y: 0
+        z: 8122
+    beacon:
+      x: 704
+      y: 91
+      z: 8219
+    spawn-point:
+      x: 704.5
+      y: 92
+      z: 8212.5
+      yaw: 180
+      pitch: 0
+    cost: 100
+    required-level: 5
 
   # ========================================
   # REFUGE 3 - (A configurer)
