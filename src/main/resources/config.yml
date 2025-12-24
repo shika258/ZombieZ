@@ -103,7 +103,7 @@ gameplay:
   spawn:
     world: world
     x: 728.5
-    y: 94.0
+    y: 95.0
     z: 9979.5
     yaw: 180.0
     pitch: 0.0
