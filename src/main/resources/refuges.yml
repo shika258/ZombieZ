@@ -243,10 +243,32 @@ refuges:
     required-level: 35
 
   # ========================================
-  # REFUGE 9 - (A configurer)
+  # REFUGE 9 - Hameau de Jade (Zone 44-45)
   # ========================================
-  # 9:
-  #   ...
+  9:
+    name: "Hameau de Jade"
+    description: "Un paisible hameau cache dans les montagnes de jade"
+    protected-area:
+      corner1:
+        x: 577
+        y: 200
+        z: 1124
+      corner2:
+        x: 344
+        y: 0
+        z: 987
+    beacon:
+      x: 448
+      y: 60
+      z: 1072
+    spawn-point:
+      x: 448.5
+      y: 60
+      z: 1069.5
+      yaw: 180
+      pitch: 0
+    cost: 2000
+    required-level: 40
 
   # ========================================
   # REFUGE 10 - (A configurer)
