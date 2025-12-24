@@ -187,10 +187,32 @@ refuges:
     required-level: 25
 
   # ========================================
-  # REFUGE 7 - (A configurer)
+  # REFUGE 7 - Bastion Ironfrost (Zone 34-35)
   # ========================================
-  # 7:
-  #   ...
+  7:
+    name: "Bastion Ironfrost"
+    description: "Un bastion fortifie dans les terres gelees"
+    protected-area:
+      corner1:
+        x: 675
+        y: 200
+        z: 3204
+      corner2:
+        x: 326
+        y: 0
+        z: 2995
+    beacon:
+      x: 464
+      y: 70
+      z: 3091
+    spawn-point:
+      x: 464.5
+      y: 70
+      z: 3088.5
+      yaw: 180
+      pitch: 0
+    cost: 1000
+    required-level: 30
 
   # ========================================
   # REFUGE 8 - (A configurer)
