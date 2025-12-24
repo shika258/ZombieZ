@@ -55,6 +55,13 @@ public class TalentListener implements Listener {
     private final Map<UUID, Long> lungingStrikeCooldown = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> lungingStrikeActive = new ConcurrentHashMap<>(); // true = en cours de dash
 
+    // Tempête d'Acier - stacks de Fente réussies (style Yasuo)
+    // À 2 stacks, la 3ème Fente déclenche une tornade qui projette les ennemis
+    private final Map<UUID, Integer> steelTempestStacks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> steelTempestExpiry = new ConcurrentHashMap<>();
+    private static final long STEEL_TEMPEST_DURATION_MS = 6000; // 6 secondes pour utiliser les stacks
+    private static final int STEEL_TEMPEST_MAX_STACKS = 2; // À 2 stacks, la prochaine fente = tornade
+
     // Cri de Marquage - ennemis marqués (UUID ennemi -> timestamp expiration)
     private final Map<UUID, Long> warCryMarkedEnemies = new ConcurrentHashMap<>();
 
@@ -4572,11 +4579,38 @@ public class TalentListener implements Listener {
 
     /**
      * ActionBar pour Voie du Fauve (Slot 4) - Prédateur / Fente
-     * Affiche: Carnage stacks, Berserker Rage, Élan Furieux, Saignement, Cooldowns
+     * Affiche: Tempête d'Acier, Carnage stacks, Berserker Rage, Élan Furieux, Saignement, Cooldowns
      */
     private void buildFauveActionBar(Player player, StringBuilder bar) {
         UUID uuid = player.getUniqueId();
         bar.append("§6§l[§c🐺§6§l] ");
+
+        // === TEMPÊTE D'ACIER - Stacks de Fente (style Yasuo) ===
+        Talent lungingStrike = getActiveTalentIfHas(player, Talent.TalentEffectType.LUNGING_STRIKE);
+        if (lungingStrike != null) {
+            // Vérifier expiration
+            Long tempestExpiry = steelTempestExpiry.get(uuid);
+            int tempestStacks = 0;
+            if (tempestExpiry != null && System.currentTimeMillis() <= tempestExpiry) {
+                tempestStacks = steelTempestStacks.getOrDefault(uuid, 0);
+            }
+
+            if (tempestStacks >= STEEL_TEMPEST_MAX_STACKS) {
+                // Tornade prête !
+                bar.append("§b§l🌪TORNADE! ");
+            } else if (tempestStacks > 0) {
+                // Stacks en cours
+                bar.append("§b⚔");
+                for (int i = 0; i < STEEL_TEMPEST_MAX_STACKS; i++) {
+                    if (i < tempestStacks) {
+                        bar.append("§b●");
+                    } else {
+                        bar.append("§8○");
+                    }
+                }
+                bar.append(" ");
+            }
+        }
 
         // === CHAÎNE DE CARNAGE - Stacks visuels ===
         Talent carnageChain = getActiveTalentIfHas(player, Talent.TalentEffectType.WAR_FRENZY);
@@ -4824,6 +4858,8 @@ public class TalentListener implements Listener {
         // Voie du Fauve (ex-Fente)
         lungingStrikeCooldown.remove(playerUuid);
         lungingStrikeActive.remove(playerUuid);
+        steelTempestStacks.remove(playerUuid); // Tempête d'Acier
+        steelTempestExpiry.remove(playerUuid);
         furiousMomentumStacks.remove(playerUuid);
         furiousMomentumLastLunge.remove(playerUuid);
         eviscerationCounter.remove(playerUuid);
@@ -5529,7 +5565,11 @@ public class TalentListener implements Listener {
 
     /**
      * Fente Dévastatrice - Dash linéaire traversant qui frappe tous les mobs sur le chemin
-     * Utilise la vélocité pour un mouvement fluide au lieu de téléportations saccadées
+     * SYSTÈME TEMPÊTE D'ACIER (style Yasuo):
+     * - Chaque Fente réussie donne 1 stack de Tempête (max 2)
+     * - À 2 stacks, la prochaine Fente lance une TORNADE qui projette les ennemis
+     * - Les stacks expirent après 6 secondes
+     *
      * @param withFuryConsumption true si le joueur utilise Consommation de Fureur (Shift+Fente)
      */
     private void procLungingStrike(Player player, boolean withFuryConsumption) {
@@ -5552,11 +5592,26 @@ public class TalentListener implements Listener {
         Location startLoc = player.getLocation().clone();
         Vector direction = player.getEyeLocation().getDirection().setY(0).normalize();
 
-        // Vérifier qu'il y a au moins un ennemi dans le couloir de charge
-        boolean hasTargets = hasEnemiesInCorridor(player, direction, baseRange, 1.8);
-        if (!hasTargets) {
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
-            return;
+        // === TEMPÊTE D'ACIER - Vérifier les stacks ===
+        // Nettoyer les stacks expirés
+        Long tempestExpiry = steelTempestExpiry.get(uuid);
+        if (tempestExpiry != null && System.currentTimeMillis() > tempestExpiry) {
+            steelTempestStacks.remove(uuid);
+            steelTempestExpiry.remove(uuid);
+        }
+
+        int currentTempestStacks = steelTempestStacks.getOrDefault(uuid, 0);
+        boolean isTornadoStrike = currentTempestStacks >= STEEL_TEMPEST_MAX_STACKS;
+
+        // Si c'est une tornade, pas besoin d'ennemi dans le couloir de charge
+        // La tornade voyage devant le joueur
+        if (!isTornadoStrike) {
+            // Vérifier qu'il y a au moins un ennemi dans le couloir de charge
+            boolean hasTargets = hasEnemiesInCorridor(player, direction, baseRange, 1.8);
+            if (!hasTargets) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+                return;
+            }
         }
 
         // Calculer multiplicateur de dégâts de base (sans bonus distance - sera ajouté par mob)
@@ -5629,12 +5684,34 @@ public class TalentListener implements Listener {
         final double finalPerBlockBonus = perBlockBonus;
         final double finalRange = baseRange;
 
-        // Animation du dash - mouvement fluide via vélocité
+        // === TEMPÊTE D'ACIER - TORNADE (à 2 stacks) ===
+        if (isTornadoStrike) {
+            // Reset les stacks
+            steelTempestStacks.remove(uuid);
+            steelTempestExpiry.remove(uuid);
+
+            // Lancer la tornade
+            procSteelTempestTornado(player, direction, finalRange, finalBaseDamageMultiplier, withFuryConsumption);
+
+            // Appliquer les effets bonus (Élan Furieux, Éviscération, etc.)
+            applyLungeSuccessEffects(player, uuid, true);
+            return;
+        }
+
+        // === FENTE NORMALE (pas assez de stacks) ===
         lungingStrikeActive.put(uuid, true);
 
-        // Particules de départ + son
-        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 1, 0, 0, 0, 0);
-        player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
+        // Particules de départ + son (différent selon les stacks)
+        if (currentTempestStacks == 1) {
+            // Stack 2 = particules plus intenses, presque prêt pour la tornade
+            player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 2, 0.2, 0.2, 0.2, 0);
+            player.getWorld().spawnParticle(Particle.CLOUD, startLoc.clone().add(0, 0.5, 0), 5, 0.3, 0.1, 0.3, 0.02);
+            player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.4f);
+        } else {
+            // Stack 1 = normal
+            player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 1, 0), 1, 0, 0, 0, 0);
+            player.playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.2f);
+        }
 
         // Set des mobs déjà frappés (pour éviter les doublons)
         Set<UUID> hitEntities = new HashSet<>();
@@ -5644,9 +5721,7 @@ public class TalentListener implements Listener {
         final boolean spawnFlameTrail = withFuryConsumption;
 
         // Configuration du dash fluide via vélocité
-        // Durée totale: ~400ms (8 ticks) pour une charge responsive mais fluide
         final int dashDurationTicks = 8;
-        // Vitesse par tick = distance / durée (avec léger surplus pour compenser la friction)
         final double velocityStrength = (finalRange / dashDurationTicks) * 1.15;
         final Vector dashVelocity = direction.clone().multiply(velocityStrength);
 
@@ -5658,6 +5733,7 @@ public class TalentListener implements Listener {
             int tick = 0;
             final Location start = startLoc.clone();
             Location lastPos = startLoc.clone();
+            final int tempestStacksBefore = currentTempestStacks;
 
             @Override
             public void run() {
@@ -5676,7 +5752,6 @@ public class TalentListener implements Listener {
                 Location checkAhead = currentPos.clone().add(direction.clone().multiply(0.5));
                 if (checkAhead.getBlock().getType().isSolid() ||
                     currentPos.clone().add(0, 1, 0).getBlock().getType().isSolid()) {
-                    // Arrêter le joueur
                     player.setVelocity(new Vector(0, player.getVelocity().getY() * 0.3, 0));
                     finishLunge();
                     cancel();
@@ -5691,11 +5766,11 @@ public class TalentListener implements Listener {
                     return;
                 }
 
-                // Maintenir la vélocité horizontale (courbe ease-out pour un arrêt naturel)
+                // Maintenir la vélocité horizontale (courbe ease-out)
                 double progress = (double) tick / dashDurationTicks;
-                double easeOut = 1.0 - (progress * progress * 0.3); // Légère décélération vers la fin
+                double easeOut = 1.0 - (progress * progress * 0.3);
                 Vector maintainedVelocity = dashVelocity.clone().multiply(easeOut);
-                maintainedVelocity.setY(Math.min(player.getVelocity().getY(), 0.1)); // Garder la gravité légère
+                maintainedVelocity.setY(Math.min(player.getVelocity().getY(), 0.1));
                 player.setVelocity(maintainedVelocity);
 
                 // Stocker la position pour la traînée de flammes
@@ -5704,11 +5779,20 @@ public class TalentListener implements Listener {
                     lastPos = currentPos.clone();
                 }
 
-                // Particules de dash fluides (moins intenses pour éviter le spam)
+                // Particules de dash (avec nuance selon les stacks)
                 if (tick % 2 == 0) {
-                    player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.8, 0),
-                        2, 0.15, 0.2, 0.15, 0,
-                        new Particle.DustOptions(Color.fromRGB(255, 200, 0), 0.9f));
+                    if (tempestStacksBefore >= 1) {
+                        // Particules bleues/blanches pour indiquer la tempête qui monte
+                        player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.8, 0),
+                            2, 0.15, 0.2, 0.15, 0,
+                            new Particle.DustOptions(Color.fromRGB(150, 200, 255), 0.9f));
+                        player.getWorld().spawnParticle(Particle.CLOUD, currentPos.clone().add(0, 0.3, 0),
+                            1, 0.1, 0.05, 0.1, 0.01);
+                    } else {
+                        player.getWorld().spawnParticle(Particle.DUST, currentPos.clone().add(0, 0.8, 0),
+                            2, 0.15, 0.2, 0.15, 0,
+                            new Particle.DustOptions(Color.fromRGB(255, 200, 0), 0.9f));
+                    }
                     player.getWorld().spawnParticle(Particle.CRIT, currentPos.clone().add(0, 0.6, 0),
                         1, 0.1, 0.1, 0.1, 0.01);
                 }
@@ -5723,14 +5807,11 @@ public class TalentListener implements Listener {
                     if (entity instanceof ArmorStand) continue;
                     if (hitEntities.contains(entity.getUniqueId())) continue;
 
-                    // Marquer comme frappé
                     hitEntities.add(entity.getUniqueId());
 
-                    // Calculer dégâts avec bonus distance
                     double distanceBonus = distanceFromStart * finalPerBlockBonus;
                     double damageMultiplier = finalBaseDamageMultiplier + distanceBonus;
 
-                    // Frapper le mob
                     hitLungingStrikeTarget(player, living, damageMultiplier, withFuryConsumption);
                 }
             }
@@ -5738,51 +5819,43 @@ public class TalentListener implements Listener {
             private void finishLunge() {
                 lungingStrikeActive.put(uuid, false);
 
-                // Son final et effets si au moins un mob touché
+                // Si au moins un mob touché = Fente réussie = ajouter stack Tempête
                 if (!hitEntities.isEmpty()) {
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
 
-                    // === ÉLAN FURIEUX - Ajouter un stack à la fin de la Fente ===
-                    Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
-                    if (momentumTalent != null) {
-                        int maxStacks = (int) momentumTalent.getValue(2);
-                        int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
-                        if (currentStacks < maxStacks) {
-                            furiousMomentumStacks.put(uuid, currentStacks + 1);
-                        }
-                        furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
-                        applyMomentumSpeedBoost(player, furiousMomentumStacks.get(uuid), momentumTalent);
+                    // === TEMPÊTE D'ACIER - Ajouter un stack ===
+                    int newStacks = steelTempestStacks.getOrDefault(uuid, 0) + 1;
+                    if (newStacks > STEEL_TEMPEST_MAX_STACKS) newStacks = STEEL_TEMPEST_MAX_STACKS;
+                    steelTempestStacks.put(uuid, newStacks);
+                    steelTempestExpiry.put(uuid, System.currentTimeMillis() + STEEL_TEMPEST_DURATION_MS);
 
-                        // Feedback visuel des stacks
-                        int newStacks = furiousMomentumStacks.get(uuid);
-                        if (newStacks >= maxStacks) {
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
-                        } else {
-                            float pitch = 0.8f + (newStacks * 0.15f);
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
-                        }
+                    // Feedback visuel selon le nombre de stacks
+                    if (newStacks >= STEEL_TEMPEST_MAX_STACKS) {
+                        // TORNADE PRÊTE !
+                        player.playSound(player.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 0.8f, 1.5f);
+                        player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 1, 0),
+                            15, 0.5, 0.3, 0.5, 0.1);
+                        showTempEventMessage(uuid, "§b§l⚔ TEMPÊTE PRÊTE! §7Fente → §bTORNADE!");
+                    } else {
+                        // Stack accumulé
+                        float pitch = 1.0f + (newStacks * 0.2f);
+                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.6f, pitch);
+                        player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1.2, 0),
+                            8, 0.3, 0.2, 0.3, 0,
+                            new Particle.DustOptions(Color.fromRGB(150, 200, 255), 1.0f));
+                        showTempEventMessage(uuid, "§b⚔ Tempête §7[" + newStacks + "/" + STEEL_TEMPEST_MAX_STACKS + "]");
                     }
 
-                    // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
-                    Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
-                    if (evisceration != null) {
-                        int lungesNeeded = (int) evisceration.getValue(0);
-                        int counter = eviscerationCounter.getOrDefault(uuid, 0) + 1;
-                        if (counter >= lungesNeeded) {
-                            procEvisceration(player, evisceration);
-                            eviscerationCounter.put(uuid, 0);
-                        } else {
-                            eviscerationCounter.put(uuid, counter);
-                        }
-                    }
+                    // Appliquer les effets bonus
+                    applyLungeSuccessEffects(player, uuid, false);
                 }
 
                 // === CONSOMMATION DE FUREUR - Traînée de flammes ===
                 if (spawnFlameTrail && !flameTrailPositions.isEmpty()) {
                     Talent fury = getActiveTalentIfHas(player, Talent.TalentEffectType.FURY_CONSUMPTION);
                     if (fury != null) {
-                        double trailDamagePercent = fury.getValue(2); // 0.75 = 75%
-                        long trailDuration = (long) fury.getValue(3); // 3000ms
+                        double trailDamagePercent = fury.getValue(2);
+                        long trailDuration = (long) fury.getValue(3);
                         spawnFuryFlameTrail(player, flameTrailPositions, trailDamagePercent, trailDuration);
                     }
                 }
@@ -5793,6 +5866,202 @@ public class TalentListener implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Applique les effets de succès de Fente (Élan Furieux, Éviscération, etc.)
+     * @param isTornado true si c'était une tornade (compte pour plus)
+     */
+    private void applyLungeSuccessEffects(Player player, UUID uuid, boolean isTornado) {
+        // === ÉLAN FURIEUX - Ajouter un stack ===
+        Talent momentumTalent = getActiveTalentIfHas(player, Talent.TalentEffectType.FURIOUS_MOMENTUM);
+        if (momentumTalent != null) {
+            int maxStacks = (int) momentumTalent.getValue(2);
+            int currentStacks = furiousMomentumStacks.getOrDefault(uuid, 0);
+            // La tornade compte pour 2 stacks
+            int stacksToAdd = isTornado ? 2 : 1;
+            int newStacks = Math.min(currentStacks + stacksToAdd, maxStacks);
+            furiousMomentumStacks.put(uuid, newStacks);
+            furiousMomentumLastLunge.put(uuid, System.currentTimeMillis());
+            applyMomentumSpeedBoost(player, newStacks, momentumTalent);
+
+            if (newStacks >= maxStacks) {
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
+            } else {
+                float pitch = 0.8f + (newStacks * 0.15f);
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, pitch);
+            }
+        }
+
+        // === ÉVISCÉRATION - Incrémenter le compteur de Fentes ===
+        Talent evisceration = getActiveTalentIfHas(player, Talent.TalentEffectType.EVISCERATION);
+        if (evisceration != null) {
+            int lungesNeeded = (int) evisceration.getValue(0);
+            // La tornade compte pour 2 Fentes
+            int countToAdd = isTornado ? 2 : 1;
+            int counter = eviscerationCounter.getOrDefault(uuid, 0) + countToAdd;
+            if (counter >= lungesNeeded) {
+                procEvisceration(player, evisceration);
+                eviscerationCounter.put(uuid, counter - lungesNeeded);
+            } else {
+                eviscerationCounter.put(uuid, counter);
+            }
+        }
+    }
+
+    /**
+     * TEMPÊTE D'ACIER - Lance une tornade dévastatrice qui projette les ennemis en l'air
+     * Inspiré du 3ème Q de Yasuo dans League of Legends
+     */
+    private void procSteelTempestTornado(Player player, Vector direction, double range, double damageMultiplier, boolean withFuryConsumption) {
+        UUID uuid = player.getUniqueId();
+        Location startLoc = player.getLocation().clone().add(0, 0.5, 0);
+        World world = player.getWorld();
+
+        // Son de tornade épique
+        world.playSound(startLoc, Sound.ENTITY_BREEZE_SHOOT, 1.2f, 0.8f);
+        world.playSound(startLoc, Sound.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.5f);
+
+        // Animation de préparation (le joueur fait un mouvement)
+        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, startLoc.clone().add(0, 0.5, 0), 3, 0.3, 0.2, 0.3, 0);
+
+        // Dégâts bonus pour la tornade (+100%)
+        final double tornadoDamageMultiplier = damageMultiplier * 2.0;
+
+        // Set des mobs déjà frappés
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // La tornade voyage sur 12-16 blocs devant le joueur
+        final double tornadoRange = range + 4.0; // Un peu plus loin que la fente normale
+        final double tornadoWidth = 2.5; // Largeur de la tornade
+        final double tornadoSpeed = 1.5; // Blocs par tick
+
+        // Projectile de tornade qui avance
+        new BukkitRunnable() {
+            double distanceTraveled = 0;
+            Location currentPos = startLoc.clone();
+
+            @Override
+            public void run() {
+                if (distanceTraveled >= tornadoRange || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Avancer la tornade
+                currentPos.add(direction.clone().multiply(tornadoSpeed));
+                distanceTraveled += tornadoSpeed;
+
+                // Vérifier collision avec bloc solide
+                if (currentPos.getBlock().getType().isSolid()) {
+                    // Impact sur le mur = explosion de vent
+                    world.spawnParticle(Particle.CLOUD, currentPos, 20, 0.5, 0.5, 0.5, 0.15);
+                    world.playSound(currentPos, Sound.ENTITY_BREEZE_LAND, 1.0f, 1.0f);
+                    cancel();
+                    return;
+                }
+
+                // === PARTICULES DE TORNADE ===
+                // Spirale de vent
+                double angle = distanceTraveled * 2;
+                for (int i = 0; i < 3; i++) {
+                    double offsetAngle = angle + (i * Math.PI * 2 / 3);
+                    double radius = 0.8;
+                    double xOffset = Math.cos(offsetAngle) * radius;
+                    double zOffset = Math.sin(offsetAngle) * radius;
+
+                    // Colonne de vent qui monte
+                    for (double y = 0; y < 2.5; y += 0.5) {
+                        Location particleLoc = currentPos.clone().add(xOffset * (1 - y/3), y, zOffset * (1 - y/3));
+                        world.spawnParticle(Particle.CLOUD, particleLoc, 1, 0.1, 0.1, 0.1, 0.02);
+                    }
+                }
+
+                // Particules de base de la tornade
+                world.spawnParticle(Particle.DUST, currentPos, 3, 0.4, 0.2, 0.4, 0,
+                    new Particle.DustOptions(Color.fromRGB(200, 230, 255), 1.2f));
+                world.spawnParticle(Particle.SWEEP_ATTACK, currentPos.clone().add(0, 0.5, 0), 1, 0.2, 0.1, 0.2, 0);
+
+                // Son continu de vent
+                if (distanceTraveled % 3 < tornadoSpeed) {
+                    world.playSound(currentPos, Sound.ENTITY_BREEZE_IDLE_GROUND, 0.6f, 1.2f);
+                }
+
+                // === FRAPPER ET PROJETER LES ENNEMIS ===
+                for (Entity entity : world.getNearbyEntities(currentPos, tornadoWidth, 2.5, tornadoWidth)) {
+                    if (!(entity instanceof LivingEntity living)) continue;
+                    if (entity == player) continue;
+                    if (entity instanceof Player) continue;
+                    if (entity instanceof ArmorStand) continue;
+                    if (hitEntities.contains(entity.getUniqueId())) continue;
+
+                    hitEntities.add(entity.getUniqueId());
+
+                    // Infliger les dégâts
+                    double baseDamage = player.getAttribute(Attribute.ATTACK_DAMAGE).getValue();
+                    double finalDamage = baseDamage * tornadoDamageMultiplier;
+                    living.damage(finalDamage, player);
+
+                    // Enregistrer le hit pour le kill tracking
+                    lastLungingStrikeHit.put(uuid, System.currentTimeMillis());
+
+                    // === PROJECTION EN L'AIR (style Yasuo) ===
+                    // Propulser l'ennemi vers le haut
+                    Vector knockup = new Vector(0, 1.2, 0);
+                    // Légère poussée dans la direction de la tornade
+                    knockup.add(direction.clone().multiply(0.3));
+                    living.setVelocity(knockup);
+
+                    // Marquer comme "en l'air" pour potentielles synergies
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 15, 0, false, false, false));
+
+                    // Effets visuels sur la cible
+                    world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.2);
+                    world.spawnParticle(Particle.CLOUD, living.getLocation(), 8, 0.2, 0.4, 0.2, 0.1);
+
+                    // Indicateur de dégâts
+                    PacketDamageIndicator.display(plugin, living.getLocation().add(0, 1.5, 0), finalDamage, true, player);
+
+                    // === GRIFFES LACÉRANTES - Appliquer saignement ===
+                    Talent laceratingClaws = getActiveTalentIfHas(player, Talent.TalentEffectType.LACERATING_CLAWS);
+                    if (laceratingClaws != null) {
+                        // La tornade applique le double de stacks
+                        int baseStacks = (int) laceratingClaws.getValue(0);
+                        applyBleedingStacks(player, living, baseStacks * 2, laceratingClaws);
+                    }
+
+                    // Marquer en combat
+                    lastCombatTime.put(uuid, System.currentTimeMillis());
+                    plugin.getActionBarManager().markInCombat(uuid);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        // Message de feedback
+        showTempEventMessage(uuid, "§b§l🌪 TEMPÊTE D'ACIER!");
+    }
+
+    /**
+     * Applique des stacks de saignement (utilisé par la tornade)
+     */
+    private void applyBleedingStacks(Player player, LivingEntity target, int stacks, Talent talent) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+
+        Map<UUID, Integer> playerBleeds = bleedingStacks.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+        Map<UUID, Long> playerBleedExpiry = bleedingExpiry.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
+
+        int currentStacks = playerBleeds.getOrDefault(targetUuid, 0);
+        int maxStacks = (int) talent.getValue(3);
+        long duration = (long) talent.getValue(2);
+
+        int newStacks = Math.min(currentStacks + stacks, maxStacks);
+        playerBleeds.put(targetUuid, newStacks);
+        playerBleedExpiry.put(targetUuid, System.currentTimeMillis() + duration);
+
+        // Effet visuel
+        target.getWorld().spawnParticle(Particle.BLOCK, target.getLocation().add(0, 1, 0),
+            5, 0.2, 0.3, 0.2, 0, Material.REDSTONE_BLOCK.createBlockData());
     }
 
     /**
