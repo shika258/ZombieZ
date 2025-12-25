@@ -155,27 +155,52 @@ public class JourneyListener implements Listener {
     }
 
     /**
+     * Rayon d'exploration en chunks (correspond à la view distance du joueur)
+     * Un rayon de 8 chunks = 128 blocs de visibilité dans chaque direction
+     */
+    private static final int EXPLORATION_RADIUS = 8;
+
+    /**
      * Tracke l'exploration d'un chunk dans une zone
-     * Marque le chunk comme exploré et met à jour la progression si nécessaire
-     * @param chunkX coordonnée X du chunk (déjà calculée)
-     * @param chunkZ coordonnée Z du chunk (déjà calculée)
+     * Marque le chunk ET tous les chunks visibles (dans le rayon de view distance) comme explorés
+     * Cela simule le fait que le joueur "voit" les chunks autour de lui
+     * @param chunkX coordonnée X du chunk central (position du joueur)
+     * @param chunkZ coordonnée Z du chunk central (position du joueur)
      */
     private void trackChunkExploration(Player player, int chunkX, int chunkZ, com.rinaorc.zombiez.zones.Zone zone) {
-        // Vérifier que le chunk fait partie de la zone
-        if (!zone.containsChunk(chunkX, chunkZ)) return;
-
-        // Marquer le chunk comme exploré
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
-        boolean isNewChunk = data.markChunkExplored(zone.getId(), chunkX, chunkZ);
+        int zoneId = zone.getId();
+        int newChunksExplored = 0;
 
-        // Si c'est un nouveau chunk et que le joueur a un objectif ZONE_PROGRESS actif
-        if (isNewChunk) {
+        // Explorer tous les chunks dans le rayon de vision du joueur
+        // Utilise un pattern circulaire pour être plus réaliste
+        int radiusSquared = EXPLORATION_RADIUS * EXPLORATION_RADIUS;
+
+        for (int dx = -EXPLORATION_RADIUS; dx <= EXPLORATION_RADIUS; dx++) {
+            for (int dz = -EXPLORATION_RADIUS; dz <= EXPLORATION_RADIUS; dz++) {
+                // Vérifier si le chunk est dans le cercle de vision
+                if (dx * dx + dz * dz > radiusSquared) continue;
+
+                int targetChunkX = chunkX + dx;
+                int targetChunkZ = chunkZ + dz;
+
+                // Vérifier que le chunk fait partie de la zone
+                if (!zone.containsChunk(targetChunkX, targetChunkZ)) continue;
+
+                // Marquer le chunk comme exploré
+                if (data.markChunkExplored(zoneId, targetChunkX, targetChunkZ)) {
+                    newChunksExplored++;
+                }
+            }
+        }
+
+        // Mettre à jour la progression seulement si de nouveaux chunks ont été découverts
+        if (newChunksExplored > 0) {
             JourneyStep currentStep = journeyManager.getCurrentStep(player);
             if (currentStep != null && currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
-                // Calculer le pourcentage d'exploration
-                int exploredCount = data.getExploredChunkCount(zone.getId());
+                int exploredCount = data.getExploredChunkCount(zoneId);
                 int explorationPercent = zone.getExplorationPercent(exploredCount);
                 journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
             }
