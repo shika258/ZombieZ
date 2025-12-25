@@ -87,9 +87,9 @@ public enum JourneyStep {
 
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
-    STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Débloque ton premier talent",
-        "Ta première compétence active", StepType.UNLOCK_TALENT, 1,
-        200, 8, Material.ENCHANTED_BOOK),
+    STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
+        "Airdrop, Horde, Convoy, Boss ou Nid", StepType.PARTICIPATE_EVENT, 1,
+        200, 8, Material.BEACON),
 
     STEP_4_2(JourneyChapter.CHAPTER_4, 2, "Utilise ton talent 25 fois",
         "La pratique mène à la perfection", StepType.USE_TALENT, 25,
