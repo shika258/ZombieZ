@@ -5,6 +5,8 @@ import lombok.Getter;
 import org.bukkit.Color;
 import org.bukkit.Particle;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Modificateurs procéduraux pour un World Boss
  * Rend chaque boss unique avec des variations de stats, capacités et apparence

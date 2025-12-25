@@ -115,7 +115,7 @@ public class WorldBossListener implements Listener {
             }
 
             // Trait: Vampirique - le boss se soigne
-            if (modifiers.hasLifesteal() && modifiers.getLifestealPercent() > 0) {
+            if (modifiers.isHasLifesteal() && modifiers.getLifestealPercent() > 0) {
                 double lifestealPercent = modifiers.getLifestealPercent();
                 var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
 
