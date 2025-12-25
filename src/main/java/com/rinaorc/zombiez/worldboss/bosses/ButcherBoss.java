@@ -165,6 +165,9 @@ public class ButcherBoss extends WorldBoss {
 
     @Override
     protected void tick() {
+        // Appliquer les effets procéduraux des traits
+        super.tick();
+
         // Particules de sang autour du Boucher
         if (entity != null && entity.isValid()) {
             Location loc = entity.getLocation().add(0, 1, 0);

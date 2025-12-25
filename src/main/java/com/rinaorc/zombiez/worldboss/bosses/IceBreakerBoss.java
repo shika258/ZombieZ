@@ -118,6 +118,9 @@ public class IceBreakerBoss extends WorldBoss {
 
     @Override
     protected void tick() {
+        // Appliquer les effets procéduraux des traits
+        super.tick();
+
         if (entity == null || !entity.isValid()) return;
         if (!freezeZoneActive) return;
 

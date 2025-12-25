@@ -2,6 +2,11 @@ package com.rinaorc.zombiez.worldboss;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.worldboss.bosses.ButcherBoss;
+import com.rinaorc.zombiez.worldboss.procedural.BossModifiers;
+import com.rinaorc.zombiez.worldboss.procedural.BossTrait;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -12,6 +17,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  * Listener pour les événements liés aux World Boss
@@ -69,6 +76,7 @@ public class WorldBossListener implements Listener {
 
     /**
      * Gère les attaques des World Boss sur les joueurs
+     * Applique les effets procéduraux des traits
      */
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onBossAttack(EntityDamageByEntityEvent event) {
@@ -76,7 +84,7 @@ public class WorldBossListener implements Listener {
         Entity victim = event.getEntity();
 
         // Vérifier si l'attaquant est un World Boss
-        if (!(damager instanceof Zombie)) return;
+        if (!(damager instanceof Zombie zombie)) return;
         if (!damager.getScoreboardTags().contains("world_boss")) return;
         if (!(victim instanceof Player player)) return;
 
@@ -92,6 +100,41 @@ public class WorldBossListener implements Listener {
         // Bonus de dégâts pour les World Boss
         double bonusDamage = boss.getZoneId() * 0.5;
         event.setDamage(event.getDamage() + bonusDamage);
+
+        // Appliquer les effets procéduraux des traits
+        BossModifiers modifiers = boss.getModifiers();
+        if (modifiers != null) {
+            double finalDamage = event.getFinalDamage();
+
+            // Trait: Venimeux - empoisonne la victime
+            if (modifiers.hasTrait(BossTrait.VENOMOUS)) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1, true, true));
+                player.sendMessage("§2§l☠ §7Vous êtes empoisonné!");
+                player.getWorld().spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0),
+                    10, 0.3, 0.5, 0.3, new Particle.DustOptions(org.bukkit.Color.GREEN, 1.5f));
+            }
+
+            // Trait: Vampirique - le boss se soigne
+            if (modifiers.hasLifesteal() && modifiers.getLifestealPercent() > 0) {
+                double healAmount = finalDamage * modifiers.getLifestealPercent();
+                var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
+                if (maxHealth != null) {
+                    double newHealth = Math.min(maxHealth.getValue(), zombie.getHealth() + healAmount);
+                    zombie.setHealth(newHealth);
+
+                    // Effet visuel
+                    zombie.getWorld().spawnParticle(Particle.HEART,
+                        zombie.getLocation().add(0, 2, 0), 3, 0.3, 0.3, 0.3, 0);
+                    zombie.getWorld().playSound(zombie.getLocation(), Sound.ENTITY_WITCH_DRINK, 0.5f, 1.2f);
+                }
+            }
+
+            // Trait: Enragé - attaque plus vite (effet d'alerte visuel)
+            if (modifiers.hasTrait(BossTrait.ENRAGED)) {
+                zombie.getWorld().spawnParticle(Particle.ANGRY_VILLAGER,
+                    zombie.getLocation().add(0, 2, 0), 3, 0.3, 0.3, 0.3, 0);
+            }
+        }
     }
 
     /**

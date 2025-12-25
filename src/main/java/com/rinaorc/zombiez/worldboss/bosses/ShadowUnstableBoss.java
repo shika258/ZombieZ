@@ -161,6 +161,9 @@ public class ShadowUnstableBoss extends WorldBoss {
 
     @Override
     protected void tick() {
+        // Appliquer les effets procéduraux des traits
+        super.tick();
+
         if (entity == null || !entity.isValid()) return;
 
         // Effets spéciaux quand invisible

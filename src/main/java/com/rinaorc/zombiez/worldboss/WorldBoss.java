@@ -1,6 +1,8 @@
 package com.rinaorc.zombiez.worldboss;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.worldboss.procedural.BossModifiers;
+import com.rinaorc.zombiez.worldboss.procedural.BossTrait;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
@@ -8,7 +10,6 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.ItemStack;
@@ -31,6 +32,9 @@ public abstract class WorldBoss {
     protected final WorldBossType type;
     protected final UUID bossId;
     protected final int zoneId;
+
+    // Modificateurs procéduraux (rendent chaque boss unique)
+    protected BossModifiers modifiers;
 
     // Entité du boss
     protected Zombie entity;
@@ -65,10 +69,23 @@ public abstract class WorldBoss {
      * Spawn le boss à une location donnée
      */
     public void spawn(Location location) {
+        spawn(location, null);
+    }
+
+    /**
+     * Spawn le boss avec des modificateurs procéduraux
+     */
+    public void spawn(Location location, BossModifiers modifiers) {
         if (active) return;
 
         World world = location.getWorld();
         if (world == null) return;
+
+        // Générer des modificateurs procéduraux si non fournis
+        if (modifiers == null) {
+            modifiers = BossModifiers.generate(type);
+        }
+        this.modifiers = modifiers;
 
         // Créer le zombie
         entity = world.spawn(location, Zombie.class, zombie -> {
@@ -77,46 +94,60 @@ public abstract class WorldBoss {
             zombie.setRemoveWhenFarAway(false); // Ne despawn pas naturellement
             zombie.setPersistent(true);
 
-            // Nom personnalisé
-            zombie.setCustomName(type.getTitleName() + " §c[WORLD BOSS]");
+            // Nom procédural unique
+            String bossName = this.modifiers.getName().titleName() + " §c[WORLD BOSS]";
+            zombie.setCustomName(bossName);
             zombie.setCustomNameVisible(true);
 
-            // Stats
+            // Stats avec modificateurs procéduraux
             var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
             if (maxHealth != null) {
-                double health = type.calculateHealth(zoneId);
+                double health = type.calculateHealth(zoneId) * this.modifiers.getHealthMultiplier();
                 maxHealth.setBaseValue(health);
                 zombie.setHealth(health);
             }
 
             var damage = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
             if (damage != null) {
-                damage.setBaseValue(type.calculateDamage(zoneId));
+                damage.setBaseValue(type.calculateDamage(zoneId) * this.modifiers.getDamageMultiplier());
             }
 
             var speed = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
             if (speed != null) {
-                speed.setBaseValue(0.25);
+                speed.setBaseValue(0.25 * this.modifiers.getSpeedMultiplier());
             }
 
             var knockback = zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
             if (knockback != null) {
-                knockback.setBaseValue(0.8);
+                knockback.setBaseValue(this.modifiers.getKnockbackResistance());
             }
 
-            // Scale (taille)
+            // Scale (taille) avec variation procédurale
             var scale = zombie.getAttribute(Attribute.SCALE);
             if (scale != null) {
-                scale.setBaseValue(type.getScale());
+                scale.setBaseValue(type.getScale() * this.modifiers.getScaleMultiplier());
+            }
+
+            // Armor bonus procédural
+            var armor = zombie.getAttribute(Attribute.ARMOR);
+            if (armor != null) {
+                armor.setBaseValue(this.modifiers.getArmorBonus());
             }
 
             // Résistances
             zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
 
+            // Trait spécial: Implacable = pas de knockback
+            if (this.modifiers.hasTrait(BossTrait.RELENTLESS)) {
+                var kb = zombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+                if (kb != null) kb.setBaseValue(1.0);
+            }
+
             // Tags pour identification
             zombie.addScoreboardTag("world_boss");
             zombie.addScoreboardTag("boss_" + bossId.toString());
             zombie.addScoreboardTag("boss_type_" + type.name());
+            zombie.addScoreboardTag("boss_seed_" + this.modifiers.getSeed());
 
             // Glowing permanent
             zombie.setGlowing(true);
@@ -142,9 +173,10 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Crée la boss bar
+     * Crée la boss bar avec nom procédural
      */
     protected void createBossBar() {
+        // Couleur basée sur le trait principal
         BarColor color = switch (type) {
             case THE_BUTCHER -> BarColor.RED;
             case SHADOW_UNSTABLE -> BarColor.PURPLE;
@@ -153,8 +185,11 @@ public abstract class WorldBoss {
             case ICE_BREAKER -> BarColor.BLUE;
         };
 
+        // Utiliser le nom procédural
+        String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+
         bossBar = Bukkit.createBossBar(
-            type.getTitleName() + " §7- §c" + getFormattedHealth(),
+            bossName + " §7- §c" + getFormattedHealth(),
             color,
             BarStyle.SEGMENTED_10
         );
@@ -188,12 +223,15 @@ public abstract class WorldBoss {
         World world = location.getWorld();
         if (world == null) return;
 
+        String bossDisplayName = modifiers != null ? modifiers.getName().displayName() : type.getDisplayName();
+        String bossTitleName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+
         for (Entity e : world.getNearbyEntities(location, ALERT_RADIUS, ALERT_RADIUS, ALERT_RADIUS)) {
             if (e instanceof Player player) {
                 // Title
                 player.sendTitle(
-                    "§c§lUN BOSS VIENT D'APPARAÎTRE",
-                    "§7" + type.getDisplayName() + " §7est proche de vous!",
+                    "§c§lWORLD BOSS!",
+                    "§7" + bossDisplayName + " §7est proche de vous!",
                     10, 60, 20
                 );
 
@@ -201,11 +239,17 @@ public abstract class WorldBoss {
                 player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.5f, 0.8f);
                 player.playSound(player.getLocation(), Sound.BLOCK_BELL_USE, 2f, 0.5f);
 
-                // Message chat
+                // Message chat avec traits procéduraux
                 player.sendMessage("");
                 player.sendMessage("§c§l⚠ ALERTE WORLD BOSS ⚠");
-                player.sendMessage("§7" + type.getTitleName() + " §7vient d'apparaître!");
+                player.sendMessage("§7" + bossTitleName + " §7vient d'apparaître!");
                 player.sendMessage("§7Capacité: §e" + type.getAbilityDescription());
+
+                // Afficher les traits procéduraux
+                if (modifiers != null) {
+                    player.sendMessage("§7Traits: " + modifiers.getTraitsDescription());
+                }
+
                 player.sendMessage("§7Le boss brille pour être visible!");
                 player.sendMessage("");
             }
@@ -216,8 +260,12 @@ public abstract class WorldBoss {
      * Démarre les tâches récurrentes
      */
     protected void startTasks() {
-        // Tâche d'utilisation des capacités
+        // Tâche d'utilisation des capacités (avec cooldown procédural)
         if (type.getAbilityCooldownSeconds() > 0) {
+            // Calculer le cooldown avec le modificateur procédural
+            double cooldownMult = modifiers != null ? modifiers.getAbilityCooldownMultiplier() : 1.0;
+            long cooldownTicks = (long) (type.getAbilityCooldownSeconds() * 20L * cooldownMult);
+
             abilityTask = new BukkitRunnable() {
                 @Override
                 public void run() {
@@ -227,7 +275,7 @@ public abstract class WorldBoss {
                     }
                     useAbility();
                 }
-            }.runTaskTimer(plugin, type.getAbilityCooldownSeconds() * 20L, type.getAbilityCooldownSeconds() * 20L);
+            }.runTaskTimer(plugin, cooldownTicks, cooldownTicks);
         }
 
         // Tâche de vérification de despawn (toutes les 30 secondes)
@@ -297,7 +345,10 @@ public abstract class WorldBoss {
 
         double healthPercent = entity.getHealth() / maxHealth.getValue();
         bossBar.setProgress(Math.max(0, Math.min(1, healthPercent)));
-        bossBar.setTitle(type.getTitleName() + " §7- §c" + getFormattedHealth());
+
+        // Nom procédural + traits
+        String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+        bossBar.setTitle(bossName + " §7- §c" + getFormattedHealth());
     }
 
     /**
@@ -335,29 +386,144 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Particules ambiantes spécifiques au type de boss
+     * Particules ambiantes procédurales
      */
     protected void ambientParticles() {
         if (entity == null) return;
-        Location loc = entity.getLocation().add(0, 1.5 * type.getScale(), 0);
+
+        double scale = modifiers != null ? type.getScale() * modifiers.getScaleMultiplier() : type.getScale();
+        Location loc = entity.getLocation().add(0, 1.5 * scale, 0);
         World world = loc.getWorld();
         if (world == null) return;
 
-        switch (type) {
-            case THE_BUTCHER -> world.spawnParticle(Particle.DUST, loc, 5,
-                0.5, 0.5, 0.5, new Particle.DustOptions(Color.RED, 2f));
-            case SHADOW_UNSTABLE -> world.spawnParticle(Particle.SMOKE, loc, 10, 0.5, 0.5, 0.5, 0.02);
-            case PYROMANCER -> world.spawnParticle(Particle.FLAME, loc, 10, 0.5, 0.5, 0.5, 0.02);
-            case HORDE_QUEEN -> world.spawnParticle(Particle.WITCH, loc, 5, 0.5, 0.5, 0.5, 0);
-            case ICE_BREAKER -> world.spawnParticle(Particle.SNOWFLAKE, loc, 15, 0.5, 0.5, 0.5, 0.02);
+        // Particules procédurales basées sur les modificateurs
+        if (modifiers != null) {
+            // Particule ambiante procédurale
+            Particle ambient = modifiers.getAmbientParticle();
+            Color primary = modifiers.getPrimaryColor();
+            float size = modifiers.getParticleSize();
+
+            if (ambient == Particle.DUST) {
+                world.spawnParticle(Particle.DUST, loc, 8, 0.6, 0.6, 0.6,
+                    new Particle.DustOptions(primary, size));
+            } else {
+                world.spawnParticle(ambient, loc, 8, 0.5, 0.5, 0.5, 0.02);
+            }
+
+            // Particule secondaire basée sur les traits
+            if (modifiers.hasTrait(BossTrait.BURNING)) {
+                world.spawnParticle(Particle.FLAME, loc, 5, 0.4, 0.4, 0.4, 0.02);
+            }
+            if (modifiers.hasTrait(BossTrait.FROZEN)) {
+                world.spawnParticle(Particle.SNOWFLAKE, loc, 8, 0.4, 0.4, 0.4, 0.01);
+            }
+            if (modifiers.hasTrait(BossTrait.VENOMOUS)) {
+                world.spawnParticle(Particle.DUST, loc, 4, 0.3, 0.3, 0.3,
+                    new Particle.DustOptions(Color.GREEN, 1.2f));
+            }
+            if (modifiers.hasTrait(BossTrait.CURSED)) {
+                world.spawnParticle(Particle.SOUL, loc, 3, 0.4, 0.4, 0.4, 0.02);
+            }
+        } else {
+            // Fallback aux particules par type
+            switch (type) {
+                case THE_BUTCHER -> world.spawnParticle(Particle.DUST, loc, 5,
+                    0.5, 0.5, 0.5, new Particle.DustOptions(Color.RED, 2f));
+                case SHADOW_UNSTABLE -> world.spawnParticle(Particle.SMOKE, loc, 10, 0.5, 0.5, 0.5, 0.02);
+                case PYROMANCER -> world.spawnParticle(Particle.FLAME, loc, 10, 0.5, 0.5, 0.5, 0.02);
+                case HORDE_QUEEN -> world.spawnParticle(Particle.WITCH, loc, 5, 0.5, 0.5, 0.5, 0);
+                case ICE_BREAKER -> world.spawnParticle(Particle.SNOWFLAKE, loc, 15, 0.5, 0.5, 0.5, 0.02);
+            }
         }
     }
 
     /**
-     * Tick appelé chaque seconde - à surcharger par les sous-classes
+     * Tick appelé chaque seconde - applique les effets procéduraux des traits
      */
     protected void tick() {
-        // Implémenté par les sous-classes
+        if (entity == null || !entity.isValid() || modifiers == null) return;
+
+        Location bossLoc = entity.getLocation();
+        World world = bossLoc.getWorld();
+        if (world == null) return;
+
+        // Trait: Régénération
+        if (modifiers.getRegenerationRate() > 0) {
+            var maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
+            if (maxHealth != null && entity.getHealth() < maxHealth.getValue()) {
+                double newHealth = Math.min(maxHealth.getValue(),
+                    entity.getHealth() + modifiers.getRegenerationRate());
+                entity.setHealth(newHealth);
+
+                // Effet visuel de régénération
+                world.spawnParticle(Particle.HEART, bossLoc.clone().add(0, 2, 0), 2, 0.3, 0.3, 0.3, 0);
+            }
+        }
+
+        // Trait: Ardent (brûle les joueurs proches)
+        if (modifiers.hasTrait(BossTrait.BURNING)) {
+            for (Entity e : world.getNearbyEntities(bossLoc, 4, 4, 4)) {
+                if (e instanceof Player player) {
+                    if (player.getFireTicks() < 20) {
+                        player.setFireTicks(40);
+                    }
+                }
+            }
+        }
+
+        // Trait: Glacial (ralentit les joueurs proches)
+        if (modifiers.hasTrait(BossTrait.FROZEN)) {
+            for (Entity e : world.getNearbyEntities(bossLoc, 5, 5, 5)) {
+                if (e instanceof Player player) {
+                    if (!player.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, true, false));
+                    }
+                }
+            }
+        }
+
+        // Trait: Maudit (applique Darkness aux joueurs proches)
+        if (modifiers.hasTrait(BossTrait.CURSED)) {
+            for (Entity e : world.getNearbyEntities(bossLoc, 6, 6, 6)) {
+                if (e instanceof Player player) {
+                    if (!player.hasPotionEffect(PotionEffectType.DARKNESS)) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0, true, false));
+                    }
+                }
+            }
+        }
+
+        // Trait: Orageux (éclairs périodiques)
+        if (modifiers.hasTrait(BossTrait.STORMY) && Math.random() < 0.1) {
+            List<Player> nearby = getNearbyPlayers(15);
+            if (!nearby.isEmpty()) {
+                Player target = nearby.get((int) (Math.random() * nearby.size()));
+                world.strikeLightningEffect(target.getLocation());
+                target.damage(5);
+                target.sendMessage("§9§l⚡ §7La foudre vous frappe!");
+            }
+        }
+
+        // Trait: Téléporteur (téléportation aléatoire)
+        if (modifiers.hasTrait(BossTrait.TELEPORTER) && Math.random() < 0.05) {
+            double angle = Math.random() * Math.PI * 2;
+            double distance = 5 + Math.random() * 10;
+            Location teleportLoc = bossLoc.clone().add(
+                Math.cos(angle) * distance,
+                0,
+                Math.sin(angle) * distance
+            );
+            teleportLoc.setY(world.getHighestBlockYAt(teleportLoc) + 1);
+
+            // Effets de téléportation
+            world.playSound(bossLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.8f);
+            world.spawnParticle(Particle.PORTAL, bossLoc, 30, 0.5, 1, 0.5, 0.3);
+
+            entity.teleport(teleportLoc);
+
+            world.playSound(teleportLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
+            world.spawnParticle(Particle.PORTAL, teleportLoc, 30, 0.5, 1, 0.5, 0.3);
+        }
     }
 
     /**
@@ -385,6 +551,17 @@ public abstract class WorldBoss {
 
         // Mettre à jour la boss bar
         updateBossBar();
+
+        // Trait: Épineux - renvoie une partie des dégâts
+        if (modifiers != null && modifiers.hasThorns()) {
+            double thornsDamage = damage * modifiers.getThornsPercent();
+            attacker.damage(thornsDamage);
+            attacker.sendMessage("§8§l⚔ §7Les épines vous renvoient §c" + String.format("%.1f", thornsDamage) + " §7dégâts!");
+
+            World world = entity.getWorld();
+            world.spawnParticle(Particle.CRIT, attacker.getLocation().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.1);
+            world.playSound(attacker.getLocation(), Sound.ENCHANT_THORNS_HIT, 0.8f, 1f);
+        }
 
         // Hook pour les sous-classes
         onDamageReceived(attacker, damage);
@@ -422,7 +599,7 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Effets visuels lors de la mort
+     * Effets visuels lors de la mort (avec effets procéduraux)
      */
     protected void deathEffects(Location location) {
         World world = location.getWorld();
@@ -432,10 +609,37 @@ public abstract class WorldBoss {
         world.playSound(location, Sound.ENTITY_WITHER_DEATH, 2f, 1f);
         world.playSound(location, Sound.UI_TOAST_CHALLENGE_COMPLETE, 2f, 1f);
 
-        // Particules
+        // Particules standards
         world.spawnParticle(Particle.EXPLOSION_EMITTER, location, 10, 3, 3, 3, 0);
         world.spawnParticle(Particle.TOTEM_OF_UNDYING, location, 200, 3, 3, 3, 0.5);
         world.spawnParticle(Particle.DRAGON_BREATH, location, 100, 2, 2, 2, 0.1);
+
+        // Trait: Explosif - explosion à la mort
+        if (modifiers != null && modifiers.hasExplosiveDeaths()) {
+            world.createExplosion(location, 4f, false, false);
+            world.playSound(location, Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
+            world.spawnParticle(Particle.EXPLOSION_EMITTER, location, 20, 4, 4, 4, 0);
+
+            // Dégâts aux joueurs proches
+            for (Entity e : world.getNearbyEntities(location, 6, 6, 6)) {
+                if (e instanceof Player player) {
+                    double distance = player.getLocation().distance(location);
+                    double damage = 15 * (1 - distance / 6);
+                    if (damage > 0) {
+                        player.damage(damage);
+                        player.sendMessage("§6§l💥 §7L'explosion du boss vous inflige §c" +
+                            String.format("%.1f", damage) + " §7dégâts!");
+                    }
+                }
+            }
+        }
+
+        // Particules procédurales de couleur
+        if (modifiers != null) {
+            Color color = modifiers.getPrimaryColor();
+            world.spawnParticle(Particle.DUST, location, 100, 4, 4, 4,
+                new Particle.DustOptions(color, 2.5f));
+        }
     }
 
     /**

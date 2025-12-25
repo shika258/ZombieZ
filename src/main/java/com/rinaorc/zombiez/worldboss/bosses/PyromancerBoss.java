@@ -197,6 +197,9 @@ public class PyromancerBoss extends WorldBoss {
 
     @Override
     protected void tick() {
+        // Appliquer les effets procéduraux des traits
+        super.tick();
+
         // Aura de chaleur autour du boss
         if (entity != null && entity.isValid()) {
             Location loc = entity.getLocation();
