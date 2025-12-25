@@ -942,4 +942,17 @@ public class PlayerData {
         unlockedJourneyGates.addAll(gates);
         journeyStepProgress.putAll(progress);
     }
+
+    /**
+     * Réinitialise complètement le parcours du joueur
+     */
+    public void resetJourney() {
+        currentJourneyChapter.set(1);
+        currentJourneyStep.set(1);
+        completedJourneySteps.clear();
+        completedJourneyChapters.clear();
+        unlockedJourneyGates.clear();
+        journeyStepProgress.clear();
+        markDirty();
+    }
 }
