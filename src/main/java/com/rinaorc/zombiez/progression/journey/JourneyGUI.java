@@ -33,6 +33,13 @@ public class JourneyGUI implements Listener {
     private static final String MAIN_TITLE = "§8§l《 §6§lParcours du Survivant §8§l》";
     private static final String CHAPTER_TITLE = "§8§l《 §e§lChapitre %d §8§l》";
 
+    // Identifiants pour reconnaître les inventaires (plus fiable que toString())
+    private static final String MAIN_MENU_ID = "journey_main";
+    private static final String CHAPTER_MENU_ID = "journey_chapter";
+
+    // Cache des inventaires ouverts par joueur
+    private final java.util.Map<java.util.UUID, String> openMenus = new java.util.concurrent.ConcurrentHashMap<>();
+
     public JourneyGUI(ZombieZPlugin plugin) {
         this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -78,6 +85,7 @@ public class JourneyGUI implements Listener {
         inv.setItem(49, createInfoItem());
 
         player.openInventory(inv);
+        openMenus.put(player.getUniqueId(), MAIN_MENU_ID);
         player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.5f, 1.2f);
     }
 
@@ -123,6 +131,7 @@ public class JourneyGUI implements Listener {
         inv.setItem(36, createBackButton());
 
         player.openInventory(inv);
+        openMenus.put(player.getUniqueId(), CHAPTER_MENU_ID);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 1.5f);
     }
 
@@ -426,13 +435,14 @@ public class JourneyGUI implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        String title = event.getView().title().toString();
+        String menuType = openMenus.get(player.getUniqueId());
+        if (menuType == null) return; // Pas notre inventaire
+
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
 
         // Menu principal
-        if (title.contains("Parcours du Survivant")) {
-            event.setCancelled(true);
-
-            int slot = event.getRawSlot();
+        if (MAIN_MENU_ID.equals(menuType)) {
             int[] chapterSlots = {10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24};
 
             for (int i = 0; i < chapterSlots.length; i++) {
@@ -452,12 +462,17 @@ public class JourneyGUI implements Listener {
         }
 
         // Menu de détail d'un chapitre
-        if (title.contains("Chapitre")) {
-            event.setCancelled(true);
-
-            if (event.getRawSlot() == 36) {
+        if (CHAPTER_MENU_ID.equals(menuType)) {
+            if (slot == 36) {
                 openMainMenu(player);
             }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
+        if (event.getPlayer() instanceof Player player) {
+            openMenus.remove(player.getUniqueId());
         }
     }
 }

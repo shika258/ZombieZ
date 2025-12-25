@@ -33,6 +33,9 @@ public class JourneyListener implements Listener {
 
         // Tâche périodique pour afficher l'ActionBar de progression
         startProgressActionBarTask();
+
+        // Tâche périodique pour tracker le temps de survie en zone
+        startSurvivalTimeTracker();
     }
 
     // ==================== GESTION CONNEXION/DÉCONNEXION ====================
@@ -55,7 +58,13 @@ public class JourneyListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        journeyManager.unloadPlayer(event.getPlayer().getUniqueId());
+        java.util.UUID uuid = event.getPlayer().getUniqueId();
+        journeyManager.unloadPlayer(uuid);
+
+        // Nettoyer les caches locaux
+        blockMessageCooldown.remove(uuid);
+        zoneEntryTime.remove(uuid);
+        lastZoneId.remove(uuid);
     }
 
     // ==================== BLOCAGE DES ZONES (CRITIQUE) ====================
@@ -118,6 +127,10 @@ public class JourneyListener implements Listener {
 
     // Cooldown pour les messages de blocage
     private final java.util.Map<java.util.UUID, Long> blockMessageCooldown = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Tracking du temps de survie en zone (UUID -> timestamp d'entrée dans la zone)
+    private final java.util.Map<java.util.UUID, Long> zoneEntryTime = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<java.util.UUID, Integer> lastZoneId = new java.util.concurrent.ConcurrentHashMap<>();
 
     private void sendBlockedMessageWithCooldown(Player player, int zoneId) {
         long now = System.currentTimeMillis();
@@ -255,6 +268,14 @@ public class JourneyListener implements Listener {
         if (currentStep.getType() == JourneyStep.StepType.LEVEL) {
             journeyManager.updateProgress(player, JourneyStep.StepType.LEVEL, newLevel);
         }
+
+        // Aussi tracker PRESTIGE_LEVEL si le joueur a fait un prestige
+        if (currentStep.getType() == JourneyStep.StepType.PRESTIGE_LEVEL) {
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+            if (data != null && data.getPrestigeLevel() > 0) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.PRESTIGE_LEVEL, newLevel);
+            }
+        }
     }
 
     /**
@@ -303,6 +324,16 @@ public class JourneyListener implements Listener {
 
         if (currentStep.getType() == JourneyStep.StepType.UNLOCK_TALENT) {
             journeyManager.updateProgress(player, JourneyStep.StepType.UNLOCK_TALENT, totalTalents);
+        }
+
+        // Aussi vérifier TALENTS_UNLOCKED (nombre de tiers avec au moins 1 talent)
+        if (currentStep.getType() == JourneyStep.StepType.TALENTS_UNLOCKED) {
+            // Compter le nombre de tiers différents
+            var classData = plugin.getClassManager().getClassData(player);
+            if (classData != null) {
+                int tiersWithTalent = (int) classData.getAllSelectedTalents().size();
+                journeyManager.updateProgress(player, JourneyStep.StepType.TALENTS_UNLOCKED, tiersWithTalent);
+            }
         }
     }
 
@@ -389,6 +420,73 @@ public class JourneyListener implements Listener {
         if (currentStep.getType() == JourneyStep.StepType.ACHIEVEMENTS) {
             journeyManager.updateProgress(player, JourneyStep.StepType.ACHIEVEMENTS, totalAchievements);
         }
+    }
+
+    // ==================== TRACKING DU TEMPS DE SURVIE ====================
+
+    /**
+     * Lance la tâche périodique de tracking du temps de survie en zone
+     */
+    private void startSurvivalTimeTracker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    updateSurvivalTimeProgress(player);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 20L); // Toutes les secondes
+    }
+
+    /**
+     * Met à jour la progression de temps de survie pour un joueur
+     */
+    private void updateSurvivalTimeProgress(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        java.util.UUID uuid = player.getUniqueId();
+
+        // Obtenir la zone actuelle
+        var zone = plugin.getZoneManager().getZoneAt(player.getLocation());
+        if (zone == null) return;
+        int currentZoneId = zone.getId();
+
+        // Gérer le changement de zone
+        Integer previousZone = lastZoneId.get(uuid);
+        if (previousZone == null || previousZone != currentZoneId) {
+            // Nouvelle zone - reset le timer
+            zoneEntryTime.put(uuid, System.currentTimeMillis());
+            lastZoneId.put(uuid, currentZoneId);
+        }
+
+        // Calculer le temps passé dans la zone
+        Long entryTime = zoneEntryTime.get(uuid);
+        if (entryTime == null) return;
+
+        int secondsInZone = (int) ((System.currentTimeMillis() - entryTime) / 1000);
+
+        // Mettre à jour selon le type d'étape
+        if (currentStep.getType() == JourneyStep.StepType.SURVIVE_ZONE_TIME) {
+            // STEP_3_2: Survie 5 minutes en Zone 2
+            if (currentZoneId >= 2) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SURVIVE_ZONE_TIME, secondsInZone);
+            }
+        } else if (currentStep.getType() == JourneyStep.StepType.SURVIVE_ENVIRONMENT) {
+            // STEP_10_2: Survie aux effets environnementaux 10min en zone 8+
+            if (currentZoneId >= 8) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SURVIVE_ENVIRONMENT, secondsInZone);
+            }
+        }
+    }
+
+    /**
+     * Reset le timer de survie d'un joueur (appelé lors de la mort)
+     */
+    public void onPlayerDeath(Player player) {
+        java.util.UUID uuid = player.getUniqueId();
+        zoneEntryTime.remove(uuid);
+        lastZoneId.remove(uuid);
     }
 
     // ==================== AFFICHAGE ACTIONBAR ====================

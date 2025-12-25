@@ -166,25 +166,30 @@ public class JourneyManager {
      * Repousse physiquement le joueur hors d'une zone bloquée
      */
     public void pushBackFromZone(Player player, int blockedZoneId) {
-        // Téléporter le joueur à la bordure de la zone précédente
         Location loc = player.getLocation();
+        World world = loc.getWorld();
+        if (world == null) return;
 
         // Obtenir la zone du plugin
-        var zone = plugin.getZoneManager().getZoneById(blockedZoneId);
+        var zoneManager = plugin.getZoneManager();
+        if (zoneManager == null) return;
+
+        var zone = zoneManager.getZoneById(blockedZoneId);
         if (zone == null) return;
 
         // Calculer la position de recul (vers le sud, Z+)
         int safeZ = zone.getMaxZ() + 5; // 5 blocs après la limite
-        Location safeLoc = new Location(loc.getWorld(), loc.getX(), loc.getY(), safeZ, loc.getYaw(), loc.getPitch());
+        Location safeLoc = new Location(world, loc.getX(), loc.getY(), safeZ, loc.getYaw(), loc.getPitch());
 
         // Trouver une position sûre en Y
-        safeLoc.setY(loc.getWorld().getHighestBlockYAt(safeLoc) + 1);
+        int highestY = world.getHighestBlockYAt(safeLoc);
+        safeLoc.setY(Math.max(highestY + 1, world.getMinHeight() + 1));
 
         player.teleport(safeLoc);
 
         // Effets visuels
-        player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.05);
-        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3, 0.5);
+        world.spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.05);
+        world.spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 20, 0.3, 0.3, 0.3, 0.5);
     }
 
     // ==================== PROGRESSION DES ÉTAPES ====================
@@ -623,10 +628,16 @@ public class JourneyManager {
 
     private void broadcastChapterCompletion(Player player, JourneyChapter chapter) {
         String message = "§e" + player.getName() + " §7a complété le " + chapter.getFormattedTitle() + "§7!";
+        Location playerLoc = player.getLocation();
+        World playerWorld = playerLoc.getWorld();
 
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p != player && p.getLocation().distance(player.getLocation()) < 100) {
-                p.sendMessage(message);
+            if (p == player) continue;
+            // Vérifier que les joueurs sont dans le même monde avant de calculer la distance
+            if (playerWorld != null && playerWorld.equals(p.getWorld())) {
+                if (p.getLocation().distanceSquared(playerLoc) < 10000) { // 100² pour éviter sqrt
+                    p.sendMessage(message);
+                }
             }
         }
     }
@@ -718,31 +729,62 @@ public class JourneyManager {
      */
     public void showProgressActionBar(Player player) {
         JourneyStep step = getCurrentStep(player);
-        if (step == null) return;
+        if (step == null) {
+            // Parcours complété
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§6✦ §eLÉGENDE VIVANTE §6✦ §7Parcours complété!"
+            ));
+            return;
+        }
 
         int progress = getStepProgress(player, step);
         String progressText = step.getProgressText(progress);
         double percent = step.getProgressPercent(progress);
 
-        // Barre de progression visuelle
+        // Barre de progression visuelle avec dégradé de couleurs
         StringBuilder bar = new StringBuilder("§8[");
         int filled = (int) (percent / 10);
         for (int i = 0; i < 10; i++) {
             if (i < filled) {
-                bar.append("§a■");
+                // Dégradé de couleur selon le pourcentage
+                if (percent >= 80) {
+                    bar.append("§a■");
+                } else if (percent >= 50) {
+                    bar.append("§e■");
+                } else {
+                    bar.append("§6■");
+                }
             } else {
-                bar.append("§7□");
+                bar.append("§8□");
             }
         }
         bar.append("§8]");
 
-        String message = String.format("§7Ch.%d §8| %s §e%s §8| %s",
+        // Icône de chapitre selon la phase
+        String phaseIcon = switch (step.getChapter().getPhase()) {
+            case 1 -> "§a⚔";
+            case 2 -> "§e⚔";
+            case 3 -> "§c⚔";
+            case 4 -> "§5⚔";
+            default -> "§7⚔";
+        };
+
+        String message = String.format("%s §7Ch.%d §8| %s §f%s §8| §e%s",
+            phaseIcon,
             step.getChapter().getId(),
             bar,
-            step.getName(),
+            truncate(step.getName(), 20),
             progressText
         );
 
         player.sendActionBar(net.kyori.adventure.text.Component.text(message));
+    }
+
+    /**
+     * Tronque un texte si trop long
+     */
+    private String truncate(String text, int maxLength) {
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength - 2) + "..";
     }
 }
