@@ -39,12 +39,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_strike")
             .name("Frappe Sismique")
-            .description("Chaque attaque cree une onde de choc")
+            .description("Génère une onde de choc à chaque attaque")
             .loreLines(new String[]{
-                "§7Chaque attaque cree une onde de choc",
-                "§7autour de la cible touchee.",
+                "§7Libère une onde de choc autour",
+                "§7de la cible à chaque attaque.",
                 "",
-                "§6Degats: §c50% §7| §6Rayon: §e5 blocs",
+                "§6Dégâts: §c50%",
+                "§6Zone: §e5 blocs",
+                "",
                 "§bCooldown: §f0.6s"
             })
             .classType(ClassType.GUERRIER)
@@ -60,17 +62,19 @@ public final class GuerrierTalents {
         // 1.2 - POSTURE DEFENSIVE (REMPART)
         TALENTS.add(Talent.builder()
             .id("guerrier_defensive_stance")
-            .name("Posture Defensive")
-            .description("25% blocage passif, riposte + absorption")
+            .name("Posture Défensive")
+            .description("Bloque les attaques et riposte")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Chance de bloquer les attaques.",
-                "§7Bloquer donne de l'absorption et",
-                "§7renvoie des degats a l'attaquant.",
+                "§7Adopte une posture défensive qui",
+                "§7bloque les attaques ennemies.",
+                "§7Un blocage réussi octroie de",
+                "§7l'absorption et renvoie les dégâts.",
                 "",
-                "§6Blocage: §e25% §7| §6Absorption: §a+3% §7PV",
-                "§6Riposte: §c50% §7des degats"
+                "§6Chance de blocage: §e25%",
+                "§6Absorption: §a+3% §7PV max",
+                "§6Riposte: §c50% §7des dégâts bloqués"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -85,12 +89,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_rising_fury")
             .name("Fureur Croissante")
-            .description("+2% degats par coup, max 20%")
+            .description("Accumule de la puissance à chaque coup")
             .loreLines(new String[]{
-                "§7Chaque coup augmente vos degats.",
-                "§7Se reset apres 3s sans attaquer.",
+                "§7Chaque attaque augmente vos dégâts.",
+                "§7Les stacks se réinitialisent après",
+                "§73 secondes sans attaquer.",
                 "",
-                "§6Bonus: §a+2% §7par coup | §6Max: §a+20%"
+                "§6Bonus par coup: §c+2%",
+                "§6Maximum: §c+20% §7(10 stacks)",
+                "§6Réinitialisation: §b3s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -105,15 +112,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_death_strike")
             .name("Frappe de Mort")
-            .description("Attaquer soigne selon les degats recus")
+            .description("Vos attaques soignent selon les dégâts récents")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Chaque attaque vous soigne selon",
-                "§7les degats recus recemment.",
+                "§7Chaque attaque vous soigne en",
+                "§7fonction des dégâts subis récemment.",
                 "",
-                "§6Soin: §a25% §7des degats recus (5s)",
-                "§6Minimum: §a2% §7PV"
+                "§6Soin: §a25% §7des dégâts reçus (5s)",
+                "§6Soin minimum: §a2% §7PV max"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -127,20 +134,23 @@ public final class GuerrierTalents {
         // 1.5 - FENTE DÉVASTATRICE (VOIE DU FAUVE) - Style Yasuo
         TALENTS.add(Talent.builder()
             .id("guerrier_lunging_strike")
-            .name("Fente Devastatrice")
-            .description("Dash traversant + Tempete d'Acier!")
+            .name("Fente Dévastatrice")
+            .description("Dash traversant qui blesse tous les ennemis")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§6Clic Droit §7avec arme: dash traversant",
-                "§7qui blesse tous les ennemis.",
+                "§7Effectue un dash traversant qui",
+                "§7inflige des dégâts à tous les",
+                "§7ennemis sur votre passage.",
                 "",
-                "§6Distance: §e12 blocs §7| §6Degats: §c+50%",
-                "§6Bonus: §c+5% §7par bloc parcouru",
+                "§6Distance: §e12 blocs",
+                "§6Dégâts: §c+50% §7+ §c5%§7/bloc parcouru",
                 "",
-                "§6TEMPETE D'ACIER §7(2 stacks):",
-                "§7Tornade §c×2 degats §7+ projection!",
-                "§bCooldown: §f0.8s"
+                "§e§lTEMPÊTE D'ACIER §7(2 stacks):",
+                "§7Déclenche une tornade dévastatrice.",
+                "§6Dégâts: §c×2 §7+ projection",
+                "",
+                "§bCooldown: §f0.8s §7| §eActivation: §fClic Droit"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_1)
@@ -159,13 +169,15 @@ public final class GuerrierTalents {
         // 2.1 - ECHO DE GUERRE
         TALENTS.add(Talent.builder()
             .id("guerrier_war_echo")
-            .name("Echo de Guerre")
-            .description("30% chance que les degats de zone se repetent")
+            .name("Écho de Guerre")
+            .description("Vos attaques de zone peuvent se répéter")
             .loreLines(new String[]{
-                "§7Vos attaques de zone peuvent",
-                "§7se repeter automatiquement.",
+                "§7Vos attaques de zone ont une",
+                "§7chance de se déclencher une",
+                "§7seconde fois automatiquement.",
                 "",
-                "§6Chance: §e30% §7| §6Delai: §e0.3s"
+                "§6Chance: §e30%",
+                "§6Délai: §b0.3s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
@@ -179,15 +191,18 @@ public final class GuerrierTalents {
         // 2.2 - CHATIMENT (REMPART)
         TALENTS.add(Talent.builder()
             .id("guerrier_punishment")
-            .name("Chatiment")
-            .description("3 coups = prochaine attaque devastatrice")
+            .name("Châtiment")
+            .description("Après 3 coups, la prochaine attaque est dévastatrice")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Apres 3 coups en 6s, votre",
-                "§7prochaine attaque est renforcee.",
+                "§7Après avoir infligé 3 coups en 6s,",
+                "§7votre prochaine attaque devient",
+                "§7dévastatrice et vous renforce.",
                 "",
-                "§6Degats: §c+80% §7| §6Absorption: §a+5% §7PV"
+                "§6Dégâts bonus: §c+80%",
+                "§6Absorption: §a+5% §7PV max",
+                "§6Fenêtre: §b6s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
@@ -202,13 +217,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_blood_fervour")
             .name("Ferveur Sanguinaire")
-            .description("Kills = +15% degats, stack 3x")
+            .description("Chaque élimination augmente vos dégâts")
             .loreLines(new String[]{
-                "§7Chaque elimination augmente",
-                "§7vos degats temporairement.",
+                "§7Chaque ennemi tué augmente",
+                "§7temporairement vos dégâts.",
+                "§7Les stacks se cumulent.",
                 "",
-                "§6Bonus: §c+15% §7par kill | §6Max: §c+45%",
-                "§6Duree: §b4s §7(refresh par kill)"
+                "§6Bonus par kill: §c+15%",
+                "§6Maximum: §c+45% §7(3 stacks)",
+                "§6Durée: §b4s §7(rafraîchi par kill)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
@@ -223,15 +240,16 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bone_shield")
             .name("Bouclier d'Os")
-            .description("5 charges d'os protectrices")
+            .description("Des charges d'os protectrices vous entourent")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Des charges d'os vous entourent",
-                "§7et absorbent les degats recus.",
+                "§7Des fragments d'os tournent autour",
+                "§7de vous et absorbent les dégâts.",
                 "",
-                "§6Charges: §e5 §7| §6Absorption: §a8% §7/charge",
-                "§6Regen: §b1 charge/8s"
+                "§6Charges maximum: §e5",
+                "§6Réduction par charge: §a8%",
+                "§6Régénération: §b1 charge/8s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
@@ -246,16 +264,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_war_cry_mark")
             .name("Cri de Marquage")
-            .description("Marque les ennemis, propager les degats")
+            .description("Marque les ennemis proches pour propager les dégâts")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§6Shift + Clic Droit§7: marque tous",
-                "§7les ennemis proches. Les degats",
-                "§7se propagent entre eux.",
+                "§7Pousse un cri qui marque tous les",
+                "§7ennemis proches. Les dégâts infligés",
+                "§7à une cible se propagent aux autres.",
                 "",
-                "§6Rayon: §e8 blocs §7| §6Propagation: §c40%",
-                "§6Duree: §b6s §7| §bCooldown: §f8s"
+                "§6Zone: §e8 blocs",
+                "§6Propagation: §c40% §7des dégâts",
+                "§6Durée: §b6s",
+                "",
+                "§bCooldown: §f8s §7| §eActivation: §fSneak + Clic Droit"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_2)
@@ -275,14 +296,16 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fracture_wave")
             .name("Onde de Fracture")
-            .description("Tous les 4 coups = onde sismique!")
+            .description("Déclenche une onde sismique tous les 4 coups")
             .loreLines(new String[]{
-                "§7Tous les 4 coups, liberez une",
-                "§7onde de fracture en cone.",
+                "§7Tous les 4 coups, libère une onde",
+                "§7de fracture en cône devant vous.",
+                "§7Plus il y a d'ennemis touchés,",
+                "§7plus les dégâts augmentent.",
                 "",
-                "§6Degats: §c150% §7+ §c25%§7/ennemi",
-                "§6Cone: §e60° §7| §6Portee: §e4 blocs",
-                "§6Slow: §c30% §7pendant §b1.5s"
+                "§6Dégâts: §c150% §7+ §c25%§7/ennemi touché",
+                "§6Cône: §e60° §7| §6Portée: §e4 blocs",
+                "§6Ralentissement: §c30% §7(§b1.5s§7)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
@@ -297,15 +320,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_vengeful_shield")
             .name("Bouclier Vengeur")
-            .description("Toutes les 4 attaques: disque pulsant!")
+            .description("Lance un disque spectral qui pulse et explose")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Toutes les 4 attaques, lancez un",
-                "§7disque spectral qui pulse et explose.",
+                "§7Toutes les 4 attaques, projette un",
+                "§7disque spectral qui pulse 4 fois",
+                "§7avant d'exploser violemment.",
                 "",
-                "§6Pulse: §c60% §7(4x) | §6Rayon: §e2.5 blocs",
-                "§6Explosion: §c120% §7| §6Rayon: §e3 blocs"
+                "§6Dégâts par pulse: §c60% §7(×4)",
+                "§6Zone pulse: §e2.5 blocs",
+                "§6Explosion finale: §c120%",
+                "§6Zone explosion: §e3 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
@@ -319,13 +345,15 @@ public final class GuerrierTalents {
         // 3.3 - COLERE DES ANCETRES
         TALENTS.add(Talent.builder()
             .id("guerrier_ancestral_wrath")
-            .name("Colere des Ancetres")
-            .description("Apres degats recus: +100% prochaine attaque")
+            .name("Colère des Ancêtres")
+            .description("Après avoir subi des dégâts, votre prochaine attaque est décuplée")
             .loreLines(new String[]{
-                "§7Apres avoir recu des degats,",
-                "§7votre prochaine attaque est renforcee.",
+                "§7Après avoir reçu des dégâts,",
+                "§7canalisez la rage ancestrale pour",
+                "§7renforcer votre prochaine attaque.",
                 "",
-                "§6Bonus: §c+100% §7degats | §6Fenetre: §b2s"
+                "§6Bonus dégâts: §c+100%",
+                "§6Fenêtre d'activation: §b2s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
@@ -339,15 +367,19 @@ public final class GuerrierTalents {
         // 3.4 - MOELLE DE DECHIREMENT (SANG)
         TALENTS.add(Talent.builder()
             .id("guerrier_marrowrend")
-            .name("Moelle de Dechirement")
-            .description("Shift+Attaque regenere 3 charges d'os")
+            .name("Moelle de Déchirement")
+            .description("Régénère instantanément des charges d'os")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§6Shift + Attaque§7: regenere 3 charges",
-                "§7de Bouclier d'Os instantanement.",
+                "§7Frappe puissante qui régénère",
+                "§7instantanément 3 charges de",
+                "§7Bouclier d'Os.",
                 "",
-                "§6Degats: §c+50% §7| §bCooldown: §f6s"
+                "§6Charges régénérées: §e3",
+                "§6Dégâts bonus: §c+50%",
+                "",
+                "§bCooldown: §f6s §7| §eActivation: §fSneak + Attaque"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
@@ -362,16 +394,19 @@ public final class GuerrierTalents {
         // 3.5 - GRIFFES LACÉRANTES (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_lacerating_claws")
-            .name("Griffes Lacerantes")
-            .description("Chaque Fente applique Saignement")
+            .name("Griffes Lacérantes")
+            .description("Chaque Fente inflige un saignement")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§7Chaque Fente applique du saignement.",
-                "§7Se propage aux ennemis marques.",
+                "§7Chaque Fente Dévastatrice applique",
+                "§7des stacks de saignement qui se",
+                "§7propagent aux ennemis marqués.",
                 "",
-                "§6Stacks: §c3 §7par Fente | §6Max: §c10",
-                "§6DoT: §c1% §7PV/s par stack | §6Duree: §b4s"
+                "§6Stacks par Fente: §c3",
+                "§6Maximum: §c10 §7stacks",
+                "§6Dégâts: §c1% §7PV/s par stack",
+                "§6Durée: §b4s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_3)
@@ -389,13 +424,15 @@ public final class GuerrierTalents {
         // 4.1 - RESONANCE SISMIQUE
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_resonance")
-            .name("Resonance Sismique")
-            .description("Amplifie les degats de zone contre les cibles debuffs")
+            .name("Résonance Sismique")
+            .description("Les ennemis touchés par vos AoE deviennent vulnérables")
             .loreLines(new String[]{
-                "§7Les ennemis touches par vos AoE",
-                "§7prennent plus de degats de zone.",
+                "§7Les ennemis touchés par vos",
+                "§7attaques de zone deviennent",
+                "§7vulnérables aux dégâts de zone.",
                 "",
-                "§6Amplification: §c+30% §7| §6Duree: §b3s"
+                "§6Amplification: §c+30%",
+                "§6Durée: §b3s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -410,15 +447,17 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fortify")
             .name("Fortification")
-            .description("Blocages = absorption temporaire")
+            .description("Chaque blocage octroie de l'absorption cumulable")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Chaque blocage donne de l'absorption.",
-                "§7Cumulable et refreshable.",
+                "§7Chaque blocage réussi octroie de",
+                "§7l'absorption. Les stacks se cumulent",
+                "§7et se rafraîchissent à chaque blocage.",
                 "",
-                "§6Absorption: §a+10% §7PV | §6Max: §a+50%",
-                "§6Duree: §b5s §7(refresh par blocage)"
+                "§6Absorption par blocage: §a+10% §7PV",
+                "§6Maximum: §a+50% §7(5 stacks)",
+                "§6Durée: §b5s §7(rafraîchi par blocage)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -432,14 +471,16 @@ public final class GuerrierTalents {
         // 4.3 - COUP DE GRÂCE
         TALENTS.add(Talent.builder()
             .id("guerrier_mercy_strike")
-            .name("Coup de Grace")
-            .description("Ennemis < 30% PV = +80% degats, heal au kill")
+            .name("Coup de Grâce")
+            .description("Dégâts amplifiés contre les ennemis affaiblis")
             .loreLines(new String[]{
-                "§7Degats bonus contre les ennemis",
-                "§7affaiblis. Les tuer vous soigne.",
+                "§7Inflige des dégâts bonus contre les",
+                "§7ennemis affaiblis. Les achever vous",
+                "§7soigne d'un pourcentage de vos PV.",
                 "",
-                "§6Seuil: §c<30% §7PV | §6Bonus: §c+80%",
-                "§6Soin au kill: §a5% §7PV max"
+                "§6Seuil: §c<30% §7PV ennemi",
+                "§6Bonus dégâts: §c+80%",
+                "§6Soin à l'élimination: §a5% §7PV max"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -453,16 +494,17 @@ public final class GuerrierTalents {
         // 4.4 - VOLONTE VAMPIRIQUE (SANG)
         TALENTS.add(Talent.builder()
             .id("guerrier_vampiric_will")
-            .name("Volonte Vampirique")
-            .description("Ameliore Death Strike + kills = charges")
+            .name("Volonté Vampirique")
+            .description("Améliore Frappe de Mort et les éliminations")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Ameliore Frappe de Mort. Les kills",
-                "§7regenerent des charges d'os.",
+                "§7Améliore Frappe de Mort. Chaque",
+                "§7élimination régénère une charge",
+                "§7de Bouclier d'Os.",
                 "",
-                "§6Soin: §a35% §7(au lieu de 25%)",
-                "§6Kill: §a+1 §7charge Bouclier d'Os"
+                "§6Soin amélioré: §a35% §7(au lieu de 25%)",
+                "§6Charge par kill: §e+1"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -476,17 +518,18 @@ public final class GuerrierTalents {
         // 4.5 - ÉLAN FURIEUX (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_furious_momentum")
-            .name("Elan Furieux")
-            .description("Fentes successives = stacks de puissance")
+            .name("Élan Furieux")
+            .description("Les Fentes successives augmentent votre puissance")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§7Chaque Fente augmente vos degats",
-                "§7et vitesse d'attaque.",
+                "§7Chaque Fente Dévastatrice augmente",
+                "§7vos dégâts et vitesse d'attaque.",
+                "§7Les stacks se réinitialisent après",
+                "§73 secondes sans Fente.",
                 "",
-                "§6Par stack: §c+8% §7dgts + §e+10% §7AS",
-                "§6Max: §c+40% §7dgts + §e+50% §7AS (5 stacks)",
-                "§6Reset: §b3s §7sans Fente"
+                "§6Par stack: §c+8% §7dégâts + §e+10% §7vitesse",
+                "§6Maximum: §c+40% §7+ §e+50% §7(5 stacks)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_4)
@@ -505,12 +548,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_cataclysm")
             .name("Cataclysme")
-            .description("Toutes les 10 attaques: explosion de zone massive")
+            .description("Déclenche une explosion massive toutes les 10 attaques")
             .loreLines(new String[]{
-                "§7Toutes les 10 attaques, declenche",
-                "§7une explosion massive autour de vous.",
+                "§7Toutes les 10 attaques, déclenche",
+                "§7une explosion cataclysmique autour",
+                "§7de vous, dévastant tous les ennemis.",
                 "",
-                "§6Degats: §c250% §7| §6Rayon: §e5 blocs"
+                "§6Dégâts: §c250%",
+                "§6Zone: §e5 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -525,14 +570,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_judgment_hammer")
             .name("Marteau du Jugement")
-            .description("Execute <15% HP = marteau geant du ciel")
+            .description("Invoque un marteau céleste sur les ennemis affaiblis")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
                 "§7Frapper un ennemi sous 15% PV",
-                "§7fait tomber un marteau du ciel.",
+                "§7fait tomber un marteau céleste",
+                "§7qui écrase la cible et les proches.",
                 "",
-                "§6Cible: §c300% §7| §6AoE: §c150% §7(6 blocs)",
+                "§6Seuil: §c<15% §7PV ennemi",
+                "§6Dégâts cible: §c300%",
+                "§6Dégâts zone: §c150% §7(§e6 blocs§7)",
+                "",
                 "§bCooldown: §f6s"
             })
             .classType(ClassType.GUERRIER)
@@ -549,12 +598,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_rage_cyclone")
             .name("Cyclone de Rage")
-            .description("Courir = degats continus autour de vous")
+            .description("Tournoie en courant et blesse les ennemis proches")
             .loreLines(new String[]{
-                "§7Courir vous fait tournoyer et",
-                "§7blesse les ennemis proches.",
+                "§7Lorsque vous courez, vous tourbillonnez",
+                "§7comme un cyclone, infligeant des dégâts",
+                "§7continus aux ennemis à proximité.",
                 "",
-                "§6Degats: §c60%§7/0.5s | §6Rayon: §e2 blocs"
+                "§6Dégâts: §c60% §7toutes les §b0.5s",
+                "§6Zone: §e2 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -568,16 +619,19 @@ public final class GuerrierTalents {
         // 5.4 - MORT ET DECOMPOSITION (SANG)
         TALENTS.add(Talent.builder()
             .id("guerrier_death_and_decay")
-            .name("Mort et Decomposition")
-            .description("Aura de mort permanente autour de vous")
+            .name("Mort et Décomposition")
+            .description("Génère une aura de mort permanente")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Aura permanente qui blesse les",
-                "§7ennemis et vous renforce.",
+                "§7Émet une aura de décomposition qui",
+                "§7ronge les ennemis proches tout en",
+                "§7vous renforçant considérablement.",
                 "",
-                "§6Rayon: §e6 blocs §7| §6DoT: §c10%§7/s",
-                "§6Bonus: §c+25% §7dgts | §6Reduction: §a15%"
+                "§6Zone: §e6 blocs",
+                "§6Dégâts sur le temps: §c10%§7/s",
+                "§6Bonus dégâts: §c+25%",
+                "§6Réduction des dégâts: §a15%"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -592,15 +646,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_fury_consumption")
             .name("Consommation de Fureur")
-            .description("Sacrifie PV pour degats x3 + trainee de feu")
+            .description("Sacrifie des PV pour une Fente dévastatrice")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§6Shift + Fente§7: sacrifie 15% PV pour",
-                "§7une Fente x3 degats + trainee de feu.",
+                "§7Sacrifie une partie de vos PV pour",
+                "§7déclencher une Fente surpuissante",
+                "§7qui laisse une traînée de feu.",
                 "",
-                "§6Cout: §c15% §7PV | §6Degats: §c×3",
-                "§6Trainee: §c75%§7/s pendant §b3s"
+                "§6Coût: §c15% §7PV",
+                "§6Multiplicateur: §c×3 §7dégâts",
+                "§6Traînée: §c75%§7/s pendant §b3s",
+                "",
+                "§eActivation: §fSneak + Fente"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_5)
@@ -618,13 +676,15 @@ public final class GuerrierTalents {
         // 6.1 - SECOUSSES RESIDUELLES
         TALENTS.add(Talent.builder()
             .id("guerrier_seismic_aftermath")
-            .name("Secousses Residuelles")
-            .description("Vos AoE etourdissent brievement les cibles")
+            .name("Secousses Résiduelles")
+            .description("Vos attaques de zone peuvent étourdir")
             .loreLines(new String[]{
-                "§7Vos attaques de zone peuvent",
-                "§7etourdir les ennemis touches.",
+                "§7Vos attaques de zone ont une",
+                "§7chance d'étourdir brièvement",
+                "§7les ennemis touchés.",
                 "",
-                "§6Chance: §e25% §7| §6Stun: §c0.5s",
+                "§6Chance: §e25%",
+                "§6Étourdissement: §c0.5s",
                 "§bCooldown: §f2s §7par cible"
             })
             .classType(ClassType.GUERRIER)
@@ -639,16 +699,18 @@ public final class GuerrierTalents {
         // 6.2 - ÉCHO DE FER (REMPART)
         TALENTS.add(Talent.builder()
             .id("guerrier_iron_echo")
-            .name("Echo de Fer")
-            .description("Stocke les degats bloques/recus → onde de choc")
+            .name("Écho de Fer")
+            .description("Accumule les dégâts pour déclencher une onde de choc")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Stocke 15% des degats bloques/recus.",
-                "§7A 3 stacks: onde de choc AoE.",
+                "§7Stocke 15% des dégâts bloqués ou",
+                "§7reçus. À 3 stacks, libère une",
+                "§7puissante onde de choc.",
                 "",
-                "§6AoE: §e8 blocs §7| §6Absorption: §a+20%",
-                "§6Fenetre: §b5s §7pour accumuler"
+                "§6Zone: §e8 blocs",
+                "§6Absorption bonus: §a+20%",
+                "§6Fenêtre: §b5s §7pour accumuler"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
@@ -663,12 +725,16 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_unstoppable_rage")
             .name("Rage Imparable")
-            .description("A 15+ stacks rage: -50% degats recus 2s")
+            .description("À haute fureur, réduit massivement les dégâts reçus")
             .loreLines(new String[]{
-                "§7A 15+ stacks de Fureur, vous",
-                "§7prenez moins de degats.",
+                "§7Lorsque vous atteignez 15+ stacks",
+                "§7de Fureur, vous devenez temporairement",
+                "§7résistant aux dégâts.",
                 "",
-                "§6Reduction: §a50% §7| §6Duree: §b2s",
+                "§6Seuil: §e15+ §7stacks de Fureur",
+                "§6Réduction: §a50%",
+                "§6Durée: §b2s",
+                "",
                 "§bCooldown: §f10s"
             })
             .classType(ClassType.GUERRIER)
@@ -685,15 +751,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_consumption")
             .name("Consommation")
-            .description("Consomme les charges d'os pour soigner")
+            .description("Consomme les charges d'os pour se soigner")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Sous 30% PV: consomme vos charges",
-                "§7d'os pour vous soigner + explosion.",
+                "§7Lorsque vos PV tombent sous 30%,",
+                "§7consomme automatiquement vos charges",
+                "§7d'os pour vous soigner et exploser.",
                 "",
-                "§6Soin: §a5%§7/charge | §6AoE: §e4 blocs",
-                "§bCooldown: §f15s §7(auto)"
+                "§6Seuil: §c<30% §7PV",
+                "§6Soin: §a5% §7par charge",
+                "§6Explosion: §e4 blocs",
+                "",
+                "§bCooldown: §f15s §7(automatique)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
@@ -708,16 +778,17 @@ public final class GuerrierTalents {
         // 6.5 - PRÉDATEUR INSATIABLE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_insatiable_predator")
-            .name("Predateur Insatiable")
-            .description("Kill avec Fente = reset + vitesse")
+            .name("Prédateur Insatiable")
+            .description("Éliminer avec Fente réinitialise le cooldown")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§7Tuer avec Fente reset le cooldown",
-                "§7et donne de la vitesse.",
+                "§7Tuer un ennemi avec Fente Dévastatrice",
+                "§7réinitialise son cooldown et octroie",
+                "§7un bonus de vitesse.",
                 "",
-                "§6Vitesse: §a+25% §7(2s)",
-                "§6Kill marque: §c+15% §7dgts (4s)"
+                "§6Vitesse: §a+25% §7(§b2s§7)",
+                "§6Kill sur marqué: §c+15% §7dégâts (§b4s§7)"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_6)
@@ -735,14 +806,16 @@ public final class GuerrierTalents {
         // 6.1 - TREMOR ETERNAL
         TALENTS.add(Talent.builder()
             .id("guerrier_eternal_tremor")
-            .name("Tremor Eternal")
-            .description("Courir genere des ondes sismiques")
+            .name("Tremor Éternel")
+            .description("Génère des ondes sismiques en courant")
             .loreLines(new String[]{
-                "§7Courir genere des ondes sismiques",
-                "§7autour de vous chaque seconde.",
+                "§7Lorsque vous courez, génère des",
+                "§7ondes sismiques autour de vous",
+                "§7à intervalles réguliers.",
                 "",
-                "§6Degats: §c50% §7| §6Rayon: §e3 blocs",
-                "§6Interval: §b1s"
+                "§6Dégâts: §c50%",
+                "§6Zone: §e3 blocs",
+                "§6Intervalle: §b1s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -757,16 +830,19 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bastion_charge")
             .name("Charge du Bastion")
-            .description("Double-sneak: charge + absorption par cible")
+            .description("Charge vers l'avant et gagne de l'absorption")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§6Double Sneak§7: charge vers l'avant.",
-                "§7Gagne absorption par ennemi touche.",
+                "§7Effectue une charge dévastatrice",
+                "§7vers l'avant. Chaque ennemi touché",
+                "§7octroie de l'absorption.",
                 "",
-                "§6Distance: §e12 blocs §7| §6Degats: §c200%",
-                "§6Absorption: §a+8%§7/ennemi (6s)",
-                "§bCooldown: §f8s"
+                "§6Distance: §e12 blocs",
+                "§6Dégâts: §c200%",
+                "§6Absorption: §a+8% §7par ennemi (§b6s§7)",
+                "",
+                "§bCooldown: §f8s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -782,12 +858,14 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_blood_cyclones")
             .name("Cyclones Sanglants")
-            .description("Execution = cyclone chasseur (4s)")
+            .description("Exécuter un ennemi invoque un cyclone chasseur")
             .loreLines(new String[]{
-                "§7Executer un ennemi (<30% PV)",
-                "§7invoque un cyclone chasseur.",
+                "§7Achever un ennemi sous 30% PV",
+                "§7invoque un cyclone de sang qui",
+                "§7pourchasse et blesse les ennemis.",
                 "",
-                "§6Duree: §b4s §7| §6Degats: §c50%",
+                "§6Durée: §b4s",
+                "§6Dégâts: §c50%",
                 "§6Soin: §a1.5% §7PV par touche"
             })
             .classType(ClassType.GUERRIER)
@@ -803,15 +881,18 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_blood_pact")
             .name("Pacte de Sang")
-            .description("Death Strike ameliore + Larves de Sang kamikazes")
+            .description("Améliore Frappe de Mort et invoque des larves")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Stockage ameliore. Overheal invoque",
-                "§7des larves kamikazes explosives.",
+                "§7Améliore le stockage de dégâts.",
+                "§7Le sursoins invoque des larves de",
+                "§7sang kamikazes et explosives.",
                 "",
-                "§6Stockage: §e40% §7PV | §6Max: §e3 §7larves",
-                "§6Larves: §c50% §7AoE (4 blocs) + §a5% §7lifesteal"
+                "§6Stockage amélioré: §e40% §7PV",
+                "§6Maximum: §e3 §7larves",
+                "§6Explosion: §c50% §7(§e4 blocs§7)",
+                "§6Lifesteal: §a5%"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -825,15 +906,18 @@ public final class GuerrierTalents {
         // 7.5 - ÉVISCÉRATION (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_evisceration")
-            .name("Evisceration")
-            .description("Toutes les 5 Fentes = consomme saignements")
+            .name("Éviscération")
+            .description("Consomme tous les saignements pour des dégâts massifs")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§7Toutes les 5 Fentes: consomme les",
-                "§7saignements et inflige les degats.",
+                "§7Toutes les 5 Fentes, consomme tous",
+                "§7les stacks de saignement sur les",
+                "§7ennemis proches et inflige leurs",
+                "§7dégâts restants instantanément.",
                 "",
-                "§6Rayon: §e8 blocs §7| §6Soin: §a50% §7des dgts"
+                "§6Zone: §e8 blocs",
+                "§6Soin: §a50% §7des dégâts infligés"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_7)
@@ -852,13 +936,15 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_earth_apocalypse")
             .name("Apocalypse Terrestre")
-            .description("Proc auto apres 500 degats de zone")
+            .description("Déclenche un séisme automatique après 500 dégâts de zone")
             .loreLines(new String[]{
-                "§7Apres 500 degats de zone cumules,",
-                "§7declenche un seisme automatique.",
+                "§7Après avoir infligé 500 dégâts de",
+                "§7zone cumulés, déclenche un séisme",
+                "§7dévastateur qui étourdit les ennemis.",
                 "",
-                "§6Degats: §c500% §7| §6Rayon: §e8 blocs",
-                "§6Stun: §c1s"
+                "§6Dégâts: §c500%",
+                "§6Zone: §e8 blocs",
+                "§6Étourdissement: §c1s"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -873,16 +959,18 @@ public final class GuerrierTalents {
         // 8.2 - AURA DE DEFI (REMPART)
         TALENTS.add(Talent.builder()
             .id("guerrier_defiance_aura")
-            .name("Aura de Defi")
-            .description("Aura: ennemis affaiblis + reflexion")
+            .name("Aura de Défi")
+            .description("Émet une aura qui affaiblit les ennemis et réfléchit les dégâts")
             .loreLines(new String[]{
                 "§6§lVOIE DU REMPART",
                 "",
-                "§7Aura passive: affaiblit les ennemis",
-                "§7et reflechit les degats melee.",
+                "§7Émet une aura permanente qui",
+                "§7affaiblit les ennemis proches et",
+                "§7réfléchit les dégâts de mêlée.",
                 "",
-                "§6Rayon: §e6 blocs §7| §6Reduction: §a20%",
-                "§6Reflexion: §c30% §7des degats recus"
+                "§6Zone: §e6 blocs",
+                "§6Réduction ennemis: §a20%",
+                "§6Réflexion: §c30% §7des dégâts"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -896,13 +984,16 @@ public final class GuerrierTalents {
         // 7.3 - FRÉNÉSIE GUERRIÈRE
         TALENTS.add(Talent.builder()
             .id("guerrier_warrior_frenzy")
-            .name("Frenesie Guerriere")
-            .description("Combo 5 coups en 3s = +150% degats AoE")
+            .name("Frénésie Guerrière")
+            .description("Enchaîner 5 coups déclenche une explosion dévastatrice")
             .loreLines(new String[]{
-                "§7Enchainer 5 coups en 3s: le 6eme",
-                "§7est une explosion AoE puissante.",
+                "§7Enchaîner 5 coups en 3 secondes",
+                "§7déclenche une explosion de zone",
+                "§7sur la 6ème attaque.",
                 "",
-                "§6Bonus: §c+150% §7dgts | §6Rayon: §e5 blocs"
+                "§6Combo requis: §e5 §7coups en §b3s",
+                "§6Bonus dégâts: §c+150%",
+                "§6Zone: §e5 blocs"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -916,16 +1007,18 @@ public final class GuerrierTalents {
         // 7.4 - COEUR DE VAMPIRE (SANG)
         TALENTS.add(Talent.builder()
             .id("guerrier_vampiric_heart")
-            .name("Coeur de Vampire")
-            .description("Lifesteal permanent + reduit cooldowns")
+            .name("Cœur de Vampire")
+            .description("Lifesteal permanent et régénération accélérée")
             .loreLines(new String[]{
                 "§4§lVOIE DU SANG",
                 "",
-                "§7Lifesteal passif, cooldowns reduits",
-                "§7et regen d'os acceleree.",
+                "§7Octroie un lifesteal passif et",
+                "§7accélère la régénération des",
+                "§7charges d'os et des cooldowns.",
                 "",
-                "§6Lifesteal: §a+8% §7| §6CD reduit: §b0.5s§7/atk",
-                "§6Regen Os: §a×2 §7plus rapide"
+                "§6Lifesteal: §a+8%",
+                "§6Réduction cooldown: §b0.5s §7par attaque",
+                "§6Régénération os: §a×2 §7plus rapide"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -939,17 +1032,20 @@ public final class GuerrierTalents {
         // 8.5 - CHAÎNE DE CARNAGE (VOIE DU FAUVE)
         TALENTS.add(Talent.builder()
             .id("guerrier_carnage_chain")
-            .name("Chaine de Carnage")
-            .description("Kills avec Fente = stacks de Carnage")
+            .name("Chaîne de Carnage")
+            .description("Les éliminations avec Fente déclenchent une onde sanglante")
             .loreLines(new String[]{
                 "§6§lVOIE DU FAUVE",
                 "",
-                "§7Kills avec Fente = stacks Carnage.",
-                "§7A 5 stacks: onde sanglante AoE.",
+                "§7Chaque kill avec Fente accumule",
+                "§7des stacks de Carnage. À 5 stacks,",
+                "§7déclenche une onde sanglante.",
                 "",
-                "§6Par stack: §c+15% §7dgts | §6Max: §e5",
-                "§6Onde: §e6 blocs §7+ §c5 §7saign. + §a25% §7soin",
-                "§6Decay: §b4s §7sans kill"
+                "§6Bonus par stack: §c+15% §7dégâts",
+                "§6Maximum: §e5 §7stacks",
+                "§6Onde: §e6 blocs §7+ §c5 §7saignements",
+                "§6Soin: §a25%",
+                "§6Déclin: §b4s §7sans kill"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_8)
@@ -968,16 +1064,20 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_ragnarok")
             .name("Ragnarok")
-            .description("ULTIME: Double Sneak = zone d'apocalypse!")
+            .description("Invoque une zone d'apocalypse dévastatrice")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§l★ LÉGENDAIRE ★",
                 "",
-                "§6Double Sneak§7: zone d'apocalypse",
-                "§7avec degats massifs et stun.",
+                "§7Invoque une zone d'apocalypse qui",
+                "§7inflige des dégâts massifs, étourdit",
+                "§7les ennemis et brûle la terre.",
                 "",
-                "§6Impact: §c800% §7| §6Zone: §e10 blocs",
-                "§6DoT: §c150%§7/s (5s) | §6Stun: §c2s",
-                "§bCooldown: §f45s"
+                "§6Impact: §c800%",
+                "§6Zone: §e10 blocs",
+                "§6Dégâts sur le temps: §c150%§7/s (§b5s§7)",
+                "§6Étourdissement: §c2s",
+                "",
+                "§bCooldown: §f45s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -993,15 +1093,20 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_bulwark_avatar")
             .name("Avatar du Rempart")
-            .description("ULTIME: Transformation apres blocages cumules")
+            .description("Se transforme en Avatar invincible après blocages cumulés")
             .loreLines(new String[]{
-                "§6§lVOIE DU REMPART - LEGENDAIRE",
+                "§6§l★ LÉGENDAIRE ★",
+                "§6§lVOIE DU REMPART",
                 "",
-                "§7Apres 300 degats bloques: transformation",
-                "§7en Avatar du Rempart (10s).",
+                "§7Après avoir bloqué 300 dégâts,",
+                "§7se transforme en Avatar du Rempart,",
+                "§7une forme de combat ultime.",
                 "",
-                "§6Blocage: §e100% §7| §6Degats: §c+50%",
-                "§6Disques: §e×2 §7| §6Immunite CC"
+                "§6Durée: §b10s",
+                "§6Blocage: §e100%",
+                "§6Dégâts: §c+50%",
+                "§6Disques: §e×2 §7fréquence",
+                "§6Immunité: §7Contrôles de foule"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -1015,16 +1120,20 @@ public final class GuerrierTalents {
         // 8.3 - MÉGA TORNADE
         TALENTS.add(Talent.builder()
             .id("guerrier_mega_tornado")
-            .name("Mega Tornade")
-            .description("Double sneak = transformation en mega tornade")
+            .name("Méga Tornade")
+            .description("Se transforme en tornade géante aspirant les ennemis")
             .loreLines(new String[]{
-                "§6§lTALENT LEGENDAIRE",
+                "§6§l★ LÉGENDAIRE ★",
                 "",
-                "§6Double Sneak§7: devenez une tornade",
-                "§7geante qui aspire les ennemis.",
+                "§7Devenez une tornade géante qui",
+                "§7aspire et déchiquète tous les",
+                "§7ennemis à proximité.",
                 "",
-                "§6Duree: §b10s §7| §6Rayon: §e8 blocs",
-                "§6Degats: §c75%§7/tick | §bCooldown: §f35s"
+                "§6Durée: §b10s",
+                "§6Zone: §e8 blocs",
+                "§6Dégâts: §c75%§7/tick",
+                "",
+                "§bCooldown: §f35s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -1038,16 +1147,22 @@ public final class GuerrierTalents {
         // 8.4 - EPEE DANSANTE (SANG) - TALENT LEGENDAIRE
         TALENTS.add(Talent.builder()
             .id("guerrier_dancing_rune_weapon")
-            .name("Epee Dansante")
-            .description("ULTIME: Epee fantome + double attaques")
+            .name("Épée Dansante")
+            .description("Invoque une épée fantôme qui double vos attaques")
             .loreLines(new String[]{
-                "§4§lVOIE DU SANG - LEGENDAIRE",
+                "§6§l★ LÉGENDAIRE ★",
+                "§4§lVOIE DU SANG",
                 "",
-                "§6Double Sneak§7: epee fantome qui",
-                "§7double vos attaques (15s).",
+                "§7Invoque une épée runique fantôme",
+                "§7qui reproduit toutes vos attaques",
+                "§7et renforce vos capacités.",
                 "",
-                "§6Reduction: §a30% §7| §6Lifesteal: §a+20%",
-                "§6Regen Os: §a1§7/2s | §bCooldown: §f45s"
+                "§6Durée: §b15s",
+                "§6Réduction dégâts: §a30%",
+                "§6Lifesteal: §a+20%",
+                "§6Régénération os: §e1§7/§b2s",
+                "",
+                "§bCooldown: §f45s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
@@ -1063,16 +1178,22 @@ public final class GuerrierTalents {
         TALENTS.add(Talent.builder()
             .id("guerrier_berserker_rage")
             .name("Rage du Berserker")
-            .description("ULTIME: Transformation en berserker geant")
+            .description("Se transforme en berserker géant dévastateur")
             .loreLines(new String[]{
-                "§6§lVOIE DU FAUVE - LEGENDAIRE",
+                "§6§l★ LÉGENDAIRE ★",
+                "§6§lVOIE DU FAUVE",
                 "",
-                "§6Double Sneak§7: devenez un berserker",
-                "§7geant devastateur (12s).",
+                "§7Devenez un berserker géant aux",
+                "§7capacités de combat décuplées.",
+                "§7Les Fentes deviennent instantanées.",
                 "",
-                "§6Taille: §e+75% §7| §6Degats: §c×2",
-                "§6Fente: §b0.1s §7CD | §6Portee: §e+4 blocs",
-                "§bCooldown: §f60s"
+                "§6Durée: §b12s",
+                "§6Taille: §e+75%",
+                "§6Dégâts: §c×2",
+                "§6Cooldown Fente: §b0.1s",
+                "§6Portée: §e+4 blocs",
+                "",
+                "§bCooldown: §f60s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.GUERRIER)
             .tier(TalentTier.TIER_9)
