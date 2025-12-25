@@ -407,7 +407,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Cleanup du système de parcours (Journey)
         if (journeyManager != null) {
-            log(Level.INFO, "§7Arrêt du système de parcours...");
+            log(Level.INFO, "§7Arrêt du système de journal...");
             journeyManager.shutdown();
         }
 

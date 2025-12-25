@@ -65,7 +65,7 @@ commands:
     aliases: [zzca, classadmin]
 
   zzjourneyadmin:
-    description: Gestion admin du parcours (skip, unlockall, reset)
+    description: Gestion admin du journal (skip, unlockall, reset)
     usage: /<command> <info|skip|unlockall|reset|setchapter|setstep> <joueur>
     permission: zombiez.admin.journey
     aliases: [zzja, journeyadmin]
@@ -113,10 +113,10 @@ commands:
     aliases: [refuges, shelter]
 
   journey:
-    description: Parcours du Survivant - Système de progression guidée
+    description: Journal du Survivant - Système de progression guidée
     usage: /<command> [info|chapter|progress|help]
     permission: zombiez.journey
-    aliases: [parcours, j]
+    aliases: [journal, j]
 
   # Commandes Recyclage
   recycle:

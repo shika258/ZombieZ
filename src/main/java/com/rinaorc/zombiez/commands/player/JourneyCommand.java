@@ -89,7 +89,7 @@ public class JourneyCommand implements CommandExecutor, TabCompleter {
         JourneyChapter chapter = manager.getCurrentChapter(player);
 
         if (step == null) {
-            player.sendMessage("§7Tu as complété tout le parcours!");
+            player.sendMessage("§7Tu as complété tout le journal!");
             return;
         }
 
@@ -118,7 +118,7 @@ public class JourneyCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
-        player.sendMessage("  §6§lPARCOURS DU SURVIVANT");
+        player.sendMessage("  §6§lJOURNAL DU SURVIVANT");
         player.sendMessage("");
         player.sendMessage("  §7Progression globale: §e" + String.format("%.1f", overall) + "%");
         player.sendMessage("  §7Chapitres complétés: §a" + completedChapters + "§7/§a12");
@@ -143,12 +143,12 @@ public class JourneyCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§8§m                                        ");
         player.sendMessage("  §e§l/JOURNEY - Aide");
         player.sendMessage("");
-        player.sendMessage("  §e/journey §8- §7Ouvre le menu du parcours");
+        player.sendMessage("  §e/journey §8- §7Ouvre le menu du journal");
         player.sendMessage("  §e/journey info §8- §7Affiche l'étape actuelle");
         player.sendMessage("  §e/journey chapter [n] §8- §7Voir un chapitre");
         player.sendMessage("  §e/journey progress §8- §7Résumé de progression");
         player.sendMessage("");
-        player.sendMessage("  §7Le parcours te guide dans ta progression.");
+        player.sendMessage("  §7Le journal te guide dans ta progression.");
         player.sendMessage("  §c⚠ Les zones et fonctionnalités sont BLOQUÉES");
         player.sendMessage("  §ctant que les chapitres ne sont pas complétés!");
         player.sendMessage("§8§m                                        ");

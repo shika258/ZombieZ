@@ -45,7 +45,7 @@ public class ClassSelectionGUI implements Listener {
             player.sendMessage("");
             player.sendMessage("§c§l⚠ SÉLECTION DE CLASSE VERROUILLÉE");
             player.sendMessage("");
-            player.sendMessage("§7Tu dois d'abord terminer le §eChapitre 1§7 du Parcours");
+            player.sendMessage("§7Tu dois d'abord terminer le §eChapitre 1§7 du Journal");
             player.sendMessage("§7pour débloquer la sélection de classe.");
             player.sendMessage("");
             player.sendMessage("§7Tape §e/journey §7pour voir ta progression!");

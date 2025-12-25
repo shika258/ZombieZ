@@ -76,7 +76,7 @@ public class ClassCommand implements CommandExecutor, TabCompleter {
                 if (classType != null) {
                     // Vérifier si le joueur peut accéder à la sélection de classe
                     if (!plugin.getJourneyManager().canAccessClassSelection(player)) {
-                        player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Parcours pour choisir une classe!");
+                        player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Journal pour choisir une classe!");
                         player.sendMessage("§7Tape §e/journey §7pour voir ta progression.");
                         return true;
                     }

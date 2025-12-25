@@ -226,7 +226,7 @@ public class ClassManager {
 
         // Vérifier si le joueur peut accéder à la sélection de classe (Journey gate)
         if (!plugin.getJourneyManager().canAccessClassSelection(player)) {
-            player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Parcours pour choisir une classe!");
+            player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Journal pour choisir une classe!");
             return false;
         }
 

@@ -652,7 +652,7 @@ public class JourneyListener implements Listener {
 
         player.sendMessage("");
         player.sendMessage("§8§m                                                ");
-        player.sendMessage("  §e§lPARCOURS DU SURVIVANT");
+        player.sendMessage("  §e§lJOURNAL DU SURVIVANT");
         player.sendMessage("");
         player.sendMessage("  §7Progression: §e" + String.format("%.1f", overallProgress) + "%");
         player.sendMessage("  §7Chapitre: " + currentChapter.getFormattedTitle());
@@ -660,7 +660,7 @@ public class JourneyListener implements Listener {
             player.sendMessage("  §7Étape: §f" + currentStep.getName());
         }
         player.sendMessage("");
-        player.sendMessage("  §7Tape §e/journey §7pour voir ton parcours!");
+        player.sendMessage("  §7Tape §e/journey §7pour voir ton journal!");
         player.sendMessage("§8§m                                                ");
         player.sendMessage("");
     }

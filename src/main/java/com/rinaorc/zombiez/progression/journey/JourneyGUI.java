@@ -31,7 +31,7 @@ import java.util.List;
 public class JourneyGUI implements Listener {
 
     private final ZombieZPlugin plugin;
-    private static final String MAIN_TITLE = "§8§l« §6§lParcours du Survivant §8§l»";
+    private static final String MAIN_TITLE = "§8§l« §6§lJournal du Survivant §8§l»";
     private static final String CHAPTER_TITLE = "§8§l« §e§lChapitre %d §7- §f%s §8§l»";
 
     // Identifiants pour reconnaître les inventaires
@@ -559,7 +559,7 @@ public class JourneyGUI implements Listener {
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Le Parcours du Survivant te guide"));
+        lore.add(Component.text("§7Le Journal du Survivant te guide"));
         lore.add(Component.text("§7à travers §e12 chapitres §7d'aventure."));
         lore.add(Component.text(""));
         lore.add(Component.text("§c§l⚠ IMPORTANT:"));
