@@ -38,9 +38,11 @@ public class PassiveMobManager implements Listener {
     private final Map<Integer, ZoneSpawnConfig> zoneConfigs;
 
     // Limites globales
-    private int maxMobsPerZone = 8;
-    private int spawnCheckIntervalTicks = 600; // 30 secondes
-    private double baseSpawnChance = 0.15; // 15% de chance par check
+    private static final int BASE_MAX_MOBS_PER_ZONE = 8;
+    private static final int MAX_MOBS_BONUS_HIGH_ZONES = 4; // Bonus pour zones 16+
+    private int spawnCheckIntervalTicks = 400; // 20 secondes (plus fréquent)
+    private double baseSpawnChance = 0.20; // 20% de chance par check (augmenté)
+    private static final double MIN_SPAWN_CHANCE = 0.08; // 8% minimum garanti
 
     private final Random random = new Random();
 
@@ -140,23 +142,60 @@ public class PassiveMobManager implements Listener {
                     continue;
                 }
 
+                // Calculer la limite dynamique de mobs pour cette zone
+                int maxMobsForZone = calculateMaxMobsForZone(zoneId);
+
                 // Vérifier le nombre de mobs dans la zone
                 long currentCount = activeMobs.values().stream()
                     .filter(m -> m.zoneId == zoneId)
                     .count();
 
-                if (currentCount >= maxMobsPerZone) {
+                if (currentCount >= maxMobsForZone) {
                     continue;
                 }
 
-                // Chance de spawn ajustée par zone (zones plus élevées = mobs plus rares mais meilleurs)
-                double adjustedChance = baseSpawnChance * (1.0 - (zoneId * 0.05));
+                // Chance de spawn ajustée par zone avec minimum garanti
+                // Formule: décroissance douce qui ne descend jamais sous le minimum
+                double adjustedChance = calculateSpawnChance(zoneId);
 
                 if (random.nextDouble() < adjustedChance) {
                     spawnRandomMobNearPlayer(player, config);
                 }
             }
         }
+    }
+
+    /**
+     * Calcule la limite de mobs passifs pour une zone donnée
+     * Les zones avancées (16+) ont un bonus pour compenser la difficulté
+     */
+    private int calculateMaxMobsForZone(int zoneId) {
+        if (zoneId >= 30) {
+            // Zones très avancées: plus de mobs pour compenser la difficulté
+            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES + 2;
+        } else if (zoneId >= 16) {
+            // Zones avancées: bonus standard
+            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES;
+        } else if (zoneId >= 10) {
+            // Zones intermédiaires: petit bonus
+            return BASE_MAX_MOBS_PER_ZONE + 2;
+        }
+        return BASE_MAX_MOBS_PER_ZONE;
+    }
+
+    /**
+     * Calcule la chance de spawn pour une zone avec minimum garanti
+     * Utilise une décroissance logarithmique douce au lieu d'une réduction linéaire
+     * qui empêchait tout spawn après la zone 20
+     */
+    private double calculateSpawnChance(int zoneId) {
+        // Formule: chance = base * (1 / (1 + zone * 0.03))
+        // Cela donne une décroissance douce qui ne tombe jamais à 0
+        double decayFactor = 1.0 / (1.0 + (zoneId * 0.03));
+        double chance = baseSpawnChance * decayFactor;
+
+        // Appliquer le minimum garanti
+        return Math.max(chance, MIN_SPAWN_CHANCE);
     }
 
     /**
