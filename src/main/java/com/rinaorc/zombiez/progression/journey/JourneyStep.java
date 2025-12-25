@@ -25,17 +25,17 @@ public enum JourneyStep {
         "Première victime...", StepType.ZOMBIE_KILLS, 1,
         50, 1, Material.ROTTEN_FLESH),
 
-    STEP_1_2(JourneyChapter.CHAPTER_1, 2, "Atteins le niveau 3",
-        "Les premiers pas vers la puissance", StepType.LEVEL, 3,
-        100, 2, Material.EXPERIENCE_BOTTLE),
+    STEP_1_2(JourneyChapter.CHAPTER_1, 2, "Tue 10 zombies",
+        "Tu prends le coup de main", StepType.ZOMBIE_KILLS, 10,
+        100, 2, Material.IRON_SWORD),
 
-    STEP_1_3(JourneyChapter.CHAPTER_1, 3, "Explore la Zone 1 (50%)",
+    STEP_1_3(JourneyChapter.CHAPTER_1, 3, "Atteins le niveau 2",
+        "Premier level up!", StepType.LEVEL, 2,
+        150, 3, Material.EXPERIENCE_BOTTLE),
+
+    STEP_1_4(JourneyChapter.CHAPTER_1, 4, "Explore la Zone 1 (50%)",
         "Découvre ton environnement", StepType.ZONE_PROGRESS, 50,
-        150, 3, Material.COMPASS),
-
-    STEP_1_4(JourneyChapter.CHAPTER_1, 4, "Tue 25 zombies",
-        "Tu commences à prendre le coup de main", StepType.ZOMBIE_KILLS, 25,
-        200, 4, Material.IRON_SWORD),
+        200, 4, Material.COMPASS),
 
     STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Atteins le niveau 5",
         "Prêt à choisir ta voie", StepType.LEVEL, 5,
