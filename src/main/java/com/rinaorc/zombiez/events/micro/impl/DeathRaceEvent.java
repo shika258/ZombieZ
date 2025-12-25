@@ -53,11 +53,12 @@ public class DeathRaceEvent extends MicroEvent {
     private TextDisplay titleDisplay;
 
     // Configuration
-    private static final int MIN_ZOMBIES = 8;
-    private static final int MAX_ZOMBIES = 12;
+    private static final int MIN_ZOMBIES = 7;
+    private static final int MAX_ZOMBIES = 11;
     private static final double ZOMBIE_HEALTH = 20.0;
     private static final double SPAWN_RADIUS = 48.0; // Rayon de spawn autour du joueur
     private static final float TEXT_SCALE = 1.5f;
+    private static final int MAX_SPAWN_ATTEMPTS = 15; // Tentatives max par zombie
 
     public DeathRaceEvent(ZombieZPlugin plugin, Player player, Location location, Zone zone, MicroEventManager manager) {
         super(plugin, MicroEventType.DEATH_RACE, player, location, zone);
@@ -92,28 +93,24 @@ public class DeathRaceEvent extends MicroEvent {
         // Spawn les zombies aleatoirement dans un rayon de 48 blocs autour du joueur
         Location playerLoc = player.getLocation();
         java.util.Random random = new java.util.Random();
+        int spawnedCount = 0;
 
         for (int i = 0; i < totalZombies; i++) {
-            // Position aleatoire dans le rayon de spawn
-            double angle = random.nextDouble() * Math.PI * 2;
-            double distance = 10 + random.nextDouble() * (SPAWN_RADIUS - 10); // Min 10 blocs, max 48 blocs
+            Location zombieLoc = findValidSpawnLocation(playerLoc, random);
 
-            Location zombieLoc = playerLoc.clone().add(
-                Math.cos(angle) * distance,
-                0,
-                Math.sin(angle) * distance
-            );
-
-            // Ajuster au sol (trouver le bloc solide le plus haut)
-            zombieLoc.setY(zombieLoc.getWorld().getHighestBlockYAt(zombieLoc) + 1);
+            // Si aucune position valide trouvee, skip ce zombie
+            if (zombieLoc == null) {
+                continue;
+            }
 
             // Spawn le zombie
             Zombie zombie = (Zombie) zombieLoc.getWorld().spawnEntity(zombieLoc, EntityType.ZOMBIE);
             raceZombies.add(zombie.getUniqueId());
             registerEntity(zombie);
+            spawnedCount++;
 
             // Configuration - zombies cibles statiques avec GLOWING
-            zombie.setCustomName("§b§l🎯 " + (i + 1) + " §7/ " + totalZombies);
+            zombie.setCustomName("§b§l🎯 CIBLE");
             zombie.setCustomNameVisible(true);
             zombie.setBaby(false);
             zombie.setShouldBurnInDay(false);
@@ -135,14 +132,32 @@ public class DeathRaceEvent extends MicroEvent {
             zombie.addScoreboardTag("event_" + id);
 
             // Effet de spawn en sequence
-            final int index = i;
+            final int index = spawnedCount - 1;
             final Location spawnLoc = zombieLoc.clone();
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (zombie.isValid()) {
                     spawnLoc.getWorld().spawnParticle(Particle.FLASH, spawnLoc.clone().add(0, 1, 0), 1);
                     spawnLoc.getWorld().playSound(spawnLoc, Sound.BLOCK_NOTE_BLOCK_HAT, 0.5f, 1f + (index * 0.1f));
                 }
-            }, i * 2L);
+            }, index * 2L);
+        }
+
+        // Mettre a jour le nombre reel de zombies spawnes
+        this.totalZombies = spawnedCount;
+
+        // Verifier qu'au moins quelques zombies ont spawn
+        if (spawnedCount < 3) {
+            player.sendMessage("§c§l✗ §7Impossible de lancer la course - terrain inadapte!");
+            fail();
+            return;
+        }
+
+        // Mettre a jour le TextDisplay avec le nombre reel
+        if (titleDisplay != null && titleDisplay.isValid()) {
+            titleDisplay.text(Component.text("🏃 COURSE MORTELLE 🏃", NamedTextColor.AQUA, TextDecoration.BOLD)
+                .appendNewline()
+                .append(Component.text("Cibles: ", NamedTextColor.GRAY))
+                .append(Component.text(totalZombies + " zombies", NamedTextColor.RED)));
         }
 
         // Afficher le record actuel
@@ -371,5 +386,61 @@ public class DeathRaceEvent extends MicroEvent {
         }
 
         return true;
+    }
+
+    /**
+     * Trouve une position de spawn valide pour un zombie cible
+     * Effectue plusieurs tentatives avec des positions aleatoires
+     *
+     * @param playerLoc Position du joueur (centre du rayon de spawn)
+     * @param random Generateur aleatoire
+     * @return Position valide ou null si aucune trouvee
+     */
+    private Location findValidSpawnLocation(Location playerLoc, java.util.Random random) {
+        org.bukkit.World world = playerLoc.getWorld();
+        if (world == null) return null;
+
+        for (int attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++) {
+            // Position aleatoire dans le rayon de spawn
+            double angle = random.nextDouble() * Math.PI * 2;
+            double distance = 10 + random.nextDouble() * (SPAWN_RADIUS - 10); // Min 10 blocs, max 48 blocs
+
+            double x = playerLoc.getX() + Math.cos(angle) * distance;
+            double z = playerLoc.getZ() + Math.sin(angle) * distance;
+
+            // Trouver le bloc solide le plus haut
+            int highestY = world.getHighestBlockYAt((int) x, (int) z);
+
+            // Eviter les spawns trop hauts (toits, arbres) ou trop bas
+            if (highestY > playerLoc.getY() + 10 || highestY < playerLoc.getY() - 20) {
+                continue;
+            }
+
+            Location spawnLoc = new Location(world, x, highestY + 1, z);
+
+            // Verifier que le sol est solide
+            org.bukkit.block.Block groundBlock = spawnLoc.clone().add(0, -1, 0).getBlock();
+            if (!groundBlock.getType().isSolid()) {
+                continue;
+            }
+
+            // Verifier que l'espace au-dessus est libre (2 blocs pour le zombie)
+            org.bukkit.block.Block feetBlock = spawnLoc.getBlock();
+            org.bukkit.block.Block headBlock = spawnLoc.clone().add(0, 1, 0).getBlock();
+            if (feetBlock.getType().isSolid() || headBlock.getType().isSolid()) {
+                continue;
+            }
+
+            // Eviter l'eau et la lave
+            if (groundBlock.isLiquid() || feetBlock.isLiquid()) {
+                continue;
+            }
+
+            // Position valide trouvee
+            return spawnLoc;
+        }
+
+        // Aucune position valide trouvee apres MAX_SPAWN_ATTEMPTS tentatives
+        return null;
     }
 }
