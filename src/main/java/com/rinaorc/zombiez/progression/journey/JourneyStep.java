@@ -349,7 +349,7 @@ public enum JourneyStep {
             case ZONE_PROGRESS -> current + "/" + targetValue + "%";
             case SURVIVE_ZONE_TIME, SURVIVE_ENVIRONMENT -> formatTime(current) + "/" + formatTime(targetValue);
             case KILL_STREAK -> current + "/" + targetValue + " kills d'affilée";
-            case SELECT_CLASS -> current >= 1 ? "✓ Classe choisie" : "Choisis une classe";
+            case SELECT_CLASS -> current >= 1 ? "✓ Classe choisie" : "Fais /classe";
             case USE_CLASS_TRAIT, USE_TALENT -> current + "/" + targetValue + " utilisations";
             case UNLOCK_TALENT, UNLOCK_SKILLS, TALENTS_UNLOCKED -> current + "/" + targetValue + " débloqué(s)";
             case SKILL_TIER -> "Tier " + current + "/" + targetValue;
