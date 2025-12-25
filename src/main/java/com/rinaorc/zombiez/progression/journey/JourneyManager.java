@@ -84,6 +84,13 @@ public class JourneyManager {
         double percent = step.getProgressPercent(progress) / 100.0;
         String progressText = step.getProgressText(progress);
 
+        // Vérification automatique de complétion pour les objectifs basés sur l'état (LEVEL, CLASS_LEVEL, etc.)
+        // Cette vérification est cruciale car ces objectifs peuvent être atteints avant d'arriver à l'étape
+        if (step.isCompleted(progress) && getCurrentStep(player) == step) {
+            checkCurrentStepCompletion(player, step);
+            // Note: la complétion se fera en async, la prochaine mise à jour de la BossBar reflètera le changement
+        }
+
         // Couleur selon la phase
         BarColor color = switch (step.getChapter().getPhase()) {
             case 1 -> BarColor.GREEN;
