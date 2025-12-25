@@ -37,7 +37,11 @@ public enum JourneyStep {
         "Découvre ton environnement", StepType.ZONE_PROGRESS, 50,
         200, 4, Material.COMPASS),
 
-    STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Atteins le niveau 3",
+    STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Trouve le Coffre Mystérieux",
+        "Un coffre secret se cache dans la Zone 1...", StepType.DISCOVER_CHEST, 1,
+        250, 4, Material.CHEST),
+
+    STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Atteins le niveau 3",
         "Prêt à choisir ta voie", StepType.LEVEL, 3,
         300, 5, Material.NETHER_STAR),
 
@@ -359,6 +363,7 @@ public enum JourneyStep {
             case KILL_PATIENT_ZERO -> current >= 1 ? "✓ Patient Zéro vaincu" : "Vaincs Patient Zéro";
             case ACHIEVEMENTS -> current + "/" + targetValue + " achievements";
             case RECYCLE_ITEMS -> current + "/" + targetValue + " items recyclés";
+            case DISCOVER_CHEST -> current >= targetValue ? "✓ Coffre découvert!" : "Cherche le coffre...";
         };
     }
 
@@ -476,7 +481,10 @@ public enum JourneyStep {
         ACHIEVEMENTS("Complète des achievements"),
 
         // Recyclage
-        RECYCLE_ITEMS("Recycle des items");
+        RECYCLE_ITEMS("Recycle des items"),
+
+        // Coffres mystères
+        DISCOVER_CHEST("Découvre un coffre mystérieux");
 
         private final String description;
 

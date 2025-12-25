@@ -1006,6 +1006,41 @@ public class PlayerData {
         completedJourneyChapters.clear();
         unlockedJourneyGates.clear();
         journeyStepProgress.clear();
+        discoveredMysteryChests.clear();
         markDirty();
+    }
+
+    // ==================== COFFRES MYSTÈRES ====================
+
+    // IDs des coffres mystères découverts par le joueur
+    private final Set<String> discoveredMysteryChests = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Ajoute un coffre mystère découvert
+     */
+    public void addDiscoveredChest(String chestId) {
+        discoveredMysteryChests.add(chestId);
+        markDirty();
+    }
+
+    /**
+     * Vérifie si un coffre mystère a été découvert
+     */
+    public boolean hasDiscoveredChest(String chestId) {
+        return discoveredMysteryChests.contains(chestId);
+    }
+
+    /**
+     * Obtient tous les coffres mystères découverts
+     */
+    public Set<String> getDiscoveredMysteryChests() {
+        return Set.copyOf(discoveredMysteryChests);
+    }
+
+    /**
+     * Charge les coffres mystères découverts (pour désérialisation)
+     */
+    public void loadDiscoveredChests(Set<String> chests) {
+        discoveredMysteryChests.addAll(chests);
     }
 }
