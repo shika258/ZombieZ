@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.ArrayList;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -218,35 +219,90 @@ public class AwakenManager {
 
     /**
      * Vérifie si un éveil est actif pour un joueur via l'item en main
+     * (Méthode legacy pour compatibilité - préférez getAllActiveAwakens)
      *
      * @param player Le joueur
-     * @return L'éveil actif ou null
+     * @return Le premier éveil actif trouvé ou null
      */
     public Awaken getActiveAwaken(Player player) {
+        List<Awaken> awakenings = getAllActiveAwakens(player);
+        return awakenings.isEmpty() ? null : awakenings.get(0);
+    }
+
+    /**
+     * Récupère tous les éveils actifs depuis l'équipement du joueur
+     * Vérifie: main hand, armures équipées, et off-hand
+     *
+     * @param player Le joueur
+     * @return Liste des éveils actifs (peut être vide)
+     */
+    public List<Awaken> getAllActiveAwakens(Player player) {
+        List<Awaken> activeAwakens = new ArrayList<>();
+
+        // Vérifier main hand
         ItemStack mainHand = player.getInventory().getItemInMainHand();
-        if (!ZombieZItem.isZombieZItem(mainHand)) return null;
+        if (ZombieZItem.isZombieZItem(mainHand)) {
+            Awaken awaken = getAwakenFromItem(mainHand);
+            if (awaken != null && isAwakenActive(player, awaken)) {
+                activeAwakens.add(awaken);
+            }
+        }
 
-        Awaken awaken = getAwakenFromItem(mainHand);
-        if (awaken == null) return null;
+        // Vérifier les armures équipées
+        for (ItemStack armorPiece : player.getInventory().getArmorContents()) {
+            if (armorPiece != null && ZombieZItem.isZombieZItem(armorPiece)) {
+                Awaken awaken = getAwakenFromItem(armorPiece);
+                if (awaken != null && isAwakenActive(player, awaken)) {
+                    activeAwakens.add(awaken);
+                }
+            }
+        }
 
-        return isAwakenActive(player, awaken) ? awaken : null;
+        // Vérifier off-hand
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (ZombieZItem.isZombieZItem(offHand)) {
+            Awaken awaken = getAwakenFromItem(offHand);
+            if (awaken != null && isAwakenActive(player, awaken)) {
+                activeAwakens.add(awaken);
+            }
+        }
+
+        return activeAwakens;
+    }
+
+    /**
+     * Récupère l'éveil actif pour un talent spécifique
+     * Cherche dans tout l'équipement du joueur
+     *
+     * @param player Le joueur
+     * @param talentId L'ID du talent
+     * @return L'éveil correspondant au talent ou null
+     */
+    public Awaken getActiveAwakenForTalent(Player player, String talentId) {
+        if (talentId == null) return null;
+
+        for (Awaken awaken : getAllActiveAwakens(player)) {
+            if (talentId.equals(awaken.getTargetTalentId())) {
+                return awaken;
+            }
+        }
+        return null;
     }
 
     /**
      * Obtient l'éveil actif pour un type d'effet de talent spécifique
+     * Cherche dans tout l'équipement du joueur
      *
      * @param player Le joueur
      * @param effectType Le type d'effet du talent
      * @return L'éveil actif ou null
      */
     public Awaken getActiveAwakenForEffect(Player player, Talent.TalentEffectType effectType) {
-        Awaken awaken = getActiveAwaken(player);
-        if (awaken == null) return null;
-
-        if (awaken.getTargetEffectType() == effectType) {
-            return awaken;
+        for (Awaken awaken : getAllActiveAwakens(player)) {
+            if (awaken.getTargetEffectType() == effectType) {
+                return awaken;
+            }
         }
-
         return null;
     }
 

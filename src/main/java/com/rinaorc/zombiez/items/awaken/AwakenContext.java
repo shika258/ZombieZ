@@ -347,6 +347,7 @@ public class AwakenContext {
 
     /**
      * Crée un contexte d'exécution pour un talent
+     * Cherche l'éveil correspondant dans tout l'équipement (main hand, armures, off-hand)
      *
      * @param plugin Le plugin
      * @param player Le joueur
@@ -358,12 +359,9 @@ public class AwakenContext {
         AwakenManager awakenManager = plugin.getAwakenManager();
         Awaken activeAwaken = null;
 
-        if (awakenManager != null) {
-            Awaken awaken = awakenManager.getActiveAwaken(player);
-            if (awaken != null && talent != null &&
-                talent.getId().equals(awaken.getTargetTalentId())) {
-                activeAwaken = awaken;
-            }
+        if (awakenManager != null && talent != null) {
+            // Cherche un éveil correspondant au talent dans tout l'équipement
+            activeAwaken = awakenManager.getActiveAwakenForTalent(player, talent.getId());
         }
 
         return AwakenContext.builder()

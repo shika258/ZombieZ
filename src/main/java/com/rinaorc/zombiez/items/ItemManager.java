@@ -221,9 +221,11 @@ public class ItemManager {
             return zItem.toItemStack();
         }
 
-        // Seules les armes peuvent avoir des éveils
-        if (!zItem.getItemType().getCategory().equals(
-                com.rinaorc.zombiez.items.types.ItemType.ItemCategory.WEAPON)) {
+        // Les armes, armures et items off-hand peuvent avoir des éveils
+        var category = zItem.getItemType().getCategory();
+        if (category != com.rinaorc.zombiez.items.types.ItemType.ItemCategory.WEAPON &&
+            category != com.rinaorc.zombiez.items.types.ItemType.ItemCategory.ARMOR &&
+            category != com.rinaorc.zombiez.items.types.ItemType.ItemCategory.OFFHAND) {
             return zItem.toItemStack();
         }
 
