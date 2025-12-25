@@ -433,6 +433,18 @@ public class JourneyListener implements Listener {
         }
     }
 
+    /**
+     * Appelé quand le joueur recycle des items
+     */
+    public void onRecycleItems(Player player, int totalRecycled) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        if (currentStep.getType() == JourneyStep.StepType.RECYCLE_ITEMS) {
+            journeyManager.updateProgress(player, JourneyStep.StepType.RECYCLE_ITEMS, totalRecycled);
+        }
+    }
+
     // ==================== TRACKING DU TEMPS DE SURVIE ====================
 
     /**

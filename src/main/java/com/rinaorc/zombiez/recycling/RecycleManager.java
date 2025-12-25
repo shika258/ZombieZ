@@ -146,6 +146,9 @@ public class RecycleManager implements Listener {
 
             // Vérifier les milestones
             checkAndAwardMilestones(player, settings, points);
+
+            // Tracker pour le parcours (Journey)
+            notifyJourneyProgress(player, settings);
         }
 
         return points;
@@ -498,6 +501,9 @@ public class RecycleManager implements Listener {
             // Vérifier les milestones UNE SEULE FOIS à la fin
             checkMilestonesAfterBatch(player, settings, bestSingleRecycle);
 
+            // Tracker pour le parcours (Journey)
+            notifyJourneyProgress(player, settings);
+
             // Feedback sonore
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
         }
@@ -711,5 +717,16 @@ public class RecycleManager implements Listener {
         };
 
         return (int) Math.min(100, (currentValue * 100) / milestone.getRequiredValue());
+    }
+
+    /**
+     * Notifie le système de parcours (Journey) de la progression du recyclage
+     */
+    private void notifyJourneyProgress(Player player, RecycleSettings settings) {
+        var journeyListener = plugin.getJourneyListener();
+        if (journeyListener != null) {
+            int totalRecycled = (int) settings.getTotalItemsRecycled().get();
+            journeyListener.onRecycleItems(player, totalRecycled);
+        }
     }
 }
