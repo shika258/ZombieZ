@@ -842,4 +842,104 @@ public class PlayerData {
     // Données de recyclage sérialisées
     @Setter @Getter
     private String recycleSettingsData = "";
+
+    // ==================== PARCOURS (JOURNEY) ====================
+
+    // Chapitre et étape actuels
+    private final AtomicInteger currentJourneyChapter = new AtomicInteger(1);
+    private final AtomicInteger currentJourneyStep = new AtomicInteger(1);
+
+    // Étapes complétées (set d'IDs comme "1_3" pour Chapitre 1, Étape 3)
+    private final Set<String> completedJourneySteps = ConcurrentHashMap.newKeySet();
+
+    // Chapitres complétés
+    private final Set<Integer> completedJourneyChapters = ConcurrentHashMap.newKeySet();
+
+    // Gates débloquées (noms des JourneyGate)
+    private final Set<String> unlockedJourneyGates = ConcurrentHashMap.newKeySet();
+
+    // Progression par étape (stepId -> valeur de progression)
+    private final Map<String, Integer> journeyStepProgress = new ConcurrentHashMap<>();
+
+    // Getters pour le chapitre/étape actuels
+    public int getCurrentJourneyChapter() { return currentJourneyChapter.get(); }
+    public int getCurrentJourneyStep() { return currentJourneyStep.get(); }
+
+    public void setCurrentJourneyChapter(int chapter) {
+        currentJourneyChapter.set(chapter);
+        markDirty();
+    }
+
+    public void setCurrentJourneyStep(int step) {
+        currentJourneyStep.set(step);
+        markDirty();
+    }
+
+    // Étapes complétées
+    public void addCompletedJourneyStep(String stepId) {
+        completedJourneySteps.add(stepId);
+        markDirty();
+    }
+
+    public boolean hasCompletedJourneyStep(String stepId) {
+        return completedJourneySteps.contains(stepId);
+    }
+
+    public Set<String> getCompletedJourneySteps() {
+        return Set.copyOf(completedJourneySteps);
+    }
+
+    // Chapitres complétés
+    public void addCompletedJourneyChapter(int chapterId) {
+        completedJourneyChapters.add(chapterId);
+        markDirty();
+    }
+
+    public boolean hasCompletedJourneyChapter(int chapterId) {
+        return completedJourneyChapters.contains(chapterId);
+    }
+
+    public Set<Integer> getCompletedJourneyChapters() {
+        return Set.copyOf(completedJourneyChapters);
+    }
+
+    // Gates débloquées
+    public void addJourneyGate(String gateName) {
+        unlockedJourneyGates.add(gateName);
+        markDirty();
+    }
+
+    public boolean hasJourneyGate(String gateName) {
+        return unlockedJourneyGates.contains(gateName);
+    }
+
+    public Set<String> getUnlockedJourneyGates() {
+        return Set.copyOf(unlockedJourneyGates);
+    }
+
+    // Progression par étape
+    public int getJourneyStepProgress(String stepId) {
+        return journeyStepProgress.getOrDefault(stepId, 0);
+    }
+
+    public void setJourneyStepProgress(String stepId, int progress) {
+        journeyStepProgress.put(stepId, progress);
+        markDirty();
+    }
+
+    public Map<String, Integer> getJourneyStepProgressMap() {
+        return Map.copyOf(journeyStepProgress);
+    }
+
+    // Pour la sérialisation/désérialisation en BDD
+    public void loadJourneyData(int chapter, int step, Set<String> completedSteps,
+                                Set<Integer> completedChapters, Set<String> gates,
+                                Map<String, Integer> progress) {
+        currentJourneyChapter.set(chapter);
+        currentJourneyStep.set(step);
+        completedJourneySteps.addAll(completedSteps);
+        completedJourneyChapters.addAll(completedChapters);
+        unlockedJourneyGates.addAll(gates);
+        journeyStepProgress.putAll(progress);
+    }
 }

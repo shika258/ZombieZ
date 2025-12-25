@@ -275,14 +275,23 @@ public class SkillTreeManager {
         // Débloquer
         data.addSkill(skillId);
         data.addSpentSkillPoints(skill.cost());
-        
+
         // Notification
         player.sendMessage("§a✓ Compétence débloquée: §e" + skill.name());
         player.sendMessage("§7" + skill.description());
-        
+
         // Appliquer immédiatement les effets passifs
         applySkillEffects(player);
-        
+
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            int totalSkills = data.getUnlockedSkills().size();
+            plugin.getJourneyListener().onUnlockSkill(player, totalSkills);
+
+            // Notifier aussi du tier atteint
+            plugin.getJourneyListener().onSkillTierReached(player, skill.tier());
+        }
+
         return true;
     }
 

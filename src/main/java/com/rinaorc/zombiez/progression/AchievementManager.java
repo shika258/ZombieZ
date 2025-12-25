@@ -1206,6 +1206,12 @@ public class AchievementManager {
         // Vérifier les milestones
         checkMilestones(player);
 
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            int totalAchievements = getUnlockedCount(player);
+            plugin.getJourneyListener().onAchievementUnlock(player, totalAchievements);
+        }
+
         // Débloquer le titre si présent
         if (achievement.title() != null && !achievement.title().isEmpty()) {
             data.addTitle(achievement.id());

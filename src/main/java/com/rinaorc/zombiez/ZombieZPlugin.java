@@ -211,6 +211,12 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.worldboss.WorldBossManager worldBossManager;
 
+    // Système de Parcours (Journey) - Progression guidée
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.JourneyManager journeyManager;
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -498,6 +504,11 @@ public class ZombieZPlugin extends JavaPlugin {
         worldBossManager = new com.rinaorc.zombiez.worldboss.WorldBossManager(this);
         worldBossManager.start();
 
+        // ===== Système de Parcours (Journey) =====
+
+        // Journey Manager - Progression guidée avec blocage de zones
+        journeyManager = new com.rinaorc.zombiez.progression.journey.JourneyManager(this);
+
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);
 
@@ -695,6 +706,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("refuge").setExecutor(refugeCmd);
         getCommand("refuge").setTabCompleter(refugeCmd);
 
+        // Commande Joueur - Parcours (Journey)
+        com.rinaorc.zombiez.commands.player.JourneyCommand journeyCmd = new com.rinaorc.zombiez.commands.player.JourneyCommand(this);
+        getCommand("journey").setExecutor(journeyCmd);
+        getCommand("journey").setTabCompleter(journeyCmd);
+
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
         getCommand("bank").setExecutor(bankCmd);
@@ -756,6 +772,10 @@ public class ZombieZPlugin extends JavaPlugin {
         pm.registerEvents(new InteractListener(this), this);
         pm.registerEvents(new ZoneChangeListener(this), this);
         pm.registerEvents(new BlockProtectionListener(this), this);
+
+        // Listener système de parcours (Journey) - Blocage de zones et progression
+        journeyListener = new com.rinaorc.zombiez.progression.journey.JourneyListener(this);
+        pm.registerEvents(journeyListener, this);
 
         // Listeners système d'items
         itemListener = new ItemListener(this);

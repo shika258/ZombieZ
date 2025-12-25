@@ -215,6 +215,12 @@ public class TalentManager {
                     plugin.getBeastManager().summonBeastsForPlayer(player);
                 }, 2L);
             }
+
+            // Notifier le système de Parcours (Journey)
+            if (plugin.getJourneyListener() != null) {
+                int totalTalents = data.getSelectedTalentCount();
+                plugin.getJourneyListener().onUnlockTalent(player, totalTalents);
+            }
         }
 
         return success;

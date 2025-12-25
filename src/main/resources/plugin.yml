@@ -106,6 +106,12 @@ commands:
     permission: zombiez.refuge
     aliases: [refuges, shelter]
 
+  journey:
+    description: Parcours du Survivant - Système de progression guidée
+    usage: /<command> [info|chapter|progress|help]
+    permission: zombiez.journey
+    aliases: [parcours, j]
+
   # Commandes Recyclage
   recycle:
     description: Système de recyclage automatique d'items
