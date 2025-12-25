@@ -46,6 +46,18 @@ public class WorldBossListener implements Listener {
         WorldBoss boss = manager.getBossByEntity(damaged);
         if (boss == null || !boss.isActive()) return;
 
+        // Vérifier l'invincibilité (ex: HordeQueen avec sbires)
+        if (!boss.canReceiveDamage()) {
+            event.setCancelled(true);
+
+            // Feedback au joueur
+            Player attacker = getPlayerAttacker(event.getDamager());
+            if (attacker != null) {
+                boss.onDamage(attacker, 0); // Notifier quand même pour le feedback
+            }
+            return;
+        }
+
         // Identifier l'attaquant
         Player attacker = getPlayerAttacker(event.getDamager());
         if (attacker == null) return;

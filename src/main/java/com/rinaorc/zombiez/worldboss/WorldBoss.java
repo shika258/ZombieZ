@@ -302,22 +302,33 @@ public abstract class WorldBoss {
 
     /**
      * Met à jour les joueurs dans la boss bar
+     * Optimisé: utilise getNearbyEntities au lieu d'itérer sur tous les joueurs
      */
     protected void updateBossBarPlayers() {
         if (bossBar == null || entity == null) return;
 
         Location bossLoc = entity.getLocation();
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-            if (player.getWorld().equals(bossLoc.getWorld())) {
-                double distance = player.getLocation().distance(bossLoc);
-                if (distance <= 60) {
-                    if (!bossBar.getPlayers().contains(player)) {
-                        bossBar.addPlayer(player);
-                    }
-                } else {
-                    bossBar.removePlayer(player);
-                }
-            } else {
+        World world = bossLoc.getWorld();
+        if (world == null) return;
+
+        // Set des joueurs qui devraient voir la boss bar (rayon 60)
+        Set<Player> nearbyPlayers = new java.util.HashSet<>();
+        for (Entity e : world.getNearbyEntities(bossLoc, 60, 60, 60)) {
+            if (e instanceof Player p) {
+                nearbyPlayers.add(p);
+            }
+        }
+
+        // Ajouter les joueurs proches qui ne sont pas dans la bar
+        for (Player player : nearbyPlayers) {
+            if (!bossBar.getPlayers().contains(player)) {
+                bossBar.addPlayer(player);
+            }
+        }
+
+        // Retirer les joueurs qui ne sont plus proches
+        for (Player player : new java.util.ArrayList<>(bossBar.getPlayers())) {
+            if (!nearbyPlayers.contains(player)) {
                 bossBar.removePlayer(player);
             }
         }
@@ -347,6 +358,15 @@ public abstract class WorldBoss {
      */
     protected void tick() {
         // Implémenté par les sous-classes
+    }
+
+    /**
+     * Vérifie si le boss peut recevoir des dégâts
+     * Surcharger pour implémenter l'invincibilité (ex: HordeQueen)
+     * @return true si le boss peut être endommagé
+     */
+    public boolean canReceiveDamage() {
+        return true;
     }
 
     /**

@@ -10,8 +10,8 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Le Pyromancien Zombie (Magie - Taille x2)
@@ -27,8 +27,8 @@ import java.util.Set;
  */
 public class PyromancerBoss extends WorldBoss {
 
-    // Cercles de feu actifs
-    private final Set<FireCircle> activeCircles = new HashSet<>();
+    // Cercles de feu actifs (thread-safe pour accès depuis BukkitRunnable)
+    private final Set<FireCircle> activeCircles = ConcurrentHashMap.newKeySet();
 
     // Configuration
     private static final double CIRCLE_RADIUS = 6.0;

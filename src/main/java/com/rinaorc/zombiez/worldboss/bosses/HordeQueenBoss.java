@@ -3,7 +3,6 @@ package com.rinaorc.zombiez.worldboss.bosses;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.worldboss.WorldBoss;
 import com.rinaorc.zombiez.worldboss.WorldBossType;
-import com.rinaorc.zombiez.zombies.types.ZombieType;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
@@ -14,9 +13,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * La Reine de la Horde (Invocatrice - Taille x4)
@@ -33,10 +32,10 @@ import java.util.UUID;
 public class HordeQueenBoss extends WorldBoss {
 
     // État d'invincibilité
-    private boolean isInvincible = false;
+    private volatile boolean isInvincible = false;
 
-    // Tracking des sbires
-    private final Set<UUID> activeMinions = new HashSet<>();
+    // Tracking des sbires (thread-safe pour accès depuis tick() et cleanup())
+    private final Set<UUID> activeMinions = ConcurrentHashMap.newKeySet();
 
     // Seuils de vie pour invocation (75%, 50%, 25%)
     private final boolean[] invocationTriggered = {false, false, false};
@@ -57,18 +56,16 @@ public class HordeQueenBoss extends WorldBoss {
     }
 
     @Override
+    public boolean canReceiveDamage() {
+        return !isInvincible;
+    }
+
+    @Override
     protected void onDamageReceived(Player attacker, double damage) {
         if (entity == null || !entity.isValid()) return;
 
-        // Vérifier si invincible
+        // Feedback si invincible (les dégâts sont déjà annulés par le listener)
         if (isInvincible) {
-            // Annuler les dégâts (restaurer la vie)
-            var maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
-            if (maxHealth != null) {
-                entity.setHealth(Math.min(maxHealth.getValue(), entity.getHealth() + damage));
-            }
-
-            // Feedback
             attacker.sendMessage("§5" + type.getDisplayName() + " §7est §d§lINVINCIBLE§7! Tuez ses sbires d'abord!");
             attacker.playSound(attacker.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.5f, 2f);
 

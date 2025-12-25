@@ -81,22 +81,23 @@ public class ButcherBoss extends WorldBoss {
         double distance = direction.length();
 
         if (distance > 0) {
-            direction.normalize();
+            Vector normalizedDir = direction.clone().normalize();
 
             // Appliquer la vélocité
-            Vector velocity = direction.multiply(HOOK_STRENGTH);
+            Vector velocity = normalizedDir.clone().multiply(HOOK_STRENGTH);
             velocity.setY(0.3); // Légère élévation
             player.setVelocity(velocity);
 
             // Effets sur le joueur
             player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1));
 
-            // Particules de chaîne
+            // Particules de chaîne (utiliser un nouveau vecteur step)
             World world = player.getWorld();
-            Vector step = direction.multiply(0.5);
-            Location current = player.getLocation().add(0, 1, 0);
+            Vector step = normalizedDir.clone().multiply(0.5);
+            Location current = player.getLocation().clone().add(0, 1, 0);
 
-            for (int i = 0; i < distance * 2; i++) {
+            int particleCount = (int) Math.min(distance * 2, 30); // Limiter le nombre de particules
+            for (int i = 0; i < particleCount; i++) {
                 world.spawnParticle(Particle.DUST, current, 2, 0.1, 0.1, 0.1,
                     new Particle.DustOptions(Color.GRAY, 1.5f));
                 current.add(step);

@@ -4,15 +4,10 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.worldboss.WorldBoss;
 import com.rinaorc.zombiez.worldboss.WorldBossType;
 import org.bukkit.*;
-import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Le Brise-Glace (Contrôle - Taille x3)
@@ -29,7 +24,6 @@ import java.util.Map;
 public class IceBreakerBoss extends WorldBoss {
 
     // Zone gelée
-    private final Map<Location, BlockData> originalBlocks = new HashMap<>();
     private boolean freezeZoneActive = false;
 
     // Configuration
@@ -262,7 +256,6 @@ public class IceBreakerBoss extends WorldBoss {
     @Override
     public void cleanup() {
         freezeZoneActive = false;
-        originalBlocks.clear();
         super.cleanup();
     }
 }
