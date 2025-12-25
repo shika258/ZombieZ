@@ -125,6 +125,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.mobs.PassiveMobManager passiveMobManager;
 
+    // Système de PNJ survivants dans les refuges
+    @Getter
+    private com.rinaorc.zombiez.mobs.ShelterNPCManager shelterNPCManager;
+
     // Système de Boss Bar Dynamique
     @Getter
     private com.rinaorc.zombiez.ui.DynamicBossBarManager dynamicBossBarManager;
@@ -299,6 +303,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (refugeManager != null) {
             log(Level.INFO, "§7Nettoyage des hologrammes de refuge...");
             refugeManager.shutdown();
+        }
+
+        // Cleanup des PNJ survivants dans les refuges
+        if (shelterNPCManager != null) {
+            log(Level.INFO, "§7Nettoyage des PNJ survivants...");
+            shelterNPCManager.shutdown();
         }
 
         // Cleanup du système de boss bars dynamiques
@@ -522,6 +532,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Passive Mob Manager - Mobs passifs et loot nourriture
         passiveMobManager = new com.rinaorc.zombiez.mobs.PassiveMobManager(this);
+
+        // Shelter NPC Manager - PNJ survivants dans les refuges
+        shelterNPCManager = new com.rinaorc.zombiez.mobs.ShelterNPCManager(this);
 
         // ===== Système Boss Bar Dynamique =====
 
@@ -803,6 +816,11 @@ public class ZombieZPlugin extends JavaPlugin {
         if (passiveMobManager != null) {
             pm.registerEvents(passiveMobManager, this);
             pm.registerEvents(new com.rinaorc.zombiez.mobs.food.FoodListener(this), this);
+        }
+
+        // Listener système PNJ survivants dans les refuges
+        if (shelterNPCManager != null) {
+            pm.registerEvents(shelterNPCManager, this);
         }
 
         // Listener système consommables
@@ -1106,13 +1124,14 @@ public class ZombieZPlugin extends JavaPlugin {
                 }
 
                 // ═══════════════════════════════════════════════════════════════════
-                // NETTOYAGE 3: Villagers du Convoi de Survivants
+                // NETTOYAGE 3: Villagers et WanderingTraders (Convoi, Refuges)
                 // ═══════════════════════════════════════════════════════════════════
-                else if (entity instanceof Villager) {
+                else if (entity instanceof Villager || entity instanceof WanderingTrader) {
                     if (entity.getScoreboardTags().contains("convoy_survivor") ||
-                        entity.getScoreboardTags().contains("no_trading")) {
+                        entity.getScoreboardTags().contains("no_trading") ||
+                        entity.getScoreboardTags().contains("shelter_npc")) {
                         shouldRemove = true;
-                        reason = "Convoy Survivor";
+                        reason = "Custom NPC";
                         clearedVillagers++;
                     }
                 }
