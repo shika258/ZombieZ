@@ -433,9 +433,36 @@ public class JourneyManager {
 
             // Afficher la prochaine étape
             sendNextStepNotification(player, nextStep);
+
+            // Vérifier si la nouvelle étape est déjà complétée
+            // (ex: le joueur a atteint le niveau 2 avant d'arriver à l'étape "Atteins le niveau 2")
+            checkCurrentStepCompletion(player, nextStep);
         } else {
             // Fin du chapitre !
             completeChapter(player, step.getChapter());
+        }
+    }
+
+    /**
+     * Vérifie si l'étape actuelle est déjà complétée (basée sur l'état actuel du joueur)
+     * Utile pour les étapes de type LEVEL, CLASS_LEVEL, etc. où la progression
+     * peut avoir été atteinte avant d'arriver à cette étape
+     */
+    private void checkCurrentStepCompletion(Player player, JourneyStep step) {
+        int currentProgress = getStepProgress(player, step);
+        if (step.isCompleted(currentProgress)) {
+            // Utiliser un délai court pour éviter les appels récursifs trop rapides
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+                    // Re-vérifier que c'est toujours l'étape actuelle
+                    JourneyStep current = getCurrentStep(player);
+                    if (current == step) {
+                        completeStep(player, step);
+                    }
+                }
+            }.runTaskLater(plugin, 5L);
         }
     }
 
@@ -479,6 +506,9 @@ public class JourneyManager {
             JourneyStep firstStep = JourneyStep.getFirstStep(nextChapter);
             if (firstStep != null) {
                 currentStepCache.put(uuid, firstStep);
+
+                // Vérifier si la première étape du nouveau chapitre est déjà complétée
+                checkCurrentStepCompletion(player, firstStep);
             }
 
             // Notification du nouveau chapitre
@@ -785,7 +815,11 @@ public class JourneyManager {
         List<JourneyStep> steps = JourneyStep.getStepsForChapter(chapter);
         int stepNum = data.getCurrentJourneyStep();
         if (stepNum > 0 && stepNum <= steps.size()) {
-            currentStepCache.put(uuid, steps.get(stepNum - 1));
+            JourneyStep currentStep = steps.get(stepNum - 1);
+            currentStepCache.put(uuid, currentStep);
+
+            // Vérifier si l'étape actuelle est déjà complétée (le joueur a peut-être progressé hors-ligne)
+            checkCurrentStepCompletion(player, currentStep);
         }
     }
 
