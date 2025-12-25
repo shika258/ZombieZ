@@ -1021,8 +1021,8 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     private String getAwakenPlaceholder(Player player, String[] parts) {
         if (plugin.getAwakenManager() == null) return "-";
 
-        // Les awakens sont sur les items, pas sur les joueurs directement
-        // Utiliser AwakenManager.getActiveAwaken() pour obtenir l'awaken de l'arme équipée
+        // Les awakens sont sur les items équipés (armes, armures, off-hand)
+        // Retourne le premier éveil actif trouvé dans l'équipement du joueur
         com.rinaorc.zombiez.items.awaken.Awaken activeAwaken = plugin.getAwakenManager().getActiveAwaken(player);
 
         if (parts.length < 2) {

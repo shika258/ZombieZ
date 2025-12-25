@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
  * Commandes admin pour le système d'éveil
  *
  * /awaken debug - Affiche l'éveil de l'item tenu
+ * /awaken equipped - Affiche tous les éveils actifs sur l'équipement
  * /awaken give <player> <talent_id> - Donne un item avec un éveil spécifique
  * /awaken reroll - Reroll l'éveil de l'item tenu
  * /awaken list - Liste tous les talents disponibles pour les éveils
@@ -55,6 +56,7 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
 
         return switch (subCommand) {
             case "debug" -> handleDebug(sender, args);
+            case "equipped" -> handleEquipped(sender, args);
             case "give" -> handleGive(sender, args);
             case "reroll" -> handleReroll(sender, args);
             case "list" -> handleList(sender, args);
@@ -138,6 +140,45 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
         }
         sender.sendMessage("");
 
+        return true;
+    }
+
+    /**
+     * /awaken equipped - Affiche tous les éveils actifs sur l'équipement du joueur
+     */
+    private boolean handleEquipped(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§c§l✖ §cCette commande doit être utilisée en jeu.");
+            return true;
+        }
+
+        AwakenManager awakenManager = plugin.getAwakenManager();
+        if (awakenManager == null) {
+            sender.sendMessage("§c§l✖ §cLe système d'éveil n'est pas initialisé.");
+            return true;
+        }
+
+        List<Awaken> activeAwakens = awakenManager.getAllActiveAwakens(player);
+
+        sender.sendMessage("");
+        sender.sendMessage("§d§l✦ ÉVEILS ÉQUIPÉS §d✦");
+        sender.sendMessage("§8§m                              ");
+
+        if (activeAwakens.isEmpty()) {
+            sender.sendMessage("§7Aucun éveil actif sur votre équipement.");
+        } else {
+            sender.sendMessage("§7Éveils actifs: §e" + activeAwakens.size());
+            sender.sendMessage("");
+            for (Awaken awaken : activeAwakens) {
+                sender.sendMessage("§d✦ " + awaken.getDisplayName());
+                sender.sendMessage("  §7Talent: §b" + awaken.getTargetTalentId());
+                sender.sendMessage("  §7Effet: §a" + awaken.getModifierType().getDisplayName() +
+                    " §7(§6+" + String.format("%.1f", awaken.getModifierValue()) + "§7)");
+            }
+        }
+
+        sender.sendMessage("§8§m                              ");
+        sender.sendMessage("");
         return true;
     }
 
@@ -425,6 +466,7 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§d§l✦ AWAKEN - Commandes Admin §d✦");
         sender.sendMessage("§8§m                              ");
         sender.sendMessage("§e/awaken debug §7- Affiche l'éveil de l'item tenu");
+        sender.sendMessage("§e/awaken equipped §7- Affiche tous les éveils actifs (armures, armes, off-hand)");
         sender.sendMessage("§e/awaken give <player> <talent_id> [quality] §7- Donne un item avec un éveil");
         sender.sendMessage("§e/awaken reroll §7- Reroll l'éveil de l'item tenu");
         sender.sendMessage("§e/awaken list [class] §7- Liste les talents disponibles");
@@ -456,7 +498,7 @@ public class AwakenAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             return filterStartsWith(args[0],
-                Arrays.asList("debug", "give", "reroll", "list", "stats", "chances", "reload"));
+                Arrays.asList("debug", "equipped", "give", "reroll", "list", "stats", "chances", "reload"));
         }
 
         if (args.length == 2) {
