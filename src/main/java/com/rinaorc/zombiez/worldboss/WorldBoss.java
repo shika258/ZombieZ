@@ -418,6 +418,65 @@ public abstract class WorldBoss {
     }
 
     /**
+     * Génère une description lisible des multiplicateurs de stats
+     * Format: "§c+50% dégâts §7| §a+30% vie §7| §e+20% vitesse"
+     */
+    private String getStatsDescription() {
+        if (modifiers == null) return "§7Normal";
+
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+
+        // Dégâts
+        double damageMult = modifiers.getDamageMultiplier();
+        if (Math.abs(damageMult - 1.0) > 0.05) {
+            if (!first) sb.append(" §7| ");
+            first = false;
+            int percent = (int) Math.round((damageMult - 1.0) * 100);
+            String color = percent > 0 ? "§c" : "§a";
+            sb.append(color).append(percent > 0 ? "+" : "").append(percent).append("% dégâts");
+        }
+
+        // Vie
+        double healthMult = modifiers.getHealthMultiplier();
+        if (Math.abs(healthMult - 1.0) > 0.05) {
+            if (!first) sb.append(" §7| ");
+            first = false;
+            int percent = (int) Math.round((healthMult - 1.0) * 100);
+            String color = percent > 0 ? "§c" : "§a";
+            sb.append(color).append(percent > 0 ? "+" : "").append(percent).append("% vie");
+        }
+
+        // Vitesse
+        double speedMult = modifiers.getSpeedMultiplier();
+        if (Math.abs(speedMult - 1.0) > 0.05) {
+            if (!first) sb.append(" §7| ");
+            first = false;
+            int percent = (int) Math.round((speedMult - 1.0) * 100);
+            String color = percent > 0 ? "§e" : "§a";
+            sb.append(color).append(percent > 0 ? "+" : "").append(percent).append("% vitesse");
+        }
+
+        // Cooldown capacité (inversé - plus bas = plus rapide)
+        double abilityMult = modifiers.getAbilityCooldownMultiplier();
+        if (Math.abs(abilityMult - 1.0) > 0.05) {
+            if (!first) sb.append(" §7| ");
+            first = false;
+            // Inverser la logique: 0.7x cooldown = 30% plus rapide
+            int percent = (int) Math.round((1.0 - abilityMult) * 100);
+            String color = percent > 0 ? "§b" : "§7";
+            sb.append(color).append(percent > 0 ? "+" : "").append(percent).append("% capacité");
+        }
+
+        // Si aucun modificateur significatif
+        if (first) {
+            return "§7Équilibré";
+        }
+
+        return sb.toString();
+    }
+
+    /**
      * Effets visuels et sonores lors du spawn
      */
     protected void spawnEffects(Location location) {
@@ -466,9 +525,10 @@ public abstract class WorldBoss {
                 player.sendMessage("§7" + bossTitleName + " §7vient d'apparaître!");
                 player.sendMessage("§7Capacité: §e" + type.getAbilityDescription());
 
-                // Afficher les traits procéduraux
+                // Afficher les stats procédurales
                 if (modifiers != null) {
                     player.sendMessage("§7Traits: " + modifiers.getTraitsDescription());
+                    player.sendMessage("§7Stats: " + getStatsDescription());
                 }
 
                 player.sendMessage("§7Le boss brille pour être visible!");
@@ -682,34 +742,51 @@ public abstract class WorldBoss {
             }
         }
 
-        // Trait: Ardent (brûle les joueurs proches)
+        // Trait: Ardent (brûle les joueurs proches - dégâts scalent avec zone)
         if (modifiers.hasTrait(BossTrait.BURNING)) {
-            for (Entity e : world.getNearbyEntities(bossLoc, 4, 4, 4)) {
+            // Rayon d'effet scale avec la zone (4 base + 0.1 par zone, max 6)
+            double burnRadius = Math.min(6, 4 + zoneId * 0.1);
+            // Durée du feu scale avec la zone (40 base + 2 par zone)
+            int fireTicks = 40 + zoneId * 2;
+
+            for (Entity e : world.getNearbyEntities(bossLoc, burnRadius, burnRadius, burnRadius)) {
                 if (e instanceof Player player) {
                     if (player.getFireTicks() < 20) {
-                        player.setFireTicks(40);
+                        player.setFireTicks(fireTicks);
                     }
                 }
             }
         }
 
-        // Trait: Glacial (ralentit les joueurs proches)
+        // Trait: Glacial (ralentit les joueurs proches - intensité scale avec zone)
         if (modifiers.hasTrait(BossTrait.FROZEN)) {
+            // Amplificateur scale avec la zone (1 base, +1 tous les 20 niveaux, max 3)
+            int slowAmplifier = Math.min(3, 1 + zoneId / 20);
+            // Durée scale avec zone (40 base + 1 par zone)
+            int slowDuration = 40 + zoneId;
+
             for (Entity e : world.getNearbyEntities(bossLoc, 5, 5, 5)) {
                 if (e instanceof Player player) {
                     if (!player.hasPotionEffect(PotionEffectType.SLOWNESS)) {
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, true, false));
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, slowDuration, slowAmplifier, true, false));
                     }
                 }
             }
         }
 
-        // Trait: Maudit (applique Darkness aux joueurs proches)
+        // Trait: Maudit (applique Darkness aux joueurs proches - durée scale avec zone)
         if (modifiers.hasTrait(BossTrait.CURSED)) {
-            for (Entity e : world.getNearbyEntities(bossLoc, 6, 6, 6)) {
+            // Rayon d'effet scale avec la zone (6 base + 0.1 par zone, max 8)
+            double curseRadius = Math.min(8, 6 + zoneId * 0.1);
+            // Durée scale avec zone (60 base + 2 par zone)
+            int darknessDuration = 60 + zoneId * 2;
+            // Amplificateur scale tous les 30 niveaux (0 → 1)
+            int darknessAmplifier = Math.min(1, zoneId / 30);
+
+            for (Entity e : world.getNearbyEntities(bossLoc, curseRadius, curseRadius, curseRadius)) {
                 if (e instanceof Player player) {
                     if (!player.hasPotionEffect(PotionEffectType.DARKNESS)) {
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 60, 0, true, false));
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, darknessDuration, darknessAmplifier, true, false));
                     }
                 }
             }
