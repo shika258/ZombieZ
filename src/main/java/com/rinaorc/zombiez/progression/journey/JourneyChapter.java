@@ -41,7 +41,7 @@ public enum JourneyChapter {
         Material.NETHERITE_CHESTPLATE,
         "Choisis ta classe et commence à la maîtriser",
         5, 10,
-        new JourneyGate[]{}, // Zone 2 déjà débloquée au chapitre 1
+        new JourneyGate[]{JourneyGate.ZONE_3}, // Zone 3 débloquée pour le Chapitre 3
         2000,
         35,
         "§aÉquipement de Classe Débutant",
@@ -55,7 +55,7 @@ public enum JourneyChapter {
         Material.COMPASS,
         "Explore les premières zones dangereuses",
         10, 15,
-        new JourneyGate[]{JourneyGate.ZONE_3, JourneyGate.TALENTS_TIER_1},
+        new JourneyGate[]{JourneyGate.TALENTS_TIER_1}, // Zone 3 déjà débloquée au chapitre 2
         2500,
         45,
         "§eCoffre de Zone (Rare garanti)",
