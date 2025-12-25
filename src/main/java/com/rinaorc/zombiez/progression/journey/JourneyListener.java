@@ -109,6 +109,7 @@ public class JourneyListener implements Listener {
 
     /**
      * Backup: Vérifier aussi sur le mouvement pour empêcher les contournements
+     * + Tracker la progression d'exploration de zone
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -132,6 +133,18 @@ public class JourneyListener implements Listener {
 
             // Envoyer le message (avec cooldown pour éviter le spam)
             sendBlockedMessageWithCooldown(player, zoneId);
+            return;
+        }
+
+        // Tracker la progression d'exploration de zone (ZONE_PROGRESS)
+        // Uniquement pour la Zone 1 et si le joueur a cet objectif actif
+        if (zoneId == 1) {
+            JourneyStep currentStep = journeyManager.getCurrentStep(player);
+            if (currentStep != null && currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
+                int playerZ = event.getTo().getBlockZ();
+                int progress = (int) zone.getProgressPercent(playerZ);
+                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, progress);
+            }
         }
     }
 
