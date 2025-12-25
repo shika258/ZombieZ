@@ -40,12 +40,31 @@ public class ShelterNPCManager implements Listener {
     // Données des NPCs (UUID -> NPCData)
     private final Map<UUID, NPCData> npcData;
 
-    // Configuration
-    private static final int MAX_NPCS_PER_REFUGE = 5;
-    private static final int SPAWN_CHECK_INTERVAL_TICKS = 600; // 30 secondes
-    private static final double SPAWN_CHANCE = 0.35; // 35% de chance par check
-    private static final double PLAYER_NEARBY_RADIUS = 48.0;
-    private static final long INTERACTION_COOLDOWN_MS = 3000; // 3 secondes entre chaque interaction
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONFIGURATION - Limites et comportement du spawn
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Limites de NPCs par refuge
+    private static final int MIN_NPCS_PER_REFUGE = 2;        // Minimum garanti par refuge
+    private static final int MAX_NPCS_PER_REFUGE = 5;        // Maximum par refuge
+    private static final int GLOBAL_MAX_NPCS = 40;           // Maximum total sur le serveur
+
+    // Timing et chances de spawn
+    private static final int SPAWN_CHECK_INTERVAL_TICKS = 600;  // 30 secondes
+    private static final double SPAWN_CHANCE = 0.35;            // 35% de chance par check
+    private static final double SPAWN_CHANCE_BELOW_MIN = 0.80;  // 80% si en dessous du minimum
+
+    // Rayons de détection
+    private static final double PLAYER_NEARBY_RADIUS = 48.0;          // Rayon pour spawn
+    private static final double PLAYER_CLEANUP_RADIUS = 80.0;         // Rayon au-delà duquel nettoyer
+
+    // Cooldowns et durées
+    private static final long INTERACTION_COOLDOWN_MS = 3000;         // 3 secondes entre interactions
+    private static final long NPC_MAX_LIFETIME_MS = 10 * 60 * 1000;   // 10 minutes max de vie
+    private static final long CLEANUP_NO_PLAYER_MS = 2 * 60 * 1000;   // 2 min sans joueur = cleanup
+
+    // Tracking du temps sans joueur par refuge
+    private final Map<Integer, Long> lastPlayerSeenInRefuge = new ConcurrentHashMap<>();
 
     private final Random random = new Random();
 
@@ -444,24 +463,165 @@ public class ShelterNPCManager implements Listener {
 
     /**
      * Vérifie et spawn des NPCs pour chaque refuge avec des joueurs à proximité
+     * Optimisé avec:
+     * - Limite globale (GLOBAL_MAX_NPCS)
+     * - Minimum garanti par refuge (MIN_NPCS_PER_REFUGE)
+     * - Maximum par refuge (MAX_NPCS_PER_REFUGE)
+     * - Cleanup des refuges sans joueurs
      */
     private void checkAndSpawnNPCs() {
         var refugeManager = plugin.getRefugeManager();
         if (refugeManager == null) return;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // VÉRIFICATION 1: Limite globale
+        // ═══════════════════════════════════════════════════════════════════
+        int totalNPCs = getValidNPCCount();
+        if (totalNPCs >= GLOBAL_MAX_NPCS) {
+            return; // Cap global atteint, pas de spawn
+        }
+
+        long now = System.currentTimeMillis();
+
         for (Refuge refuge : refugeManager.getAllRefuges()) {
-            // Vérifier si un joueur est dans le refuge
-            if (!hasPlayerInRefuge(refuge)) continue;
+            int refugeId = refuge.getId();
 
-            // Compter les NPCs actuels
-            Set<UUID> currentNPCs = npcsByRefuge.getOrDefault(refuge.getId(), ConcurrentHashMap.newKeySet());
-            if (currentNPCs.size() >= MAX_NPCS_PER_REFUGE) continue;
+            // ═══════════════════════════════════════════════════════════════
+            // VÉRIFICATION 2: Présence de joueur
+            // ═══════════════════════════════════════════════════════════════
+            boolean playerPresent = hasPlayerInRefuge(refuge);
 
-            // Chance de spawn
-            if (random.nextDouble() < SPAWN_CHANCE) {
+            if (playerPresent) {
+                // Mettre à jour le timestamp de dernière présence
+                lastPlayerSeenInRefuge.put(refugeId, now);
+            } else {
+                // Vérifier si le refuge est inactif depuis trop longtemps
+                Long lastSeen = lastPlayerSeenInRefuge.get(refugeId);
+                if (lastSeen != null && (now - lastSeen) > CLEANUP_NO_PLAYER_MS) {
+                    // Nettoyer les NPCs de ce refuge inactif
+                    cleanupRefugeNPCs(refugeId);
+                }
+                continue; // Pas de joueur, pas de spawn
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // VÉRIFICATION 3: Compter les NPCs valides du refuge
+            // ═══════════════════════════════════════════════════════════════
+            int currentCount = getValidNPCCountForRefuge(refugeId);
+
+            // Maximum atteint pour ce refuge
+            if (currentCount >= MAX_NPCS_PER_REFUGE) {
+                continue;
+            }
+
+            // Re-vérifier le cap global
+            if (totalNPCs >= GLOBAL_MAX_NPCS) {
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // LOGIQUE DE SPAWN: Priorité au minimum garanti
+            // ═══════════════════════════════════════════════════════════════
+            double spawnChance;
+            if (currentCount < MIN_NPCS_PER_REFUGE) {
+                // En dessous du minimum: spawn prioritaire
+                spawnChance = SPAWN_CHANCE_BELOW_MIN;
+            } else {
+                // Au-dessus du minimum: chance normale
+                spawnChance = SPAWN_CHANCE;
+            }
+
+            if (random.nextDouble() < spawnChance) {
                 spawnRandomNPC(refuge);
+                totalNPCs++; // Incrémenter le compteur local
             }
         }
+    }
+
+    /**
+     * Compte le nombre total de NPCs valides (entités existantes)
+     */
+    private int getValidNPCCount() {
+        int count = 0;
+        List<UUID> toRemove = new ArrayList<>();
+
+        for (UUID npcId : npcData.keySet()) {
+            Entity entity = Bukkit.getEntity(npcId);
+            if (entity != null && entity.isValid() && !entity.isDead()) {
+                count++;
+            } else {
+                toRemove.add(npcId);
+            }
+        }
+
+        // Nettoyer les entrées invalides
+        for (UUID id : toRemove) {
+            removeNPCData(id);
+        }
+
+        return count;
+    }
+
+    /**
+     * Compte le nombre de NPCs valides dans un refuge spécifique
+     */
+    private int getValidNPCCountForRefuge(int refugeId) {
+        Set<UUID> npcs = npcsByRefuge.get(refugeId);
+        if (npcs == null || npcs.isEmpty()) {
+            return 0;
+        }
+
+        int count = 0;
+        List<UUID> toRemove = new ArrayList<>();
+
+        for (UUID npcId : npcs) {
+            Entity entity = Bukkit.getEntity(npcId);
+            if (entity != null && entity.isValid() && !entity.isDead()) {
+                count++;
+            } else {
+                toRemove.add(npcId);
+            }
+        }
+
+        // Nettoyer les entrées invalides
+        for (UUID id : toRemove) {
+            removeNPCData(id);
+        }
+
+        return count;
+    }
+
+    /**
+     * Supprime les données d'un NPC de toutes les maps
+     */
+    private void removeNPCData(UUID npcId) {
+        NPCData data = npcData.remove(npcId);
+        if (data != null) {
+            Set<UUID> refugeNPCs = npcsByRefuge.get(data.refugeId);
+            if (refugeNPCs != null) {
+                refugeNPCs.remove(npcId);
+            }
+        }
+    }
+
+    /**
+     * Nettoie tous les NPCs d'un refuge inactif
+     */
+    private void cleanupRefugeNPCs(int refugeId) {
+        Set<UUID> npcs = npcsByRefuge.get(refugeId);
+        if (npcs == null || npcs.isEmpty()) return;
+
+        List<UUID> toRemove = new ArrayList<>(npcs);
+        for (UUID npcId : toRemove) {
+            Entity entity = Bukkit.getEntity(npcId);
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+            npcData.remove(npcId);
+        }
+
+        npcs.clear();
+        lastPlayerSeenInRefuge.remove(refugeId);
     }
 
     /**
@@ -876,50 +1036,113 @@ public class ShelterNPCManager implements Listener {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Nettoie les NPCs invalides ou morts
+     * Nettoie les NPCs invalides, morts, trop vieux ou trop loin des joueurs
      */
     private void cleanupInvalidNPCs() {
         List<UUID> toRemove = new ArrayList<>();
+        long now = System.currentTimeMillis();
 
         for (Map.Entry<UUID, NPCData> entry : npcData.entrySet()) {
-            Entity entity = Bukkit.getEntity(entry.getKey());
+            UUID npcId = entry.getKey();
+            NPCData data = entry.getValue();
+            Entity entity = Bukkit.getEntity(npcId);
 
+            // ═══════════════════════════════════════════════════════════════
+            // NETTOYAGE 1: Entité invalide ou morte
+            // ═══════════════════════════════════════════════════════════════
             if (entity == null || !entity.isValid() || entity.isDead()) {
-                toRemove.add(entry.getKey());
-            } else if (!entity.getLocation().getChunk().isLoaded()) {
-                // Chunk non chargé - supprimer l'entité
-                entity.remove();
-                toRemove.add(entry.getKey());
+                toRemove.add(npcId);
+                continue;
             }
-        }
 
-        for (UUID id : toRemove) {
-            NPCData data = npcData.remove(id);
-            if (data != null) {
-                Set<UUID> refugeNPCs = npcsByRefuge.get(data.refugeId);
-                if (refugeNPCs != null) {
-                    refugeNPCs.remove(id);
+            // ═══════════════════════════════════════════════════════════════
+            // NETTOYAGE 2: Chunk non chargé
+            // ═══════════════════════════════════════════════════════════════
+            if (!entity.getLocation().getChunk().isLoaded()) {
+                entity.remove();
+                toRemove.add(npcId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // NETTOYAGE 3: NPC trop vieux (durée de vie max atteinte)
+            // ═══════════════════════════════════════════════════════════════
+            long age = now - data.spawnTime;
+            if (age > NPC_MAX_LIFETIME_MS) {
+                entity.remove();
+                toRemove.add(npcId);
+                continue;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // NETTOYAGE 4: Pas de joueur à proximité
+            // ═══════════════════════════════════════════════════════════════
+            if (!hasPlayerNearby(entity, PLAYER_CLEANUP_RADIUS)) {
+                // Vérifier le temps depuis la dernière présence de joueur
+                Long lastSeen = lastPlayerSeenInRefuge.get(data.refugeId);
+                if (lastSeen == null || (now - lastSeen) > CLEANUP_NO_PLAYER_MS) {
+                    entity.remove();
+                    toRemove.add(npcId);
                 }
             }
         }
+
+        // Supprimer les données des NPCs nettoyés
+        for (UUID id : toRemove) {
+            removeNPCData(id);
+        }
+
+        // Log si beaucoup de NPCs nettoyés (debug)
+        if (toRemove.size() > 3 && plugin.getConfigManager() != null && plugin.getConfigManager().isDebugMode()) {
+            plugin.log(Level.INFO, "§7[ShelterNPC Cleanup] " + toRemove.size() + " NPCs nettoyés");
+        }
+    }
+
+    /**
+     * Vérifie si un joueur est proche d'une entité
+     */
+    private boolean hasPlayerNearby(Entity entity, double radius) {
+        double radiusSq = radius * radius;
+        World world = entity.getWorld();
+
+        for (Player player : world.getPlayers()) {
+            if (player.getLocation().distanceSquared(entity.getLocation()) <= radiusSq) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
      * Force le nettoyage de tous les NPCs (appelé au shutdown)
      */
     public void shutdown() {
+        int cleaned = 0;
         for (UUID id : npcData.keySet()) {
             Entity entity = Bukkit.getEntity(id);
             if (entity != null && entity.isValid()) {
                 entity.remove();
+                cleaned++;
             }
         }
 
         npcData.clear();
         npcsByRefuge.clear();
         interactionCooldowns.clear();
+        lastPlayerSeenInRefuge.clear();
 
-        plugin.log(Level.INFO, "§7ShelterNPCManager arrêté, NPCs nettoyés");
+        plugin.log(Level.INFO, "§7ShelterNPCManager arrêté, " + cleaned + " NPCs nettoyés");
+    }
+
+    /**
+     * Obtient les statistiques du système de NPCs
+     */
+    public String getStats() {
+        int totalNPCs = getValidNPCCount();
+        int activeRefuges = (int) npcsByRefuge.values().stream().filter(set -> !set.isEmpty()).count();
+
+        return String.format("§7NPCs: §e%d§7/§6%d §8(§7Refuges actifs: §e%d§8)",
+            totalNPCs, GLOBAL_MAX_NPCS, activeRefuges);
     }
 
     /**
