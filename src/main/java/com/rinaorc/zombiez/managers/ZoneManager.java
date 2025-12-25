@@ -147,12 +147,14 @@ public class ZoneManager {
     private Zone loadZoneFromConfig(ConfigurationSection section) {
         int id = section.getInt("id");
         String name = section.getString("name", "unknown");
-        
+
         Zone zone = Zone.builder()
             .id(id)
             .name(name)
             .displayName(section.getString("display-name", name))
             .description(section.getString("description", ""))
+            .minX(minX)  // Utiliser les limites X globales pour l'exploration par chunks
+            .maxX(maxX)  // Utiliser les limites X globales pour l'exploration par chunks
             .minZ(section.getInt("min-z", 0))
             .maxZ(section.getInt("max-z", 1000))
             .difficulty(section.getInt("difficulty", 1))
