@@ -60,7 +60,7 @@ public class JackpotZombieEvent extends MicroEvent {
     private final Random random = new Random();
 
     // Configuration
-    private static final double JACKPOT_HEALTH = 100.0;
+    private static final double JACKPOT_HEALTH = 9999999.0;
     private static final int SPIN_SPEED = 2; // Ticks entre chaque changement de symbole (plus rapide = plus excitant)
     private int spinSoundTick = 0; // Pour le feedback sonore ameliore
 
@@ -104,7 +104,6 @@ public class JackpotZombieEvent extends MicroEvent {
         jackpotZombie.getEquipment().setBootsDropChance(0f);
 
         jackpotZombie.setGlowing(true);
-        jackpotZombie.setInvulnerable(true); // Invulnerable jusqu'aux 3 roulettes
 
         // Tags
         jackpotZombie.addScoreboardTag("micro_event_entity");
@@ -529,7 +528,6 @@ public class JackpotZombieEvent extends MicroEvent {
                         // Effet de mort
                         Location loc = jackpotZombie.getLocation();
                         loc.getWorld().spawnParticle(Particle.EXPLOSION, loc.add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0.1);
-                        jackpotZombie.setInvulnerable(false); // Retirer l'invulnerabilite avant de tuer
                         jackpotZombie.setHealth(0);
                     }
                 }, suspenseDelay);
