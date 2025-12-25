@@ -61,6 +61,21 @@ public enum JourneyGate {
     ZONE_50(GateType.ZONE, 50, "Zone Finale - L'Origine",
         "Complète le Chapitre 11 et atteins le niveau 100", Material.END_PORTAL_FRAME),
 
+    ZONE_60(GateType.ZONE, 60, "Zones 60+ - Terres Oubliées",
+        "Complète le Chapitre 13 (Niveau 140)", Material.CRYING_OBSIDIAN),
+
+    ZONE_70(GateType.ZONE, 70, "Zones 70+ - Vallée des Ombres",
+        "Complète le Chapitre 14 (Niveau 160)", Material.SCULK),
+
+    ZONE_80(GateType.ZONE, 80, "Zones 80+ - Cratère de l'Éclipse",
+        "Complète le Chapitre 15 (Niveau 175)", Material.REINFORCED_DEEPSLATE),
+
+    ZONE_90(GateType.ZONE, 90, "Zones 90+ - Frontière du Néant",
+        "Complète le Chapitre 16 (Niveau 190)", Material.END_STONE_BRICKS),
+
+    ZONE_100(GateType.ZONE, 100, "Zone 100 - Le Cœur de l'Infection",
+        "Complète le Chapitre 17 (Niveau 200)", Material.DRAGON_EGG),
+
     // ==================== FONCTIONNALITÉS ====================
     CLASS_SELECTION(GateType.FEATURE, 0, "Sélection de Classe",
         "Complète le Chapitre 1 (Niveau 5)", Material.NETHERITE_CHESTPLATE),
@@ -89,8 +104,26 @@ public enum JourneyGate {
     BATTLE_PASS(GateType.FEATURE, 0, "Battle Pass",
         "Complète le Chapitre 6 (Niveau 35)", Material.NETHER_STAR),
 
-    PRESTIGE(GateType.FEATURE, 0, "Prestige",
+    PRESTIGE(GateType.FEATURE, 1, "Prestige",
         "Complète le Chapitre 11 (Niveau 100)", Material.ENCHANTED_GOLDEN_APPLE),
+
+    PRESTIGE_2(GateType.FEATURE, 2, "Prestige 2",
+        "Complète le Chapitre 12 (Niveau 125)", Material.ENCHANTED_GOLDEN_APPLE),
+
+    PRESTIGE_3(GateType.FEATURE, 3, "Prestige 3",
+        "Complète le Chapitre 16 (Niveau 190)", Material.ENCHANTED_GOLDEN_APPLE),
+
+    PRESTIGE_4(GateType.FEATURE, 4, "Prestige 4",
+        "Complète le Chapitre 19 (Niveau 250)", Material.ENCHANTED_GOLDEN_APPLE),
+
+    TALENTS_TIER_5(GateType.FEATURE, 5, "Talents Tier 5 - Légendaires",
+        "Complète le Chapitre 14 (Niveau 160)", Material.ENCHANTED_BOOK),
+
+    DIMENSION_CORRUPTED(GateType.FEATURE, 0, "Dimension Corrompue",
+        "Complète le Chapitre 18 (Niveau 225)", Material.END_PORTAL_FRAME),
+
+    SANCTUARY(GateType.FEATURE, 0, "Sanctuaire",
+        "Complète le Chapitre 20 (Niveau 275)", Material.RESPAWN_ANCHOR),
 
     TRADING(GateType.FEATURE, 0, "Échanges entre Joueurs",
         "Atteins le niveau 20", Material.EMERALD);
@@ -114,6 +147,11 @@ public enum JourneyGate {
      */
     public static JourneyGate getZoneGate(int zoneId) {
         // Retourne la gate appropriée pour cette zone
+        if (zoneId >= 100) return ZONE_100;
+        if (zoneId >= 90) return ZONE_90;
+        if (zoneId >= 80) return ZONE_80;
+        if (zoneId >= 70) return ZONE_70;
+        if (zoneId >= 60) return ZONE_60;
         if (zoneId >= 50) return ZONE_50;
         if (zoneId >= 40) return ZONE_40;
         if (zoneId >= 30) return ZONE_30;
@@ -142,6 +180,7 @@ public enum JourneyGate {
             case 2 -> TALENTS_TIER_2;
             case 3 -> TALENTS_TIER_3;
             case 4 -> TALENTS_TIER_4;
+            case 5 -> TALENTS_TIER_5;
             default -> null;
         };
     }

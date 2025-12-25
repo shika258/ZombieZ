@@ -751,7 +751,7 @@ public class JourneyManager {
         player.sendMessage("");
         player.sendMessage("          §eTu es désormais une §6§lLÉGENDE VIVANTE§e!");
         player.sendMessage("");
-        player.sendMessage("          §7Tu as prouvé ta valeur à travers 12 chapitres");
+        player.sendMessage("          §7Tu as prouvé ta valeur à travers 21 chapitres");
         player.sendMessage("          §7et maîtrisé tous les aspects de ZombieZ.");
         player.sendMessage("");
         player.sendMessage("          §6Récompenses finales:");
