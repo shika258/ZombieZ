@@ -124,11 +124,13 @@ public class WorldBossManager {
         List<Player> players = new ArrayList<>(plugin.getServer().getOnlinePlayers());
         if (players.isEmpty()) return false;
 
-        // Filtrer les joueurs éligibles (pas en zone spawn, pas déjà un boss proche)
+        // Filtrer les joueurs éligibles (pas en zone spawn, pas en refuge, pas déjà un boss proche)
         players.removeIf(player -> {
             var zone = plugin.getZoneManager().getPlayerZone(player);
             // Pas en zone spawn (zone 0)
             if (zone != null && zone.getId() == 0) return true;
+            // Pas dans un refuge
+            if (plugin.getRefugeManager().isInAnyRefugeProtectedArea(player.getLocation())) return true;
             // Pas déjà un boss proche
             return hasBossNearby(player.getLocation(), 100);
         });
@@ -255,6 +257,9 @@ public class WorldBossManager {
         // Pas en zone spawn
         var zone = plugin.getZoneManager().getZoneAt(loc);
         if (zone != null && zone.getId() == 0) return false;
+
+        // Pas dans une zone de refuge
+        if (plugin.getRefugeManager().isInAnyRefugeProtectedArea(loc)) return false;
 
         // Pas dans l'eau
         if (ground.isLiquid() || atLoc.isLiquid()) return false;
