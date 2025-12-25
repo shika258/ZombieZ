@@ -3092,9 +3092,34 @@ public class TalentListener implements Listener {
         return cooldownEnd != null && System.currentTimeMillis() < cooldownEnd;
     }
 
+    // Tracking pour le système de progression - rate limit pour éviter le spam
+    private final Map<UUID, Long> lastTalentUseNotification = new ConcurrentHashMap<>();
+    private static final long TALENT_USE_NOTIFICATION_COOLDOWN_MS = 1000; // 1 seconde entre notifications
+
     private void setCooldown(UUID uuid, String ability, long durationMs) {
         cooldowns.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
             .put(ability, System.currentTimeMillis() + durationMs);
+
+        // Notifier le système de progression (avec rate limiting)
+        notifyTalentUsed(uuid);
+    }
+
+    /**
+     * Notifie le système de progression qu'un talent a été utilisé
+     * Rate limited à 1 notification/seconde pour éviter le spam
+     */
+    private void notifyTalentUsed(UUID uuid) {
+        long now = System.currentTimeMillis();
+        Long lastNotif = lastTalentUseNotification.get(uuid);
+
+        if (lastNotif == null || now - lastNotif >= TALENT_USE_NOTIFICATION_COOLDOWN_MS) {
+            lastTalentUseNotification.put(uuid, now);
+
+            Player player = plugin.getServer().getPlayer(uuid);
+            if (player != null && plugin.getJourneyListener() != null) {
+                plugin.getJourneyListener().onUseTalent(player);
+            }
+        }
     }
 
     private void applyLifesteal(Player player, double amount) {
@@ -4953,6 +4978,10 @@ public class TalentListener implements Listener {
             plugin.getActionBarManager().unregisterClassActionBar(playerUuid);
             plugin.getActionBarManager().unregisterDefaultBarSuffix(playerUuid);
         }
+
+        // Cleanup cooldowns et tracking de progression
+        cooldowns.remove(playerUuid);
+        lastTalentUseNotification.remove(playerUuid);
     }
 
     // ==================== VOIE DU SANG - METHODES HELPER ====================
