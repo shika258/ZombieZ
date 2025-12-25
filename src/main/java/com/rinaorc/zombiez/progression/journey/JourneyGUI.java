@@ -198,6 +198,8 @@ public class JourneyGUI implements Listener {
 
     /**
      * Calcule les slots pour les étapes selon leur nombre
+     * Ligne 2 (slots 11-15): étapes 1-5
+     * Ligne 3 (slots 20-24): étapes 6-10 (directement en dessous)
      */
     private int[] getStepSlots(int totalSteps) {
         return switch (totalSteps) {
@@ -206,12 +208,12 @@ public class JourneyGUI implements Listener {
             case 3 -> new int[]{20, 22, 24};
             case 4 -> new int[]{20, 21, 23, 24};
             case 5 -> new int[]{20, 21, 22, 23, 24};
-            case 6 -> new int[]{11, 12, 13, 14, 15, 31};
-            case 7 -> new int[]{11, 12, 13, 14, 15, 30, 32};
-            case 8 -> new int[]{11, 12, 13, 14, 15, 29, 31, 33};
-            case 9 -> new int[]{11, 12, 13, 14, 15, 29, 30, 32, 33};
-            case 10 -> new int[]{11, 12, 13, 14, 15, 29, 30, 31, 32, 33};
-            default -> new int[]{11, 12, 13, 14, 15, 29, 30, 31, 32, 33};
+            case 6 -> new int[]{11, 12, 13, 14, 15, 22};
+            case 7 -> new int[]{11, 12, 13, 14, 15, 21, 23};
+            case 8 -> new int[]{11, 12, 13, 14, 15, 20, 22, 24};
+            case 9 -> new int[]{11, 12, 13, 14, 15, 20, 21, 23, 24};
+            case 10 -> new int[]{11, 12, 13, 14, 15, 20, 21, 22, 23, 24};
+            default -> new int[]{11, 12, 13, 14, 15, 20, 21, 22, 23, 24};
         };
     }
 
