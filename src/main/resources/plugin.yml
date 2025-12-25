@@ -116,7 +116,7 @@ commands:
     description: Journal du Survivant - Système de progression guidée
     usage: /<command> [info|chapter|progress|help]
     permission: zombiez.journey
-    aliases: [journal, j]
+    aliases: [journal, jour, voyage, j]
 
   # Commandes Recyclage
   recycle:
