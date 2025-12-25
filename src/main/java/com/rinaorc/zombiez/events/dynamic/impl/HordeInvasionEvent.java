@@ -122,6 +122,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new Vector3f(2.5f, 2.5f, 2.5f), // Grande taille!
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            display.addScoreboardTag("dynamic_event_entity");
         });
 
         // Marqueur de vague - Sous le titre principal
@@ -138,6 +141,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new Vector3f(1.8f, 1.8f, 1.8f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            display.addScoreboardTag("dynamic_event_entity");
         });
 
         // Marqueur de compteur de kills - Encore plus bas
@@ -154,6 +160,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new Vector3f(1.5f, 1.5f, 1.5f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            display.addScoreboardTag("dynamic_event_entity");
         });
 
         // Particules de zone

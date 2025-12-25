@@ -161,6 +161,9 @@ public class ZombieNestEvent extends DynamicEvent {
                 new Vector3f(scale, scale, scale),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            display.addScoreboardTag("dynamic_event_entity");
         });
 
         // Effet de spawn

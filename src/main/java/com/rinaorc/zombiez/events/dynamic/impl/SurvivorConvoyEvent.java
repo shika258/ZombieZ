@@ -199,6 +199,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
             updateHealthDisplayText(d, villager);
+
+            // Tag pour cleanup au redemarrage
+            d.addScoreboardTag("dynamic_event_entity");
         });
 
         healthDisplays.put(villager, display);
@@ -252,6 +255,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 new Vector3f(2.5f, 2.5f, 2.5f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            d.addScoreboardTag("dynamic_event_entity");
         });
 
         // Timer
@@ -268,6 +274,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 new Vector3f(1.8f, 1.8f, 1.8f),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
+
+            // Tag pour cleanup au redemarrage
+            d.addScoreboardTag("dynamic_event_entity");
         });
     }
 
