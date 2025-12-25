@@ -70,6 +70,12 @@ commands:
     permission: zombiez.admin.awaken
     aliases: [zzawaken, eveil]
 
+  zzworldboss:
+    description: Gestion du systeme World Boss (evenements aleatoires)
+    usage: /<command> <spawn|list|clear|stats|force|toggle|info>
+    permission: zombiez.admin.worldboss
+    aliases: [zzwb, worldboss, boss]
+
   # Commandes Joueur
   spawn:
     description: Téléportation au spawn

@@ -207,6 +207,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.recycling.RecycleGUI recycleGUI;
 
+    // Système World Boss (événements aléatoires)
+    @Getter
+    private com.rinaorc.zombiez.worldboss.WorldBossManager worldBossManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -307,6 +311,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (dynamicEventManager != null) {
             log(Level.INFO, "§7Arrêt des événements dynamiques...");
             dynamicEventManager.shutdown();
+        }
+
+        // Cleanup du système World Boss
+        if (worldBossManager != null) {
+            log(Level.INFO, "§7Arrêt du système World Boss...");
+            worldBossManager.stop();
         }
 
         // Cleanup du système de micro-événements
@@ -483,6 +493,10 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Horde Event System - Événements de horde
         hordeEventSystem = new com.rinaorc.zombiez.zombies.spawning.HordeEventSystem(this, zombieManager, spawnSystem);
+
+        // World Boss Manager - Événements World Boss aléatoires
+        worldBossManager = new com.rinaorc.zombiez.worldboss.WorldBossManager(this);
+        worldBossManager.start();
 
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);
@@ -664,6 +678,11 @@ public class ZombieZPlugin extends JavaPlugin {
         com.rinaorc.zombiez.commands.admin.AwakenAdminCommand awakenCmd = new com.rinaorc.zombiez.commands.admin.AwakenAdminCommand(this);
         getCommand("awaken").setExecutor(awakenCmd);
         getCommand("awaken").setTabCompleter(awakenCmd);
+
+        // Commandes Admin World Boss
+        com.rinaorc.zombiez.worldboss.WorldBossAdminCommand worldBossCmd = new com.rinaorc.zombiez.worldboss.WorldBossAdminCommand(this);
+        getCommand("zzworldboss").setExecutor(worldBossCmd);
+        getCommand("zzworldboss").setTabCompleter(worldBossCmd);
 
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
@@ -868,6 +887,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système dopamine - Assist System
         if (assistManager != null) {
             pm.registerEvents(assistManager, this);
+        }
+
+        // Listener système World Boss
+        if (worldBossManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.worldboss.WorldBossListener(this, worldBossManager), this);
         }
     }
 
