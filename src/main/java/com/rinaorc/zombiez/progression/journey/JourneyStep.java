@@ -41,7 +41,11 @@ public enum JourneyStep {
         "Un coffre secret se cache dans la Zone 1...", StepType.DISCOVER_CHEST, 1,
         250, 4, Material.CHEST),
 
-    STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Atteins le niveau 3",
+    STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Chasse 3 animaux",
+        "Les animaux peuvent te nourrir!", StepType.PASSIVE_ANIMAL_KILLS, 3,
+        275, 4, Material.COOKED_BEEF),
+
+    STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Atteins le niveau 3",
         "Prêt à choisir ta voie", StepType.LEVEL, 3,
         300, 5, Material.NETHER_STAR),
 
@@ -364,6 +368,7 @@ public enum JourneyStep {
             case ACHIEVEMENTS -> current + "/" + targetValue + " achievements";
             case RECYCLE_ITEMS -> current + "/" + targetValue + " items recyclés";
             case DISCOVER_CHEST -> current >= targetValue ? "✓ Coffre découvert!" : "Cherche le coffre...";
+            case PASSIVE_ANIMAL_KILLS -> current + "/" + targetValue + " animaux chassés";
         };
     }
 
@@ -484,7 +489,10 @@ public enum JourneyStep {
         RECYCLE_ITEMS("Recycle des items"),
 
         // Coffres mystères
-        DISCOVER_CHEST("Découvre un coffre mystérieux");
+        DISCOVER_CHEST("Découvre un coffre mystérieux"),
+
+        // Chasse
+        PASSIVE_ANIMAL_KILLS("Tue des animaux passifs");
 
         private final String description;
 

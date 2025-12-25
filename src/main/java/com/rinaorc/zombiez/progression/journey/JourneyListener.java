@@ -5,10 +5,12 @@ import com.rinaorc.zombiez.api.events.PlayerZoneChangeEvent;
 import com.rinaorc.zombiez.api.events.ZombieDeathEvent;
 import com.rinaorc.zombiez.data.PlayerData;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Animals;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -332,6 +334,29 @@ public class JourneyListener implements Listener {
                 }
             }
             default -> {}
+        }
+    }
+
+    // ==================== TRACKING DES KILLS D'ANIMAUX ====================
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAnimalKill(EntityDeathEvent event) {
+        // Vérifier que c'est un animal passif
+        if (!(event.getEntity() instanceof Animals)) {
+            return;
+        }
+
+        // Vérifier que le tueur est un joueur
+        Player killer = event.getEntity().getKiller();
+        if (killer == null) return;
+
+        JourneyStep currentStep = journeyManager.getCurrentStep(killer);
+        if (currentStep == null) return;
+
+        // Vérifier si l'étape actuelle est de type PASSIVE_ANIMAL_KILLS
+        if (currentStep.getType() == JourneyStep.StepType.PASSIVE_ANIMAL_KILLS) {
+            int progress = journeyManager.getStepProgress(killer, currentStep);
+            journeyManager.updateProgress(killer, JourneyStep.StepType.PASSIVE_ANIMAL_KILLS, progress + 1);
         }
     }
 
