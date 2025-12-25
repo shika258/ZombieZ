@@ -92,7 +92,7 @@ public class JourneyManager {
 
         // Si parcours complété
         if (step == null) {
-            bossBar.setTitle("§6✦ §e§lLÉGENDE VIVANTE §6✦ §7Parcours complété!");
+            bossBar.setTitle("§6✦ §e§lLÉGENDE VIVANTE §6✦ §7Journal complété!");
             bossBar.setProgress(1.0);
             bossBar.setColor(BarColor.PURPLE);
             bossBar.setStyle(BarStyle.SOLID);
@@ -285,7 +285,7 @@ public class JourneyManager {
         player.sendMessage("§7" + gate.getDisplayName());
         player.sendMessage("§e➤ " + gate.getRequirement());
         player.sendMessage("");
-        player.sendMessage("§7Consulte ton §eParcours §7(/journey) pour progresser!");
+        player.sendMessage("§7Consulte ton §eJournal §7(/journey) pour progresser!");
         player.sendMessage("");
 
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
@@ -410,6 +410,15 @@ public class JourneyManager {
                 yield data.getJourneyStepProgress(stepId);
             }
         };
+    }
+
+    /**
+     * Vérifie si une étape a été complétée par un joueur
+     */
+    public boolean isStepCompleted(Player player, JourneyStep step) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return false;
+        return data.hasCompletedJourneyStep(step.getId());
     }
 
     /**
@@ -731,14 +740,14 @@ public class JourneyManager {
         // Title ultra-épique
         player.sendTitle(
             "§6§l✦ LÉGENDE VIVANTE ✦",
-            "§eTu as complété le Parcours du Survivant!",
+            "§eTu as complété le Journal du Survivant!",
             20, 100, 30
         );
 
         player.sendMessage("");
         player.sendMessage("§6§l§m                                                        ");
         player.sendMessage("");
-        player.sendMessage("          §6§l✦ ✦ ✦ PARCOURS COMPLÉTÉ ✦ ✦ ✦");
+        player.sendMessage("          §6§l✦ ✦ ✦ JOURNAL COMPLÉTÉ ✦ ✦ ✦");
         player.sendMessage("");
         player.sendMessage("          §eTu es désormais une §6§lLÉGENDE VIVANTE§e!");
         player.sendMessage("");
@@ -773,7 +782,7 @@ public class JourneyManager {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage("");
             p.sendMessage("§6§l✦ §e" + player.getName() + " §7est devenu une §6§lLÉGENDE VIVANTE§7! ✦");
-            p.sendMessage("§7  Il a complété tout le Parcours du Survivant!");
+            p.sendMessage("§7  Il a complété tout le Journal du Survivant!");
             p.sendMessage("");
 
             if (p != player) {

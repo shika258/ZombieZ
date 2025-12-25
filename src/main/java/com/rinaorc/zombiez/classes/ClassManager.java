@@ -224,6 +224,12 @@ public class ClassManager {
     public boolean selectClass(Player player, ClassType classType) {
         ClassData data = getClassData(player);
 
+        // Vérifier si le joueur peut accéder à la sélection de classe (Journey gate)
+        if (!plugin.getJourneyManager().canAccessClassSelection(player)) {
+            player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Journal pour choisir une classe!");
+            return false;
+        }
+
         // Cooldown de changement (24h)
         if (data.hasClass()) {
             long timeSinceChange = System.currentTimeMillis() - data.getLastClassChange();

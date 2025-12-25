@@ -1,7 +1,6 @@
 package com.rinaorc.zombiez.progression.journey;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
-import com.rinaorc.zombiez.data.PlayerData;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -26,19 +25,23 @@ import java.util.List;
  * - Les 12 chapitres avec leur statut
  * - L'étape actuelle avec ses détails
  * - Les prochains déblocages
+ *
+ * Supporte jusqu'à 10 étapes par chapitre
  */
 public class JourneyGUI implements Listener {
 
     private final ZombieZPlugin plugin;
-    private static final String MAIN_TITLE = "§8§l《 §6§lParcours du Survivant §8§l》";
-    private static final String CHAPTER_TITLE = "§8§l《 §e§lChapitre %d §8§l》";
+    private static final String MAIN_TITLE = "§8§l« §6§lJournal du Survivant §8§l»";
+    private static final String CHAPTER_TITLE = "§8§l« §e§lChapitre %d §7- §f%s §8§l»";
 
-    // Identifiants pour reconnaître les inventaires (plus fiable que toString())
+    // Identifiants pour reconnaître les inventaires
     private static final String MAIN_MENU_ID = "journey_main";
     private static final String CHAPTER_MENU_ID = "journey_chapter";
 
     // Cache des inventaires ouverts par joueur
     private final java.util.Map<java.util.UUID, String> openMenus = new java.util.concurrent.ConcurrentHashMap<>();
+    // Cache du chapitre actuellement visualisé
+    private final java.util.Map<java.util.UUID, Integer> viewingChapter = new java.util.concurrent.ConcurrentHashMap<>();
 
     public JourneyGUI(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -52,15 +55,19 @@ public class JourneyGUI implements Listener {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(MAIN_TITLE));
         JourneyManager manager = plugin.getJourneyManager();
 
-        // Remplir le fond
-        fillBackground(inv);
+        // === BORDURE DÉCORATIVE ===
+        fillBorder(inv, Material.GRAY_STAINED_GLASS_PANE);
 
         // === LIGNE 1: Titre et stats générales ===
-
-        // Item de progression globale (centre)
         inv.setItem(4, createProgressItem(player, manager));
 
-        // === LIGNE 2-3: Les 12 chapitres (2 lignes de 6) ===
+        // Décorations titre
+        inv.setItem(3, createDecorItem(Material.YELLOW_STAINED_GLASS_PANE, "§6§l★"));
+        inv.setItem(5, createDecorItem(Material.YELLOW_STAINED_GLASS_PANE, "§6§l★"));
+
+        // === LIGNE 2-3: Les 12 chapitres (2 lignes de 6, centrées) ===
+        // Ligne 2: Chapitres 1-6 (slots 10-15)
+        // Ligne 3: Chapitres 7-12 (slots 19-24)
         int[] chapterSlots = {10, 11, 12, 13, 14, 15, 19, 20, 21, 22, 23, 24};
         JourneyChapter[] chapters = JourneyChapter.values();
 
@@ -69,17 +76,30 @@ public class JourneyGUI implements Listener {
             inv.setItem(chapterSlots[i], createChapterItem(player, chapter, manager));
         }
 
-        // === LIGNE 4: Étape actuelle ===
+        // === LIGNE 4: Séparateur + Étape actuelle (centrée) ===
+        inv.setItem(28, createDecorItem(Material.ORANGE_STAINED_GLASS_PANE, "§6"));
+        inv.setItem(29, createDecorItem(Material.ORANGE_STAINED_GLASS_PANE, "§6"));
+        inv.setItem(30, createDecorItem(Material.YELLOW_STAINED_GLASS_PANE, "§e▶"));
         inv.setItem(31, createCurrentStepItem(player, manager));
+        inv.setItem(32, createDecorItem(Material.YELLOW_STAINED_GLASS_PANE, "§e◀"));
+        inv.setItem(33, createDecorItem(Material.ORANGE_STAINED_GLASS_PANE, "§6"));
+        inv.setItem(34, createDecorItem(Material.ORANGE_STAINED_GLASS_PANE, "§6"));
 
         // === LIGNE 5: Prochains déblocages ===
         JourneyChapter currentChapter = manager.getCurrentChapter(player);
         JourneyGate[] unlocks = currentChapter.getUnlocks();
-        int[] unlockSlots = {39, 40, 41, 42};
 
+        // Titre des déblocages
+        inv.setItem(37, createDecorItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§b§lDéblocages"));
+
+        // Afficher jusqu'à 4 déblocages
+        int[] unlockSlots = {39, 40, 41, 42};
         for (int i = 0; i < unlocks.length && i < unlockSlots.length; i++) {
-            inv.setItem(unlockSlots[i], createUnlockItem(unlocks[i], true));
+            boolean unlocked = manager.hasUnlockedGate(player, unlocks[i]);
+            inv.setItem(unlockSlots[i], createUnlockItem(unlocks[i], unlocked));
         }
+
+        inv.setItem(43, createDecorItem(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§b§l◆"));
 
         // === LIGNE 6: Boutons ===
         inv.setItem(49, createInfoItem());
@@ -90,49 +110,138 @@ public class JourneyGUI implements Listener {
     }
 
     /**
-     * Ouvre le détail d'un chapitre
+     * Ouvre le détail d'un chapitre (supporte jusqu'à 10 étapes)
      */
     public void openChapterDetail(Player player, JourneyChapter chapter) {
-        String title = String.format(CHAPTER_TITLE, chapter.getId());
-        Inventory inv = Bukkit.createInventory(null, 45, Component.text(title));
+        String title = String.format(CHAPTER_TITLE, chapter.getId(), chapter.getName());
+        Inventory inv = Bukkit.createInventory(null, 54, Component.text(title));
         JourneyManager manager = plugin.getJourneyManager();
 
-        fillBackground(inv);
+        // Mémoriser le chapitre visualisé
+        viewingChapter.put(player.getUniqueId(), chapter.getId());
 
-        // === En-tête du chapitre ===
-        inv.setItem(4, createChapterHeaderItem(chapter, manager.isChapterCompleted(player, chapter)));
+        // === BORDURE DÉCORATIVE ===
+        fillBorder(inv, Material.GRAY_STAINED_GLASS_PANE);
 
-        // === Les 5 étapes du chapitre ===
+        // === LIGNE 1: En-tête du chapitre ===
+        inv.setItem(4, createChapterHeaderItem(chapter, manager.isChapterCompleted(player, chapter), player, manager));
+
+        // Phase du chapitre (couleur selon la phase)
+        Material phaseGlass = getPhaseGlass(chapter);
+        inv.setItem(3, createDecorItem(phaseGlass, chapter.getColor() + "§l◆"));
+        inv.setItem(5, createDecorItem(phaseGlass, chapter.getColor() + "§l◆"));
+
+        // === LIGNES 2-3: Les étapes du chapitre (jusqu'à 10) ===
         List<JourneyStep> steps = JourneyStep.getStepsForChapter(chapter);
-        int[] stepSlots = {20, 21, 22, 23, 24};
+        int totalSteps = steps.size();
+
+        // Layout adaptatif selon le nombre d'étapes
+        int[] stepSlots = getStepSlots(totalSteps);
 
         for (int i = 0; i < steps.size() && i < stepSlots.length; i++) {
             JourneyStep step = steps.get(i);
             int progress = manager.getStepProgress(player, step);
-            boolean completed = step.isCompleted(progress);
+            boolean completed = manager.isStepCompleted(player, step);
             boolean current = step.equals(manager.getCurrentStep(player));
+            boolean locked = !completed && !current;
 
-            inv.setItem(stepSlots[i], createStepItem(step, progress, completed, current));
+            inv.setItem(stepSlots[i], createStepItem(step, progress, completed, current, locked));
+
+            // Ajouter des flèches de connexion entre les étapes (sauf la dernière de chaque ligne)
+            if (i < totalSteps - 1 && shouldAddArrow(i, totalSteps)) {
+                int arrowSlot = getArrowSlot(stepSlots[i], stepSlots[i + 1], totalSteps);
+                if (arrowSlot >= 0 && arrowSlot < 54) {
+                    inv.setItem(arrowSlot, createArrowItem(completed));
+                }
+            }
         }
 
-        // === Récompenses du chapitre ===
-        inv.setItem(31, createChapterRewardsItem(chapter));
+        // === LIGNE 4: Séparateur ===
+        for (int i = 28; i <= 34; i++) {
+            if (inv.getItem(i) == null || inv.getItem(i).getType() == Material.GRAY_STAINED_GLASS_PANE) {
+                inv.setItem(i, createDecorItem(phaseGlass, chapter.getColor()));
+            }
+        }
 
-        // === Déblocages du chapitre ===
+        // === LIGNE 5: Récompenses + Déblocages ===
+        inv.setItem(38, createChapterRewardsItem(chapter));
+
+        // Déblocages du chapitre
         JourneyGate[] unlocks = chapter.getUnlocks();
-        int[] unlockSlots = {38, 39, 40, 41, 42};
+        int[] unlockSlots = {40, 41, 42};
         boolean chapterCompleted = manager.isChapterCompleted(player, chapter);
 
         for (int i = 0; i < unlocks.length && i < unlockSlots.length; i++) {
-            inv.setItem(unlockSlots[i], createUnlockItem(unlocks[i], chapterCompleted));
+            boolean unlocked = chapterCompleted || manager.hasUnlockedGate(player, unlocks[i]);
+            inv.setItem(unlockSlots[i], createUnlockItem(unlocks[i], unlocked));
         }
 
-        // === Bouton retour ===
-        inv.setItem(36, createBackButton());
+        // === LIGNE 6: Navigation ===
+        // Bouton retour
+        inv.setItem(45, createBackButton());
+
+        // Navigation entre chapitres
+        if (chapter.getId() > 1) {
+            inv.setItem(48, createNavButton(false, chapter.getId() - 1));
+        }
+        if (chapter.getId() < 12) {
+            inv.setItem(50, createNavButton(true, chapter.getId() + 1));
+        }
+
+        // Indicateur de progression du chapitre
+        inv.setItem(49, createChapterProgressItem(player, chapter, manager));
 
         player.openInventory(inv);
         openMenus.put(player.getUniqueId(), CHAPTER_MENU_ID);
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 1.5f);
+    }
+
+    /**
+     * Calcule les slots pour les étapes selon leur nombre
+     */
+    private int[] getStepSlots(int totalSteps) {
+        return switch (totalSteps) {
+            case 1 -> new int[]{22};
+            case 2 -> new int[]{21, 23};
+            case 3 -> new int[]{20, 22, 24};
+            case 4 -> new int[]{20, 21, 23, 24};
+            case 5 -> new int[]{20, 21, 22, 23, 24};
+            case 6 -> new int[]{11, 12, 13, 14, 15, 31};
+            case 7 -> new int[]{11, 12, 13, 14, 15, 30, 32};
+            case 8 -> new int[]{11, 12, 13, 14, 15, 29, 31, 33};
+            case 9 -> new int[]{11, 12, 13, 14, 15, 29, 30, 32, 33};
+            case 10 -> new int[]{11, 12, 13, 14, 15, 29, 30, 31, 32, 33};
+            default -> new int[]{11, 12, 13, 14, 15, 29, 30, 31, 32, 33};
+        };
+    }
+
+    /**
+     * Vérifie si on doit ajouter une flèche après cette étape
+     */
+    private boolean shouldAddArrow(int index, int totalSteps) {
+        if (totalSteps <= 5) {
+            return true; // Toujours des flèches sur une seule ligne
+        }
+        // Pour 2 lignes, pas de flèche entre la fin de la ligne 1 et le début de la ligne 2
+        return index != 4; // Pas de flèche après l'étape 5 (index 4)
+    }
+
+    /**
+     * Calcule le slot de la flèche entre deux étapes
+     */
+    private int getArrowSlot(int currentSlot, int nextSlot, int totalSteps) {
+        // Les flèches ne sont pas gérées visuellement pour simplifier
+        // On les ignore pour le moment
+        return -1;
+    }
+
+    private ItemStack createArrowItem(boolean passed) {
+        ItemStack item = new ItemStack(Material.ARROW);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(passed ? "§a→" : "§7→"));
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        item.setItemMeta(meta);
+        return item;
     }
 
     // ==================== CRÉATION DES ITEMS ====================
@@ -144,18 +253,30 @@ public class JourneyGUI implements Listener {
         double progress = manager.getOverallProgress(player);
         int completedChapters = manager.getCompletedChaptersCount(player);
         JourneyChapter current = manager.getCurrentChapter(player);
+        JourneyStep currentStep = manager.getCurrentStep(player);
 
-        meta.displayName(Component.text("§6§lProgression Globale"));
+        meta.displayName(Component.text("§6§l✦ Progression Globale ✦"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Progression: " + createProgressBar(progress) + " §e" + String.format("%.1f", progress) + "%"));
+        lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Chapitres complétés: §a" + completedChapters + "§7/§a12"));
-        lore.add(Component.text("§7Chapitre actuel: " + current.getColoredName()));
+        lore.add(Component.text("  " + createProgressBar(progress, 15) + " §e" + String.format("%.1f", progress) + "%"));
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Phase: " + current.getPhaseName()));
+        lore.add(Component.text("  §7Chapitres: §a" + completedChapters + "§7/§a12 §8complétés"));
+        lore.add(Component.text("  §7Chapitre actuel: " + current.getColoredName()));
+        lore.add(Component.text("  §7Phase: " + current.getPhaseName()));
         lore.add(Component.text(""));
+
+        if (currentStep != null) {
+            int stepProgress = manager.getStepProgress(player, currentStep);
+            lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
+            lore.add(Component.text(""));
+            lore.add(Component.text("  §e§lObjectif Actuel:"));
+            lore.add(Component.text("  §f" + currentStep.getName()));
+            lore.add(Component.text("  §7" + currentStep.getProgressText(stepProgress)));
+            lore.add(Component.text(""));
+        }
 
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -169,47 +290,50 @@ public class JourneyGUI implements Listener {
         boolean locked = !completed && !current && chapter.getId() > manager.getCurrentChapter(player).getId();
 
         Material material;
+        String statusIcon;
         if (completed) {
             material = Material.LIME_STAINED_GLASS_PANE;
+            statusIcon = "§a✓";
         } else if (current) {
             material = chapter.getIcon();
+            statusIcon = "§e▶";
         } else if (locked) {
             material = Material.GRAY_STAINED_GLASS_PANE;
+            statusIcon = "§8🔒";
         } else {
             material = Material.YELLOW_STAINED_GLASS_PANE;
+            statusIcon = "§7○";
         }
 
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
-        String status = completed ? "§a✓ Complété" : (current ? "§e▶ En cours" : "§8🔒 Verrouillé");
-        meta.displayName(Component.text(chapter.getFormattedTitle() + " " + status));
+        meta.displayName(Component.text(statusIcon + " " + chapter.getFormattedTitle()));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
         lore.add(Component.text("§7" + chapter.getDescription()));
-        lore.add(Component.text(""));
-        lore.add(Component.text("§7Niveaux: §e" + chapter.getMinLevel() + " - " + chapter.getMaxLevel()));
         lore.add(Component.text(""));
 
         if (completed) {
             lore.add(Component.text("§a§l✓ Chapitre terminé!"));
         } else if (current) {
             JourneyStep currentStep = manager.getCurrentStep(player);
-            if (currentStep != null) {
+            if (currentStep != null && currentStep.getChapter().equals(chapter)) {
                 int progress = manager.getStepProgress(player, currentStep);
-                lore.add(Component.text("§eÉtape actuelle:"));
+                double percent = currentStep.getProgressPercent(progress);
+                lore.add(Component.text("§7Étape §e" + currentStep.getStepNumber() + "§7:"));
                 lore.add(Component.text("§f" + currentStep.getName()));
-                lore.add(Component.text("§7" + currentStep.getProgressText(progress)));
+                lore.add(Component.text("  " + createProgressBar(percent, 10)));
             }
         } else {
-            lore.add(Component.text("§8Termine le chapitre précédent"));
-            lore.add(Component.text("§8pour débloquer celui-ci."));
+            lore.add(Component.text("§8Termine les chapitres"));
+            lore.add(Component.text("§8précédents pour débloquer."));
         }
 
         lore.add(Component.text(""));
         if (!locked) {
-            lore.add(Component.text("§eClique pour voir les détails!"));
+            lore.add(Component.text("§eClique pour voir les détails"));
         }
 
         meta.lore(lore);
@@ -224,6 +348,11 @@ public class JourneyGUI implements Listener {
             ItemStack item = new ItemStack(Material.BARRIER);
             ItemMeta meta = item.getItemMeta();
             meta.displayName(Component.text("§cAucune étape active"));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text(""));
+            lore.add(Component.text("§7Tu as complété tous les chapitres!"));
+            lore.add(Component.text(""));
+            meta.lore(lore);
             item.setItemMeta(meta);
             return item;
         }
@@ -234,19 +363,22 @@ public class JourneyGUI implements Listener {
         ItemStack item = new ItemStack(step.getIcon());
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§e§l▶ Étape Actuelle"));
+        meta.displayName(Component.text("§e§l▶ " + step.getName()));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
-        lore.add(Component.text(step.getFormattedName()));
         lore.add(Component.text("§7" + step.getDescription()));
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Progression: " + createProgressBar(percent)));
-        lore.add(Component.text("§e" + step.getProgressText(progress)));
+        lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
+        lore.add(Component.text(""));
+        lore.add(Component.text("  " + createProgressBar(percent, 12)));
+        lore.add(Component.text("  §e" + step.getProgressText(progress)));
+        lore.add(Component.text(""));
+        lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
         lore.add(Component.text(""));
         lore.add(Component.text("§7Récompenses:"));
-        lore.add(Component.text("§e  +" + step.getPointReward() + " Points"));
-        lore.add(Component.text("§d  +" + step.getGemReward() + " Gems"));
+        lore.add(Component.text("§e  ⬧ " + formatNumber(step.getPointReward()) + " Points"));
+        lore.add(Component.text("§d  ⬧ " + step.getGemReward() + " Gems"));
         lore.add(Component.text(""));
 
         meta.lore(lore);
@@ -256,19 +388,20 @@ public class JourneyGUI implements Listener {
     }
 
     private ItemStack createUnlockItem(JourneyGate gate, boolean unlocked) {
-        Material material = unlocked ? Material.LIME_DYE : gate.getIcon();
+        Material material = unlocked ? Material.LIME_DYE : Material.GRAY_DYE;
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
-        String status = unlocked ? "§a✓ Débloqué" : "§c🔒 Verrouillé";
-        meta.displayName(Component.text(status + " §7- §f" + gate.getDisplayName()));
+        String icon = unlocked ? "§a✓" : "§c🔒";
+        meta.displayName(Component.text(icon + " §f" + gate.getDisplayName()));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
         if (!unlocked) {
-            lore.add(Component.text("§7Condition: §e" + gate.getRequirement()));
+            lore.add(Component.text("§7Condition:"));
+            lore.add(Component.text("§e" + gate.getRequirement()));
         } else {
-            lore.add(Component.text("§aAccès disponible!"));
+            lore.add(Component.text("§a✓ Débloqué!"));
         }
         lore.add(Component.text(""));
 
@@ -278,7 +411,7 @@ public class JourneyGUI implements Listener {
         return item;
     }
 
-    private ItemStack createChapterHeaderItem(JourneyChapter chapter, boolean completed) {
+    private ItemStack createChapterHeaderItem(JourneyChapter chapter, boolean completed, Player player, JourneyManager manager) {
         ItemStack item = new ItemStack(chapter.getIcon());
         ItemMeta meta = item.getItemMeta();
 
@@ -289,8 +422,21 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text(""));
         lore.add(Component.text("§7" + chapter.getDescription()));
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Phase: " + chapter.getPhaseName()));
-        lore.add(Component.text("§7Niveaux: §e" + chapter.getMinLevel() + " - " + chapter.getMaxLevel()));
+        lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
+        lore.add(Component.text(""));
+        lore.add(Component.text("  §7Phase: " + chapter.getPhaseName()));
+        lore.add(Component.text("  §7Niveaux: §e" + chapter.getMinLevel() + " - " + chapter.getMaxLevel()));
+        lore.add(Component.text(""));
+
+        // Afficher le nombre d'étapes complétées
+        List<JourneyStep> steps = JourneyStep.getStepsForChapter(chapter);
+        int completedSteps = 0;
+        for (JourneyStep step : steps) {
+            if (manager.isStepCompleted(player, step)) {
+                completedSteps++;
+            }
+        }
+        lore.add(Component.text("  §7Étapes: §a" + completedSteps + "§7/§a" + steps.size()));
         lore.add(Component.text(""));
 
         meta.lore(lore);
@@ -299,40 +445,47 @@ public class JourneyGUI implements Listener {
         return item;
     }
 
-    private ItemStack createStepItem(JourneyStep step, int progress, boolean completed, boolean current) {
+    private ItemStack createStepItem(JourneyStep step, int progress, boolean completed, boolean current, boolean locked) {
         Material material;
+        String prefix;
+
         if (completed) {
             material = Material.LIME_DYE;
+            prefix = "§a✓ ";
         } else if (current) {
             material = step.getIcon();
+            prefix = "§e▶ ";
         } else {
             material = Material.GRAY_DYE;
+            prefix = "§8○ ";
         }
 
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
-        String prefix = completed ? "§a✓ " : (current ? "§e▶ " : "§7");
-        meta.displayName(Component.text(prefix + "Étape " + step.getStepNumber() + ": §f" + step.getName()));
+        meta.displayName(Component.text(prefix + "§fÉtape " + step.getStepNumber()));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
+        lore.add(Component.text(step.getChapter().getColor() + step.getName()));
         lore.add(Component.text("§7" + step.getDescription()));
         lore.add(Component.text(""));
 
         if (completed) {
-            lore.add(Component.text("§a§lComplété!"));
+            lore.add(Component.text("§a§l✓ Complété!"));
         } else if (current) {
             double percent = step.getProgressPercent(progress);
-            lore.add(Component.text("§7Progression: " + createProgressBar(percent)));
+            lore.add(Component.text(createProgressBar(percent, 10)));
             lore.add(Component.text("§e" + step.getProgressText(progress)));
         } else {
-            lore.add(Component.text("§8Complète les étapes précédentes"));
+            lore.add(Component.text("§8Complète les étapes"));
+            lore.add(Component.text("§8précédentes d'abord."));
         }
 
         lore.add(Component.text(""));
+        lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
         lore.add(Component.text("§7Récompenses:"));
-        lore.add(Component.text("§e  +" + step.getPointReward() + " Points"));
+        lore.add(Component.text("§e  +" + formatNumber(step.getPointReward()) + " Points"));
         lore.add(Component.text("§d  +" + step.getGemReward() + " Gems"));
 
         meta.lore(lore);
@@ -345,14 +498,51 @@ public class JourneyGUI implements Listener {
         ItemStack item = new ItemStack(Material.CHEST);
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§6§lRécompenses du Chapitre"));
+        meta.displayName(Component.text("§6§l✦ Récompenses du Chapitre ✦"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
-        lore.add(Component.text("§e+" + formatNumber(chapter.getBonusPoints()) + " Points"));
-        lore.add(Component.text("§d+" + chapter.getBonusGems() + " Gems"));
+        lore.add(Component.text("§7En terminant ce chapitre:"));
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Bonus: " + chapter.getBonusReward()));
+        lore.add(Component.text("§e  ⬧ " + formatNumber(chapter.getBonusPoints()) + " Points bonus"));
+        lore.add(Component.text("§d  ⬧ " + chapter.getBonusGems() + " Gems bonus"));
+        lore.add(Component.text(""));
+
+        String bonus = chapter.getBonusReward();
+        if (bonus != null && !bonus.isEmpty()) {
+            lore.add(Component.text("§a  ⬧ " + bonus));
+            lore.add(Component.text(""));
+        }
+
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createChapterProgressItem(Player player, JourneyChapter chapter, JourneyManager manager) {
+        List<JourneyStep> steps = JourneyStep.getStepsForChapter(chapter);
+        int completedSteps = 0;
+        for (JourneyStep step : steps) {
+            if (manager.isStepCompleted(player, step)) {
+                completedSteps++;
+            }
+        }
+
+        double percent = steps.isEmpty() ? 0 : (completedSteps * 100.0 / steps.size());
+        boolean chapterCompleted = manager.isChapterCompleted(player, chapter);
+
+        Material material = chapterCompleted ? Material.EMERALD : Material.CLOCK;
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+
+        meta.displayName(Component.text(chapterCompleted ? "§a§lChapitre Terminé!" : "§e§lProgression"));
+
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(""));
+        lore.add(Component.text("  " + createProgressBar(percent, 12)));
+        lore.add(Component.text(""));
+        lore.add(Component.text("  §7Étapes: §a" + completedSteps + "§7/§a" + steps.size()));
         lore.add(Component.text(""));
 
         meta.lore(lore);
@@ -365,16 +555,16 @@ public class JourneyGUI implements Listener {
         ItemStack item = new ItemStack(Material.BOOK);
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§e§lInformations"));
+        meta.displayName(Component.text("§e§l? Informations"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(""));
-        lore.add(Component.text("§7Le Parcours du Survivant te guide"));
-        lore.add(Component.text("§7à travers 12 chapitres d'aventure."));
+        lore.add(Component.text("§7Le Journal du Survivant te guide"));
+        lore.add(Component.text("§7à travers §e12 chapitres §7d'aventure."));
         lore.add(Component.text(""));
-        lore.add(Component.text("§c⚠ IMPORTANT:"));
+        lore.add(Component.text("§c§l⚠ IMPORTANT:"));
         lore.add(Component.text("§7Les zones et fonctionnalités sont"));
-        lore.add(Component.text("§7§lBLOQUÉES §7tant que tu n'as pas"));
+        lore.add(Component.text("§c§lBLOQUÉES §7tant que tu n'as pas"));
         lore.add(Component.text("§7complété les étapes requises!"));
         lore.add(Component.text(""));
         lore.add(Component.text("§7Commande: §e/journey"));
@@ -388,30 +578,70 @@ public class JourneyGUI implements Listener {
     private ItemStack createBackButton() {
         ItemStack item = new ItemStack(Material.ARROW);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("§c◀ Retour"));
+        meta.displayName(Component.text("§c§l◀ Retour au menu"));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(""));
+        lore.add(Component.text("§7Clique pour revenir"));
+        lore.add(Component.text("§7au menu principal."));
+        lore.add(Component.text(""));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createNavButton(boolean next, int targetChapter) {
+        ItemStack item = new ItemStack(next ? Material.LIME_DYE : Material.RED_DYE);
+        ItemMeta meta = item.getItemMeta();
+
+        String arrow = next ? "▶" : "◀";
+        String label = next ? "Chapitre Suivant" : "Chapitre Précédent";
+        meta.displayName(Component.text((next ? "§a" : "§c") + "§l" + arrow + " " + label));
+
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(""));
+        lore.add(Component.text("§7Aller au chapitre §e" + targetChapter));
+        lore.add(Component.text(""));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createDecorItem(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name));
         item.setItemMeta(meta);
         return item;
     }
 
     // ==================== UTILITAIRES ====================
 
-    private void fillBackground(Inventory inv) {
-        ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta meta = glass.getItemMeta();
+    private void fillBorder(Inventory inv, Material glass) {
+        ItemStack borderItem = new ItemStack(glass);
+        ItemMeta meta = borderItem.getItemMeta();
         meta.displayName(Component.text(" "));
-        glass.setItemMeta(meta);
+        borderItem.setItemMeta(meta);
 
+        // Remplir tout d'abord
         for (int i = 0; i < inv.getSize(); i++) {
-            if (inv.getItem(i) == null) {
-                inv.setItem(i, glass);
-            }
+            inv.setItem(i, borderItem.clone());
         }
     }
 
-    private String createProgressBar(double percent) {
+    private Material getPhaseGlass(JourneyChapter chapter) {
+        return switch (chapter.getPhase()) {
+            case 1 -> Material.LIME_STAINED_GLASS_PANE;
+            case 2 -> Material.YELLOW_STAINED_GLASS_PANE;
+            case 3 -> Material.ORANGE_STAINED_GLASS_PANE;
+            case 4 -> Material.MAGENTA_STAINED_GLASS_PANE;
+            default -> Material.WHITE_STAINED_GLASS_PANE;
+        };
+    }
+
+    private String createProgressBar(double percent, int length) {
         StringBuilder bar = new StringBuilder("§8[");
-        int filled = (int) (percent / 10);
-        for (int i = 0; i < 10; i++) {
+        int filled = (int) (percent / (100.0 / length));
+        for (int i = 0; i < length; i++) {
             if (i < filled) {
                 bar.append("§a■");
             } else {
@@ -463,8 +693,41 @@ public class JourneyGUI implements Listener {
 
         // Menu de détail d'un chapitre
         if (CHAPTER_MENU_ID.equals(menuType)) {
-            if (slot == 36) {
+            // Bouton retour
+            if (slot == 45) {
                 openMainMenu(player);
+                return;
+            }
+
+            // Navigation chapitre précédent
+            if (slot == 48) {
+                Integer currentChapterId = viewingChapter.get(player.getUniqueId());
+                if (currentChapterId != null && currentChapterId > 1) {
+                    JourneyChapter prevChapter = JourneyChapter.getById(currentChapterId - 1);
+                    if (prevChapter != null) {
+                        openChapterDetail(player, prevChapter);
+                    }
+                }
+                return;
+            }
+
+            // Navigation chapitre suivant
+            if (slot == 50) {
+                Integer currentChapterId = viewingChapter.get(player.getUniqueId());
+                if (currentChapterId != null && currentChapterId < 12) {
+                    JourneyChapter nextChapter = JourneyChapter.getById(currentChapterId + 1);
+                    if (nextChapter != null) {
+                        // Vérifier que le joueur peut voir ce chapitre
+                        JourneyChapter playerChapter = plugin.getJourneyManager().getCurrentChapter(player);
+                        if (nextChapter.getId() <= playerChapter.getId() ||
+                            plugin.getJourneyManager().isChapterCompleted(player, nextChapter)) {
+                            openChapterDetail(player, nextChapter);
+                        } else {
+                            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
+                        }
+                    }
+                }
+                return;
             }
         }
     }
@@ -473,6 +736,7 @@ public class JourneyGUI implements Listener {
     public void onInventoryClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player) {
             openMenus.remove(player.getUniqueId());
+            viewingChapter.remove(player.getUniqueId());
         }
     }
 }

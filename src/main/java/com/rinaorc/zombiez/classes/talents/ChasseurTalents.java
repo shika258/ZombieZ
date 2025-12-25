@@ -1095,7 +1095,6 @@ public final class ChasseurTalents {
             .name("Frappe Orbitale")
             .description("Déclenche un bombardement orbital dévastateur")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§f§lVOIE DU BARRAGE",
                 "",
                 "§7Invoque une pluie de 8 bombes en",
@@ -1125,7 +1124,6 @@ public final class ChasseurTalents {
             .name("Golem de Fer")
             .description("Invoque un golem dévastateur avec frappe titanesque")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§6§lVOIE DES BÊTES",
                 "",
                 "§7Invoque un Golem de Fer qui charge",
@@ -1154,7 +1152,6 @@ public final class ChasseurTalents {
             .name("Avatar d'Ombre")
             .description("Se transforme en Avatar d'Ombre avec des clones")
             .loreLines(new String[]{
-                "§5§l★ LÉGENDAIRE ★",
                 "§5§lVOIE DE L'OMBRE",
                 "",
                 "§7Se transforme en Avatar d'Ombre.",
@@ -1184,7 +1181,6 @@ public final class ChasseurTalents {
             .name("Avatar de la Peste")
             .description("Se transforme en Avatar de pestilence avec explosion finale")
             .loreLines(new String[]{
-                "§2§l★ LÉGENDAIRE ★",
                 "§2§lVOIE DU POISON",
                 "",
                 "§7Se transforme en Avatar de la Peste.",
@@ -1214,7 +1210,6 @@ public final class ChasseurTalents {
             .name("Zéro Absolu")
             .description("Déclenche une vague de gel instantané")
             .loreLines(new String[]{
-                "§b§l★ LÉGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
                 "§7Déclenche une vague de froid absolu",

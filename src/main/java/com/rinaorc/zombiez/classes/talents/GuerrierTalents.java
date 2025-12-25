@@ -1066,8 +1066,6 @@ public final class GuerrierTalents {
             .name("Ragnarok")
             .description("Invoque une zone d'apocalypse dévastatrice")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
-                "",
                 "§7Invoque une zone d'apocalypse qui",
                 "§7inflige des dégâts massifs, étourdit",
                 "§7les ennemis et brûle la terre.",
@@ -1095,7 +1093,6 @@ public final class GuerrierTalents {
             .name("Avatar du Rempart")
             .description("Se transforme en Avatar invincible après blocages cumulés")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§6§lVOIE DU REMPART",
                 "",
                 "§7Après avoir bloqué 300 dégâts,",
@@ -1123,8 +1120,6 @@ public final class GuerrierTalents {
             .name("Méga Tornade")
             .description("Se transforme en tornade géante aspirant les ennemis")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
-                "",
                 "§7Devenez une tornade géante qui",
                 "§7aspire et déchiquète tous les",
                 "§7ennemis à proximité.",
@@ -1150,7 +1145,6 @@ public final class GuerrierTalents {
             .name("Épée Dansante")
             .description("Invoque une épée fantôme qui double vos attaques")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§4§lVOIE DU SANG",
                 "",
                 "§7Invoque une épée runique fantôme",
@@ -1180,7 +1174,6 @@ public final class GuerrierTalents {
             .name("Rage du Berserker")
             .description("Se transforme en berserker géant dévastateur")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§6§lVOIE DU FAUVE",
                 "",
                 "§7Devenez un berserker géant aux",

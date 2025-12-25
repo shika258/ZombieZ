@@ -186,9 +186,9 @@ public enum JourneyChapter {
         "Légende Vivante",
         "§6",
         Material.NETHER_STAR,
-        "Deviens une légende de ZombieZ - Le parcours ultime",
+        "Deviens une légende de ZombieZ - Le journal ultime",
         100, 150, // Prestige 1 niveau 50 = ~150 en progression
-        new JourneyGate[]{}, // Fin du parcours
+        new JourneyGate[]{}, // Fin du journal
         50000,
         500,
         "§6§l✦ Set Légendaire Exclusif + Aura + Titre ✦",

@@ -211,7 +211,7 @@ public class MysteryChestManager {
         player.sendMessage("");
         player.sendMessage("§6§l✦ COFFRE MYSTÉRIEUX DÉCOUVERT! ✦");
         player.sendMessage("§e" + chest.getDisplayName());
-        player.sendMessage("§7Tu as trouvé un coffre secret du parcours!");
+        player.sendMessage("§7Tu as trouvé un coffre secret du journal!");
         player.sendMessage("");
 
         // Title

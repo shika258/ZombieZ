@@ -68,10 +68,10 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§8§m                                        ");
         sender.sendMessage("§6§lZOMBIEZ §7- Commandes Admin Journey");
         sender.sendMessage("");
-        sender.sendMessage("§e/zzjourneyadmin info <joueur> §8- §7Voir l'état du parcours");
+        sender.sendMessage("§e/zzjourneyadmin info <joueur> §8- §7Voir l'état du journal");
         sender.sendMessage("§e/zzjourneyadmin skip <joueur> §8- §7Passer au chapitre suivant");
         sender.sendMessage("§e/zzjourneyadmin unlockall <joueur> §8- §7Tout débloquer");
-        sender.sendMessage("§e/zzjourneyadmin reset <joueur> §8- §7Réinitialiser le parcours");
+        sender.sendMessage("§e/zzjourneyadmin reset <joueur> §8- §7Réinitialiser le journal");
         sender.sendMessage("§e/zzjourneyadmin setchapter <joueur> <1-12> §8- §7Définir le chapitre");
         sender.sendMessage("§e/zzjourneyadmin setstep <joueur> <1-5> §8- §7Définir l'étape");
         sender.sendMessage("§8§m                                        ");
@@ -112,7 +112,7 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
             int stepProgress = manager.getStepProgress(target, step);
             sender.sendMessage("§7Progression étape: §e" + step.getProgressText(stepProgress));
         } else {
-            sender.sendMessage("§aParcours complété!");
+            sender.sendMessage("§aJournal complété!");
         }
         sender.sendMessage("§8§m                                        ");
     }
@@ -178,7 +178,7 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
         resetJourney(target);
 
-        sender.sendMessage("§a✓ Parcours réinitialisé pour " + target.getName());
+        sender.sendMessage("§a✓ Journal réinitialisé pour " + target.getName());
 
         // Mettre à jour la BossBar
         plugin.getJourneyManager().createOrUpdateBossBar(target);
