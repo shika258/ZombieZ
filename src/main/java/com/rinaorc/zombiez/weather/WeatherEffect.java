@@ -256,6 +256,11 @@ public class WeatherEffect {
             achievementManager.checkAndUnlock(player, "blood_moon_survivor_2", bloodMoonsSurvived);
             achievementManager.checkAndUnlock(player, "blood_moon_master", bloodMoonsSurvived);
 
+            // Notifier le système de Parcours (Journey)
+            if (plugin.getJourneyListener() != null) {
+                plugin.getJourneyListener().onSurviveBloodMoon(player, bloodMoonsSurvived);
+            }
+
             // Mission Blood Moon
             missionManager.updateProgress(player,
                 com.rinaorc.zombiez.progression.MissionManager.MissionTracker.BLOOD_MOONS_SURVIVED, 1);

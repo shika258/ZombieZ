@@ -257,6 +257,11 @@ public class ClassManager {
 
         player.sendMessage("");
 
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            plugin.getJourneyListener().onClassSelect(player);
+        }
+
         return true;
     }
 
@@ -272,6 +277,11 @@ public class ClassManager {
         player.sendMessage("§6§l+ NIVEAU " + newLevel + " +");
         player.sendMessage("§7Votre classe " + data.getSelectedClass().getColoredName() + " §7a gagne un niveau!");
         player.sendMessage("");
+
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            plugin.getJourneyListener().onClassLevelUp(player, newLevel);
+        }
     }
 
     // ==================== CALCULS DE STATS DE BASE ====================

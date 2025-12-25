@@ -157,6 +157,11 @@ public class ProgressionManager {
                 nearby.sendMessage("§7" + player.getName() + " est passé niveau §a" + newLevel + "§7!");
             }
         }
+
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            plugin.getJourneyListener().onLevelUp(player, newLevel);
+        }
     }
 
     /**
@@ -226,6 +231,11 @@ public class ProgressionManager {
             player.getLocation().add(0, 1, 0),
             200, 2, 2, 2, 0.5
         );
+
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            plugin.getJourneyListener().onPrestige(player, newPrestige);
+        }
     }
 
     /**

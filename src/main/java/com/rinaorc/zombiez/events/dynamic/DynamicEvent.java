@@ -428,6 +428,11 @@ public abstract class DynamicEvent {
                     achievementManager.checkAndUnlock(player, "event_champion", eventsCompleted);
                     achievementManager.checkAndUnlock(player, "event_legend", eventsCompleted);
 
+                    // Notifier le système de Parcours (Journey)
+                    if (plugin.getJourneyListener() != null) {
+                        plugin.getJourneyListener().onEventParticipation(player, eventsCompleted);
+                    }
+
                     // Tracking spécifique selon le type d'événement
                     if (type == DynamicEventType.HORDE_INVASION) {
                         playerData.incrementStat("hordes_completed");
