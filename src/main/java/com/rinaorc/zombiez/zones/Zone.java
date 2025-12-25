@@ -25,7 +25,9 @@ public class Zone {
     private final String displayName;
     private final String description;
 
-    // Limites géographiques (axe Z)
+    // Limites géographiques
+    private final int minX;
+    private final int maxX;
     private final int minZ;
     private final int maxZ;
 
@@ -201,6 +203,8 @@ public class Zone {
             .name("spawn")
             .displayName("Zone de Spawn")
             .description("Zone sécurisée pour les nouveaux survivants")
+            .minX(-500)
+            .maxX(500)
             .minZ(10000)
             .maxZ(10200)
             .difficulty(0)
@@ -246,6 +250,8 @@ public class Zone {
             .id(id)
             .name(name.toLowerCase().replace(" ", "_"))
             .displayName(name)
+            .minX(-500)  // Valeur par défaut pour la largeur de la map
+            .maxX(500)   // Valeur par défaut pour la largeur de la map
             .minZ(minZ)
             .maxZ(maxZ)
             .difficulty(difficulty)
