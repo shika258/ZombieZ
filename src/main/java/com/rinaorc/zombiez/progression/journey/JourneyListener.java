@@ -109,12 +109,13 @@ public class JourneyListener implements Listener {
 
     /**
      * Backup: Vérifier aussi sur le mouvement pour empêcher les contournements
-     * + Tracker la progression d'exploration de zone
+     * + Tracker la progression d'exploration de zone par chunks
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
-        // Optimisation: ne vérifier que si le joueur a changé de bloc
-        if (event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
+        // Optimisation: ne vérifier que si le joueur a changé de bloc (X ou Z)
+        if (event.getFrom().getBlockX() == event.getTo().getBlockX()
+            && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
             return;
         }
 
@@ -136,14 +137,35 @@ public class JourneyListener implements Listener {
             return;
         }
 
-        // Tracker la progression d'exploration de zone (ZONE_PROGRESS)
-        // Uniquement pour la Zone 1 et si le joueur a cet objectif actif
-        if (zoneId == 1) {
+        // Tracker l'exploration de zone par chunks
+        trackChunkExploration(player, event.getTo(), zone);
+    }
+
+    /**
+     * Tracke l'exploration d'un chunk dans une zone
+     * Marque le chunk comme exploré et met à jour la progression si nécessaire
+     */
+    private void trackChunkExploration(Player player, org.bukkit.Location loc, com.rinaorc.zombiez.zones.Zone zone) {
+        int chunkX = loc.getBlockX() >> 4;
+        int chunkZ = loc.getBlockZ() >> 4;
+
+        // Vérifier que le chunk fait partie de la zone
+        if (!zone.containsChunk(chunkX, chunkZ)) return;
+
+        // Marquer le chunk comme exploré
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return;
+
+        boolean isNewChunk = data.markChunkExplored(zone.getId(), chunkX, chunkZ);
+
+        // Si c'est un nouveau chunk et que le joueur a un objectif ZONE_PROGRESS actif
+        if (isNewChunk) {
             JourneyStep currentStep = journeyManager.getCurrentStep(player);
             if (currentStep != null && currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
-                int playerZ = event.getTo().getBlockZ();
-                int progress = (int) zone.getProgressPercent(playerZ);
-                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, progress);
+                // Calculer le pourcentage d'exploration
+                int exploredCount = data.getExploredChunkCount(zone.getId());
+                int explorationPercent = zone.getExplorationPercent(exploredCount);
+                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
             }
         }
     }
@@ -268,12 +290,11 @@ public class JourneyListener implements Listener {
                 journeyManager.updateProgress(player, JourneyStep.StepType.REACH_ZONE, newZoneId);
             }
             case ZONE_PROGRESS -> {
-                // Calculer le pourcentage de progression dans la zone 1
-                var zone = plugin.getZoneManager().getZoneById(1);
+                // L'exploration par chunks est gérée dans trackChunkExploration()
+                // Cette méthode est appelée lors du changement de zone
+                var zone = plugin.getZoneManager().getZoneById(newZoneId);
                 if (zone != null) {
-                    int playerZ = player.getLocation().getBlockZ();
-                    int progress = (int) zone.getProgressPercent(playerZ);
-                    journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, progress);
+                    trackChunkExploration(player, player.getLocation(), zone);
                 }
             }
             default -> {}

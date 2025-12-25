@@ -104,6 +104,49 @@ public class Zone {
         return (double) (maxZ - z) / (maxZ - minZ) * 100;
     }
 
+    // ==================== EXPLORATION PAR CHUNKS ====================
+
+    /**
+     * Obtient le nombre total de chunks dans la zone
+     * Basé sur les limites X et Z de la zone
+     */
+    public int getTotalChunks() {
+        // Convertir les coordonnées en chunks (diviser par 16)
+        int minChunkX = minX >> 4;
+        int maxChunkX = maxX >> 4;
+        int minChunkZ = minZ >> 4;
+        int maxChunkZ = maxZ >> 4;
+
+        int chunksX = maxChunkX - minChunkX + 1;
+        int chunksZ = maxChunkZ - minChunkZ + 1;
+
+        return chunksX * chunksZ;
+    }
+
+    /**
+     * Vérifie si un chunk fait partie de cette zone
+     */
+    public boolean containsChunk(int chunkX, int chunkZ) {
+        int minChunkX = minX >> 4;
+        int maxChunkX = maxX >> 4;
+        int minChunkZ = minZ >> 4;
+        int maxChunkZ = maxZ >> 4;
+
+        return chunkX >= minChunkX && chunkX <= maxChunkX
+            && chunkZ >= minChunkZ && chunkZ <= maxChunkZ;
+    }
+
+    /**
+     * Calcule le pourcentage d'exploration de la zone
+     * @param exploredChunks nombre de chunks explorés par le joueur
+     * @return pourcentage d'exploration (0-100)
+     */
+    public int getExplorationPercent(int exploredChunks) {
+        int total = getTotalChunks();
+        if (total == 0) return 100;
+        return Math.min(100, (exploredChunks * 100) / total);
+    }
+
     /**
      * Obtient le nom d'affichage coloré
      */
