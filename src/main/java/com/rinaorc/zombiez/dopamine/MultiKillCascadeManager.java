@@ -129,16 +129,7 @@ public class MultiKillCascadeManager implements Listener {
 
 
         // ═══════════════════════════════════════════════════════════════════
-        // 5. ANNONCE SERVEUR POUR LES GROS MULTI-KILLS
-        // ═══════════════════════════════════════════════════════════════════
-        if (tier.killCount >= 5) {
-            String announcement = tier.color + "⚔ " + player.getName() + " §7a réalisé un " +
-                tier.color + "§l" + tier.name + "§7!";
-            plugin.getServer().broadcastMessage(announcement);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // 6. MISE À JOUR DU RECORD PERSONNEL
+        // 5. MISE À JOUR DU RECORD PERSONNEL
         // ═══════════════════════════════════════════════════════════════════
         if (tier.killCount > data.bestMultiKill) {
             data.bestMultiKill = tier.killCount;

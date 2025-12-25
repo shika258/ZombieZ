@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Les 12 Chapitres du Parcours du Survivant
+ * Les 21 Chapitres du Journal du Survivant
  *
  * Chaque chapitre représente une étape majeure de la progression
  * avec ses propres objectifs, récompenses et déblocages
@@ -186,13 +186,143 @@ public enum JourneyChapter {
         "Légende Vivante",
         "§6",
         Material.NETHER_STAR,
-        "Deviens une légende de ZombieZ - Le journal ultime",
-        100, 150, // Prestige 1 niveau 50 = ~150 en progression
-        new JourneyGate[]{}, // Fin du journal
+        "Deviens une légende de ZombieZ",
+        100, 125,
+        new JourneyGate[]{JourneyGate.PRESTIGE_2},
         50000,
         500,
-        "§6§l✦ Set Légendaire Exclusif + Aura + Titre ✦",
+        "§6§l✦ Set Légendaire Exclusif + Aura ✦",
         "§6§l✦ LÉGENDE VIVANTE ✦"
+    ),
+
+    // ==================== PHASE 5: TRANSCENDANCE (Niveau 125-200) ====================
+
+    CHAPTER_13(
+        13,
+        "Renaissance",
+        "§b",
+        Material.END_CRYSTAL,
+        "Transcende tes limites avec le Prestige",
+        125, 140,
+        new JourneyGate[]{JourneyGate.ZONE_60},
+        60000,
+        600,
+        "§bCoffre de Renaissance",
+        "§b✦ Transcendance Initiée ✦"
+    ),
+
+    CHAPTER_14(
+        14,
+        "Voie des Anciens",
+        "§b",
+        Material.TOTEM_OF_UNDYING,
+        "Découvre les secrets des survivants légendaires",
+        140, 160,
+        new JourneyGate[]{JourneyGate.ZONE_70, JourneyGate.TALENTS_TIER_5},
+        75000,
+        700,
+        "§bRelique des Anciens",
+        "§bSagesse Ancestrale!"
+    ),
+
+    CHAPTER_15(
+        15,
+        "Éclipse Sanglante",
+        "§4",
+        Material.WITHER_SKELETON_SKULL,
+        "Survie aux événements cataclysmiques",
+        160, 175,
+        new JourneyGate[]{JourneyGate.ZONE_80},
+        90000,
+        800,
+        "§4Arme de l'Éclipse",
+        "§4Survivant de l'Éclipse!"
+    ),
+
+    CHAPTER_16(
+        16,
+        "Gardien du Monde",
+        "§b",
+        Material.BEACON,
+        "Protège les derniers bastions de l'humanité",
+        175, 190,
+        new JourneyGate[]{JourneyGate.ZONE_90, JourneyGate.PRESTIGE_3},
+        110000,
+        900,
+        "§bBouclier du Gardien",
+        "§b⚔ Gardien du Monde ⚔"
+    ),
+
+    CHAPTER_17(
+        17,
+        "Apocalypse",
+        "§4",
+        Material.TNT,
+        "Affronte la horde ultime",
+        190, 200,
+        new JourneyGate[]{JourneyGate.ZONE_100},
+        130000,
+        1000,
+        "§4§lArme Apocalyptique",
+        "§4§l☠ Survivant de l'Apocalypse ☠"
+    ),
+
+    // ==================== PHASE 6: ÉTERNITÉ (Niveau 200+) ====================
+
+    CHAPTER_18(
+        18,
+        "Au-delà du Voile",
+        "§d",
+        Material.END_PORTAL_FRAME,
+        "Explore les dimensions corrompues",
+        200, 225,
+        new JourneyGate[]{JourneyGate.DIMENSION_CORRUPTED},
+        150000,
+        1200,
+        "§dClé Dimensionnelle",
+        "§d✦ Voyageur Dimensionnel ✦"
+    ),
+
+    CHAPTER_19(
+        19,
+        "Némésis",
+        "§4",
+        Material.NETHERITE_SWORD,
+        "Chasse les Archontes de l'infection",
+        225, 250,
+        new JourneyGate[]{JourneyGate.PRESTIGE_4},
+        175000,
+        1400,
+        "§4Lame de Némésis",
+        "§4⚔ Chasseur d'Archontes ⚔"
+    ),
+
+    CHAPTER_20(
+        20,
+        "Dernier Bastion",
+        "§d",
+        Material.RESPAWN_ANCHOR,
+        "Établis le sanctuaire ultime de l'humanité",
+        250, 275,
+        new JourneyGate[]{JourneyGate.SANCTUARY},
+        200000,
+        1600,
+        "§dPierre du Sanctuaire",
+        "§d✦ Fondateur du Bastion ✦"
+    ),
+
+    CHAPTER_21(
+        21,
+        "Éternel",
+        "§6",
+        Material.DRAGON_EGG,
+        "Deviens immortel dans la légende de ZombieZ",
+        275, 300,
+        new JourneyGate[]{}, // Fin du journal ultime
+        300000,
+        2000,
+        "§6§l✦ Titre Éternel + Cosmétiques Exclusifs ✦",
+        "§6§l✦✦✦ ÉTERNEL ✦✦✦"
     );
 
     private final int id;
@@ -240,13 +370,15 @@ public enum JourneyChapter {
     }
 
     /**
-     * Obtient la phase du chapitre (1-4)
+     * Obtient la phase du chapitre (1-6)
      */
     public int getPhase() {
         if (id <= 3) return 1;
         if (id <= 6) return 2;
         if (id <= 9) return 3;
-        return 4;
+        if (id <= 12) return 4;
+        if (id <= 17) return 5;
+        return 6;
     }
 
     /**
@@ -258,6 +390,8 @@ public enum JourneyChapter {
             case 2 -> "§e⚔ CROISSANCE";
             case 3 -> "§c⚔ AFFIRMATION";
             case 4 -> "§5⚔ MAÎTRISE";
+            case 5 -> "§b⚔ TRANSCENDANCE";
+            case 6 -> "§d⚔ ÉTERNITÉ";
             default -> "§7???";
         };
     }

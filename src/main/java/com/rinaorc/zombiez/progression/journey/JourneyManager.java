@@ -8,6 +8,7 @@ import org.bukkit.*;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.FireworkMeta;
@@ -505,6 +506,9 @@ public class JourneyManager {
             // Afficher la prochaine étape
             sendNextStepNotification(player, nextStep);
 
+            // Déclencher les effets spéciaux de l'étape (spawn d'animaux, etc.)
+            triggerStepStartEffects(player, nextStep);
+
             // Vérifier si la nouvelle étape est déjà complétée
             // (ex: le joueur a atteint le niveau 2 avant d'arriver à l'étape "Atteins le niveau 2")
             checkCurrentStepCompletion(player, nextStep);
@@ -535,6 +539,99 @@ public class JourneyManager {
                 }
             }.runTaskLater(plugin, 5L);
         }
+    }
+
+    /**
+     * Déclenche les effets spéciaux au démarrage d'une étape
+     * Ex: Spawn d'animaux pour l'étape de chasse
+     */
+    private void triggerStepStartEffects(Player player, JourneyStep step) {
+        // Étape 1.6: Chasser 3 animaux - Spawn 3 animaux aléatoires autour du joueur
+        if (step == JourneyStep.STEP_1_6) {
+            spawnAnimalsForHuntingStep(player);
+        }
+    }
+
+    /**
+     * Fait spawn 3 animaux aléatoires autour du joueur pour l'étape de chasse
+     */
+    private void spawnAnimalsForHuntingStep(Player player) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        if (world == null) return;
+
+        // Types d'animaux possibles
+        EntityType[] animalTypes = {
+            EntityType.PIG,
+            EntityType.COW,
+            EntityType.SHEEP,
+            EntityType.CHICKEN,
+            EntityType.RABBIT
+        };
+
+        Random random = new Random();
+
+        // Message au joueur
+        player.sendMessage("");
+        player.sendMessage("§a§l➤ §eDes animaux sont apparus près de toi !");
+        player.sendMessage("§7  Chasse-les pour compléter l'étape.");
+        player.sendMessage("");
+
+        // Spawn 3 animaux à des positions aléatoires autour du joueur
+        for (int i = 0; i < 3; i++) {
+            // Position aléatoire dans un rayon de 5-10 blocs
+            double angle = random.nextDouble() * 2 * Math.PI;
+            double distance = 5 + random.nextDouble() * 5; // 5-10 blocs
+            double offsetX = Math.cos(angle) * distance;
+            double offsetZ = Math.sin(angle) * distance;
+
+            Location spawnLoc = playerLoc.clone().add(offsetX, 0, offsetZ);
+
+            // Trouver le sol le plus proche
+            spawnLoc = findSafeSpawnLocation(spawnLoc);
+            if (spawnLoc == null) continue;
+
+            // Choisir un animal aléatoire
+            EntityType animalType = animalTypes[random.nextInt(animalTypes.length)];
+
+            // Spawn l'animal
+            world.spawnEntity(spawnLoc, animalType);
+
+            // Effet visuel de spawn
+            world.spawnParticle(Particle.HAPPY_VILLAGER, spawnLoc.clone().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
+        }
+
+        // Son d'apparition
+        player.playSound(playerLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+    }
+
+    /**
+     * Trouve une position de spawn sûre (sur le sol, pas dans l'eau)
+     */
+    private Location findSafeSpawnLocation(Location loc) {
+        World world = loc.getWorld();
+        if (world == null) return null;
+
+        // Chercher le sol en dessous
+        int startY = loc.getBlockY();
+        for (int y = startY; y > startY - 10 && y > world.getMinHeight(); y--) {
+            Location checkLoc = new Location(world, loc.getX(), y, loc.getZ());
+            if (checkLoc.getBlock().getType().isSolid() &&
+                !checkLoc.getBlock().isLiquid()) {
+                return checkLoc.add(0.5, 1, 0.5); // Centre du bloc, au-dessus
+            }
+        }
+
+        // Chercher le sol au-dessus si on est dans le vide
+        for (int y = startY; y < startY + 10 && y < world.getMaxHeight(); y++) {
+            Location checkLoc = new Location(world, loc.getX(), y, loc.getZ());
+            if (checkLoc.getBlock().getType().isSolid() &&
+                !checkLoc.getBlock().isLiquid()) {
+                return checkLoc.add(0.5, 1, 0.5);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -751,7 +848,7 @@ public class JourneyManager {
         player.sendMessage("");
         player.sendMessage("          §eTu es désormais une §6§lLÉGENDE VIVANTE§e!");
         player.sendMessage("");
-        player.sendMessage("          §7Tu as prouvé ta valeur à travers 12 chapitres");
+        player.sendMessage("          §7Tu as prouvé ta valeur à travers 21 chapitres");
         player.sendMessage("          §7et maîtrisé tous les aspects de ZombieZ.");
         player.sendMessage("");
         player.sendMessage("          §6Récompenses finales:");
