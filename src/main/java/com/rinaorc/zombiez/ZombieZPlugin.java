@@ -405,6 +405,12 @@ public class ZombieZPlugin extends JavaPlugin {
             recycleManager.shutdown();
         }
 
+        // Cleanup du système de parcours (Journey)
+        if (journeyManager != null) {
+            log(Level.INFO, "§7Arrêt du système de parcours...");
+            journeyManager.shutdown();
+        }
+
         // Fermeture de la base de données
         if (databaseManager != null) {
             log(Level.INFO, "§7Fermeture de la connexion BDD...");
@@ -519,6 +525,7 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Journey Manager - Progression guidée avec blocage de zones
         journeyManager = new com.rinaorc.zombiez.progression.journey.JourneyManager(this);
+        journeyManager.start(); // Démarre le système de coffres mystères
 
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);
@@ -1094,11 +1101,11 @@ public class ZombieZPlugin extends JavaPlugin {
                 String reason = "";
 
                 // ═══════════════════════════════════════════════════════════════════
-                // NETTOYAGE 1: TextDisplay (hologrammes d'événements)
+                // NETTOYAGE 1: TextDisplay (hologrammes d'événements et coffres mystères)
                 // ═══════════════════════════════════════════════════════════════════
                 if (entity instanceof TextDisplay) {
-                    // Supprimer tous les TextDisplay - ils sont recréés par les événements
-                    // Note: Les TextDisplay sont principalement utilisés par le système d'événements
+                    // Supprimer tous les TextDisplay - ils sont recréés par les événements et coffres
+                    // Note: Les TextDisplay sont utilisés par le système d'événements et coffres mystères
                     shouldRemove = true;
                     reason = "TextDisplay";
                     clearedTextDisplays++;

@@ -33,6 +33,10 @@ public class JourneyManager {
 
     private final ZombieZPlugin plugin;
 
+    // Gestionnaire des coffres mystères
+    @Getter
+    private final MysteryChestManager mysteryChestManager;
+
     // Cache des gates débloquées par joueur pour accès rapide
     private final Map<UUID, Set<JourneyGate>> unlockedGatesCache = new ConcurrentHashMap<>();
 
@@ -50,6 +54,22 @@ public class JourneyManager {
 
     public JourneyManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
+        this.mysteryChestManager = new MysteryChestManager(plugin, this);
+    }
+
+    /**
+     * Démarre les systèmes du Journey (coffres mystères, etc.)
+     * Appelé après l'initialisation complète du plugin
+     */
+    public void start() {
+        mysteryChestManager.start();
+    }
+
+    /**
+     * Arrête les systèmes du Journey proprement
+     */
+    public void shutdown() {
+        mysteryChestManager.shutdown();
     }
 
     // ==================== SYSTÈME DE BOSSBAR ====================
@@ -364,6 +384,16 @@ public class JourneyManager {
                     }
                 }
                 yield 0;
+            }
+            case DISCOVER_CHEST -> {
+                // Compter les coffres découverts pour le chapitre de cette étape
+                int count = 0;
+                for (MysteryChest chest : MysteryChest.getChestsForChapter(step.getChapter())) {
+                    if (data.hasDiscoveredChest(chest.getId())) {
+                        count++;
+                    }
+                }
+                yield count;
             }
             default -> {
                 // Pour les autres types, utiliser la progression stockée
@@ -842,6 +872,9 @@ public class JourneyManager {
         chapters.addAll(data.getCompletedJourneyChapters());
         completedChaptersCache.put(uuid, chapters);
 
+        // Charger les coffres mystères découverts
+        mysteryChestManager.loadPlayerData(player, data.getDiscoveredMysteryChests());
+
         // Charger l'étape actuelle
         JourneyChapter chapter = JourneyChapter.getById(data.getCurrentJourneyChapter());
         List<JourneyStep> steps = JourneyStep.getStepsForChapter(chapter);
@@ -863,6 +896,7 @@ public class JourneyManager {
         completedChaptersCache.remove(uuid);
         stepProgressCache.remove(uuid);
         currentStepCache.remove(uuid);
+        mysteryChestManager.unloadPlayer(uuid);
     }
 
     /**
