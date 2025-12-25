@@ -156,30 +156,16 @@ public class JourneyGUI implements Listener {
             }
         }
 
-        // === LIGNE 4: Séparateur ===
+        // === LIGNE 4: Séparateur avec couleur de phase ===
         for (int i = 28; i <= 34; i++) {
-            if (inv.getItem(i) == null || inv.getItem(i).getType() == Material.GRAY_STAINED_GLASS_PANE) {
-                inv.setItem(i, createDecorItem(phaseGlass, chapter.getColor()));
-            }
+            inv.setItem(i, createDecorItem(phaseGlass, chapter.getColor()));
         }
 
-        // === LIGNE 5: Récompenses + Déblocages ===
-        inv.setItem(38, createChapterRewardsItem(chapter));
-
-        // Déblocages du chapitre
-        JourneyGate[] unlocks = chapter.getUnlocks();
-        int[] unlockSlots = {40, 41, 42};
-        boolean chapterCompleted = manager.isChapterCompleted(player, chapter);
-
-        for (int i = 0; i < unlocks.length && i < unlockSlots.length; i++) {
-            boolean unlocked = chapterCompleted || manager.hasUnlockedGate(player, unlocks[i]);
-            inv.setItem(unlockSlots[i], createUnlockItem(unlocks[i], unlocked));
-        }
+        // === LIGNE 5: Récompenses + Progression (centrées) ===
+        inv.setItem(40, createChapterRewardsItem(chapter));
+        inv.setItem(42, createChapterProgressItem(player, chapter, manager));
 
         // === LIGNE 6: Navigation ===
-        // Bouton retour
-        inv.setItem(45, createBackButton());
-
         // Navigation entre chapitres
         if (chapter.getId() > 1) {
             inv.setItem(48, createNavButton(false, chapter.getId() - 1));
@@ -187,9 +173,6 @@ public class JourneyGUI implements Listener {
         if (chapter.getId() < 12) {
             inv.setItem(50, createNavButton(true, chapter.getId() + 1));
         }
-
-        // Indicateur de progression du chapitre
-        inv.setItem(49, createChapterProgressItem(player, chapter, manager));
 
         player.openInventory(inv);
         openMenus.put(player.getUniqueId(), CHAPTER_MENU_ID);
