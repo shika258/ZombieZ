@@ -45,14 +45,14 @@ public class ShelterNPCManager implements Listener {
     // ═══════════════════════════════════════════════════════════════════════════
 
     // Limites de NPCs par refuge
-    private static final int MIN_NPCS_PER_REFUGE = 2;        // Minimum garanti par refuge
-    private static final int MAX_NPCS_PER_REFUGE = 5;        // Maximum par refuge
-    private static final int GLOBAL_MAX_NPCS = 40;           // Maximum total sur le serveur
+    private static final int MIN_NPCS_PER_REFUGE = 4;        // Minimum garanti par refuge (x2)
+    private static final int MAX_NPCS_PER_REFUGE = 10;       // Maximum par refuge (x2)
+    private static final int GLOBAL_MAX_NPCS = 80;           // Maximum total sur le serveur (x2)
 
     // Timing et chances de spawn
-    private static final int SPAWN_CHECK_INTERVAL_TICKS = 600;  // 30 secondes
-    private static final double SPAWN_CHANCE = 0.35;            // 35% de chance par check
-    private static final double SPAWN_CHANCE_BELOW_MIN = 0.80;  // 80% si en dessous du minimum
+    private static final int SPAWN_CHECK_INTERVAL_TICKS = 400;  // 20 secondes (plus rapide)
+    private static final double SPAWN_CHANCE = 0.50;            // 50% de chance par check (augmenté)
+    private static final double SPAWN_CHANCE_BELOW_MIN = 0.95;  // 95% si en dessous du minimum (presque garanti)
 
     // Rayons de détection
     private static final double PLAYER_NEARBY_RADIUS = 48.0;          // Rayon pour spawn
@@ -522,18 +522,21 @@ public class ShelterNPCManager implements Listener {
             // ═══════════════════════════════════════════════════════════════
             // LOGIQUE DE SPAWN: Priorité au minimum garanti
             // ═══════════════════════════════════════════════════════════════
-            double spawnChance;
             if (currentCount < MIN_NPCS_PER_REFUGE) {
-                // En dessous du minimum: spawn prioritaire
-                spawnChance = SPAWN_CHANCE_BELOW_MIN;
-            } else {
-                // Au-dessus du minimum: chance normale
-                spawnChance = SPAWN_CHANCE;
-            }
-
-            if (random.nextDouble() < spawnChance) {
-                spawnRandomNPC(refuge);
-                totalNPCs++; // Incrémenter le compteur local
+                // En dessous du minimum: spawn multiple pour remplir rapidement
+                int toSpawn = Math.min(MIN_NPCS_PER_REFUGE - currentCount, 3); // Max 3 d'un coup
+                for (int i = 0; i < toSpawn && totalNPCs < GLOBAL_MAX_NPCS; i++) {
+                    if (random.nextDouble() < SPAWN_CHANCE_BELOW_MIN) {
+                        spawnRandomNPC(refuge);
+                        totalNPCs++;
+                    }
+                }
+            } else if (currentCount < MAX_NPCS_PER_REFUGE) {
+                // Au-dessus du minimum mais en dessous du max: chance normale
+                if (random.nextDouble() < SPAWN_CHANCE) {
+                    spawnRandomNPC(refuge);
+                    totalNPCs++;
+                }
             }
         }
     }
@@ -684,26 +687,63 @@ public class ShelterNPCManager implements Listener {
         npcsByRefuge.computeIfAbsent(refuge.getId(), k -> ConcurrentHashMap.newKeySet()).add(npc.getUniqueId());
     }
 
+    // Distance de spawn des NPCs autour des joueurs
+    private static final double NPC_SPAWN_MIN_DISTANCE = 6.0;   // Distance minimum
+    private static final double NPC_SPAWN_MAX_DISTANCE = 14.0;  // Distance maximum
+
     /**
-     * Trouve une position de spawn sûre dans un refuge
+     * Trouve une position de spawn sûre dans un refuge, proche des joueurs
      */
     private Location findSpawnLocation(Refuge refuge, World world) {
-        int attempts = 10;
+        // D'abord, trouver un joueur dans le refuge pour spawn proche de lui
+        Player nearestPlayer = findPlayerInRefuge(refuge, world);
 
+        if (nearestPlayer != null) {
+            // Spawn proche du joueur
+            Location playerLoc = nearestPlayer.getLocation();
+            int attempts = 15;
+
+            while (attempts-- > 0) {
+                // Distance aléatoire entre min et max
+                double distance = NPC_SPAWN_MIN_DISTANCE + random.nextDouble() * (NPC_SPAWN_MAX_DISTANCE - NPC_SPAWN_MIN_DISTANCE);
+                double angle = random.nextDouble() * 2 * Math.PI;
+
+                int x = (int) (playerLoc.getX() + Math.cos(angle) * distance);
+                int z = (int) (playerLoc.getZ() + Math.sin(angle) * distance);
+
+                // Vérifier que c'est dans la zone protégée
+                if (x < refuge.getProtectedMinX() || x > refuge.getProtectedMaxX()) continue;
+                if (z < refuge.getProtectedMinZ() || z > refuge.getProtectedMaxZ()) continue;
+
+                // Trouver le sol
+                int y = world.getHighestBlockYAt(x, z);
+
+                // Vérifier que c'est dans les limites Y du refuge
+                if (y < refuge.getProtectedMinY() || y > refuge.getProtectedMaxY()) continue;
+
+                Location loc = new Location(world, x + 0.5, y + 1, z + 0.5);
+
+                // Vérifier que c'est un endroit sûr
+                if (loc.getBlock().isPassable() && loc.clone().add(0, 1, 0).getBlock().isPassable()) {
+                    if (!loc.clone().add(0, -1, 0).getBlock().isLiquid()) {
+                        return loc;
+                    }
+                }
+            }
+        }
+
+        // Fallback: spawn aléatoire dans la zone protégée si pas de joueur trouvé
+        int attempts = 10;
         while (attempts-- > 0) {
-            // Position aléatoire dans la zone protégée
             int x = refuge.getProtectedMinX() + random.nextInt(Math.max(1, refuge.getProtectedMaxX() - refuge.getProtectedMinX()));
             int z = refuge.getProtectedMinZ() + random.nextInt(Math.max(1, refuge.getProtectedMaxZ() - refuge.getProtectedMinZ()));
 
-            // Trouver le sol
             int y = world.getHighestBlockYAt(x, z);
 
-            // Vérifier que c'est dans les limites Y du refuge
             if (y < refuge.getProtectedMinY() || y > refuge.getProtectedMaxY()) continue;
 
             Location loc = new Location(world, x + 0.5, y + 1, z + 0.5);
 
-            // Vérifier que c'est un endroit sûr
             if (loc.getBlock().isPassable() && loc.clone().add(0, 1, 0).getBlock().isPassable()) {
                 if (!loc.clone().add(0, -1, 0).getBlock().isLiquid()) {
                     return loc;
@@ -711,6 +751,18 @@ public class ShelterNPCManager implements Listener {
             }
         }
 
+        return null;
+    }
+
+    /**
+     * Trouve un joueur dans un refuge
+     */
+    private Player findPlayerInRefuge(Refuge refuge, World world) {
+        for (Player player : world.getPlayers()) {
+            if (refuge.isInProtectedArea(player.getLocation())) {
+                return player;
+            }
+        }
         return null;
     }
 

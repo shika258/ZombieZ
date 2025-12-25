@@ -19,6 +19,34 @@
 refuges:
 
   # ========================================
+  # REFUGE 0 - Zone de Spawn (Zone 0)
+  # ========================================
+  0:
+    name: "Bastion du Réveil"
+    description: "Le point de départ des survivants, un château médiéval fortifié"
+    protected-area:
+      corner1:
+        x: 839
+        y: 150
+        z: 10102
+      corner2:
+        x: 624
+        y: 0
+        z: 9938
+    beacon:
+      x: 728
+      y: 95
+      z: 9979
+    spawn-point:
+      x: 728.5
+      y: 95
+      z: 9979.5
+      yaw: 180
+      pitch: 0
+    cost: 0
+    required-level: 0
+
+  # ========================================
   # REFUGE 1 - Fort Havregris (Zone 4-5)
   # ========================================
   1:
