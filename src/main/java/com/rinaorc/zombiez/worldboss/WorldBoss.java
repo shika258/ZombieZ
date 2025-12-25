@@ -1,6 +1,8 @@
 package com.rinaorc.zombiez.worldboss;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.items.generator.ArmorTrimGenerator;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.worldboss.procedural.BossModifiers;
 import com.rinaorc.zombiez.worldboss.procedural.BossTrait;
 import lombok.Getter;
@@ -14,7 +16,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -182,7 +186,7 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Équipe le boss avec une armure en cuir colorée selon ses traits procéduraux
+     * Équipe le boss avec une armure en cuir colorée et des trims selon ses traits procéduraux
      * Rend chaque boss visuellement unique
      */
     protected void equipColoredArmor(Zombie zombie) {
@@ -194,38 +198,53 @@ public abstract class WorldBoss {
         Color primary = modifiers.getPrimaryColor();
         Color secondary = modifiers.getSecondaryColor();
 
-        // Casque - couleur primaire
+        // Générer un trim pour le boss (basé sur zone et difficulté)
+        ArmorTrim trim = generateBossTrim();
+
+        // Casque - couleur primaire + trim
         ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
         LeatherArmorMeta helmetMeta = (LeatherArmorMeta) helmet.getItemMeta();
         if (helmetMeta != null) {
             helmetMeta.setColor(primary);
+            if (trim != null) {
+                helmetMeta.setTrim(trim);
+            }
             helmet.setItemMeta(helmetMeta);
         }
         equipment.setHelmet(helmet);
 
-        // Plastron - couleur primaire
+        // Plastron - couleur primaire + trim
         ItemStack chestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
         LeatherArmorMeta chestMeta = (LeatherArmorMeta) chestplate.getItemMeta();
         if (chestMeta != null) {
             chestMeta.setColor(primary);
+            if (trim != null) {
+                chestMeta.setTrim(trim);
+            }
             chestplate.setItemMeta(chestMeta);
         }
         equipment.setChestplate(chestplate);
 
-        // Jambières - couleur secondaire (contraste)
+        // Jambières - couleur secondaire + trim
         ItemStack leggings = new ItemStack(Material.LEATHER_LEGGINGS);
         LeatherArmorMeta leggingsMeta = (LeatherArmorMeta) leggings.getItemMeta();
         if (leggingsMeta != null) {
             leggingsMeta.setColor(secondary);
+            if (trim != null) {
+                leggingsMeta.setTrim(trim);
+            }
             leggings.setItemMeta(leggingsMeta);
         }
         equipment.setLeggings(leggings);
 
-        // Bottes - couleur secondaire
+        // Bottes - couleur secondaire + trim
         ItemStack boots = new ItemStack(Material.LEATHER_BOOTS);
         LeatherArmorMeta bootsMeta = (LeatherArmorMeta) boots.getItemMeta();
         if (bootsMeta != null) {
             bootsMeta.setColor(secondary);
+            if (trim != null) {
+                bootsMeta.setTrim(trim);
+            }
             boots.setItemMeta(bootsMeta);
         }
         equipment.setBoots(boots);
@@ -235,6 +254,76 @@ public abstract class WorldBoss {
         equipment.setChestplateDropChance(0f);
         equipment.setLeggingsDropChance(0f);
         equipment.setBootsDropChance(0f);
+    }
+
+    /**
+     * Génère un trim d'armure pour le boss basé sur sa zone et difficulté
+     * Les boss plus difficiles ont des trims plus prestigieux
+     */
+    private ArmorTrim generateBossTrim() {
+        try {
+            // Déterminer la rareté du trim selon la zone et le nombre de traits
+            Rarity trimRarity = determineTrimRarity();
+
+            // Utiliser ArmorTrimGenerator pour générer un trim
+            ArmorTrimGenerator.TrimResult trimResult = ArmorTrimGenerator.getInstance()
+                .generateTrimForMob(trimRarity, zoneId);
+
+            if (trimResult != null) {
+                return new ArmorTrim(trimResult.material(), trimResult.pattern());
+            }
+        } catch (Exception e) {
+            // En cas d'erreur (version incompatible, etc.), pas de trim
+            plugin.getLogger().fine("[WorldBoss] Impossible de générer un trim: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Détermine la rareté du trim basée sur la zone et les traits
+     */
+    private Rarity determineTrimRarity() {
+        // Base: zone détermine le tier minimum
+        Rarity baseRarity;
+        if (zoneId >= 40) {
+            baseRarity = Rarity.LEGENDARY;
+        } else if (zoneId >= 25) {
+            baseRarity = Rarity.EPIC;
+        } else if (zoneId >= 15) {
+            baseRarity = Rarity.RARE;
+        } else if (zoneId >= 5) {
+            baseRarity = Rarity.UNCOMMON;
+        } else {
+            baseRarity = Rarity.COMMON;
+        }
+
+        // Bonus: plus de traits = rareté augmentée
+        if (modifiers != null && modifiers.getTraits().length >= 3) {
+            // 3 traits = upgrade d'un tier
+            baseRarity = upgradeRarity(baseRarity);
+        }
+
+        // Bonus: difficulté élevée = chance d'upgrade supplémentaire
+        if (modifiers != null && modifiers.getDifficultyMultiplier() > 1.3) {
+            if (Math.random() < 0.5) {
+                baseRarity = upgradeRarity(baseRarity);
+            }
+        }
+
+        return baseRarity;
+    }
+
+    /**
+     * Augmente la rareté d'un niveau
+     */
+    private Rarity upgradeRarity(Rarity current) {
+        return switch (current) {
+            case COMMON -> Rarity.UNCOMMON;
+            case UNCOMMON -> Rarity.RARE;
+            case RARE -> Rarity.EPIC;
+            case EPIC -> Rarity.LEGENDARY;
+            default -> current; // Déjà au max
+        };
     }
 
     /**
