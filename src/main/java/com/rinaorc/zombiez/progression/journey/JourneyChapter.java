@@ -27,7 +27,7 @@ public enum JourneyChapter {
         Material.WOODEN_SWORD,
         "Apprends les bases de la survie dans ce monde infesté",
         1, 5,  // Niveau requis: 1-5
-        new JourneyGate[]{JourneyGate.CLASS_SELECTION}, // Débloque à la fin
+        new JourneyGate[]{JourneyGate.CLASS_SELECTION, JourneyGate.ZONE_2}, // Débloque à la fin
         1500,  // Points bonus
         25,    // Gems bonus
         "§7Coffre de Bienvenue",
@@ -41,7 +41,7 @@ public enum JourneyChapter {
         Material.NETHERITE_CHESTPLATE,
         "Choisis ta classe et commence à la maîtriser",
         5, 10,
-        new JourneyGate[]{JourneyGate.ZONE_2},
+        new JourneyGate[]{JourneyGate.ZONE_3}, // Zone 3 débloquée pour le Chapitre 3
         2000,
         35,
         "§aÉquipement de Classe Débutant",
@@ -55,7 +55,7 @@ public enum JourneyChapter {
         Material.COMPASS,
         "Explore les premières zones dangereuses",
         10, 15,
-        new JourneyGate[]{JourneyGate.ZONE_3, JourneyGate.TALENTS_TIER_1},
+        new JourneyGate[]{JourneyGate.TALENTS_TIER_1}, // Zone 3 déjà débloquée au chapitre 2
         2500,
         45,
         "§eCoffre de Zone (Rare garanti)",

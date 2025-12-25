@@ -87,9 +87,9 @@ public enum JourneyStep {
 
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
-    STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Débloque ton premier talent",
-        "Ta première compétence active", StepType.UNLOCK_TALENT, 1,
-        200, 8, Material.ENCHANTED_BOOK),
+    STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
+        "Airdrop, Horde, Convoy, Boss ou Nid", StepType.PARTICIPATE_EVENT, 1,
+        200, 8, Material.BEACON),
 
     STEP_4_2(JourneyChapter.CHAPTER_4, 2, "Utilise ton talent 25 fois",
         "La pratique mène à la perfection", StepType.USE_TALENT, 25,
@@ -349,7 +349,7 @@ public enum JourneyStep {
             case ZONE_PROGRESS -> current + "/" + targetValue + "%";
             case SURVIVE_ZONE_TIME, SURVIVE_ENVIRONMENT -> formatTime(current) + "/" + formatTime(targetValue);
             case KILL_STREAK -> current + "/" + targetValue + " kills d'affilée";
-            case SELECT_CLASS -> current >= 1 ? "✓ Classe choisie" : "Choisis une classe";
+            case SELECT_CLASS -> current >= 1 ? "✓ Classe choisie" : "Fais /classe";
             case USE_CLASS_TRAIT, USE_TALENT -> current + "/" + targetValue + " utilisations";
             case UNLOCK_TALENT, UNLOCK_SKILLS, TALENTS_UNLOCKED -> current + "/" + targetValue + " débloqué(s)";
             case SKILL_TIER -> "Tier " + current + "/" + targetValue;
