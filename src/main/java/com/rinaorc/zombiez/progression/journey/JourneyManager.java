@@ -413,6 +413,15 @@ public class JourneyManager {
     }
 
     /**
+     * Vérifie si une étape a été complétée par un joueur
+     */
+    public boolean isStepCompleted(Player player, JourneyStep step) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return false;
+        return data.hasCompletedJourneyStep(step.getId());
+    }
+
+    /**
      * Détermine la zone ciblée par une étape ZONE_PROGRESS
      * Basé sur le chapitre de l'étape
      */
