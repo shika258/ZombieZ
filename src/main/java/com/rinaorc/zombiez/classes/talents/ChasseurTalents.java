@@ -39,12 +39,10 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos tirs a l'arc ou l'arbalete",
-                "§7ont §e35%§7 de chance de tirer",
-                "§e3 fleches§7 horizontales!",
+                "§7Chance de tirer 3 fleches",
+                "§7au lieu d'une seule.",
                 "",
-                "§8► Pattern: §fI I I",
-                "§8► Degats par fleche: §c100%"
+                "§6Chance: §e35% §7| §6Degats: §c100%§7/fleche"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -61,20 +59,13 @@ public final class ChasseurTalents {
             .name("Chauve-souris")
             .description("Invoque une chauve-souris a ultrasons")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque une §8chauve-souris§7 qui",
-                "§7emet des ultrasons devastateurs.",
+                "§7Invoque une chauve-souris qui tire",
+                "§7des ultrasons transperçants.",
                 "",
-                "§6CAPACITE - ULTRASON:",
-                "§7Tire une onde sonore vers",
-                "§7l'ennemi le plus proche.",
-                "§cTransperce §7tous les ennemis",
-                "§7sur sa trajectoire!",
-                "",
-                "§b~ Portee: §e12 blocs",
-                "§b~ Cadence: §e1.2s",
-                "§a✦ INVINCIBLE"
+                "§6Portee: §e12 blocs §7| §6Cadence: §b1.2s",
+                "§aInvincible"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -93,11 +84,10 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§6► LAME D'OMBRE",
-                "§7Attaques génèrent §d+1 Point d'Ombre",
-                "§7À §f3+ Points§7: §a+30%§7 vitesse d'attaque",
+                "§7Attaques generent des Points d'Ombre.",
+                "§7A 3+ Points: bonus vitesse d'attaque.",
                 "",
-                "§8Points max: 5 (affichés dans l'ActionBar)"
+                "§6Points: §e+1§7/atk | §6Max: §e5 §7| §6Bonus: §a+30%"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -116,21 +106,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Vos attaques ont §a50%§7 de chance",
-                "§7d'appliquer §2+18 Virulence§7.",
+                "§7Chance d'appliquer de la Virulence.",
+                "§7A 70%+: Necrose (+30% DoT).",
+                "§7A 100%: Corrompu (+35% degats).",
                 "",
-                "§6SYSTÈME DE VIRULENCE (0-100):",
-                "§8► DoT: §c10%§8 dégâts par 10 virulence",
-                "§8► Tick: §e2x/seconde§8 (rapide!)",
-                "",
-                "§c§lNÉCROSE (70%+):",
-                "§8► §c+30%§8 dégâts de DoT!",
-                "",
-                "§d§lCORROMPU (100%):",
-                "§8► §d+35%§8 dégâts directs",
-                "§8► Propagation à la mort!",
-                "",
-                "§2§lINFECTEZ VOS PROIES"
+                "§6Chance: §e50% §7| §6Virulence: §c+18"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -144,33 +124,16 @@ public final class ChasseurTalents {
         // 1.5 - FLÈCHES REBONDISSANTES (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_piercing_arrows")
-            .name("Flèches Rebondissantes")
+            .name("Fleches Rebondissantes")
             .description("Rebondit vers 2 ennemis, applique GIVRE!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos projectiles §brebondissent§7",
-                "§7vers jusqu'à §e2 ennemis§7 et",
-                "§7appliquent du §b§lGIVRE§7!",
+                "§7Fleches rebondissent et appliquent",
+                "§7du Givre. 50% = Ralenti, 100% = Gele.",
                 "",
-                "§6SYSTÈME DE REBOND:",
-                "§8► Touche un ennemi → rebondit",
-                "§8► vers le mob le plus proche!",
-                "§8► Portée rebond: §e10 blocs",
-                "",
-                "§6SYSTÈME DE GIVRE:",
-                "§8► §b+15%§8 givre par touche",
-                "§8► §b50%§8 = §9RALENTI§8 (-30% vitesse)",
-                "§8► §b100%§8 = §b§lGELÉ§8 (2s immobile)",
-                "",
-                "§c§lBONUS GELÉ:",
-                "§8► Cibles gelées: §c+50%§8 dégâts!",
-                "",
-                "§6MOMENTUM DE REBOND:",
-                "§8► 2e cible+: §c+25%§8 dégâts/rebond",
-                "§8► §b+12.5%§8 givre bonus/rebond!",
-                "",
-                "§b§lGELEZ VOS ENNEMIS EN CHAÎNE"
+                "§6Rebonds: §e2 §7| §6Givre: §b+15%§7/touche",
+                "§6Bonus/rebond: §c+25% §7dgts + §b12.5% §7givre"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)
@@ -193,25 +156,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§6ACCUMULATION:",
-                "§7Chaque fleche qui touche",
-                "§7accumule §e1 charge§7 de Rafale.",
+                "§7Accumulez des charges par touche.",
+                "§7A 8: lancez 3 salves de 5 fleches!",
                 "",
-                "§6RAFALE EN EVENTAIL:",
-                "§7A §e8 charges§7, votre prochain",
-                "§7tir libere §c3 salves§7 de",
-                "§c5 fleches§7 en eventail!",
-                "",
-                "§6CADENCE DE FEU:",
-                "§7Intervalle: §e0.4s§7 entre salves",
-                "§7Total: §c15 fleches§7 devastatrices!",
-                "",
-                "§8► Charges max: §f8",
-                "§8► Salves: §c3",
-                "§8► Fleches/salve: §c5",
-                "§8► Degats/fleche: §c100%",
-                "",
-                "§d§lSYNERGIE: Tirs Multiples!"
+                "§6Charges: §e8 §7| §6Total: §c15 fleches",
+                "§6Degats: §c100%§7/fleche"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -228,25 +177,13 @@ public final class ChasseurTalents {
             .name("Endermite")
             .description("Invoque un parasite du Vide qui corrompt les ennemis!")
             .loreLines(new String[]{
-                "§5§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §5endermite§7 qui",
-                "§7parasite et corrompt ses proies.",
+                "§7Invoque un endermite qui parasite",
+                "§7les ennemis (+25% degats subis).",
                 "",
-                "§6CAPACITÉ - INFESTATION DU VIDE:",
-                "§7Se §5téléporte§7 sur un ennemi,",
-                "§7s'accroche §e3s§7 et applique:",
-                "",
-                "§5✦ CORRUPTION DU VIDE:",
-                "§7Cible subit §c+25%§7 de dégâts!",
-                "",
-                "§c✦ EXPLOSION DU VIDE:",
-                "§7Après 3s: dégâts AoE + téléport",
-                "§7vers une §enouvelle cible§7!",
-                "",
-                "§d§lSYNERGIE:",
-                "§7+Marque Renard = §c+55%§7 dégâts!",
-                "§7Priorise cibles §csaignantes§7/§6marquées§7"
+                "§6Duree: §b3s §7| §6Explosion: §c50%",
+                "§6AoE: §e4 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -265,16 +202,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§6► TIR D'OMBRE",
-                "§7Vos attaques ont §e15%§7 de chance",
-                "§7de déclencher un §5tir de pistolet§7!",
+                "§7Chance de declencher un tir bonus",
+                "§7qui etourdit la cible.",
                 "",
-                "§6EFFET DU TIR:",
-                "§8► §c150%§8 des dégâts du joueur",
-                "§8► §9Étourdit§8 la cible §e1s",
-                "§8► Portée max: §b20 blocs",
-                "",
-                "§5§lFRAPPEZ DEPUIS LES OMBRES"
+                "§6Chance: §e15% §7| §6Degats: §c150%",
+                "§6Stun: §c1s §7| §6Portee: §e20 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -293,18 +225,10 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison §2ronge§7 les défenses!",
+                "§7Degats bonus contre les ennemis",
+                "§7empoisonnes (virulence > 0).",
                 "",
-                "§6BONUS DÉGÂTS:",
-                "§8► §c+20%§8 dégâts sur cibles",
-                "§8► empoisonnées (virulence > 0)",
-                "",
-                "§6SYNERGIE VIRULENCE:",
-                "§8► Plus de virulence = plus",
-                "§8► d'opportunités de bonus!",
-                "§8► Stack avec Nécrose/Corrompu",
-                "",
-                "§2§lRONGEZ LEUR DÉFENSE"
+                "§6Bonus: §c+20% §7degats"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -323,22 +247,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Système de §bCharge Glaciale§7 (1-5).",
-                "§7Chaque tir augmente la Charge.",
+                "§7Chaque tir ajoute +1 Charge.",
+                "§7A 5: Tir Glacial (gel instantane)!",
                 "",
-                "§6CHARGE CROISSANTE:",
-                "§8► §b+1 Charge§8 par tir",
-                "§8► §b+5%§8 givre appliqué par niveau",
-                "",
-                "§b§lÀ CHARGE 5 - TIR GLACIAL:",
-                "§8► §b§lGEL INSTANTANÉ§8 de la cible!",
-                "§8► §a+1§8 rebond supplémentaire",
-                "§8► Son de glace satisfaisant",
-                "§8► Reset la Charge à 0",
-                "",
-                "§8Charge affichée: §b❄❄❄❄❄",
-                "",
-                "§b§lCHARGEZ LE FROID"
+                "§6Max: §e5 §7| §6Givre/niveau: §b+5%",
+                "§6Bonus Charge 5: §b+1 §7rebond"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_2)
@@ -361,16 +274,12 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos tirs ont §e30%§7 de chance",
-                "§7d'invoquer une §bpluie de fleches§7!",
+                "§7Chance de declencher une pluie",
+                "§7de fleches sur la zone.",
                 "",
-                "§8► Fleches: §e10",
-                "§8► Degats/fleche: §c45%",
-                "§8► Zone: §e5x5§8 blocs",
-                "§8► Cooldown: §e1.5s",
-                "",
-                "§6§lAMELIORABLE:",
-                "§8Deluge, Furie, Cyclone, Nuee..."
+                "§6Chance: §e30% §7| §6Fleches: §e10",
+                "§6Degats: §c45%§7/fleche | §6Zone: §e5 blocs",
+                "§bCooldown: §f1.5s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -388,16 +297,13 @@ public final class ChasseurTalents {
             .name("Loup")
             .description("Invoque un loup qui inflige du saignement")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §7loup sauvage§7 aux",
-                "§7crocs empoisonnés de venin.",
+                "§7Invoque un loup dont les morsures",
+                "§7infligent du saignement.",
                 "",
-                "§6CAPACITÉ - SAIGNEMENT:",
-                "§7Ses morsures infligent un §cDoT§7",
-                "§7pendant §e5s§7 (dégâts/seconde).",
-                "",
-                "§8Traque les ennemis blessés"
+                "§6Degats: §c4 §7| §6Saignement: §c2§7/s",
+                "§6Duree: §b5s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -416,18 +322,12 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§6► PAS DE L'OMBRE",
-                "§7§eShift + Attaque§7 = téléport derrière",
-                "§7la cible (portée §e16 blocs§7)",
+                "§6Shift + Attaque§7: teleport derriere",
+                "§7la cible + frappe + vitesse.",
                 "",
-                "§6FRAPPE D'OMBRE:",
-                "§8► Inflige §c125%§8 dégâts à l'arrivée",
-                "",
-                "§6ÉLAN SPECTRAL:",
-                "§8► §b+50% vitesse§8 pendant §f3s",
-                "",
-                "§7+ §d+2 Points d'Ombre",
-                "§b⚡ §f5s§7 cooldown"
+                "§6Portee: §e16 blocs §7| §6Degats: §c125%",
+                "§6Vitesse: §a+50% §7(3s) | §6Points: §d+2",
+                "§bCooldown: §f5s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -446,22 +346,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison devient §cléthal§7!",
+                "§7Les DoT peuvent critiquer et",
+                "§7ralentissent progressivement.",
                 "",
-                "§6CRITIQUES TOXIQUES:",
-                "§8► Le DoT peut §eCRIT§8!",
-                "§8► Utilise vos stats de crit",
-                "§8► Particules spéciales sur crit",
-                "",
-                "§6BONUS PASSIF:",
-                "§8► §c+20%§8 dégâts de DoT base!",
-                "",
-                "§6PARALYSIE PROGRESSIVE:",
-                "§8► 0-49%: §9Slow I",
-                "§8► 50-69%: §9Slow II",
-                "§8► 70%+: §9Slow III§8 (très lent!)",
-                "",
-                "§2§lLA MORT LENTE"
+                "§6Bonus DoT: §c+20% §7| §6Crit: §eOui",
+                "§6Slow: §cI§7(0-49) §cII§7(50-69) §cIII§7(70+)"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -480,24 +369,12 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Rebondir sur §e2+ ennemis§7 crée",
-                "§7une §b§lLIGNE DE GLACE§7!",
+                "§7Rebondir sur 2+ ennemis cree",
+                "§7une Ligne de Glace qui donne",
+                "§7du givre bonus aux ennemis.",
                 "",
-                "§6LIGNE DE GLACE:",
-                "§8► Zone linéaire de §e12 blocs",
-                "§8► Entre la 1ère et dernière cible",
-                "§8► Durée: §e3s",
-                "§8► Particules de neige",
-                "",
-                "§b§lENNEMIS DANS LA LIGNE:",
-                "§8► Reçoivent §b+30%§8 givre bonus",
-                "§8► Facilite le gel en zone!",
-                "",
-                "§6SYNERGIE:",
-                "§7Parfait pour geler les groupes",
-                "§7sur la trajectoire de rebond!",
-                "",
-                "§b§lTRACEZ LE FROID"
+                "§6Longueur: §e12 blocs §7| §6Duree: §b3s",
+                "§6Bonus givre: §b+30%"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_3)
@@ -520,15 +397,10 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos pluies de fleches deviennent",
-                "§7un §bdeluge devastateur§7!",
+                "§7Ameliore les pluies de fleches",
+                "§7avec plus de vagues et fleches.",
                 "",
-                "§6AMELIORATIONS:",
-                "§8► §e+3 vagues§8 supplementaires",
-                "§8► §e+50%§8 fleches par vague",
-                "",
-                "§7Exemple: §e8 → 12 fleches/vague",
-                "§7Total: §c48 fleches§7 au lieu de 8!"
+                "§6Bonus: §e+3 vagues §7| §6Fleches: §e+50%"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -545,17 +417,13 @@ public final class ChasseurTalents {
             .name("Axolotl")
             .description("Invoque un axolotl qui tire des bulles d'eau")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §daxolotl mystique§7",
-                "§7qui maitrise l'eau comme arme.",
+                "§7Invoque un axolotl qui tire",
+                "§7des bulles d'eau sur les ennemis.",
                 "",
-                "§6CAPACITÉ - BULLES D'EAU:",
-                "§7Tire des projectiles aquatiques",
-                "§7sur les ennemis proches.",
-                "",
-                "§b~ Portée: §e8 blocs",
-                "§b~ Cadence: §e1.5s"
+                "§6Degats: §c3.5 §7| §6Portee: §e8 blocs",
+                "§6Cadence: §b1.5s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -572,17 +440,12 @@ public final class ChasseurTalents {
             .name("Marque de Mort")
             .description("Crits marquent 8s (+25% dégâts)")
             .loreLines(new String[]{
-                "§8§lBRANCHE OMBRE",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Vos §ecoups critiques§7 marquent",
-                "§7l'ennemi pendant §c8s§7!",
+                "§7Les coups critiques marquent",
+                "§7les ennemis (degats bonus).",
                 "",
-                "§6MARQUE DE MORT:",
-                "§8► §c+25%§8 dégâts subis",
-                "§8► §eGlowing§8 (visible à travers murs)",
-                "§8► §5Synergie§8 avec Exécution",
-                "",
-                "§5§lDÉVOILEZ VOS PROIES"
+                "§6Duree: §b8s §7| §6Bonus: §c+25% §7degats"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -596,24 +459,16 @@ public final class ChasseurTalents {
         // 4.4 - PANDEMIE (Voie du Poison)
         TALENTS.add(Talent.builder()
             .id("chasseur_pandemic")
-            .name("Pandémie")
+            .name("Pandemie")
             .description("Kill empoisonné = PROPAGATION en chaîne!")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Tuer un ennemi §2empoisonné§7",
-                "§7§dpropage§7 le poison!",
+                "§7Tuer un empoisonne propage le",
+                "§7poison aux ennemis proches.",
                 "",
-                "§6PROPAGATION TOXIQUE:",
-                "§8► Jusqu'à §e3§8 cibles proches",
-                "§8► Rayon: §e5§8 blocs",
-                "§8► §2+40 Virulence§8 transmise",
-                "",
-                "§d§lBONUS CORROMPU (100%):",
-                "§8► §d+60 Virulence§8 transmise!",
-                "§8► Chaînes de poison animées",
-                "",
-                "§2§lPROPAGEZ LA PESTE"
+                "§6Cibles: §e3 §7| §6Rayon: §e5 blocs",
+                "§6Virulence: §c+40 §7(§d+60 §7si corrompu)"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -632,23 +487,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Vos tirs accumulent le §bfroid§7!",
+                "§7Chaque tir accumule +10% froid.",
+                "§7A 100%: Vague de Froid AoE!",
                 "",
-                "§6ACCUMULATION:",
-                "§8► §b+10%§8 hypothermie par tir",
-                "§8► Maximum: §b100%§8 (10 tirs)",
-                "§8► Reset après §e3s§8 sans tirer",
-                "",
-                "§b§lÀ 100% - VAGUE DE FROID:",
-                "§8► Le prochain tir déclenche une",
-                "§8► §b§lVAGUE DE FROID§8 AoE!",
-                "§8► Zone: §e4 blocs",
-                "§8► §b30-70%§8 givre appliqué",
-                "§8► Reset l'hypothermie",
-                "",
-                "§6JAUGE: §9████████████",
-                "",
-                "§b§lREFROIDISSEZ-LES!"
+                "§6Max: §e100% §7(10 tirs) | §6Reset: §b3s",
+                "§6Vague: §e4 blocs §7+ §b50% §7givre"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_4)
@@ -671,15 +514,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Toutes les §e15s§7, une tempete de",
-                "§7fleches §cenflammees§7 s'abat!",
+                "§7Toutes les 15s, tempete auto de",
+                "§7fleches enflammees.",
                 "",
-                "§8► Fleches: §c20 fleches de feu",
-                "§8► Degats: §c50%§8 + brulure",
-                "§8► Zone: §e8x8§8 blocs",
-                "",
-                "§6§lAUTOMATIQUE:",
-                "§7Se declenche sans action requise!"
+                "§6Fleches: §c20 §7| §6Degats: §c60%§7+brulure",
+                "§6Zone: §e8 blocs §7| §bAuto: §f15s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -697,19 +536,13 @@ public final class ChasseurTalents {
             .name("Vache")
             .description("Invoque une vache qui lance des bouses explosives")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque une §6vache§7... explosive.",
-                "§7Ne posez pas de questions.",
+                "§7Invoque une vache qui lance des",
+                "§7projectiles explosifs AoE.",
                 "",
-                "§6CAPACITÉ - BOUSE PROPULSÉE:",
-                "§7Lance une bouse explosive vers",
-                "§7les groupes d'ennemis! Explose",
-                "§7à l'impact avec dégâts AoE.",
-                "",
-                "§b~ Portée: §e12 blocs",
-                "§b~ Cadence: §e3s",
-                "§c✦ Dégâts de zone + Knockback"
+                "§6Degats: §c100% §7| §6AoE: §e4 blocs",
+                "§6Portee: §e12 blocs §7| §6Cadence: §b3s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -723,24 +556,16 @@ public final class ChasseurTalents {
         // 5.3 - EXÉCUTION (Branche Ombre)
         TALENTS.add(Talent.builder()
             .id("chasseur_execution")
-            .name("Exécution")
+            .name("Execution")
             .description("5 Points sur marqué = 250%/400% dégâts")
             .loreLines(new String[]{
-                "§8§lBRANCHE OMBRE",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7À §55 Points d'Ombre§7, attaquez",
-                "§7une cible §cmarquée§7 pour déclencher",
-                "§7une §c§lEXÉCUTION§7!",
+                "§7A 5 Points d'Ombre: frappe devastatrice.",
+                "§7Bonus sur cibles marquees.",
                 "",
-                "§6DÉGÂTS:",
-                "§8► Cible normale: §c250%§8 dégâts",
-                "§8► Cible marquée: §c§l400%§8 dégâts!",
-                "",
-                "§6EFFET:",
-                "§8► Consomme §55 Points§8",
-                "§8► Génère +2 Points si kill",
-                "",
-                "§5§lLE MOMENT DE VÉRITÉ"
+                "§6Normal: §c250% §7| §6Marque: §c400%",
+                "§6Cout: §c5 §7Points | §6Kill: §a+2 §7Points"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -754,25 +579,15 @@ public final class ChasseurTalents {
         // 5.4 - NÉCROSE (Voie du Poison) - Passif améliorant les dégâts sur cibles corrompues
         TALENTS.add(Talent.builder()
             .id("chasseur_epidemic")
-            .name("Nécrose")
+            .name("Necrose")
             .description("+30% dégâts sur CORROMPUS (100% virulence)")
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Vos cibles §dcorrompues§7 sont",
-                "§7condamnées à une mort certaine!",
+                "§7Degats bonus sur les cibles",
+                "§7a 100% de virulence (Corrompus).",
                 "",
-                "§d§lBONUS CORROMPU (passif):",
-                "§8► §c+30%§8 dégâts directs",
-                "§8► Sur cibles à §d100% virulence§8",
-                "§8► S'applique à TOUT vos dégâts!",
-                "",
-                "§6STRATÉGIE:",
-                "§8► Montez la virulence à 100%",
-                "§8► Profitez du bonus massif!",
-                "§8► Les DoT font le reste...",
-                "",
-                "§2§lLEUR DESTIN EST SCELLÉ"
+                "§6Bonus: §c+30% §7degats directs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -786,28 +601,16 @@ public final class ChasseurTalents {
         // 5.5 - GIVRE PÉNÉTRANT (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_absolute_perforation")
-            .name("Givre Pénétrant")
+            .name("Givre Penetrant")
             .description("Givre ignore résistance, vulnérabilité!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Votre givre §bpénètre§7 les défenses!",
+                "§7Le givre ignore les resistances",
+                "§7et amplifie les eclats de glace.",
                 "",
-                "§6GIVRE PÉNÉTRANT:",
-                "§8► §b+15%§8 givre par rebond",
-                "§8► Ignore la résistance au froid",
-                "§8► Maximum: §b+60%§8 givre bonus",
-                "",
-                "§b§lÉCLAT AMPLIFIÉ:",
-                "§8► Morts de gelés: §b+30%§8 rayon",
-                "§8► §c+30%§8 dégâts d'éclat!",
-                "§8► Propagation givre améliorée",
-                "",
-                "§6SYNERGIE:",
-                "§7Parfait avec Charge Glaciale",
-                "§7et Ligne de Glace!",
-                "",
-                "§b§lAUCUNE DÉFENSE NE RÉSISTE"
+                "§6Givre/rebond: §b+15% §7| §6Max: §b+60%",
+                "§6Eclat: §c+30% §7rayon/degats"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_5)
@@ -830,18 +633,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Chaque §ckill§7 avec une pluie",
-                "§7accumule §e1 charge§7.",
+                "§7Kills avec pluie = charges. A 5:",
+                "§7Super Pluie explosive!",
                 "",
-                "§6A 5 CHARGES:",
-                "§7La prochaine pluie devient une",
-                "§c§lSUPER PLUIE§7 devastatrice!",
-                "",
-                "§6SUPER PLUIE:",
-                "§8► §e2x§8 fleches",
-                "§8► §e+50%§8 zone",
-                "§8► §c+50%§8 degats",
-                "§8► Fleches §6explosives§8!"
+                "§6Fleches: §e×2 §7| §6Zone: §e+50%",
+                "§6Degats: §c+50% §7+ explosions"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -858,17 +654,13 @@ public final class ChasseurTalents {
             .name("Lama")
             .description("Invoque un lama qui crache sur plusieurs cibles")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §elama hautain§7 qui",
-                "§7méprise tous vos ennemis.",
+                "§7Invoque un lama qui crache sur",
+                "§7plusieurs cibles avec Lenteur II.",
                 "",
-                "§6CAPACITÉ - CRACHAT ACIDE:",
-                "§7Crache sur §e3 cibles§7 simultanément.",
-                "§7Inflige des dégâts + §9Lenteur II§7.",
-                "",
-                "§b~ Portée: §e6 blocs",
-                "§b~ Durée lenteur: §e3s"
+                "§6Cibles: §e3 §7| §6Portee: §e6 blocs",
+                "§6Lenteur: §c3s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -885,31 +677,13 @@ public final class ChasseurTalents {
             .name("Danse Macabre")
             .description("Kill marqué = cascade de marques + frénésie!")
             .loreLines(new String[]{
-                "§5§lBRANCHE OMBRE",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Tuer une cible §cmarquée§7 déclenche",
-                "§7la §5§lDanse Macabre§7!",
+                "§7Kill marque = marque tous proches",
+                "§7+ frenesie + Execution reduite.",
                 "",
-                "§c§l⚔ CASCADE DE MORT:",
-                "§8► §dMarque§8 TOUS les ennemis à §e8 blocs",
-                "§8► Durée des marques: §e5s",
-                "",
-                "§6§l⚡ FRÉNÉSIE D'OMBRE (5s):",
-                "§8► §a+80%§8 vitesse de déplacement",
-                "§8► §c+30%§8 vitesse d'attaque",
-                "",
-                "§5§l✧ EXÉCUTION PRÉPARÉE:",
-                "§8► Prochaine Exécution: §e3 Points§8 seulement!",
-                "§8► Durée du bonus: §e6s",
-                "",
-                "§8► §bReset§8 Pas de l'Ombre",
-                "§8► §5+2 Points§8 d'Ombre",
-                "",
-                "§d§lSYNERGIE:",
-                "§7Cascade → Exécutions en chaîne",
-                "§7→ Tempête d'Ombre sur groupes!",
-                "",
-                "§5§l★ LE BAL DES MORTS ★"
+                "§6Rayon: §e8 blocs §7| §6Vitesse: §a+60%",
+                "§6Prochaine Exec: §e3 §7Points | §6Points: §d+2"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -928,19 +702,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7La virulence vous §arenforce§7!",
+                "§7Degats bonus selon la virulence",
+                "§7totale des ennemis proches.",
                 "",
-                "§6SYNERGIE DE VIRULENCE:",
-                "§8► §c+1%§8 dégâts par 10 virulence",
-                "§8► Compte dans §e8 blocs§8 autour",
-                "§8► Maximum: §c+25%§8 dégâts!",
-                "",
-                "§6EXEMPLE:",
-                "§7- 5 ennemis à 40 virulence",
-                "§7- Total = 200 virulence",
-                "§7- Bonus = §c+20%§8 dégâts!",
-                "",
-                "§2§lLE POISON VOUS NOURRIT"
+                "§6Bonus: §c+1%§7/10 vir | §6Rayon: §e8 blocs",
+                "§6Max: §c+25% §7degats"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -954,29 +720,16 @@ public final class ChasseurTalents {
         // 6.5 - TEMPÊTE DE NEIGE (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_hunter_momentum")
-            .name("Tempête de Neige")
+            .name("Tempete de Neige")
             .description("3 éclats = TEMPÊTE (+30% givre, vitesse)!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Les §béclats§7 de glace vous",
-                "§7propulsent vers l'avant!",
+                "§73 morts givrees = Tempete de Neige.",
+                "§7Boost de givre, vitesse et degats.",
                 "",
-                "§6ÉCLAT DE GLACE:",
-                "§8► Chaque mort givrée compte",
-                "§8► Compteur d'éclats",
-                "",
-                "§b§l3 ÉCLATS - TEMPÊTE DE NEIGE:",
-                "§8► §b+30%§8 givre appliqué!",
-                "§8► §a+Vitesse§8 de déplacement",
-                "§8► §c+30%§8 dégâts",
-                "§8► Durée: §e4s",
-                "",
-                "§6RÉACTION EN CHAÎNE:",
-                "§7Les éclats en chaîne maintiennent",
-                "§7la tempête active!",
-                "",
-                "§b§lDÉCHAÎNEZ LE BLIZZARD"
+                "§6Givre: §b+30% §7| §6Vitesse: §a+50%",
+                "§6Degats: §c+30% §7| §6Duree: §b4s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_6)
@@ -999,20 +752,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Vos pluies creent un",
-                "§b§lVORTEX DEVASTATEUR§7!",
+                "§7Pluies creent un vortex qui",
+                "§7attire puis explose.",
                 "",
-                "§6EFFETS DU VORTEX:",
-                "§8► §bAttire§8 les ennemis vers le centre",
-                "§8► §c+30%§8 degats aux aspires",
-                "§8► §6Explosion§8 finale!",
-                "",
-                "§6EXPLOSION:",
-                "§8► Zone: §e5§8 blocs",
-                "§8► Degats: §c100%§8 + knockback",
-                "",
-                "§8Les ennemis peuvent resister au centre",
-                "§d§lSYNERGIE: Furie du Barrage!"
+                "§6Bonus aspires: §c+30% §7| §6Explosion: §c100%",
+                "§6Rayon: §e5 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1029,19 +773,13 @@ public final class ChasseurTalents {
             .name("Renard")
             .description("Invoque un renard qui traque et marque les proies")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §6renard rusé§7 qui",
-                "§7traque et marque ses proies.",
+                "§7Invoque un renard qui marque",
+                "§7les ennemis (+35% degats subis).",
                 "",
-                "§6CAPACITÉ - TRAQUE & BOND:",
-                "§7Bondit sur les ennemis blessés",
-                "§7et les §cmarque§7 pendant §e5s§7.",
-                "",
-                "§c✦ MARQUE: §f+30% §7dégâts subis!",
-                "",
-                "§b~ Portée: §e10 blocs",
-                "§b~ Cadence: §e4s"
+                "§6Marque: §b5s §7| §6Portee: §e10 blocs",
+                "§6Cadence: §b4s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1053,36 +791,18 @@ public final class ChasseurTalents {
             .build());
 
         // 7.3 - LAMES SPECTRALES (Branche Ombre)
-        // Lames d'ombre orbitales style Vampire Survivors - 10% chance sur kill
         TALENTS.add(Talent.builder()
             .id("chasseur_spectral_blades")
             .name("Lames Spectrales")
             .description("10% chance sur kill = lames orbitales!")
             .loreLines(new String[]{
-                "§5§lBRANCHE OMBRE",
+                "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Chaque §ckill§7 a §e10%§7 de chance",
-                "§7d'invoquer des §5§lLAMES SPECTRALES§7!",
+                "§7Chance sur kill: 5 lames orbitales",
+                "§7tournent et blessent les ennemis.",
                 "",
-                "§6LAMES D'OMBRE:",
-                "§8► §e5 lames§8 tournent autour de vous",
-                "§8► Durée: §e8s",
-                "§8► Rayon orbital: §b3 blocs",
-                "§8► Vitesse: §e1 tour/2s",
-                "",
-                "§c§lDÉGÂTS AUTOMATIQUES:",
-                "§8► §c35%§8 de vos dégâts par lame",
-                "§8► Frappe chaque ennemi traversé",
-                "§8► Cooldown par cible: §e0.5s",
-                "",
-                "§d§lSYNERGIE MARQUE:",
-                "§8► Cibles marquées: §c+50%§8 dégâts",
-                "§8► §e15%§8 chance de marquer",
-                "",
-                "§6EFFET VISUEL:",
-                "§7Trainées violettes spectaculaires!",
-                "",
-                "§5§l★ DANSE DES LAMES ★"
+                "§6Chance: §e10% §7| §6Lames: §e5 §7| §6Duree: §b8s",
+                "§6Degats: §c35%§7/lame | §6Marques: §c+50%"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1101,19 +821,9 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Votre poison vous §aSUSTENTE§7!",
+                "§7Vos DoT de poison vous soignent.",
                 "",
-                "§a§lDRAIN DE VIE:",
-                "§8► §a15%§8 lifesteal sur DoT",
-                "§8► Chaque tick vous soigne!",
-                "§8► Stack avec vos stats de vie",
-                "",
-                "§6SYNERGIE:",
-                "§8► Plus de virulence = plus de DoT",
-                "§8► Plus de DoT = plus de soin!",
-                "§8► Crits DoT = gros heal!",
-                "",
-                "§0§lLA MORT INCARNÉE"
+                "§6Lifesteal: §a15% §7des degats DoT"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1127,32 +837,16 @@ public final class ChasseurTalents {
         // 7.5 - ÉCHO GLACIAL (Voie du Givre)
         TALENTS.add(Talent.builder()
             .id("chasseur_chain_perforation")
-            .name("Écho Glacial")
+            .name("Echo Glacial")
             .description("Rebonds terminés = givre propage 3x!")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Quand les §brebonds s'arrêtent§7,",
-                "§7le §bgivre continue§7 à se propager!",
+                "§7Quand rebonds finissent, le givre",
+                "§7se propage encore 3 fois.",
                 "",
-                "§6DÉCLENCHEMENT:",
-                "§8► Max rebonds atteint §eOU",
-                "§8► Plus de cible disponible",
-                "",
-                "§6PROPAGATION EN CHAÎNE:",
-                "§8► Jusqu'à §e3§8 propagations",
-                "§8► Vers l'ennemi le plus proche",
-                "§8► Portée: §e10 blocs",
-                "",
-                "§6GIVRE PAR ÉCHO:",
-                "§8► 1er écho: §b75%§8 givre",
-                "§8► 2ème écho: §b50%§8 givre",
-                "§8► 3ème écho: §b25%§8 givre",
-                "",
-                "§6BONUS ÉCLAT:",
-                "§8► §b+2 blocs§8 rayon d'éclat",
-                "",
-                "§b§lLE FROID NE S'ARRÊTE JAMAIS"
+                "§6Echos: §e3 §7| §6Portee: §e10 blocs",
+                "§6Givre: §b75%§7→§b50%§7→§b25% §7| §6Eclat: §e+2 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_7)
@@ -1175,18 +869,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§6ZONE DOUBLEE:",
-                "§7Toutes vos pluies ont",
-                "§e2x§7 leur rayon normal!",
+                "§7Vos pluies ont un rayon double.",
+                "§7Chaque fleche explose en eclats.",
                 "",
-                "§6FRAGMENTATION:",
-                "§7Chaque fleche qui touche",
-                "§7explose en §e3 eclats§7!",
-                "",
-                "§8► Degats eclat: §c40%",
-                "§8► Rayon eclat: §e2§8 blocs",
-                "",
-                "§d§lAPEX DU BARRAGE!"
+                "§6Rayon: §ex2 §7| §6Eclats: §e3§7/fleche",
+                "§6Degats eclat: §c50% §7| §6Zone: §e2 blocs"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -1203,19 +890,14 @@ public final class ChasseurTalents {
             .name("Abeille")
             .description("Invoque une abeille avec essaim venimeux")
             .loreLines(new String[]{
-                "§6§lVOIE DES BÊTES",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque une §eabeille guerrière§7",
-                "§7qui déchaîne son essaim.",
+                "§7Invoque une abeille qui pique 3 cibles.",
+                "§7A 5 stacks: explosion de venin!",
                 "",
-                "§6CAPACITÉ - ESSAIM VENIMEUX:",
-                "§7Lance des piqûres sur §e3 cibles§7.",
-                "§7Chaque piqûre ajoute §c1 stack§7.",
-                "",
-                "§c✦ À 5 STACKS: EXPLOSION DE VENIN!",
-                "§7Dégâts massifs + §2Poison II",
-                "",
-                "§b~ Cadence: §e2s"
+                "§6Cibles: §e3 §7| §6Stacks max: §e5",
+                "§6Explosion: §cx1.5 §7+ §2Poison II",
+                "§bCadence: §f2s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -1234,20 +916,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§8§lBRANCHE OMBRE",
                 "",
-                "§7Quand une §cExécution§7 tue une",
-                "§7cible, déclenchez une",
-                "§5§lTEMPÊTE D'OMBRE§7!",
+                "§7Quand Execution tue, declenche une",
+                "§7tempete qui marque tous les ennemis.",
                 "",
-                "§6TEMPÊTE:",
-                "§8► Zone: §e6§8 blocs",
-                "§8► Dégâts: §c150%§8 de l'Exécution",
-                "§8► §cMarque§8 tous les touchés",
-                "§8► §5+1 Point§8 par ennemi touché",
-                "",
-                "§6RÉACTION EN CHAÎNE:",
-                "§7Parfait pour nettoyer les groupes!",
-                "",
-                "§5§lL'OMBRE CONSUME TOUT"
+                "§6Zone: §e6 blocs §7| §6Degats: §c150%",
+                "§6Bonus: §5+1 Point§7/ennemi touche"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -1266,19 +939,11 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Vous §2IRRADIEZ§7 le poison!",
+                "§7Aura passive autour de vous.",
+                "§7Combo a 200+ virulence proche.",
                 "",
-                "§6AURA DE FLÉAU (passive):",
-                "§8► §e4 blocs§8 autour de vous",
-                "§8► §2+5 virulence§8/seconde",
-                "§8► Empoisonne automatiquement!",
-                "",
-                "§c§lCOMBO FLÉAU (200+ virulence):",
-                "§8► 200+ virulence totale proche",
-                "§8► = §c+20%§8 TOUS vos dégâts!",
-                "§8► Indicateur §c§lCOMBO!§8 visible",
-                "",
-                "§2§lVOUS ÊTES LA PESTE"
+                "§6Aura: §e4 blocs §7| §6Virulence: §2+5§7/s",
+                "§6Combo 200+: §c+20% §7degats"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -1297,28 +962,14 @@ public final class ChasseurTalents {
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Après avoir §bgelé 5 ennemis§7,",
-                "§7entrez en mode §b§lHIVER ÉTERNEL§7!",
+                "§7Apres 5 gels, mode Hiver Eternel.",
+                "§7Aura de givre autour de vous.",
                 "",
-                "§6ACTIVATION AUTOMATIQUE:",
-                "§8► Gelez §e5 ennemis§8",
-                "§8► Le mode s'active seul!",
-                "§8► Compteur visible dans l'ActionBar",
-                "",
-                "§b§lMODE HIVER ÉTERNEL (6s):",
-                "§8► §b+40%§8 givre appliqué!",
-                "§8► §c+35%§8 dégâts",
-                "§8► §c+40%§8 dégâts d'éclat",
-                "§8► §a10 rebonds§8 max!",
-                "",
-                "§6AURA DE GIVRE:",
-                "§8► §e4 blocs§8 autour de vous",
-                "§8► §b+5%§8 givre/tick aux ennemis",
-                "§8► Gel passif automatique!",
-                "",
-                "§8► Cooldown: §c30s§8 après fin",
-                "",
-                "§b§l★ L'HIVER EST ÉTERNEL ★"
+                "§6Activation: §e5 gels §7| §6Duree: §b6s",
+                "§6Bonus: §b+40% givre §7| §c+35% degats",
+                "§6Eclat: §c+40% §7| §6Rebonds: §e10 max",
+                "§6Aura: §e4 blocs §7| §b+5%§7 givre/tick",
+                "§bCooldown: §f30s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_8)
@@ -1340,22 +991,15 @@ public final class ChasseurTalents {
             .name("Frappe Orbitale")
             .description("2x SNEAK = bombardement!")
             .loreLines(new String[]{
-                "§6§l★ TALENT LEGENDAIRE ★",
+                "§6§l★ LEGENDAIRE ★",
                 "§f§lVOIE DU BARRAGE",
                 "",
-                "§7Appuyez §e2x SNEAK§7 rapidement",
-                "§7pour invoquer un §c§lBOMBARDEMENT§7!",
+                "§e2x Sneak§7: bombardement en ligne.",
+                "§78 bombes explosent devant vous.",
                 "",
-                "§6EFFET:",
-                "§7Une ligne de §c8 bombes§7 explose",
-                "§7dans votre direction!",
-                "",
-                "§8► Longueur: §e30§8 blocs",
-                "§8► Rayon/bombe: §e3§8 blocs",
-                "§8► Degats: §c500%§8 + brulure",
-                "§8► Cooldown: §c30s",
-                "",
-                "§c§lDEVASTATION TOTALE!"
+                "§6Bombes: §e8 §7| §6Portee: §e30 blocs",
+                "§6Rayon: §e3 blocs §7| §6Degats: §c500%",
+                "§bCooldown: §f30s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
@@ -1373,25 +1017,16 @@ public final class ChasseurTalents {
             .name("Golem de Fer")
             .description("Invoque un golem devastateur avec frappe titanesque")
             .loreLines(new String[]{
-                "§6§l★ TALENT LÉGENDAIRE ★",
-                "§6§lVOIE DES BÊTES",
+                "§6§l★ LEGENDAIRE ★",
+                "§6§lVOIE DES BETES",
                 "",
-                "§7Invoque un §7Golem de Fer§7",
-                "§7colosse qui écrase tout!",
+                "§7Invoque un Golem qui charge et",
+                "§7frappe le sol avec onde de choc.",
                 "",
-                "§6CAPACITÉ - FRAPPE TITANESQUE:",
-                "§7Toutes les §e5s§7, charge vers",
-                "§7un ennemi et frappe le sol!",
+                "§6Degats: §c12 §7| §6Zone: §e6 blocs",
+                "§6Stun: §b1.5s §7| §bCadence: §f10s",
                 "",
-                "§c1. §7Charge: écrase les ennemis",
-                "§c2. §7Onde de choc §e8 blocs§7 devant",
-                "§c3. §7§eStun 1.5s§7 sur tous les touchés!",
-                "",
-                "§6✦ SYNERGIE:",
-                "§c• §7Cibles §cmarquées§7 = §ex2 dégâts",
-                "§c• §73+ stacks abeille = §ex2 dégâts",
-                "",
-                "§6§l★ PUISSANCE ULTIME ★"
+                "§6Synergie: §7Marques/Abeille = §cx2"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
@@ -1408,25 +1043,15 @@ public final class ChasseurTalents {
             .name("Avatar d'Ombre")
             .description("Ultime 15s: 2 clones, +1 Point/s, +40% dégâts")
             .loreLines(new String[]{
-                "§5§l★ TALENT LÉGENDAIRE ★",
+                "§5§l★ LEGENDAIRE ★",
                 "§8§lBRANCHE OMBRE",
                 "",
-                "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Transformez-vous en §5§lAVATAR D'OMBRE§7!",
+                "§e2x Sneak§7: transformation en Avatar.",
+                "§72 clones permanents vous assistent.",
                 "",
-                "§6TRANSFORMATION (15s):",
-                "§8► §52 Clones§8 permanents",
-                "§8► §5+1 Point/s§8 automatique",
-                "§8► §c+40%§8 dégâts toutes sources",
-                "§8► §7Semi-transparent§8 (ombre)",
-                "",
-                "§6SYNERGIE ULTIME:",
-                "§7Les Exécutions des clones",
-                "§7peuvent déclencher Tempête!",
-                "",
-                "§8► Cooldown: §c45s",
-                "",
-                "§5§l★ MAÎTRE DES OMBRES ★"
+                "§6Duree: §b15s §7| §6Clones: §e2",
+                "§6Bonus: §5+1 Point§7/s | §c+40% degats",
+                "§bCooldown: §f45s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
@@ -1444,26 +1069,16 @@ public final class ChasseurTalents {
             .name("Avatar de la Peste")
             .description("Ultime 15s: x3 virulence, aura 6 blocs, explosion finale!")
             .loreLines(new String[]{
-                "§2§l★ TALENT LÉGENDAIRE ★",
+                "§2§l★ LEGENDAIRE ★",
                 "§2§lVOIE DU POISON",
                 "",
-                "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Devenez l'§2§lAVATAR DE LA PESTE§7!",
+                "§e2x Sneak§7: transformation en Avatar.",
+                "§7Explosion finale a la fin du mode.",
                 "",
-                "§6TRANSFORMATION (15s):",
-                "§8► §2x3 VIRULENCE§8 appliquée!",
-                "§8► Aura §e6 blocs§8 (+30 vir/s)",
-                "§8► §aImmunité§8 poison/wither",
-                "§8► Bonus de vitesse",
-                "",
-                "§c§lPESTE FINALE (fin):",
-                "§8► Explosion §e8 blocs§8",
-                "§8► §c500%§8 dégâts (cap 1000)",
-                "§8► Tous = §d100% virulence§8!",
-                "",
-                "§8► Cooldown: §c60s",
-                "",
-                "§2§l★ MAÎTRE DE LA PESTE ★"
+                "§6Duree: §b15s §7| §6Virulence: §2x3",
+                "§6Aura: §e6 blocs §7| §2+30 vir§7/s",
+                "§6Explosion: §e8 blocs §7| §c500% degats",
+                "§bCooldown: §f60s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
@@ -1481,29 +1096,16 @@ public final class ChasseurTalents {
             .name("Zéro Absolu")
             .description("2x SNEAK = Gel instantané 12 blocs!")
             .loreLines(new String[]{
-                "§b§l★ TALENT LÉGENDAIRE ★",
+                "§b§l★ LEGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Activation: §e2x SNEAK§7 rapidement",
-                "§7Déclenche §b§lZÉRO ABSOLU§7!",
+                "§e2x Sneak§7: vague de gel instantane.",
+                "§7Tous les ennemis sont immobilises.",
                 "",
-                "§b§lZÉRO ABSOLU:",
-                "§8► Vague de froid §e12 blocs§8",
-                "§8► §b§lGÈLE INSTANTANÉMENT§8 tous!",
-                "§8► Dégâts: §c500%§8 de base!",
-                "",
-                "§6EFFETS SUR LES GELÉS:",
-                "§8► §b100%§8 givre instantané",
-                "§8► §bImmobilisés§8 pendant §e2s",
-                "§8► Subissent §c+50%§8 dégâts",
-                "",
-                "§6VAGUE VISUELLE:",
-                "§8► Anneau de glace qui s'étend",
-                "§8► Particules de glace épiques",
-                "",
-                "§8► Cooldown: §c45s",
-                "",
-                "§b§l★ ZÉRO ABSOLU ★"
+                "§6Zone: §e12 blocs §7| §6Degats: §c500%",
+                "§6Givre: §b100% §7| §6Immob: §b2s",
+                "§6Bonus degats: §c+50% §7sur geles",
+                "§bCooldown: §f45s"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_9)
