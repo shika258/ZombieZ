@@ -1093,7 +1093,6 @@ public final class OccultisteTalents {
             .name("Pluie de Météores")
             .description("Déclenche une pluie de météores dévastatrice")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§c§lVOIE DU FEU",
                 "",
                 "§7Déclenche automatiquement une",
@@ -1122,7 +1121,6 @@ public final class OccultisteTalents {
             .name("Stase Temporelle")
             .description("Gèle le temps et tous les ennemis")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
                 "§7Gèle le temps et TOUS les ennemis",
@@ -1149,7 +1147,6 @@ public final class OccultisteTalents {
             .name("Jugement Divin")
             .description("Frappe tous les ennemis proches d'un éclair divin")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§e§lVOIE DE LA FOUDRE",
                 "",
                 "§7Invoque un éclair divin qui",
@@ -1177,7 +1174,6 @@ public final class OccultisteTalents {
             .name("Armée Immortelle")
             .description("Les serviteurs deviennent immortels")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§d§lVOIE DES ÂMES",
                 "",
                 "§7Vos serviteurs morts-vivants",
@@ -1202,7 +1198,6 @@ public final class OccultisteTalents {
             .name("Trou Noir")
             .description("Invoque un trou noir qui aspire et détruit tout")
             .loreLines(new String[]{
-                "§6§l★ LÉGENDAIRE ★",
                 "§5§lVOIE DE L'OMBRE",
                 "",
                 "§7Invoque un trou noir massif qui",
