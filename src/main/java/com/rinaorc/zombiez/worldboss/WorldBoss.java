@@ -206,8 +206,8 @@ public abstract class WorldBoss {
         LeatherArmorMeta helmetMeta = (LeatherArmorMeta) helmet.getItemMeta();
         if (helmetMeta != null) {
             helmetMeta.setColor(primary);
-            if (trim != null) {
-                helmetMeta.setTrim(trim);
+            if (trim != null && helmetMeta instanceof ArmorMeta armorMeta) {
+                armorMeta.setTrim(trim);
             }
             helmet.setItemMeta(helmetMeta);
         }
@@ -218,8 +218,8 @@ public abstract class WorldBoss {
         LeatherArmorMeta chestMeta = (LeatherArmorMeta) chestplate.getItemMeta();
         if (chestMeta != null) {
             chestMeta.setColor(primary);
-            if (trim != null) {
-                chestMeta.setTrim(trim);
+            if (trim != null && chestMeta instanceof ArmorMeta armorMeta) {
+                armorMeta.setTrim(trim);
             }
             chestplate.setItemMeta(chestMeta);
         }
@@ -230,8 +230,8 @@ public abstract class WorldBoss {
         LeatherArmorMeta leggingsMeta = (LeatherArmorMeta) leggings.getItemMeta();
         if (leggingsMeta != null) {
             leggingsMeta.setColor(secondary);
-            if (trim != null) {
-                leggingsMeta.setTrim(trim);
+            if (trim != null && leggingsMeta instanceof ArmorMeta armorMeta) {
+                armorMeta.setTrim(trim);
             }
             leggings.setItemMeta(leggingsMeta);
         }
@@ -242,8 +242,8 @@ public abstract class WorldBoss {
         LeatherArmorMeta bootsMeta = (LeatherArmorMeta) boots.getItemMeta();
         if (bootsMeta != null) {
             bootsMeta.setColor(secondary);
-            if (trim != null) {
-                bootsMeta.setTrim(trim);
+            if (trim != null && bootsMeta instanceof ArmorMeta armorMeta) {
+                armorMeta.setTrim(trim);
             }
             boots.setItemMeta(bootsMeta);
         }
@@ -365,7 +365,7 @@ public abstract class WorldBoss {
             case ENRAGED, BERSERKER, BURNING -> BarColor.RED;
             case VENOMOUS, REGENERATING -> BarColor.GREEN;
             case VAMPIRIC, CURSED -> BarColor.PURPLE;
-            case FROZEN, ICE_BREAKER -> BarColor.BLUE;
+            case FROZEN -> BarColor.BLUE;
             case SWIFT, EMPOWERED -> BarColor.YELLOW;
             case EXPLOSIVE, STORMY -> BarColor.YELLOW;
             case ARMORED, THORNS, RELENTLESS -> BarColor.WHITE;
@@ -899,7 +899,7 @@ public abstract class WorldBoss {
         // SYNERGIE: Frénésie Sanguine (BERSERKER + VAMPIRIC)
         // Le lifesteal augmente drastiquement quand le boss est low HP
         // Géré dans WorldBossListener.onBossAttack() - ici on ajoute l'effet visuel
-        if (modifiers.hasTrait(BossTrait.BERSERKER) && modifiers.hasLifesteal()) {
+        if (modifiers.hasTrait(BossTrait.BERSERKER) && modifiers.isHasLifesteal()) {
             var maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
             if (maxHealth != null) {
                 double healthPercent = entity.getHealth() / maxHealth.getValue();
@@ -918,7 +918,7 @@ public abstract class WorldBoss {
 
         // SYNERGIE: Forteresse (ARMORED + THORNS)
         // Réduit les dégâts reçus et augmente le retour de dégâts quand stationnaire
-        if (modifiers.hasTrait(BossTrait.ARMORED) && modifiers.hasThorns()) {
+        if (modifiers.hasTrait(BossTrait.ARMORED) && modifiers.isHasThorns()) {
             // Effet visuel de forteresse (particules de bouclier)
             if (Math.random() < 0.3) {
                 world.spawnParticle(Particle.WAX_ON, bossLoc.clone().add(0, 1.2, 0), 5, 0.5, 0.5, 0.5, 0);
@@ -987,7 +987,7 @@ public abstract class WorldBoss {
         updateBossBar();
 
         // Trait: Épineux - renvoie une partie des dégâts
-        if (modifiers != null && modifiers.hasThorns()) {
+        if (modifiers != null && modifiers.isHasThorns()) {
             double thornsDamage = damage * modifiers.getThornsPercent();
             attacker.damage(thornsDamage);
             attacker.sendMessage("§8§l⚔ §7Les épines vous renvoient §c" + String.format("%.1f", thornsDamage) + " §7dégâts!");
@@ -1049,7 +1049,7 @@ public abstract class WorldBoss {
         world.spawnParticle(Particle.DRAGON_BREATH, location, 100, 2, 2, 2, 0.1);
 
         // Trait: Explosif - explosion à la mort
-        if (modifiers != null && modifiers.hasExplosiveDeaths()) {
+        if (modifiers != null && modifiers.isHasExplosiveDeaths()) {
             world.createExplosion(location, 4f, false, false);
             world.playSound(location, Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
             world.spawnParticle(Particle.EXPLOSION_EMITTER, location, 20, 4, 4, 4, 0);
@@ -1143,21 +1143,21 @@ public abstract class WorldBoss {
         }
 
         for (int i = 0; i < itemCount; i++) {
-            ItemStack item = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.EPIC, luckBonus);
+            ItemStack item = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.EPIC);
             if (item != null) {
                 world.dropItemNaturally(location, item);
             }
         }
 
         // Item garanti LEGENDARY pour le premier drop
-        ItemStack legendaryItem = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY, luckBonus);
+        ItemStack legendaryItem = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY);
         if (legendaryItem != null) {
             world.dropItemNaturally(location, legendaryItem);
         }
 
         // Boss très difficile (>1.5x) = chance d'un second LEGENDARY
         if (difficultyMult > 1.5 && Math.random() < 0.5) {
-            ItemStack bonusLegendary = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY, luckBonus);
+            ItemStack bonusLegendary = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY);
             if (bonusLegendary != null) {
                 world.dropItemNaturally(location, bonusLegendary);
             }

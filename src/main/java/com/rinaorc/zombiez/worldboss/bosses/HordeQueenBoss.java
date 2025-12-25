@@ -241,7 +241,7 @@ public class HordeQueenBoss extends WorldBoss {
         World world = bossLoc.getWorld();
         if (world != null) {
             world.playSound(bossLoc, Sound.BLOCK_GLASS_BREAK, 2f, 0.5f);
-            world.spawnParticle(Particle.ITEM_CRACK, bossLoc.clone().add(0, 2, 0), 30, 1, 1, 1, 0.1,
+            world.spawnParticle(Particle.ITEM, bossLoc.clone().add(0, 2, 0), 30, 1, 1, 1, 0.1,
                 new org.bukkit.inventory.ItemStack(Material.PURPLE_STAINED_GLASS));
         }
 
