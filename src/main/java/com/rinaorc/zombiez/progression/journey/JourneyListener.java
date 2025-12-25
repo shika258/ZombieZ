@@ -31,8 +31,8 @@ public class JourneyListener implements Listener {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
 
-        // Tâche périodique pour afficher l'ActionBar de progression
-        startProgressActionBarTask();
+        // Tâche périodique pour mettre à jour la BossBar de progression
+        startBossBarUpdateTask();
 
         // Tâche périodique pour tracker le temps de survie en zone
         startSurvivalTimeTracker();
@@ -44,11 +44,16 @@ public class JourneyListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        // Charger les données de parcours
+        // Charger les données de parcours et créer la BossBar
         new BukkitRunnable() {
             @Override
             public void run() {
+                if (!player.isOnline()) return;
+
                 journeyManager.loadPlayerJourney(player);
+
+                // Créer la BossBar de progression
+                journeyManager.createOrUpdateBossBar(player);
 
                 // Afficher le message de bienvenue avec la progression
                 showJourneyWelcome(player);
@@ -58,7 +63,12 @@ public class JourneyListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        java.util.UUID uuid = event.getPlayer().getUniqueId();
+        Player player = event.getPlayer();
+        java.util.UUID uuid = player.getUniqueId();
+
+        // Supprimer la BossBar
+        journeyManager.removeBossBar(player);
+
         journeyManager.unloadPlayer(uuid);
 
         // Nettoyer les caches locaux
@@ -489,17 +499,20 @@ public class JourneyListener implements Listener {
         lastZoneId.remove(uuid);
     }
 
-    // ==================== AFFICHAGE ACTIONBAR ====================
+    // ==================== AFFICHAGE BOSSBAR ====================
 
-    private void startProgressActionBarTask() {
+    /**
+     * Lance la tâche périodique de mise à jour de la BossBar
+     */
+    private void startBossBarUpdateTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    journeyManager.showProgressActionBar(player);
+                    journeyManager.createOrUpdateBossBar(player);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 40L); // Toutes les 2 secondes
+        }.runTaskTimer(plugin, 100L, 20L); // Toutes les secondes
     }
 
     private void showJourneyWelcome(Player player) {

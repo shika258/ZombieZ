@@ -4,6 +4,9 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
 import lombok.Getter;
 import org.bukkit.*;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.FireworkMeta;
@@ -41,8 +44,107 @@ public class JourneyManager {
     @Getter
     private final Map<UUID, JourneyStep> currentStepCache = new ConcurrentHashMap<>();
 
+    // BossBar de progression par joueur
+    private final Map<UUID, BossBar> playerBossBars = new ConcurrentHashMap<>();
+
     public JourneyManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    // ==================== SYSTÈME DE BOSSBAR ====================
+
+    /**
+     * Crée ou met à jour la BossBar de progression d'un joueur
+     */
+    public void createOrUpdateBossBar(Player player) {
+        UUID uuid = player.getUniqueId();
+        JourneyStep step = getCurrentStep(player);
+
+        BossBar bossBar = playerBossBars.get(uuid);
+
+        if (bossBar == null) {
+            // Créer une nouvelle BossBar
+            bossBar = Bukkit.createBossBar("", BarColor.YELLOW, BarStyle.SEGMENTED_10);
+            bossBar.addPlayer(player);
+            playerBossBars.put(uuid, bossBar);
+        }
+
+        // Si parcours complété
+        if (step == null) {
+            bossBar.setTitle("§6✦ §e§lLÉGENDE VIVANTE §6✦ §7Parcours complété!");
+            bossBar.setProgress(1.0);
+            bossBar.setColor(BarColor.PURPLE);
+            bossBar.setStyle(BarStyle.SOLID);
+            return;
+        }
+
+        // Calculer la progression
+        int progress = getStepProgress(player, step);
+        double percent = step.getProgressPercent(progress) / 100.0;
+        String progressText = step.getProgressText(progress);
+
+        // Couleur selon la phase
+        BarColor color = switch (step.getChapter().getPhase()) {
+            case 1 -> BarColor.GREEN;
+            case 2 -> BarColor.YELLOW;
+            case 3 -> BarColor.RED;
+            case 4 -> BarColor.PURPLE;
+            default -> BarColor.WHITE;
+        };
+
+        // Icône selon la phase
+        String phaseIcon = switch (step.getChapter().getPhase()) {
+            case 1 -> "§a⚔";
+            case 2 -> "§e⚔";
+            case 3 -> "§c⚔";
+            case 4 -> "§5⚔";
+            default -> "§7⚔";
+        };
+
+        // Format: ⚔ Ch.2 | Choisis ta classe | 0/1
+        String title = String.format("%s §7Ch.%d §8| §f%s §8| §e%s",
+            phaseIcon,
+            step.getChapter().getId(),
+            truncate(step.getName(), 25),
+            progressText
+        );
+
+        bossBar.setTitle(title);
+        bossBar.setProgress(Math.min(1.0, Math.max(0.0, percent)));
+        bossBar.setColor(color);
+        bossBar.setStyle(BarStyle.SEGMENTED_10);
+        bossBar.setVisible(true);
+    }
+
+    /**
+     * Supprime la BossBar d'un joueur
+     */
+    public void removeBossBar(Player player) {
+        UUID uuid = player.getUniqueId();
+        BossBar bossBar = playerBossBars.remove(uuid);
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
+    }
+
+    /**
+     * Cache temporairement la BossBar (ex: pendant un événement)
+     */
+    public void hideBossBar(Player player) {
+        BossBar bossBar = playerBossBars.get(player.getUniqueId());
+        if (bossBar != null) {
+            bossBar.setVisible(false);
+        }
+    }
+
+    /**
+     * Réaffiche la BossBar
+     */
+    public void showBossBar(Player player) {
+        BossBar bossBar = playerBossBars.get(player.getUniqueId());
+        if (bossBar != null) {
+            bossBar.setVisible(true);
+        }
     }
 
     // ==================== VÉRIFICATION DES GATES (BLOCAGE) ====================
@@ -722,62 +824,6 @@ public class JourneyManager {
             return String.format("%.1fK", value / 1000.0);
         }
         return String.valueOf(value);
-    }
-
-    /**
-     * Affiche la barre de progression dans l'ActionBar
-     */
-    public void showProgressActionBar(Player player) {
-        JourneyStep step = getCurrentStep(player);
-        if (step == null) {
-            // Parcours complété
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§6✦ §eLÉGENDE VIVANTE §6✦ §7Parcours complété!"
-            ));
-            return;
-        }
-
-        int progress = getStepProgress(player, step);
-        String progressText = step.getProgressText(progress);
-        double percent = step.getProgressPercent(progress);
-
-        // Barre de progression visuelle avec dégradé de couleurs
-        StringBuilder bar = new StringBuilder("§8[");
-        int filled = (int) (percent / 10);
-        for (int i = 0; i < 10; i++) {
-            if (i < filled) {
-                // Dégradé de couleur selon le pourcentage
-                if (percent >= 80) {
-                    bar.append("§a■");
-                } else if (percent >= 50) {
-                    bar.append("§e■");
-                } else {
-                    bar.append("§6■");
-                }
-            } else {
-                bar.append("§8□");
-            }
-        }
-        bar.append("§8]");
-
-        // Icône de chapitre selon la phase
-        String phaseIcon = switch (step.getChapter().getPhase()) {
-            case 1 -> "§a⚔";
-            case 2 -> "§e⚔";
-            case 3 -> "§c⚔";
-            case 4 -> "§5⚔";
-            default -> "§7⚔";
-        };
-
-        String message = String.format("%s §7Ch.%d §8| %s §f%s §8| §e%s",
-            phaseIcon,
-            step.getChapter().getId(),
-            bar,
-            truncate(step.getName(), 20),
-            progressText
-        );
-
-        player.sendActionBar(net.kyori.adventure.text.Component.text(message));
     }
 
     /**
