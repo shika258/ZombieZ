@@ -116,16 +116,37 @@ public class WorldBossListener implements Listener {
 
             // Trait: Vampirique - le boss se soigne
             if (modifiers.hasLifesteal() && modifiers.getLifestealPercent() > 0) {
-                double healAmount = finalDamage * modifiers.getLifestealPercent();
+                double lifestealPercent = modifiers.getLifestealPercent();
                 var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
+
+                // SYNERGIE: Frénésie Sanguine (BERSERKER + VAMPIRIC)
+                // Double le lifesteal quand le boss est sous 30% HP
+                boolean bloodFrenzy = false;
+                if (maxHealth != null && modifiers.hasTrait(BossTrait.BERSERKER)) {
+                    double healthPercent = zombie.getHealth() / maxHealth.getValue();
+                    if (healthPercent < 0.3) {
+                        lifestealPercent *= 2.0; // Double lifesteal!
+                        bloodFrenzy = true;
+                    }
+                }
+
+                double healAmount = finalDamage * lifestealPercent;
                 if (maxHealth != null) {
                     double newHealth = Math.min(maxHealth.getValue(), zombie.getHealth() + healAmount);
                     zombie.setHealth(newHealth);
 
-                    // Effet visuel
-                    zombie.getWorld().spawnParticle(Particle.HEART,
-                        zombie.getLocation().add(0, 2, 0), 3, 0.3, 0.3, 0.3, 0);
-                    zombie.getWorld().playSound(zombie.getLocation(), Sound.ENTITY_WITCH_DRINK, 0.5f, 1.2f);
+                    // Effet visuel (amplifié si Frénésie Sanguine)
+                    if (bloodFrenzy) {
+                        zombie.getWorld().spawnParticle(Particle.DUST,
+                            zombie.getLocation().add(0, 2, 0), 15, 0.5, 0.5, 0.5,
+                            new Particle.DustOptions(org.bukkit.Color.fromRGB(139, 0, 0), 2f));
+                        zombie.getWorld().playSound(zombie.getLocation(), Sound.ENTITY_WARDEN_HEARTBEAT, 1f, 1.5f);
+                        player.sendMessage("§4§l🩸 §7Frénésie Sanguine! Le boss se soigne massivement!");
+                    } else {
+                        zombie.getWorld().spawnParticle(Particle.HEART,
+                            zombie.getLocation().add(0, 2, 0), 3, 0.3, 0.3, 0.3, 0);
+                        zombie.getWorld().playSound(zombie.getLocation(), Sound.ENTITY_WITCH_DRINK, 0.5f, 1.2f);
+                    }
                 }
             }
 

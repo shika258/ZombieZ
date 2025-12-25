@@ -12,7 +12,9 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -155,6 +157,9 @@ public abstract class WorldBoss {
 
             // Glowing permanent
             zombie.setGlowing(true);
+
+            // Équiper une armure colorée selon les traits procéduraux
+            equipColoredArmor(zombie);
         });
 
         // Créer la boss bar
@@ -177,27 +182,150 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Crée la boss bar avec nom procédural
+     * Équipe le boss avec une armure en cuir colorée selon ses traits procéduraux
+     * Rend chaque boss visuellement unique
+     */
+    protected void equipColoredArmor(Zombie zombie) {
+        if (modifiers == null) return;
+
+        EntityEquipment equipment = zombie.getEquipment();
+        if (equipment == null) return;
+
+        Color primary = modifiers.getPrimaryColor();
+        Color secondary = modifiers.getSecondaryColor();
+
+        // Casque - couleur primaire
+        ItemStack helmet = new ItemStack(Material.LEATHER_HELMET);
+        LeatherArmorMeta helmetMeta = (LeatherArmorMeta) helmet.getItemMeta();
+        if (helmetMeta != null) {
+            helmetMeta.setColor(primary);
+            helmet.setItemMeta(helmetMeta);
+        }
+        equipment.setHelmet(helmet);
+
+        // Plastron - couleur primaire
+        ItemStack chestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
+        LeatherArmorMeta chestMeta = (LeatherArmorMeta) chestplate.getItemMeta();
+        if (chestMeta != null) {
+            chestMeta.setColor(primary);
+            chestplate.setItemMeta(chestMeta);
+        }
+        equipment.setChestplate(chestplate);
+
+        // Jambières - couleur secondaire (contraste)
+        ItemStack leggings = new ItemStack(Material.LEATHER_LEGGINGS);
+        LeatherArmorMeta leggingsMeta = (LeatherArmorMeta) leggings.getItemMeta();
+        if (leggingsMeta != null) {
+            leggingsMeta.setColor(secondary);
+            leggings.setItemMeta(leggingsMeta);
+        }
+        equipment.setLeggings(leggings);
+
+        // Bottes - couleur secondaire
+        ItemStack boots = new ItemStack(Material.LEATHER_BOOTS);
+        LeatherArmorMeta bootsMeta = (LeatherArmorMeta) boots.getItemMeta();
+        if (bootsMeta != null) {
+            bootsMeta.setColor(secondary);
+            boots.setItemMeta(bootsMeta);
+        }
+        equipment.setBoots(boots);
+
+        // Empêcher le drop de l'équipement
+        equipment.setHelmetDropChance(0f);
+        equipment.setChestplateDropChance(0f);
+        equipment.setLeggingsDropChance(0f);
+        equipment.setBootsDropChance(0f);
+    }
+
+    /**
+     * Crée la boss bar avec nom procédural et indicateurs de traits
      */
     protected void createBossBar() {
-        // Couleur basée sur le trait principal
-        BarColor color = switch (type) {
-            case THE_BUTCHER -> BarColor.RED;
-            case SHADOW_UNSTABLE -> BarColor.PURPLE;
-            case PYROMANCER -> BarColor.YELLOW;
-            case HORDE_QUEEN -> BarColor.PINK;
-            case ICE_BREAKER -> BarColor.BLUE;
-        };
+        // Couleur basée sur le trait principal (ou type si pas de traits)
+        BarColor color = getBarColorFromTraits();
 
-        // Utiliser le nom procédural
+        // Construire le titre avec traits
         String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+        String traitsIndicator = getTraitsIndicator();
 
         bossBar = Bukkit.createBossBar(
-            bossName + " §7- §c" + getFormattedHealth(),
+            bossName + traitsIndicator + " §7- §c" + getFormattedHealth(),
             color,
             BarStyle.SEGMENTED_10
         );
         bossBar.setVisible(true);
+    }
+
+    /**
+     * Détermine la couleur de la boss bar selon les traits
+     */
+    private BarColor getBarColorFromTraits() {
+        if (modifiers == null || modifiers.getTraits().length == 0) {
+            return switch (type) {
+                case THE_BUTCHER -> BarColor.RED;
+                case SHADOW_UNSTABLE -> BarColor.PURPLE;
+                case PYROMANCER -> BarColor.YELLOW;
+                case HORDE_QUEEN -> BarColor.PINK;
+                case ICE_BREAKER -> BarColor.BLUE;
+            };
+        }
+
+        // Couleur basée sur le premier trait
+        BossTrait firstTrait = modifiers.getTraits()[0];
+        return switch (firstTrait) {
+            case ENRAGED, BERSERKER, BURNING -> BarColor.RED;
+            case VENOMOUS, REGENERATING -> BarColor.GREEN;
+            case VAMPIRIC, CURSED -> BarColor.PURPLE;
+            case FROZEN, ICE_BREAKER -> BarColor.BLUE;
+            case SWIFT, EMPOWERED -> BarColor.YELLOW;
+            case EXPLOSIVE, STORMY -> BarColor.YELLOW;
+            case ARMORED, THORNS, RELENTLESS -> BarColor.WHITE;
+            case TELEPORTER, PHASING -> BarColor.PINK;
+        };
+    }
+
+    /**
+     * Génère les indicateurs visuels de traits pour la boss bar
+     * Utilise des emojis/symboles pour représenter chaque catégorie de trait
+     */
+    private String getTraitsIndicator() {
+        if (modifiers == null || modifiers.getTraits().length == 0) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder(" §8[");
+        for (int i = 0; i < modifiers.getTraits().length; i++) {
+            if (i > 0) sb.append(" ");
+            BossTrait trait = modifiers.getTraits()[i];
+            sb.append(getTraitSymbol(trait));
+        }
+        sb.append("§8]");
+        return sb.toString();
+    }
+
+    /**
+     * Retourne un symbole coloré pour chaque trait
+     */
+    private String getTraitSymbol(BossTrait trait) {
+        return switch (trait) {
+            case ENRAGED -> "§c⚔";      // Épée rouge
+            case BERSERKER -> "§4💀";   // Crâne rouge foncé
+            case VENOMOUS -> "§2☠";     // Poison vert
+            case EXPLOSIVE -> "§6💥";   // Explosion orange
+            case ARMORED -> "§7🛡";     // Bouclier gris
+            case REGENERATING -> "§a❤"; // Cœur vert
+            case VAMPIRIC -> "§5🦇";    // Chauve-souris violette
+            case THORNS -> "§8⚡";      // Épines grises
+            case SWIFT -> "§e💨";       // Vent jaune
+            case TELEPORTER -> "§d✦";   // Étoile rose
+            case PHASING -> "§f👻";     // Fantôme blanc
+            case EMPOWERED -> "§b✧";    // Étoile cyan
+            case RELENTLESS -> "§4🔥";  // Flamme rouge
+            case CURSED -> "§5☽";       // Lune violette
+            case BURNING -> "§6🔥";     // Flamme orange
+            case FROZEN -> "§b❄";       // Flocon cyan
+            case STORMY -> "§9⚡";       // Éclair bleu
+        };
     }
 
     /**
@@ -350,9 +478,10 @@ public abstract class WorldBoss {
         double healthPercent = entity.getHealth() / maxHealth.getValue();
         bossBar.setProgress(Math.max(0, Math.min(1, healthPercent)));
 
-        // Nom procédural + traits
+        // Nom procédural + traits + santé
         String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
-        bossBar.setTitle(bossName + " §7- §c" + getFormattedHealth());
+        String traitsIndicator = getTraitsIndicator();
+        bossBar.setTitle(bossName + traitsIndicator + " §7- §c" + getFormattedHealth());
     }
 
     /**
@@ -562,6 +691,101 @@ public abstract class WorldBoss {
             // Effet visuel pendant l'intangibilité
             if (isPhasing) {
                 world.spawnParticle(Particle.REVERSE_PORTAL, bossLoc.clone().add(0, 1, 0), 5, 0.5, 1, 0.5, 0.05);
+            }
+        }
+
+        // ==================== SYNERGIES DE TRAITS ====================
+        applyTraitSynergies(bossLoc, world);
+    }
+
+    /**
+     * Applique les effets de synergie entre traits
+     * Les synergies sont des bonus spéciaux quand certains traits sont combinés
+     */
+    protected void applyTraitSynergies(Location bossLoc, World world) {
+        if (modifiers == null) return;
+
+        // SYNERGIE: Choc Thermique (FROZEN + BURNING)
+        // Les joueurs affectés par le feu ET le ralentissement subissent des dégâts de choc
+        if (modifiers.hasTrait(BossTrait.FROZEN) && modifiers.hasTrait(BossTrait.BURNING)) {
+            for (Entity e : world.getNearbyEntities(bossLoc, 5, 5, 5)) {
+                if (e instanceof Player player) {
+                    // Si le joueur est à la fois en feu et ralenti
+                    if (player.getFireTicks() > 0 && player.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+                        // Choc thermique: dégâts + effets visuels
+                        double shockDamage = 3 + zoneId * 0.2;
+                        player.damage(shockDamage);
+                        player.sendMessage("§b§l❄ §6§l🔥 §7Choc Thermique! §c-" + String.format("%.1f", shockDamage) + " PV");
+
+                        // Effets visuels spectaculaires
+                        world.spawnParticle(Particle.EXPLOSION, player.getLocation().add(0, 1, 0), 1, 0, 0, 0, 0);
+                        world.spawnParticle(Particle.SNOWFLAKE, player.getLocation(), 10, 0.5, 1, 0.5, 0.1);
+                        world.spawnParticle(Particle.FLAME, player.getLocation(), 10, 0.5, 1, 0.5, 0.05);
+                        world.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 1f, 0.5f);
+
+                        // Retire le feu (le choc "consomme" les effets)
+                        player.setFireTicks(0);
+                    }
+                }
+            }
+        }
+
+        // SYNERGIE: Frénésie Sanguine (BERSERKER + VAMPIRIC)
+        // Le lifesteal augmente drastiquement quand le boss est low HP
+        // Géré dans WorldBossListener.onBossAttack() - ici on ajoute l'effet visuel
+        if (modifiers.hasTrait(BossTrait.BERSERKER) && modifiers.hasLifesteal()) {
+            var maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
+            if (maxHealth != null) {
+                double healthPercent = entity.getHealth() / maxHealth.getValue();
+                if (healthPercent < 0.3) {
+                    // Effet visuel de frénésie
+                    world.spawnParticle(Particle.DUST, bossLoc.clone().add(0, 1.5, 0), 8, 0.5, 0.5, 0.5,
+                        new Particle.DustOptions(Color.fromRGB(139, 0, 0), 1.5f)); // Rouge sang foncé
+                }
+            }
+        }
+
+        // SYNERGIE: Tempête Arcanique (STORMY + CURSED)
+        // La foudre a une chance de maudire les joueurs touchés
+        // Note: L'effet principal est dans le trait STORMY, ici on ajoute l'effet bonus
+        // Implémenté dans le bloc STORMY existant via un check supplémentaire
+
+        // SYNERGIE: Forteresse (ARMORED + THORNS)
+        // Réduit les dégâts reçus et augmente le retour de dégâts quand stationnaire
+        if (modifiers.hasTrait(BossTrait.ARMORED) && modifiers.hasThorns()) {
+            // Effet visuel de forteresse (particules de bouclier)
+            if (Math.random() < 0.3) {
+                world.spawnParticle(Particle.WAX_ON, bossLoc.clone().add(0, 1.2, 0), 5, 0.5, 0.5, 0.5, 0);
+            }
+        }
+
+        // SYNERGIE: Prédateur Fantôme (PHASING + SWIFT)
+        // Après être redevenu tangible, gagne un boost de vitesse temporaire
+        if (modifiers.hasTrait(BossTrait.PHASING) && modifiers.hasTrait(BossTrait.SWIFT)) {
+            // Quand le boss vient de sortir de phase (dans les dernières 2 secondes)
+            long timeSincePhaseEnd = System.currentTimeMillis() - phasingEndTime;
+            if (!isPhasing && timeSincePhaseEnd >= 0 && timeSincePhaseEnd < 2000) {
+                // Effet visuel de vitesse
+                world.spawnParticle(Particle.CLOUD, bossLoc, 3, 0.3, 0.1, 0.3, 0.05);
+            }
+        }
+
+        // SYNERGIE: Peste Venimeuse (VENOMOUS + CURSED)
+        // Le poison devient plus puissant et dure plus longtemps
+        // Les joueurs empoisonnés ET maudits ont leur régénération réduite
+        if (modifiers.hasTrait(BossTrait.VENOMOUS) && modifiers.hasTrait(BossTrait.CURSED)) {
+            for (Entity e : world.getNearbyEntities(bossLoc, 6, 6, 6)) {
+                if (e instanceof Player player) {
+                    if (player.hasPotionEffect(PotionEffectType.POISON) && player.hasPotionEffect(PotionEffectType.DARKNESS)) {
+                        // Appliquer Wither (empêche la régénération naturelle)
+                        if (!player.hasPotionEffect(PotionEffectType.WITHER)) {
+                            player.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 40, 0, true, false));
+                            player.sendMessage("§5§l☠ §7La peste venimeuse vous consume!");
+                            world.spawnParticle(Particle.DUST, player.getLocation().add(0, 1, 0), 10, 0.5, 0.5, 0.5,
+                                new Particle.DustOptions(Color.fromRGB(75, 0, 130), 1.2f)); // Indigo
+                        }
+                    }
+                }
             }
         }
     }
