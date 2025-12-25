@@ -416,6 +416,13 @@ public class RefugeManager {
             .color(NamedTextColor.YELLOW)
             .decoration(TextDecoration.BOLD, true);
 
+        // Bastion du Réveil (ID 0) : pas besoin d'instruction car c'est le spawn par défaut
+        if (refuge.getId() == 0) {
+            return line1
+                .append(Component.newline())
+                .append(line2);
+        }
+
         // Ligne 3: Séparateur
         Component line3 = Component.text("─────────")
             .color(NamedTextColor.DARK_GRAY);
