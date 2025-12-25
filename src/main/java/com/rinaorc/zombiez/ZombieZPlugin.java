@@ -2,6 +2,7 @@ package com.rinaorc.zombiez;
 
 import com.rinaorc.zombiez.commands.admin.ClassAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ItemAdminCommand;
+import com.rinaorc.zombiez.commands.admin.JourneyAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ZombieAdminCommand;
 import com.rinaorc.zombiez.commands.admin.ZombieZAdminCommand;
 import com.rinaorc.zombiez.commands.player.*;
@@ -697,6 +698,11 @@ public class ZombieZPlugin extends JavaPlugin {
         ClassAdminCommand classAdminCmd = new ClassAdminCommand(this);
         getCommand("zzclassadmin").setExecutor(classAdminCmd);
         getCommand("zzclassadmin").setTabCompleter(classAdminCmd);
+
+        // Commandes Admin Journey
+        JourneyAdminCommand journeyAdminCmd = new JourneyAdminCommand(this);
+        getCommand("zzjourneyadmin").setExecutor(journeyAdminCmd);
+        getCommand("zzjourneyadmin").setTabCompleter(journeyAdminCmd);
 
         // Commandes Admin Éveils
         com.rinaorc.zombiez.commands.admin.AwakenAdminCommand awakenCmd = new com.rinaorc.zombiez.commands.admin.AwakenAdminCommand(this);

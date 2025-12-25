@@ -25,17 +25,17 @@ public enum JourneyStep {
         "Première victime...", StepType.ZOMBIE_KILLS, 1,
         50, 1, Material.ROTTEN_FLESH),
 
-    STEP_1_2(JourneyChapter.CHAPTER_1, 2, "Atteins le niveau 3",
-        "Les premiers pas vers la puissance", StepType.LEVEL, 3,
-        100, 2, Material.EXPERIENCE_BOTTLE),
+    STEP_1_2(JourneyChapter.CHAPTER_1, 2, "Tue 10 zombies",
+        "Tu prends le coup de main", StepType.ZOMBIE_KILLS, 10,
+        100, 2, Material.IRON_SWORD),
 
-    STEP_1_3(JourneyChapter.CHAPTER_1, 3, "Explore la Zone 1 (50%)",
+    STEP_1_3(JourneyChapter.CHAPTER_1, 3, "Atteins le niveau 2",
+        "Premier level up!", StepType.LEVEL, 2,
+        150, 3, Material.EXPERIENCE_BOTTLE),
+
+    STEP_1_4(JourneyChapter.CHAPTER_1, 4, "Explore la Zone 1 (50%)",
         "Découvre ton environnement", StepType.ZONE_PROGRESS, 50,
-        150, 3, Material.COMPASS),
-
-    STEP_1_4(JourneyChapter.CHAPTER_1, 4, "Tue 25 zombies",
-        "Tu commences à prendre le coup de main", StepType.ZOMBIE_KILLS, 25,
-        200, 4, Material.IRON_SWORD),
+        200, 4, Material.COMPASS),
 
     STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Atteins le niveau 5",
         "Prêt à choisir ta voie", StepType.LEVEL, 5,
@@ -69,9 +69,9 @@ public enum JourneyStep {
         "Premiers pas dans le danger", StepType.REACH_ZONE, 2,
         150, 5, Material.LEATHER_BOOTS),
 
-    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Survie 5 minutes en Zone 2",
-        "La survie avant tout", StepType.SURVIVE_ZONE_TIME, 300,
-        200, 6, Material.COOKED_BEEF),
+    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Recycle 5 items",
+        "Libère ton inventaire avec /recycle", StepType.RECYCLE_ITEMS, 5,
+        200, 6, Material.GRINDSTONE),
 
     STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 100 zombies au total",
         "Centième victime!", StepType.TOTAL_KILLS, 100,
@@ -113,9 +113,9 @@ public enum JourneyStep {
         "Le danger s'intensifie", StepType.REACH_ZONE, 4,
         300, 10, Material.IRON_CHESTPLATE),
 
-    STEP_5_2(JourneyChapter.CHAPTER_5, 2, "Tue 50 zombies en Zone 4+",
-        "Combat en territoire hostile", StepType.ZONE_KILLS, 50,
-        400, 12, Material.IRON_SWORD),
+    STEP_5_2(JourneyChapter.CHAPTER_5, 2, "Recycle 25 items",
+        "Le recyclage, c'est la vie!", StepType.RECYCLE_ITEMS, 25,
+        400, 12, Material.GRINDSTONE),
 
     STEP_5_3(JourneyChapter.CHAPTER_5, 3, "Tue ton premier zombie Élite",
         "Les élites sont plus dangereux", StepType.ELITE_KILLS, 1,
@@ -161,9 +161,9 @@ public enum JourneyStep {
         "La nuit rouge...", StepType.SURVIVE_BLOOD_MOON, 1,
         750, 25, Material.REDSTONE_BLOCK),
 
-    STEP_7_3(JourneyChapter.CHAPTER_7, 3, "Tue 100 zombies pendant un événement",
-        "Tueur sous pression", StepType.EVENT_KILLS, 100,
-        1000, 30, Material.TNT),
+    STEP_7_3(JourneyChapter.CHAPTER_7, 3, "Recycle 100 items",
+        "Maître du recyclage", StepType.RECYCLE_ITEMS, 100,
+        1000, 30, Material.GRINDSTONE),
 
     STEP_7_4(JourneyChapter.CHAPTER_7, 4, "Tue 25 Élites au total",
         "Chasseur d'élites confirmé", StepType.ELITE_KILLS, 25,
@@ -358,6 +358,7 @@ public enum JourneyStep {
             case PRESTIGE -> "Prestige " + current + "/" + targetValue;
             case KILL_PATIENT_ZERO -> current >= 1 ? "✓ Patient Zéro vaincu" : "Vaincs Patient Zéro";
             case ACHIEVEMENTS -> current + "/" + targetValue + " achievements";
+            case RECYCLE_ITEMS -> current + "/" + targetValue + " items recyclés";
         };
     }
 
@@ -472,7 +473,10 @@ public enum JourneyStep {
         SURVIVE_BLOOD_MOON("Survie à une Blood Moon"),
 
         // Achievements
-        ACHIEVEMENTS("Complète des achievements");
+        ACHIEVEMENTS("Complète des achievements"),
+
+        // Recyclage
+        RECYCLE_ITEMS("Recycle des items");
 
         private final String description;
 

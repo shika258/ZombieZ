@@ -333,22 +333,30 @@ public class JourneyManager {
      * Obtient la progression d'une étape
      */
     public int getStepProgress(Player player, JourneyStep step) {
-        UUID uuid = player.getUniqueId();
-        String stepId = step.getId();
-
-        // Vérifier le cache
-        Map<String, Integer> progress = stepProgressCache.get(uuid);
-        if (progress != null && progress.containsKey(stepId)) {
-            return progress.get(stepId);
-        }
-
-        // Charger depuis PlayerData
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
-        if (data != null) {
-            return data.getJourneyStepProgress(stepId);
-        }
+        if (data == null) return 0;
 
-        return 0;
+        // Pour les types basés sur l'état actuel du joueur, retourner la valeur réelle
+        return switch (step.getType()) {
+            case LEVEL -> data.getLevel().get();
+            case CLASS_LEVEL -> data.getClassLevel().get();
+            case PRESTIGE_LEVEL -> data.getLevel().get(); // Niveau après prestige
+            case PRESTIGE -> data.getPrestigeLevel();
+            default -> {
+                // Pour les autres types, utiliser la progression stockée
+                UUID uuid = player.getUniqueId();
+                String stepId = step.getId();
+
+                // Vérifier le cache
+                Map<String, Integer> progress = stepProgressCache.get(uuid);
+                if (progress != null && progress.containsKey(stepId)) {
+                    yield progress.get(stepId);
+                }
+
+                // Charger depuis PlayerData
+                yield data.getJourneyStepProgress(stepId);
+            }
+        };
     }
 
     /**

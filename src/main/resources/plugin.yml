@@ -64,6 +64,12 @@ commands:
     permission: zombiez.admin.class
     aliases: [zzca, classadmin]
 
+  zzjourneyadmin:
+    description: Gestion admin du parcours (skip, unlockall, reset)
+    usage: /<command> <info|skip|unlockall|reset|setchapter|setstep> <joueur>
+    permission: zombiez.admin.journey
+    aliases: [zzja, journeyadmin]
+
   awaken:
     description: Gestion du système d'éveils (Awaken) sur les items
     usage: /<command> <debug|give|reroll|list|stats|chances|reload>
