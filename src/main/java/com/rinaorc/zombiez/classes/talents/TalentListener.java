@@ -1387,6 +1387,19 @@ public class TalentListener implements Listener {
     }
 
     /**
+     * Rend les larves de sang complètement invincibles - elles ne meurent que lors de leur explosion
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBloodLarvaeDamaged(org.bukkit.event.entity.EntityDamageEvent event) {
+        // Vérifier si c'est une larve de sang qui reçoit des dégâts
+        if (!(event.getEntity() instanceof Endermite larvae)) return;
+        if (!larvae.getScoreboardTags().contains("zombiez_blood_larvae")) return;
+
+        // Annuler TOUS les dégâts - la larve ne meurt que lors de son explosion
+        event.setCancelled(true);
+    }
+
+    /**
      * Déclenche l'explosion de sang AoE d'une larve
      * @param larvae La larve qui explose
      * @param owner Le joueur propriétaire
