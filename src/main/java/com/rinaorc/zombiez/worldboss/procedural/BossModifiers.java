@@ -114,8 +114,9 @@ public class BossModifiers {
         double speedMult = baseSpeed * (1.0 + (random.nextDouble() * 2 - 1) * variance);
         double abilityMult = baseAbility * (1.0 + (random.nextDouble() * 2 - 1) * variance);
 
-        // Scale variation (-10% à +20%)
-        double scaleMult = 1.0 + (random.nextDouble() * 0.3 - 0.1);
+        // Scale variation procédurale (x1.0 à x2.0 multiplicateur)
+        // Permet d'atteindre des scales finales de x2 (min) à x10 (max)
+        double scaleMult = 1.0 + random.nextDouble();
 
         // Générer le nom (avec la même seed pour reproductibilité)
         String baseName = extractBaseName(baseType.getDisplayName());

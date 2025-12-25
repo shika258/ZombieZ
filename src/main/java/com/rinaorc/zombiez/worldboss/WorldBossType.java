@@ -10,14 +10,14 @@ import lombok.Getter;
 public enum WorldBossType {
 
     /**
-     * Le Boucher (Tank - Taille x3)
+     * Le Boucher (Tank - Taille x4 base, x4-x8 avec procédural)
      * Capacité: Attire tous les joueurs proches vers lui toutes les 15s (Hook)
      * Stratégie: Plus il frappe, plus il gagne de la résistance. Il faut le kiter.
      */
     THE_BUTCHER(
         "Le Boucher",
         "§4§lLE BOUCHER",
-        3.0,
+        4.0,
         2000,
         25,
         15,
@@ -25,14 +25,14 @@ public enum WorldBossType {
     ),
 
     /**
-     * L'Ombre Instable (Vitesse - Taille x1.5)
+     * L'Ombre Instable (Vitesse - Taille x2 base, x2-x4 avec procédural)
      * Capacité: Devient invisible pendant 3s toutes les 10s et réapparaît derrière un joueur
      * Stratégie: Utiliser des sons/particules pour anticiper son retour
      */
     SHADOW_UNSTABLE(
         "L'Ombre Instable",
         "§8§lL'OMBRE INSTABLE",
-        1.5,
+        2.0,
         1200,
         40,
         10,
@@ -40,14 +40,14 @@ public enum WorldBossType {
     ),
 
     /**
-     * Le Pyromancien Zombie (Magie - Taille x2)
+     * Le Pyromancien Zombie (Magie - Taille x3 base, x3-x6 avec procédural)
      * Capacité: Crée un cercle de feu au sol. Si un joueur reste dedans, le boss se soigne.
      * Stratégie: Forcer le boss à sortir de sa zone de feu
      */
     PYROMANCER(
         "Le Pyromancien Zombie",
         "§6§lLE PYROMANCIEN ZOMBIE",
-        2.0,
+        3.0,
         1500,
         30,
         12,
@@ -55,14 +55,14 @@ public enum WorldBossType {
     ),
 
     /**
-     * La Reine de la Horde (Invocatrice - Taille x4)
+     * La Reine de la Horde (Invocatrice - Taille x5 base, x5-x10 avec procédural)
      * Capacité: Invoque 5 zombies rapides tous les 25% de vie perdus. Invincible tant que sbires en vie.
      * Stratégie: Focus les adds avant le boss
      */
     HORDE_QUEEN(
         "La Reine de la Horde",
         "§5§lLA REINE DE LA HORDE",
-        4.0,
+        5.0,
         2500,
         20,
         0, // Pas de cooldown classique, basé sur vie
@@ -70,14 +70,14 @@ public enum WorldBossType {
     ),
 
     /**
-     * Le Brise-Glace (Contrôle - Taille x3)
+     * Le Brise-Glace (Contrôle - Taille x3.5 base, x3.5-x7 avec procédural)
      * Capacité: Applique "Slowness X" et gèle le sol autour de lui
      * Stratégie: Utiliser des projectiles à distance car le corps-à-corps est mortel
      */
     ICE_BREAKER(
         "Le Brise-Glace",
         "§b§lLE BRISE-GLACE",
-        3.0,
+        3.5,
         1800,
         35,
         8,
