@@ -37,8 +37,8 @@ public enum JourneyStep {
         "Découvre ton environnement", StepType.ZONE_PROGRESS, 50,
         200, 4, Material.COMPASS),
 
-    STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Atteins le niveau 5",
-        "Prêt à choisir ta voie", StepType.LEVEL, 5,
+    STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Atteins le niveau 3",
+        "Prêt à choisir ta voie", StepType.LEVEL, 3,
         300, 5, Material.NETHER_STAR),
 
     // ==================== CHAPITRE 2: CHOIX DU DESTIN ====================
