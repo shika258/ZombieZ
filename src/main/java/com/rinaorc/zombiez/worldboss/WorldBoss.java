@@ -698,12 +698,17 @@ public abstract class WorldBoss {
         UUID topDamager = getTopDamager();
         Player topPlayer = topDamager != null ? plugin.getServer().getPlayer(topDamager) : killer;
 
-        // Points pour le top damager (bonus)
-        long basePoints = 1000 + (zoneId * 50L);
+        // Points avec scaling de difficulté procédurale
+        double difficultyMult = modifiers != null ? modifiers.getDifficultyMultiplier() : 1.0;
+        long basePoints = (long) ((1000 + (zoneId * 50L)) * difficultyMult);
+
         if (topPlayer != null) {
             plugin.getEconomyManager().addPoints(topPlayer, basePoints, "World Boss - Top Damager");
             topPlayer.sendMessage("§a§l+++ BONUS TOP DAMAGER +++");
             topPlayer.sendMessage("§7Vous avez infligé le plus de dégâts!");
+            if (difficultyMult > 1.1) {
+                topPlayer.sendMessage("§6§l⚡ Bonus difficulté: §e+" + String.format("%.0f", (difficultyMult - 1) * 100) + "%");
+            }
         }
 
         // Points pour tous les participants
@@ -724,6 +729,7 @@ public abstract class WorldBoss {
 
     /**
      * Drop le loot du boss
+     * Le loot scale avec la difficulté procédurale du boss
      */
     protected void dropLoot(Location location) {
         World world = location.getWorld();
@@ -732,12 +738,19 @@ public abstract class WorldBoss {
         var itemManager = plugin.getItemManager();
         if (itemManager == null) return;
 
-        // 100% chance d'une pièce d'équipement
-        // +50% chance de rareté supérieure = luckBonus de 0.5
-        double luckBonus = 0.5;
+        // Calculer le bonus de difficulté procédurale
+        // getDifficultyMultiplier() retourne ~1.0 pour un boss normal, plus pour un boss difficile
+        double difficultyMult = modifiers != null ? modifiers.getDifficultyMultiplier() : 1.0;
 
-        // Drop 1-3 items selon la zone
+        // Luck bonus scale avec la difficulté: 0.5 base + 0.3 par difficulté excédentaire
+        // Un boss avec 1.5x difficulté aura 0.5 + 0.15 = 0.65 luckBonus
+        double luckBonus = 0.5 + Math.max(0, (difficultyMult - 1.0) * 0.3);
+
+        // Drop 1-3 items selon la zone, +1 si difficulté > 1.3
         int itemCount = 1 + Math.min(2, zoneId / 15);
+        if (difficultyMult > 1.3) {
+            itemCount++;
+        }
 
         for (int i = 0; i < itemCount; i++) {
             ItemStack item = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.EPIC, luckBonus);
@@ -752,9 +765,18 @@ public abstract class WorldBoss {
             world.dropItemNaturally(location, legendaryItem);
         }
 
-        // Consommables bonus
+        // Boss très difficile (>1.5x) = chance d'un second LEGENDARY
+        if (difficultyMult > 1.5 && Math.random() < 0.5) {
+            ItemStack bonusLegendary = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY, luckBonus);
+            if (bonusLegendary != null) {
+                world.dropItemNaturally(location, bonusLegendary);
+            }
+        }
+
+        // Consommables bonus (3-5 selon difficulté)
+        int consumableCount = 3 + (difficultyMult > 1.2 ? 1 : 0) + (difficultyMult > 1.4 ? 1 : 0);
         if (plugin.getConsumableManager() != null) {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < consumableCount; i++) {
                 var consumable = plugin.getConsumableManager().generateConsumable(zoneId, luckBonus);
                 if (consumable != null) {
                     world.dropItemNaturally(location, consumable.createItemStack());
