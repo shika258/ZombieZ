@@ -202,7 +202,8 @@ public class ShadowUnstableBoss extends WorldBoss {
 
         // Ajouter l'info d'invisibilité
         if (bossBar != null && isInvisible) {
-            bossBar.setTitle(type.getTitleName() + " §7[§8INVISIBLE§7] - §c" + getFormattedHealth());
+            String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+            bossBar.setTitle(bossName + " §7[§8INVISIBLE§7] - §c" + getFormattedHealth());
         }
     }
 

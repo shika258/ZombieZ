@@ -237,8 +237,10 @@ public class IceBreakerBoss extends WorldBoss {
     protected void updateBossBar() {
         super.updateBossBar();
 
+        // Utiliser le nom procédural
         if (bossBar != null) {
-            bossBar.setTitle(type.getTitleName() + " §7[Zone de gel active] - §c" + getFormattedHealth());
+            String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+            bossBar.setTitle(bossName + " §7[Zone de gel active] - §c" + getFormattedHealth());
         }
     }
 

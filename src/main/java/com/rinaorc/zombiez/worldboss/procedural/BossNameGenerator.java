@@ -50,7 +50,13 @@ public class BossNameGenerator {
      * Génère un nom de boss procédural
      */
     public static ProceduralName generate(String baseName, BossTrait[] traits) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+        return generate(baseName, traits, ThreadLocalRandom.current());
+    }
+
+    /**
+     * Génère un nom de boss procédural avec un Random spécifique (pour seed)
+     */
+    public static ProceduralName generate(String baseName, BossTrait[] traits, java.util.Random random) {
 
         StringBuilder fullName = new StringBuilder();
         StringBuilder titleName = new StringBuilder();

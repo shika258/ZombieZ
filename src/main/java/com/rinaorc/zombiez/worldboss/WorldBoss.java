@@ -46,6 +46,10 @@ public abstract class WorldBoss {
     protected long spawnTime;
     protected long lastPlayerNearby;
 
+    // État du trait PHASING (intangibilité temporaire)
+    protected boolean isPhasing = false;
+    protected long phasingEndTime = 0;
+
     // Tracking des dégâts
     protected final Map<UUID, Double> damageDealt = new ConcurrentHashMap<>();
 
@@ -493,13 +497,14 @@ public abstract class WorldBoss {
             }
         }
 
-        // Trait: Orageux (éclairs périodiques)
+        // Trait: Orageux (éclairs périodiques - dégâts scalent avec la zone)
         if (modifiers.hasTrait(BossTrait.STORMY) && Math.random() < 0.1) {
             List<Player> nearby = getNearbyPlayers(15);
             if (!nearby.isEmpty()) {
                 Player target = nearby.get((int) (Math.random() * nearby.size()));
                 world.strikeLightningEffect(target.getLocation());
-                target.damage(5);
+                double damage = 5 + zoneId * 0.3; // 5 base + 0.3 par niveau de zone
+                target.damage(damage);
                 target.sendMessage("§9§l⚡ §7La foudre vous frappe!");
             }
         }
@@ -524,6 +529,41 @@ public abstract class WorldBoss {
             world.playSound(teleportLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
             world.spawnParticle(Particle.PORTAL, teleportLoc, 30, 0.5, 1, 0.5, 0.3);
         }
+
+        // Trait: Spectral (devient intangible brièvement - 10% chance, dure 2s)
+        if (modifiers.hasTrait(BossTrait.PHASING)) {
+            long now = System.currentTimeMillis();
+
+            // Fin de l'intangibilité
+            if (isPhasing && now >= phasingEndTime) {
+                isPhasing = false;
+                entity.setGlowing(true);
+                world.playSound(bossLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.5f);
+                world.spawnParticle(Particle.REVERSE_PORTAL, bossLoc, 20, 0.5, 1, 0.5, 0.1);
+
+                for (Player player : getNearbyPlayers(30)) {
+                    player.sendMessage("§f" + modifiers.getName().displayName() + " §7redevient tangible!");
+                }
+            }
+
+            // Déclenchement de l'intangibilité (8% chance par seconde si pas déjà intangible)
+            if (!isPhasing && Math.random() < 0.08) {
+                isPhasing = true;
+                phasingEndTime = now + 2000; // 2 secondes
+                entity.setGlowing(false);
+                world.playSound(bossLoc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.5f, 1.2f);
+                world.spawnParticle(Particle.REVERSE_PORTAL, bossLoc, 30, 0.5, 1, 0.5, 0.1);
+
+                for (Player player : getNearbyPlayers(30)) {
+                    player.sendMessage("§f§l⚠ " + modifiers.getName().displayName() + " §7devient §fintangible§7!");
+                }
+            }
+
+            // Effet visuel pendant l'intangibilité
+            if (isPhasing) {
+                world.spawnParticle(Particle.REVERSE_PORTAL, bossLoc.clone().add(0, 1, 0), 5, 0.5, 1, 0.5, 0.05);
+            }
+        }
     }
 
     /**
@@ -532,6 +572,10 @@ public abstract class WorldBoss {
      * @return true si le boss peut être endommagé
      */
     public boolean canReceiveDamage() {
+        // Trait PHASING: intangible = pas de dégâts
+        if (isPhasing) {
+            return false;
+        }
         return true;
     }
 

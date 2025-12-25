@@ -189,9 +189,10 @@ public class ButcherBoss extends WorldBoss {
     protected void updateBossBar() {
         super.updateBossBar();
 
-        // Ajouter l'info de résistance
+        // Ajouter l'info de résistance (utilise le nom procédural)
         if (bossBar != null && resistanceLevel > 0) {
-            bossBar.setTitle(type.getTitleName() + " §7[Résistance: §c" + resistanceLevel + "§7] - §c" + getFormattedHealth());
+            String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+            bossBar.setTitle(bossName + " §7[Résistance: §c" + resistanceLevel + "§7] - §c" + getFormattedHealth());
         }
     }
 }

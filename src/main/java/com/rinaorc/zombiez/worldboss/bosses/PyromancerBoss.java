@@ -220,9 +220,10 @@ public class PyromancerBoss extends WorldBoss {
     protected void updateBossBar() {
         super.updateBossBar();
 
-        // Ajouter le nombre de cercles actifs
+        // Ajouter le nombre de cercles actifs (utilise le nom procédural)
         if (bossBar != null && !activeCircles.isEmpty()) {
-            bossBar.setTitle(type.getTitleName() + " §7[Cercles: §c" + activeCircles.size() + "§7] - §c" + getFormattedHealth());
+            String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+            bossBar.setTitle(bossName + " §7[Cercles: §c" + activeCircles.size() + "§7] - §c" + getFormattedHealth());
         }
     }
 

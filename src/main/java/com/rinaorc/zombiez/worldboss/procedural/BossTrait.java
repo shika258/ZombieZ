@@ -13,8 +13,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public enum BossTrait {
 
     // Traits offensifs
-    ENRAGED("Enragé", "§c", Color.RED, 1.5, 1.0, 0.8, 1.0, "Attaque 50% plus vite mais a moins de vie"),
-    BERSERKER("Berserker", "§4", Color.MAROON, 1.3, 0.7, 1.2, 1.0, "Plus de dégâts, moins de vie"),
+    ENRAGED("Enragé", "§c", Color.RED, 1.5, 1.0, 0.7, 1.0, "+50% dégâts, capacité 30% plus rapide"),
+    BERSERKER("Berserker", "§4", Color.MAROON, 1.3, 0.7, 1.2, 1.0, "+30% dégâts, -30% vie"),
     VENOMOUS("Venimeux", "§2", Color.GREEN, 1.0, 1.0, 1.0, 1.0, "Empoisonne les joueurs touchés"),
     EXPLOSIVE("Explosif", "§6", Color.ORANGE, 1.0, 0.9, 1.1, 1.0, "Explose à la mort"),
 
@@ -30,7 +30,7 @@ public enum BossTrait {
     PHASING("Spectral", "§f", Color.WHITE, 1.1, 0.85, 1.0, 1.0, "Devient intangible brièvement"),
 
     // Traits de capacité
-    EMPOWERED("Surpuissant", "§b", Color.AQUA, 0.8, 1.0, 1.0, 1.0, "Capacité 30% plus fréquente"),
+    EMPOWERED("Surpuissant", "§b", Color.AQUA, 1.0, 1.0, 0.7, 1.0, "Capacité 30% plus rapide"),
     RELENTLESS("Implacable", "§4", Color.MAROON, 1.0, 1.0, 0.9, 1.0, "Ne peut pas être repoussé"),
     CURSED("Maudit", "§5", Color.PURPLE, 1.0, 1.0, 1.0, 1.0, "Applique Darkness aux joueurs proches"),
 
@@ -73,13 +73,20 @@ public enum BossTrait {
      * Obtient plusieurs traits aléatoires uniques
      */
     public static BossTrait[] randomUnique(int count) {
+        return randomUnique(count, ThreadLocalRandom.current());
+    }
+
+    /**
+     * Obtient plusieurs traits aléatoires uniques avec un Random spécifique (pour seed)
+     */
+    public static BossTrait[] randomUnique(int count, java.util.Random random) {
         BossTrait[] all = values();
         if (count >= all.length) {
             return all.clone();
         }
 
         java.util.List<BossTrait> available = new java.util.ArrayList<>(java.util.Arrays.asList(all));
-        java.util.Collections.shuffle(available);
+        java.util.Collections.shuffle(available, random);
 
         BossTrait[] result = new BossTrait[count];
         for (int i = 0; i < count; i++) {

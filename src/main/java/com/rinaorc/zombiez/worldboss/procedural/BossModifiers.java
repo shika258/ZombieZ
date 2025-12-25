@@ -5,8 +5,6 @@ import lombok.Getter;
 import org.bukkit.Color;
 import org.bukkit.Particle;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 /**
  * Modificateurs procéduraux pour un World Boss
  * Rend chaque boss unique avec des variations de stats, capacités et apparence
@@ -87,11 +85,12 @@ public class BossModifiers {
      * Génère des modificateurs à partir d'une seed (reproductible)
      */
     public static BossModifiers generate(WorldBossType baseType, long seed) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+        // Utiliser une seed pour la reproductibilité
+        java.util.Random random = new java.util.Random(seed);
 
         // Nombre de traits (1-3)
         int traitCount = random.nextInt(3) + 1;
-        BossTrait[] traits = BossTrait.randomUnique(traitCount);
+        BossTrait[] traits = BossTrait.randomUnique(traitCount, random);
 
         // Calculer les multiplicateurs de base depuis les traits
         double baseHealth = 1.0;
@@ -116,9 +115,9 @@ public class BossModifiers {
         // Scale variation (-10% à +20%)
         double scaleMult = 1.0 + (random.nextDouble() * 0.3 - 0.1);
 
-        // Générer le nom
+        // Générer le nom (avec la même seed pour reproductibilité)
         String baseName = extractBaseName(baseType.getDisplayName());
-        BossNameGenerator.ProceduralName name = BossNameGenerator.generate(baseName, traits);
+        BossNameGenerator.ProceduralName name = BossNameGenerator.generate(baseName, traits, random);
 
         // Couleurs basées sur le trait principal + variance
         Color primaryColor = traits[0].getParticleColor();
@@ -196,7 +195,7 @@ public class BossModifiers {
     /**
      * Génère une couleur variante
      */
-    private static Color generateVariantColor(Color base, ThreadLocalRandom random) {
+    private static Color generateVariantColor(Color base, java.util.Random random) {
         int r = Math.min(255, Math.max(0, base.getRed() + random.nextInt(61) - 30));
         int g = Math.min(255, Math.max(0, base.getGreen() + random.nextInt(61) - 30));
         int b = Math.min(255, Math.max(0, base.getBlue() + random.nextInt(61) - 30));

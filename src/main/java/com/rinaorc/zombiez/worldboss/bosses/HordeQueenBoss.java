@@ -280,7 +280,8 @@ public class HordeQueenBoss extends WorldBoss {
             if (isInvincible) {
                 status = " §d[INVINCIBLE - §c" + activeMinions.size() + " sbires§d]";
             }
-            bossBar.setTitle(type.getTitleName() + status + " §7- §c" + getFormattedHealth());
+            String bossName = modifiers != null ? modifiers.getName().titleName() : type.getTitleName();
+            bossBar.setTitle(bossName + status + " §7- §c" + getFormattedHealth());
         }
     }
 
