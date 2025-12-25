@@ -51,6 +51,7 @@ public class PinataZombieEvent extends MicroEvent {
 
     // Configuration
     private static final double PINATA_HEALTH = 150.0;
+    private static final double DAMAGE_PER_HIT = 15.0; // Degats fixes par hit (garantit ~10 hits minimum)
     private static final int BASE_LOOT_COUNT = 8;
     private static final int MAX_LOOT_COUNT = 15;
     private static final float TEXT_SCALE = 1.4f;
@@ -103,6 +104,7 @@ public class PinataZombieEvent extends MicroEvent {
 
         // Effet de glow
         pinataZombie.setGlowing(true);
+        pinataZombie.setInvulnerable(true); // Invulnerable - degats geres manuellement dans handleDamage
 
         // Tags
         pinataZombie.addScoreboardTag("micro_event_entity");
@@ -258,7 +260,7 @@ public class PinataZombieEvent extends MicroEvent {
 
     @Override
     public boolean handleDamage(LivingEntity entity, Player attacker, double damage) {
-        if (entity.getUniqueId().equals(pinataUUID)) {
+        if (entity.getUniqueId().equals(pinataUUID) && pinataZombie != null) {
             hitCount++;
 
             // Effet de hit satisfaisant (reduit)
@@ -274,6 +276,16 @@ public class PinataZombieEvent extends MicroEvent {
             loc.getWorld().spawnParticle(Particle.DUST, loc, 2,
                 0.4, 0.4, 0.4, 0,
                 new Particle.DustOptions(confettiColor, 1.0f));
+
+            // Appliquer les degats fixes manuellement (le zombie est invulnerable)
+            double newHealth = pinataZombie.getHealth() - DAMAGE_PER_HIT;
+            if (newHealth <= 0) {
+                // Retirer l'invulnerabilite et tuer le zombie
+                pinataZombie.setInvulnerable(false);
+                pinataZombie.setHealth(0);
+            } else {
+                pinataZombie.setHealth(newHealth);
+            }
 
             return true;
         }
