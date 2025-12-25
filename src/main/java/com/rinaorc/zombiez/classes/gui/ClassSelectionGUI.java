@@ -40,6 +40,20 @@ public class ClassSelectionGUI implements Listener {
     }
 
     public void open(Player player) {
+        // Vérifier si le joueur peut accéder à la sélection de classe via le système de Journey
+        if (!plugin.getJourneyManager().canAccessClassSelection(player)) {
+            player.sendMessage("");
+            player.sendMessage("§c§l⚠ SÉLECTION DE CLASSE VERROUILLÉE");
+            player.sendMessage("");
+            player.sendMessage("§7Tu dois d'abord terminer le §eChapitre 1§7 du Parcours");
+            player.sendMessage("§7pour débloquer la sélection de classe.");
+            player.sendMessage("");
+            player.sendMessage("§7Tape §e/journey §7pour voir ta progression!");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            return;
+        }
+
         Inventory gui = Bukkit.createInventory(null, 27, GUI_TITLE);
         ClassData data = classManager.getClassData(player);
 

@@ -74,6 +74,12 @@ public class ClassCommand implements CommandExecutor, TabCompleter {
                 // Essayer comme nom de classe direct
                 ClassType classType = ClassType.fromId(subCommand);
                 if (classType != null) {
+                    // Vérifier si le joueur peut accéder à la sélection de classe
+                    if (!plugin.getJourneyManager().canAccessClassSelection(player)) {
+                        player.sendMessage("§c§l⚠ §cTu dois terminer le Chapitre 1 du Parcours pour choisir une classe!");
+                        player.sendMessage("§7Tape §e/journey §7pour voir ta progression.");
+                        return true;
+                    }
                     classManager.selectClass(player, classType);
                 } else {
                     player.sendMessage("§cCommande inconnue! Utilisez /class help");
