@@ -35,15 +35,17 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_ignite")
             .name("Embrasement")
-            .description("25% chance d'enflammer (Surchauffe)")
+            .description("Chance d'enflammer les ennemis avec la Surchauffe")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Chance d'enflammer les ennemis.",
-                "§7Plus ils brulent, plus ils souffrent.",
+                "§7Vos attaques ont une chance",
+                "§7d'enflammer les ennemis. Plus ils",
+                "§7brûlent longtemps, plus ils souffrent.",
                 "",
-                "§6Chance: §e25% §7| §6Duree: §b3s",
-                "§6Surchauffe: §c+5%§7 degats/s"
+                "§6Chance: §e25%",
+                "§6Durée: §b3s",
+                "§6Surchauffe: §c+5% §7dégâts/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -59,15 +61,18 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frost_bite")
             .name("Givre Mordant")
-            .description("20% chance de geler + degats")
+            .description("Chance de geler et ralentir les ennemis")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Chance de geler et ralentir.",
-                "§7Accumule des stacks de Givre.",
+                "§7Vos attaques ont une chance de",
+                "§7geler et ralentir les ennemis,",
+                "§7accumulant des stacks de Givre.",
                 "",
-                "§6Chance: §e20% §7| §6Slow: §b40%",
-                "§6Duree: §b2s §7| §6Bonus: §c+30%"
+                "§6Chance: §e20%",
+                "§6Ralentissement: §b40%",
+                "§6Durée: §b2s",
+                "§6Bonus dégâts: §c+30%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -79,19 +84,22 @@ public final class OccultisteTalents {
             .internalCooldownMs(600)
             .build());
 
-        // 1.3 - ARC ELECTRIQUE
+        // 1.3 - ARC ÉLECTRIQUE
         TALENTS.add(Talent.builder()
             .id("occultiste_chain_lightning")
-            .name("Arc Electrique")
-            .description("25% chance d'eclair en chaine")
+            .name("Arc Électrique")
+            .description("Chance de déclencher un éclair en chaîne")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Chance de declencher un eclair",
-                "§7qui rebondit sur plusieurs cibles.",
+                "§7Vos attaques ont une chance de",
+                "§7déclencher un éclair qui rebondit",
+                "§7sur plusieurs cibles proches.",
                 "",
-                "§6Chance: §e25% §7| §6Cibles: §e3",
-                "§6Degats: §c60%§7/cible | §6Portee: §e5 blocs"
+                "§6Chance: §e25%",
+                "§6Cibles: §e3",
+                "§6Dégâts: §c60% §7par cible",
+                "§6Portée: §e5 blocs"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -103,19 +111,22 @@ public final class OccultisteTalents {
             .internalCooldownMs(500)
             .build());
 
-        // 1.4 - SIPHON D'AME (BUFFÉ: +25% dégâts pendant 5s après kill pour équilibrage)
+        // 1.4 - SIPHON D'ÂME (BUFFÉ: +25% dégâts pendant 5s après kill pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_siphon")
-            .name("Siphon d'Ame")
-            .description("Kill = 3% PV + orbe + buff degats")
+            .name("Siphon d'Âme")
+            .description("Les éliminations génèrent des orbes d'âme")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Chaque kill soigne et genere",
-                "§7une orbe d'ame + buff degats.",
+                "§7Chaque élimination vous soigne,",
+                "§7génère une orbe d'âme et octroie",
+                "§7un buff de dégâts temporaire.",
                 "",
-                "§6Soin: §a3% §7PV | §6Orbes max: §e5",
-                "§6Buff: §c+25% §7degats | §6Duree: §b5s"
+                "§6Soin: §a3% §7PV",
+                "§6Orbes maximum: §e5",
+                "§6Buff dégâts: §c+25%",
+                "§6Durée buff: §b5s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -130,15 +141,18 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_shadow_word")
             .name("Mot de l'Ombre")
-            .description("30% chance d'appliquer un DOT d'ombre")
+            .description("Chance d'appliquer un DoT d'ombre")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Chance d'appliquer un DOT d'ombre.",
-                "§7Genere de l'Insanity a chaque tick.",
+                "§7Vos attaques ont une chance",
+                "§7d'appliquer un DoT d'ombre qui",
+                "§7génère de l'Insanity à chaque tick.",
                 "",
-                "§6Chance: §e30% §7| §6Degats: §c15%§7/s",
-                "§6Duree: §b4s §7| §6Insanity: §d+5§7/tick"
+                "§6Chance: §e30%",
+                "§6Dégâts: §c15%§7/s",
+                "§6Durée: §b4s",
+                "§6Insanity: §d+5§7/tick"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_1)
@@ -158,14 +172,16 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_fire_spread")
             .name("Propagation")
-            .description("Le feu se propage aux ennemis proches")
+            .description("Les flammes se propagent aux ennemis proches")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
                 "§7Les ennemis en feu propagent",
-                "§7les flammes aux ennemis proches.",
+                "§7automatiquement les flammes aux",
+                "§7ennemis proches.",
                 "",
-                "§6Portee: §e2.5 blocs §7| §6Duree: §b2s"
+                "§6Portée: §e2.5 blocs",
+                "§6Durée propagée: §b2s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -176,18 +192,20 @@ public final class OccultisteTalents {
             .values(new double[]{2.5, 2.0}) // range, propagation_duration_s
             .build());
 
-        // 2.2 - COEUR DE GLACE
+        // 2.2 - CŒUR DE GLACE
         TALENTS.add(Talent.builder()
             .id("occultiste_frozen_heart")
-            .name("Coeur de Glace")
-            .description("Geles prennent +20% degats + brisure")
+            .name("Cœur de Glace")
+            .description("Les ennemis gelés subissent plus de dégâts")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Les geles prennent plus de degats.",
-                "§7Explosion de glace si tues geles.",
+                "§7Les ennemis gelés subissent des",
+                "§7dégâts bonus. Explosion de glace",
+                "§7s'ils meurent gelés.",
                 "",
-                "§6Bonus: §c+20% §7| §6Par stack: §c+5%",
+                "§6Bonus dégâts: §c+20%",
+                "§6Par stack: §c+5%",
                 "§6Explosion: §e2.5 blocs"
             })
             .classType(ClassType.OCCULTISTE)
@@ -203,14 +221,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_overcharge")
             .name("Surcharge")
-            .description("Eclair peut critiquer + ajoute une cible")
+            .description("Les éclairs peuvent critiquer et rebondir davantage")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Les eclairs peuvent critiquer.",
-                "§7Chaque crit ajoute une cible.",
+                "§7Vos éclairs peuvent désormais",
+                "§7critiquer. Chaque critique ajoute",
+                "§7une cible supplémentaire.",
                 "",
-                "§6Bonus crit: §e+1 cible§7/crit"
+                "§6Bonus critique: §e+1 cible §7par crit"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -221,18 +240,21 @@ public final class OccultisteTalents {
             .values(new double[]{1}) // extra_targets_per_crit
             .build());
 
-        // 2.4 - RESERVOIR D'AMES (BUFFÉ: 150% par orbe au lieu de 100% pour équilibrage)
+        // 2.4 - RÉSERVOIR D'ÂMES (BUFFÉ: 150% par orbe au lieu de 100% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_reservoir")
-            .name("Reservoir d'Ames")
-            .description("Consommez les ames pour explosion")
+            .name("Réservoir d'Âmes")
+            .description("Consomme les orbes pour une explosion dévastatrice")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§eSneak + Attaque§7: consomme toutes",
-                "§7les orbes pour une explosion.",
+                "§7Consomme toutes vos orbes d'âme",
+                "§7pour déclencher une explosion",
+                "§7dévastatrice autour de vous.",
                 "",
-                "§6Degats: §c150%§7/orbe"
+                "§6Dégâts: §c150% §7par orbe",
+                "",
+                "§eActivation: §fSneak + Attaque"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -247,15 +269,17 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_vampiric_touch")
             .name("Toucher Vampirique")
-            .description("2eme DOT + soin sur degats d'ombre")
+            .description("Applique un second DoT qui vous soigne")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Ajoute un 2eme DOT sur les cibles.",
-                "§7Vos DOTs d'ombre vous soignent.",
+                "§7Applique un second DoT sur les",
+                "§7cibles touchées. Vos DoTs d'ombre",
+                "§7vous soignent d'un pourcentage.",
                 "",
-                "§6Degats: §c10%§7/s | §6Duree: §b6s",
-                "§6Lifesteal: §a25%"
+                "§6Dégâts: §c10%§7/s",
+                "§6Durée: §b6s",
+                "§6Vol de vie: §a25%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_2)
@@ -270,19 +294,24 @@ public final class OccultisteTalents {
     // ==================== PALIER 3 - NIVEAU 10 (Specialisation) ====================
 
     private static void registerTier3Talents() {
-        // 3.1 - TEMPETE DE FEU
+        // 3.1 - TEMPÊTE DE FEU
         TALENTS.add(Talent.builder()
             .id("occultiste_firestorm")
-            .name("Tempete de Feu")
-            .description("25% chance de pluie de meteores")
+            .name("Tempête de Feu")
+            .description("Chance de faire pleuvoir des météores")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Chance de faire pleuvoir des",
-                "§7meteores sur la zone.",
+                "§7Vos attaques ont une chance de",
+                "§7faire pleuvoir des météores",
+                "§7sur la zone ciblée.",
                 "",
-                "§6Chance: §e25% §7| §6Meteores: §e3",
-                "§6Degats: §c60%§7/meteore | §6Zone: §e4 blocs"
+                "§6Chance: §e25%",
+                "§6Météores: §e3",
+                "§6Dégâts: §c60% §7par météore",
+                "§6Zone: §e4 blocs",
+                "",
+                "§bCooldown: §f2.5s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -298,15 +327,18 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_blizzard")
             .name("Blizzard")
-            .description("Aura de froid avec degats")
+            .description("Les ennemis gelés émettent une aura de froid")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Les geles emettent une aura",
-                "§7qui ralentit et blesse les proches.",
+                "§7Les ennemis gelés émettent une",
+                "§7aura qui ralentit et blesse les",
+                "§7ennemis à proximité.",
                 "",
-                "§6Rayon: §e2.5 blocs §7| §6Slow: §b30%",
-                "§6Degats: §c25%§7/s | §6Stacks: §b+1§7/s"
+                "§6Rayon: §e2.5 blocs",
+                "§6Ralentissement: §b30%",
+                "§6Dégâts: §c25%§7/s",
+                "§6Stacks: §b+1§7/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -317,18 +349,22 @@ public final class OccultisteTalents {
             .values(new double[]{2.5, 0.30, 1, 0.25}) // aura_radius, slow%, stacks_per_second, damage%/s (nouveau)
             .build());
 
-        // 3.3 - TEMPETE ELECTRIQUE
+        // 3.3 - TEMPÊTE ÉLECTRIQUE
         TALENTS.add(Talent.builder()
             .id("occultiste_lightning_storm")
-            .name("Tempete Electrique")
-            .description("Eclairs passifs autour de vous")
+            .name("Tempête Électrique")
+            .description("Génère des éclairs passifs autour de vous")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Eclairs passifs autour de vous.",
+                "§7Génère automatiquement des éclairs",
+                "§7qui frappent les ennemis proches",
+                "§7à intervalles réguliers.",
                 "",
-                "§6Intervalle: §b1.5s §7| §6Cibles: §e2",
-                "§6Degats: §c40% §7| §6Portee: §e6 blocs"
+                "§6Intervalle: §b1.5s",
+                "§6Cibles: §e2",
+                "§6Dégâts: §c40%",
+                "§6Portée: §e6 blocs"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -339,18 +375,20 @@ public final class OccultisteTalents {
             .values(new double[]{1500, 2, 0.40, 6}) // tick_ms, targets, damage%, range
             .build());
 
-        // 3.4 - PACTE DES AMES (BUFFÉ: +8% par orbe au lieu de +5%, max 40% pour équilibrage)
+        // 3.4 - PACTE DES ÂMES (BUFFÉ: +8% par orbe au lieu de +5%, max 40% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_pact")
-            .name("Pacte des Ames")
-            .description("+8% degats par orbe d'ame")
+            .name("Pacte des Âmes")
+            .description("Chaque orbe augmente vos dégâts")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Chaque orbe augmente vos degats.",
+                "§7Chaque orbe d'âme que vous",
+                "§7possédez augmente vos dégâts.",
                 "",
-                "§6Bonus: §c+8%§7/orbe",
-                "§6Max: §c+40% §7(5) | §c+80% §7(10 Legion)"
+                "§6Bonus: §c+8% §7par orbe",
+                "§6Maximum: §c+40% §7(5 orbes)",
+                "§6Avec Légion: §c+80% §7(10 orbes)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -365,15 +403,17 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_shadowy_apparitions")
             .name("Apparitions d'Ombre")
-            .description("Les DOT generent des apparitions fantomes")
+            .description("Les DoT génèrent des apparitions fantômes")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Vos DOTs generent des apparitions",
-                "§7fantomes qui attaquent les cibles.",
+                "§7Vos DoTs génèrent des apparitions",
+                "§7fantômes qui attaquent les cibles",
+                "§7et génèrent de l'Insanity.",
                 "",
-                "§6Intervalle: §b2s §7| §6Degats: §c50%",
-                "§6Insanity: §d+3§7/hit"
+                "§6Intervalle: §b2s",
+                "§6Dégâts: §c50%",
+                "§6Insanity: §d+3 §7par coup"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_3)
@@ -392,15 +432,19 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_phoenix_flame")
             .name("Phoenix")
-            .description("Ignition Critique a Surchauffe max")
+            .description("La Surchauffe maximale déclenche une Ignition Critique")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Surchauffe max (8s) declenche",
-                "§7une Ignition Critique explosive.",
+                "§7Quand la Surchauffe atteint son",
+                "§7maximum (8s), déclenche une",
+                "§7Ignition Critique explosive.",
                 "",
-                "§6Degats: §c25% §7PV | §6Boss: §c12% §7PV",
-                "§6Rayon: §e3 blocs §7| §bCD: §f10s§7/cible"
+                "§6Dégâts: §c25% §7PV cible",
+                "§6Sur Boss: §c12% §7PV",
+                "§6Rayon: §e3 blocs",
+                "",
+                "§bCooldown: §f10s §7par cible"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -411,19 +455,23 @@ public final class OccultisteTalents {
             .values(new double[]{0.25, 0.12, 3.0, 10000, 3.0}) // dmg%, boss_dmg%, radius, cooldown_ms, spread_burn_s
             .build());
 
-        // 4.2 - ZERO ABSOLU (BUFFÉ: 3%/stack au lieu de 2%, CD 8s au lieu de 10s pour équilibrage)
+        // 4.2 - ZÉRO ABSOLU (BUFFÉ: 3%/stack au lieu de 2%, CD 8s au lieu de 10s pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_absolute_zero")
-            .name("Zero Absolu")
-            .description("Brisure de glace sur ennemis a 5+ stacks")
+            .name("Zéro Absolu")
+            .description("Brisure Glaciale sur les ennemis à 5+ stacks")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7A 5+ stacks, Brisure Glaciale.",
-                "§7Degats bases sur les stacks.",
+                "§7Les ennemis avec 5+ stacks de",
+                "§7Givre subissent une Brisure Glaciale.",
+                "§7Dégâts basés sur les stacks.",
                 "",
-                "§6Degats: §c3%§7 PV/stack | §6Boss: §c1.5%",
-                "§6Max: §e20 stacks §7| §bCD: §f8s§7/cible"
+                "§6Dégâts: §c3% §7PV par stack",
+                "§6Sur Boss: §c1.5% §7PV",
+                "§6Maximum: §e20 stacks",
+                "",
+                "§bCooldown: §f8s §7par cible"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -438,13 +486,14 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_conductor")
             .name("Conducteur")
-            .description("Les eclairs vous soignent")
+            .description("Les éclairs vous soignent")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Les eclairs vous soignent.",
+                "§7Vos éclairs vous soignent d'un",
+                "§7pourcentage des dégâts infligés.",
                 "",
-                "§6Lifesteal: §a5% §7des degats"
+                "§6Vol de vie: §a5% §7des dégâts"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -455,18 +504,19 @@ public final class OccultisteTalents {
             .values(new double[]{0.05}) // leech%
             .build());
 
-        // 4.4 - MOISSON ETERNELLE
+        // 4.4 - MOISSON ÉTERNELLE
         TALENTS.add(Talent.builder()
             .id("occultiste_eternal_harvest")
-            .name("Moisson Eternelle")
-            .description("Orbes regen 1% HP/s chacune")
+            .name("Moisson Éternelle")
+            .description("Les orbes régénèrent vos PV")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Chaque orbe regenere vos PV.",
+                "§7Chaque orbe d'âme que vous",
+                "§7possédez régénère vos PV.",
                 "",
-                "§6Regen: §a1%§7 PV/s par orbe",
-                "§6Max: §a5%§7 PV/s (5 orbes)"
+                "§6Régénération: §a1% §7PV/s par orbe",
+                "§6Maximum: §a5% §7PV/s (5 orbes)"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -477,19 +527,21 @@ public final class OccultisteTalents {
             .values(new double[]{0.01}) // regen_per_orb%
             .build());
 
-        // 4.5 - GRAVITE SOMBRE (Dark Gravity)
+        // 4.5 - GRAVITÉ SOMBRE (Dark Gravity)
         TALENTS.add(Talent.builder()
             .id("occultiste_dark_gravity")
-            .name("Gravite Sombre")
-            .description("Vos attaques ralentissent et amplifient les degats")
+            .name("Gravité Sombre")
+            .description("Les attaques ralentissent et amplifient les dégâts")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Vos attaques ralentissent.",
-                "§7Les ralentis prennent plus de degats.",
+                "§7Vos attaques ralentissent les",
+                "§7ennemis. Les cibles ralenties",
+                "§7subissent des dégâts bonus.",
                 "",
-                "§6Slow: §b30% §7| §6Duree: §b3s",
-                "§6Bonus: §c+20% §7degats"
+                "§6Ralentissement: §b30%",
+                "§6Durée: §b3s",
+                "§6Bonus dégâts: §c+20%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_4)
@@ -508,14 +560,16 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_fire_avatar")
             .name("Avatar de Feu")
-            .description("Aura de flammes + immunite feu")
+            .description("Génère une aura de flammes et immunité au feu")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Aura de flammes autour de vous.",
-                "§7Immunite au feu.",
+                "§7Génère une aura de flammes autour",
+                "§7de vous et vous rend immunisé",
+                "§7aux dégâts de feu.",
                 "",
-                "§6Rayon: §e4 blocs §7| §6Degats: §c20%§7/s",
+                "§6Rayon: §e4 blocs",
+                "§6Dégâts: §c20%§7/s",
                 "§6Surchauffe: §c+1s§7/s aux proches"
             })
             .classType(ClassType.OCCULTISTE)
@@ -531,15 +585,18 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_frost_lord")
             .name("Seigneur du Givre")
-            .description("60% freeze, +2 stacks, duree +50%")
+            .description("Chance de gel augmentée et réduction d'armure")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Chance de gel augmentee.",
-                "§7Les geles perdent de l'armure.",
+                "§7Augmente votre chance de gel.",
+                "§7Les ennemis gelés perdent de",
+                "§7l'armure.",
                 "",
-                "§6Chance: §e60% §7| §6Duree: §b3s",
-                "§6Stacks: §e+2 §7| §6Armure: §c-20%"
+                "§6Chance: §e60%",
+                "§6Durée: §b3s",
+                "§6Stacks: §e+2",
+                "§6Réduction armure: §c-20%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -554,14 +611,15 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_thunder_god")
             .name("Dieu de la Foudre")
-            .description("Chain lightning illimite")
+            .description("Les éclairs en chaîne n'ont plus de limite")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Les eclairs n'ont plus de limite.",
-                "§7Touche tous les ennemis en portee.",
+                "§7Vos éclairs en chaîne n'ont plus",
+                "§7de limite de cibles. Touche tous",
+                "§7les ennemis à portée.",
                 "",
-                "§6Portee chaine: §e6 blocs"
+                "§6Portée de chaîne: §e6 blocs"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -572,19 +630,21 @@ public final class OccultisteTalents {
             .values(new double[]{6.0}) // chain_range
             .build());
 
-        // 5.4 - LEGION D'AMES
+        // 5.4 - LÉGION D'ÂMES
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_legion")
-            .name("Legion d'Ames")
-            .description("10 orbes max + 5% reduction degats chacune")
+            .name("Légion d'Âmes")
+            .description("Augmente la capacité d'orbes et réduit les dégâts")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Stockez plus d'orbes.",
-                "§7Chaque orbe reduit les degats.",
+                "§7Augmente votre capacité d'orbes.",
+                "§7Chaque orbe réduit les dégâts",
+                "§7que vous subissez.",
                 "",
-                "§6Max orbes: §e10 §7| §6Reduction: §a5%§7/orbe",
-                "§6Max reduction: §a50%"
+                "§6Maximum orbes: §e10",
+                "§6Réduction: §a5% §7par orbe",
+                "§6Réduction max: §a50%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -599,14 +659,16 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_implosion")
             .name("Implosion")
-            .description("Chaque kill attire les ennemis")
+            .description("Les éliminations attirent les ennemis proches")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Chaque kill attire les ennemis",
-                "§7proches vers le cadavre.",
+                "§7Chaque élimination attire les",
+                "§7ennemis proches vers le cadavre",
+                "§7et leur inflige des dégâts.",
                 "",
-                "§6Rayon: §e8 blocs §7| §6Degats: §c50%"
+                "§6Rayon: §e8 blocs",
+                "§6Dégâts: §c50%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_5)
@@ -625,15 +687,17 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_pyroclasm")
             .name("Pyroclasme")
-            .description("Surchauffe persiste + explosion a la mort")
+            .description("La Surchauffe persiste et explose à la mort")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7La Surchauffe persiste.",
-                "§7Kill en feu = explosion AoE.",
+                "§7La Surchauffe persiste après",
+                "§7extinction. Tuer un ennemi en feu",
+                "§7déclenche une explosion de zone.",
                 "",
-                "§6Degats: §c60% §7| §6Rayon: §e3 blocs",
-                "§6Proches: §c+3s §7feu"
+                "§6Dégâts: §c60%",
+                "§6Rayon: §e3 blocs",
+                "§6Propagation: §c+3s §7feu aux proches"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -652,11 +716,14 @@ public final class OccultisteTalents {
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Les stacks de Givre persistent.",
-                "§7Les geles propagent aux proches.",
+                "§7Les stacks de Givre persistent",
+                "§7et se propagent aux ennemis",
+                "§7à proximité des gelés.",
                 "",
-                "§6Propagation: §e3 blocs §7| §b+1 stack§7/s",
-                "§6Slow: §b5%§7/stack (max §b50%§7)"
+                "§6Propagation: §e3 blocs",
+                "§6Stacks: §b+1§7/s aux proches",
+                "§6Ralentissement: §b5% §7par stack",
+                "§6Maximum: §b50%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -671,15 +738,17 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_static_field")
             .name("Champ Statique")
-            .description("Eclairs laissent une zone de degats")
+            .description("Les éclairs laissent des zones électriques")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Les eclairs laissent des zones",
-                "§7electriques au sol.",
+                "§7Vos éclairs laissent des zones",
+                "§7électriques persistantes au sol",
+                "§7qui blessent les ennemis.",
                 "",
-                "§6Duree: §b2s §7| §6Rayon: §e2 blocs",
-                "§6Degats: §c20%§7/s"
+                "§6Durée: §b2s",
+                "§6Rayon: §e2 blocs",
+                "§6Dégâts: §c20%§7/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -690,18 +759,21 @@ public final class OccultisteTalents {
             .values(new double[]{2000, 0.20, 2.0}) // duration_ms, damage%_per_second, radius
             .build());
 
-        // 6.4 - LIEN D'AMES
+        // 6.4 - LIEN D'ÂMES
         TALENTS.add(Talent.builder()
             .id("occultiste_soul_bond")
-            .name("Lien d'Ames")
-            .description("Orbes absorbent 5% des degats recus chacune")
+            .name("Lien d'Âmes")
+            .description("Les orbes absorbent une partie des dégâts")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Les orbes absorbent les degats.",
-                "§7Disparaissent apres 50 PV absorbes.",
+                "§7Vos orbes d'âme absorbent une",
+                "§7partie des dégâts reçus. Elles",
+                "§7disparaissent après saturation.",
                 "",
-                "§6Absorption: §a5%§7/orbe | §6Max: §a25%"
+                "§6Absorption: §a5% §7par orbe",
+                "§6Maximum: §a25%",
+                "§6Saturation: §e50 PV §7par orbe"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -712,20 +784,23 @@ public final class OccultisteTalents {
             .values(new double[]{0.05, 50}) // absorption_per_orb, max_absorb_per_orb
             .build());
 
-        // 6.5 - PUITS DE GRAVITE (Gravity Well)
+        // 6.5 - PUITS DE GRAVITÉ (Gravity Well)
         TALENTS.add(Talent.builder()
             .id("occultiste_gravity_well")
-            .name("Puits de Gravite")
-            .description("Zone de gravite automatique")
+            .name("Puits de Gravité")
+            .description("Génère automatiquement une zone de gravité")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Un puits de gravite apparait",
-                "§7automatiquement en combat.",
+                "§7Un puits de gravité apparaît",
+                "§7automatiquement en combat,",
+                "§7attirant et ralentissant les ennemis.",
                 "",
-                "§6Intervalle: §b15s §7| §6Duree: §b6s",
-                "§6Rayon: §e5 blocs §7| §6Slow: §b50%",
-                "§6Degats: §c30%§7/s"
+                "§6Intervalle: §b15s",
+                "§6Durée: §b6s",
+                "§6Rayon: §e5 blocs",
+                "§6Ralentissement: §b50%",
+                "§6Dégâts: §c30%§7/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_6)
@@ -744,14 +819,18 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_inferno")
             .name("Inferno")
-            .description("Nova de feu toutes les 12s")
+            .description("Déclenche une nova de feu périodique")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Nova de feu periodique.",
+                "§7Déclenche automatiquement une",
+                "§7nova de feu dévastatrice autour",
+                "§7de vous à intervalles réguliers.",
                 "",
-                "§6Intervalle: §b12s §7| §6Rayon: §e5 blocs",
-                "§6Degats: §c150% §7| §6Feu: §c+4s"
+                "§6Intervalle: §b12s",
+                "§6Rayon: §e5 blocs",
+                "§6Dégâts: §c150%",
+                "§6Feu: §c+4s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -762,19 +841,22 @@ public final class OccultisteTalents {
             .values(new double[]{12000, 1.50, 5.0, 4.0}) // cooldown_ms, damage%, radius, burn_extension_s
             .build());
 
-        // 6.2 - ERE GLACIAIRE (BUFFÉ: +50%/s dégâts de zone pour équilibrage)
+        // 7.2 - ÈRE GLACIAIRE (BUFFÉ: +50%/s dégâts de zone pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_ice_age")
-            .name("Ere Glaciaire")
-            .description("Zones de givre avec degats")
+            .name("Ère Glaciaire")
+            .description("Les éliminations créent des zones de givre")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Kill a 5+ stacks cree une zone",
-                "§7de givre persistante.",
+                "§7Tuer un ennemi avec 5+ stacks",
+                "§7crée une zone de givre persistante",
+                "§7qui gèle et blesse les proches.",
                 "",
-                "§6Duree: §b4s §7| §6Rayon: §e2.5 blocs",
-                "§6Stacks: §b+2§7/s | §6Degats: §c50%§7/s"
+                "§6Durée: §b4s",
+                "§6Rayon: §e2.5 blocs",
+                "§6Stacks: §b+2§7/s",
+                "§6Dégâts: §c50%§7/s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -785,18 +867,22 @@ public final class OccultisteTalents {
             .values(new double[]{4000, 2.5, 2, 0.35, 5, 0.50}) // duration_ms, radius, stacks_per_sec, slow%, min_stacks_to_trigger, damage%/s (nouveau)
             .build());
 
-        // 6.3 - TEMPETE PERPETUELLE (NERFÉ: tick 0.5s → 1.0s pour équilibrage)
+        // 7.3 - TEMPÊTE PERPÉTUELLE (NERFÉ: tick 0.5s → 1.0s pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_perpetual_storm")
-            .name("Tempete Perpetuelle")
-            .description("Tempete electrique permanente")
+            .name("Tempête Perpétuelle")
+            .description("Génère une tempête électrique permanente")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Tempete electrique permanente.",
+                "§7Génère une tempête électrique",
+                "§7permanente autour de vous qui",
+                "§7frappe les ennemis proches.",
                 "",
-                "§6Rayon: §e5 blocs §7| §6Tick: §b1s",
-                "§6Cibles: §e3 §7| §6Degats: §c25%"
+                "§6Rayon: §e5 blocs",
+                "§6Tick: §b1s",
+                "§6Cibles: §e3",
+                "§6Dégâts: §c25%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -807,19 +893,22 @@ public final class OccultisteTalents {
             .values(new double[]{1000, 5.0, 3, 0.25}) // tick_ms (nerfé 500→1000), radius, targets, damage%
             .build());
 
-        // 7.4 - NECROMANCIEN (BUFFÉ: 120% stats au lieu de 100% pour équilibrage)
+        // 7.4 - NÉCROMANCIEN (BUFFÉ: 120% stats au lieu de 100% pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_necromancer")
-            .name("Necromancien")
-            .description("Invoquez des squelettes archers")
+            .name("Nécromancien")
+            .description("Invoque des squelettes archers")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§eSneak + Clic§7: invoque un squelette",
-                "§7archer (coute 1 orbe).",
+                "§7Invoque un squelette archer qui",
+                "§7vous assiste. Coûte 1 orbe d'âme.",
                 "",
-                "§6Stats: §c120% §7des votres | §6Max: §e8",
-                "§6Duree: §b30s"
+                "§6Stats: §c120% §7des vôtres",
+                "§6Maximum: §e8",
+                "§6Durée: §b30s",
+                "",
+                "§eActivation: §fSneak + Clic"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_7)
@@ -830,19 +919,22 @@ public final class OccultisteTalents {
             .values(new double[]{1.2, 30000, 8}) // stats% (buffé 1.0→1.2), duration_ms, max_summons
             .build());
 
-        // 7.5 - SINGULARITE
+        // 7.5 - SINGULARITÉ
         TALENTS.add(Talent.builder()
             .id("occultiste_singularity")
-            .name("Singularite")
-            .description("Multi-kill cree une singularite")
+            .name("Singularité")
+            .description("Les multi-kills créent une singularité")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Multi-kill (3 en 5s) cree une",
-                "§7singularite qui aspire tout.",
+                "§7Éliminer 3 ennemis en 5s crée",
+                "§7une singularité qui aspire tout",
+                "§7et inflige des dégâts massifs.",
                 "",
-                "§6Rayon: §e10 blocs §7| §6Duree: §b3s",
-                "§6Degats: §c200% §7+ §c50%§7/s",
+                "§6Rayon: §e10 blocs",
+                "§6Durée: §b3s",
+                "§6Dégâts: §c200% §7+ §c50%§7/s",
+                "",
                 "§bCooldown: §f8s"
             })
             .classType(ClassType.OCCULTISTE)
@@ -862,14 +954,19 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_black_sun")
             .name("Soleil Noir")
-            .description("Invoquez un soleil de feu")
+            .description("Invoque un soleil de feu dévastateur")
             .loreLines(new String[]{
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Invoquez un soleil de feu.",
+                "§7Invoque un soleil de feu massif",
+                "§7qui brûle et enflamme tous les",
+                "§7ennemis dans sa zone.",
                 "",
-                "§6Duree: §b8s §7| §6Rayon: §e6 blocs",
-                "§6Degats: §c80%§7/s | §6Feu: §c+2s§7/s",
+                "§6Durée: §b8s",
+                "§6Rayon: §e6 blocs",
+                "§6Dégâts: §c80%§7/s",
+                "§6Feu: §c+2s§7/s",
+                "",
                 "§bCooldown: §f35s"
             })
             .classType(ClassType.OCCULTISTE)
@@ -881,19 +978,22 @@ public final class OccultisteTalents {
             .values(new double[]{35000, 8000, 0.80, 6.0, 2.0}) // cooldown, duration, damage%/s, radius, burn_extension_per_s
             .build());
 
-        // 7.2 - HIVER ETERNEL
+        // 8.2 - HIVER ÉTERNEL
         TALENTS.add(Talent.builder()
             .id("occultiste_eternal_winter")
-            .name("Hiver Eternel")
-            .description("Aura de froid devastatrice")
+            .name("Hiver Éternel")
+            .description("Génère une aura de givre permanente")
             .loreLines(new String[]{
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§7Aura permanente de givre.",
-                "§7Bonus degats par stack.",
+                "§7Génère une aura permanente de",
+                "§7givre qui accumule des stacks",
+                "§7et augmente vos dégâts.",
                 "",
-                "§6Rayon: §e6 blocs §7| §6Stacks: §b+1§7/s",
-                "§6Bonus: §c+5%§7/stack (max §c+40%§7)"
+                "§6Rayon: §e6 blocs",
+                "§6Stacks: §b+1§7/s",
+                "§6Bonus: §c+5% §7par stack",
+                "§6Maximum: §c+40%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -904,17 +1004,20 @@ public final class OccultisteTalents {
             .values(new double[]{6.0, 1, 0.05, 0.40}) // radius, stacks_per_sec, damage_per_stack%, max_damage_bonus%
             .build());
 
-        // 7.3 - MJOLNIR (NERFÉ: 3 strikes → 2 strikes pour équilibrage)
+        // 8.3 - MJÖLNIR (NERFÉ: 3 strikes → 2 strikes pour équilibrage)
         TALENTS.add(Talent.builder()
             .id("occultiste_mjolnir")
-            .name("Mjolnir")
-            .description("Chain lightning x2 strikes")
+            .name("Mjölnir")
+            .description("Les éclairs frappent deux fois")
             .loreLines(new String[]{
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Vos eclairs frappent 2 fois.",
+                "§7Vos éclairs en chaîne frappent",
+                "§7désormais deux fois chaque cible,",
+                "§7doublant leur efficacité.",
                 "",
-                "§6Strikes: §ex2 §7| §6Degats: §c60%§7/strike",
+                "§6Frappes: §e×2",
+                "§6Dégâts: §c60% §7par frappe",
                 "§6Total: §c120%"
             })
             .classType(ClassType.OCCULTISTE)
@@ -926,19 +1029,22 @@ public final class OccultisteTalents {
             .values(new double[]{2, 0.60}) // strikes (nerfé 3→2), damage_per_strike%
             .build());
 
-        // 7.4 - SEIGNEUR DES MORTS
+        // 8.4 - SEIGNEUR DES MORTS
         TALENTS.add(Talent.builder()
             .id("occultiste_lord_of_dead")
             .name("Seigneur des Morts")
-            .description("75% chance de relever les morts")
+            .description("Chance de relever les ennemis tués en serviteurs")
             .loreLines(new String[]{
-                "§d§lVOIE DES AMES",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Chance de relever les morts tues",
-                "§7en serviteurs.",
+                "§7Chance de relever les ennemis",
+                "§7tués en serviteurs morts-vivants",
+                "§7qui combattent à vos côtés.",
                 "",
-                "§6Chance: §e75% §7| §6Stats: §c80%",
-                "§6Max: §e15 §7| §6Duree: §b30s"
+                "§6Chance: §e75%",
+                "§6Stats: §c80% §7des leurs",
+                "§6Maximum: §e15",
+                "§6Durée: §b30s"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -949,20 +1055,24 @@ public final class OccultisteTalents {
             .values(new double[]{0.75, 0.80, 30000, 15}) // chance, stats%, duration_ms, max
             .build());
 
-        // 8.5 - DECHIRURE DIMENSIONNELLE (Dimensional Rift)
+        // 8.5 - DÉCHIRURE DIMENSIONNELLE (Dimensional Rift)
         TALENTS.add(Talent.builder()
             .id("occultiste_dimensional_rift")
-            .name("Dechirure Dimensionnelle")
-            .description("Ennemis faibles bannis automatiquement")
+            .name("Déchirure Dimensionnelle")
+            .description("Bannit automatiquement les ennemis faibles")
             .loreLines(new String[]{
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Ennemis a -15% PV bannis",
-                "§7automatiquement dans le vide.",
+                "§7Les ennemis sous le seuil de PV",
+                "§7sont automatiquement bannis dans",
+                "§7le vide puis expulsés violemment.",
                 "",
-                "§6Seuil: §c15% §7PV | §6Duree: §b1s",
-                "§6Degats: §c250% §7+ §c100% §7AoE",
-                "§bCD: §f10s§7/cible"
+                "§6Seuil: §c15% §7PV",
+                "§6Durée banissement: §b1s",
+                "§6Dégâts retour: §c250%",
+                "§6Dégâts AoE: §c100%",
+                "",
+                "§bCooldown: §f10s §7par cible"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_8)
@@ -977,19 +1087,24 @@ public final class OccultisteTalents {
     // ==================== PALIER 9 - NIVEAU 50 (Legendaire) ====================
 
     private static void registerTier9Talents() {
-        // 9.1 - PLUIE DE METEORES
+        // 9.1 - PLUIE DE MÉTÉORES
         TALENTS.add(Talent.builder()
             .id("occultiste_meteor_rain")
-            .name("Pluie de Meteores")
-            .description("12 meteores toutes les 45s")
+            .name("Pluie de Météores")
+            .description("Déclenche une pluie de météores dévastatrice")
             .loreLines(new String[]{
-                "§6§l★ LEGENDAIRE ★",
+                "§6§l★ LÉGENDAIRE ★",
                 "§c§lVOIE DU FEU",
                 "",
-                "§7Pluie de meteores periodique.",
+                "§7Déclenche automatiquement une",
+                "§7pluie de météores massive qui",
+                "§7calcine la zone ciblée.",
                 "",
-                "§6Meteores: §e12 §7| §6Zone: §e15 blocs",
-                "§6Degats: §c150%§7/meteore | §6Feu: §c+3s",
+                "§6Météores: §e12",
+                "§6Zone: §e15 blocs",
+                "§6Dégâts: §c150% §7par météore",
+                "§6Feu: §c+3s",
+                "",
                 "§bCooldown: §f45s"
             })
             .classType(ClassType.OCCULTISTE)
@@ -1001,20 +1116,23 @@ public final class OccultisteTalents {
             .values(new double[]{45000, 12, 1.50, 15, 3.0}) // cooldown_ms, meteors, damage%, zone, burn_per_impact_s
             .build());
 
-        // 8.2 - STASE TEMPORELLE
+        // 9.2 - STASE TEMPORELLE
         TALENTS.add(Talent.builder()
             .id("occultiste_time_stasis")
             .name("Stase Temporelle")
-            .description("Gelez le temps + explosion de stacks")
+            .description("Gèle le temps et tous les ennemis")
             .loreLines(new String[]{
-                "§6§l★ LEGENDAIRE ★",
+                "§6§l★ LÉGENDAIRE ★",
                 "§b§lVOIE DU GIVRE",
                 "",
-                "§e2x Sneak§7: gele TOUS les ennemis.",
-                "§7Brisure Glaciale a la fin.",
+                "§7Gèle le temps et TOUS les ennemis",
+                "§7dans la zone. Déclenche une Brisure",
+                "§7Glaciale massive à la fin.",
                 "",
-                "§6Duree: §b3s §7| §6Stacks: §b+10",
-                "§bCooldown: §f90s"
+                "§6Durée: §b3s",
+                "§6Stacks appliqués: §b+10",
+                "",
+                "§bCooldown: §f90s §7| §eActivation: §fDouble Sneak"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -1029,15 +1147,19 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_divine_judgment")
             .name("Jugement Divin")
-            .description("Eclair sur TOUS les ennemis proches")
+            .description("Frappe tous les ennemis proches d'un éclair divin")
             .loreLines(new String[]{
-                "§6§l★ LEGENDAIRE ★",
+                "§6§l★ LÉGENDAIRE ★",
                 "§e§lVOIE DE LA FOUDRE",
                 "",
-                "§7Eclair divin frappe tous les ennemis.",
+                "§7Invoque un éclair divin qui",
+                "§7frappe simultanément tous les",
+                "§7ennemis dans une zone massive.",
                 "",
-                "§6Rayon: §e25 blocs §7| §6Cibles: §e30 max",
-                "§6Degats: §c200%§7/cible",
+                "§6Rayon: §e25 blocs",
+                "§6Cibles max: §e30",
+                "§6Dégâts: §c200% §7par cible",
+                "",
                 "§bCooldown: §f30s"
             })
             .classType(ClassType.OCCULTISTE)
@@ -1049,18 +1171,21 @@ public final class OccultisteTalents {
             .values(new double[]{30000, 2.0, 25.0}) // cooldown_ms, damage% (nerfé 3.0→2.0), range
             .build());
 
-        // 8.4 - ARMEE IMMORTELLE
+        // 9.4 - ARMÉE IMMORTELLE
         TALENTS.add(Talent.builder()
             .id("occultiste_immortal_army")
-            .name("Armee Immortelle")
-            .description("Serviteurs immortels + buff")
+            .name("Armée Immortelle")
+            .description("Les serviteurs deviennent immortels")
             .loreLines(new String[]{
-                "§6§l★ LEGENDAIRE ★",
-                "§d§lVOIE DES AMES",
+                "§6§l★ LÉGENDAIRE ★",
+                "§d§lVOIE DES ÂMES",
                 "",
-                "§7Serviteurs immortels qui respawn.",
+                "§7Vos serviteurs morts-vivants",
+                "§7deviennent immortels et réapparaissent",
+                "§7automatiquement après destruction.",
                 "",
-                "§6Respawn: §b3s §7| §6Buff stats: §c+75%"
+                "§6Réapparition: §b3s",
+                "§6Buff stats: §c+75%"
             })
             .classType(ClassType.OCCULTISTE)
             .tier(TalentTier.TIER_9)
@@ -1075,16 +1200,20 @@ public final class OccultisteTalents {
         TALENTS.add(Talent.builder()
             .id("occultiste_black_hole")
             .name("Trou Noir")
-            .description("Ultimate: Trou noir automatique")
+            .description("Invoque un trou noir qui aspire et détruit tout")
             .loreLines(new String[]{
-                "§6§l★ LEGENDAIRE ★",
+                "§6§l★ LÉGENDAIRE ★",
                 "§5§lVOIE DE L'OMBRE",
                 "",
-                "§7Trou noir massif automatique.",
-                "§7Aspire et detruit tout.",
+                "§7Invoque un trou noir massif qui",
+                "§7aspire tous les ennemis proches",
+                "§7et les détruit progressivement.",
                 "",
-                "§6Rayon: §e15 blocs §7| §6Duree: §b5s",
-                "§6Degats: §c300% §7+ §c75%§7/s",
+                "§6Rayon: §e15 blocs",
+                "§6Durée: §b5s",
+                "§6Dégâts initiaux: §c300%",
+                "§6Dégâts/s: §c75%",
+                "",
                 "§bCooldown: §f45s"
             })
             .classType(ClassType.OCCULTISTE)
