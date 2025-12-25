@@ -177,7 +177,7 @@ public class JourneyListener implements Listener {
             }
             case CLASS_KILLS -> {
                 // Vérifier que le joueur a une classe
-                if (plugin.getClassManager().getPlayerClass(killer) != null) {
+                if (plugin.getClassManager().getClassData(killer).hasClass()) {
                     int progress = journeyManager.getStepProgress(killer, currentStep);
                     journeyManager.updateProgress(killer, JourneyStep.StepType.CLASS_KILLS, progress + 1);
                 }
@@ -229,7 +229,8 @@ public class JourneyListener implements Listener {
             }
             case EVENT_KILLS -> {
                 // Vérifier si un événement est en cours
-                if (plugin.getEventManager() != null && plugin.getEventManager().isEventActive()) {
+                var eventManager = plugin.getEventManager();
+                if (eventManager != null && eventManager.getCurrentEvent() != null && eventManager.getCurrentEvent().isActive()) {
                     int progress = journeyManager.getStepProgress(killer, currentStep);
                     journeyManager.updateProgress(killer, JourneyStep.StepType.EVENT_KILLS, progress + 1);
                 }
