@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.progression.journey;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.classes.ClassData;
 import com.rinaorc.zombiez.data.PlayerData;
 import lombok.Getter;
 import org.bukkit.*;
@@ -339,7 +340,10 @@ public class JourneyManager {
         // Pour les types basés sur l'état actuel du joueur, retourner la valeur réelle
         return switch (step.getType()) {
             case LEVEL -> data.getLevel().get();
-            case CLASS_LEVEL -> data.getClassLevel().get();
+            case CLASS_LEVEL -> {
+                ClassData classData = plugin.getClassManager().getClassData(player);
+                yield classData != null ? classData.getClassLevel().get() : 0;
+            }
             case PRESTIGE_LEVEL -> data.getLevel().get(); // Niveau après prestige
             case PRESTIGE -> data.getPrestigeLevel();
             default -> {
