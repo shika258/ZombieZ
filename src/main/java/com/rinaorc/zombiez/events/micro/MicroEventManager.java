@@ -8,8 +8,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -77,6 +79,9 @@ public class MicroEventManager {
             return;
         }
 
+        // Nettoyer les entites orphelines des sessions precedentes (crash, restart, etc.)
+        cleanupOrphanedEntities();
+
         // Verifier periodiquement si des joueurs peuvent avoir un micro-event
         spawnTask = new BukkitRunnable() {
             @Override
@@ -86,6 +91,28 @@ public class MicroEventManager {
         }.runTaskTimer(plugin, 20L * 30, 20L * 30); // Check toutes les 30 secondes
 
         plugin.log(Level.INFO, "§a✓ Systeme de micro-evenements demarre");
+    }
+
+    /**
+     * Nettoie les entites orphelines des micro-events (TextDisplay, zombies, etc.)
+     * qui peuvent persister apres un crash ou un arret brusque du serveur
+     */
+    private void cleanupOrphanedEntities() {
+        int removedCount = 0;
+
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                // Verifier si l'entite a le tag des micro-events
+                if (entity.getScoreboardTags().contains("micro_event_entity")) {
+                    entity.remove();
+                    removedCount++;
+                }
+            }
+        }
+
+        if (removedCount > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removedCount + " entite(s) orpheline(s) de micro-events supprimee(s)");
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -125,6 +126,9 @@ public class DynamicEventManager {
             return;
         }
 
+        // Nettoyer les entites orphelines des sessions precedentes (crash, restart, etc.)
+        cleanupOrphanedEntities();
+
         // Calculer le prochain événement
         scheduleNextEvent();
 
@@ -145,6 +149,28 @@ public class DynamicEventManager {
         }.runTaskTimer(plugin, 20L, 20L); // Tick chaque seconde
 
         plugin.log(Level.INFO, "§a✓ Système d'événements dynamiques démarré");
+    }
+
+    /**
+     * Nettoie les entites orphelines des evenements dynamiques (TextDisplay, ArmorStand, mobs, etc.)
+     * qui peuvent persister apres un crash ou un arret brusque du serveur
+     */
+    private void cleanupOrphanedEntities() {
+        int removedCount = 0;
+
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                // Verifier si l'entite a le tag des evenements dynamiques
+                if (entity.getScoreboardTags().contains("dynamic_event_entity")) {
+                    entity.remove();
+                    removedCount++;
+                }
+            }
+        }
+
+        if (removedCount > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removedCount + " entite(s) orpheline(s) d'evenements dynamiques supprimee(s)");
+        }
     }
 
     /**

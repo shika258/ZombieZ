@@ -104,6 +104,7 @@ public class JackpotZombieEvent extends MicroEvent {
         jackpotZombie.getEquipment().setBootsDropChance(0f);
 
         jackpotZombie.setGlowing(true);
+        jackpotZombie.setInvulnerable(true); // Invulnerable jusqu'aux 3 roulettes
 
         // Tags
         jackpotZombie.addScoreboardTag("micro_event_entity");
@@ -528,6 +529,7 @@ public class JackpotZombieEvent extends MicroEvent {
                         // Effet de mort
                         Location loc = jackpotZombie.getLocation();
                         loc.getWorld().spawnParticle(Particle.EXPLOSION, loc.add(0, 1, 0), 3, 0.3, 0.3, 0.3, 0.1);
+                        jackpotZombie.setInvulnerable(false); // Retirer l'invulnerabilite avant de tuer
                         jackpotZombie.setHealth(0);
                     }
                 }, suspenseDelay);
