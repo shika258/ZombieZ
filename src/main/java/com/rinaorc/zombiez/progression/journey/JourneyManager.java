@@ -84,6 +84,13 @@ public class JourneyManager {
         double percent = step.getProgressPercent(progress) / 100.0;
         String progressText = step.getProgressText(progress);
 
+        // Vérification automatique de complétion pour les objectifs basés sur l'état (LEVEL, CLASS_LEVEL, etc.)
+        // Cette vérification est cruciale car ces objectifs peuvent être atteints avant d'arriver à l'étape
+        if (step.isCompleted(progress) && getCurrentStep(player) == step) {
+            checkCurrentStepCompletion(player, step);
+            // Note: la complétion se fera en async, la prochaine mise à jour de la BossBar reflètera le changement
+        }
+
         // Couleur selon la phase
         BarColor color = switch (step.getChapter().getPhase()) {
             case 1 -> BarColor.GREEN;
@@ -346,6 +353,18 @@ public class JourneyManager {
             }
             case PRESTIGE_LEVEL -> data.getLevel().get(); // Niveau après prestige
             case PRESTIGE -> data.getPrestigeLevel();
+            case ZONE_PROGRESS -> {
+                // Exploration par chunks - déterminer la zone ciblée par l'étape
+                int targetZone = getTargetZoneForStep(step);
+                if (targetZone > 0) {
+                    var zone = plugin.getZoneManager().getZoneById(targetZone);
+                    if (zone != null) {
+                        int exploredCount = data.getExploredChunkCount(targetZone);
+                        yield zone.getExplorationPercent(exploredCount);
+                    }
+                }
+                yield 0;
+            }
             default -> {
                 // Pour les autres types, utiliser la progression stockée
                 UUID uuid = player.getUniqueId();
@@ -360,6 +379,19 @@ public class JourneyManager {
                 // Charger depuis PlayerData
                 yield data.getJourneyStepProgress(stepId);
             }
+        };
+    }
+
+    /**
+     * Détermine la zone ciblée par une étape ZONE_PROGRESS
+     * Basé sur le chapitre de l'étape
+     */
+    private int getTargetZoneForStep(JourneyStep step) {
+        // STEP_1_4 = Zone 1
+        // Logique simple : le chapitre correspond généralement à la zone
+        return switch (step) {
+            case STEP_1_4 -> 1; // "Explore la Zone 1 (50%)"
+            default -> step.getChapter().getId(); // Par défaut, zone = chapitre
         };
     }
 

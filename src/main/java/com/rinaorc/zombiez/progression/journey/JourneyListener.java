@@ -109,11 +109,18 @@ public class JourneyListener implements Listener {
 
     /**
      * Backup: Vérifier aussi sur le mouvement pour empêcher les contournements
+     * + Tracker la progression d'exploration de zone par chunks
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
+        // Pré-calcul des coordonnées (évite les appels répétés)
+        int fromX = event.getFrom().getBlockX();
+        int fromZ = event.getFrom().getBlockZ();
+        int toX = event.getTo().getBlockX();
+        int toZ = event.getTo().getBlockZ();
+
         // Optimisation: ne vérifier que si le joueur a changé de bloc
-        if (event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
+        if (fromX == toX && fromZ == toZ) {
             return;
         }
 
@@ -132,6 +139,46 @@ public class JourneyListener implements Listener {
 
             // Envoyer le message (avec cooldown pour éviter le spam)
             sendBlockedMessageWithCooldown(player, zoneId);
+            return;
+        }
+
+        // Optimisation: tracker l'exploration UNIQUEMENT si changement de chunk (16x16 blocs)
+        // Réduit les appels de ~16x par rapport à chaque bloc
+        int fromChunkX = fromX >> 4;
+        int fromChunkZ = fromZ >> 4;
+        int toChunkX = toX >> 4;
+        int toChunkZ = toZ >> 4;
+
+        if (fromChunkX != toChunkX || fromChunkZ != toChunkZ) {
+            trackChunkExploration(player, toChunkX, toChunkZ, zone);
+        }
+    }
+
+    /**
+     * Tracke l'exploration d'un chunk dans une zone
+     * Marque le chunk comme exploré et met à jour la progression si nécessaire
+     * @param chunkX coordonnée X du chunk (déjà calculée)
+     * @param chunkZ coordonnée Z du chunk (déjà calculée)
+     */
+    private void trackChunkExploration(Player player, int chunkX, int chunkZ, com.rinaorc.zombiez.zones.Zone zone) {
+        // Vérifier que le chunk fait partie de la zone
+        if (!zone.containsChunk(chunkX, chunkZ)) return;
+
+        // Marquer le chunk comme exploré
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return;
+
+        boolean isNewChunk = data.markChunkExplored(zone.getId(), chunkX, chunkZ);
+
+        // Si c'est un nouveau chunk et que le joueur a un objectif ZONE_PROGRESS actif
+        if (isNewChunk) {
+            JourneyStep currentStep = journeyManager.getCurrentStep(player);
+            if (currentStep != null && currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
+                // Calculer le pourcentage d'exploration
+                int exploredCount = data.getExploredChunkCount(zone.getId());
+                int explorationPercent = zone.getExplorationPercent(exploredCount);
+                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
+            }
         }
     }
 
@@ -255,12 +302,13 @@ public class JourneyListener implements Listener {
                 journeyManager.updateProgress(player, JourneyStep.StepType.REACH_ZONE, newZoneId);
             }
             case ZONE_PROGRESS -> {
-                // Calculer le pourcentage de progression dans la zone 1
-                var zone = plugin.getZoneManager().getZoneById(1);
+                // L'exploration par chunks est gérée dans trackChunkExploration()
+                // Cette méthode est appelée lors du changement de zone
+                var zone = plugin.getZoneManager().getZoneById(newZoneId);
                 if (zone != null) {
-                    int playerZ = player.getLocation().getBlockZ();
-                    int progress = (int) zone.getProgressPercent(playerZ);
-                    journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, progress);
+                    int chunkX = player.getLocation().getBlockX() >> 4;
+                    int chunkZ = player.getLocation().getBlockZ() >> 4;
+                    trackChunkExploration(player, chunkX, chunkZ, zone);
                 }
             }
             default -> {}

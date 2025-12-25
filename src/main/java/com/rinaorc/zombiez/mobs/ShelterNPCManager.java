@@ -8,9 +8,12 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.Tag;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -715,19 +718,10 @@ public class ShelterNPCManager implements Listener {
                 if (x < refuge.getProtectedMinX() || x > refuge.getProtectedMaxX()) continue;
                 if (z < refuge.getProtectedMinZ() || z > refuge.getProtectedMaxZ()) continue;
 
-                // Trouver le sol
-                int y = world.getHighestBlockYAt(x, z);
-
-                // Vérifier que c'est dans les limites Y du refuge
-                if (y < refuge.getProtectedMinY() || y > refuge.getProtectedMaxY()) continue;
-
-                Location loc = new Location(world, x + 0.5, y + 1, z + 0.5);
-
-                // Vérifier que c'est un endroit sûr
-                if (loc.getBlock().isPassable() && loc.clone().add(0, 1, 0).getBlock().isPassable()) {
-                    if (!loc.clone().add(0, -1, 0).getBlock().isLiquid()) {
-                        return loc;
-                    }
+                // Trouver un emplacement de spawn sûr (pas dans les arbres)
+                Location loc = findSafeGroundLocation(world, x, z, refuge.getProtectedMinY(), refuge.getProtectedMaxY());
+                if (loc != null) {
+                    return loc;
                 }
             }
         }
@@ -738,20 +732,99 @@ public class ShelterNPCManager implements Listener {
             int x = refuge.getProtectedMinX() + random.nextInt(Math.max(1, refuge.getProtectedMaxX() - refuge.getProtectedMinX()));
             int z = refuge.getProtectedMinZ() + random.nextInt(Math.max(1, refuge.getProtectedMaxZ() - refuge.getProtectedMinZ()));
 
-            int y = world.getHighestBlockYAt(x, z);
-
-            if (y < refuge.getProtectedMinY() || y > refuge.getProtectedMaxY()) continue;
-
-            Location loc = new Location(world, x + 0.5, y + 1, z + 0.5);
-
-            if (loc.getBlock().isPassable() && loc.clone().add(0, 1, 0).getBlock().isPassable()) {
-                if (!loc.clone().add(0, -1, 0).getBlock().isLiquid()) {
-                    return loc;
-                }
+            Location loc = findSafeGroundLocation(world, x, z, refuge.getProtectedMinY(), refuge.getProtectedMaxY());
+            if (loc != null) {
+                return loc;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Trouve un emplacement de spawn sûr au sol (évite les feuilles, la végétation, etc.)
+     * Descend depuis le bloc le plus haut jusqu'à trouver un sol solide
+     */
+    private Location findSafeGroundLocation(World world, int x, int z, int minY, int maxY) {
+        int highestY = world.getHighestBlockYAt(x, z);
+
+        // Commencer depuis le bloc le plus haut et descendre
+        for (int y = highestY; y >= minY; y--) {
+            Block groundBlock = world.getBlockAt(x, y, z);
+            Block feetBlock = world.getBlockAt(x, y + 1, z);
+            Block headBlock = world.getBlockAt(x, y + 2, z);
+
+            // Le sol doit être solide et non dangereux
+            if (!isSafeGroundBlock(groundBlock)) continue;
+
+            // L'espace pour les pieds et la tête doit être vide (pas de feuilles, végétation, etc.)
+            if (!isSafeAirBlock(feetBlock) || !isSafeAirBlock(headBlock)) continue;
+
+            // Vérifier les limites Y du refuge
+            if (y + 1 < minY || y + 1 > maxY) continue;
+
+            return new Location(world, x + 0.5, y + 1, z + 0.5);
+        }
+
+        return null;
+    }
+
+    /**
+     * Vérifie si un bloc est un sol sûr pour le spawn (solide, pas de feuilles, pas de liquide)
+     */
+    private boolean isSafeGroundBlock(Block block) {
+        Material type = block.getType();
+
+        // Refuser les blocs non-solides
+        if (!type.isSolid()) return false;
+
+        // Refuser les feuilles
+        if (Tag.LEAVES.isTagged(type)) return false;
+
+        // Refuser les liquides
+        if (block.isLiquid()) return false;
+
+        // Refuser les blocs dangereux
+        if (type == Material.CACTUS || type == Material.SWEET_BERRY_BUSH ||
+            type == Material.MAGMA_BLOCK || type == Material.CAMPFIRE ||
+            type == Material.SOUL_CAMPFIRE || type == Material.POINTED_DRIPSTONE) {
+            return false;
+        }
+
+        // Refuser les barrières et clôtures (peuvent bloquer les entités)
+        if (Tag.FENCES.isTagged(type) || Tag.FENCE_GATES.isTagged(type) || Tag.WALLS.isTagged(type)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Vérifie si un bloc est un espace vide sûr (air ou bloc vraiment passable, pas de feuilles/végétation)
+     */
+    private boolean isSafeAirBlock(Block block) {
+        Material type = block.getType();
+
+        // L'air est toujours sûr
+        if (type.isAir()) return true;
+
+        // Refuser les feuilles (même si elles sont "passables")
+        if (Tag.LEAVES.isTagged(type)) return false;
+
+        // Refuser la végétation haute qui pourrait gêner
+        if (type == Material.TALL_GRASS || type == Material.LARGE_FERN ||
+            type == Material.VINE || type == Material.CAVE_VINES ||
+            type == Material.CAVE_VINES_PLANT || type == Material.WEEPING_VINES ||
+            type == Material.WEEPING_VINES_PLANT || type == Material.TWISTING_VINES ||
+            type == Material.TWISTING_VINES_PLANT || type == Material.HANGING_ROOTS) {
+            return false;
+        }
+
+        // Refuser les toiles d'araignée
+        if (type == Material.COBWEB) return false;
+
+        // Accepter les autres blocs passables (fleurs, herbe courte, etc.)
+        return block.isPassable() && !block.isLiquid();
     }
 
     /**

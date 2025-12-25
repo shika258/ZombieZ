@@ -861,6 +861,10 @@ public class PlayerData {
     // Progression par étape (stepId -> valeur de progression)
     private final Map<String, Integer> journeyStepProgress = new ConcurrentHashMap<>();
 
+    // Exploration des zones par chunks (zoneId -> Set de chunk keys visitées)
+    // Chunk key = ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL)
+    private final Map<Integer, Set<Long>> zoneExploredChunks = new ConcurrentHashMap<>();
+
     // Getters pour le chapitre/étape actuels
     public int getCurrentJourneyChapter() { return currentJourneyChapter.get(); }
     public int getCurrentJourneyStep() { return currentJourneyStep.get(); }
@@ -929,6 +933,55 @@ public class PlayerData {
 
     public Map<String, Integer> getJourneyStepProgressMap() {
         return Map.copyOf(journeyStepProgress);
+    }
+
+    // Exploration des zones par chunks
+    /**
+     * Marque un chunk comme exploré dans une zone
+     * @return true si c'est un nouveau chunk (pas encore visité)
+     */
+    public boolean markChunkExplored(int zoneId, int chunkX, int chunkZ) {
+        long chunkKey = ((long) chunkX << 32) | (chunkZ & 0xFFFFFFFFL);
+        Set<Long> explored = zoneExploredChunks.computeIfAbsent(zoneId, k -> ConcurrentHashMap.newKeySet());
+        boolean isNew = explored.add(chunkKey);
+        if (isNew) {
+            markDirty();
+        }
+        return isNew;
+    }
+
+    /**
+     * Obtient le nombre de chunks explorés dans une zone
+     */
+    public int getExploredChunkCount(int zoneId) {
+        Set<Long> explored = zoneExploredChunks.get(zoneId);
+        return explored != null ? explored.size() : 0;
+    }
+
+    /**
+     * Obtient les chunks explorés d'une zone (pour sérialisation)
+     */
+    public Set<Long> getExploredChunks(int zoneId) {
+        Set<Long> explored = zoneExploredChunks.get(zoneId);
+        return explored != null ? Set.copyOf(explored) : Set.of();
+    }
+
+    /**
+     * Charge les chunks explorés (pour désérialisation)
+     */
+    public void loadExploredChunks(int zoneId, Set<Long> chunks) {
+        zoneExploredChunks.computeIfAbsent(zoneId, k -> ConcurrentHashMap.newKeySet()).addAll(chunks);
+    }
+
+    /**
+     * Obtient toutes les données d'exploration (pour sérialisation)
+     */
+    public Map<Integer, Set<Long>> getAllExploredChunks() {
+        Map<Integer, Set<Long>> copy = new ConcurrentHashMap<>();
+        for (var entry : zoneExploredChunks.entrySet()) {
+            copy.put(entry.getKey(), Set.copyOf(entry.getValue()));
+        }
+        return copy;
     }
 
     // Pour la sérialisation/désérialisation en BDD
