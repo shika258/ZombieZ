@@ -113,9 +113,14 @@ public class JourneyListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
-        // Optimisation: ne vérifier que si le joueur a changé de bloc (X ou Z)
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX()
-            && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
+        // Pré-calcul des coordonnées (évite les appels répétés)
+        int fromX = event.getFrom().getBlockX();
+        int fromZ = event.getFrom().getBlockZ();
+        int toX = event.getTo().getBlockX();
+        int toZ = event.getTo().getBlockZ();
+
+        // Optimisation: ne vérifier que si le joueur a changé de bloc
+        if (fromX == toX && fromZ == toZ) {
             return;
         }
 
@@ -137,18 +142,25 @@ public class JourneyListener implements Listener {
             return;
         }
 
-        // Tracker l'exploration de zone par chunks
-        trackChunkExploration(player, event.getTo(), zone);
+        // Optimisation: tracker l'exploration UNIQUEMENT si changement de chunk (16x16 blocs)
+        // Réduit les appels de ~16x par rapport à chaque bloc
+        int fromChunkX = fromX >> 4;
+        int fromChunkZ = fromZ >> 4;
+        int toChunkX = toX >> 4;
+        int toChunkZ = toZ >> 4;
+
+        if (fromChunkX != toChunkX || fromChunkZ != toChunkZ) {
+            trackChunkExploration(player, toChunkX, toChunkZ, zone);
+        }
     }
 
     /**
      * Tracke l'exploration d'un chunk dans une zone
      * Marque le chunk comme exploré et met à jour la progression si nécessaire
+     * @param chunkX coordonnée X du chunk (déjà calculée)
+     * @param chunkZ coordonnée Z du chunk (déjà calculée)
      */
-    private void trackChunkExploration(Player player, org.bukkit.Location loc, com.rinaorc.zombiez.zones.Zone zone) {
-        int chunkX = loc.getBlockX() >> 4;
-        int chunkZ = loc.getBlockZ() >> 4;
-
+    private void trackChunkExploration(Player player, int chunkX, int chunkZ, com.rinaorc.zombiez.zones.Zone zone) {
         // Vérifier que le chunk fait partie de la zone
         if (!zone.containsChunk(chunkX, chunkZ)) return;
 
@@ -294,7 +306,9 @@ public class JourneyListener implements Listener {
                 // Cette méthode est appelée lors du changement de zone
                 var zone = plugin.getZoneManager().getZoneById(newZoneId);
                 if (zone != null) {
-                    trackChunkExploration(player, player.getLocation(), zone);
+                    int chunkX = player.getLocation().getBlockX() >> 4;
+                    int chunkZ = player.getLocation().getBlockZ() >> 4;
+                    trackChunkExploration(player, chunkX, chunkZ, zone);
                 }
             }
             default -> {}
