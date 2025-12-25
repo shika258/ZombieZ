@@ -129,13 +129,38 @@ public class Zone {
      * Vérifie si un chunk fait partie de cette zone
      */
     public boolean containsChunk(int chunkX, int chunkZ) {
-        int minChunkX = minX >> 4;
-        int maxChunkX = maxX >> 4;
-        int minChunkZ = minZ >> 4;
-        int maxChunkZ = maxZ >> 4;
+        return chunkX >= getMinChunkX() && chunkX <= getMaxChunkX()
+            && chunkZ >= getMinChunkZ() && chunkZ <= getMaxChunkZ();
+    }
 
-        return chunkX >= minChunkX && chunkX <= maxChunkX
-            && chunkZ >= minChunkZ && chunkZ <= maxChunkZ;
+    // ==================== CHUNK BOUNDS (optimisé pour exploration) ====================
+
+    /**
+     * Obtient la coordonnée X minimum en chunks (cached via >> 4)
+     */
+    public int getMinChunkX() {
+        return minX >> 4;
+    }
+
+    /**
+     * Obtient la coordonnée X maximum en chunks
+     */
+    public int getMaxChunkX() {
+        return maxX >> 4;
+    }
+
+    /**
+     * Obtient la coordonnée Z minimum en chunks
+     */
+    public int getMinChunkZ() {
+        return minZ >> 4;
+    }
+
+    /**
+     * Obtient la coordonnée Z maximum en chunks
+     */
+    public int getMaxChunkZ() {
+        return maxZ >> 4;
     }
 
     /**

@@ -159,35 +159,57 @@ public class JourneyListener implements Listener {
      * Un rayon de 8 chunks = 128 blocs de visibilité dans chaque direction
      */
     private static final int EXPLORATION_RADIUS = 8;
+    private static final int EXPLORATION_RADIUS_SQUARED = EXPLORATION_RADIUS * EXPLORATION_RADIUS;
 
     /**
-     * Tracke l'exploration d'un chunk dans une zone
+     * Tracke l'exploration d'un chunk dans une zone (OPTIMISÉ)
      * Marque le chunk ET tous les chunks visibles (dans le rayon de view distance) comme explorés
-     * Cela simule le fait que le joueur "voit" les chunks autour de lui
+     *
+     * Optimisations appliquées:
+     * - Early exit si pas d'objectif ZONE_PROGRESS actif
+     * - Pré-calcul des limites de zone (évite recalcul dans la boucle)
+     * - Bornes de boucle limitées à l'intersection zone/rayon
+     *
      * @param chunkX coordonnée X du chunk central (position du joueur)
      * @param chunkZ coordonnée Z du chunk central (position du joueur)
      */
     private void trackChunkExploration(Player player, int chunkX, int chunkZ, com.rinaorc.zombiez.zones.Zone zone) {
+        // EARLY EXIT: Vérifier si le joueur a un objectif ZONE_PROGRESS AVANT tout calcul
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null || currentStep.getType() != JourneyStep.StepType.ZONE_PROGRESS) {
+            return; // Pas d'objectif d'exploration, on skip tout le travail
+        }
+
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
         int zoneId = zone.getId();
+
+        // Pré-calculer les limites de la zone UNE SEULE FOIS
+        int zoneMinChunkX = zone.getMinChunkX();
+        int zoneMaxChunkX = zone.getMaxChunkX();
+        int zoneMinChunkZ = zone.getMinChunkZ();
+        int zoneMaxChunkZ = zone.getMaxChunkZ();
+
+        // Calculer les bornes de la boucle: intersection entre le cercle et la zone
+        // Évite d'itérer sur des chunks qui sont forcément hors zone
+        int startX = Math.max(chunkX - EXPLORATION_RADIUS, zoneMinChunkX);
+        int endX = Math.min(chunkX + EXPLORATION_RADIUS, zoneMaxChunkX);
+        int startZ = Math.max(chunkZ - EXPLORATION_RADIUS, zoneMinChunkZ);
+        int endZ = Math.min(chunkZ + EXPLORATION_RADIUS, zoneMaxChunkZ);
+
         int newChunksExplored = 0;
 
-        // Explorer tous les chunks dans le rayon de vision du joueur
-        // Utilise un pattern circulaire pour être plus réaliste
-        int radiusSquared = EXPLORATION_RADIUS * EXPLORATION_RADIUS;
+        // Itérer UNIQUEMENT sur les chunks dans l'intersection zone/rayon
+        for (int targetChunkX = startX; targetChunkX <= endX; targetChunkX++) {
+            int dx = targetChunkX - chunkX;
+            int dxSquared = dx * dx;
 
-        for (int dx = -EXPLORATION_RADIUS; dx <= EXPLORATION_RADIUS; dx++) {
-            for (int dz = -EXPLORATION_RADIUS; dz <= EXPLORATION_RADIUS; dz++) {
+            for (int targetChunkZ = startZ; targetChunkZ <= endZ; targetChunkZ++) {
+                int dz = targetChunkZ - chunkZ;
+
                 // Vérifier si le chunk est dans le cercle de vision
-                if (dx * dx + dz * dz > radiusSquared) continue;
-
-                int targetChunkX = chunkX + dx;
-                int targetChunkZ = chunkZ + dz;
-
-                // Vérifier que le chunk fait partie de la zone
-                if (!zone.containsChunk(targetChunkX, targetChunkZ)) continue;
+                if (dxSquared + dz * dz > EXPLORATION_RADIUS_SQUARED) continue;
 
                 // Marquer le chunk comme exploré
                 if (data.markChunkExplored(zoneId, targetChunkX, targetChunkZ)) {
@@ -198,12 +220,9 @@ public class JourneyListener implements Listener {
 
         // Mettre à jour la progression seulement si de nouveaux chunks ont été découverts
         if (newChunksExplored > 0) {
-            JourneyStep currentStep = journeyManager.getCurrentStep(player);
-            if (currentStep != null && currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
-                int exploredCount = data.getExploredChunkCount(zoneId);
-                int explorationPercent = zone.getExplorationPercent(exploredCount);
-                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
-            }
+            int exploredCount = data.getExploredChunkCount(zoneId);
+            int explorationPercent = zone.getExplorationPercent(exploredCount);
+            journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
         }
     }
 
