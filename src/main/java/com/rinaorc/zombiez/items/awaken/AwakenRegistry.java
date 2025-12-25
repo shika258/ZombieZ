@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.classes.ClassType;
 import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentBranch;
 import com.rinaorc.zombiez.classes.talents.TalentTier;
+import com.rinaorc.zombiez.items.types.ItemType;
 import lombok.Getter;
 
 import java.util.*;
@@ -468,5 +469,44 @@ public class AwakenRegistry {
      */
     public int getOverrideCount() {
         return overridesByTalent.size();
+    }
+
+    // ==================== TEMPLATES ARMURES ====================
+
+    /**
+     * Cache des templates d'armures par type
+     */
+    private final Map<ItemType, AwakenTemplate> armorTemplates = new EnumMap<>(ItemType.class);
+
+    /**
+     * Obtient le template approprié pour un type d'armure
+     *
+     * @param armorType Le type d'armure (HELMET, CHESTPLATE, LEGGINGS, BOOTS)
+     * @return Le template pour ce type d'armure
+     */
+    public AwakenTemplate getArmorTemplate(ItemType armorType) {
+        // Vérifier le cache
+        if (armorTemplates.containsKey(armorType)) {
+            return armorTemplates.get(armorType);
+        }
+
+        // Créer et mettre en cache le template approprié
+        AwakenTemplate template = switch (armorType) {
+            case HELMET -> AwakenTemplate.forHelmetArmor();
+            case CHESTPLATE -> AwakenTemplate.forChestplateArmor();
+            case LEGGINGS -> AwakenTemplate.forLeggingsArmor();
+            case BOOTS -> AwakenTemplate.forBootsArmor();
+            default -> AwakenTemplate.forGenericArmor();
+        };
+
+        armorTemplates.put(armorType, template);
+        return template;
+    }
+
+    /**
+     * Nombre de templates d'armures enregistrés
+     */
+    public int getArmorTemplateCount() {
+        return armorTemplates.size();
     }
 }

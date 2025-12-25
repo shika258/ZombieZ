@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.util.*;
+import java.util.UUID;
 
 /**
  * Template pour générer des éveils
@@ -169,6 +170,14 @@ public class AwakenTemplate {
             case XP_BONUS -> "Sage";
             case LOOT_BONUS -> "Fortuné";
             case UNIQUE_EFFECT -> "Unique";
+            // Types défensifs pour armures
+            case DAMAGE_REDUCTION -> "Blindé";
+            case ARMOR_BONUS -> "Cuirassé";
+            case THORNS_DAMAGE -> "Épineux";
+            case HEALTH_BONUS -> "Robuste";
+            case BLOCK_CHANCE -> "Gardien";
+            case HEALTH_REGEN -> "Régénérant";
+            case CC_RESISTANCE -> "Inébranlable";
         };
     }
 
@@ -630,5 +639,153 @@ public class AwakenTemplate {
             .effectType(effectType)
             .modifierWeights(weights)
             .build();
+    }
+
+    // ==================== TEMPLATES ARMURES ====================
+
+    /**
+     * Template pour les casques - Focus sur la réduction de dégâts et CC resistance
+     */
+    public static AwakenTemplate forHelmetArmor() {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.DAMAGE_REDUCTION, 1.4);
+        weights.put(AwakenModifierType.CC_RESISTANCE, 1.2);
+        weights.put(AwakenModifierType.HEALTH_BONUS, 1.0);
+        weights.put(AwakenModifierType.BLOCK_CHANCE, 0.8);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.6);
+
+        return AwakenTemplate.builder()
+            .effectType(null) // Pas de talent requis pour les armures
+            .modifierWeights(weights)
+            .customName("Éveil de Protection")
+            .build();
+    }
+
+    /**
+     * Template pour les plastrons - Focus sur l'armure et la vie
+     */
+    public static AwakenTemplate forChestplateArmor() {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.ARMOR_BONUS, 1.4);
+        weights.put(AwakenModifierType.HEALTH_BONUS, 1.3);
+        weights.put(AwakenModifierType.DAMAGE_REDUCTION, 1.0);
+        weights.put(AwakenModifierType.SHIELD_ON_PROC, 0.8);
+        weights.put(AwakenModifierType.THORNS_DAMAGE, 0.6);
+
+        return AwakenTemplate.builder()
+            .effectType(null)
+            .modifierWeights(weights)
+            .customName("Éveil de Fortification")
+            .build();
+    }
+
+    /**
+     * Template pour les jambières - Focus sur la survie et régénération
+     */
+    public static AwakenTemplate forLeggingsArmor() {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.HEALTH_REGEN, 1.3);
+        weights.put(AwakenModifierType.HEALTH_BONUS, 1.2);
+        weights.put(AwakenModifierType.ARMOR_BONUS, 1.0);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.9);
+        weights.put(AwakenModifierType.DAMAGE_REDUCTION, 0.7);
+
+        return AwakenTemplate.builder()
+            .effectType(null)
+            .modifierWeights(weights)
+            .customName("Éveil de Vitalité")
+            .build();
+    }
+
+    /**
+     * Template pour les bottes - Focus sur la mobilité et esquive
+     */
+    public static AwakenTemplate forBootsArmor() {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.SPEED_BUFF, 1.4);
+        weights.put(AwakenModifierType.BLOCK_CHANCE, 1.2);
+        weights.put(AwakenModifierType.CC_RESISTANCE, 1.0);
+        weights.put(AwakenModifierType.DAMAGE_REDUCTION, 0.8);
+        weights.put(AwakenModifierType.HEALTH_REGEN, 0.6);
+
+        return AwakenTemplate.builder()
+            .effectType(null)
+            .modifierWeights(weights)
+            .customName("Éveil d'Agilité")
+            .build();
+    }
+
+    /**
+     * Template générique pour armures (toutes pièces)
+     */
+    public static AwakenTemplate forGenericArmor() {
+        Map<AwakenModifierType, Double> weights = new LinkedHashMap<>();
+        weights.put(AwakenModifierType.DAMAGE_REDUCTION, 1.2);
+        weights.put(AwakenModifierType.ARMOR_BONUS, 1.1);
+        weights.put(AwakenModifierType.HEALTH_BONUS, 1.0);
+        weights.put(AwakenModifierType.SHIELD_ON_PROC, 0.9);
+        weights.put(AwakenModifierType.HEAL_ON_PROC, 0.8);
+        weights.put(AwakenModifierType.BLOCK_CHANCE, 0.7);
+        weights.put(AwakenModifierType.THORNS_DAMAGE, 0.6);
+
+        return AwakenTemplate.builder()
+            .effectType(null)
+            .modifierWeights(weights)
+            .customName("Éveil Défensif")
+            .build();
+    }
+
+    /**
+     * Génère un Awaken pour une armure (sans lien avec un talent)
+     *
+     * @param armorType Type d'armure (HELMET, CHESTPLATE, etc.)
+     * @param qualityBonus Bonus de qualité (0.0 à 0.3)
+     * @return Un nouvel Awaken pour armure
+     */
+    public Awaken generateForArmor(com.rinaorc.zombiez.items.types.ItemType armorType, double qualityBonus) {
+        // Sélectionner un type de modificateur
+        AwakenModifierType modType = selectModifierType();
+
+        // Générer la valeur
+        double value = generateValue(modType, qualityBonus);
+
+        // Générer la description
+        String description = generateDescription(modType, value);
+
+        // Générer le nom basé sur le type d'armure
+        String name = generateArmorName(modType, armorType);
+
+        return Awaken.builder()
+            .id("awaken_armor_" + armorType.name().toLowerCase() + "_" + UUID.randomUUID().toString().substring(0, 8))
+            .displayName(name)
+            .requiredClass(null) // Pas de classe requise pour les armures
+            .requiredBranch(null)
+            .targetTalentId(null) // Pas de talent requis
+            .targetEffectType(null)
+            .modifierType(modType)
+            .modifierValue(value)
+            .effectDescription(description)
+            .isUnique(false)
+            .build();
+    }
+
+    /**
+     * Génère le nom de l'éveil d'armure
+     */
+    private String generateArmorName(AwakenModifierType modType, com.rinaorc.zombiez.items.types.ItemType armorType) {
+        String armorName = armorType.getDisplayName();
+        return armorName + " " + switch (modType) {
+            case DAMAGE_REDUCTION -> "du Rempart";
+            case ARMOR_BONUS -> "de l'Acier";
+            case THORNS_DAMAGE -> "des Épines";
+            case HEALTH_BONUS -> "de Vitalité";
+            case BLOCK_CHANCE -> "du Gardien";
+            case HEALTH_REGEN -> "de Régénération";
+            case CC_RESISTANCE -> "de l'Inébranlable";
+            case SHIELD_ON_PROC -> "de l'Égide";
+            case HEAL_ON_PROC -> "du Vampire";
+            case SPEED_BUFF -> "du Zéphyr";
+            default -> "Éveillé";
+        };
     }
 }

@@ -36,11 +36,17 @@ public class AwakenLoreBuilder {
 
         if (awaken == null) return lore;
 
+        // Vérifier si c'est un éveil d'armure (pas de classe/talent requis)
+        boolean isArmorAwaken = awaken.getRequiredClass() == null && awaken.getTargetTalentId() == null;
+
         // Déterminer si l'éveil est actif pour ce joueur
         boolean isActive = false;
         String inactiveReason = null;
 
-        if (player != null) {
+        if (isArmorAwaken) {
+            // Les éveils d'armure sont toujours actifs
+            isActive = true;
+        } else if (player != null) {
             var classManager = plugin.getClassManager();
             if (classManager != null) {
                 ClassData classData = classManager.getClassData(player);
@@ -75,9 +81,14 @@ public class AwakenLoreBuilder {
         // Construire le lore
         lore.add("");
         lore.add("§8§m                    ");
-        lore.add(buildHeader(isActive));
+        lore.add(buildHeader(isActive, isArmorAwaken));
         lore.add(nameColor + awaken.getDisplayName());
-        lore.add("§7Talent: " + talentColor + formatTalentName(awaken.getTargetTalentId()));
+
+        // N'afficher le talent que pour les éveils d'armes
+        if (!isArmorAwaken) {
+            lore.add("§7Talent: " + talentColor + formatTalentName(awaken.getTargetTalentId()));
+        }
+
         lore.add("§7Effet: " + effectColor + awaken.getEffectDescription());
 
         if (!isActive && inactiveReason != null) {
@@ -99,11 +110,12 @@ public class AwakenLoreBuilder {
     /**
      * Construit l'en-tête avec le statut
      */
-    private String buildHeader(boolean isActive) {
+    private String buildHeader(boolean isActive, boolean isArmorAwaken) {
+        String type = isArmorAwaken ? "§b§l✦ ÉVEIL D'ARMURE" : "§d§l✦ ÉVEIL";
         if (isActive) {
-            return "§d§l✦ ÉVEIL §8- §a✔ ACTIF";
+            return type + " §8- §a✔ ACTIF";
         } else {
-            return "§d§l✦ ÉVEIL §8- §c✖ INACTIF";
+            return type + " §8- §c✖ INACTIF";
         }
     }
 

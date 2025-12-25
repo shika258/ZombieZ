@@ -246,6 +246,84 @@ public enum AwakenModifierType {
         8.0, 15.0
     ),
 
+    // ==================== DÉFENSIFS (ARMURES) ====================
+    /**
+     * Réduction des dégâts subis
+     * Budget: -10% = 100%
+     */
+    DAMAGE_REDUCTION(
+        "Réduction de Dégâts",
+        "-%.0f%% de dégâts subis",
+        1.0,
+        5.0, 12.0 // 5% à 12% réduction
+    ),
+
+    /**
+     * Bonus d'armure en pourcentage
+     * Budget: +15% = 100%
+     */
+    ARMOR_BONUS(
+        "Armure Renforcée",
+        "+%.0f%% d'armure",
+        1.0,
+        10.0, 20.0
+    ),
+
+    /**
+     * Dégâts de renvoi (thorns)
+     * Budget: 20% des dégâts bloqués = 100%
+     */
+    THORNS_DAMAGE(
+        "Épines Vengeresses",
+        "Renvoie %.0f%% des dégâts bloqués",
+        0.9,
+        15.0, 30.0
+    ),
+
+    /**
+     * Bonus de PV maximum
+     * Budget: +10% = 100%
+     */
+    HEALTH_BONUS(
+        "Vitalité Accrue",
+        "+%.0f%% PV max",
+        1.0,
+        8.0, 15.0
+    ),
+
+    /**
+     * Chance de bloquer une attaque (réduction partielle)
+     * Budget: 10% chance = 100%
+     */
+    BLOCK_CHANCE(
+        "Parade Instinctive",
+        "%.0f%% de chance de bloquer 50%% des dégâts",
+        0.9,
+        8.0, 15.0
+    ),
+
+    /**
+     * Régénération de vie passive
+     * Budget: 1% PV/5s = 100%
+     */
+    HEALTH_REGEN(
+        "Régénération",
+        "+%.1f%% PV régénérés toutes les 5s",
+        0.8,
+        0.5, 1.5
+    ),
+
+    /**
+     * Résistance aux effets de contrôle (slow, stun)
+     * Budget: -20% durée CC = 100%
+     */
+    CC_RESISTANCE(
+        "Inébranlable",
+        "-%.0f%% durée des effets de contrôle",
+        0.9,
+        15.0, 25.0
+    ),
+
     // ==================== SPÉCIAUX (UNIQUES PAR TALENT) ====================
     /**
      * Effet unique spécifique au talent

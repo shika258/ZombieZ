@@ -7,6 +7,7 @@ import com.rinaorc.zombiez.classes.talents.Talent;
 import com.rinaorc.zombiez.classes.talents.TalentBranch;
 import com.rinaorc.zombiez.classes.talents.TalentManager;
 import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.types.ItemType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import lombok.Getter;
 import org.bukkit.NamespacedKey;
@@ -19,6 +20,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.EnumMap;
 
 /**
  * Gestionnaire central du système d'Éveil
@@ -129,7 +131,7 @@ public class AwakenManager {
     }
 
     /**
-     * Génère un éveil aléatoire pour un item
+     * Génère un éveil aléatoire pour un item (arme)
      *
      * @param rarity Rareté de l'item (influence la qualité)
      * @param zoneId Zone de l'item
@@ -159,6 +161,27 @@ public class AwakenManager {
 
         // Générer l'éveil
         return registry.generateAwaken(randomTalent, qualityBonus);
+    }
+
+    /**
+     * Génère un éveil pour une armure
+     *
+     * @param armorType Type d'armure (HELMET, CHESTPLATE, LEGGINGS, BOOTS)
+     * @param rarity Rareté de l'item (influence la qualité)
+     * @return Un Awaken généré pour l'armure
+     */
+    public Awaken generateArmorAwaken(ItemType armorType, Rarity rarity) {
+        if (!armorType.isArmor()) {
+            plugin.getLogger().warning("[Awaken] generateArmorAwaken appelé avec un type non-armure: " + armorType);
+            return null;
+        }
+
+        // Calculer le bonus de qualité basé sur la rareté
+        double qualityBonus = rarity.rollQualityBonus();
+
+        // Utiliser le template approprié pour le type d'armure
+        AwakenTemplate template = registry.getArmorTemplate(armorType);
+        return template.generateForArmor(armorType, qualityBonus);
     }
 
     /**
@@ -192,7 +215,7 @@ public class AwakenManager {
     // ==================== VALIDATION ====================
 
     /**
-     * Vérifie si un éveil est actif pour un joueur
+     * Vérifie si un éveil est actif pour un joueur (pour les armes)
      *
      * @param player Le joueur
      * @param awaken L'éveil à vérifier
@@ -200,6 +223,11 @@ public class AwakenManager {
      */
     public boolean isAwakenActive(Player player, Awaken awaken) {
         if (awaken == null || player == null) return false;
+
+        // Les éveils d'armure sont toujours actifs s'ils n'ont pas de classe requise
+        if (awaken.getRequiredClass() == null && awaken.getTargetTalentId() == null) {
+            return true; // Éveil d'armure - toujours actif
+        }
 
         ClassData classData = plugin.getClassManager().getClassData(player);
         if (!classData.hasClass()) return false;
@@ -217,7 +245,19 @@ public class AwakenManager {
     }
 
     /**
-     * Vérifie si un éveil est actif pour un joueur via l'item en main
+     * Vérifie si un éveil d'armure est actif (toujours actif si l'armure est équipée)
+     *
+     * @param awaken L'éveil à vérifier
+     * @return true si c'est un éveil d'armure (toujours actif)
+     */
+    public boolean isArmorAwakenActive(Awaken awaken) {
+        if (awaken == null) return false;
+        // Les éveils d'armure n'ont pas de classe/talent requis
+        return awaken.getRequiredClass() == null && awaken.getTargetTalentId() == null;
+    }
+
+    /**
+     * Vérifie si un éveil est actif pour un joueur via l'item en main (armes uniquement)
      *
      * @param player Le joueur
      * @return L'éveil actif ou null
@@ -230,6 +270,65 @@ public class AwakenManager {
         if (awaken == null) return null;
 
         return isAwakenActive(player, awaken) ? awaken : null;
+    }
+
+    /**
+     * Obtient tous les éveils actifs des armures équipées
+     *
+     * @param player Le joueur
+     * @return Liste des éveils d'armures actifs
+     */
+    public List<Awaken> getActiveArmorAwakens(Player player) {
+        List<Awaken> activeAwakens = new ArrayList<>();
+
+        for (ItemStack armor : player.getInventory().getArmorContents()) {
+            if (armor == null || !ZombieZItem.isZombieZItem(armor)) continue;
+
+            Awaken awaken = getAwakenFromItem(armor);
+            if (awaken != null && isArmorAwakenActive(awaken)) {
+                activeAwakens.add(awaken);
+            }
+        }
+
+        return activeAwakens;
+    }
+
+    /**
+     * Obtient l'éveil d'une pièce d'armure spécifique équipée
+     *
+     * @param player Le joueur
+     * @param slot Le slot d'armure (HEAD, CHEST, LEGS, FEET)
+     * @return L'éveil de l'armure ou null
+     */
+    public Awaken getArmorAwakenForSlot(Player player, org.bukkit.inventory.EquipmentSlot slot) {
+        ItemStack armor = switch (slot) {
+            case HEAD -> player.getInventory().getHelmet();
+            case CHEST -> player.getInventory().getChestplate();
+            case LEGS -> player.getInventory().getLeggings();
+            case FEET -> player.getInventory().getBoots();
+            default -> null;
+        };
+
+        if (armor == null || !ZombieZItem.isZombieZItem(armor)) return null;
+
+        Awaken awaken = getAwakenFromItem(armor);
+        return (awaken != null && isArmorAwakenActive(awaken)) ? awaken : null;
+    }
+
+    /**
+     * Calcule les bonus totaux des éveils d'armure pour un joueur
+     *
+     * @param player Le joueur
+     * @return Map des types de modificateurs et leurs valeurs cumulées
+     */
+    public Map<AwakenModifierType, Double> getTotalArmorAwakenBonuses(Player player) {
+        Map<AwakenModifierType, Double> bonuses = new EnumMap<>(AwakenModifierType.class);
+
+        for (Awaken awaken : getActiveArmorAwakens(player)) {
+            bonuses.merge(awaken.getModifierType(), awaken.getModifierValue(), Double::sum);
+        }
+
+        return bonuses;
     }
 
     /**
@@ -399,6 +498,14 @@ public class AwakenManager {
             case XP_BONUS -> "Sage";
             case LOOT_BONUS -> "Fortuné";
             case UNIQUE_EFFECT -> "Unique";
+            // Types défensifs pour armures
+            case DAMAGE_REDUCTION -> "Blindé";
+            case ARMOR_BONUS -> "Cuirassé";
+            case THORNS_DAMAGE -> "Épineux";
+            case HEALTH_BONUS -> "Robuste";
+            case BLOCK_CHANCE -> "Gardien";
+            case HEALTH_REGEN -> "Régénérant";
+            case CC_RESISTANCE -> "Inébranlable";
         };
     }
 

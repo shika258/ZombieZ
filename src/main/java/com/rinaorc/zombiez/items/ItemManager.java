@@ -221,9 +221,10 @@ public class ItemManager {
             return zItem.toItemStack();
         }
 
-        // Seules les armes peuvent avoir des éveils
-        if (!zItem.getItemType().getCategory().equals(
-                com.rinaorc.zombiez.items.types.ItemType.ItemCategory.WEAPON)) {
+        // Les armes et armures peuvent avoir des éveils
+        var category = zItem.getItemType().getCategory();
+        if (!category.equals(com.rinaorc.zombiez.items.types.ItemType.ItemCategory.WEAPON) &&
+            !category.equals(com.rinaorc.zombiez.items.types.ItemType.ItemCategory.ARMOR)) {
             return zItem.toItemStack();
         }
 
@@ -232,8 +233,10 @@ public class ItemManager {
             return zItem.toItemStack();
         }
 
-        // Générer un éveil aléatoire
-        var awaken = awakenManager.generateAwaken(zItem.getRarity(), zItem.getZoneLevel());
+        // Générer un éveil selon le type d'item
+        var awaken = category.equals(com.rinaorc.zombiez.items.types.ItemType.ItemCategory.ARMOR)
+            ? awakenManager.generateArmorAwaken(zItem.getItemType(), zItem.getRarity())
+            : awakenManager.generateAwaken(zItem.getRarity(), zItem.getZoneLevel());
         if (awaken == null) {
             return zItem.toItemStack();
         }
