@@ -55,8 +55,8 @@ public enum JourneyStep {
         "Ta classe se renforce", StepType.CLASS_LEVEL, 5,
         300, 8, Material.ENCHANTED_BOOK),
 
-    STEP_2_4(JourneyChapter.CHAPTER_2, 4, "Utilise ton trait de classe 10x",
-        "Exploite les forces de ta classe", StepType.USE_CLASS_TRAIT, 10,
+    STEP_2_4(JourneyChapter.CHAPTER_2, 4, "Tue 25 zombies avec ta classe",
+        "Exploite les forces de ta classe", StepType.CLASS_KILLS, 25,
         200, 5, Material.BLAZE_POWDER),
 
     STEP_2_5(JourneyChapter.CHAPTER_2, 5, "Atteins le niveau 10",

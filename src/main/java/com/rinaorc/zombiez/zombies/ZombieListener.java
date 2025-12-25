@@ -1,10 +1,12 @@
 package com.rinaorc.zombiez.zombies;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.api.events.ZombieDeathEvent;
 import com.rinaorc.zombiez.items.sets.SetBonusManager;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.zombies.affixes.ZombieAffix;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -62,6 +64,40 @@ public class ZombieListener implements Listener {
 
         // Obtenir le tueur
         Player killer = entity.getKiller();
+
+        // === FIRE ZOMBIE DEATH EVENT pour le système de progression ===
+        ZombieManager.ActiveZombie activeZombie = zombieManager.getActiveZombie(entity.getUniqueId());
+        if (activeZombie != null) {
+            ZombieType type = activeZombie.getType();
+            int level = activeZombie.getLevel();
+            int zoneId = activeZombie.getZoneId();
+
+            // Calculer les récompenses pour l'événement
+            int basePoints = type.getBasePoints();
+            int baseXP = type.getBaseXP();
+            double levelMultiplier = 1 + (level * 0.1);
+            double affixMultiplier = activeZombie.hasAffix() ? activeZombie.getAffix().getRewardMultiplier() : 1.0;
+
+            int finalPoints = (int) (basePoints * levelMultiplier * affixMultiplier);
+            long finalXP = (long) (baseXP * levelMultiplier * affixMultiplier);
+
+            // Déterminer si c'est un élite (catégorie ELITE)
+            boolean isElite = type.getCategory() == ZombieType.ZombieCategory.ELITE;
+
+            // Créer et fire l'événement
+            ZombieDeathEvent zombieDeathEvent = new ZombieDeathEvent(
+                killer,
+                entity,
+                type.name(),
+                level,
+                isElite,
+                type.isBoss(),
+                finalXP,
+                finalPoints,
+                zoneId
+            );
+            Bukkit.getPluginManager().callEvent(zombieDeathEvent);
+        }
 
         // Traiter la mort via le ZombieManager
         zombieManager.onZombieDeath(entity.getUniqueId(), killer);
