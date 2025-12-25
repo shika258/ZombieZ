@@ -13,7 +13,7 @@ public enum JourneyGate {
 
     // ==================== ZONES ====================
     ZONE_2(GateType.ZONE, 2, "Zone 2 - Faubourgs Oubliés",
-        "Complète le Chapitre 2 pour débloquer", Material.OAK_FENCE_GATE),
+        "Complète le Chapitre 2 pour débloquer cette zone et avancer vers le nord", Material.OAK_FENCE_GATE),
 
     ZONE_3(GateType.ZONE, 3, "Zone 3 - Champs du Silence",
         "Complète l'étape 3.4 pour débloquer", Material.OAK_FENCE_GATE),
