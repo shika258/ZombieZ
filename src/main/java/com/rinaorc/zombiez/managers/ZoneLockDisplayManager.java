@@ -157,6 +157,13 @@ public class ZoneLockDisplayManager {
         // Créer un nouveau display
         createLockDisplay(player, currentZone, nextZoneId);
         displayCooldowns.put(uuid, System.currentTimeMillis());
+
+        // Rafraîchir le WorldBorder pour s'assurer qu'il est visible
+        // (le client peut l'avoir "oublié" après s'être éloigné)
+        ZoneBorderManager borderManager = plugin.getZoneBorderManager();
+        if (borderManager != null) {
+            borderManager.refreshBorder(player);
+        }
     }
 
     /**
