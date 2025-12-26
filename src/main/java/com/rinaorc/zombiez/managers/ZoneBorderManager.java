@@ -37,7 +37,6 @@ public class ZoneBorderManager {
 
     // Constantes de la map
     private static final double CENTER_X = 621.0; // Milieu de 0-1242
-    private static final double CENTER_Z_BASE = 10100.0; // Juste avant spawn
     private static final double MAP_WIDTH = 1300.0; // Légèrement plus que 1242 pour marge
 
     // Zone spawn
@@ -47,9 +46,6 @@ public class ZoneBorderManager {
     // Apparence du border
     private static final int WARNING_TIME = 0;
     private static final int WARNING_DISTANCE = 5;
-
-    // Animation
-    private static final int EXPAND_ANIMATION_DURATION_MS = 3000; // 3 secondes
 
     @Getter
     private boolean enabled = false;
@@ -111,7 +107,8 @@ public class ZoneBorderManager {
     }
 
     /**
-     * Envoie le WorldBorder à un joueur
+     * Envoie le WorldBorder à un joueur en utilisant des paquets séparés
+     * Plus stable que INITIALIZE_BORDER qui a des problèmes de types VarLong/VarInt en 1.21.4
      */
     private void sendWorldBorder(Player player, int maxZone, boolean animate) {
         try {
@@ -120,43 +117,32 @@ public class ZoneBorderManager {
             double centerZ = borderParams[1];
             double size = borderParams[2];
 
-            // Paquet INITIALIZE_BORDER pour configuration complète
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.INITIALIZE_BORDER);
+            // 1. Paquet SET_BORDER_CENTER - définir le centre
+            PacketContainer centerPacket = protocolManager.createPacket(PacketType.Play.Server.SET_BORDER_CENTER);
+            centerPacket.getDoubles().write(0, centerX);
+            centerPacket.getDoubles().write(1, centerZ);
+            protocolManager.sendServerPacket(player, centerPacket);
 
-            // Structure du paquet InitializeBorder:
-            // 0: centerX (double)
-            // 1: centerZ (double)
-            // 2: oldSize (double) - taille actuelle
-            // 3: newSize (double) - taille cible
-            // 4: lerpTime (long) - durée transition en ms
-            // 5: portalTeleportBoundary (int) - distance max téléportation
-            // 6: warningBlocks (int)
-            // 7: warningTime (int)
+            // 2. SET_BORDER_SIZE - définir la taille immédiatement
+            // Note: On n'utilise plus SET_BORDER_LERP_SIZE car le VarLong pose problème en 1.21.4
+            // L'animation sera simulée via plusieurs paquets si nécessaire à l'avenir
+            PacketContainer sizePacket = protocolManager.createPacket(PacketType.Play.Server.SET_BORDER_SIZE);
+            sizePacket.getDoubles().write(0, size);
+            protocolManager.sendServerPacket(player, sizePacket);
 
-            packet.getDoubles().write(0, centerX);
-            packet.getDoubles().write(1, centerZ);
+            // 3. SET_BORDER_WARNING_DISTANCE - avertissement en blocs
+            PacketContainer warningDistPacket = protocolManager.createPacket(PacketType.Play.Server.SET_BORDER_WARNING_DISTANCE);
+            warningDistPacket.getIntegers().write(0, WARNING_DISTANCE);
+            protocolManager.sendServerPacket(player, warningDistPacket);
 
-            if (animate) {
-                // Animation: commencer petit et grandir
-                double oldSize = size - (ZONE_SIZE * 2); // Ancienne taille
-                packet.getDoubles().write(2, Math.max(MAP_WIDTH, oldSize));
-                packet.getDoubles().write(3, size);
-                packet.getLongs().write(0, (long) EXPAND_ANIMATION_DURATION_MS);
-            } else {
-                // Pas d'animation
-                packet.getDoubles().write(2, size);
-                packet.getDoubles().write(3, size);
-                packet.getLongs().write(0, 0L);
-            }
-
-            packet.getIntegers().write(0, 29999984); // Portal teleport boundary
-            packet.getIntegers().write(1, WARNING_DISTANCE);
-            packet.getIntegers().write(2, WARNING_TIME);
-
-            protocolManager.sendServerPacket(player, packet);
+            // 4. SET_BORDER_WARNING_DELAY - délai avant dégâts
+            PacketContainer warningDelayPacket = protocolManager.createPacket(PacketType.Play.Server.SET_BORDER_WARNING_DELAY);
+            warningDelayPacket.getIntegers().write(0, WARNING_TIME);
+            protocolManager.sendServerPacket(player, warningDelayPacket);
 
         } catch (Exception e) {
             plugin.log(Level.WARNING, "§cErreur envoi WorldBorder à " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
