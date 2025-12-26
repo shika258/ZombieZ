@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  * Système GPS optimisé pour guider les joueurs vers les objectifs du Journey
  *
  * OPTIMISATIONS APPLIQUÉES:
- * - 3 entités seulement (au lieu de 7) = moins de packets
+ * - 5 entités (pointe + 2 ailes + 2 corps) = forme de flèche claire
  * - Mise à jour seulement si le joueur bouge (seuil de distance)
  * - Packets de mouvement relatif (plus légers que téléportation)
  * - Interpolation fluide avec cache des positions
@@ -60,7 +60,7 @@ public class GPSManager implements Listener {
     private static final Pattern COORD_PATTERN = Pattern.compile("§b~?(-?\\d+),?\\s*~?(-?\\d+),?\\s*~?(-?\\d+)");
 
     // ==================== CONFIGURATION OPTIMISÉE ====================
-    private static final int ARROW_PARTS = 3;           // Réduit de 7 à 3 (pointe + 2 ailes)
+    private static final int ARROW_PARTS = 5;           // Pointe + 2 ailes + 2 corps
     private static final double ARROW_DISTANCE = 2.5;   // Distance devant le joueur
     private static final double ARROW_HEIGHT = 1.3;     // Hauteur au niveau des yeux
     private static final double MOVE_THRESHOLD = 0.05;  // Seuil pour envoyer update (en blocs)
@@ -318,7 +318,13 @@ public class GPSManager implements Listener {
     }
 
     /**
-     * Calcule les positions optimisées de la flèche (3 points)
+     * Calcule les positions optimisées de la flèche (5 points)
+     *
+     * Structure visuelle:
+     *       ●        <- Pointe (0)
+     *     ●   ●      <- Ailes (1, 2)
+     *       ●        <- Corps (3)
+     *       ●        <- Queue (4)
      */
     private Location[] calculateArrowPositions(Location base, float yaw, float pitch, boolean pulse) {
         Location[] positions = new Location[ARROW_PARTS];
@@ -326,7 +332,7 @@ public class GPSManager implements Listener {
         double yawRad = Math.toRadians(yaw);
         double pitchRad = Math.toRadians(pitch);
 
-        // Vecteur forward
+        // Vecteur forward (direction de la flèche)
         Vector forward = new Vector(
             -Math.sin(yawRad) * Math.cos(pitchRad),
             -Math.sin(pitchRad),
@@ -336,20 +342,26 @@ public class GPSManager implements Listener {
         // Vecteur right (perpendiculaire horizontal)
         Vector right = new Vector(Math.cos(yawRad), 0, Math.sin(yawRad));
 
-        // Effet de pulsation si proche
+        // Effet de pulsation si proche de la destination
         double scale = pulse ? 0.85 + 0.15 * Math.sin(System.currentTimeMillis() * 0.008) : 1.0;
 
-        // Position 0: Pointe de la flèche (avant)
-        positions[0] = base.clone().add(forward.clone().multiply(0.35 * scale));
+        // Position 0: Pointe de la flèche (tout devant)
+        positions[0] = base.clone().add(forward.clone().multiply(0.45 * scale));
 
-        // Positions 1-2: Ailes de la flèche (plus écartées pour visibilité)
+        // Positions 1-2: Ailes de la flèche (écartées sur les côtés, légèrement en arrière)
         positions[1] = base.clone()
-            .add(right.clone().multiply(0.25 * scale))
-            .subtract(forward.clone().multiply(0.2));
+            .add(right.clone().multiply(0.30 * scale))
+            .subtract(forward.clone().multiply(0.15));
 
         positions[2] = base.clone()
-            .subtract(right.clone().multiply(0.25 * scale))
-            .subtract(forward.clone().multiply(0.2));
+            .subtract(right.clone().multiply(0.30 * scale))
+            .subtract(forward.clone().multiply(0.15));
+
+        // Position 3: Corps de la flèche (derrière les ailes)
+        positions[3] = base.clone().subtract(forward.clone().multiply(0.25 * scale));
+
+        // Position 4: Queue de la flèche (tout derrière)
+        positions[4] = base.clone().subtract(forward.clone().multiply(0.50 * scale));
 
         return positions;
     }
