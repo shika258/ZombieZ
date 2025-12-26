@@ -13,7 +13,6 @@ import com.rinaorc.zombiez.progression.journey.JourneyGate;
 import com.rinaorc.zombiez.zones.Zone;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -340,9 +339,8 @@ public class ZoneLockDisplayManager {
         // Index 23: Line width (200 pour permettre le texte large)
         dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 400));
 
-        // Index 24: Background color (noir semi-transparent)
-        dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class),
-            Color.fromARGB(200, 0, 0, 0).asARGB()));
+        // Index 29: Default background (1 = utiliser le fond par défaut style tooltip)
+        dataValues.add(new WrappedDataValue(29, WrappedDataWatcher.Registry.get(Byte.class), (byte) 1));
 
         // Index 26: Text opacity (255 = opaque)
         dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
