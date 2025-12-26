@@ -310,6 +310,7 @@ public class GPSManager implements Listener {
     private class GPSArrow {
         private final UUID playerUuid;
         private Entity arrowEntity;
+        private Entity distanceDisplay; // TextDisplay au-dessus de la flèche
         private Location destination;
 
         // État d'interpolation pour fluidité
@@ -318,8 +319,11 @@ public class GPSManager implements Listener {
         private float currentPitch = 0;
         private boolean initialized = false;
 
-        // Compteur pour ActionBar
+        // Compteur pour updates
         int tickCount = 0;
+
+        // Hauteur du TextDisplay au-dessus de la flèche
+        private static final double DISPLAY_HEIGHT_OFFSET = 0.8;
 
         GPSArrow(Player player, Location destination) {
             this.playerUuid = player.getUniqueId();
@@ -368,7 +372,54 @@ public class GPSManager implements Listener {
                 gpsTeam.addEntity(arrowEntity);
             }
 
+            // Créer le TextDisplay pour afficher la distance
+            Location displayLoc = spawnLoc.clone().add(0, DISPLAY_HEIGHT_OFFSET, 0);
+            distanceDisplay = world.spawn(displayLoc, org.bukkit.entity.TextDisplay.class, display -> {
+                display.setBillboard(Display.Billboard.CENTER);
+                display.setAlignment(org.bukkit.entity.TextDisplay.TextAlignment.CENTER);
+                display.setShadowed(true);
+                display.setSeeThrough(false);
+                display.setDefaultBackground(false);
+                display.setBackgroundColor(Color.fromARGB(160, 0, 0, 0));
+
+                // Taille du texte
+                display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new org.joml.Quaternionf(),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new org.joml.Quaternionf()
+                ));
+
+                display.setViewRange(128f);
+                display.setTeleportDuration(1);
+
+                // Texte initial
+                double dist = player.getLocation().distance(destination);
+                display.text(createDistanceText(dist));
+            });
+
             initialized = true;
+        }
+
+        /**
+         * Crée le texte formaté pour la distance
+         */
+        private Component createDistanceText(double distance) {
+            String distStr = distance < 10 ? String.format("%.1f", distance) : String.format("%.0f", distance);
+
+            // Couleur selon la distance
+            String color;
+            if (distance > 100) {
+                color = "§c"; // Rouge
+            } else if (distance > 50) {
+                color = "§6"; // Orange
+            } else if (distance > 20) {
+                color = "§e"; // Jaune
+            } else {
+                color = "§a"; // Vert
+            }
+
+            return Component.text(color + "§l" + distStr + " §7blocs");
         }
 
         /**
@@ -466,6 +517,18 @@ public class GPSManager implements Listener {
             if (tickCount % 10 == 0) { // Toutes les 0.5 secondes
                 updateGlowColor(distance);
             }
+
+            // === METTRE À JOUR LE TEXTDISPLAY DE DISTANCE ===
+            if (distanceDisplay != null && distanceDisplay.isValid()) {
+                // Position au-dessus de la flèche
+                Location displayLoc = arrowLoc.clone().add(0, DISPLAY_HEIGHT_OFFSET, 0);
+                distanceDisplay.teleport(displayLoc);
+
+                // Mettre à jour le texte (toutes les 0.5 secondes pour éviter le spam)
+                if (tickCount % 10 == 0 && distanceDisplay instanceof org.bukkit.entity.TextDisplay textDisplay) {
+                    textDisplay.text(createDistanceText(distance));
+                }
+            }
         }
 
         /**
@@ -531,13 +594,17 @@ public class GPSManager implements Listener {
         }
 
         /**
-         * Détruit l'entité flèche
+         * Détruit l'entité flèche et le TextDisplay de distance
          */
         void destroy() {
             if (arrowEntity != null && arrowEntity.isValid()) {
                 arrowEntity.remove();
             }
+            if (distanceDisplay != null && distanceDisplay.isValid()) {
+                distanceDisplay.remove();
+            }
             arrowEntity = null;
+            distanceDisplay = null;
         }
 
         // Interpolation linéaire
