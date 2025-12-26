@@ -147,11 +147,14 @@ public class JourneyGUI implements Listener {
             inv.setItem(i, createDecorItem(phaseGlass, chapter.getColor()));
         }
 
-        // === LIGNE 5: Récompenses + Progression (centrées) ===
-        inv.setItem(40, createChapterRewardsItem(chapter));
-        inv.setItem(42, createChapterProgressItem(player, chapter, manager));
+        // === LIGNE 5: Récompenses + Progression (décalées à gauche) ===
+        inv.setItem(39, createChapterRewardsItem(chapter));
+        inv.setItem(41, createChapterProgressItem(player, chapter, manager));
 
         // === LIGNE 6: Navigation ===
+        // Bouton retour au menu principal (porte en bas à gauche)
+        inv.setItem(45, createBackToMainButton());
+
         // Navigation entre chapitres
         if (chapter.getId() > 1) {
             inv.setItem(48, createNavButton(false, chapter.getId() - 1));
@@ -560,6 +563,21 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text("§7au menu principal."));
         lore.add(Component.text(""));
         meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createBackToMainButton() {
+        ItemStack item = new ItemStack(Material.DARK_OAK_DOOR);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("§c§l⬅ Menu Principal"));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(""));
+        lore.add(Component.text("§7Clique pour revenir au"));
+        lore.add(Component.text("§7Journal du Survivant."));
+        lore.add(Component.text(""));
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
