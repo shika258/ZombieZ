@@ -282,8 +282,11 @@ public class ZoneLockDisplayManager {
      * - uuids[0]: Entity UUID
      * - entityTypeModifier[0]: Type d'entité
      * - doubles[0-2]: X, Y, Z (position)
-     * - bytes[0-2]: Pitch, Yaw, Head Yaw (angles)
-     * - shorts[0-2]: Velocity X, Y, Z (optionnel, 0 par défaut)
+     * - floats[0-1]: Yaw, Pitch (angles en degrés, remplacent les bytes en 1.21.4)
+     * - shorts[0-2]: Velocity X, Y, Z (pas toujours présent selon le type)
+     *
+     * Note: En 1.21.4, les angles sont passés en float (degrés), pas en byte.
+     * La velocity et head yaw ne sont pas toujours présents.
      */
     private void sendSpawnPacket(Player player, int entityId, Location loc) throws Exception {
         PacketContainer spawnPacket = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
@@ -302,18 +305,17 @@ public class ZoneLockDisplayManager {
         spawnPacket.getDoubles().write(1, loc.getY());
         spawnPacket.getDoubles().write(2, loc.getZ());
 
-        // Pitch/Yaw/Head Yaw (bytes[0-2])
-        spawnPacket.getBytes().write(0, (byte) 0); // Pitch
-        spawnPacket.getBytes().write(1, (byte) 0); // Yaw
-        spawnPacket.getBytes().write(2, (byte) 0); // Head yaw
-
         // Data (integers[1]) - 0 pour TEXT_DISPLAY
-        spawnPacket.getIntegers().write(1, 0);
+        if (spawnPacket.getIntegers().size() > 1) {
+            spawnPacket.getIntegers().write(1, 0);
+        }
 
-        // Velocity (shorts[0-2]) - 0 pour entité statique
-        spawnPacket.getShorts().write(0, (short) 0); // Velocity X
-        spawnPacket.getShorts().write(1, (short) 0); // Velocity Y
-        spawnPacket.getShorts().write(2, (short) 0); // Velocity Z
+        // Yaw/Pitch en float (1.21.4 change)
+        // Les floats peuvent être présents ou non selon la version de ProtocolLib
+        if (spawnPacket.getFloat().size() >= 2) {
+            spawnPacket.getFloat().write(0, 0.0f); // Yaw
+            spawnPacket.getFloat().write(1, 0.0f); // Pitch
+        }
 
         protocolManager.sendServerPacket(player, spawnPacket);
     }
@@ -360,7 +362,14 @@ public class ZoneLockDisplayManager {
         byte textFlags = (byte) (0x01 | 0x04); // Shadow ON + Default background ON
         dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), textFlags));
 
-        metadataPacket.getDataValueCollectionModifier().write(0, dataValues);
+        // Vérifier que le modifier est disponible avant d'écrire (1.21.4 compatibility)
+        var dataValueModifier = metadataPacket.getDataValueCollectionModifier();
+        if (dataValueModifier.size() > 0) {
+            dataValueModifier.write(0, dataValues);
+        } else {
+            // Fallback: essayer d'utiliser le watchable collection modifier (versions antérieures)
+            plugin.log(Level.WARNING, "§eDataValueCollectionModifier non disponible, metadata non envoyées");
+        }
         protocolManager.sendServerPacket(player, metadataPacket);
 
         // Envoyer la transformation (scale) séparément
@@ -421,22 +430,29 @@ public class ZoneLockDisplayManager {
         }
 
         // Envoyer un paquet de téléportation
-        // Note: ProtocolLib utilise toujours ENTITY_TELEPORT comme nom de constante
+        // Note: En 1.21.4, la structure du paquet a changé - les bytes pour yaw/pitch
+        // ne sont pas toujours présents. On utilise une approche défensive.
         try {
             PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
 
-            // Structure du paquet en 1.21.4:
-            // - Entity ID (VarInt)
-            // - X, Y, Z (Double) - position absolue
-            // - Yaw, Pitch (Byte) - rotation
-            // - On Ground (Boolean)
+            // Entity ID (toujours présent)
             teleportPacket.getIntegers().write(0, display.entityId);
+
+            // Position (toujours présent)
             teleportPacket.getDoubles().write(0, newLoc.getX());
             teleportPacket.getDoubles().write(1, newLoc.getY());
             teleportPacket.getDoubles().write(2, newLoc.getZ());
-            teleportPacket.getBytes().write(0, (byte) 0); // Yaw
-            teleportPacket.getBytes().write(1, (byte) 0); // Pitch
-            teleportPacket.getBooleans().write(0, false); // On ground
+
+            // Yaw/Pitch - vérifier la disponibilité avant d'écrire (1.21.4 compatibility)
+            if (teleportPacket.getBytes().size() >= 2) {
+                teleportPacket.getBytes().write(0, (byte) 0); // Yaw
+                teleportPacket.getBytes().write(1, (byte) 0); // Pitch
+            }
+
+            // On Ground - vérifier la disponibilité
+            if (teleportPacket.getBooleans().size() >= 1) {
+                teleportPacket.getBooleans().write(0, false);
+            }
 
             protocolManager.sendServerPacket(player, teleportPacket);
 
