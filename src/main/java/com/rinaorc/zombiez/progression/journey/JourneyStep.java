@@ -55,9 +55,9 @@ public enum JourneyStep {
         "Classe puis spécialisation!", StepType.SELECT_CLASS_AND_BRANCH, 2,
         100, 3, Material.NETHERITE_CHESTPLATE),
 
-    STEP_2_2(JourneyChapter.CHAPTER_2, 2, "Tue 50 zombies avec ta classe",
-        "Apprends à maîtriser ton style", StepType.CLASS_KILLS, 50,
-        200, 5, Material.DIAMOND_SWORD),
+    STEP_2_2(JourneyChapter.CHAPTER_2, 2, "Recycle 5 items",
+        "Libère ton inventaire avec /recycle", StepType.RECYCLE_ITEMS, 5,
+        200, 5, Material.GRINDSTONE),
 
     STEP_2_3(JourneyChapter.CHAPTER_2, 3, "Explore la Zone 2 (50%)",
         "Découvre les faubourgs oubliés", StepType.ZONE_EXPLORATION, 2,
@@ -97,9 +97,9 @@ public enum JourneyStep {
         "Premiers pas dans le danger", StepType.REACH_ZONE, 2,
         150, 5, Material.LEATHER_BOOTS),
 
-    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Recycle 5 items",
-        "Libère ton inventaire avec /recycle", StepType.RECYCLE_ITEMS, 5,
-        200, 6, Material.GRINDSTONE),
+    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Tue 50 zombies avec ta classe",
+        "Maîtrise ton style de combat", StepType.CLASS_KILLS, 50,
+        200, 6, Material.DIAMOND_SWORD),
 
     STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 100 zombies au total",
         "Centième victime!", StepType.TOTAL_KILLS, 100,
