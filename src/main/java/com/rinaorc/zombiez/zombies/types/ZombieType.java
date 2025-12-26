@@ -172,6 +172,12 @@ public enum ZombieType {
         new int[]{21, 23, 24, 27}, ZombieCategory.ELITE),
 
     // ═══════════════════════════════════════════════════════════════════
+    // JOURNEY - Zombies spéciaux pour les étapes du parcours
+    // ═══════════════════════════════════════════════════════════════════
+    FIRE_ZOMBIE("ZZ_FireZombie", "Pyromort", 2, 40, 6, 0.22,     // Pyro + mort (Zone 2 - Chapitre 2 Étape 6)
+        new int[]{2}, ZombieCategory.ELEMENTAL),
+
+    // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════
     BUTCHER("ZZ_Butcher", "L'Équarisseur", 0, 200, 12, 0.20,      // Boucher -> Équarisseur

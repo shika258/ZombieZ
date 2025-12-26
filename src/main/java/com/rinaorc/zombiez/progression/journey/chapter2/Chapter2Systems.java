@@ -35,6 +35,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.consumables.ConsumableType;
+import com.rinaorc.zombiez.zombies.ZombieManager;
+import com.rinaorc.zombiez.zombies.types.ZombieType;
 
 /**
  * Gère tous les systèmes spécifiques au Chapitre 2:
@@ -493,9 +495,12 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Fait spawn un zombie incendié avec armure de cuir rouge et trims
+     * Fait spawn un zombie incendié custom ZombieZ avec IA, nom dynamique et stats
      */
     private void spawnFireZombie(World world) {
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) return;
+
         // Position aléatoire dans la zone
         double x = ThreadLocalRandom.current().nextDouble(FIRE_ZOMBIE_ZONE.getMinX(), FIRE_ZOMBIE_ZONE.getMaxX());
         double z = ThreadLocalRandom.current().nextDouble(FIRE_ZOMBIE_ZONE.getMinZ(), FIRE_ZOMBIE_ZONE.getMaxZ());
@@ -503,36 +508,40 @@ public class Chapter2Systems implements Listener {
 
         Location spawnLoc = new Location(world, x, y, z);
 
-        world.spawn(spawnLoc, Zombie.class, zombie -> {
-            zombie.setCustomName("§c§l🔥 §6Zombie Incendié §c§l🔥");
-            zombie.setCustomNameVisible(true);
+        // Niveau aléatoire 3-7 pour la zone 2
+        int level = ThreadLocalRandom.current().nextInt(3, 8);
 
-            // Stats augmentées
-            var health = zombie.getAttribute(Attribute.MAX_HEALTH);
-            if (health != null) {
-                health.setBaseValue(40); // 20 coeurs
-                zombie.setHealth(40);
+        // Spawn via ZombieManager (avec IA, nom dynamique, stats, etc.)
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.FIRE_ZOMBIE, spawnLoc, level);
+
+        if (activeZombie != null) {
+            // Récupérer l'entité pour appliquer les effets visuels de feu
+            Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+            if (entity instanceof Zombie zombie) {
+                // Équiper avec armure de cuir rouge + trims
+                zombie.getEquipment().setHelmet(createFireZombieArmor(Material.LEATHER_HELMET));
+                zombie.getEquipment().setChestplate(createFireZombieArmor(Material.LEATHER_CHESTPLATE));
+                zombie.getEquipment().setLeggings(createFireZombieArmor(Material.LEATHER_LEGGINGS));
+                zombie.getEquipment().setBoots(createFireZombieArmor(Material.LEATHER_BOOTS));
+
+                // Pas de drop d'armure
+                zombie.getEquipment().setHelmetDropChance(0);
+                zombie.getEquipment().setChestplateDropChance(0);
+                zombie.getEquipment().setLeggingsDropChance(0);
+                zombie.getEquipment().setBootsDropChance(0);
+
+                // Toujours en feu visuellement
+                zombie.setVisualFire(true);
+                zombie.setFireTicks(Integer.MAX_VALUE);
+
+                // Marquer comme zombie incendié pour le tracking Journey
+                zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
+
+                // Effet de spawn
+                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
+                world.spawnParticle(Particle.LAVA, spawnLoc.clone().add(0, 0.5, 0), 5, 0.3, 0.3, 0.3, 0);
             }
-
-            // Équiper avec armure de cuir rouge + trims
-            zombie.getEquipment().setHelmet(createFireZombieArmor(Material.LEATHER_HELMET));
-            zombie.getEquipment().setChestplate(createFireZombieArmor(Material.LEATHER_CHESTPLATE));
-            zombie.getEquipment().setLeggings(createFireZombieArmor(Material.LEATHER_LEGGINGS));
-            zombie.getEquipment().setBoots(createFireZombieArmor(Material.LEATHER_BOOTS));
-
-            // Pas de drop d'armure
-            zombie.getEquipment().setHelmetDropChance(0);
-            zombie.getEquipment().setChestplateDropChance(0);
-            zombie.getEquipment().setLeggingsDropChance(0);
-            zombie.getEquipment().setBootsDropChance(0);
-
-            // Toujours en feu visuellement
-            zombie.setVisualFire(true);
-            zombie.setFireTicks(Integer.MAX_VALUE);
-
-            // Marquer comme zombie incendié
-            zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        }
     }
 
     /**
