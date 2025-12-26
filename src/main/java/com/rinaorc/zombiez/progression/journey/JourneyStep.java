@@ -76,8 +76,8 @@ public enum JourneyStep {
         400, 10, Material.FIRE_CHARGE),
 
     STEP_2_7(JourneyChapter.CHAPTER_2, 7, "Aide Igor le survivant",
-        "Ramène 8 bûches - Coords: §b898, 90, 9469", StepType.GIVE_WOOD_NPC, 8,
-        450, 12, Material.OAK_LOG),
+        "Récupère 5 caisses - Coords: §b898, 90, 9469", StepType.COLLECT_SUPPLY_CRATES, 5,
+        450, 12, Material.CHEST_MINECART),
 
     STEP_2_8(JourneyChapter.CHAPTER_2, 8, "Explore la Zone 3 (50%)",
         "Les champs du silence t'attendent", StepType.ZONE_EXPLORATION, 3,
@@ -396,7 +396,7 @@ public enum JourneyStep {
             case PASSIVE_ANIMAL_KILLS -> current + "/" + targetValue + " animal chassé";
             case ZONE_EXPLORATION -> current + "/" + 50 + "% exploré";
             case HEAL_NPC -> current >= targetValue ? "✓ PNJ soigné!" : "Trouve et soigne le PNJ";
-            case GIVE_WOOD_NPC -> current + "/" + targetValue + " bûches données";
+            case COLLECT_SUPPLY_CRATES -> current + "/" + targetValue + " caisses récupérées";
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
         };
@@ -539,7 +539,7 @@ public enum JourneyStep {
 
         // NPC interactions
         HEAL_NPC("Soigne un PNJ"),
-        GIVE_WOOD_NPC("Donne du bois à un PNJ"),
+        COLLECT_SUPPLY_CRATES("Récupère des caisses de ravitaillement"),
 
         // Zombies spéciaux
         FIRE_ZOMBIE_KILLS("Tue des Pyromorts"),

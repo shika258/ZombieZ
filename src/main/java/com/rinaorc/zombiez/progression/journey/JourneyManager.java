@@ -499,12 +499,6 @@ public class JourneyManager {
         plugin.getEconomyManager().addPoints(player, step.getPointReward());
         plugin.getEconomyManager().addGems(player, step.getGemReward());
 
-        // Étape 2.7 terminée: Retour au mode Adventure
-        if (step == JourneyStep.STEP_2_7) {
-            player.setGameMode(org.bukkit.GameMode.ADVENTURE);
-            player.sendMessage("§a§l✓ §7Mode Aventure restauré!");
-        }
-
         // Notification
         sendStepCompletedNotification(player, step);
 
@@ -588,13 +582,6 @@ public class JourneyManager {
         if (step.getType() == JourneyStep.StepType.DISCOVER_CHEST) {
             int targetZone = step.getTargetValue();
             mysteryChestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
-        }
-
-        // Étape 2.7: Aide Igor - Passer en mode Survival pour pouvoir casser le bois
-        if (step == JourneyStep.STEP_2_7) {
-            player.setGameMode(org.bukkit.GameMode.SURVIVAL);
-            player.sendMessage("§a§l✓ §7Mode Survie activé pour récolter du bois!");
-            player.sendMessage("§7Les bûches ne seront pas détruites, mais te donneront du bois livrable.");
         }
     }
 

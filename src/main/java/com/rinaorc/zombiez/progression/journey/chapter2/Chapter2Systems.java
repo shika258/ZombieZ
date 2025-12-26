@@ -66,6 +66,8 @@ public class Chapter2Systems implements Listener {
     private final NamespacedKey FIRE_ZOMBIE_KEY;
     private final NamespacedKey MANOR_BOSS_KEY;
     private final NamespacedKey BOSS_CONTRIBUTORS_KEY;
+    private final NamespacedKey SUPPLY_CRATE_KEY;
+    private final NamespacedKey CRATE_OWNER_KEY;
 
     // === POSITIONS ===
     private static final Location MINER_LOCATION = new Location(null, 1036.5, 82, 9627.5);
@@ -79,9 +81,14 @@ public class Chapter2Systems implements Listener {
     private Entity injuredMinerEntity;
     private Entity igorEntity;
     private Entity manorBossEntity;
-    private final Map<UUID, Integer> woodGivenByPlayer = new ConcurrentHashMap<>();
+    private final Map<UUID, List<Entity>> playerSupplyCrates = new ConcurrentHashMap<>(); // Caisses par joueur
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
+
+    // === SUPPLY CRATES CONFIG ===
+    private static final int SUPPLY_CRATE_COUNT = 5;
+    private static final double CRATE_SPAWN_RADIUS_MIN = 15.0;
+    private static final double CRATE_SPAWN_RADIUS_MAX = 40.0;
 
     // === BOSS DISPLAY ===
     private TextDisplay bossSpawnDisplay;
@@ -131,7 +138,8 @@ public class Chapter2Systems implements Listener {
         FIRE_ZOMBIE_KEY = new NamespacedKey(plugin, "fire_zombie");
         MANOR_BOSS_KEY = new NamespacedKey(plugin, "manor_boss");
         BOSS_CONTRIBUTORS_KEY = new NamespacedKey(plugin, "boss_contributors");
-        IGOR_LOG_KEY = new NamespacedKey(plugin, "igor_log");
+        SUPPLY_CRATE_KEY = new NamespacedKey(plugin, "supply_crate");
+        CRATE_OWNER_KEY = new NamespacedKey(plugin, "crate_owner");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -424,13 +432,10 @@ public class Chapter2Systems implements Listener {
         return false;
     }
 
-    // ==================== IGOR ET RÉCOLTE DE BOIS (ÉTAPE 7) ====================
-
-    // Clé PDC pour identifier les bûches livrables à Igor
-    private final NamespacedKey IGOR_LOG_KEY;
+    // ==================== IGOR ET CAISSES DE RAVITAILLEMENT (ÉTAPE 7) ====================
 
     /**
-     * Gère l'interaction avec Igor pour donner du bois
+     * Gère l'interaction avec Igor pour afficher la progression
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerInteractIgor(PlayerInteractEntityEvent event) {
@@ -450,139 +455,196 @@ public class Chapter2Systems implements Listener {
             return;
         }
 
-        // Compter les bûches pour Igor dans l'inventaire (item en main)
-        ItemStack handItem = player.getInventory().getItemInMainHand();
-        int woodCount = 0;
+        int currentProgress = journeyManager.getStepProgress(player, currentStep);
 
-        // Accepter uniquement les "Bûches pour Igor" (item spécial)
-        if (isIgorLog(handItem)) {
-            woodCount = handItem.getAmount();
-        }
-
-        if (woodCount == 0) {
-            int currentProgress = journeyManager.getStepProgress(player, currentStep);
+        if (currentProgress >= SUPPLY_CRATE_COUNT) {
             player.sendMessage("");
-            player.sendMessage("§6§lIgor: §f\"J'ai besoin de bûches de bois pour rebâtir mon village!\"");
-            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e8 §7bûches");
-            player.sendMessage("§8(Casse des bûches d'arbres pour récolter du bois)");
+            player.sendMessage("§6§lIgor: §f\"Merci infiniment! Grâce à ces ravitaillements, je peux tenir!\"");
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0);
             player.sendMessage("");
             return;
         }
 
-        // Calculer combien prendre
-        int currentProgress = journeyManager.getStepProgress(player, currentStep);
-        int needed = 8 - currentProgress;
-        int toTake = Math.min(woodCount, needed);
-
-        // Retirer les bûches
-        handItem.setAmount(handItem.getAmount() - toTake);
-
-        // Mettre à jour la progression
-        int newProgress = currentProgress + toTake;
-        journeyManager.updateProgress(player, JourneyStep.StepType.GIVE_WOOD_NPC, newProgress);
-
-        // Feedback
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 1f);
-        player.sendMessage("");
-        player.sendMessage("§a§l✓ §6Igor: §f\"Excellent! " + toTake + " bûche(s) de plus!\"");
-        player.sendMessage("§7Progression: §e" + newProgress + "§7/§e8 §7bûches");
-
-        if (newProgress >= 8) {
+        // Vérifier si les caisses ont été spawnées pour ce joueur
+        List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
+        if (crates == null || crates.isEmpty() || crates.stream().noneMatch(Entity::isValid)) {
+            // Spawner de nouvelles caisses
+            spawnSupplyCratesForPlayer(player);
             player.sendMessage("");
-            player.sendMessage("§6§lIgor: §f\"C'est parfait! Grâce à toi, je peux reconstruire!\"");
-            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0);
+            player.sendMessage("§6§lIgor: §f\"J'ai besoin de récupérer des caisses de ravitaillement!\"");
+            player.sendMessage("§7Des §ecaisses lumineuses §7sont apparues autour de moi.");
+            player.sendMessage("§7Trouve-les et §eclique dessus §7pour les récupérer!");
+            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
+            player.sendMessage("");
+        } else {
+            long remainingCrates = crates.stream().filter(Entity::isValid).count();
+            player.sendMessage("");
+            player.sendMessage("§6§lIgor: §f\"Il reste encore §e" + remainingCrates + " §fcaisse(s) à récupérer!\"");
+            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
+            player.sendMessage("§8(Cherche les caisses lumineuses autour de moi)");
+            player.sendMessage("");
         }
-        player.sendMessage("");
     }
 
     /**
-     * Vérifie si un item est une "Bûche pour Igor" (item spécial avec PDC)
+     * Spawn des caisses de ravitaillement autour d'Igor pour un joueur
+     * Chaque joueur a ses propres caisses (visibles par tous mais collectables par le propriétaire)
      */
-    private boolean isIgorLog(ItemStack item) {
-        if (item == null || item.getType() != Material.OAK_LOG) return false;
-        if (!item.hasItemMeta()) return false;
-        return item.getItemMeta().getPersistentDataContainer().has(IGOR_LOG_KEY, PersistentDataType.BYTE);
+    public void spawnSupplyCratesForPlayer(Player player) {
+        World world = player.getWorld();
+        Location igorLoc = IGOR_LOCATION.clone();
+        igorLoc.setWorld(world);
+
+        // Nettoyer les anciennes caisses du joueur
+        cleanupPlayerCrates(player.getUniqueId());
+
+        List<Entity> crates = new ArrayList<>();
+        int currentProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_2_7);
+        int cratesToSpawn = SUPPLY_CRATE_COUNT - currentProgress;
+
+        for (int i = 0; i < cratesToSpawn; i++) {
+            // Position aléatoire autour d'Igor
+            double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
+            double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
+            double x = igorLoc.getX() + Math.cos(angle) * distance;
+            double z = igorLoc.getZ() + Math.sin(angle) * distance;
+            double y = world.getHighestBlockYAt((int) x, (int) z) + 1;
+
+            Location spawnLoc = new Location(world, x, y, z);
+
+            // Créer la caisse comme ItemDisplay (plus visible et moderne)
+            ItemDisplay crate = world.spawn(spawnLoc, ItemDisplay.class, display -> {
+                // Item affiché: Chest
+                display.setItemStack(new ItemStack(Material.CHEST));
+
+                // Taille x1.5 pour visibilité
+                display.setTransformation(new org.bukkit.util.Transformation(
+                    new org.joml.Vector3f(0, 0.5f, 0),        // Translation (légèrement au-dessus du sol)
+                    new org.joml.AxisAngle4f(0, 0, 1, 0),     // Left rotation
+                    new org.joml.Vector3f(1.5f, 1.5f, 1.5f),  // Scale x1.5
+                    new org.joml.AxisAngle4f(0, 0, 1, 0)      // Right rotation
+                ));
+
+                // Billboard pour toujours faire face au joueur
+                display.setBillboard(Display.Billboard.VERTICAL);
+
+                // Glow effect pour visibilité
+                display.setGlowing(true);
+                display.setGlowColorOverride(Color.fromRGB(255, 200, 50)); // Jaune/Or
+
+                // Distance de vue
+                display.setViewRange(64f);
+
+                // Marquer comme caisse de ravitaillement
+                PersistentDataContainer pdc = display.getPersistentDataContainer();
+                pdc.set(SUPPLY_CRATE_KEY, PersistentDataType.BYTE, (byte) 1);
+                pdc.set(CRATE_OWNER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
+            });
+
+            crates.add(crate);
+
+            // Particules de spawn
+            world.spawnParticle(Particle.END_ROD, spawnLoc.clone().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.05);
+        }
+
+        playerSupplyCrates.put(player.getUniqueId(), crates);
+
+        // Son d'apparition
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.5f);
     }
 
     /**
-     * Gère la récolte de bois en cassant les arbres (mode Survival)
-     * Le bloc ne se casse pas réellement, mais donne un item livrable à Igor
+     * Gère l'interaction avec une caisse de ravitaillement
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent event) {
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onSupplyCrateInteract(PlayerInteractEntityEvent event) {
+        Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
-        Material blockType = event.getBlock().getType();
 
-        // Vérifier si c'est une bûche
-        if (!isLogBlock(blockType)) return;
+        // Vérifier si c'est une caisse de ravitaillement
+        PersistentDataContainer pdc = entity.getPersistentDataContainer();
+        if (!pdc.has(SUPPLY_CRATE_KEY, PersistentDataType.BYTE)) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        // Vérifier le propriétaire
+        String ownerUuid = pdc.get(CRATE_OWNER_KEY, PersistentDataType.STRING);
+        if (ownerUuid == null || !ownerUuid.equals(player.getUniqueId().toString())) {
+            player.sendMessage("§c§l✗ §7Cette caisse n'est pas pour toi!");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            return;
+        }
 
         // Vérifier si le joueur est à l'étape 7
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep == null || currentStep != JourneyStep.STEP_2_7) return;
-
-        // Annuler le cassage du bloc (préserver la map)
-        event.setCancelled(true);
-
-        // Cooldown pour éviter le spam
-        UUID uuid = player.getUniqueId();
-        if (isOnCooldown(uuid, "wood_harvest")) return;
-        setCooldown(uuid, "wood_harvest", 800); // 800ms cooldown
-
-        // Créer un item "Bûche pour Igor" spécial
-        ItemStack deliverableLog = createDeliverableLog();
-
-        // Ajouter à l'inventaire ou drop
-        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(deliverableLog);
-        if (!leftover.isEmpty()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), deliverableLog);
+        if (currentStep == null || currentStep != JourneyStep.STEP_2_7) {
+            player.sendMessage("§7Cette caisse ne t'est plus utile.");
+            return;
         }
 
-        // Effets visuels et sonores (simuler le cassage sans détruire)
-        Location blockLoc = event.getBlock().getLocation().add(0.5, 0.5, 0.5);
-        player.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 15, 0.3, 0.3, 0.3, 0, blockType.createBlockData());
-        player.playSound(blockLoc, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
+        // Collecter la caisse
+        Location crateLoc = entity.getLocation();
 
-        // Message
-        player.sendActionBar(Component.text("§a+1 §6Bûche pour Igor §7récoltée"));
+        // Effets visuels et sonores
+        player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, crateLoc.clone().add(0, 0.5, 0), 20, 0.5, 0.5, 0.5, 0);
+        player.getWorld().spawnParticle(Particle.ITEM_CHEST, crateLoc.clone().add(0, 0.5, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        player.playSound(crateLoc, Sound.ENTITY_ITEM_PICKUP, 1f, 1.2f);
+        player.playSound(crateLoc, Sound.BLOCK_CHEST_OPEN, 0.8f, 1.3f);
+
+        // Supprimer la caisse
+        entity.remove();
+
+        // Mettre à jour la progression
+        int progress = journeyManager.getStepProgress(player, currentStep);
+        journeyManager.updateProgress(player, JourneyStep.StepType.COLLECT_SUPPLY_CRATES, progress + 1);
+
+        // Nettoyer de la liste
+        List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
+        if (crates != null) {
+            crates.remove(entity);
+        }
+
+        // Feedback
+        int newProgress = progress + 1;
+        player.sendActionBar(Component.text("§a+1 §eCaisse récupérée §7(" + newProgress + "/" + SUPPLY_CRATE_COUNT + ")"));
+
+        if (newProgress >= SUPPLY_CRATE_COUNT) {
+            player.sendMessage("");
+            player.sendMessage("§a§l✓ §6Toutes les caisses récupérées!");
+            player.sendMessage("§7Retourne voir §eIgor §7pour terminer la quête.");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        }
     }
 
     /**
-     * Crée une bûche spéciale livrable à Igor
+     * Nettoie les caisses d'un joueur spécifique
      */
-    private ItemStack createDeliverableLog() {
-        ItemStack log = new ItemStack(Material.OAK_LOG);
-        var meta = log.getItemMeta();
-        if (meta != null) {
-            meta.displayName(Component.text("§6Bûche pour Igor", net.kyori.adventure.text.format.NamedTextColor.GOLD)
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            meta.lore(java.util.List.of(
-                    Component.text("§7Bois récolté pour aider Igor", net.kyori.adventure.text.format.NamedTextColor.GRAY)
-                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
-                    Component.text("§eClique sur Igor pour lui donner", net.kyori.adventure.text.format.NamedTextColor.YELLOW)
-                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
-            ));
-            // Marquer avec PDC pour identification
-            meta.getPersistentDataContainer().set(
-                    new NamespacedKey(plugin, "igor_log"),
-                    PersistentDataType.BYTE,
-                    (byte) 1
-            );
-            log.setItemMeta(meta);
+    private void cleanupPlayerCrates(UUID playerUuid) {
+        List<Entity> crates = playerSupplyCrates.remove(playerUuid);
+        if (crates != null) {
+            for (Entity crate : crates) {
+                if (crate != null && crate.isValid()) {
+                    crate.remove();
+                }
+            }
         }
-        return log;
     }
 
-    private boolean isLogBlock(Material type) {
-        return switch (type) {
-            case OAK_LOG, SPRUCE_LOG, BIRCH_LOG, JUNGLE_LOG,
-                 ACACIA_LOG, DARK_OAK_LOG, MANGROVE_LOG, CHERRY_LOG,
-                 CRIMSON_STEM, WARPED_STEM,
-                 STRIPPED_OAK_LOG, STRIPPED_SPRUCE_LOG, STRIPPED_BIRCH_LOG,
-                 STRIPPED_JUNGLE_LOG, STRIPPED_ACACIA_LOG, STRIPPED_DARK_OAK_LOG,
-                 STRIPPED_MANGROVE_LOG, STRIPPED_CHERRY_LOG,
-                 STRIPPED_CRIMSON_STEM, STRIPPED_WARPED_STEM -> true;
-            default -> false;
-        };
+    /**
+     * Nettoie toutes les caisses de ravitaillement (appelé au reload/disable)
+     */
+    public void cleanupAllSupplyCrates() {
+        for (List<Entity> crates : playerSupplyCrates.values()) {
+            for (Entity crate : crates) {
+                if (crate != null && crate.isValid()) {
+                    crate.remove();
+                }
+            }
+        }
+        playerSupplyCrates.clear();
     }
 
     // ==================== ZOMBIES INCENDIÉS (ÉTAPE 6) ====================
@@ -1034,5 +1096,6 @@ public class Chapter2Systems implements Listener {
         if (igorEntity != null) igorEntity.remove();
         if (manorBossEntity != null) manorBossEntity.remove();
         if (bossSpawnDisplay != null) bossSpawnDisplay.remove();
+        cleanupAllSupplyCrates(); // Nettoyer toutes les caisses de ravitaillement
     }
 }
