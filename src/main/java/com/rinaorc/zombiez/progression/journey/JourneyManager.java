@@ -571,6 +571,16 @@ public class JourneyManager {
                 plugin.getLogger().info("[Journey] Reset exploration zone 1 pour " + player.getName());
             }
         }
+
+        // Pour les étapes DISCOVER_CHEST: reset le coffre de la zone cible
+        // Évite que les coffres découverts AVANT le déblocage de l'étape soient comptés
+        if (step.getType() == JourneyStep.StepType.DISCOVER_CHEST) {
+            MysteryChestManager chestManager = plugin.getMysteryChestManager();
+            if (chestManager != null) {
+                int targetZone = step.getTargetValue();
+                chestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
+            }
+        }
     }
 
     /**
