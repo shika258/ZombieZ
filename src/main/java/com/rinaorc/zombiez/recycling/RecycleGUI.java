@@ -32,6 +32,7 @@ public class RecycleGUI implements Listener {
 
     // Slots pour chaque élément
     private static final int SLOT_TOGGLE_MAIN = 4;        // Toggle principal
+    private static final int SLOT_TOGGLE_CONSUMABLES = 39; // Toggle consommables
     private static final int SLOT_STATS = 40;             // Statistiques
 
     // Slots pour les raretés (ligne du milieu)
@@ -145,6 +146,31 @@ public class RecycleGUI implements Listener {
                 .build());
         }
 
+        // Toggle consommables (slot 39)
+        boolean consumablesEnabled = settings.isRecycleConsumablesEnabled();
+        inv.setItem(SLOT_TOGGLE_CONSUMABLES, new ItemBuilder(consumablesEnabled ? Material.BREWING_STAND : Material.GLASS_BOTTLE)
+            .name(consumablesEnabled ? "§a§l✓ CONSOMMABLES ACTIVÉS" : "§c§l✗ CONSOMMABLES DÉSACTIVÉS")
+            .lore(
+                "",
+                "§7Recycle automatiquement les",
+                "§7consommables (grenades, soins,",
+                "§7jetpacks, etc.) en points.",
+                "",
+                "§6⚡ Points par rareté:",
+                "  §f• Commun: §e3 pts §7(base)",
+                "  §a• Peu Commun: §e8 pts §7(base)",
+                "  §9• Rare: §e20 pts §7(base)",
+                "  §5• Épique: §e50 pts §7(base)",
+                "  §6• Légendaire: §e150 pts §7(base)",
+                "",
+                "§7Les points augmentent",
+                "§7selon la zone de l'item.",
+                "",
+                consumablesEnabled ? "§cClic pour désactiver" : "§aClic pour activer"
+            )
+            .glow(consumablesEnabled)
+            .build());
+
         // Statistiques (slot 40)
         inv.setItem(SLOT_STATS, new ItemBuilder(Material.GOLD_INGOT)
             .name("§6§l📊 Statistiques")
@@ -158,7 +184,8 @@ public class RecycleGUI implements Listener {
                 "  §fItems recyclés: §e" + settings.getTotalItemsRecycled().get(),
                 "  §fPoints gagnés: §6" + formatPoints(settings.getTotalPointsEarned().get()),
                 "",
-                "§7Raretés activées: §f" + settings.getEnabledRaritiesCount() + "/7"
+                "§7Raretés activées: §f" + settings.getEnabledRaritiesCount() + "/7",
+                "§7Consommables: " + (consumablesEnabled ? "§aActivé" : "§cDésactivé")
             )
             .build());
 
@@ -260,6 +287,30 @@ public class RecycleGUI implements Listener {
                 player.sendMessage("§7Les items des raretés sélectionnées seront recyclés au ramassage.");
             } else {
                 player.sendMessage("§c§l♻ §cRecyclage automatique §ldésactivé§c.");
+            }
+
+            // Rafraîchir le menu
+            open(player);
+            return;
+        }
+
+        // Toggle consommables
+        if (slot == SLOT_TOGGLE_CONSUMABLES) {
+            boolean newState = !settings.isRecycleConsumablesEnabled();
+            settings.setRecycleConsumablesEnabled(newState);
+
+            // Synchroniser immédiatement vers PlayerData
+            recycleManager.syncToPlayerData(player.getUniqueId());
+
+            player.playSound(player.getLocation(),
+                newState ? Sound.BLOCK_NOTE_BLOCK_PLING : Sound.BLOCK_NOTE_BLOCK_BASS,
+                0.5f, newState ? 1.3f : 0.9f);
+
+            if (newState) {
+                player.sendMessage("§a§l♻ §aRecyclage des consommables §lactivé§a!");
+                player.sendMessage("§7Les grenades, soins, jetpacks seront recyclés au ramassage.");
+            } else {
+                player.sendMessage("§c§l♻ §cRecyclage des consommables §ldésactivé§c.");
             }
 
             // Rafraîchir le menu

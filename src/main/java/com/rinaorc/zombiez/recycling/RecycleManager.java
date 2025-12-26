@@ -1,6 +1,8 @@
 package com.rinaorc.zombiez.recycling;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableRarity;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
@@ -50,6 +52,15 @@ public class RecycleManager implements Listener {
         100,    // LEGENDARY (0.9% drop) - 2.5x epic
         300,    // MYTHIC (0.1% drop) - 3x legendary
         1000    // EXALTED (0.01% drop) - 3.3x mythic
+    };
+
+    // Points de base pour les consommables par rareté
+    public static final int[] CONSUMABLE_POINTS_BY_RARITY = {
+        3,      // COMMON - Légèrement plus que les items normaux
+        8,      // UNCOMMON
+        20,     // RARE
+        50,     // EPIC
+        150     // LEGENDARY
     };
 
     public RecycleManager(ZombieZPlugin plugin) {
@@ -107,6 +118,65 @@ public class RecycleManager implements Listener {
         double zoneMultiplier = 1.0 + (zoneLevel * 0.15);
 
         return (int) Math.round(basePoints * zoneMultiplier);
+    }
+
+    /**
+     * Calcule les points de recyclage pour un consommable
+     *
+     * @param rarity Rareté du consommable
+     * @param zoneLevel Niveau de zone du consommable
+     * @return Points gagnés
+     */
+    public int calculateConsumableRecyclePoints(ConsumableRarity rarity, int zoneLevel) {
+        int basePoints = CONSUMABLE_POINTS_BY_RARITY[rarity.ordinal()];
+
+        // Multiplicateur de zone: progression significative
+        double zoneMultiplier = 1.0 + (zoneLevel * 0.15);
+
+        return (int) Math.round(basePoints * zoneMultiplier);
+    }
+
+    /**
+     * Recycle un consommable et donne les points au joueur
+     *
+     * @param player Le joueur qui recycle
+     * @param item L'ItemStack consommable à recycler
+     * @return Les points gagnés, ou 0 si non recyclable
+     */
+    public int recycleConsumable(Player player, ItemStack item) {
+        Consumable consumable = Consumable.fromItemStack(item);
+        if (consumable == null) {
+            return 0;
+        }
+
+        int points = calculateConsumableRecyclePoints(consumable.getRarity(), consumable.getZoneId());
+
+        // Appliquer le multiplicateur VIP si applicable
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        if (playerData != null) {
+            double vipMultiplier = playerData.getPointsMultiplier();
+            points = (int) Math.round(points * vipMultiplier);
+
+            // Ajouter les points au joueur
+            playerData.addPoints(points);
+            playerData.addTotalPointsEarned(points);
+
+            // Mettre à jour les stats de recyclage
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            settings.addRecycledItem(points);
+
+            // Vérifier les milestones
+            checkAndAwardMilestones(player, settings, points);
+
+            // Tracker pour le parcours (Journey)
+            notifyJourneyProgress(player, settings);
+
+            // Tracker pour la mission ITEMS_RECYCLED
+            plugin.getMissionManager().updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ITEMS_RECYCLED, 1);
+        }
+
+        return points;
     }
 
     /**
@@ -260,7 +330,24 @@ public class RecycleManager implements Listener {
 
         ItemStack item = event.getItem().getItemStack();
 
-        // Vérifier si c'est un item ZombieZ
+        // Vérifier si c'est un consommable ZombieZ
+        if (Consumable.isConsumable(item)) {
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            if (settings.shouldRecycleConsumables()) {
+                int points = recycleConsumable(player, item);
+                if (points > 0) {
+                    event.setCancelled(true);
+                    event.getItem().remove();
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
+                    return;
+                }
+            }
+            // Pas recyclé, vérifier l'inventaire
+            checkInventoryFullReminder(player);
+            return;
+        }
+
+        // Vérifier si c'est un item ZombieZ (non-consommable)
         if (!ZombieZItem.isZombieZItem(item)) {
             return;
         }
@@ -459,22 +546,38 @@ public class RecycleManager implements Listener {
                 continue;
             }
 
-            // Vérifier si c'est un item ZombieZ recyclable
-            if (!ZombieZItem.isZombieZItem(item)) {
-                continue;
-            }
-
-            Rarity rarity = ZombieZItem.getItemRarity(item);
-            if (rarity == null || !settings.shouldRecycle(rarity)) {
-                continue;
-            }
-
-            // Calculer les points UNE SEULE FOIS pour le stack entier
-            int zoneLevel = ZombieZItem.getItemZoneLevel(item);
-            int pointsPerItem = calculateRecyclePoints(rarity, zoneLevel);
-            pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
-
+            int pointsPerItem = 0;
             int amount = item.getAmount();
+
+            // Vérifier si c'est un consommable
+            if (Consumable.isConsumable(item)) {
+                if (!settings.shouldRecycleConsumables()) {
+                    continue;
+                }
+                Consumable consumable = Consumable.fromItemStack(item);
+                if (consumable != null) {
+                    pointsPerItem = calculateConsumableRecyclePoints(consumable.getRarity(), consumable.getZoneId());
+                    pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+                }
+            }
+            // Sinon, vérifier si c'est un item ZombieZ recyclable
+            else if (ZombieZItem.isZombieZItem(item)) {
+                Rarity rarity = ZombieZItem.getItemRarity(item);
+                if (rarity == null || !settings.shouldRecycle(rarity)) {
+                    continue;
+                }
+
+                int zoneLevel = ZombieZItem.getItemZoneLevel(item);
+                pointsPerItem = calculateRecyclePoints(rarity, zoneLevel);
+                pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+            } else {
+                continue;
+            }
+
+            if (pointsPerItem <= 0) {
+                continue;
+            }
+
             int stackPoints = pointsPerItem * amount;
 
             totalPoints += stackPoints;

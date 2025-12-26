@@ -28,8 +28,8 @@ public class MissionManager {
     private final Map<UUID, PlayerMissions> playerMissions;
     
     // Configuration
-    private static final int DAILY_MISSION_COUNT = 3;
-    private static final int WEEKLY_MISSION_COUNT = 5;
+    private static final int DAILY_MISSION_COUNT = 7;
+    private static final int WEEKLY_MISSION_COUNT = 21;
     private static final LocalTime DAILY_RESET_TIME = LocalTime.of(0, 0);
     private static final DayOfWeek WEEKLY_RESET_DAY = DayOfWeek.MONDAY;
     
@@ -48,9 +48,9 @@ public class MissionManager {
      * Enregistre toutes les missions disponibles
      */
     private void registerAllMissions() {
-        // ============ MISSIONS JOURNALIÈRES ============
-        
-        // Combat
+        // ============ MISSIONS JOURNALIÈRES (25 missions) ============
+
+        // === COMBAT (10 missions) ===
         register(Mission.builder()
             .id("daily_kill_50")
             .name("Chasseur")
@@ -64,7 +64,7 @@ public class MissionManager {
             .xpReward(50)
             .difficulty(1)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_kill_100")
             .name("Exterminateur")
@@ -78,7 +78,7 @@ public class MissionManager {
             .xpReward(100)
             .difficulty(2)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_elite_5")
             .name("Chasseur d'Élites")
@@ -92,7 +92,7 @@ public class MissionManager {
             .xpReward(150)
             .difficulty(3)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_headshots_20")
             .name("Tireur d'Élite")
@@ -106,7 +106,7 @@ public class MissionManager {
             .xpReward(125)
             .difficulty(3)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_no_damage_10")
             .name("Intouchable")
@@ -120,8 +120,78 @@ public class MissionManager {
             .xpReward(200)
             .difficulty(4)
             .build());
-        
-        // Exploration
+
+        register(Mission.builder()
+            .id("daily_crit_kills_15")
+            .name("Coup Fatal")
+            .description("Tue 15 zombies avec un coup critique")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.DIAMOND_AXE)
+            .goal(15)
+            .tracker(MissionTracker.CRIT_KILLS)
+            .pointReward(250)
+            .xpReward(125)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_ranged_kills_30")
+            .name("Archer")
+            .description("Tue 30 zombies à distance")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.CROSSBOW)
+            .goal(30)
+            .tracker(MissionTracker.RANGED_KILLS)
+            .pointReward(200)
+            .xpReward(100)
+            .difficulty(2)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_melee_kills_50")
+            .name("Berserker")
+            .description("Tue 50 zombies au corps à corps")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.NETHERITE_AXE)
+            .goal(50)
+            .tracker(MissionTracker.MELEE_KILLS)
+            .pointReward(150)
+            .xpReward(75)
+            .difficulty(2)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_night_kills_25")
+            .name("Noctambule")
+            .description("Tue 25 zombies pendant la nuit")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.ENDER_EYE)
+            .goal(25)
+            .tracker(MissionTracker.NIGHT_KILLS)
+            .pointReward(300)
+            .xpReward(150)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_streak_20")
+            .name("Inarrêtable")
+            .description("Atteins une série de 20 kills sans mourir")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.BLAZE_POWDER)
+            .goal(20)
+            .tracker(MissionTracker.KILLS_IN_STREAK)
+            .pointReward(350)
+            .xpReward(175)
+            .difficulty(4)
+            .build());
+
+        // === EXPLORATION (5 missions) ===
         register(Mission.builder()
             .id("daily_zones_3")
             .name("Explorateur")
@@ -135,7 +205,7 @@ public class MissionManager {
             .xpReward(75)
             .difficulty(2)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_night_survive")
             .name("Marcheur Nocturne")
@@ -149,7 +219,7 @@ public class MissionManager {
             .xpReward(100)
             .difficulty(2)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_distance_1000")
             .name("Marathonien")
@@ -163,8 +233,36 @@ public class MissionManager {
             .xpReward(50)
             .difficulty(1)
             .build());
-        
-        // Collection
+
+        register(Mission.builder()
+            .id("daily_refuge_visit")
+            .name("Voyageur")
+            .description("Visite 2 refuges différents")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.CAMPFIRE)
+            .goal(2)
+            .tracker(MissionTracker.REFUGES_VISITED)
+            .pointReward(150)
+            .xpReward(75)
+            .difficulty(2)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_danger_zone_5min")
+            .name("Téméraire")
+            .description("Passe 5 minutes dans une zone dangereuse")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.FIRE_CHARGE)
+            .goal(300)
+            .tracker(MissionTracker.TIME_IN_DANGER_ZONE)
+            .pointReward(350)
+            .xpReward(175)
+            .difficulty(4)
+            .build());
+
+        // === COLLECTION (5 missions) ===
         register(Mission.builder()
             .id("daily_loot_10")
             .name("Pilleur")
@@ -178,7 +276,7 @@ public class MissionManager {
             .xpReward(50)
             .difficulty(1)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_rare_1")
             .name("Trouveur")
@@ -192,7 +290,7 @@ public class MissionManager {
             .xpReward(150)
             .difficulty(3)
             .build());
-        
+
         register(Mission.builder()
             .id("daily_points_500")
             .name("Économiste")
@@ -206,8 +304,36 @@ public class MissionManager {
             .xpReward(50)
             .difficulty(1)
             .build());
-        
-        // Social
+
+        register(Mission.builder()
+            .id("daily_consumable_3")
+            .name("Survivaliste")
+            .description("Utilise 3 consommables")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.POTION)
+            .goal(3)
+            .tracker(MissionTracker.CONSUMABLES_USED)
+            .pointReward(150)
+            .xpReward(75)
+            .difficulty(2)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_recycle_5")
+            .name("Recycleur")
+            .description("Recycle 5 items")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.GRINDSTONE)
+            .goal(5)
+            .tracker(MissionTracker.ITEMS_RECYCLED)
+            .pointReward(100)
+            .xpReward(50)
+            .difficulty(1)
+            .build());
+
+        // === SOCIAL (3 missions) ===
         register(Mission.builder()
             .id("daily_trade_1")
             .name("Marchand")
@@ -221,23 +347,67 @@ public class MissionManager {
             .xpReward(100)
             .difficulty(2)
             .build());
-        
+
         register(Mission.builder()
-            .id("daily_group_kill")
+            .id("daily_group_kills_10")
             .name("Travail d'Équipe")
-            .description("Tue un zombie avec un autre joueur à proximité")
+            .description("Tue 10 zombies avec d'autres joueurs")
             .type(MissionType.DAILY)
             .category(MissionCategory.SOCIAL)
             .icon(Material.PLAYER_HEAD)
-            .goal(1)
+            .goal(10)
             .tracker(MissionTracker.GROUP_KILLS)
-            .pointReward(150)
-            .xpReward(75)
+            .pointReward(250)
+            .xpReward(125)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_assists_5")
+            .name("Soutien")
+            .description("Assiste 5 kills d'autres joueurs")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.SOCIAL)
+            .icon(Material.SHIELD)
+            .goal(5)
+            .tracker(MissionTracker.ASSISTS)
+            .pointReward(200)
+            .xpReward(100)
             .difficulty(2)
             .build());
-        
-        // ============ MISSIONS HEBDOMADAIRES ============
-        
+
+        // === EVENTS (2 missions) ===
+        register(Mission.builder()
+            .id("daily_event_1")
+            .name("Chasseur d'Événements")
+            .description("Participe à un événement dynamique")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.BEACON)
+            .goal(1)
+            .tracker(MissionTracker.EVENTS_PARTICIPATED)
+            .pointReward(300)
+            .xpReward(150)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("daily_micro_event_2")
+            .name("Opportuniste")
+            .description("Complète 2 micro-événements")
+            .type(MissionType.DAILY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.LIGHTNING_ROD)
+            .goal(2)
+            .tracker(MissionTracker.MICRO_EVENTS_COMPLETED)
+            .pointReward(250)
+            .xpReward(125)
+            .difficulty(3)
+            .build());
+
+        // ============ MISSIONS HEBDOMADAIRES (35 missions) ============
+
+        // === COMBAT (12 missions) ===
         register(Mission.builder()
             .id("weekly_kill_500")
             .name("Fléau des Zombies")
@@ -252,7 +422,7 @@ public class MissionManager {
             .gemReward(10)
             .difficulty(3)
             .build());
-        
+
         register(Mission.builder()
             .id("weekly_kill_1000")
             .name("Légende Vivante")
@@ -267,7 +437,22 @@ public class MissionManager {
             .gemReward(25)
             .difficulty(4)
             .build());
-        
+
+        register(Mission.builder()
+            .id("weekly_kill_2000")
+            .name("Apocalypse")
+            .description("Tue 2000 zombies")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.WITHER_SKELETON_SKULL)
+            .goal(2000)
+            .tracker(MissionTracker.ZOMBIE_KILLS)
+            .pointReward(5000)
+            .xpReward(2000)
+            .gemReward(50)
+            .difficulty(5)
+            .build());
+
         register(Mission.builder()
             .id("weekly_boss_3")
             .name("Tueur de Boss")
@@ -282,7 +467,128 @@ public class MissionManager {
             .gemReward(20)
             .difficulty(4)
             .build());
-        
+
+        register(Mission.builder()
+            .id("weekly_boss_10")
+            .name("Fléau des Titans")
+            .description("Tue 10 boss")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.DRAGON_HEAD)
+            .goal(10)
+            .tracker(MissionTracker.BOSS_KILLS)
+            .pointReward(5000)
+            .xpReward(2000)
+            .gemReward(50)
+            .difficulty(5)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_elite_30")
+            .name("Purificateur")
+            .description("Tue 30 zombies élites")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.GOLDEN_SWORD)
+            .goal(30)
+            .tracker(MissionTracker.ELITE_KILLS)
+            .pointReward(1500)
+            .xpReward(750)
+            .gemReward(15)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_headshots_100")
+            .name("Maître Tireur")
+            .description("Fais 100 headshots")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.SPECTRAL_ARROW)
+            .goal(100)
+            .tracker(MissionTracker.HEADSHOTS)
+            .pointReward(1200)
+            .xpReward(600)
+            .gemReward(12)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_crit_100")
+            .name("Exécuteur")
+            .description("Tue 100 zombies avec des coups critiques")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.DIAMOND_AXE)
+            .goal(100)
+            .tracker(MissionTracker.CRIT_KILLS)
+            .pointReward(1200)
+            .xpReward(600)
+            .gemReward(12)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_streak_50")
+            .name("Invincible")
+            .description("Atteins une série de 50 kills sans mourir")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.TOTEM_OF_UNDYING)
+            .goal(50)
+            .tracker(MissionTracker.KILLS_IN_STREAK)
+            .pointReward(2000)
+            .xpReward(1000)
+            .gemReward(20)
+            .difficulty(5)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_night_kills_150")
+            .name("Cauchemar Nocturne")
+            .description("Tue 150 zombies pendant la nuit")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.ENDER_EYE)
+            .goal(150)
+            .tracker(MissionTracker.NIGHT_KILLS)
+            .pointReward(1500)
+            .xpReward(750)
+            .gemReward(15)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_ranged_200")
+            .name("Sniper")
+            .description("Tue 200 zombies à distance")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.CROSSBOW)
+            .goal(200)
+            .tracker(MissionTracker.RANGED_KILLS)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_melee_300")
+            .name("Gladiateur")
+            .description("Tue 300 zombies au corps à corps")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COMBAT)
+            .icon(Material.NETHERITE_AXE)
+            .goal(300)
+            .tracker(MissionTracker.MELEE_KILLS)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
+        // === EXPLORATION (6 missions) ===
         register(Mission.builder()
             .id("weekly_all_zones")
             .name("Grand Explorateur")
@@ -297,22 +603,98 @@ public class MissionManager {
             .gemReward(15)
             .difficulty(3)
             .build());
-        
+
         register(Mission.builder()
-            .id("weekly_blood_moon")
-            .name("Survivant Blood Moon")
-            .description("Survie à une Blood Moon")
+            .id("weekly_distance_10k")
+            .name("Vagabond")
+            .description("Parcours 10 000 blocs")
             .type(MissionType.WEEKLY)
-            .category(MissionCategory.EVENTS)
-            .icon(Material.REDSTONE_BLOCK)
-            .goal(1)
-            .tracker(MissionTracker.BLOOD_MOONS_SURVIVED)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.DIAMOND_BOOTS)
+            .goal(10000)
+            .tracker(MissionTracker.DISTANCE_TRAVELED)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_nights_7")
+            .name("Roi de la Nuit")
+            .description("Survie 7 nuits complètes")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.BLACK_CANDLE)
+            .goal(7)
+            .tracker(MissionTracker.NIGHTS_SURVIVED)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_refuges_all")
+            .name("Nomade")
+            .description("Visite tous les refuges")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.CAMPFIRE)
+            .goal(10)
+            .tracker(MissionTracker.REFUGES_VISITED)
+            .pointReward(1200)
+            .xpReward(600)
+            .gemReward(12)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_danger_zone_30min")
+            .name("Casse-cou")
+            .description("Passe 30 minutes en zones dangereuses")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.FIRE_CHARGE)
+            .goal(1800)
+            .tracker(MissionTracker.TIME_IN_DANGER_ZONE)
             .pointReward(2000)
             .xpReward(1000)
-            .gemReward(25)
+            .gemReward(20)
+            .difficulty(5)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_distance_25k")
+            .name("Globe-trotter")
+            .description("Parcours 25 000 blocs")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EXPLORATION)
+            .icon(Material.ELYTRA)
+            .goal(25000)
+            .tracker(MissionTracker.DISTANCE_TRAVELED)
+            .pointReward(2000)
+            .xpReward(1000)
+            .gemReward(20)
             .difficulty(4)
             .build());
-        
+
+        // === COLLECTION (6 missions) ===
+        register(Mission.builder()
+            .id("weekly_loot_100")
+            .name("Accumulateur")
+            .description("Ramasse 100 items")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.ENDER_CHEST)
+            .goal(100)
+            .tracker(MissionTracker.ITEMS_LOOTED)
+            .pointReward(800)
+            .xpReward(400)
+            .gemReward(8)
+            .difficulty(2)
+            .build());
+
         register(Mission.builder()
             .id("weekly_epic_items_3")
             .name("Chasseur de Trésors")
@@ -327,22 +709,68 @@ public class MissionManager {
             .gemReward(15)
             .difficulty(4)
             .build());
-        
+
         register(Mission.builder()
-            .id("weekly_level_5")
-            .name("Progression")
-            .description("Gagne 5 niveaux")
+            .id("weekly_legendary_1")
+            .name("Légendaire")
+            .description("Trouve un item Légendaire")
             .type(MissionType.WEEKLY)
-            .category(MissionCategory.PROGRESSION)
-            .icon(Material.EXPERIENCE_BOTTLE)
-            .goal(5)
-            .tracker(MissionTracker.LEVELS_GAINED)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.NETHER_STAR)
+            .goal(1)
+            .tracker(MissionTracker.LEGENDARY_ITEMS_FOUND)
+            .pointReward(2500)
+            .xpReward(1000)
+            .gemReward(25)
+            .difficulty(5)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_points_5000")
+            .name("Capitaliste")
+            .description("Gagne 5000 points")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.GOLD_BLOCK)
+            .goal(5000)
+            .tracker(MissionTracker.POINTS_EARNED)
             .pointReward(1000)
             .xpReward(500)
             .gemReward(10)
             .difficulty(3)
             .build());
-        
+
+        register(Mission.builder()
+            .id("weekly_consumables_20")
+            .name("Apothicaire")
+            .description("Utilise 20 consommables")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.BREWING_STAND)
+            .goal(20)
+            .tracker(MissionTracker.CONSUMABLES_USED)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_recycle_50")
+            .name("Écologiste")
+            .description("Recycle 50 items")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.COLLECTION)
+            .icon(Material.GRINDSTONE)
+            .goal(50)
+            .tracker(MissionTracker.ITEMS_RECYCLED)
+            .pointReward(800)
+            .xpReward(400)
+            .gemReward(8)
+            .difficulty(2)
+            .build());
+
+        // === SOCIAL (4 missions) ===
         register(Mission.builder()
             .id("weekly_trades_10")
             .name("Maître Marchand")
@@ -357,7 +785,129 @@ public class MissionManager {
             .gemReward(10)
             .difficulty(3)
             .build());
-        
+
+        register(Mission.builder()
+            .id("weekly_group_kills_100")
+            .name("Frères d'Armes")
+            .description("Tue 100 zombies avec d'autres joueurs")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.SOCIAL)
+            .icon(Material.PLAYER_HEAD)
+            .goal(100)
+            .tracker(MissionTracker.GROUP_KILLS)
+            .pointReward(1500)
+            .xpReward(750)
+            .gemReward(15)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_party_kills_200")
+            .name("Escouade Mortelle")
+            .description("Tue 200 zombies en groupe")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.SOCIAL)
+            .icon(Material.GOLDEN_HELMET)
+            .goal(200)
+            .tracker(MissionTracker.PARTY_KILLS)
+            .pointReward(2000)
+            .xpReward(1000)
+            .gemReward(20)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_assists_30")
+            .name("Ange Gardien")
+            .description("Assiste 30 kills d'autres joueurs")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.SOCIAL)
+            .icon(Material.SHIELD)
+            .goal(30)
+            .tracker(MissionTracker.ASSISTS)
+            .pointReward(1200)
+            .xpReward(600)
+            .gemReward(12)
+            .difficulty(3)
+            .build());
+
+        // === EVENTS (4 missions) ===
+        register(Mission.builder()
+            .id("weekly_blood_moon")
+            .name("Survivant Blood Moon")
+            .description("Survie à une Blood Moon")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.REDSTONE_BLOCK)
+            .goal(1)
+            .tracker(MissionTracker.BLOOD_MOONS_SURVIVED)
+            .pointReward(2000)
+            .xpReward(1000)
+            .gemReward(25)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_blood_moon_3")
+            .name("Lunatic")
+            .description("Survie à 3 Blood Moons")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.CRYING_OBSIDIAN)
+            .goal(3)
+            .tracker(MissionTracker.BLOOD_MOONS_SURVIVED)
+            .pointReward(4000)
+            .xpReward(2000)
+            .gemReward(40)
+            .difficulty(5)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_events_5")
+            .name("Acteur de l'Ombre")
+            .description("Participe à 5 événements dynamiques")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.BEACON)
+            .goal(5)
+            .tracker(MissionTracker.EVENTS_PARTICIPATED)
+            .pointReward(1500)
+            .xpReward(750)
+            .gemReward(15)
+            .difficulty(4)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_micro_events_10")
+            .name("Réactif")
+            .description("Complète 10 micro-événements")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.EVENTS)
+            .icon(Material.LIGHTNING_ROD)
+            .goal(10)
+            .tracker(MissionTracker.MICRO_EVENTS_COMPLETED)
+            .pointReward(1200)
+            .xpReward(600)
+            .gemReward(12)
+            .difficulty(3)
+            .build());
+
+        // === PROGRESSION (3 missions) ===
+        register(Mission.builder()
+            .id("weekly_level_5")
+            .name("Montée en Puissance")
+            .description("Gagne 5 niveaux")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.PROGRESSION)
+            .icon(Material.EXPERIENCE_BOTTLE)
+            .goal(5)
+            .tracker(MissionTracker.LEVELS_GAINED)
+            .pointReward(1000)
+            .xpReward(500)
+            .gemReward(10)
+            .difficulty(3)
+            .build());
+
         register(Mission.builder()
             .id("weekly_playtime_10h")
             .name("Dédié")
@@ -371,6 +921,21 @@ public class MissionManager {
             .xpReward(600)
             .gemReward(15)
             .difficulty(3)
+            .build());
+
+        register(Mission.builder()
+            .id("weekly_daily_missions_21")
+            .name("Assidu")
+            .description("Complète 21 missions journalières")
+            .type(MissionType.WEEKLY)
+            .category(MissionCategory.PROGRESSION)
+            .icon(Material.WRITABLE_BOOK)
+            .goal(21)
+            .tracker(MissionTracker.DAILY_MISSIONS_COMPLETED)
+            .pointReward(2000)
+            .xpReward(1000)
+            .gemReward(20)
+            .difficulty(4)
             .build());
     }
 
@@ -646,23 +1211,56 @@ public class MissionManager {
      * Trackers de missions
      */
     public enum MissionTracker {
+        // Combat de base
         ZOMBIE_KILLS,
         ELITE_KILLS,
         BOSS_KILLS,
         HEADSHOTS,
         KILLS_NO_DAMAGE,
+        GROUP_KILLS,
+
+        // Combat avancé
+        CRIT_KILLS,           // Kills avec coup critique
+        RANGED_KILLS,         // Kills à distance (arc)
+        MELEE_KILLS,          // Kills au corps à corps
+        NIGHT_KILLS,          // Kills pendant la nuit
+        KILLS_IN_STREAK,      // Kills sans mourir
+        QUICK_KILLS,          // Kills rapides (X en 30sec)
+        DIFFERENT_ZOMBIE_TYPES, // Types de zombies différents tués
+        DAMAGE_DEALT,         // Dégâts infligés
+
+        // Exploration
         ZONES_VISITED,
         NIGHTS_SURVIVED,
         DISTANCE_TRAVELED,
+        REFUGES_VISITED,      // Refuges découverts/visités
+        TIME_IN_DANGER_ZONE,  // Temps passé en zone dangereuse
+
+        // Collection
         ITEMS_LOOTED,
         RARE_ITEMS_FOUND,
         EPIC_ITEMS_FOUND,
+        LEGENDARY_ITEMS_FOUND, // Items légendaires
         POINTS_EARNED,
+        CONSUMABLES_USED,     // Consommables utilisés
+        ITEMS_RECYCLED,       // Items recyclés
+
+        // Social & Événements
         TRADES_COMPLETED,
-        GROUP_KILLS,
         BLOOD_MOONS_SURVIVED,
+        EVENTS_PARTICIPATED,  // Participation aux événements dynamiques
+        MICRO_EVENTS_COMPLETED, // Micro-événements complétés
+        PARTY_KILLS,          // Kills en groupe/party
+        ASSISTS,              // Assistances
+
+        // Progression
         LEVELS_GAINED,
-        PLAYTIME
+        PLAYTIME,
+        DAILY_MISSIONS_COMPLETED, // Missions journalières complétées
+        ACHIEVEMENTS_UNLOCKED,    // Achievements débloqués
+        TALENTS_USED,            // Utilisations de talents
+        DEATHS,                  // Morts (pour les défis inversés)
+        RESPAWNS_AT_REFUGE       // Respawn au refuge
     }
 
     /**

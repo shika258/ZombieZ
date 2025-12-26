@@ -90,10 +90,10 @@ public class ZoneManager {
         var world = Bukkit.getWorld(worldName);
         if (world == null) world = Bukkit.getWorlds().get(0);
 
-        double x = config.getDouble("gameplay.spawn.x", 621);
-        double y = config.getDouble("gameplay.spawn.y", 70);
-        double z = config.getDouble("gameplay.spawn.z", 10300);
-        float yaw = (float) config.getDouble("gameplay.spawn.yaw", 0);
+        double x = config.getDouble("gameplay.spawn.x", 728.5);
+        double y = config.getDouble("gameplay.spawn.y", 95);
+        double z = config.getDouble("gameplay.spawn.z", 9979.5);
+        float yaw = (float) config.getDouble("gameplay.spawn.yaw", 180);
         float pitch = (float) config.getDouble("gameplay.spawn.pitch", 0);
 
         spawnLocation = new Location(world, x, y, z, yaw, pitch);

@@ -499,12 +499,6 @@ public class JourneyManager {
         plugin.getEconomyManager().addPoints(player, step.getPointReward());
         plugin.getEconomyManager().addGems(player, step.getGemReward());
 
-        // Étape 2.7 terminée: Retour au mode Adventure
-        if (step == JourneyStep.STEP_2_7) {
-            player.setGameMode(org.bukkit.GameMode.ADVENTURE);
-            player.sendMessage("§a§l✓ §7Mode Aventure restauré!");
-        }
-
         // Notification
         sendStepCompletedNotification(player, step);
 
@@ -558,7 +552,7 @@ public class JourneyManager {
      * Ex: Spawn d'animaux pour l'étape de chasse, reset exploration, etc.
      */
     private void triggerStepStartEffects(Player player, JourneyStep step) {
-        // Étape 1.6: Chasser 3 animaux - Spawn 3 animaux aléatoires autour du joueur
+        // Étape 1.6: Chasser 1 animal - Spawn 1 animal aléatoire autour du joueur
         if (step == JourneyStep.STEP_1_6) {
             spawnAnimalsForHuntingStep(player);
         }
@@ -589,17 +583,10 @@ public class JourneyManager {
             int targetZone = step.getTargetValue();
             mysteryChestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
         }
-
-        // Étape 2.7: Aide Igor - Passer en mode Survival pour pouvoir casser le bois
-        if (step == JourneyStep.STEP_2_7) {
-            player.setGameMode(org.bukkit.GameMode.SURVIVAL);
-            player.sendMessage("§a§l✓ §7Mode Survie activé pour récolter du bois!");
-            player.sendMessage("§7Les bûches ne seront pas détruites, mais te donneront du bois livrable.");
-        }
     }
 
     /**
-     * Fait spawn 3 animaux passifs ZombieZ custom autour du joueur pour l'étape de chasse
+     * Fait spawn 1 animal passif ZombieZ custom autour du joueur pour l'étape de chasse
      * Utilise le PassiveMobManager pour spawn des animaux avec noms, vie et drops custom
      */
     private void spawnAnimalsForHuntingStep(Player player) {
@@ -623,12 +610,12 @@ public class JourneyManager {
 
         // Message au joueur
         player.sendMessage("");
-        player.sendMessage("§a§l➤ §eDes animaux sont apparus près de toi !");
-        player.sendMessage("§7  Chasse-les pour compléter l'étape.");
+        player.sendMessage("§a§l➤ §eUn animal est apparu près de toi !");
+        player.sendMessage("§7  Chasse-le pour compléter l'étape.");
         player.sendMessage("");
 
-        // Spawn 3 animaux passifs ZombieZ à des positions aléatoires autour du joueur
-        for (int i = 0; i < 3; i++) {
+        // Spawn 1 animal passif ZombieZ à une position aléatoire autour du joueur
+        for (int i = 0; i < 1; i++) {
             // Position aléatoire dans un rayon de 5-10 blocs
             double angle = random.nextDouble() * 2 * Math.PI;
             double distance = 5 + random.nextDouble() * 5; // 5-10 blocs
