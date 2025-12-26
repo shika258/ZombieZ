@@ -149,48 +149,55 @@ public class DynamicBossBarManager {
         // Configurer l'apparence selon l'état
         switch (newState) {
             case BOSS -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.RED);
                 bar.setStyle(BarStyle.SEGMENTED_10);
                 bar.addFlag(BarFlag.CREATE_FOG);
             }
             case EVENT -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.PURPLE);
                 bar.setStyle(BarStyle.SEGMENTED_20);
                 bar.removeFlag(BarFlag.CREATE_FOG);
             }
             case FEVER -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.RED);
                 bar.setStyle(BarStyle.SOLID);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.addFlag(BarFlag.DARKEN_SKY);
             }
             case LEVEL_UP -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.GREEN);
                 bar.setStyle(BarStyle.SOLID);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.removeFlag(BarFlag.DARKEN_SKY);
             }
             case STREAK -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.YELLOW);
                 bar.setStyle(BarStyle.SEGMENTED_12);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.removeFlag(BarFlag.DARKEN_SKY);
             }
             case XP_GAIN -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.BLUE);
                 bar.setStyle(BarStyle.SOLID);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.removeFlag(BarFlag.DARKEN_SKY);
             }
             case COMBO -> {
+                bar.setVisible(true);
                 bar.setColor(BarColor.PINK);
                 bar.setStyle(BarStyle.SEGMENTED_6);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.removeFlag(BarFlag.DARKEN_SKY);
             }
             case IDLE -> {
-                bar.setColor(BarColor.WHITE);
-                bar.setStyle(BarStyle.SOLID);
+                // En IDLE, cacher la boss bar pour réduire l'encombrement visuel
+                bar.setVisible(false);
                 bar.removeFlag(BarFlag.CREATE_FOG);
                 bar.removeFlag(BarFlag.DARKEN_SKY);
             }
@@ -528,7 +535,8 @@ public class DynamicBossBarManager {
             PlayerBossBarData data = new PlayerBossBarData();
             data.bossBar = Bukkit.createBossBar("", BarColor.WHITE, BarStyle.SOLID);
             data.bossBar.addPlayer(player);
-            data.bossBar.setVisible(true);
+            // Par défaut: cachée (s'affiche seulement lors d'événements: XP gain, level up, etc.)
+            data.bossBar.setVisible(false);
             return data;
         });
     }

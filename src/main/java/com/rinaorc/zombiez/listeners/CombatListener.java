@@ -373,9 +373,9 @@ public class CombatListener implements Listener {
             return;
         }
 
-        // Joueur attaque mob ZombieZ (zombie, squelette, etc.)
+        // Joueur attaque mob ZombieZ (zombie, squelette, etc.) OU World Boss
         if (damager instanceof Player player && victim instanceof LivingEntity livingVictim) {
-            if (plugin.getZombieManager().isZombieZMob(livingVictim)) {
+            if (plugin.getZombieManager().isZombieZMob(livingVictim) || isWorldBoss(livingVictim)) {
                 handlePlayerAttackZombieZMob(event, player, livingVictim);
                 return;
             }
@@ -631,11 +631,14 @@ public class CombatListener implements Listener {
 
         // ============ MISE À JOUR DE L'AFFICHAGE DE VIE ============
         // Exécuté au tick suivant pour avoir la vie mise à jour après les dégâts
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (mob.isValid()) {
-                plugin.getZombieManager().updateZombieHealthDisplay(mob);
-            }
-        });
+        // Note: Les World Boss utilisent une BossBar (gérée par WorldBossListener), pas le display name
+        if (!isWorldBoss(mob)) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (mob.isValid()) {
+                    plugin.getZombieManager().updateZombieHealthDisplay(mob);
+                }
+            });
+        }
 
         // ============ FEEDBACK VISUEL ============
         if (isCritical) {
@@ -1037,8 +1040,8 @@ public class CombatListener implements Listener {
         // Ne pas appliquer aux joueurs
         if (victim instanceof Player) return;
 
-        // Vérifier si c'est un mob ZombieZ
-        if (!isZombieZMob(victim)) return;
+        // Vérifier si c'est un mob ZombieZ ou World Boss
+        if (!isZombieZMob(victim) && !isWorldBoss(victim)) return;
 
         // Obtenir le tireur
         ProjectileSource shooter = projectile.getShooter();
@@ -1073,8 +1076,8 @@ public class CombatListener implements Listener {
         // Ne pas traiter les joueurs comme victimes
         if (victim instanceof Player) return;
 
-        // Vérifier si c'est un mob ZombieZ
-        if (!isZombieZMob(victim)) return;
+        // Vérifier si c'est un mob ZombieZ ou World Boss
+        if (!isZombieZMob(victim) && !isWorldBoss(victim)) return;
 
         // ============ SECONDARY DAMAGE CHECK ============
         boolean isSecondaryDamage = victim.hasMetadata("zombiez_secondary_damage");
@@ -1277,6 +1280,13 @@ public class CombatListener implements Listener {
      */
     private boolean isZombieZMob(Entity entity) {
         return entity.hasMetadata("zombiez_type") || entity.getScoreboardTags().contains("zombiez_mob");
+    }
+
+    /**
+     * Vérifie si une entité est un World Boss
+     */
+    private boolean isWorldBoss(Entity entity) {
+        return entity.getScoreboardTags().contains("world_boss");
     }
 
     /**

@@ -336,9 +336,12 @@ public class DeathRaceEvent extends MicroEvent {
     @Override
     public boolean handleDamage(LivingEntity entity, Player attacker, double damage) {
         if (raceZombies.contains(entity.getUniqueId())) {
-            // Effet de hit
+            // Effet de hit visuel
             entity.getWorld().spawnParticle(Particle.CRIT, entity.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.1);
-            return true;
+            // Retourner false pour laisser les dégâts vanilla s'appliquer
+            // Les cibles de Death Race sont des zombies simples (20 HP)
+            // et cela permet à entity.getKiller() de fonctionner pour handleDeath
+            return false;
         }
         return false;
     }

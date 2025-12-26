@@ -88,6 +88,7 @@ public class Chapter2Systems implements Listener {
 
     // === VIRTUAL TEXTDISPLAY PER-PLAYER ===
     private final Map<UUID, Integer> playerMinerDisplayIds = new ConcurrentHashMap<>(); // Player UUID -> Virtual Entity ID
+    private final Map<UUID, Boolean> playerMinerHealedState = new ConcurrentHashMap<>(); // Player UUID -> healed state (pour détecter les changements)
     private static int nextVirtualEntityId = -1000000; // IDs négatifs pour éviter conflits
     private static final double MINER_DISPLAY_HEIGHT = 2.3; // Hauteur au-dessus du mineur
 
@@ -102,10 +103,8 @@ public class Chapter2Systems implements Listener {
     private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
     private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
 
-    // Stats du boss pour l'affichage
+    // Config du boss (stats gérées par ZombieType.MANOR_LORD + calculateHealth/Damage)
     private static final String BOSS_NAME = "Seigneur du Manoir";
-    private static final int BOSS_MAX_HP = 500;
-    private static final int BOSS_DAMAGE = 15;
     private static final double BOSS_LEASH_RANGE = 32.0; // Distance max avant retour au spawn
     private static final double BOSS_LEASH_RANGE_SQUARED = BOSS_LEASH_RANGE * BOSS_LEASH_RANGE;
 
@@ -214,18 +213,22 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
-     * NOTE: Quand le boss est vivant, on CACHE le display statique pour éviter
-     * le doublon avec le nom ZombieZ (qui affiche déjà les HP).
+     * NOTE: Quand le boss est vivant, on CACHE COMPLÈTEMENT le display statique
+     * car le système ZombieZ affiche déjà les HP via le customName de l'entité.
      * Le display statique n'apparaît que pour le countdown de respawn.
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - CACHER le display (le système ZombieZ affiche déjà les HP)
+            // Boss vivant - CACHER COMPLÈTEMENT le display
+            // (le système ZombieZ gère l'affichage des HP via le customName du zombie)
             display.text(Component.empty());
+            display.setViewRange(0f); // Rendre invisible
         } else {
             // Boss mort - afficher countdown de respawn
+            display.setViewRange(100f); // Rendre visible à nouveau
+
             StringBuilder text = new StringBuilder();
             text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
 
@@ -1081,17 +1084,27 @@ public class Chapter2Systems implements Listener {
                     if (inRange) {
                         // Joueur à portée: créer ou mettre à jour le display
                         boolean hasHealed = hasPlayerHealedMiner(player);
+                        Boolean previousState = playerMinerHealedState.get(playerId);
+
                         if (existingDisplayId == null) {
                             // Créer un nouveau display virtuel
                             spawnVirtualTextDisplay(player, hasHealed);
+                            playerMinerHealedState.put(playerId, hasHealed);
                         } else {
-                            // Mettre à jour la position du display existant
+                            // Vérifier si l'état a changé (joueur vient de soigner le mineur)
+                            if (previousState == null || previousState != hasHealed) {
+                                // L'état a changé, mettre à jour le texte
+                                sendVirtualDisplayMetadata(player, existingDisplayId, hasHealed);
+                                playerMinerHealedState.put(playerId, hasHealed);
+                            }
+                            // Mettre à jour la position du display
                             updateVirtualDisplayPosition(player, existingDisplayId);
                         }
                     } else if (existingDisplayId != null) {
-                        // Joueur hors de portée: détruire son display
+                        // Joueur hors de portée: détruire son display et nettoyer l'état
                         destroyVirtualDisplay(player, existingDisplayId);
                         playerMinerDisplayIds.remove(playerId);
+                        playerMinerHealedState.remove(playerId);
                     }
                 }
             }
@@ -1190,11 +1203,9 @@ public class Chapter2Systems implements Listener {
             dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
 
             // Index 23: Text (Component) - Le texte affiché
-            String text = healed
-                    ? "§a§l✓ §7Mineur (Soigné)"
-                    : "§c§l❤ §eMineur Blessé §c§l❤";
-
-            Component textComponent = Component.text(text);
+            Component textComponent = healed
+                    ? Component.text("§a§l✓ §fMineur §a§lSoigné")
+                    : Component.text("§c§l❤ §eMineur Blessé §c§l❤");
             String jsonText = GsonComponentSerializer.gson().serialize(textComponent);
             WrappedChatComponent wrappedText = WrappedChatComponent.fromJson(jsonText);
 
@@ -1288,6 +1299,7 @@ public class Chapter2Systems implements Listener {
             }
         }
         playerMinerDisplayIds.clear();
+        playerMinerHealedState.clear();
     }
 
     /**
@@ -1296,9 +1308,9 @@ public class Chapter2Systems implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
-        Integer displayId = playerMinerDisplayIds.remove(playerId);
+        playerMinerDisplayIds.remove(playerId);
+        playerMinerHealedState.remove(playerId);
         // Pas besoin d'envoyer de packet de destruction, le joueur se déconnecte
-        // On enlève juste l'entrée de la map
 
         // Nettoyer aussi les caisses de ravitaillement du joueur
         cleanupPlayerCrates(playerId);

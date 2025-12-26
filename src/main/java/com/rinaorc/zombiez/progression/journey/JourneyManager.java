@@ -583,6 +583,21 @@ public class JourneyManager {
             int targetZone = step.getTargetValue();
             mysteryChestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
         }
+
+        // Activer automatiquement le GPS si l'étape a des coordonnées
+        // Utilise enableGPSSilently pour ne pas spammer de messages
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            // Petit délai pour laisser le temps aux notifications de s'afficher d'abord
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (player.isOnline()) {
+                        gpsManager.enableGPSSilently(player);
+                    }
+                }
+            }.runTaskLater(plugin, 10L);
+        }
     }
 
     /**
