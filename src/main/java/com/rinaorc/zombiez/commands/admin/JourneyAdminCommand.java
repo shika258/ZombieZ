@@ -287,6 +287,11 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
         // Recharger le cache
         plugin.getJourneyManager().loadPlayerJourney(player);
+
+        // Mettre à jour le WorldBorder
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().refreshBorder(player);
+        }
     }
 
     /**
@@ -322,6 +327,11 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
         // Recharger le cache
         plugin.getJourneyManager().loadPlayerJourney(player);
+
+        // Mettre à jour le WorldBorder
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().refreshBorder(player);
+        }
     }
 
     /**
@@ -340,6 +350,11 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
         // Recharger le cache
         plugin.getJourneyManager().loadPlayerJourney(player);
+
+        // Mettre à jour le WorldBorder (retour aux limites initiales)
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().refreshBorder(player);
+        }
     }
 
     /**
@@ -369,6 +384,11 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
         // Recharger le cache
         plugin.getJourneyManager().loadPlayerJourney(player);
+
+        // Mettre à jour le WorldBorder
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().refreshBorder(player);
+        }
     }
 
     @Override

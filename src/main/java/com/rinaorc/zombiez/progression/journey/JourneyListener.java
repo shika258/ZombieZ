@@ -57,6 +57,11 @@ public class JourneyListener implements Listener {
                 // Créer la BossBar de progression
                 journeyManager.createOrUpdateBossBar(player);
 
+                // Envoyer le WorldBorder basé sur la progression
+                if (plugin.getZoneBorderManager() != null) {
+                    plugin.getZoneBorderManager().sendInitialBorder(player);
+                }
+
                 // Afficher le message de bienvenue avec la progression
                 showJourneyWelcome(player);
             }
@@ -72,6 +77,11 @@ public class JourneyListener implements Listener {
         journeyManager.removeBossBar(player);
 
         journeyManager.unloadPlayer(uuid);
+
+        // Supprimer le joueur du cache WorldBorder
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().removePlayer(uuid);
+        }
 
         // Nettoyer les caches locaux
         blockMessageCooldown.remove(uuid);

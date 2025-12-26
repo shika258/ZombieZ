@@ -819,10 +819,21 @@ public class JourneyManager {
             .add(chapter.getId());
 
         // Débloquer les gates
+        int maxUnlockedZone = 1;
         for (JourneyGate gate : chapter.getUnlocks()) {
             data.addJourneyGate(gate.name());
             unlockedGatesCache.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet())
                 .add(gate);
+
+            // Tracker la zone max débloquée pour le WorldBorder
+            if (gate.getType() == JourneyGate.GateType.ZONE) {
+                maxUnlockedZone = Math.max(maxUnlockedZone, gate.getValue());
+            }
+        }
+
+        // Mettre à jour le WorldBorder du joueur si des zones ont été débloquées
+        if (maxUnlockedZone > 1 && plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().onZoneUnlocked(player, maxUnlockedZone);
         }
 
         // Récompenses du chapitre
