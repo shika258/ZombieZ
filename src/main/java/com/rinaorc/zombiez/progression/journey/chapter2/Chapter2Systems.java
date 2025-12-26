@@ -518,6 +518,7 @@ public class Chapter2Systems implements Listener {
     /**
      * Spawn des caisses de ravitaillement autour d'Igor pour un joueur
      * Chaque joueur a ses propres caisses (visibles par tous mais collectables par le propriétaire)
+     * Utilise ItemDisplay (visuel) + Interaction (cliquable) pour chaque caisse
      */
     public void spawnSupplyCratesForPlayer(Player player) {
         World world = player.getWorld();
@@ -541,8 +542,8 @@ public class Chapter2Systems implements Listener {
 
             Location spawnLoc = new Location(world, x, y, z);
 
-            // Créer la caisse comme ItemDisplay (plus visible et moderne)
-            ItemDisplay crate = world.spawn(spawnLoc, ItemDisplay.class, display -> {
+            // 1. Créer le VISUEL (ItemDisplay) - ne peut pas être cliqué
+            ItemDisplay visual = world.spawn(spawnLoc, ItemDisplay.class, display -> {
                 // Item affiché: Chest
                 display.setItemStack(new ItemStack(Material.CHEST));
 
@@ -554,8 +555,8 @@ public class Chapter2Systems implements Listener {
                     new org.joml.AxisAngle4f(0, 0, 1, 0)      // Right rotation
                 ));
 
-                // Billboard pour toujours faire face au joueur
-                display.setBillboard(Display.Billboard.VERTICAL);
+                // FIXED pour que la caisse ne tourne pas (plus réaliste)
+                display.setBillboard(Display.Billboard.FIXED);
 
                 // Glow effect pour visibilité
                 display.setGlowing(true);
@@ -563,14 +564,26 @@ public class Chapter2Systems implements Listener {
 
                 // Distance de vue
                 display.setViewRange(64f);
-
-                // Marquer comme caisse de ravitaillement
-                PersistentDataContainer pdc = display.getPersistentDataContainer();
-                pdc.set(SUPPLY_CRATE_KEY, PersistentDataType.BYTE, (byte) 1);
-                pdc.set(CRATE_OWNER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
             });
 
-            crates.add(crate);
+            // 2. Créer l'entité INTERACTION (invisible mais cliquable)
+            Interaction hitbox = world.spawn(spawnLoc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+                // Taille de la hitbox (largeur et hauteur)
+                interaction.setInteractionWidth(1.5f);
+                interaction.setInteractionHeight(1.5f);
+
+                // Marquer comme caisse de ravitaillement
+                PersistentDataContainer pdc = interaction.getPersistentDataContainer();
+                pdc.set(SUPPLY_CRATE_KEY, PersistentDataType.BYTE, (byte) 1);
+                pdc.set(CRATE_OWNER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
+
+                // Lier au visuel pour le supprimer ensemble
+                pdc.set(new NamespacedKey(plugin, "visual_uuid"), PersistentDataType.STRING, visual.getUniqueId().toString());
+            });
+
+            // Stocker les deux entités (on gère la hitbox principalement)
+            crates.add(hitbox);
+            crates.add(visual);
 
             // Particules de spawn
             world.spawnParticle(Particle.END_ROD, spawnLoc.clone().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.05);
@@ -583,14 +596,14 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Gère l'interaction avec une caisse de ravitaillement
+     * Gère l'interaction avec une caisse de ravitaillement (via entité Interaction)
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onSupplyCrateInteract(PlayerInteractEntityEvent event) {
         Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
 
-        // Vérifier si c'est une caisse de ravitaillement
+        // Vérifier si c'est une caisse de ravitaillement (entité Interaction)
         PersistentDataContainer pdc = entity.getPersistentDataContainer();
         if (!pdc.has(SUPPLY_CRATE_KEY, PersistentDataType.BYTE)) {
             return;
@@ -622,18 +635,36 @@ public class Chapter2Systems implements Listener {
         player.playSound(crateLoc, Sound.ENTITY_ITEM_PICKUP, 1f, 1.2f);
         player.playSound(crateLoc, Sound.BLOCK_CHEST_OPEN, 0.8f, 1.3f);
 
-        // Supprimer la caisse
-        entity.remove();
+        // Supprimer l'entité visuelle liée (ItemDisplay)
+        String visualUuidStr = pdc.get(new NamespacedKey(plugin, "visual_uuid"), PersistentDataType.STRING);
+        if (visualUuidStr != null) {
+            try {
+                UUID visualUuid = UUID.fromString(visualUuidStr);
+                Entity visualEntity = Bukkit.getEntity(visualUuid);
+                if (visualEntity != null && visualEntity.isValid()) {
+                    visualEntity.remove();
 
-        // Mettre à jour la progression
-        int progress = journeyManager.getStepProgress(player, currentStep);
-        journeyManager.updateProgress(player, JourneyStep.StepType.COLLECT_SUPPLY_CRATES, progress + 1);
+                    // Retirer de la liste
+                    List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
+                    if (crates != null) {
+                        crates.remove(visualEntity);
+                    }
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+
+        // Supprimer l'entité d'interaction
+        entity.remove();
 
         // Nettoyer de la liste
         List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
         if (crates != null) {
             crates.remove(entity);
         }
+
+        // Mettre à jour la progression
+        int progress = journeyManager.getStepProgress(player, currentStep);
+        journeyManager.updateProgress(player, JourneyStep.StepType.COLLECT_SUPPLY_CRATES, progress + 1);
 
         // Feedback
         int newProgress = progress + 1;
