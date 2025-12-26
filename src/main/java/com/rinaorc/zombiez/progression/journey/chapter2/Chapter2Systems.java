@@ -83,6 +83,8 @@ public class Chapter2Systems implements Listener {
     private static final String BOSS_NAME = "Seigneur du Manoir";
     private static final int BOSS_MAX_HP = 500;
     private static final int BOSS_DAMAGE = 15;
+    private static final double BOSS_LEASH_RANGE = 32.0; // Distance max avant retour au spawn
+    private static final double BOSS_LEASH_RANGE_SQUARED = BOSS_LEASH_RANGE * BOSS_LEASH_RANGE;
 
     // Trims disponibles pour randomisation (chargés depuis Registry)
     private static final List<TrimPattern> TRIM_PATTERNS = new ArrayList<>();
@@ -718,11 +720,17 @@ public class Chapter2Systems implements Listener {
      * Fait spawn le boss du manoir
      */
     private void spawnManorBoss(World world) {
+        // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas en créer un nouveau
+        if (manorBossEntity != null && manorBossEntity.isValid() && !manorBossEntity.isDead()) {
+            plugin.log(Level.FINE, "Boss du Manoir déjà présent, spawn ignoré");
+            return;
+        }
+
         Location loc = MANOR_BOSS_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien boss si existant
-        if (manorBossEntity != null && manorBossEntity.isValid()) {
+        // Nettoyer l'ancien boss s'il existe mais est invalide
+        if (manorBossEntity != null) {
             manorBossEntity.remove();
         }
 
@@ -819,6 +827,21 @@ public class Chapter2Systems implements Listener {
                 tick++;
                 World world = boss.getWorld();
                 Location bossLoc = boss.getLocation();
+
+                // Leash check: toutes les secondes, vérifier si le boss est trop loin de son spawn
+                if (tick % 20 == 0) {
+                    Location spawnLoc = MANOR_BOSS_LOCATION.clone();
+                    spawnLoc.setWorld(world);
+                    double distSq = bossLoc.distanceSquared(spawnLoc);
+
+                    if (distSq > BOSS_LEASH_RANGE_SQUARED) {
+                        // Téléporter le boss à son spawn
+                        boss.teleport(spawnLoc);
+                        boss.setTarget(null); // Reset le ciblage
+                        world.playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
+                        world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                    }
+                }
 
                 // Toutes les 5 secondes: attaque de zone
                 if (tick % 100 == 0) {
