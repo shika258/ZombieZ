@@ -415,6 +415,11 @@ public enum JourneyStep {
      * Vérifie si l'étape est complétée
      */
     public boolean isCompleted(int currentProgress) {
+        // Pour ZONE_EXPLORATION, targetValue = zone ID, pas le pourcentage cible
+        // Le pourcentage cible est toujours 50%
+        if (type == StepType.ZONE_EXPLORATION) {
+            return currentProgress >= 50;
+        }
         return currentProgress >= targetValue;
     }
 
@@ -422,6 +427,10 @@ public enum JourneyStep {
      * Obtient le pourcentage de progression
      */
     public double getProgressPercent(int currentProgress) {
+        // Pour ZONE_EXPLORATION, le target est 50% (pas le zone ID)
+        if (type == StepType.ZONE_EXPLORATION) {
+            return Math.min(100.0, (double) currentProgress / 50 * 100);
+        }
         return Math.min(100.0, (double) currentProgress / targetValue * 100);
     }
 
