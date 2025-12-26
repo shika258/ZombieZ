@@ -1,9 +1,17 @@
 package com.rinaorc.zombiez.progression.journey.chapter2;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.comphenix.protocol.wrappers.WrappedDataValue;
+import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.*;
 import org.bukkit.Registry;
 import org.bukkit.attribute.Attribute;
@@ -50,6 +58,7 @@ public class Chapter2Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final ProtocolManager protocolManager;
 
     // === CLÉS PDC ===
     private final NamespacedKey INJURED_MINER_KEY;
@@ -114,6 +123,7 @@ public class Chapter2Systems implements Listener {
     public Chapter2Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
+        this.protocolManager = ProtocolLibrary.getProtocolManager();
 
         // Initialiser les clés PDC
         INJURED_MINER_KEY = new NamespacedKey(plugin, "injured_miner");
@@ -136,6 +146,7 @@ public class Chapter2Systems implements Listener {
                     initializeBossDisplay(world);
                     spawnManorBoss(world);
                     startBossDisplayUpdater();
+                    startNPCNameUpdater(); // Mise à jour personnalisée des noms de NPC
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -265,7 +276,7 @@ public class Chapter2Systems implements Listener {
 
         // Créer un villageois comme NPC
         Villager miner = world.spawn(loc, Villager.class, npc -> {
-            npc.setCustomName("§c§l❤ §eMinerur Blessé §c§l❤");
+            npc.setCustomName("§c§l❤ §eMineur Blessé §c§l❤");
             npc.setCustomNameVisible(true);
             npc.setProfession(Villager.Profession.TOOLSMITH);
             npc.setVillagerLevel(1);
@@ -384,10 +395,11 @@ public class Chapter2Systems implements Listener {
         // Valider l'étape
         journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
 
-        // Changer l'apparence du NPC (soigné)
+        // Envoyer immédiatement le nom "soigné" à CE joueur seulement
+        // Le nom server-side reste "blessé" pour les autres joueurs qui n'ont pas encore fait la quête
         if (entity instanceof Villager villager) {
-            villager.setCustomName("§a§l✓ §7Mineur (Soigné)");
             villager.removePotionEffect(PotionEffectType.SLOWNESS);
+            sendCustomMinerName(player, villager, true); // true = healed
         }
     }
 
@@ -918,6 +930,100 @@ public class Chapter2Systems implements Listener {
     private void setCooldown(UUID uuid, String action, long ms) {
         String key = uuid.toString() + "_" + action;
         cooldowns.put(key, System.currentTimeMillis());
+    }
+
+    // ==================== NOM PERSONNALISÉ PAR JOUEUR (NPC) ====================
+
+    /**
+     * Démarre le système de mise à jour des noms de NPC personnalisés par joueur.
+     * Envoie des packets de métadonnées personnalisés pour que chaque joueur
+     * voit le nom approprié selon sa progression de quête.
+     */
+    private void startNPCNameUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) return;
+
+                // Pour chaque joueur proche du mineur, envoyer le nom approprié
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(injuredMinerEntity.getWorld())) continue;
+                    if (player.getLocation().distanceSquared(injuredMinerEntity.getLocation()) > 50 * 50) continue;
+
+                    // Vérifier si le joueur a déjà complété l'étape 4 (HEAL_NPC)
+                    boolean hasHealed = hasPlayerHealedMiner(player);
+                    sendCustomMinerName(player, injuredMinerEntity, hasHealed);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+    }
+
+    /**
+     * Vérifie si le joueur a déjà soigné le mineur (étape 4 du chapitre 2 complétée ou dépassée)
+     */
+    private boolean hasPlayerHealedMiner(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return false;
+
+        // Si le joueur est au chapitre 2 étape 5 ou plus, ou dans un chapitre supérieur
+        if (currentStep.getChapter().getChapterNumber() > 2) return true;
+        if (currentStep.getChapter().getChapterNumber() == 2 && currentStep.getStepNumber() > 4) return true;
+
+        // Si le joueur est exactement à l'étape 4, vérifier la progression
+        if (currentStep == JourneyStep.STEP_2_4) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            return progress >= 1; // 1 = a soigné le mineur
+        }
+
+        return false;
+    }
+
+    /**
+     * Envoie un packet de métadonnées pour afficher un nom personnalisé au joueur.
+     * Utilise ProtocolLib pour envoyer le nom du NPC de manière client-side.
+     *
+     * @param player Le joueur qui doit voir le nom
+     * @param entity L'entité dont on modifie le nom
+     * @param healed true si le joueur a déjà soigné le mineur
+     */
+    private void sendCustomMinerName(Player player, Entity entity, boolean healed) {
+        try {
+            PacketContainer metadataPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
+
+            // Entity ID
+            metadataPacket.getIntegers().write(0, entity.getEntityId());
+
+            // Créer les data values pour le nom personnalisé
+            List<WrappedDataValue> dataValues = new ArrayList<>();
+
+            // Choisir le nom approprié
+            String customName = healed
+                    ? "§a§l✓ §7Mineur (Soigné)"
+                    : "§c§l❤ §eMineur Blessé §c§l❤";
+
+            // Index 2: Custom Name (Optional<Component>)
+            Component nameComponent = Component.text(customName);
+            String jsonName = GsonComponentSerializer.gson().serialize(nameComponent);
+            WrappedChatComponent wrappedName = WrappedChatComponent.fromJson(jsonName);
+
+            // Utiliser le serializer pour Optional<Component>
+            var optChatSerializer = WrappedDataWatcher.Registry.getChatComponentSerializer(true);
+            dataValues.add(new WrappedDataValue(2, optChatSerializer, Optional.of(wrappedName.getHandle())));
+
+            // Index 3: Custom Name Visible (Boolean) - toujours visible
+            dataValues.add(new WrappedDataValue(3, WrappedDataWatcher.Registry.get(Boolean.class), true));
+
+            // Écrire et envoyer le packet
+            var dataValueModifier = metadataPacket.getDataValueCollectionModifier();
+            if (dataValueModifier.size() > 0) {
+                dataValueModifier.write(0, dataValues);
+                protocolManager.sendServerPacket(player, metadataPacket);
+            }
+
+        } catch (Exception e) {
+            // Log uniquement en FINE pour éviter le spam
+            plugin.log(Level.FINE, "Erreur envoi nom NPC personnalisé: " + e.getMessage());
+        }
     }
 
     /**
