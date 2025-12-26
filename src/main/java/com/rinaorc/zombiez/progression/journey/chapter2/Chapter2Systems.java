@@ -965,8 +965,8 @@ public class Chapter2Systems implements Listener {
         if (currentStep == null) return false;
 
         // Si le joueur est au chapitre 2 étape 5 ou plus, ou dans un chapitre supérieur
-        if (currentStep.getChapter().getChapterNumber() > 2) return true;
-        if (currentStep.getChapter().getChapterNumber() == 2 && currentStep.getStepNumber() > 4) return true;
+        if (currentStep.getChapter().getId() > 2) return true;
+        if (currentStep.getChapter().getId() == 2 && currentStep.getStepNumber() > 4) return true;
 
         // Si le joueur est exactement à l'étape 4, vérifier la progression
         if (currentStep == JourneyStep.STEP_2_4) {
