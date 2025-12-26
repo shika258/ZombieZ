@@ -49,9 +49,9 @@ public class PinataZombieEvent extends MicroEvent {
     // TextDisplay flottant au-dessus de la pinata
     private TextDisplay statusDisplay;
 
-    // Configuration
-    private static final double PINATA_HEALTH = 9999999.0;
-    private static final double DAMAGE_PER_HIT = 1000000.0; // Degats fixes par hit (garantit ~10 hits minimum)
+    // Configuration - Max health in Minecraft is 1024000.0
+    private static final double PINATA_HEALTH = 1024000.0;
+    private static final double DAMAGE_PER_HIT = 102400.0; // Degats fixes par hit (garantit ~10 hits minimum)
     private static final int BASE_LOOT_COUNT = 8;
     private static final int MAX_LOOT_COUNT = 15;
     private static final float TEXT_SCALE = 1.4f;
