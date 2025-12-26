@@ -311,6 +311,10 @@ public class ZoneLockDisplayManager {
 
     /**
      * Envoie les métadonnées du TextDisplay
+     *
+     * Index des métadonnées en 1.21.4:
+     * Display: 8-22 (11=translation, 12=scale, 15=billboard, 17=view_range)
+     * TextDisplay: 23-27 (23=text, 24=line_width, 25=bg_color, 26=opacity, 27=flags)
      */
     private void sendMetadataPacket(Player player, int entityId, String text) throws Exception {
         PacketContainer metadataPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
@@ -321,62 +325,47 @@ public class ZoneLockDisplayManager {
         // Créer les data values
         List<WrappedDataValue> dataValues = new ArrayList<>();
 
-        // Index 0: Flags (invisible = false)
+        // Index 0: Entity flags (invisible = false)
         dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
 
-        // Index 8: Billboard mode (2 = CENTER - toujours face au joueur)
+        // Index 15: Billboard mode (3 = CENTER - toujours face au joueur)
         dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
 
-        // Index 22: Text (Component en JSON)
+        // Index 17: View range (portée de vue en chunks, 100 = visible de loin)
+        dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 100.0f));
+
+        // Index 23: Text (Component en JSON)
         Component textComponent = Component.text(text);
         String jsonText = GsonComponentSerializer.gson().serialize(textComponent);
         WrappedChatComponent wrappedText = WrappedChatComponent.fromJson(jsonText);
         dataValues.add(new WrappedDataValue(23, WrappedDataWatcher.Registry.getChatComponentSerializer(false), wrappedText.getHandle()));
 
-        // Index 23: Line width (200 pour permettre le texte large)
+        // Index 24: Line width (largeur max avant retour à la ligne)
         dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 400));
 
-        // Index 29: Default background (1 = utiliser le fond par défaut style tooltip)
-        dataValues.add(new WrappedDataValue(29, WrappedDataWatcher.Registry.get(Byte.class), (byte) 1));
+        // Index 26: Text opacity (255 = opaque, -1 en byte signé = 255)
+        dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
 
-        // Index 26: Text opacity (255 = opaque)
-        dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
-
-        // Index 27: Shadowed text
-        dataValues.add(new WrappedDataValue(28, WrappedDataWatcher.Registry.get(Byte.class), (byte) 1));
-
-        // Scale via Transformation
-        // Pour le scale, on utilise l'index 12 (Transformation)
-        // Format: translation (Vector3f), left rotation (Quaternion), scale (Vector3f), right rotation (Quaternion)
-        Vector3f translation = new Vector3f(0, 0, 0);
-        Vector3f scale = new Vector3f(SCALE, SCALE, SCALE);
-        org.joml.Quaternionf leftRot = new org.joml.Quaternionf(0, 0, 0, 1);
-        org.joml.Quaternionf rightRot = new org.joml.Quaternionf(0, 0, 0, 1);
-
-        // Créer le tableau de transformation
-        // ProtocolLib attend un Transformation, pas des composants séparés
-        // On va essayer d'utiliser les index individuels pour la transformation
-        // En 1.21.4, Display entities ont:
-        // Index 11: interpolation duration (int)
-        // Index 12: translation (Vector3f)
-        // Index 13: scale (Vector3f)
-        // Index 14: left rotation (Quaternionf)
-        // Index 15: right rotation (Quaternionf)
-
-        // Pour simplifier, utilisons view_range et shadow_radius pour un effet visible
-        // View range (index 17)
-        dataValues.add(new WrappedDataValue(18, WrappedDataWatcher.Registry.get(Float.class), 100.0f));
+        // Index 27: Flags (combiné: bit 0=shadow, bit 1=see-through, bit 2=default_background, bits 3-4=alignment)
+        // Valeur: 0x01 (shadow) | 0x04 (default_background) = 0x05
+        byte textFlags = (byte) (0x01 | 0x04); // Shadow ON + Default background ON
+        dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), textFlags));
 
         metadataPacket.getDataValueCollectionModifier().write(0, dataValues);
-
         protocolManager.sendServerPacket(player, metadataPacket);
 
-        // Envoyer la transformation séparément via un paquet bundle si nécessaire
-        sendTransformationPacket(player, entityId, scale);
+        // Envoyer la transformation (scale) séparément
+        sendTransformationPacket(player, entityId, new Vector3f(SCALE, SCALE, SCALE));
     }
 
     /**
      * Envoie le paquet de transformation pour le scale
+     *
+     * En 1.21.4, les index sont:
+     * - 11: Translation (Vector3f)
+     * - 12: Scale (Vector3f)
+     *
+     * Utiliser org.joml.Vector3f directement avec le serializer approprié.
      */
     private void sendTransformationPacket(Player player, int entityId, Vector3f scale) {
         try {
@@ -385,20 +374,18 @@ public class ZoneLockDisplayManager {
 
             List<WrappedDataValue> dataValues = new ArrayList<>();
 
-            // Transformation complète (index 12 dans Display)
-            // Utiliser la classe Transformation de Bukkit
-            org.bukkit.util.Transformation transformation = new org.bukkit.util.Transformation(
-                new Vector3f(0, 0, 0),           // Translation
-                new org.joml.AxisAngle4f(0, 0, 0, 1), // Left rotation
-                scale,                           // Scale
-                new org.joml.AxisAngle4f(0, 0, 0, 1)  // Right rotation
-            );
+            // Obtenir le serializer pour Vector3f (org.joml.Vector3f)
+            var vectorSerializer = WrappedDataWatcher.Registry.get(Vector3f.class);
 
-            // ProtocolLib gère les types Bukkit pour la sérialisation
-            // On utilise le registre approprié
-            var registry = WrappedDataWatcher.Registry.get(org.bukkit.util.Transformation.class);
-            if (registry != null) {
-                dataValues.add(new WrappedDataValue(12, registry, transformation));
+            if (vectorSerializer != null) {
+                // Index 11: Translation (pas de décalage)
+                dataValues.add(new WrappedDataValue(11, vectorSerializer, new Vector3f(0, 0, 0)));
+
+                // Index 12: Scale
+                dataValues.add(new WrappedDataValue(12, vectorSerializer, scale));
+            } else {
+                // Fallback: essayer de créer le serializer manuellement
+                plugin.log(Level.WARNING, "§cVector3f serializer non disponible, scale non appliqué");
             }
 
             if (!dataValues.isEmpty()) {
@@ -425,15 +412,26 @@ public class ZoneLockDisplayManager {
         }
 
         // Envoyer un paquet de téléportation
+        // Note: En 1.21.2+, ENTITY_TELEPORT a été renommé en ENTITY_POSITION_SYNC
+        // L'ancien ENTITY_TELEPORT sert maintenant à synchroniser les véhicules
         try {
-            PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
+            PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_POSITION_SYNC);
 
+            // Structure du paquet entity_position_sync en 1.21.4:
+            // - Entity ID (VarInt)
+            // - X, Y, Z (Double) - position absolue
+            // - Delta X, Y, Z (Double) - vélocité (0 pour un teleport statique)
+            // - Yaw, Pitch (Float) - rotation
+            // - On Ground (Boolean)
             teleportPacket.getIntegers().write(0, display.entityId);
             teleportPacket.getDoubles().write(0, newLoc.getX());
             teleportPacket.getDoubles().write(1, newLoc.getY());
             teleportPacket.getDoubles().write(2, newLoc.getZ());
-            teleportPacket.getBytes().write(0, (byte) 0); // Yaw
-            teleportPacket.getBytes().write(1, (byte) 0); // Pitch
+            teleportPacket.getDoubles().write(3, 0.0); // Delta X (vélocité)
+            teleportPacket.getDoubles().write(4, 0.0); // Delta Y (vélocité)
+            teleportPacket.getDoubles().write(5, 0.0); // Delta Z (vélocité)
+            teleportPacket.getFloat().write(0, 0.0f); // Yaw
+            teleportPacket.getFloat().write(1, 0.0f); // Pitch
             teleportPacket.getBooleans().write(0, false); // On ground
 
             protocolManager.sendServerPacket(player, teleportPacket);
