@@ -214,36 +214,29 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
+     * NOTE: Quand le boss est vivant, on CACHE le display statique pour éviter
+     * le doublon avec le nom ZombieZ (qui affiche déjà les HP).
+     * Le display statique n'apparaît que pour le countdown de respawn.
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
-        StringBuilder text = new StringBuilder();
-
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - afficher stats
-            int currentHp = (int) ((Zombie) manorBossEntity).getHealth();
-            int hearts = currentHp / 2;
-            int maxHearts = BOSS_MAX_HP / 2;
-
-            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
-            text.append("§c❤ ").append(currentHp).append("§7/§c").append(BOSS_MAX_HP).append(" §7(").append(hearts).append("/").append(maxHearts).append(" ♥)\n");
-            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
-            text.append("§a§l✓ BOSS ACTIF");
+            // Boss vivant - CACHER le display (le système ZombieZ affiche déjà les HP)
+            display.text(Component.empty());
         } else {
-            // Boss mort - afficher countdown
+            // Boss mort - afficher countdown de respawn
+            StringBuilder text = new StringBuilder();
             text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
-            text.append("§c❤ HP: §f").append(BOSS_MAX_HP).append(" §7(").append(BOSS_MAX_HP / 2).append(" ♥)\n");
-            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
 
             if (respawnSeconds > 0) {
-                text.append("§e⏱ Respawn: §f").append(respawnSeconds).append("s");
+                text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
             } else {
-                text.append("§c§l✗ EN ATTENTE");
+                text.append("§7En attente de spawn...");
             }
-        }
 
-        display.text(Component.text(text.toString()));
+            display.text(Component.text(text.toString()));
+        }
     }
 
     /**

@@ -982,10 +982,23 @@ public class ZombieManager {
         UUID playerId = killer.getUniqueId();
 
         // Obtenir la table de loot appropriée
-        String tableId = type.isBoss() ?
-            (type.getCategory() == ZombieType.ZombieCategory.FINAL_BOSS ? "final_boss" :
-             type.getCategory() == ZombieType.ZombieCategory.ZONE_BOSS ? "zone_boss" : "mini_boss") :
-            "zombie_tier" + type.getTier();
+        // NOTE: Les JOURNEY_BOSS (boss de quête réapparaissant rapidement) utilisent
+        // le loot normal de leur zone pour éviter le farming excessif
+        String tableId;
+        if (type.isBoss()) {
+            if (type.getCategory() == ZombieType.ZombieCategory.FINAL_BOSS) {
+                tableId = "final_boss";
+            } else if (type.getCategory() == ZombieType.ZombieCategory.ZONE_BOSS) {
+                tableId = "zone_boss";
+            } else if (type.getCategory() == ZombieType.ZombieCategory.JOURNEY_BOSS) {
+                // Journey boss: loot normal de la zone (respawn rapide = pas de loot boss)
+                tableId = "zombie_tier" + Math.max(1, zoneId);
+            } else {
+                tableId = "mini_boss";
+            }
+        } else {
+            tableId = "zombie_tier" + type.getTier();
+        }
 
         LootTable table = lootTableRegistry.getTable(tableId);
         if (table == null) {
