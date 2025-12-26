@@ -88,6 +88,7 @@ public class Chapter2Systems implements Listener {
 
     // === VIRTUAL TEXTDISPLAY PER-PLAYER ===
     private final Map<UUID, Integer> playerMinerDisplayIds = new ConcurrentHashMap<>(); // Player UUID -> Virtual Entity ID
+    private final Map<UUID, Boolean> playerMinerHealedState = new ConcurrentHashMap<>(); // Player UUID -> healed state (pour détecter les changements)
     private static int nextVirtualEntityId = -1000000; // IDs négatifs pour éviter conflits
     private static final double MINER_DISPLAY_HEIGHT = 2.3; // Hauteur au-dessus du mineur
 
@@ -1083,17 +1084,27 @@ public class Chapter2Systems implements Listener {
                     if (inRange) {
                         // Joueur à portée: créer ou mettre à jour le display
                         boolean hasHealed = hasPlayerHealedMiner(player);
+                        Boolean previousState = playerMinerHealedState.get(playerId);
+
                         if (existingDisplayId == null) {
                             // Créer un nouveau display virtuel
                             spawnVirtualTextDisplay(player, hasHealed);
+                            playerMinerHealedState.put(playerId, hasHealed);
                         } else {
-                            // Mettre à jour la position du display existant
+                            // Vérifier si l'état a changé (joueur vient de soigner le mineur)
+                            if (previousState == null || previousState != hasHealed) {
+                                // L'état a changé, mettre à jour le texte
+                                sendVirtualDisplayMetadata(player, existingDisplayId, hasHealed);
+                                playerMinerHealedState.put(playerId, hasHealed);
+                            }
+                            // Mettre à jour la position du display
                             updateVirtualDisplayPosition(player, existingDisplayId);
                         }
                     } else if (existingDisplayId != null) {
-                        // Joueur hors de portée: détruire son display
+                        // Joueur hors de portée: détruire son display et nettoyer l'état
                         destroyVirtualDisplay(player, existingDisplayId);
                         playerMinerDisplayIds.remove(playerId);
+                        playerMinerHealedState.remove(playerId);
                     }
                 }
             }
@@ -1192,11 +1203,9 @@ public class Chapter2Systems implements Listener {
             dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
 
             // Index 23: Text (Component) - Le texte affiché
-            String text = healed
-                    ? "§a§l✓ §7Mineur (Soigné)"
-                    : "§c§l❤ §eMineur Blessé §c§l❤";
-
-            Component textComponent = Component.text(text);
+            Component textComponent = healed
+                    ? Component.text("§a§l✓ §fMineur §a§lSoigné")
+                    : Component.text("§c§l❤ §eMineur Blessé §c§l❤");
             String jsonText = GsonComponentSerializer.gson().serialize(textComponent);
             WrappedChatComponent wrappedText = WrappedChatComponent.fromJson(jsonText);
 
@@ -1290,6 +1299,7 @@ public class Chapter2Systems implements Listener {
             }
         }
         playerMinerDisplayIds.clear();
+        playerMinerHealedState.clear();
     }
 
     /**
@@ -1298,9 +1308,9 @@ public class Chapter2Systems implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
-        Integer displayId = playerMinerDisplayIds.remove(playerId);
+        playerMinerDisplayIds.remove(playerId);
+        playerMinerHealedState.remove(playerId);
         // Pas besoin d'envoyer de packet de destruction, le joueur se déconnecte
-        // On enlève juste l'entrée de la map
 
         // Nettoyer aussi les caisses de ravitaillement du joueur
         cleanupPlayerCrates(playerId);
