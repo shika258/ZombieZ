@@ -38,7 +38,7 @@ public enum JourneyStep {
         200, 4, Material.COMPASS),
 
     STEP_1_5(JourneyChapter.CHAPTER_1, 5, "Trouve le Coffre Mystérieux",
-        "Un coffre secret se cache dans la Zone 1...", StepType.DISCOVER_CHEST, 1,
+        "Coordonnées: §b625, 93, 9853", StepType.DISCOVER_CHEST, 1,
         250, 4, Material.CHEST),
 
     STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Chasse 3 animaux",
@@ -64,19 +64,19 @@ public enum JourneyStep {
         250, 6, Material.COMPASS),
 
     STEP_2_4(JourneyChapter.CHAPTER_2, 4, "Soigne le mineur blessé",
-        "Utilise un bandage pour le soigner", StepType.HEAL_NPC, 1,
+        "Utilise un bandage - Coords: §b1036, 82, 9627", StepType.HEAL_NPC, 1,
         300, 8, Material.PAPER),
 
     STEP_2_5(JourneyChapter.CHAPTER_2, 5, "Trouve le coffre mystérieux (Zone 2)",
-        "Un coffre secret se cache...", StepType.DISCOVER_CHEST, 2,
+        "Coordonnées: §b373, 94, 9767", StepType.DISCOVER_CHEST, 2,
         350, 8, Material.CHEST),
 
     STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 zombies incendiés",
-        "Dans la zone du crash de météore", StepType.FIRE_ZOMBIE_KILLS, 50,
+        "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 50,
         400, 10, Material.FIRE_CHARGE),
 
     STEP_2_7(JourneyChapter.CHAPTER_2, 7, "Aide Igor le survivant",
-        "Ramène 8 bûches de chêne", StepType.GIVE_WOOD_NPC, 8,
+        "Ramène 8 bûches - Coords: §b898, 90, 9469", StepType.GIVE_WOOD_NPC, 8,
         450, 12, Material.OAK_LOG),
 
     STEP_2_8(JourneyChapter.CHAPTER_2, 8, "Explore la Zone 3 (50%)",
@@ -84,11 +84,11 @@ public enum JourneyStep {
         500, 12, Material.FILLED_MAP),
 
     STEP_2_9(JourneyChapter.CHAPTER_2, 9, "Trouve le coffre mystérieux (Zone 3)",
-        "Un autre trésor à découvrir...", StepType.DISCOVER_CHEST, 3,
+        "Coordonnées: §b463, 121, 9440", StepType.DISCOVER_CHEST, 3,
         550, 14, Material.CHEST),
 
     STEP_2_10(JourneyChapter.CHAPTER_2, 10, "Tue le Seigneur du Manoir",
-        "Le boss rôde dans le manoir fortifié", StepType.KILL_MANOR_BOSS, 1,
+        "Manoir: §b728, 89, 9503", StepType.KILL_MANOR_BOSS, 1,
         750, 20, Material.DRAGON_HEAD),
 
     // ==================== CHAPITRE 3: PRENDRE SES MARQUES ====================
