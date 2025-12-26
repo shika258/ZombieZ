@@ -219,12 +219,13 @@ public class LowHealthHeartbeatManager implements Listener {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // EFFETS VISUELS
+        // EFFETS VISUELS - Désactivés car gênants pour le gameplay
+        // Le son du battement de cœur est suffisant pour l'immersion
         // ═══════════════════════════════════════════════════════════════════
 
-        if (isFirstBeat) {
-            spawnVignetteEffect(player, healthPercent);
-        }
+        // if (isFirstBeat) {
+        //     spawnVignetteEffect(player, healthPercent);
+        // }
     }
 
     /**
