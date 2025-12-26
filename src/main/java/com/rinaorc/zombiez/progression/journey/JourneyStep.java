@@ -71,8 +71,8 @@ public enum JourneyStep {
         "Coordonnées: §b373, 94, 9767", StepType.DISCOVER_CHEST, 2,
         350, 8, Material.CHEST),
 
-    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 Pyromorts",
-        "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 50,
+    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 20 Pyromorts",
+        "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 20,
         400, 10, Material.FIRE_CHARGE),
 
     STEP_2_7(JourneyChapter.CHAPTER_2, 7, "Aide Igor le survivant",

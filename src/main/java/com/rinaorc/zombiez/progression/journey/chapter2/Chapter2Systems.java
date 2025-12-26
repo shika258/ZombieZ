@@ -671,9 +671,8 @@ public class Chapter2Systems implements Listener {
                 // Marquer comme zombie incendié pour le tracking Journey
                 zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
 
-                // Effet de spawn
-                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
-                world.spawnParticle(Particle.LAVA, spawnLoc.clone().add(0, 0.5, 0), 5, 0.3, 0.3, 0.3, 0);
+                // Effet de spawn minimal (le visuel principal vient de setVisualFire)
+                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.02);
             }
         }
     }

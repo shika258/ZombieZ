@@ -54,6 +54,7 @@ public class ElementalZombieAI extends ZombieAI {
             case WENDIGO -> tickWendigo();
             case DEMON -> tickDemon();
             case INFERNAL -> tickInfernal();
+            case FIRE_ZOMBIE -> tickFireZombie(); // Pyromorts - particules minimales
             default -> tickFrozen();
         }
     }
@@ -211,6 +212,24 @@ public class ElementalZombieAI extends ZombieAI {
                 flamePillar(target.getLocation());
             }
         }
+    }
+
+    /**
+     * Fire Zombie (Pyromort): Zombie de feu simple pour le Journey
+     * Particules minimales car ils ont déjà setVisualFire(true)
+     */
+    private void tickFireZombie() {
+        // Immunité au feu
+        zombie.setFireTicks(0);
+
+        // Très peu de particules (juste quelques braises occasionnelles)
+        // Le visuel vient principalement de setVisualFire(true) appliqué au spawn
+        if (tickCounter % 40 == 0) { // Toutes les 2 secondes seulement
+            playParticles(Particle.LAVA, zombie.getLocation().add(0, 0.5, 0), 1, 0.2, 0.1, 0.2);
+        }
+
+        // Pas d'abilities spéciales - juste un zombie de base en feu
+        // Le combat se fait via l'IA standard du ZombieManager
     }
 
     // ═══════════════════════════════════════════════════════════════
