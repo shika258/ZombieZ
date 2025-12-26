@@ -580,11 +580,8 @@ public class JourneyManager {
         // Pour les étapes DISCOVER_CHEST: reset le coffre de la zone cible
         // Évite que les coffres découverts AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.DISCOVER_CHEST) {
-            MysteryChestManager chestManager = plugin.getMysteryChestManager();
-            if (chestManager != null) {
-                int targetZone = step.getTargetValue();
-                chestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
-            }
+            int targetZone = step.getTargetValue();
+            mysteryChestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
         }
 
         // Étape 2.7: Aide Igor - Donne une hache spéciale pour couper du bois en Adventure
