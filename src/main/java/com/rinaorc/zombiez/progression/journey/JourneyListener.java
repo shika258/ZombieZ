@@ -83,6 +83,11 @@ public class JourneyListener implements Listener {
             plugin.getZoneBorderManager().removePlayer(uuid);
         }
 
+        // Nettoyer le display de zone verrouillée
+        if (plugin.getZoneLockDisplayManager() != null) {
+            plugin.getZoneLockDisplayManager().cleanupPlayer(uuid);
+        }
+
         // Nettoyer les caches locaux
         blockMessageCooldown.remove(uuid);
         zoneEntryTime.remove(uuid);
