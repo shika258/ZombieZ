@@ -17,7 +17,6 @@ import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 import org.joml.Vector3f;
 
 import java.util.*;
@@ -36,8 +35,8 @@ public class ZoneLockDisplayManager {
     private final ZombieZPlugin plugin;
     private final ProtocolManager protocolManager;
 
-    // Entity ID counter pour les entités virtuelles
-    private static final AtomicInteger ENTITY_ID_COUNTER = new AtomicInteger(Integer.MAX_VALUE - 1000000);
+    // Entity ID counter pour les entités virtuelles (négatif pour éviter conflit avec vraies entités)
+    private static final AtomicInteger ENTITY_ID_COUNTER = new AtomicInteger(-1000000);
 
     // Cache des displays actifs par joueur (pour pouvoir les supprimer)
     private final Map<UUID, ActiveLockDisplay> activeDisplays = new ConcurrentHashMap<>();
@@ -67,12 +66,16 @@ public class ZoneLockDisplayManager {
         checkTask = new BukkitRunnable() {
             @Override
             public void run() {
+                String gameWorld = plugin.getZoneManager().getGameWorld();
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
-                    checkPlayerProximity(player);
+                    // Optimisation: ignorer les joueurs hors du monde de jeu
+                    if (player.getWorld().getName().equals(gameWorld)) {
+                        checkPlayerProximity(player);
+                    }
                 }
             }
         };
-        checkTask.runTaskTimer(plugin, 20L, 10L); // Toutes les 0.5 secondes
+        checkTask.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes (optimisé pour 200 joueurs)
 
         plugin.log(Level.INFO, "§a✓ ZoneLockDisplayManager démarré");
     }
@@ -99,20 +102,15 @@ public class ZoneLockDisplayManager {
 
     /**
      * Vérifie si un joueur approche d'une zone verrouillée
+     * Note: Le monde est déjà vérifié dans la tâche principale
      */
     private void checkPlayerProximity(Player player) {
-        UUID uuid = player.getUniqueId();
         Location loc = player.getLocation();
 
-        // Vérifier le monde
-        if (!loc.getWorld().getName().equals(plugin.getZoneManager().getGameWorld())) {
-            removeDisplayIfExists(player);
-            return;
-        }
-
-        // Obtenir la zone actuelle
+        // Obtenir la zone actuelle (utilise le cache du ZoneManager)
         Zone currentZone = plugin.getZoneManager().getZoneAt(loc);
-        if (currentZone == null) {
+        if (currentZone == null || currentZone.getId() == 0) {
+            // Zone spawn ou invalide - pas de display
             removeDisplayIfExists(player);
             return;
         }
@@ -122,10 +120,9 @@ public class ZoneLockDisplayManager {
 
         // Si le joueur est proche de la limite nord de sa zone
         if (distanceToNextZone <= DETECTION_DISTANCE && distanceToNextZone > 0) {
-            // Vérifier la zone suivante
             int nextZoneId = currentZone.getId() + 1;
 
-            // Vérifier si le joueur a accès à la zone suivante
+            // Vérifier si le joueur a accès à la zone suivante (utilise le cache)
             if (!plugin.getJourneyManager().canAccessZone(player, nextZoneId)) {
                 // Zone verrouillée ! Afficher le display
                 showLockDisplay(player, currentZone, nextZoneId, distanceToNextZone);
