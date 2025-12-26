@@ -11,6 +11,7 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
+import com.rinaorc.zombiez.mobs.PassiveMobManager;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -553,20 +554,24 @@ public class JourneyManager {
     }
 
     /**
-     * Fait spawn 3 animaux aléatoires autour du joueur pour l'étape de chasse
+     * Fait spawn 3 animaux passifs ZombieZ custom autour du joueur pour l'étape de chasse
+     * Utilise le PassiveMobManager pour spawn des animaux avec noms, vie et drops custom
      */
     private void spawnAnimalsForHuntingStep(Player player) {
         Location playerLoc = player.getLocation();
         World world = playerLoc.getWorld();
         if (world == null) return;
 
-        // Types d'animaux possibles
-        EntityType[] animalTypes = {
-            EntityType.PIG,
-            EntityType.COW,
-            EntityType.SHEEP,
-            EntityType.CHICKEN,
-            EntityType.RABBIT
+        PassiveMobManager passiveMobManager = plugin.getPassiveMobManager();
+        if (passiveMobManager == null) return;
+
+        // Types d'animaux passifs ZombieZ disponibles
+        PassiveMobManager.PassiveMobType[] animalTypes = {
+            PassiveMobManager.PassiveMobType.PIG,
+            PassiveMobManager.PassiveMobType.COW,
+            PassiveMobManager.PassiveMobType.SHEEP,
+            PassiveMobManager.PassiveMobType.CHICKEN,
+            PassiveMobManager.PassiveMobType.RABBIT
         };
 
         Random random = new Random();
@@ -577,7 +582,7 @@ public class JourneyManager {
         player.sendMessage("§7  Chasse-les pour compléter l'étape.");
         player.sendMessage("");
 
-        // Spawn 3 animaux à des positions aléatoires autour du joueur
+        // Spawn 3 animaux passifs ZombieZ à des positions aléatoires autour du joueur
         for (int i = 0; i < 3; i++) {
             // Position aléatoire dans un rayon de 5-10 blocs
             double angle = random.nextDouble() * 2 * Math.PI;
@@ -591,11 +596,11 @@ public class JourneyManager {
             spawnLoc = findSafeSpawnLocation(spawnLoc);
             if (spawnLoc == null) continue;
 
-            // Choisir un animal aléatoire
-            EntityType animalType = animalTypes[random.nextInt(animalTypes.length)];
+            // Choisir un type d'animal aléatoire
+            PassiveMobManager.PassiveMobType animalType = animalTypes[random.nextInt(animalTypes.length)];
 
-            // Spawn l'animal
-            world.spawnEntity(spawnLoc, animalType);
+            // Spawn l'animal passif ZombieZ custom (avec nom, vie, drops, etc.)
+            passiveMobManager.spawnPassiveMob(animalType, spawnLoc, 1);
 
             // Effet visuel de spawn
             world.spawnParticle(Particle.HAPPY_VILLAGER, spawnLoc.clone().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
