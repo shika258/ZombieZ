@@ -11,8 +11,14 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
+import com.rinaorc.zombiez.mobs.PassiveMobManager;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -543,30 +549,194 @@ public class JourneyManager {
 
     /**
      * Déclenche les effets spéciaux au démarrage d'une étape
-     * Ex: Spawn d'animaux pour l'étape de chasse
+     * Ex: Spawn d'animaux pour l'étape de chasse, reset exploration, etc.
      */
     private void triggerStepStartEffects(Player player, JourneyStep step) {
         // Étape 1.6: Chasser 3 animaux - Spawn 3 animaux aléatoires autour du joueur
         if (step == JourneyStep.STEP_1_6) {
             spawnAnimalsForHuntingStep(player);
         }
+
+        // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
+        // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
+        if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+            if (data != null) {
+                int targetZone = step.getTargetValue();
+                data.clearExploredChunks(targetZone);
+                plugin.getLogger().info("[Journey] Reset exploration zone " + targetZone + " pour " + player.getName());
+            }
+        }
+
+        // Pour ZONE_PROGRESS (Step 1.4 - Zone 1): reset zone 1
+        if (step.getType() == JourneyStep.StepType.ZONE_PROGRESS && step == JourneyStep.STEP_1_4) {
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+            if (data != null) {
+                data.clearExploredChunks(1); // Zone 1
+                plugin.getLogger().info("[Journey] Reset exploration zone 1 pour " + player.getName());
+            }
+        }
+
+        // Pour les étapes DISCOVER_CHEST: reset le coffre de la zone cible
+        // Évite que les coffres découverts AVANT le déblocage de l'étape soient comptés
+        if (step.getType() == JourneyStep.StepType.DISCOVER_CHEST) {
+            MysteryChestManager chestManager = plugin.getMysteryChestManager();
+            if (chestManager != null) {
+                int targetZone = step.getTargetValue();
+                chestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
+            }
+        }
+
+        // Étape 2.7: Aide Igor - Donne une hache spéciale pour couper du bois en Adventure
+        if (step == JourneyStep.STEP_2_7) {
+            giveWoodcutterAxe(player);
+        }
+    }
+
+    // Nom de la hache pour identification
+    private static final String WOODCUTTER_AXE_NAME = "Hache de Bûcheron";
+
+    /**
+     * Vérifie si le joueur possède la hache de bûcheron
+     */
+    public boolean hasWoodcutterAxe(Player player) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (isWoodcutterAxe(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
-     * Fait spawn 3 animaux aléatoires autour du joueur pour l'étape de chasse
+     * Vérifie si un item est la hache de bûcheron
+     */
+    public boolean isWoodcutterAxe(ItemStack item) {
+        if (item == null || item.getType() != Material.IRON_AXE) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || !meta.hasDisplayName()) return false;
+
+        // Vérifier le nom (en utilisant le plain text)
+        String displayName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+            .plainText().serialize(meta.displayName());
+        return displayName.contains(WOODCUTTER_AXE_NAME);
+    }
+
+    /**
+     * Donne une hache spéciale au joueur pour couper du bois en mode Adventure
+     * La hache a le tag can_break pour OAK_LOG uniquement
+     * @param isReplacement true si c'est un remplacement (message différent)
+     */
+    @SuppressWarnings("deprecation")
+    public void giveWoodcutterAxe(Player player, boolean isReplacement) {
+        // Ne pas donner si le joueur en a déjà une
+        if (hasWoodcutterAxe(player)) {
+            if (isReplacement) {
+                player.sendMessage("§6§lIgor: §f\"Tu as déjà ma hache, survivant!\"");
+            }
+            return;
+        }
+
+        ItemStack axe = createWoodcutterAxe();
+
+        // Donner au joueur
+        if (player.getInventory().firstEmpty() != -1) {
+            player.getInventory().addItem(axe);
+        } else {
+            // Inventaire plein - forcer dans la main secondaire ou dropper avec message clair
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (offhand.getType() == Material.AIR) {
+                player.getInventory().setItemInOffHand(axe);
+                player.sendMessage("§e§l⚠ §7Inventaire plein! Hache placée dans ta main secondaire.");
+            } else {
+                // Vraiment plein - drop avec glow effect
+                org.bukkit.entity.Item droppedItem = player.getWorld().dropItemNaturally(player.getLocation(), axe);
+                droppedItem.setGlowing(true);
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.customName(Component.text("§6§lHache de Bûcheron §7(Ramasse-moi!)", NamedTextColor.GOLD));
+                // Empêcher le despawn pendant 10 minutes
+                droppedItem.setUnlimitedLifetime(true);
+                player.sendMessage("§c§l⚠ §eInventaire plein! §7La hache brille au sol, ramasse-la!");
+            }
+        }
+
+        // Message
+        player.sendMessage("");
+        if (isReplacement) {
+            player.sendMessage("§6§lIgor: §f\"Tiens, je te reprête ma hache!\"");
+        } else {
+            player.sendMessage("§6§l✦ §eIgor t'a prêté sa §6Hache de Bûcheron§e!");
+        }
+        player.sendMessage("§7Tu peux maintenant couper des bûches de chêne.");
+        player.sendMessage("§7Ramène-lui §f8 bûches §7pour l'aider à reconstruire.");
+        player.sendMessage("");
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
+    }
+
+    /**
+     * Crée la hache de bûcheron (sans la donner)
+     */
+    @SuppressWarnings("deprecation")
+    private ItemStack createWoodcutterAxe() {
+        ItemStack axe = new ItemStack(Material.IRON_AXE);
+        ItemMeta meta = axe.getItemMeta();
+        if (meta == null) return axe;
+
+        // Nom et lore
+        meta.displayName(Component.text(WOODCUTTER_AXE_NAME, NamedTextColor.GOLD)
+            .decoration(TextDecoration.ITALIC, false)
+            .decoration(TextDecoration.BOLD, true));
+
+        meta.lore(List.of(
+            Component.text(""),
+            Component.text("Hache spéciale d'Igor", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+            Component.text("Peut couper les bûches de chêne", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
+            Component.text(""),
+            Component.text("Ramène 8 bûches à Igor!", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
+        ));
+
+        // Permettre de casser les bûches de chêne en mode Adventure
+        meta.setDestroyableKeys(List.of(
+            NamespacedKey.minecraft("oak_log"),
+            NamespacedKey.minecraft("oak_wood"),
+            NamespacedKey.minecraft("stripped_oak_log"),
+            NamespacedKey.minecraft("stripped_oak_wood")
+        ));
+
+        // Rendre incassable pour ne pas perdre la hache
+        meta.setUnbreakable(true);
+
+        axe.setItemMeta(meta);
+        return axe;
+    }
+
+    /**
+     * Wrapper pour l'appel initial (non-replacement)
+     */
+    private void giveWoodcutterAxe(Player player) {
+        giveWoodcutterAxe(player, false);
+    }
+
+    /**
+     * Fait spawn 3 animaux passifs ZombieZ custom autour du joueur pour l'étape de chasse
+     * Utilise le PassiveMobManager pour spawn des animaux avec noms, vie et drops custom
      */
     private void spawnAnimalsForHuntingStep(Player player) {
         Location playerLoc = player.getLocation();
         World world = playerLoc.getWorld();
         if (world == null) return;
 
-        // Types d'animaux possibles
-        EntityType[] animalTypes = {
-            EntityType.PIG,
-            EntityType.COW,
-            EntityType.SHEEP,
-            EntityType.CHICKEN,
-            EntityType.RABBIT
+        PassiveMobManager passiveMobManager = plugin.getPassiveMobManager();
+        if (passiveMobManager == null) return;
+
+        // Types d'animaux passifs ZombieZ disponibles
+        PassiveMobManager.PassiveMobType[] animalTypes = {
+            PassiveMobManager.PassiveMobType.PIG,
+            PassiveMobManager.PassiveMobType.COW,
+            PassiveMobManager.PassiveMobType.SHEEP,
+            PassiveMobManager.PassiveMobType.CHICKEN,
+            PassiveMobManager.PassiveMobType.RABBIT
         };
 
         Random random = new Random();
@@ -577,7 +747,7 @@ public class JourneyManager {
         player.sendMessage("§7  Chasse-les pour compléter l'étape.");
         player.sendMessage("");
 
-        // Spawn 3 animaux à des positions aléatoires autour du joueur
+        // Spawn 3 animaux passifs ZombieZ à des positions aléatoires autour du joueur
         for (int i = 0; i < 3; i++) {
             // Position aléatoire dans un rayon de 5-10 blocs
             double angle = random.nextDouble() * 2 * Math.PI;
@@ -591,11 +761,11 @@ public class JourneyManager {
             spawnLoc = findSafeSpawnLocation(spawnLoc);
             if (spawnLoc == null) continue;
 
-            // Choisir un animal aléatoire
-            EntityType animalType = animalTypes[random.nextInt(animalTypes.length)];
+            // Choisir un type d'animal aléatoire
+            PassiveMobManager.PassiveMobType animalType = animalTypes[random.nextInt(animalTypes.length)];
 
-            // Spawn l'animal
-            world.spawnEntity(spawnLoc, animalType);
+            // Spawn l'animal passif ZombieZ custom (avec nom, vie, drops, etc.)
+            passiveMobManager.spawnPassiveMob(animalType, spawnLoc, 1);
 
             // Effet visuel de spawn
             world.spawnParticle(Particle.HAPPY_VILLAGER, spawnLoc.clone().add(0, 1, 0), 10, 0.5, 0.5, 0.5, 0);
@@ -649,10 +819,21 @@ public class JourneyManager {
             .add(chapter.getId());
 
         // Débloquer les gates
+        int maxUnlockedZone = 1;
         for (JourneyGate gate : chapter.getUnlocks()) {
             data.addJourneyGate(gate.name());
             unlockedGatesCache.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet())
                 .add(gate);
+
+            // Tracker la zone max débloquée pour le WorldBorder
+            if (gate.getType() == JourneyGate.GateType.ZONE) {
+                maxUnlockedZone = Math.max(maxUnlockedZone, gate.getValue());
+            }
+        }
+
+        // Mettre à jour le WorldBorder du joueur si des zones ont été débloquées
+        if (maxUnlockedZone > 1 && plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().onZoneUnlocked(player, maxUnlockedZone);
         }
 
         // Récompenses du chapitre

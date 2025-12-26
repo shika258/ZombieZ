@@ -57,6 +57,11 @@ public class JourneyListener implements Listener {
                 // Créer la BossBar de progression
                 journeyManager.createOrUpdateBossBar(player);
 
+                // Envoyer le WorldBorder basé sur la progression
+                if (plugin.getZoneBorderManager() != null) {
+                    plugin.getZoneBorderManager().sendInitialBorder(player);
+                }
+
                 // Afficher le message de bienvenue avec la progression
                 showJourneyWelcome(player);
             }
@@ -72,6 +77,16 @@ public class JourneyListener implements Listener {
         journeyManager.removeBossBar(player);
 
         journeyManager.unloadPlayer(uuid);
+
+        // Supprimer le joueur du cache WorldBorder
+        if (plugin.getZoneBorderManager() != null) {
+            plugin.getZoneBorderManager().removePlayer(uuid);
+        }
+
+        // Nettoyer le display de zone verrouillée
+        if (plugin.getZoneLockDisplayManager() != null) {
+            plugin.getZoneLockDisplayManager().cleanupPlayer(uuid);
+        }
 
         // Nettoyer les caches locaux
         blockMessageCooldown.remove(uuid);
@@ -443,6 +458,30 @@ public class JourneyListener implements Listener {
 
         if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS) {
             journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS, 1);
+        }
+
+        // Étape en 2 temps: classe + voie (progress 0 -> 1)
+        if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS_AND_BRANCH) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress < 1) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS_AND_BRANCH, 1);
+            }
+        }
+    }
+
+    /**
+     * Appelé quand le joueur sélectionne une voie/branche
+     */
+    public void onBranchSelect(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        // Étape en 2 temps: classe + voie (progress 1 -> 2)
+        if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS_AND_BRANCH) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress >= 1 && progress < 2) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS_AND_BRANCH, 2);
+            }
         }
     }
 

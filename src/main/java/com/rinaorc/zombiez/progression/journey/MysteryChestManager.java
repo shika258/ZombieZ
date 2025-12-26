@@ -362,4 +362,20 @@ public class MysteryChestManager {
     public Set<String> getDiscoveredChests(UUID playerId) {
         return discoveredChests.getOrDefault(playerId, Set.of());
     }
+
+    /**
+     * Réinitialise la découverte du coffre d'une zone spécifique pour un joueur
+     * Appelé quand une étape DISCOVER_CHEST est débloquée pour éviter
+     * que les coffres découverts avant le déblocage soient comptés
+     */
+    public void clearDiscoveredChestForZone(UUID playerId, int zoneId) {
+        Set<String> discovered = discoveredChests.get(playerId);
+        if (discovered == null) return;
+
+        // Trouver le coffre de cette zone
+        MysteryChest chestForZone = MysteryChest.getByZoneId(zoneId);
+        if (chestForZone != null && discovered.remove(chestForZone.getId())) {
+            plugin.getLogger().info("[Journey] Reset coffre mystérieux zone " + zoneId + " pour joueur " + playerId);
+        }
+    }
 }

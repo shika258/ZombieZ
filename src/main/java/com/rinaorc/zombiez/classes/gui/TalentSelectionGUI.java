@@ -99,10 +99,10 @@ public class TalentSelectionGUI implements Listener {
             }
         }
 
-        // Changer de branche
+        // Changer de voie
         List<String> changeLore = new ArrayList<>();
         changeLore.add("");
-        changeLore.add("§7Branche actuelle: " + branch.getColoredName());
+        changeLore.add("§7Voie actuelle: " + branch.getColoredName());
         changeLore.add("");
         if (data.isOnBranchChangeCooldown()) {
             long minutes = data.getBranchChangeCooldownRemaining() / (60 * 1000);
@@ -114,7 +114,7 @@ public class TalentSelectionGUI implements Listener {
         }
 
         gui.setItem(SLOT_CHANGE_BRANCH, new ItemBuilder(Material.COMPARATOR)
-            .name("§6§lCHANGER DE BRANCHE")
+            .name("§6§lCHANGER DE VOIE")
             .lore(changeLore)
             .build());
 

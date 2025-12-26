@@ -6,11 +6,13 @@ import com.rinaorc.zombiez.zombies.types.ZombieType;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
@@ -81,6 +83,19 @@ public class SpawnSystem {
     private int protectedMinY, protectedMaxY;
     private int protectedMinZ, protectedMaxZ;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ZONE SPÉCIALE: Zone du météore (zombies incendiés - Chapitre 2 Étape 6)
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static final int FIRE_ZONE_MIN_X = 273;
+    private static final int FIRE_ZONE_MAX_X = 416;
+    private static final int FIRE_ZONE_MIN_Y = 70;
+    private static final int FIRE_ZONE_MAX_Y = 103;
+    private static final int FIRE_ZONE_MIN_Z = 9449;
+    private static final int FIRE_ZONE_MAX_Z = 9550;
+    private static final double FIRE_ZOMBIE_SPAWN_CHANCE = 0.85; // 85% de chance de spawn FIRE_ZOMBIE
+    private static final double REDUCED_SPAWN_CHANCE_FIRE_ZONE = 0.25; // 25% de spawn normal dans la zone
+    private final NamespacedKey FIRE_ZOMBIE_KEY; // Clé PDC pour tracking Journey étape 6
+
     // Tick spread pour les joueurs - distribue sur 4 ticks (250ms chacun)
     private static final int PLAYER_SPREAD = 4;
     private int playerTickCounter = 0;
@@ -92,6 +107,7 @@ public class SpawnSystem {
         this.zoneConfigs = new HashMap<>();
         this.weightedTables = new HashMap<>();
         this.playerSpawnCooldowns = new ConcurrentHashMap<>();
+        this.FIRE_ZOMBIE_KEY = new NamespacedKey(plugin, "fire_zombie");
 
         initializeZoneConfigs();
         initializeWeightedTables(); // Précalculer les tables
@@ -475,8 +491,24 @@ public class SpawnSystem {
         Location spawnLoc = findValidSpawnLocation(player, config);
         if (spawnLoc == null) return;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ZONE MÉTÉORE: Logique spéciale pour les zombies incendiés
+        // ═══════════════════════════════════════════════════════════════════
+        boolean inFireZone = isInFireZombieZone(spawnLoc);
+
+        // Dans la zone météore, réduire les spawns normaux (75% ignorés)
+        if (inFireZone && random.nextDouble() > REDUCED_SPAWN_CHANCE_FIRE_ZONE) {
+            return; // Skip ce spawn pour réduire la densité de mobs normaux
+        }
+
         // Choisir le type de zombie
-        ZombieType type = selectZombieType(zoneId);
+        ZombieType type;
+        if (inFireZone && random.nextDouble() < FIRE_ZOMBIE_SPAWN_CHANCE) {
+            // 85% de chance de spawner un FIRE_ZOMBIE dans la zone météore
+            type = ZombieType.FIRE_ZOMBIE;
+        } else {
+            type = selectZombieType(zoneId);
+        }
 
         // Calculer le niveau
         int level = calculateZombieLevel(config.baseLevel, player);
@@ -487,7 +519,70 @@ public class SpawnSystem {
         if (zombie != null) {
             playerSpawnCooldowns.put(playerId, now);
             spawnsThisTick++;
+
+            // Si c'est un FIRE_ZOMBIE, appliquer les effets visuels
+            if (type == ZombieType.FIRE_ZOMBIE) {
+                applyFireZombieEffects(zombie);
+            }
         }
+    }
+
+    /**
+     * Vérifie si une location est dans la zone du météore (zombies incendiés)
+     */
+    private boolean isInFireZombieZone(Location loc) {
+        return loc.getX() >= FIRE_ZONE_MIN_X && loc.getX() <= FIRE_ZONE_MAX_X &&
+               loc.getY() >= FIRE_ZONE_MIN_Y && loc.getY() <= FIRE_ZONE_MAX_Y &&
+               loc.getZ() >= FIRE_ZONE_MIN_Z && loc.getZ() <= FIRE_ZONE_MAX_Z;
+    }
+
+    /**
+     * Applique les effets visuels de feu aux zombies incendiés
+     * Ajoute aussi le marqueur PDC pour le tracking Journey (Chapitre 2 Étape 6)
+     */
+    private void applyFireZombieEffects(ZombieManager.ActiveZombie activeZombie) {
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (entity instanceof org.bukkit.entity.Zombie zombie) {
+            // Marqueur PDC pour tracking Journey Chapitre 2 Étape 6
+            zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Effet de feu permanent
+            zombie.setVisualFire(true);
+            zombie.setFireTicks(Integer.MAX_VALUE);
+
+            // Armure de cuir rouge
+            org.bukkit.inventory.ItemStack helmet = createFireArmor(org.bukkit.Material.LEATHER_HELMET);
+            org.bukkit.inventory.ItemStack chestplate = createFireArmor(org.bukkit.Material.LEATHER_CHESTPLATE);
+            org.bukkit.inventory.ItemStack leggings = createFireArmor(org.bukkit.Material.LEATHER_LEGGINGS);
+            org.bukkit.inventory.ItemStack boots = createFireArmor(org.bukkit.Material.LEATHER_BOOTS);
+
+            zombie.getEquipment().setHelmet(helmet);
+            zombie.getEquipment().setChestplate(chestplate);
+            zombie.getEquipment().setLeggings(leggings);
+            zombie.getEquipment().setBoots(boots);
+
+            // Pas de drop d'armure
+            zombie.getEquipment().setHelmetDropChance(0);
+            zombie.getEquipment().setChestplateDropChance(0);
+            zombie.getEquipment().setLeggingsDropChance(0);
+            zombie.getEquipment().setBootsDropChance(0);
+
+            // Particules de spawn
+            zombie.getWorld().spawnParticle(org.bukkit.Particle.FLAME,
+                zombie.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.03);
+        }
+    }
+
+    /**
+     * Crée une pièce d'armure de cuir rouge pour les zombies incendiés
+     */
+    private org.bukkit.inventory.ItemStack createFireArmor(org.bukkit.Material armorType) {
+        org.bukkit.inventory.ItemStack armor = new org.bukkit.inventory.ItemStack(armorType);
+        if (armor.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta leatherMeta) {
+            leatherMeta.setColor(org.bukkit.Color.fromRGB(180, 30, 30));
+            armor.setItemMeta(leatherMeta);
+        }
+        return armor;
     }
 
     /**

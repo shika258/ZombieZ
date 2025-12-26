@@ -61,12 +61,12 @@ public class BranchSelectionGUI implements Listener {
         TalentBranch currentBranch = data.getSelectedBranch();
         List<String> infoLore = new ArrayList<>();
         infoLore.add("");
-        infoLore.add("§7Choisissez votre §espécialisation§7.");
-        infoLore.add("§7Tous vos talents seront de cette branche.");
+        infoLore.add("§7Choisissez votre §evoie§7.");
+        infoLore.add("§7Tous vos talents seront de cette voie.");
         infoLore.add("");
 
         if (currentBranch != null) {
-            infoLore.add("§7Branche actuelle: " + currentBranch.getColoredName());
+            infoLore.add("§7Voie actuelle: " + currentBranch.getColoredName());
             if (data.isOnBranchChangeCooldown()) {
                 long remaining = data.getBranchChangeCooldownRemaining();
                 long minutes = remaining / (60 * 1000);
@@ -74,7 +74,7 @@ public class BranchSelectionGUI implements Listener {
                 infoLore.add("§cChangement en cooldown: §f" + minutes + " min");
             }
         } else {
-            infoLore.add("§eAucune branche sélectionnée");
+            infoLore.add("§eAucune voie sélectionnée");
         }
 
         gui.setItem(SLOT_INFO, new ItemBuilder(Material.NETHER_STAR)
@@ -124,7 +124,7 @@ public class BranchSelectionGUI implements Listener {
             lore.add("§e> Clic pour sélectionner");
             if (data.hasBranch()) {
                 lore.add("");
-                lore.add("§c⚠ Changer de branche reset");
+                lore.add("§c⚠ Changer de voie reset");
                 lore.add("§c  tous vos talents!");
             }
         }
@@ -176,7 +176,7 @@ public class BranchSelectionGUI implements Listener {
         // Déjà sélectionnée
         if (currentBranch == branch) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
-            player.sendMessage("§7Cette branche est déjà sélectionnée.");
+            player.sendMessage("§7Cette voie est déjà sélectionnée.");
             // Ouvrir le menu des talents directement
             player.closeInventory();
             plugin.getTalentSelectionGUI().open(player);
@@ -187,19 +187,19 @@ public class BranchSelectionGUI implements Listener {
         if (data.isOnBranchChangeCooldown() && currentBranch != null) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             long minutes = data.getBranchChangeCooldownRemaining() / (60 * 1000);
-            player.sendMessage("§cVous ne pouvez pas encore changer de branche!");
+            player.sendMessage("§cVous ne pouvez pas encore changer de voie!");
             player.sendMessage("§7Temps restant: §f" + minutes + " minutes");
             return;
         }
 
-        // Sélectionner la branche
+        // Sélectionner la voie
         boolean hadBranch = data.hasBranch();
         if (data.selectBranch(branch)) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
 
             if (data.isTalentMessagesEnabled()) {
                 player.sendMessage("");
-                player.sendMessage("§a§l+ BRANCHE SÉLECTIONNÉE +");
+                player.sendMessage("§a§l+ VOIE SÉLECTIONNÉE +");
                 player.sendMessage("§7Spécialisation: " + branch.getColoredName());
                 if (hadBranch) {
                     player.sendMessage("§c§oVos anciens talents ont été réinitialisés.");
@@ -207,9 +207,14 @@ public class BranchSelectionGUI implements Listener {
                 player.sendMessage("");
             }
 
-            // Synchroniser les bêtes (despawn si changement de branche hors bêtes)
+            // Synchroniser les bêtes (despawn si changement de voie hors bêtes)
             if (plugin.getBeastManager() != null) {
                 plugin.getBeastManager().syncBeastsWithTalents(player);
+            }
+
+            // Notifier le système de Journey (étape 2.1 en 2 temps)
+            if (plugin.getJourneyListener() != null) {
+                plugin.getJourneyListener().onBranchSelect(player);
             }
 
             // Ouvrir le menu des talents
@@ -217,7 +222,7 @@ public class BranchSelectionGUI implements Listener {
             plugin.getTalentSelectionGUI().open(player);
         } else {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            player.sendMessage("§cImpossible de sélectionner cette branche!");
+            player.sendMessage("§cImpossible de sélectionner cette voie!");
         }
     }
 }

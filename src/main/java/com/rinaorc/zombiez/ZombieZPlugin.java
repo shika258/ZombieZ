@@ -224,6 +224,14 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
 
+    // Système WorldBorder par joueur (progression zones)
+    @Getter
+    private com.rinaorc.zombiez.managers.ZoneBorderManager zoneBorderManager;
+
+    // Système TextDisplay zones verrouillées (client-side)
+    @Getter
+    private com.rinaorc.zombiez.managers.ZoneLockDisplayManager zoneLockDisplayManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -418,6 +426,16 @@ public class ZombieZPlugin extends JavaPlugin {
             chapter2Systems.cleanup();
         }
 
+        // Cleanup Zone Border Manager
+        if (zoneBorderManager != null) {
+            zoneBorderManager.cleanup();
+        }
+
+        // Cleanup Zone Lock Display Manager
+        if (zoneLockDisplayManager != null) {
+            zoneLockDisplayManager.stop();
+        }
+
         // Fermeture de la base de données
         if (databaseManager != null) {
             log(Level.INFO, "§7Fermeture de la connexion BDD...");
@@ -536,6 +554,14 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Chapter 2 Systems - NPCs, Zombies Incendiés, Boss du Manoir
         chapter2Systems = new com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems(this);
+
+        // Zone Border Manager - WorldBorder par joueur basé sur la progression
+        zoneBorderManager = new com.rinaorc.zombiez.managers.ZoneBorderManager(this);
+        zoneBorderManager.initialize();
+
+        // Zone Lock Display Manager - TextDisplay client-side pour zones verrouillées
+        zoneLockDisplayManager = new com.rinaorc.zombiez.managers.ZoneLockDisplayManager(this);
+        zoneLockDisplayManager.start();
 
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);

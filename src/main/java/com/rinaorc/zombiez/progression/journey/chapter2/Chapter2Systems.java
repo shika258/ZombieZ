@@ -35,6 +35,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.consumables.ConsumableType;
+import com.rinaorc.zombiez.zombies.ZombieManager;
+import com.rinaorc.zombiez.zombies.types.ZombieType;
 
 /**
  * Gère tous les systèmes spécifiques au Chapitre 2:
@@ -70,6 +72,17 @@ public class Chapter2Systems implements Listener {
     private final Map<UUID, Integer> woodGivenByPlayer = new ConcurrentHashMap<>();
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
+
+    // === BOSS DISPLAY ===
+    private TextDisplay bossSpawnDisplay;
+    private long bossRespawnTime = 0; // Timestamp du prochain respawn
+    private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
+    private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
+
+    // Stats du boss pour l'affichage
+    private static final String BOSS_NAME = "Seigneur du Manoir";
+    private static final int BOSS_MAX_HP = 500;
+    private static final int BOSS_DAMAGE = 15;
 
     // Trims disponibles pour randomisation (chargés depuis Registry)
     private static final List<TrimPattern> TRIM_PATTERNS = new ArrayList<>();
@@ -117,10 +130,110 @@ public class Chapter2Systems implements Listener {
                 if (world != null) {
                     initializeNPCs(world);
                     startFireZombieSpawner(world);
+                    initializeBossDisplay(world);
                     spawnManorBoss(world);
+                    startBossDisplayUpdater();
                 }
             }
         }.runTaskLater(plugin, 100L);
+    }
+
+    // ==================== BOSS DISPLAY ====================
+
+    /**
+     * Initialise le TextDisplay au-dessus du spawn du boss
+     */
+    private void initializeBossDisplay(World world) {
+        Location displayLoc = MANOR_BOSS_LOCATION.clone();
+        displayLoc.setWorld(world);
+        displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
+
+        // Supprimer l'ancien display si existant
+        if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+            bossSpawnDisplay.remove();
+        }
+
+        bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            // Configuration de base
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
+
+            // Scale x3
+            display.setTransformation(new org.bukkit.util.Transformation(
+                new org.joml.Vector3f(0, 0, 0),           // Translation
+                new org.joml.AxisAngle4f(0, 0, 0, 1),    // Left rotation
+                new org.joml.Vector3f(3f, 3f, 3f),        // Scale x3
+                new org.joml.AxisAngle4f(0, 0, 0, 1)     // Right rotation
+            ));
+
+            // Distance de vue
+            display.setViewRange(100f);
+
+            // Texte initial
+            updateBossDisplayText(display, true, 0);
+        });
+    }
+
+    /**
+     * Met à jour le texte du display selon l'état du boss
+     */
+    private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
+        if (display == null || !display.isValid()) return;
+
+        StringBuilder text = new StringBuilder();
+
+        if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
+            // Boss vivant - afficher stats
+            int currentHp = (int) ((Zombie) manorBossEntity).getHealth();
+            int hearts = currentHp / 2;
+            int maxHearts = BOSS_MAX_HP / 2;
+
+            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
+            text.append("§c❤ ").append(currentHp).append("§7/§c").append(BOSS_MAX_HP).append(" §7(").append(hearts).append("/").append(maxHearts).append(" ♥)\n");
+            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
+            text.append("§a§l✓ BOSS ACTIF");
+        } else {
+            // Boss mort - afficher countdown
+            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
+            text.append("§c❤ HP: §f").append(BOSS_MAX_HP).append(" §7(").append(BOSS_MAX_HP / 2).append(" ♥)\n");
+            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
+
+            if (respawnSeconds > 0) {
+                text.append("§e⏱ Respawn: §f").append(respawnSeconds).append("s");
+            } else {
+                text.append("§c§l✗ EN ATTENTE");
+            }
+        }
+
+        display.text(Component.text(text.toString()));
+    }
+
+    /**
+     * Démarre la tâche de mise à jour du display (toutes les secondes)
+     */
+    private void startBossDisplayUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
+                    return;
+                }
+
+                boolean bossAlive = manorBossEntity != null && manorBossEntity.isValid();
+                int respawnSeconds = 0;
+
+                if (!bossAlive && bossRespawnTime > 0) {
+                    long remaining = (bossRespawnTime - System.currentTimeMillis()) / 1000;
+                    respawnSeconds = Math.max(0, (int) remaining);
+                }
+
+                updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
     }
 
     // ==================== NPC MINEUR BLESSÉ (ÉTAPE 4) ====================
@@ -332,7 +445,15 @@ public class Chapter2Systems implements Listener {
             player.sendMessage("");
             player.sendMessage("§6§lIgor: §f\"J'ai besoin de bûches de bois pour rebâtir mon village!\"");
             player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e8 §7bûches");
-            player.sendMessage("§8(Frappe un arbre pour récolter du bois)");
+
+            // Vérifier si le joueur a la hache, sinon lui en donner une nouvelle
+            if (!journeyManager.hasWoodcutterAxe(player)) {
+                player.sendMessage("");
+                player.sendMessage("§6§lIgor: §f\"Tu n'as plus ma hache? Tiens, en voici une autre!\"");
+                journeyManager.giveWoodcutterAxe(player, true);
+            } else {
+                player.sendMessage("§8(Utilise la Hache de Bûcheron pour couper du chêne)");
+            }
             player.sendMessage("");
             return;
         }
@@ -493,9 +614,12 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Fait spawn un zombie incendié avec armure de cuir rouge et trims
+     * Fait spawn un zombie incendié custom ZombieZ avec IA, nom dynamique et stats
      */
     private void spawnFireZombie(World world) {
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) return;
+
         // Position aléatoire dans la zone
         double x = ThreadLocalRandom.current().nextDouble(FIRE_ZOMBIE_ZONE.getMinX(), FIRE_ZOMBIE_ZONE.getMaxX());
         double z = ThreadLocalRandom.current().nextDouble(FIRE_ZOMBIE_ZONE.getMinZ(), FIRE_ZOMBIE_ZONE.getMaxZ());
@@ -503,36 +627,40 @@ public class Chapter2Systems implements Listener {
 
         Location spawnLoc = new Location(world, x, y, z);
 
-        world.spawn(spawnLoc, Zombie.class, zombie -> {
-            zombie.setCustomName("§c§l🔥 §6Zombie Incendié §c§l🔥");
-            zombie.setCustomNameVisible(true);
+        // Niveau aléatoire 3-7 pour la zone 2
+        int level = ThreadLocalRandom.current().nextInt(3, 8);
 
-            // Stats augmentées
-            var health = zombie.getAttribute(Attribute.MAX_HEALTH);
-            if (health != null) {
-                health.setBaseValue(40); // 20 coeurs
-                zombie.setHealth(40);
+        // Spawn via ZombieManager (avec IA, nom dynamique, stats, etc.)
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.FIRE_ZOMBIE, spawnLoc, level);
+
+        if (activeZombie != null) {
+            // Récupérer l'entité pour appliquer les effets visuels de feu
+            Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+            if (entity instanceof Zombie zombie) {
+                // Équiper avec armure de cuir rouge + trims
+                zombie.getEquipment().setHelmet(createFireZombieArmor(Material.LEATHER_HELMET));
+                zombie.getEquipment().setChestplate(createFireZombieArmor(Material.LEATHER_CHESTPLATE));
+                zombie.getEquipment().setLeggings(createFireZombieArmor(Material.LEATHER_LEGGINGS));
+                zombie.getEquipment().setBoots(createFireZombieArmor(Material.LEATHER_BOOTS));
+
+                // Pas de drop d'armure
+                zombie.getEquipment().setHelmetDropChance(0);
+                zombie.getEquipment().setChestplateDropChance(0);
+                zombie.getEquipment().setLeggingsDropChance(0);
+                zombie.getEquipment().setBootsDropChance(0);
+
+                // Toujours en feu visuellement
+                zombie.setVisualFire(true);
+                zombie.setFireTicks(Integer.MAX_VALUE);
+
+                // Marquer comme zombie incendié pour le tracking Journey
+                zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
+
+                // Effet de spawn
+                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
+                world.spawnParticle(Particle.LAVA, spawnLoc.clone().add(0, 0.5, 0), 5, 0.3, 0.3, 0.3, 0);
             }
-
-            // Équiper avec armure de cuir rouge + trims
-            zombie.getEquipment().setHelmet(createFireZombieArmor(Material.LEATHER_HELMET));
-            zombie.getEquipment().setChestplate(createFireZombieArmor(Material.LEATHER_CHESTPLATE));
-            zombie.getEquipment().setLeggings(createFireZombieArmor(Material.LEATHER_LEGGINGS));
-            zombie.getEquipment().setBoots(createFireZombieArmor(Material.LEATHER_BOOTS));
-
-            // Pas de drop d'armure
-            zombie.getEquipment().setHelmetDropChance(0);
-            zombie.getEquipment().setChestplateDropChance(0);
-            zombie.getEquipment().setLeggingsDropChance(0);
-            zombie.getEquipment().setBootsDropChance(0);
-
-            // Toujours en feu visuellement
-            zombie.setVisualFire(true);
-            zombie.setFireTicks(Integer.MAX_VALUE);
-
-            // Marquer comme zombie incendié
-            zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        }
     }
 
     /**
@@ -809,17 +937,20 @@ public class Chapter2Systems implements Listener {
         // Programmer le respawn (1 minute)
         if (!bossRespawnScheduled) {
             bossRespawnScheduled = true;
+            bossRespawnTime = System.currentTimeMillis() + (BOSS_RESPAWN_SECONDS * 1000L);
+
             new BukkitRunnable() {
                 @Override
                 public void run() {
                     spawnManorBoss(world);
+                    bossRespawnTime = 0;
                 }
-            }.runTaskLater(plugin, 20L * 60); // 60 secondes
+            }.runTaskLater(plugin, 20L * BOSS_RESPAWN_SECONDS);
 
             // Annoncer le respawn
             for (Player player : world.getPlayers()) {
                 if (player.getLocation().distance(deathLoc) < 100) {
-                    player.sendMessage("§8Le Seigneur du Manoir reviendra dans §c1 minute§8...");
+                    player.sendMessage("§8Le Seigneur du Manoir reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
                 }
             }
         }
@@ -847,5 +978,6 @@ public class Chapter2Systems implements Listener {
         if (injuredMinerEntity != null) injuredMinerEntity.remove();
         if (igorEntity != null) igorEntity.remove();
         if (manorBossEntity != null) manorBossEntity.remove();
+        if (bossSpawnDisplay != null) bossSpawnDisplay.remove();
     }
 }
