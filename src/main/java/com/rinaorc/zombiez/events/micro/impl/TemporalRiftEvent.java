@@ -1,8 +1,11 @@
 package com.rinaorc.zombiez.events.micro.impl;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import com.rinaorc.zombiez.zones.Zone;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -24,6 +27,8 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.joml.Vector3f;
 
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,6 +50,7 @@ public class TemporalRiftEvent extends MicroEvent {
     private int ticksSinceLastSpawn = 0;
     private int spawnInterval = 30; // 1.5 secondes entre spawns (accelere)
     private boolean riftClosed = false;
+    private final Random random = new Random();
 
     // TextDisplay flottant au-dessus du portail
     private TextDisplay riftDisplay;
@@ -167,8 +173,8 @@ public class TemporalRiftEvent extends MicroEvent {
         riftZombies.add(zombie.getUniqueId());
         registerEntity(zombie);
 
-        // Configuration du zombie temporel
-        zombie.setCustomName("§d⚡ Zombie Temporel");
+        // Configuration du zombie temporel - afficher les HP comme les mobs ZombieZ
+        zombie.setCustomName(createZombieName((int) zombieHealth, (int) zombieHealth));
         zombie.setCustomNameVisible(true);
         zombie.setBaby(false);
         zombie.setShouldBurnInDay(false);
@@ -214,6 +220,22 @@ public class TemporalRiftEvent extends MicroEvent {
         meta.setColor(TEMPORAL_COLOR);
         item.setItemMeta(meta);
         return item;
+    }
+
+    /**
+     * Cree le nom du zombie avec affichage des HP (style ZombieZ)
+     */
+    private String createZombieName(int currentHealth, int maxHealth) {
+        double healthPercent = (double) currentHealth / maxHealth;
+        String healthColor;
+        if (healthPercent > 0.66) {
+            healthColor = "§a"; // Vert
+        } else if (healthPercent > 0.33) {
+            healthColor = "§e"; // Jaune
+        } else {
+            healthColor = "§c"; // Rouge
+        }
+        return "§d⚡ Zombie Temporel " + healthColor + currentHealth + "§7/§a" + maxHealth + " §c❤";
     }
 
     /**
@@ -339,12 +361,105 @@ public class TemporalRiftEvent extends MicroEvent {
 
     @Override
     public boolean handleDamage(LivingEntity entity, Player attacker, double damage) {
-        if (riftZombies.contains(entity.getUniqueId())) {
-            // Effet de hit
-            entity.getWorld().spawnParticle(Particle.ENCHANTED_HIT, entity.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0.05);
-            return true;
+        if (!riftZombies.contains(entity.getUniqueId())) {
+            return false;
         }
-        return false;
+
+        // ============ CALCUL DES DÉGÂTS ZOMBIEZ ============
+        double finalDamage = damage;
+        boolean isCritical = false;
+
+        // 1. STATS D'ÉQUIPEMENT
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(attacker);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // 2. SKILL TREE BONUSES
+        var skillManager = plugin.getSkillTreeManager();
+        double skillDamageBonus = skillManager.getSkillBonus(attacker, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // 3. SYSTÈME DE CRITIQUE
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(attacker, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (random.nextDouble() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0;
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(attacker, SkillBonus.CRIT_DAMAGE);
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // 4. MOMENTUM SYSTEM
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(attacker);
+        finalDamage *= momentumMultiplier;
+
+        // 5. EXECUTE DAMAGE (<20% HP)
+        double mobHealthPercent = entity.getHealth() / entity.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(attacker, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // 6. LIFESTEAL
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(attacker, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        if (totalLifesteal > 0) {
+            double healAmount = finalDamage * (totalLifesteal / 100.0);
+            double newHealth = Math.min(attacker.getHealth() + healAmount, attacker.getMaxHealth());
+            attacker.setHealth(newHealth);
+            if (healAmount > 1) {
+                attacker.getWorld().spawnParticle(Particle.HEART, attacker.getLocation().add(0, 1.5, 0), 2, 0.2, 0.2, 0.2);
+            }
+        }
+
+        // ============ APPLIQUER LES DÉGÂTS DIRECTEMENT À LA SANTÉ ============
+        double newHealth = Math.max(0, entity.getHealth() - finalDamage);
+        entity.setHealth(newHealth);
+
+        // Effet de dégâts (animation rouge)
+        entity.playHurtAnimation(0);
+
+        // ============ AFFICHER L'INDICATEUR DE DÉGÂTS ============
+        PacketDamageIndicator.display(plugin, entity.getLocation().add(0, 1, 0), finalDamage, isCritical, attacker);
+
+        // ============ FEEDBACK VISUEL ============
+        if (isCritical) {
+            attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+            entity.getWorld().spawnParticle(Particle.CRIT, entity.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+        } else {
+            // Particules violettes pour le hit temporel
+            entity.getWorld().spawnParticle(Particle.ENCHANTED_HIT, entity.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.05);
+        }
+
+        // ============ METTRE À JOUR L'AFFICHAGE DES HP ============
+        if (entity.isValid() && !entity.isDead()) {
+            entity.setCustomName(createZombieName((int) newHealth, (int) zombieHealth));
+        }
+
+        // ============ GÉRER LA MORT SI NÉCESSAIRE ============
+        if (newHealth <= 0) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (entity.isValid() && !entity.isDead()) {
+                    entity.setHealth(0);
+                }
+            });
+        }
+
+        return true;
     }
 
     @Override
