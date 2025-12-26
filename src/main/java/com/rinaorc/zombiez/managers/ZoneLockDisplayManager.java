@@ -275,11 +275,20 @@ public class ZoneLockDisplayManager {
 
     /**
      * Envoie le paquet de spawn de l'entité TextDisplay
+     *
+     * Structure du paquet SPAWN_ENTITY en 1.21.4 (ProtocolLib):
+     * - integers[0]: Entity ID (VarInt)
+     * - integers[1]: Data (VarInt, optionnel selon le type d'entité)
+     * - uuids[0]: Entity UUID
+     * - entityTypeModifier[0]: Type d'entité
+     * - doubles[0-2]: X, Y, Z (position)
+     * - bytes[0-2]: Pitch, Yaw, Head Yaw (angles)
+     * - shorts[0-2]: Velocity X, Y, Z (optionnel, 0 par défaut)
      */
     private void sendSpawnPacket(Player player, int entityId, Location loc) throws Exception {
         PacketContainer spawnPacket = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
 
-        // Entity ID
+        // Entity ID (integers[0])
         spawnPacket.getIntegers().write(0, entityId);
 
         // UUID
@@ -288,23 +297,23 @@ public class ZoneLockDisplayManager {
         // Entity Type (TEXT_DISPLAY)
         spawnPacket.getEntityTypeModifier().write(0, EntityType.TEXT_DISPLAY);
 
-        // Position
+        // Position (doubles[0-2])
         spawnPacket.getDoubles().write(0, loc.getX());
         spawnPacket.getDoubles().write(1, loc.getY());
         spawnPacket.getDoubles().write(2, loc.getZ());
 
-        // Velocity (0)
-        spawnPacket.getIntegers().write(1, 0);
-        spawnPacket.getIntegers().write(2, 0);
-        spawnPacket.getIntegers().write(3, 0);
-
-        // Pitch/Yaw
+        // Pitch/Yaw/Head Yaw (bytes[0-2])
         spawnPacket.getBytes().write(0, (byte) 0); // Pitch
         spawnPacket.getBytes().write(1, (byte) 0); // Yaw
         spawnPacket.getBytes().write(2, (byte) 0); // Head yaw
 
-        // Data
-        spawnPacket.getIntegers().write(4, 0);
+        // Data (integers[1]) - 0 pour TEXT_DISPLAY
+        spawnPacket.getIntegers().write(1, 0);
+
+        // Velocity (shorts[0-2]) - 0 pour entité statique
+        spawnPacket.getShorts().write(0, (short) 0); // Velocity X
+        spawnPacket.getShorts().write(1, (short) 0); // Velocity Y
+        spawnPacket.getShorts().write(2, (short) 0); // Velocity Z
 
         protocolManager.sendServerPacket(player, spawnPacket);
     }
