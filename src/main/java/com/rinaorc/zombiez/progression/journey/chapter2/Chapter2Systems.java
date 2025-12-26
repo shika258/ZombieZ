@@ -171,6 +171,11 @@ public class Chapter2Systems implements Listener {
         displayLoc.setWorld(world);
         displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
 
+        // Forcer le chargement du chunk pour garantir le spawn
+        if (!displayLoc.getChunk().isLoaded()) {
+            displayLoc.getChunk().load();
+        }
+
         // Supprimer l'ancien display si existant
         if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
             bossSpawnDisplay.remove();
@@ -237,24 +242,41 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Démarre la tâche de mise à jour du display (toutes les secondes)
+     * Recrée le display et le boss s'ils sont invalides
      */
     private void startBossDisplayUpdater() {
         new BukkitRunnable() {
             @Override
             public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Recréer le display s'il est invalide
                 if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
-                    return;
+                    plugin.log(Level.INFO, "TextDisplay du boss invalide, recréation...");
+                    initializeBossDisplay(world);
                 }
 
-                boolean bossAlive = manorBossEntity != null && manorBossEntity.isValid();
+                // Vérifier si le boss doit être respawné
+                boolean bossAlive = manorBossEntity != null && manorBossEntity.isValid() && !manorBossEntity.isDead();
                 int respawnSeconds = 0;
 
-                if (!bossAlive && bossRespawnTime > 0) {
-                    long remaining = (bossRespawnTime - System.currentTimeMillis()) / 1000;
-                    respawnSeconds = Math.max(0, (int) remaining);
+                if (!bossAlive) {
+                    // Si pas de respawn programmé et pas de boss, spawn immédiatement
+                    if (!bossRespawnScheduled && bossRespawnTime == 0) {
+                        plugin.log(Level.INFO, "Boss du Manoir absent, spawn automatique...");
+                        spawnManorBoss(world);
+                        bossAlive = manorBossEntity != null && manorBossEntity.isValid();
+                    } else if (bossRespawnTime > 0) {
+                        long remaining = (bossRespawnTime - System.currentTimeMillis()) / 1000;
+                        respawnSeconds = Math.max(0, (int) remaining);
+                    }
                 }
 
-                updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
+                // Mettre à jour le texte du display
+                if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+                    updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
+                }
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
     }
@@ -804,6 +826,11 @@ public class Chapter2Systems implements Listener {
 
         Location loc = MANOR_BOSS_LOCATION.clone();
         loc.setWorld(world);
+
+        // Forcer le chargement du chunk pour garantir le spawn
+        if (!loc.getChunk().isLoaded()) {
+            loc.getChunk().load();
+        }
 
         // Nettoyer l'ancien boss s'il existe mais est invalide
         if (manorBossEntity != null) {
