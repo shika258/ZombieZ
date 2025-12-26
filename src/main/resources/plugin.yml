@@ -118,6 +118,12 @@ commands:
     permission: zombiez.journey
     aliases: [journal, jour, voyage, j]
 
+  gps:
+    description: GPS pour les étapes du Journey avec coordonnées
+    usage: /<command> [on|off|info|help]
+    permission: zombiez.journey
+    aliases: [navigation, nav, guide]
+
   # Commandes Recyclage
   recycle:
     description: Système de recyclage automatique d'items
