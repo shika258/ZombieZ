@@ -55,3 +55,49 @@ Plugin de survie par vagues ultra-performant conçu pour **200 joueurs simultan�
 * **Feedback :** Chaque action (achat, kill, vague) = retour visuel (particules) + sonore spatialisé.
 * **Clarté :** Messages courts, centrés (ActionBar), instructions claires dans le Lore des items.
 
+---
+
+## 🧟 Création de Mobs/Boss Custom ZombieZ (OBLIGATOIRE)
+
+> **Règle absolue :** Tout mob ou boss custom DOIT utiliser le système ZombieZ pour bénéficier du display name dynamique avec vies, du système de dégâts adapté et de l'IA personnalisée.
+
+### Étapes pour créer un mob/boss custom :
+
+1. **Créer le ZombieType** dans `zombies/types/ZombieType.java` :
+   ```java
+   MON_BOSS("ZZ_MonBoss", "Nom Affiché", tier, baseHealth, baseDamage, baseSpeed,
+       new int[]{zonesValides}, ZombieCategory.MA_CATEGORIE),
+   ```
+   - `tier` : 0 pour boss, 1-5 pour mobs normaux
+   - Ajouter la catégorie si nouvelle dans `ZombieCategory`
+
+2. **Créer/Utiliser une IA** dans `zombies/ai/` :
+   - Boss de zone/mini-boss : `BossZombieAI`
+   - Boss Journey : `JourneyBossAI`
+   - Ou créer une nouvelle IA héritant de `ZombieAI`
+
+3. **Enregistrer l'IA** dans `ZombieAIManager.createAIForType()` :
+   ```java
+   case MA_CATEGORIE -> new MonBossAI(plugin, zombie, type, level);
+   ```
+
+4. **Spawner via ZombieManager** :
+   ```java
+   ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.MON_BOSS, location, level);
+   Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+   ```
+
+5. **Appliquer les visuels custom** après le spawn (scale, équipement, effets).
+
+### Ce que le système gère automatiquement :
+- **Display name** : `§cNom [Lv.X] §a100§7/§a100 §c❤` (couleur selon % vie)
+- **Système de dégâts** : Cooldown d'attaque, crit, lifesteal, éléments
+- **IA** : Tick automatique via `ZombieAIManager`
+- **Tracking** : `ActiveZombie` pour stats et rewards
+- **PDC** : Clés `zombiez_mob`, `zombiez_type`, `zombiez_level`
+
+### Exemple : Boss Seigneur du Manoir (Chapitre 2)
+- Type : `MANOR_LORD` dans `ZombieType` (catégorie `JOURNEY_BOSS`)
+- IA : `JourneyBossAI` avec attaques d'onde de choc et invocation
+- Spawn : `Chapter2Systems.spawnManorBoss()` via `ZombieManager`
+

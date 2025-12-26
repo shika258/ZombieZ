@@ -718,7 +718,8 @@ public class Chapter2Systems implements Listener {
     // ==================== BOSS DU MANOIR (ÉTAPE 10) ====================
 
     /**
-     * Fait spawn le boss du manoir
+     * Fait spawn le boss du manoir via le système ZombieZ
+     * Utilise ZombieType.MANOR_LORD avec IA JourneyBossAI
      */
     private void spawnManorBoss(World world) {
         // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas en créer un nouveau
@@ -739,67 +740,35 @@ public class Chapter2Systems implements Listener {
         bossContributors.clear();
         bossRespawnScheduled = false;
 
-        // Créer un Zombie géant comme boss
-        Zombie boss = world.spawn(loc, Zombie.class, zombie -> {
-            zombie.setCustomName("§4§l☠ Seigneur du Manoir ☠");
-            zombie.setCustomNameVisible(true);
-            zombie.setBaby(false);
-            zombie.setCanPickupItems(false);
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.log(Level.WARNING, "ZombieManager non disponible, spawn du boss annulé");
+            return;
+        }
 
-            // Scale x3 via Paper API
-            var scale = zombie.getAttribute(Attribute.SCALE);
-            if (scale != null) {
-                scale.setBaseValue(3.0);
-            }
+        // Spawn via ZombieManager (avec IA JourneyBossAI, display name dynamique, système de dégâts ZombieZ)
+        int bossLevel = 10; // Niveau du boss pour le chapitre 2
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.MANOR_LORD, loc, bossLevel);
 
-            var health = zombie.getAttribute(Attribute.MAX_HEALTH);
-            if (health != null) {
-                health.setBaseValue(500); // 250 coeurs
-                zombie.setHealth(500);
-            }
+        if (activeZombie == null) {
+            plugin.log(Level.WARNING, "Échec du spawn du boss du Manoir via ZombieManager");
+            return;
+        }
 
-            var damage = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
-            if (damage != null) {
-                damage.setBaseValue(15); // Dégâts importants
-            }
-
-            var speed = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
-            if (speed != null) {
-                speed.setBaseValue(0.28); // Plus rapide que normal
-            }
-
-            var knockback = zombie.getAttribute(Attribute.ATTACK_KNOCKBACK);
-            if (knockback != null) {
-                knockback.setBaseValue(2.0); // Fort knockback
-            }
-
-            // Équipement épique
-            zombie.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
-            zombie.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
-            zombie.getEquipment().setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
-            zombie.getEquipment().setBoots(new ItemStack(Material.NETHERITE_BOOTS));
-            zombie.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
-
-            // Pas de drop
-            zombie.getEquipment().setHelmetDropChance(0);
-            zombie.getEquipment().setChestplateDropChance(0);
-            zombie.getEquipment().setLeggingsDropChance(0);
-            zombie.getEquipment().setBootsDropChance(0);
-            zombie.getEquipment().setItemInMainHandDropChance(0);
-
-            // Effets de boss
-            zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
-            zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
-            zombie.setGlowing(true);
-
-            // Marquer comme boss du manoir
-            zombie.getPersistentDataContainer().set(MANOR_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        // Récupérer l'entité pour appliquer les modifications visuelles
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (!(entity instanceof Zombie boss)) {
+            plugin.log(Level.WARNING, "Boss du Manoir n'est pas un Zombie valide");
+            return;
+        }
 
         manorBossEntity = boss;
 
-        // Démarrer l'IA du boss (attaques spéciales)
-        startBossAI(boss);
+        // Appliquer les modifications visuelles spécifiques au boss du Manoir
+        applyManorBossVisuals(boss);
+
+        // Marquer comme boss du manoir pour le tracking Journey
+        boss.getPersistentDataContainer().set(MANOR_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
 
         // Annoncer le spawn
         for (Player player : world.getPlayers()) {
@@ -809,82 +778,38 @@ public class Chapter2Systems implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.5f);
             }
         }
+
+        plugin.log(Level.INFO, "§c§lBoss du Manoir spawné avec succès (système ZombieZ)");
     }
 
     /**
-     * IA spéciale du boss - attaques périodiques
+     * Applique les modifications visuelles au boss du Manoir
+     * (Scale x3, équipement netherite, effets visuels)
      */
-    private void startBossAI(Zombie boss) {
-        new BukkitRunnable() {
-            int tick = 0;
+    private void applyManorBossVisuals(Zombie boss) {
+        // Scale x3 via Paper API
+        var scale = boss.getAttribute(Attribute.SCALE);
+        if (scale != null) {
+            scale.setBaseValue(2.5);
+        }
 
-            @Override
-            public void run() {
-                if (boss == null || !boss.isValid() || boss.isDead()) {
-                    cancel();
-                    return;
-                }
+        // Équipement netherite épique
+        boss.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+        boss.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+        boss.getEquipment().setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
+        boss.getEquipment().setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+        boss.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
 
-                tick++;
-                World world = boss.getWorld();
-                Location bossLoc = boss.getLocation();
+        // Pas de drop d'équipement
+        boss.getEquipment().setHelmetDropChance(0);
+        boss.getEquipment().setChestplateDropChance(0);
+        boss.getEquipment().setLeggingsDropChance(0);
+        boss.getEquipment().setBootsDropChance(0);
+        boss.getEquipment().setItemInMainHandDropChance(0);
 
-                // Leash check: toutes les secondes, vérifier si le boss est trop loin de son spawn
-                if (tick % 20 == 0) {
-                    Location spawnLoc = MANOR_BOSS_LOCATION.clone();
-                    spawnLoc.setWorld(world);
-                    double distSq = bossLoc.distanceSquared(spawnLoc);
-
-                    if (distSq > BOSS_LEASH_RANGE_SQUARED) {
-                        // Téléporter le boss à son spawn
-                        boss.teleport(spawnLoc);
-                        boss.setTarget(null); // Reset le ciblage
-                        world.playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
-                        world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-                    }
-                }
-
-                // Toutes les 5 secondes: attaque de zone
-                if (tick % 100 == 0) {
-                    // Onde de choc
-                    world.playSound(bossLoc, Sound.ENTITY_RAVAGER_ROAR, 2f, 0.5f);
-                    world.spawnParticle(Particle.EXPLOSION, bossLoc, 10, 2, 1, 2, 0);
-
-                    // Repousser les joueurs proches
-                    for (Entity entity : boss.getNearbyEntities(5, 3, 5)) {
-                        if (entity instanceof Player player) {
-                            player.damage(8, boss);
-                            player.setVelocity(player.getLocation().toVector()
-                                .subtract(bossLoc.toVector()).normalize().multiply(1.5).setY(0.5));
-                        }
-                    }
-                }
-
-                // Toutes les 8 secondes: invocation de renforts
-                if (tick % 160 == 0) {
-                    world.playSound(bossLoc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 2f, 0.8f);
-
-                    // Spawn 2-3 zombies normaux
-                    int reinforcements = ThreadLocalRandom.current().nextInt(2, 4);
-                    for (int i = 0; i < reinforcements; i++) {
-                        Location spawnLoc = bossLoc.clone().add(
-                            ThreadLocalRandom.current().nextDouble(-3, 3),
-                            0,
-                            ThreadLocalRandom.current().nextDouble(-3, 3)
-                        );
-                        world.spawn(spawnLoc, Zombie.class, z -> {
-                            z.setCustomName("§7Serviteur du Manoir");
-                            z.setCustomNameVisible(true);
-                        });
-                    }
-                }
-
-                // Particules constantes
-                if (tick % 10 == 0) {
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, bossLoc.add(0, 1, 0), 5, 0.5, 0.5, 0.5, 0.02);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
+        // Effets visuels
+        boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
+        boss.setGlowing(true);
     }
 
     /**

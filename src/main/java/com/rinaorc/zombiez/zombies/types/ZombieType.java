@@ -177,6 +177,9 @@ public enum ZombieType {
     FIRE_ZOMBIE("ZZ_FireZombie", "Pyromort", 2, 40, 6, 0.22,     // Pyro + mort (Zone 2 - Chapitre 2 Étape 6)
         new int[]{2}, ZombieCategory.ELEMENTAL),
 
+    MANOR_LORD("ZZ_ManorLord", "Seigneur du Manoir", 0, 500, 15, 0.22,  // Boss Chapitre 2 Étape 10
+        new int[]{2}, ZombieCategory.JOURNEY_BOSS),
+
     // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════
@@ -297,6 +300,7 @@ public enum ZombieType {
             case MINIBOSS -> 100;
             case ZONE_BOSS -> 500;
             case FINAL_BOSS -> 2000;
+            case JOURNEY_BOSS -> 150; // Boss de chapitre Journey
             case SKELETON -> 6;      // Squelettes - récompense modérée
             case PACK -> 7;          // Loups - récompense modérée
             case ILLAGER -> 10;      // Illagers - récompense élevée
@@ -314,9 +318,10 @@ public enum ZombieType {
      * Vérifie si c'est un boss
      */
     public boolean isBoss() {
-        return category == ZombieCategory.MINIBOSS || 
+        return category == ZombieCategory.MINIBOSS ||
                category == ZombieCategory.ZONE_BOSS ||
-               category == ZombieCategory.FINAL_BOSS;
+               category == ZombieCategory.FINAL_BOSS ||
+               category == ZombieCategory.JOURNEY_BOSS;
     }
 
     /**
@@ -372,6 +377,7 @@ public enum ZombieType {
         MINIBOSS,    // Mini-boss
         ZONE_BOSS,   // Boss de zone
         FINAL_BOSS,  // Boss final
+        JOURNEY_BOSS,// Boss du Journey (chapitres)
         SKELETON,    // Squelettes archers (nouveaux)
         PACK,        // Loups en meute (nouveaux)
         ILLAGER      // Illagers (Evoker, Pillager, Vindicator)
