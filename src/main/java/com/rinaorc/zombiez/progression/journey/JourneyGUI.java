@@ -285,7 +285,7 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text("§7" + chapter.getDescription()));
         lore.add(Component.text(""));
         lore.add(Component.text("§7Phase: " + chapter.getPhaseName()));
-        lore.add(Component.text("§7Niveaux: §e" + chapter.getMinLevel() + " - " + chapter.getMaxLevel()));
+        lore.add(Component.text("§7" + chapter.getZoneDisplay()));
         lore.add(Component.text(""));
 
         if (completed) {
@@ -403,7 +403,7 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
         lore.add(Component.text(""));
         lore.add(Component.text("  §7Phase: " + chapter.getPhaseName()));
-        lore.add(Component.text("  §7Niveaux: §e" + chapter.getMinLevel() + " - " + chapter.getMaxLevel()));
+        lore.add(Component.text("  §7" + chapter.getZoneDisplay()));
         lore.add(Component.text(""));
 
         // Afficher le nombre d'étapes complétées
