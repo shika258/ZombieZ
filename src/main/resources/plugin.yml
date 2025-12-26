@@ -284,6 +284,7 @@ permissions:
       zombiez.balance: true
       zombiez.bank: true
       zombiez.progression: true
+      zombiez.journey: true
       zombiez.class: true
       zombiez.pet.use: true
       zombiez.recycle: true
@@ -322,6 +323,10 @@ permissions:
 
   zombiez.progression:
     description: Accès au système de progression
+    default: true
+
+  zombiez.journey:
+    description: Accès au journal du survivant
     default: true
 
   zombiez.class:
