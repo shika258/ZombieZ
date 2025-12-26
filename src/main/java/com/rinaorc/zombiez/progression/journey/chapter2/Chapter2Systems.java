@@ -131,6 +131,7 @@ public class Chapter2Systems implements Listener {
         FIRE_ZOMBIE_KEY = new NamespacedKey(plugin, "fire_zombie");
         MANOR_BOSS_KEY = new NamespacedKey(plugin, "manor_boss");
         BOSS_CONTRIBUTORS_KEY = new NamespacedKey(plugin, "boss_contributors");
+        IGOR_LOG_KEY = new NamespacedKey(plugin, "igor_log");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -426,7 +427,7 @@ public class Chapter2Systems implements Listener {
     // ==================== IGOR ET RÉCOLTE DE BOIS (ÉTAPE 7) ====================
 
     // Clé PDC pour identifier les bûches livrables à Igor
-    private final NamespacedKey IGOR_LOG_KEY = new NamespacedKey(plugin, "igor_log");
+    private final NamespacedKey IGOR_LOG_KEY;
 
     /**
      * Gère l'interaction avec Igor pour donner du bois
