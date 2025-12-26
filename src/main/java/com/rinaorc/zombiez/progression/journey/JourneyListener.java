@@ -168,7 +168,7 @@ public class JourneyListener implements Listener {
      * Marque le chunk ET tous les chunks visibles (dans le rayon de view distance) comme explorés
      *
      * Optimisations appliquées:
-     * - Early exit si pas d'objectif ZONE_PROGRESS actif
+     * - Early exit si pas d'objectif ZONE_PROGRESS ou ZONE_EXPLORATION actif
      * - Pré-calcul des limites de zone (évite recalcul dans la boucle)
      * - Bornes de boucle limitées à l'intersection zone/rayon
      *
@@ -176,10 +176,20 @@ public class JourneyListener implements Listener {
      * @param chunkZ coordonnée Z du chunk central (position du joueur)
      */
     private void trackChunkExploration(Player player, int chunkX, int chunkZ, com.rinaorc.zombiez.zones.Zone zone) {
-        // EARLY EXIT: Vérifier si le joueur a un objectif ZONE_PROGRESS AVANT tout calcul
+        // EARLY EXIT: Vérifier si le joueur a un objectif d'exploration AVANT tout calcul
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep == null || currentStep.getType() != JourneyStep.StepType.ZONE_PROGRESS) {
+        if (currentStep == null ||
+            (currentStep.getType() != JourneyStep.StepType.ZONE_PROGRESS &&
+             currentStep.getType() != JourneyStep.StepType.ZONE_EXPLORATION)) {
             return; // Pas d'objectif d'exploration, on skip tout le travail
+        }
+
+        // Pour ZONE_EXPLORATION, vérifier que c'est la bonne zone
+        if (currentStep.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
+            int targetZone = currentStep.getTargetValue(); // La zone cible est stockée dans targetValue
+            if (zone.getId() != targetZone) {
+                return; // Pas la bonne zone
+            }
         }
 
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
@@ -224,7 +234,13 @@ public class JourneyListener implements Listener {
         if (newChunksExplored > 0) {
             int exploredCount = data.getExploredChunkCount(zoneId);
             int explorationPercent = zone.getExplorationPercent(exploredCount);
-            journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
+
+            // Mettre à jour selon le type d'étape
+            if (currentStep.getType() == JourneyStep.StepType.ZONE_PROGRESS) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_PROGRESS, explorationPercent);
+            } else if (currentStep.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.ZONE_EXPLORATION, explorationPercent);
+            }
         }
     }
 

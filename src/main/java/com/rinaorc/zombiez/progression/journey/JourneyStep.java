@@ -59,17 +59,37 @@ public enum JourneyStep {
         "Apprends à maîtriser ton style", StepType.CLASS_KILLS, 50,
         200, 5, Material.DIAMOND_SWORD),
 
-    STEP_2_3(JourneyChapter.CHAPTER_2, 3, "Atteins niveau de classe 5",
-        "Ta classe se renforce", StepType.CLASS_LEVEL, 5,
-        300, 8, Material.ENCHANTED_BOOK),
+    STEP_2_3(JourneyChapter.CHAPTER_2, 3, "Explore la Zone 2 (50%)",
+        "Découvre les faubourgs oubliés", StepType.ZONE_EXPLORATION, 2,
+        250, 6, Material.COMPASS),
 
-    STEP_2_4(JourneyChapter.CHAPTER_2, 4, "Tue 25 zombies avec ta classe",
-        "Exploite les forces de ta classe", StepType.CLASS_KILLS, 25,
-        200, 5, Material.BLAZE_POWDER),
+    STEP_2_4(JourneyChapter.CHAPTER_2, 4, "Soigne le mineur blessé",
+        "Utilise un bandage pour le soigner", StepType.HEAL_NPC, 1,
+        300, 8, Material.PAPER),
 
-    STEP_2_5(JourneyChapter.CHAPTER_2, 5, "Atteins le niveau 10",
-        "La Zone 2 t'attend", StepType.LEVEL, 10,
-        400, 10, Material.OAK_FENCE_GATE),
+    STEP_2_5(JourneyChapter.CHAPTER_2, 5, "Trouve le coffre mystérieux (Zone 2)",
+        "Un coffre secret se cache...", StepType.DISCOVER_CHEST, 2,
+        350, 8, Material.CHEST),
+
+    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 zombies incendiés",
+        "Dans la zone du crash de météore", StepType.FIRE_ZOMBIE_KILLS, 50,
+        400, 10, Material.FIRE_CHARGE),
+
+    STEP_2_7(JourneyChapter.CHAPTER_2, 7, "Aide Igor le survivant",
+        "Ramène 8 bûches de chêne", StepType.GIVE_WOOD_NPC, 8,
+        450, 12, Material.OAK_LOG),
+
+    STEP_2_8(JourneyChapter.CHAPTER_2, 8, "Explore la Zone 3 (50%)",
+        "Les champs du silence t'attendent", StepType.ZONE_EXPLORATION, 3,
+        500, 12, Material.FILLED_MAP),
+
+    STEP_2_9(JourneyChapter.CHAPTER_2, 9, "Trouve le coffre mystérieux (Zone 3)",
+        "Un autre trésor à découvrir...", StepType.DISCOVER_CHEST, 3,
+        550, 14, Material.CHEST),
+
+    STEP_2_10(JourneyChapter.CHAPTER_2, 10, "Tue le Seigneur du Manoir",
+        "Le boss rôde dans le manoir fortifié", StepType.KILL_MANOR_BOSS, 1,
+        750, 20, Material.DRAGON_HEAD),
 
     // ==================== CHAPITRE 3: PRENDRE SES MARQUES ====================
 
@@ -369,6 +389,11 @@ public enum JourneyStep {
             case RECYCLE_ITEMS -> current + "/" + targetValue + " items recyclés";
             case DISCOVER_CHEST -> current >= targetValue ? "✓ Coffre découvert!" : "Cherche le coffre...";
             case PASSIVE_ANIMAL_KILLS -> current + "/" + targetValue + " animaux chassés";
+            case ZONE_EXPLORATION -> current + "/" + 50 + "% exploré";
+            case HEAL_NPC -> current >= targetValue ? "✓ PNJ soigné!" : "Trouve et soigne le PNJ";
+            case GIVE_WOOD_NPC -> current + "/" + targetValue + " bûches données";
+            case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " zombies incendiés";
+            case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
         };
     }
 
@@ -492,7 +517,20 @@ public enum JourneyStep {
         DISCOVER_CHEST("Découvre un coffre mystérieux"),
 
         // Chasse
-        PASSIVE_ANIMAL_KILLS("Tue des animaux passifs");
+        PASSIVE_ANIMAL_KILLS("Tue des animaux passifs"),
+
+        // Exploration de zone (pourcentage)
+        ZONE_EXPLORATION("Explore une zone"),
+
+        // NPC interactions
+        HEAL_NPC("Soigne un PNJ"),
+        GIVE_WOOD_NPC("Donne du bois à un PNJ"),
+
+        // Zombies spéciaux
+        FIRE_ZOMBIE_KILLS("Tue des zombies incendiés"),
+
+        // Boss spécifiques
+        KILL_MANOR_BOSS("Tue le boss du manoir");
 
         private final String description;
 

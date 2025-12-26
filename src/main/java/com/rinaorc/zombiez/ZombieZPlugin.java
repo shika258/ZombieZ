@@ -221,6 +221,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.JourneyManager journeyManager;
     @Getter
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
 
     // État du plugin
     @Getter
@@ -411,6 +413,11 @@ public class ZombieZPlugin extends JavaPlugin {
             journeyManager.shutdown();
         }
 
+        // Cleanup Chapter 2 Systems
+        if (chapter2Systems != null) {
+            chapter2Systems.cleanup();
+        }
+
         // Fermeture de la base de données
         if (databaseManager != null) {
             log(Level.INFO, "§7Fermeture de la connexion BDD...");
@@ -526,6 +533,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Journey Manager - Progression guidée avec blocage de zones
         journeyManager = new com.rinaorc.zombiez.progression.journey.JourneyManager(this);
         journeyManager.start(); // Démarre le système de coffres mystères
+
+        // Chapter 2 Systems - NPCs, Zombies Incendiés, Boss du Manoir
+        chapter2Systems = new com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems(this);
 
         // Party Manager - Système de groupe
         partyManager = new com.rinaorc.zombiez.party.PartyManager(this);

@@ -167,9 +167,19 @@ public class MysteryChestManager {
         // Notifier le JourneyManager pour la progression
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
         if (currentStep != null && currentStep.getType() == JourneyStep.StepType.DISCOVER_CHEST) {
-            // Compter le nombre de coffres découverts pour ce chapitre
-            int discovered = countDiscoveredForChapter(player.getUniqueId(), chest.getChapter());
-            journeyManager.updateProgress(player, JourneyStep.StepType.DISCOVER_CHEST, discovered);
+            // Vérifier si c'est le bon coffre (par zone)
+            int targetZone = currentStep.getTargetValue();
+
+            // Ancien système: comptage par chapitre (pour chapitre 1)
+            if (targetZone == 1) {
+                int discovered = countDiscoveredForChapter(player.getUniqueId(), chest.getChapter());
+                journeyManager.updateProgress(player, JourneyStep.StepType.DISCOVER_CHEST, discovered);
+            }
+            // Nouveau système: coffre par zone spécifique (pour chapitre 2+)
+            else if (chest.getZoneId() == targetZone) {
+                // C'est le bon coffre! Valider l'étape
+                journeyManager.updateProgress(player, JourneyStep.StepType.DISCOVER_CHEST, targetZone);
+            }
         }
 
         // Mettre à jour l'hologramme immédiatement
