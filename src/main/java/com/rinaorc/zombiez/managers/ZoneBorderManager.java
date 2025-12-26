@@ -44,8 +44,10 @@ public class ZoneBorderManager {
     private static final int ZONE_SIZE = 200;
 
     // Apparence du border
-    private static final int WARNING_TIME = 0;
-    private static final int WARNING_DISTANCE = 5;
+    // WARNING_DISTANCE: distance en blocs à partir de laquelle la texture rouge du border apparaît
+    // Une valeur élevée permet de voir le mur de loin (ex: 100 = visible à 100 blocs)
+    private static final int WARNING_TIME = 15; // Temps en secondes avant dégâts (effet visuel de pulsation)
+    private static final int WARNING_DISTANCE = 100; // Distance de visibilité de la texture du border
 
     @Getter
     private boolean enabled = false;
