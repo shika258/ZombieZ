@@ -24,6 +24,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.ArmorMeta;
@@ -84,6 +85,11 @@ public class Chapter2Systems implements Listener {
     private final Map<UUID, List<Entity>> playerSupplyCrates = new ConcurrentHashMap<>(); // Caisses par joueur
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
+
+    // === VIRTUAL TEXTDISPLAY PER-PLAYER ===
+    private final Map<UUID, Integer> playerMinerDisplayIds = new ConcurrentHashMap<>(); // Player UUID -> Virtual Entity ID
+    private static int nextVirtualEntityId = -1000000; // IDs négatifs pour éviter conflits
+    private static final double MINER_DISPLAY_HEIGHT = 2.3; // Hauteur au-dessus du mineur
 
     // === SUPPLY CRATES CONFIG ===
     private static final int SUPPLY_CRATE_COUNT = 5;
@@ -307,8 +313,8 @@ public class Chapter2Systems implements Listener {
 
         // Créer un villageois comme NPC
         Villager miner = world.spawn(loc, Villager.class, npc -> {
-            npc.setCustomName("§c§l❤ §eMineur Blessé §c§l❤");
-            npc.setCustomNameVisible(true);
+            // NE PAS mettre de customName visible - on utilise un TextDisplay virtuel per-player
+            npc.setCustomNameVisible(false);
             npc.setProfession(Villager.Profession.TOOLSMITH);
             npc.setVillagerLevel(1);
             npc.setAI(false); // Immobile
@@ -426,11 +432,12 @@ public class Chapter2Systems implements Listener {
         // Valider l'étape
         journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
 
-        // Envoyer immédiatement le nom "soigné" à CE joueur seulement
-        // Le nom server-side reste "blessé" pour les autres joueurs qui n'ont pas encore fait la quête
+        // Mettre à jour immédiatement l'hologramme de CE joueur pour afficher "Soigné"
+        // Le display est virtuel et per-player, donc les autres joueurs ne voient pas le changement
         if (entity instanceof Villager villager) {
             villager.removePotionEffect(PotionEffectType.SLOWNESS);
-            sendCustomMinerName(player, villager, true); // true = healed
+            // Mettre à jour le TextDisplay virtuel immédiatement
+            updateVirtualDisplayText(player, true); // true = healed
         }
     }
 
@@ -1021,30 +1028,50 @@ public class Chapter2Systems implements Listener {
         cooldowns.put(key, System.currentTimeMillis());
     }
 
-    // ==================== NOM PERSONNALISÉ PAR JOUEUR (NPC) ====================
+    // ==================== TEXTDISPLAY VIRTUEL PER-PLAYER (MINEUR) ====================
 
     /**
-     * Démarre le système de mise à jour des noms de NPC personnalisés par joueur.
-     * Envoie des packets de métadonnées personnalisés pour que chaque joueur
-     * voit le nom approprié selon sa progression de quête.
+     * Démarre le système de TextDisplay virtuel per-player.
+     * Chaque joueur voit son propre hologramme au-dessus du mineur
+     * selon sa progression de quête.
      */
     private void startNPCNameUpdater() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) return;
+                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
+                    // Détruire tous les displays virtuels si le mineur n'existe plus
+                    destroyAllVirtualDisplays();
+                    return;
+                }
 
-                // Pour chaque joueur proche du mineur, envoyer le nom approprié
+                Location minerLoc = injuredMinerEntity.getLocation();
+
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    if (!player.getWorld().equals(injuredMinerEntity.getWorld())) continue;
-                    if (player.getLocation().distanceSquared(injuredMinerEntity.getLocation()) > 50 * 50) continue;
+                    UUID playerId = player.getUniqueId();
+                    boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
+                                      player.getLocation().distanceSquared(minerLoc) <= 50 * 50;
 
-                    // Vérifier si le joueur a déjà complété l'étape 4 (HEAL_NPC)
-                    boolean hasHealed = hasPlayerHealedMiner(player);
-                    sendCustomMinerName(player, injuredMinerEntity, hasHealed);
+                    Integer existingDisplayId = playerMinerDisplayIds.get(playerId);
+
+                    if (inRange) {
+                        // Joueur à portée: créer ou mettre à jour le display
+                        boolean hasHealed = hasPlayerHealedMiner(player);
+                        if (existingDisplayId == null) {
+                            // Créer un nouveau display virtuel
+                            spawnVirtualTextDisplay(player, hasHealed);
+                        } else {
+                            // Mettre à jour la position du display existant
+                            updateVirtualDisplayPosition(player, existingDisplayId);
+                        }
+                    } else if (existingDisplayId != null) {
+                        // Joueur hors de portée: détruire son display
+                        destroyVirtualDisplay(player, existingDisplayId);
+                        playerMinerDisplayIds.remove(playerId);
+                    }
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+        }.runTaskTimer(plugin, 20L, 5L); // Toutes les 5 ticks (position fluide)
     }
 
     /**
@@ -1068,41 +1095,95 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Envoie un packet de métadonnées pour afficher un nom personnalisé au joueur.
-     * Utilise ProtocolLib pour envoyer le nom du NPC de manière client-side.
-     *
-     * @param player Le joueur qui doit voir le nom
-     * @param entity L'entité dont on modifie le nom
-     * @param healed true si le joueur a déjà soigné le mineur
+     * Génère un ID d'entité virtuelle unique (négatif pour éviter les conflits)
      */
-    private void sendCustomMinerName(Player player, Entity entity, boolean healed) {
+    private synchronized int generateVirtualEntityId() {
+        return nextVirtualEntityId--;
+    }
+
+    /**
+     * Spawn un TextDisplay virtuel pour un joueur spécifique
+     */
+    private void spawnVirtualTextDisplay(Player player, boolean healed) {
+        if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) return;
+
+        int entityId = generateVirtualEntityId();
+        playerMinerDisplayIds.put(player.getUniqueId(), entityId);
+
+        Location displayLoc = injuredMinerEntity.getLocation().clone().add(0, MINER_DISPLAY_HEIGHT, 0);
+
+        try {
+            // 1. Envoyer le packet de spawn de l'entité TextDisplay
+            PacketContainer spawnPacket = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
+
+            spawnPacket.getIntegers().write(0, entityId);  // Entity ID
+            spawnPacket.getUUIDs().write(0, UUID.randomUUID()); // Entity UUID
+            spawnPacket.getEntityTypeModifier().write(0, EntityType.TEXT_DISPLAY); // Type
+
+            // Position
+            spawnPacket.getDoubles().write(0, displayLoc.getX());
+            spawnPacket.getDoubles().write(1, displayLoc.getY());
+            spawnPacket.getDoubles().write(2, displayLoc.getZ());
+
+            // Rotation (0)
+            spawnPacket.getBytes().write(0, (byte) 0); // Yaw
+            spawnPacket.getBytes().write(1, (byte) 0); // Pitch
+            spawnPacket.getBytes().write(2, (byte) 0); // Head yaw
+
+            // Data (0 pour TextDisplay)
+            spawnPacket.getIntegers().write(1, 0);
+
+            // Velocity (0)
+            spawnPacket.getShorts().write(0, (short) 0);
+            spawnPacket.getShorts().write(1, (short) 0);
+            spawnPacket.getShorts().write(2, (short) 0);
+
+            protocolManager.sendServerPacket(player, spawnPacket);
+
+            // 2. Envoyer les métadonnées du TextDisplay
+            sendVirtualDisplayMetadata(player, entityId, healed);
+
+        } catch (Exception e) {
+            plugin.log(Level.WARNING, "Erreur spawn TextDisplay virtuel: " + e.getMessage());
+            playerMinerDisplayIds.remove(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Envoie les métadonnées du TextDisplay virtuel (texte, style, etc.)
+     */
+    private void sendVirtualDisplayMetadata(Player player, int entityId, boolean healed) {
         try {
             PacketContainer metadataPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
+            metadataPacket.getIntegers().write(0, entityId);
 
-            // Entity ID
-            metadataPacket.getIntegers().write(0, entity.getEntityId());
-
-            // Créer les data values pour le nom personnalisé
             List<WrappedDataValue> dataValues = new ArrayList<>();
 
-            // Choisir le nom approprié
-            String customName = healed
+            // Index 0: Entity flags (byte) - pas de flags spéciaux
+            dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
+
+            // Index 8: Billboard constraint (byte) - CENTER = 3
+            dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
+
+            // Index 23: Text (Component) - Le texte affiché
+            String text = healed
                     ? "§a§l✓ §7Mineur (Soigné)"
                     : "§c§l❤ §eMineur Blessé §c§l❤";
 
-            // Index 2: Custom Name (Optional<Component>)
-            Component nameComponent = Component.text(customName);
-            String jsonName = GsonComponentSerializer.gson().serialize(nameComponent);
-            WrappedChatComponent wrappedName = WrappedChatComponent.fromJson(jsonName);
+            Component textComponent = Component.text(text);
+            String jsonText = GsonComponentSerializer.gson().serialize(textComponent);
+            WrappedChatComponent wrappedText = WrappedChatComponent.fromJson(jsonText);
 
-            // Utiliser le serializer pour Optional<Component>
-            var optChatSerializer = WrappedDataWatcher.Registry.getChatComponentSerializer(true);
-            dataValues.add(new WrappedDataValue(2, optChatSerializer, Optional.of(wrappedName.getHandle())));
+            var chatSerializer = WrappedDataWatcher.Registry.getChatComponentSerializer(false);
+            dataValues.add(new WrappedDataValue(23, chatSerializer, wrappedText.getHandle()));
 
-            // Index 3: Custom Name Visible (Boolean) - toujours visible
-            dataValues.add(new WrappedDataValue(3, WrappedDataWatcher.Registry.get(Boolean.class), true));
+            // Index 25: Background color (int) - Noir semi-transparent (ARGB)
+            dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0x40000000));
 
-            // Écrire et envoyer le packet
+            // Index 27: See through (byte) - 0 = false
+            dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
+
+            // Écrire les métadonnées
             var dataValueModifier = metadataPacket.getDataValueCollectionModifier();
             if (dataValueModifier.size() > 0) {
                 dataValueModifier.write(0, dataValues);
@@ -1110,15 +1191,102 @@ public class Chapter2Systems implements Listener {
             }
 
         } catch (Exception e) {
-            // Log uniquement en FINE pour éviter le spam
-            plugin.log(Level.FINE, "Erreur envoi nom NPC personnalisé: " + e.getMessage());
+            plugin.log(Level.WARNING, "Erreur envoi métadonnées TextDisplay: " + e.getMessage());
         }
+    }
+
+    /**
+     * Met à jour la position d'un TextDisplay virtuel
+     */
+    private void updateVirtualDisplayPosition(Player player, int entityId) {
+        if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) return;
+
+        Location displayLoc = injuredMinerEntity.getLocation().clone().add(0, MINER_DISPLAY_HEIGHT, 0);
+
+        try {
+            PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
+
+            teleportPacket.getIntegers().write(0, entityId);
+            teleportPacket.getDoubles().write(0, displayLoc.getX());
+            teleportPacket.getDoubles().write(1, displayLoc.getY());
+            teleportPacket.getDoubles().write(2, displayLoc.getZ());
+            teleportPacket.getBytes().write(0, (byte) 0); // Yaw
+            teleportPacket.getBytes().write(1, (byte) 0); // Pitch
+            teleportPacket.getBooleans().write(0, false); // On ground
+
+            protocolManager.sendServerPacket(player, teleportPacket);
+
+        } catch (Exception e) {
+            plugin.log(Level.FINE, "Erreur téléport TextDisplay: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Met à jour immédiatement le texte d'un TextDisplay virtuel pour un joueur
+     * (appelé quand le joueur soigne le mineur)
+     */
+    private void updateVirtualDisplayText(Player player, boolean healed) {
+        Integer entityId = playerMinerDisplayIds.get(player.getUniqueId());
+        if (entityId == null) {
+            // Pas de display existant, en créer un nouveau
+            spawnVirtualTextDisplay(player, healed);
+        } else {
+            // Mettre à jour le texte du display existant
+            sendVirtualDisplayMetadata(player, entityId, healed);
+        }
+    }
+
+    /**
+     * Détruit un TextDisplay virtuel pour un joueur
+     */
+    private void destroyVirtualDisplay(Player player, int entityId) {
+        try {
+            PacketContainer destroyPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_DESTROY);
+
+            // En 1.21.4, ENTITY_DESTROY utilise une IntList
+            destroyPacket.getIntLists().write(0, List.of(entityId));
+
+            protocolManager.sendServerPacket(player, destroyPacket);
+
+        } catch (Exception e) {
+            plugin.log(Level.FINE, "Erreur destruction TextDisplay: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Détruit tous les TextDisplays virtuels (nettoyage)
+     */
+    private void destroyAllVirtualDisplays() {
+        for (Map.Entry<UUID, Integer> entry : playerMinerDisplayIds.entrySet()) {
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player != null && player.isOnline()) {
+                destroyVirtualDisplay(player, entry.getValue());
+            }
+        }
+        playerMinerDisplayIds.clear();
+    }
+
+    /**
+     * Nettoie le TextDisplay virtuel d'un joueur qui se déconnecte
+     */
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        Integer displayId = playerMinerDisplayIds.remove(playerId);
+        // Pas besoin d'envoyer de packet de destruction, le joueur se déconnecte
+        // On enlève juste l'entrée de la map
+
+        // Nettoyer aussi les caisses de ravitaillement du joueur
+        cleanupPlayerCrates(playerId);
     }
 
     /**
      * Nettoie les ressources lors de la désactivation du plugin
      */
     public void cleanup() {
+        // Détruire les TextDisplays virtuels per-player
+        destroyAllVirtualDisplays();
+
         if (injuredMinerEntity != null) injuredMinerEntity.remove();
         if (igorEntity != null) igorEntity.remove();
         if (manorBossEntity != null) manorBossEntity.remove();
