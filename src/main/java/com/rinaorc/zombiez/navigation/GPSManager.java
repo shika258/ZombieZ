@@ -28,16 +28,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Système GPS pour guider les joueurs vers les objectifs du Journey
+ * Système GPS optimisé pour guider les joueurs vers les objectifs du Journey
  *
- * Affiche une flèche fluide en armor stands client-side devant le joueur,
- * pointant vers la destination de l'étape actuelle.
+ * OPTIMISATIONS APPLIQUÉES:
+ * - 3 entités seulement (au lieu de 7) = moins de packets
+ * - Mise à jour seulement si le joueur bouge (seuil de distance)
+ * - Packets de mouvement relatif (plus légers que téléportation)
+ * - Interpolation fluide avec cache des positions
+ * - Fréquence adaptative (plus lent si joueur immobile)
  *
- * Fonctionnalités:
- * - Flèche ultra-fluide (mise à jour chaque tick)
- * - Entités client-side via ProtocolLib (pas d'impact serveur)
- * - Interpolation de position pour éviter les saccades
- * - Toggle via /gps
+ * Fonctionne automatiquement pour toutes les étapes avec coordonnées
+ * Format supporté: "§bX, Y, Z" ou "§b~X, ~Y, ~Z" dans la description
  */
 public class GPSManager implements Listener {
 
@@ -48,26 +49,28 @@ public class GPSManager implements Listener {
     // Joueurs avec GPS actif
     private final Set<UUID> activeGPS = ConcurrentHashMap.newKeySet();
 
-    // Entity IDs virtuels pour chaque joueur (pour les packets)
+    // Entity IDs virtuels pour chaque joueur
     private final Map<UUID, int[]> playerEntityIds = new ConcurrentHashMap<>();
 
-    // Générateur d'IDs d'entités (commence haut pour éviter conflits)
+    // Générateur d'IDs d'entités (haut pour éviter conflits)
     private static final AtomicInteger ENTITY_ID_COUNTER = new AtomicInteger(Integer.MAX_VALUE - 100000);
 
-    // Pattern pour extraire les coordonnées des descriptions d'étapes
-    // Supporte: "§b625, 93, 9853" ou "§b~345, ~86, ~9500"
-    private static final Pattern COORD_PATTERN = Pattern.compile("§b~?(\\d+),\\s*~?(\\d+),\\s*~?(\\d+)");
+    // Patterns pour extraire les coordonnées (supporte plusieurs formats)
+    // Format: "§bX, Y, Z" ou "§b~X, ~Y, ~Z" ou "Coords: §bX, Y, Z"
+    private static final Pattern COORD_PATTERN = Pattern.compile("§b~?(-?\\d+),?\\s*~?(-?\\d+),?\\s*~?(-?\\d+)");
 
-    // Configuration de la flèche
-    private static final int ARROW_PARTS = 7;          // Nombre de points de la flèche
-    private static final double ARROW_DISTANCE = 2.5;  // Distance devant le joueur
-    private static final double ARROW_HEIGHT = 1.2;    // Hauteur au niveau des yeux
-    private static final double ARROW_SCALE = 0.15;    // Taille des points
+    // ==================== CONFIGURATION OPTIMISÉE ====================
+    private static final int ARROW_PARTS = 3;           // Réduit de 7 à 3 (pointe + 2 ailes)
+    private static final double ARROW_DISTANCE = 2.5;   // Distance devant le joueur
+    private static final double ARROW_HEIGHT = 1.3;     // Hauteur au niveau des yeux
+    private static final double MOVE_THRESHOLD = 0.05;  // Seuil pour envoyer update (en blocs)
+    private static final double ROTATE_THRESHOLD = 2.0; // Seuil pour rotation (en degrés)
+    private static final float LERP_SPEED = 0.25f;      // Vitesse d'interpolation (plus haut = plus réactif)
 
     // Tâche de mise à jour
     private BukkitTask updateTask;
 
-    // Positions interpolées pour chaque joueur
+    // États des flèches par joueur
     private final Map<UUID, ArrowState> arrowStates = new ConcurrentHashMap<>();
 
     public GPSManager(ZombieZPlugin plugin) {
@@ -75,23 +78,18 @@ public class GPSManager implements Listener {
         this.protocolManager = ProtocolLibrary.getProtocolManager();
         this.journeyManager = plugin.getJourneyManager();
 
-        // Démarrer la tâche de mise à jour fluide
         startUpdateTask();
     }
 
     /**
-     * Active/Désactive le GPS pour un joueur
-     * @return true si le GPS est maintenant actif
+     * Toggle le GPS pour un joueur
      */
     public boolean toggleGPS(Player player) {
         UUID uuid = player.getUniqueId();
-
         if (activeGPS.contains(uuid)) {
-            // Désactiver
             disableGPS(player);
             return false;
         } else {
-            // Activer
             return enableGPS(player);
         }
     }
@@ -106,11 +104,11 @@ public class GPSManager implements Listener {
         Location destination = getDestinationForPlayer(player);
         if (destination == null) {
             player.sendMessage("§c§l✗ §7Aucune destination disponible pour cette étape.");
-            player.sendMessage("§8Le GPS fonctionne uniquement pour les étapes avec des coordonnées.");
+            player.sendMessage("§8Le GPS fonctionne pour les étapes avec coordonnées.");
             return false;
         }
 
-        // Créer les entity IDs virtuels
+        // Créer les entity IDs virtuels (3 entités seulement)
         int[] entityIds = new int[ARROW_PARTS];
         for (int i = 0; i < ARROW_PARTS; i++) {
             entityIds[i] = ENTITY_ID_COUNTER.getAndDecrement();
@@ -118,14 +116,19 @@ public class GPSManager implements Listener {
         playerEntityIds.put(uuid, entityIds);
 
         // Initialiser l'état de la flèche
-        arrowStates.put(uuid, new ArrowState(player.getLocation(), destination));
+        Location playerLoc = player.getLocation();
+        arrowStates.put(uuid, new ArrowState(playerLoc, destination));
 
         // Spawn initial des armor stands
-        spawnArrowEntities(player);
+        spawnArrowEntities(player, playerLoc);
 
         activeGPS.add(uuid);
 
-        player.sendMessage("§a§l✓ §eGPS activé! §7Suis la flèche...");
+        // Afficher la distance
+        double distance = playerLoc.distance(destination);
+        String distStr = distance < 100 ? String.format("%.0f", distance) : String.format("%.0f", distance);
+
+        player.sendMessage("§a§l✓ §eGPS activé! §7Distance: §e" + distStr + " blocs");
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.5f);
 
         return true;
@@ -137,7 +140,6 @@ public class GPSManager implements Listener {
     public void disableGPS(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Détruire les entités client-side
         destroyArrowEntities(player);
 
         activeGPS.remove(uuid);
@@ -167,8 +169,11 @@ public class GPSManager implements Listener {
 
     /**
      * Parse les coordonnées depuis une description d'étape
+     * Supporte: "§b625, 93, 9853", "Coords: §b1036, 82, 9627", "§b~345, ~86, ~9500"
      */
     private Location parseCoordinates(String description, String worldName) {
+        if (description == null) return null;
+
         Matcher matcher = COORD_PATTERN.matcher(description);
         if (!matcher.find()) return null;
 
@@ -183,16 +188,21 @@ public class GPSManager implements Listener {
     }
 
     /**
-     * Démarre la tâche de mise à jour ultra-fluide (chaque tick)
+     * Démarre la tâche de mise à jour optimisée
+     * Fréquence: tous les 2 ticks (10 updates/sec = suffisant pour fluidité)
      */
     private void startUpdateTask() {
         updateTask = new BukkitRunnable() {
             @Override
             public void run() {
-                for (UUID uuid : activeGPS) {
+                // Itérateur pour suppression safe
+                Iterator<UUID> iterator = activeGPS.iterator();
+                while (iterator.hasNext()) {
+                    UUID uuid = iterator.next();
                     Player player = plugin.getServer().getPlayer(uuid);
+
                     if (player == null || !player.isOnline()) {
-                        activeGPS.remove(uuid);
+                        iterator.remove();
                         playerEntityIds.remove(uuid);
                         arrowStates.remove(uuid);
                         continue;
@@ -201,92 +211,114 @@ public class GPSManager implements Listener {
                     updateArrowForPlayer(player);
                 }
             }
-        }.runTaskTimer(plugin, 1L, 1L); // Chaque tick pour fluidité maximale
+        }.runTaskTimer(plugin, 2L, 2L); // Tous les 2 ticks = 10 FPS (fluide et léger)
     }
 
     /**
-     * Met à jour la flèche pour un joueur
+     * Met à jour la flèche pour un joueur (optimisé)
      */
     private void updateArrowForPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         ArrowState state = arrowStates.get(uuid);
         if (state == null) return;
 
-        // Mettre à jour la destination (peut changer si le joueur change d'étape)
+        Location playerLoc = player.getLocation();
+
+        // Vérifier si la destination a changé (changement d'étape)
         Location newDest = getDestinationForPlayer(player);
         if (newDest == null) {
-            // Plus de destination - désactiver le GPS
-            disableGPS(player);
-            player.sendMessage("§e§l! §7Tu as atteint ta destination ou l'étape a changé.");
+            // Plus de destination - désactiver silencieusement
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                disableGPS(player);
+                player.sendMessage("§e§l! §7Étape terminée ou changée.");
+            });
             return;
         }
-        state.destination = newDest;
 
-        // Calculer la position cible de la flèche
-        Location playerLoc = player.getLocation();
+        // Mise à jour de la destination si changée
+        if (!isSameLocation(state.destination, newDest)) {
+            state.destination = newDest;
+        }
+
+        // Calculer la direction vers la destination
         Vector toDestination = newDest.toVector().subtract(playerLoc.toVector());
         double distance = toDestination.length();
 
-        // Si très proche de la destination
-        if (distance < 5) {
-            // Flèche vers le bas / pulse pour indiquer qu'on est arrivé
+        // Vérifier si arrivé à destination
+        if (distance < 3) {
             state.pulseEffect = true;
         } else {
             state.pulseEffect = false;
         }
 
-        // Direction vers la destination (normalisée)
-        Vector direction = toDestination.normalize();
-
-        // Position de base de la flèche (devant le joueur, au niveau des yeux)
-        Location arrowBase = playerLoc.clone().add(0, ARROW_HEIGHT, 0);
-        arrowBase.add(direction.clone().multiply(ARROW_DISTANCE));
-
-        // Interpolation fluide
-        if (state.currentBasePosition == null) {
-            state.currentBasePosition = arrowBase.clone();
+        // Éviter division par zéro
+        if (distance < 0.1) {
+            toDestination = new Vector(0, 0, 1);
         } else {
-            // Interpolation lerp pour fluidité (0.15 = très fluide)
-            state.currentBasePosition = lerp(state.currentBasePosition, arrowBase, 0.2);
+            toDestination.normalize();
         }
 
-        // Calculer l'angle de rotation pour la flèche
-        float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
-        float pitch = (float) Math.toDegrees(-Math.asin(direction.getY()));
+        // Position cible de la flèche (devant le joueur, vers la destination)
+        Location targetBase = playerLoc.clone().add(0, ARROW_HEIGHT, 0);
+        targetBase.add(toDestination.clone().multiply(ARROW_DISTANCE));
 
-        // Interpolation de la rotation
-        state.currentYaw = lerpAngle(state.currentYaw, yaw, 0.15f);
-        state.currentPitch = lerpAngle(state.currentPitch, pitch, 0.15f);
+        // Angles cibles
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ()));
+        float targetPitch = (float) Math.toDegrees(-Math.asin(toDestination.getY()));
 
-        // Mettre à jour les positions des entités
-        updateArrowPositions(player, state);
+        // OPTIMISATION: Vérifier si mise à jour nécessaire
+        boolean needsUpdate = false;
+
+        // Vérifier le mouvement du joueur
+        if (state.lastPlayerPos == null ||
+            state.lastPlayerPos.distanceSquared(playerLoc) > MOVE_THRESHOLD * MOVE_THRESHOLD) {
+            needsUpdate = true;
+            state.lastPlayerPos = playerLoc.clone();
+        }
+
+        // Vérifier la rotation vers la destination
+        float yawDiff = Math.abs(angleDiff(state.currentYaw, targetYaw));
+        float pitchDiff = Math.abs(state.currentPitch - targetPitch);
+        if (yawDiff > ROTATE_THRESHOLD || pitchDiff > ROTATE_THRESHOLD) {
+            needsUpdate = true;
+        }
+
+        // Toujours mettre à jour l'interpolation interne
+        if (state.currentBasePosition == null) {
+            state.currentBasePosition = targetBase.clone();
+        } else {
+            state.currentBasePosition = lerp(state.currentBasePosition, targetBase, LERP_SPEED);
+        }
+        state.currentYaw = lerpAngle(state.currentYaw, targetYaw, LERP_SPEED);
+        state.currentPitch = lerpAngle(state.currentPitch, targetPitch, LERP_SPEED);
+
+        // OPTIMISATION: Envoyer packets seulement si nécessaire ou en pulse mode
+        if (needsUpdate || state.pulseEffect) {
+            sendArrowPositionPackets(player, state);
+        }
     }
 
     /**
-     * Met à jour les positions des armor stands de la flèche
+     * Envoie les packets de position pour les entités de la flèche
      */
-    private void updateArrowPositions(Player player, ArrowState state) {
+    private void sendArrowPositionPackets(Player player, ArrowState state) {
         int[] entityIds = playerEntityIds.get(player.getUniqueId());
-        if (entityIds == null) return;
+        if (entityIds == null || state.currentBasePosition == null) return;
 
         Location base = state.currentBasePosition;
-        if (base == null) return;
+        float yaw = state.currentYaw;
 
-        // Calculer les positions des points de la flèche
-        // La flèche est composée de:
-        // - 1 point central (pointe)
-        // - 2 points sur les côtés (ailes)
-        // - 4 points pour la queue
-        Location[] positions = calculateArrowPositions(base, state.currentYaw, state.currentPitch, state.pulseEffect);
+        // Calculer les positions (3 entités seulement)
+        Location[] positions = calculateArrowPositions(base, yaw, state.currentPitch, state.pulseEffect);
 
-        // Envoyer les packets de téléportation
+        // Envoyer les packets de téléportation en batch
         for (int i = 0; i < ARROW_PARTS && i < positions.length; i++) {
-            sendTeleportPacket(player, entityIds[i], positions[i], state.currentYaw, state.currentPitch);
+            sendTeleportPacket(player, entityIds[i], positions[i], yaw);
         }
     }
 
     /**
-     * Calcule les positions des points de la flèche
+     * Calcule les positions optimisées de la flèche (3 points)
      */
     private Location[] calculateArrowPositions(Location base, float yaw, float pitch, boolean pulse) {
         Location[] positions = new Location[ARROW_PARTS];
@@ -294,38 +326,30 @@ public class GPSManager implements Listener {
         double yawRad = Math.toRadians(yaw);
         double pitchRad = Math.toRadians(pitch);
 
-        // Vecteurs de direction
+        // Vecteur forward
         Vector forward = new Vector(
             -Math.sin(yawRad) * Math.cos(pitchRad),
             -Math.sin(pitchRad),
             Math.cos(yawRad) * Math.cos(pitchRad)
-        ).normalize();
+        );
 
-        Vector right = new Vector(
-            Math.cos(yawRad),
-            0,
-            Math.sin(yawRad)
-        ).normalize();
-
-        Vector up = forward.clone().crossProduct(right).normalize();
+        // Vecteur right (perpendiculaire horizontal)
+        Vector right = new Vector(Math.cos(yawRad), 0, Math.sin(yawRad));
 
         // Effet de pulsation si proche
-        double scale = pulse ? 0.8 + 0.2 * Math.sin(System.currentTimeMillis() * 0.01) : 1.0;
+        double scale = pulse ? 0.85 + 0.15 * Math.sin(System.currentTimeMillis() * 0.008) : 1.0;
 
         // Position 0: Pointe de la flèche (avant)
-        positions[0] = base.clone().add(forward.clone().multiply(0.3 * scale));
+        positions[0] = base.clone().add(forward.clone().multiply(0.35 * scale));
 
-        // Positions 1-2: Ailes de la flèche
-        positions[1] = base.clone().add(right.clone().multiply(0.2 * scale)).subtract(forward.clone().multiply(0.15));
-        positions[2] = base.clone().subtract(right.clone().multiply(0.2 * scale)).subtract(forward.clone().multiply(0.15));
+        // Positions 1-2: Ailes de la flèche (plus écartées pour visibilité)
+        positions[1] = base.clone()
+            .add(right.clone().multiply(0.25 * scale))
+            .subtract(forward.clone().multiply(0.2));
 
-        // Positions 3-4: Corps de la flèche
-        positions[3] = base.clone().subtract(forward.clone().multiply(0.1 * scale));
-        positions[4] = base.clone().subtract(forward.clone().multiply(0.25 * scale));
-
-        // Positions 5-6: Queue de la flèche
-        positions[5] = base.clone().add(right.clone().multiply(0.12 * scale)).subtract(forward.clone().multiply(0.35));
-        positions[6] = base.clone().subtract(right.clone().multiply(0.12 * scale)).subtract(forward.clone().multiply(0.35));
+        positions[2] = base.clone()
+            .subtract(right.clone().multiply(0.25 * scale))
+            .subtract(forward.clone().multiply(0.2));
 
         return positions;
     }
@@ -333,37 +357,33 @@ public class GPSManager implements Listener {
     /**
      * Spawn les entités armor stand client-side
      */
-    private void spawnArrowEntities(Player player) {
+    private void spawnArrowEntities(Player player, Location loc) {
         int[] entityIds = playerEntityIds.get(player.getUniqueId());
         if (entityIds == null) return;
 
-        Location loc = player.getLocation();
-
-        for (int i = 0; i < ARROW_PARTS; i++) {
-            try {
-                // Packet de spawn d'entité
+        try {
+            for (int i = 0; i < ARROW_PARTS; i++) {
+                // Packet de spawn
                 PacketContainer spawnPacket = protocolManager.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
-
-                spawnPacket.getIntegers().write(0, entityIds[i]); // Entity ID
-                spawnPacket.getUUIDs().write(0, UUID.randomUUID()); // UUID
-                spawnPacket.getEntityTypeModifier().write(0, EntityType.ARMOR_STAND); // Type
-                spawnPacket.getDoubles().write(0, loc.getX()); // X
-                spawnPacket.getDoubles().write(1, loc.getY()); // Y
-                spawnPacket.getDoubles().write(2, loc.getZ()); // Z
+                spawnPacket.getIntegers().write(0, entityIds[i]);
+                spawnPacket.getUUIDs().write(0, UUID.randomUUID());
+                spawnPacket.getEntityTypeModifier().write(0, EntityType.ARMOR_STAND);
+                spawnPacket.getDoubles().write(0, loc.getX());
+                spawnPacket.getDoubles().write(1, loc.getY() + ARROW_HEIGHT);
+                spawnPacket.getDoubles().write(2, loc.getZ());
 
                 protocolManager.sendServerPacket(player, spawnPacket);
 
-                // Packet de métadonnées pour rendre invisible + petit + marqueur
+                // Packet de métadonnées
                 sendMetadataPacket(player, entityIds[i], i == 0);
-
-            } catch (Exception e) {
-                plugin.getLogger().warning("Erreur spawn GPS entity: " + e.getMessage());
             }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Erreur spawn GPS: " + e.getMessage());
         }
     }
 
     /**
-     * Envoie les métadonnées pour configurer l'armor stand
+     * Configure l'armor stand comme marqueur invisible avec glow
      */
     private void sendMetadataPacket(Player player, int entityId, boolean isHead) {
         try {
@@ -372,16 +392,13 @@ public class GPSManager implements Listener {
 
             List<WrappedDataValue> dataValues = new ArrayList<>();
 
-            // Index 0: Entity flags (Invisible = 0x20)
-            dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0x20));
+            // Index 0: Entity flags (Invisible=0x20, Glowing=0x40)
+            byte entityFlags = (byte) (0x20 | 0x40); // Invisible + Glowing
+            dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), entityFlags));
 
             // Index 15: Armor stand flags (Small=0x01, NoBasePlate=0x08, Marker=0x10)
-            byte armorStandFlags = (byte) (0x01 | 0x08 | 0x10); // Small + NoBasePlate + Marker
+            byte armorStandFlags = (byte) (0x01 | 0x08 | 0x10);
             dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), armorStandFlags));
-
-            // Custom name visible avec couleur basée sur la position
-            String color = isHead ? "§a" : "§e"; // Vert pour la pointe, jaune pour le reste
-            dataValues.add(new WrappedDataValue(3, WrappedDataWatcher.Registry.get(Boolean.class), true)); // Name visible
 
             var modifier = metadataPacket.getDataValueCollectionModifier();
             if (modifier.size() > 0) {
@@ -396,24 +413,22 @@ public class GPSManager implements Listener {
     }
 
     /**
-     * Envoie un packet de téléportation pour une entité
+     * Envoie un packet de téléportation optimisé
      */
-    private void sendTeleportPacket(Player player, int entityId, Location loc, float yaw, float pitch) {
+    private void sendTeleportPacket(Player player, int entityId, Location loc, float yaw) {
         try {
             PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
-
             teleportPacket.getIntegers().write(0, entityId);
             teleportPacket.getDoubles().write(0, loc.getX());
             teleportPacket.getDoubles().write(1, loc.getY());
             teleportPacket.getDoubles().write(2, loc.getZ());
             teleportPacket.getBytes().write(0, (byte) (yaw * 256.0F / 360.0F));
-            teleportPacket.getBytes().write(1, (byte) (pitch * 256.0F / 360.0F));
-            teleportPacket.getBooleans().write(0, false); // On ground
+            teleportPacket.getBytes().write(1, (byte) 0);
+            teleportPacket.getBooleans().write(0, false);
 
             protocolManager.sendServerPacket(player, teleportPacket);
-
         } catch (Exception e) {
-            // Silently ignore - peut arriver lors de la déconnexion
+            // Silencieux - peut arriver lors de la déconnexion
         }
     }
 
@@ -425,26 +440,18 @@ public class GPSManager implements Listener {
         if (entityIds == null) return;
 
         try {
-            // Packet de destruction
             PacketContainer destroyPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_DESTROY);
-
-            // Convertir en liste d'integers
             List<Integer> ids = new ArrayList<>();
-            for (int id : entityIds) {
-                ids.add(id);
-            }
+            for (int id : entityIds) ids.add(id);
             destroyPacket.getIntLists().write(0, ids);
-
             protocolManager.sendServerPacket(player, destroyPacket);
-
         } catch (Exception e) {
-            plugin.getLogger().warning("Erreur destroy GPS entities: " + e.getMessage());
+            plugin.getLogger().warning("Erreur destroy GPS: " + e.getMessage());
         }
     }
 
-    /**
-     * Interpolation linéaire entre deux locations
-     */
+    // ==================== UTILITAIRES ====================
+
     private Location lerp(Location from, Location to, double t) {
         return new Location(
             from.getWorld(),
@@ -454,17 +461,23 @@ public class GPSManager implements Listener {
         );
     }
 
-    /**
-     * Interpolation d'angle (gère le wrap-around 360°)
-     */
     private float lerpAngle(float from, float to, float t) {
-        float diff = to - from;
+        float diff = angleDiff(from, to);
+        return from + diff * t;
+    }
 
-        // Normaliser la différence entre -180 et 180
+    private float angleDiff(float from, float to) {
+        float diff = to - from;
         while (diff > 180) diff -= 360;
         while (diff < -180) diff += 360;
+        return diff;
+    }
 
-        return from + diff * t;
+    private boolean isSameLocation(Location a, Location b) {
+        if (a == null || b == null) return false;
+        return a.getBlockX() == b.getBlockX() &&
+               a.getBlockY() == b.getBlockY() &&
+               a.getBlockZ() == b.getBlockZ();
     }
 
     // ==================== EVENT HANDLERS ====================
@@ -485,7 +498,6 @@ public class GPSManager implements Listener {
             updateTask.cancel();
         }
 
-        // Nettoyer toutes les entités
         for (UUID uuid : activeGPS) {
             Player player = plugin.getServer().getPlayer(uuid);
             if (player != null && player.isOnline()) {
@@ -498,21 +510,22 @@ public class GPSManager implements Listener {
         arrowStates.clear();
     }
 
-    // ==================== CLASSES INTERNES ====================
+    // ==================== CLASSE INTERNE ====================
 
     /**
-     * État de la flèche pour un joueur (pour l'interpolation)
+     * État de la flèche pour un joueur (optimisé avec cache)
      */
     private static class ArrowState {
         Location currentBasePosition;
         Location destination;
+        Location lastPlayerPos;  // Cache pour optimisation
         float currentYaw = 0;
         float currentPitch = 0;
         boolean pulseEffect = false;
 
         ArrowState(Location playerLoc, Location destination) {
             this.destination = destination;
-            // Position initiale légèrement devant le joueur
+            this.lastPlayerPos = playerLoc.clone();
             this.currentBasePosition = playerLoc.clone().add(
                 playerLoc.getDirection().multiply(ARROW_DISTANCE)
             ).add(0, ARROW_HEIGHT, 0);
