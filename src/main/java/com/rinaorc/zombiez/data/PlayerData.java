@@ -974,6 +974,19 @@ public class PlayerData {
     }
 
     /**
+     * Réinitialise les chunks explorés d'une zone
+     * Appelé quand une étape ZONE_EXPLORATION est débloquée pour éviter
+     * que les chunks visités avant le déblocage soient comptés
+     */
+    public void clearExploredChunks(int zoneId) {
+        Set<Long> explored = zoneExploredChunks.get(zoneId);
+        if (explored != null) {
+            explored.clear();
+            markDirty();
+        }
+    }
+
+    /**
      * Obtient toutes les données d'exploration (pour sérialisation)
      */
     public Map<Integer, Set<Long>> getAllExploredChunks() {

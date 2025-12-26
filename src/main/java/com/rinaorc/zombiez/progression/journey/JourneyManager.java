@@ -544,12 +544,32 @@ public class JourneyManager {
 
     /**
      * Déclenche les effets spéciaux au démarrage d'une étape
-     * Ex: Spawn d'animaux pour l'étape de chasse
+     * Ex: Spawn d'animaux pour l'étape de chasse, reset exploration, etc.
      */
     private void triggerStepStartEffects(Player player, JourneyStep step) {
         // Étape 1.6: Chasser 3 animaux - Spawn 3 animaux aléatoires autour du joueur
         if (step == JourneyStep.STEP_1_6) {
             spawnAnimalsForHuntingStep(player);
+        }
+
+        // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
+        // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
+        if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+            if (data != null) {
+                int targetZone = step.getTargetValue();
+                data.clearExploredChunks(targetZone);
+                plugin.getLogger().info("[Journey] Reset exploration zone " + targetZone + " pour " + player.getName());
+            }
+        }
+
+        // Pour ZONE_PROGRESS (Step 1.4 - Zone 1): reset zone 1
+        if (step.getType() == JourneyStep.StepType.ZONE_PROGRESS && step == JourneyStep.STEP_1_4) {
+            PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+            if (data != null) {
+                data.clearExploredChunks(1); // Zone 1
+                plugin.getLogger().info("[Journey] Reset exploration zone 1 pour " + player.getName());
+            }
         }
     }
 
