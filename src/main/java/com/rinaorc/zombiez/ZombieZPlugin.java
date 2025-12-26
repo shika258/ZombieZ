@@ -223,7 +223,7 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
-    @Getter
+
     private com.rinaorc.zombiez.navigation.GPSManager gpsManager;
 
     // Système WorldBorder par joueur (progression zones)
@@ -1042,6 +1042,13 @@ public class ZombieZPlugin extends JavaPlugin {
             com.rinaorc.zombiez.combat.DamageIndicator.cleanup();
             com.rinaorc.zombiez.combat.PacketDamageIndicator.cleanup();
         }, 20L * 30, 20L * 30);
+    }
+
+    /**
+     * Obtient le GPSManager
+     */
+    public com.rinaorc.zombiez.navigation.GPSManager getGPSManager() {
+        return gpsManager;
     }
 
     /**
