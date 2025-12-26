@@ -55,9 +55,9 @@ public enum JourneyStep {
         "Classe puis spécialisation!", StepType.SELECT_CLASS_AND_BRANCH, 2,
         100, 3, Material.NETHERITE_CHESTPLATE),
 
-    STEP_2_2(JourneyChapter.CHAPTER_2, 2, "Tue 50 zombies avec ta classe",
-        "Apprends à maîtriser ton style", StepType.CLASS_KILLS, 50,
-        200, 5, Material.DIAMOND_SWORD),
+    STEP_2_2(JourneyChapter.CHAPTER_2, 2, "Recycle 5 items",
+        "Libère ton inventaire avec /recycle", StepType.RECYCLE_ITEMS, 5,
+        200, 5, Material.GRINDSTONE),
 
     STEP_2_3(JourneyChapter.CHAPTER_2, 3, "Explore la Zone 2 (50%)",
         "Découvre les faubourgs oubliés", StepType.ZONE_EXPLORATION, 2,
@@ -71,8 +71,8 @@ public enum JourneyStep {
         "Coordonnées: §b373, 94, 9767", StepType.DISCOVER_CHEST, 2,
         350, 8, Material.CHEST),
 
-    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 zombies incendiés",
-        "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 50,
+    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 20 Pyromorts",
+        "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 20,
         400, 10, Material.FIRE_CHARGE),
 
     STEP_2_7(JourneyChapter.CHAPTER_2, 7, "Aide Igor le survivant",
@@ -97,9 +97,9 @@ public enum JourneyStep {
         "Premiers pas dans le danger", StepType.REACH_ZONE, 2,
         150, 5, Material.LEATHER_BOOTS),
 
-    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Recycle 5 items",
-        "Libère ton inventaire avec /recycle", StepType.RECYCLE_ITEMS, 5,
-        200, 6, Material.GRINDSTONE),
+    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Tue 50 zombies avec ta classe",
+        "Maîtrise ton style de combat", StepType.CLASS_KILLS, 50,
+        200, 6, Material.DIAMOND_SWORD),
 
     STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 100 zombies au total",
         "Centième victime!", StepType.TOTAL_KILLS, 100,
@@ -397,7 +397,7 @@ public enum JourneyStep {
             case ZONE_EXPLORATION -> current + "/" + 50 + "% exploré";
             case HEAL_NPC -> current >= targetValue ? "✓ PNJ soigné!" : "Trouve et soigne le PNJ";
             case GIVE_WOOD_NPC -> current + "/" + targetValue + " bûches données";
-            case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " zombies incendiés";
+            case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
         };
     }
@@ -542,7 +542,7 @@ public enum JourneyStep {
         GIVE_WOOD_NPC("Donne du bois à un PNJ"),
 
         // Zombies spéciaux
-        FIRE_ZOMBIE_KILLS("Tue des zombies incendiés"),
+        FIRE_ZOMBIE_KILLS("Tue des Pyromorts"),
 
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir");

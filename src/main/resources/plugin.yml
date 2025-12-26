@@ -118,6 +118,12 @@ commands:
     permission: zombiez.journey
     aliases: [journal, jour, voyage, j]
 
+  gps:
+    description: GPS pour les étapes du Journey avec coordonnées
+    usage: /<command> [on|off|info|help]
+    permission: zombiez.journey
+    aliases: [navigation, nav, guide]
+
   # Commandes Recyclage
   recycle:
     description: Système de recyclage automatique d'items
@@ -154,6 +160,12 @@ commands:
     usage: /<command>
     permission: zombiez.progression
     aliases: [ach, succes, achievement]
+
+  mission:
+    description: Menu des missions journalières et hebdomadaires
+    usage: /<command>
+    permission: zombiez.progression
+    aliases: [missions]
 
   # Commandes Classes
   class:
@@ -278,6 +290,7 @@ permissions:
       zombiez.balance: true
       zombiez.bank: true
       zombiez.progression: true
+      zombiez.journey: true
       zombiez.class: true
       zombiez.pet.use: true
       zombiez.recycle: true
@@ -316,6 +329,10 @@ permissions:
 
   zombiez.progression:
     description: Accès au système de progression
+    default: true
+
+  zombiez.journey:
+    description: Accès au journal du survivant
     default: true
 
   zombiez.class:

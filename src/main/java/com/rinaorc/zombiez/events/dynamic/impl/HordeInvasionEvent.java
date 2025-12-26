@@ -36,15 +36,16 @@ public class HordeInvasionEvent extends DynamicEvent {
     private int totalWaves;
     @Getter
     private int currentWave = 0;
-    private int waveIntervalSeconds = 5;  // Temps entre chaque vague (réduit de 20 à 5)
+    private int waveIntervalSeconds = 3;  // Temps entre chaque vague (réduit à 3s pour dynamisme)
     private int secondsUntilNextWave;
 
-    // Zombies - Augmenté pour une vraie horde
-    private int baseZombiesPerWave = 15;  // Augmenté de 5 à 15
+    // Zombies - Plafonné à 50 max pour dynamisme
+    private static final int MAX_TOTAL_ZOMBIES = 50;
+    private int baseZombiesPerWave = 8;  // Réduit pour garder max 50 total
     private int zombiesThisWave = 0;
     private int zombiesKilledThisWave = 0;
     private int totalZombiesKilled = 0;
-    private int totalZombiesToKill;  // Objectif total de kills
+    private int totalZombiesToKill;  // Objectif total de kills (max 50)
 
     // Défense
     private int defendersInArea = 0;
@@ -65,19 +66,21 @@ public class HordeInvasionEvent extends DynamicEvent {
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
 
-        // Configuration basée sur la zone - Plus dynamique
-        this.totalWaves = 5 + zone.getId() / 10;  // 5-10 vagues
-        this.baseZombiesPerWave = 15 + zone.getId() / 3;  // Beaucoup plus de zombies par vague (15-25+)
+        // Configuration basée sur la zone - Court et intense
+        this.totalWaves = 3 + Math.min(zone.getId() / 5, 2);  // 3-5 vagues max
+        this.baseZombiesPerWave = 8 + zone.getId() / 4;  // 8-12 zombies par vague de base
         this.secondsUntilNextWave = waveIntervalSeconds;
 
-        // Calculer l'objectif total de kills (estimation)
+        // Calculer l'objectif total de kills avec plafond à 50
         this.totalZombiesToKill = 0;
         for (int w = 1; w <= totalWaves; w++) {
-            totalZombiesToKill += baseZombiesPerWave + (w * 5);
+            totalZombiesToKill += baseZombiesPerWave + (w * 2);  // Scaling plus léger
         }
+        // Plafonner à 50 zombies max
+        this.totalZombiesToKill = Math.min(this.totalZombiesToKill, MAX_TOTAL_ZOMBIES);
 
-        // Réduire la durée max car c'est basé sur les vagues
-        this.maxDuration = 20 * 60 * (totalWaves + 2); // Temps max basé sur les vagues
+        // Durée courte pour garder l'intensité
+        this.maxDuration = 20 * 60 * (totalWaves + 1); // 4-6 minutes max
     }
 
     @Override
@@ -85,8 +88,8 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Créer les marqueurs visuels
         createMarkers();
 
-        // Démarrer la première vague après un délai
-        secondsUntilNextWave = 10; // 10 secondes avant la première vague
+        // Démarrer la première vague après un court délai (dynamique!)
+        secondsUntilNextWave = 5; // 5 secondes avant la première vague
 
         // Démarrer le tick
         mainTask = new BukkitRunnable() {
@@ -234,9 +237,17 @@ public class HordeInvasionEvent extends DynamicEvent {
         } else {
             // Vérifier si la vague est terminée
             checkWaveComplete();
+
+            // MISE À JOUR EN TEMPS RÉEL du marqueur de vague pendant le combat
+            if (waveMarker != null && waveMarker.isValid()) {
+                NamedTextColor progressColor = zombiesKilledThisWave > zombiesThisWave / 2 ? NamedTextColor.GREEN : NamedTextColor.GOLD;
+                waveMarker.text(Component.text("⚔ VAGUE " + currentWave + " ⚔", NamedTextColor.RED, TextDecoration.BOLD)
+                    .appendNewline()
+                    .append(Component.text(zombiesKilledThisWave + "/" + zombiesThisWave + " tués", progressColor, TextDecoration.BOLD)));
+            }
         }
 
-        // Mettre à jour le compteur de kills
+        // Mettre à jour le compteur de kills total
         if (killCounterMarker != null && killCounterMarker.isValid()) {
             NamedTextColor killColor = totalZombiesKilled > totalZombiesToKill / 2 ? NamedTextColor.GREEN : NamedTextColor.GRAY;
             killCounterMarker.text(Component.text("☠ " + totalZombiesKilled + "/" + totalZombiesToKill + " zombies tués", killColor));
@@ -290,10 +301,14 @@ public class HordeInvasionEvent extends DynamicEvent {
         waveClear = false;
         zombiesKilledThisWave = 0;
 
-        // Calculer le nombre de zombies pour cette vague - AUGMENTÉ pour une vraie horde
-        // Plus de zombies si plus de défenseurs, scaling agressif par vague
-        int defenderBonus = Math.max(0, defendersInArea - 1) * 3;
-        zombiesThisWave = baseZombiesPerWave + (currentWave * 5) + defenderBonus;
+        // Calcul dynamique: moins de zombies mais plus agressifs
+        // Scaling léger (+2 par vague), petit bonus par défenseur
+        int defenderBonus = Math.max(0, defendersInArea - 1) * 2;
+        zombiesThisWave = baseZombiesPerWave + (currentWave * 2) + defenderBonus;
+
+        // Plafonner pour éviter de dépasser le max total
+        int remainingQuota = MAX_TOTAL_ZOMBIES - totalZombiesKilled;
+        zombiesThisWave = Math.min(zombiesThisWave, remainingQuota);
 
         World world = location.getWorld();
         if (world == null) return;
@@ -331,7 +346,7 @@ public class HordeInvasionEvent extends DynamicEvent {
     }
 
     /**
-     * Spawn les zombies de la vague - Version agressive pour une vraie horde
+     * Spawn les zombies de la vague - Rapide et agressif pour intensité
      */
     private void spawnWaveZombies() {
         World world = location.getWorld();
@@ -342,10 +357,10 @@ public class HordeInvasionEvent extends DynamicEvent {
             waveSpawnTask.cancel();
         }
 
-        // Spawn très rapide pour un effet de horde massif - stocker la tâche pour cleanup
+        // Spawn TRÈS rapide pour une vraie horde - tous les zombies en 1-2 secondes
         waveSpawnTask = new BukkitRunnable() {
             int spawned = 0;
-            int spawnPerTick = Math.max(3, zombiesThisWave / 5); // Spawn 3-6 zombies par tick
+            int spawnPerTick = Math.max(4, zombiesThisWave / 3); // Spawn 4+ zombies par tick
 
             @Override
             public void run() {
@@ -355,9 +370,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 }
 
                 for (int i = 0; i < spawnPerTick && spawned < zombiesThisWave; i++) {
-                    // Position autour du périmètre de défense - Plus proche pour plus de pression
+                    // Position autour du périmètre - Proche pour pression immédiate
                     double angle = Math.random() * Math.PI * 2;
-                    double distance = defenseRadius + 3 + Math.random() * 12;
+                    double distance = defenseRadius + 2 + Math.random() * 8;
                     double x = location.getX() + Math.cos(angle) * distance;
                     double z = location.getZ() + Math.sin(angle) * distance;
                     int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
@@ -368,15 +383,16 @@ public class HordeInvasionEvent extends DynamicEvent {
                     int levelBonus = currentWave - 1;
                     plugin.getSpawnSystem().spawnSingleZombie(spawnLoc, zone.getId() + levelBonus);
 
-                    // Effet de spawn pour l'immersion
-                    if (spawned % 5 == 0) {
-                        world.spawnParticle(Particle.SMOKE, spawnLoc, 5, 0.3, 0.3, 0.3, 0.02);
+                    // Effet de spawn dramatique
+                    world.spawnParticle(Particle.SMOKE, spawnLoc, 3, 0.2, 0.2, 0.2, 0.01);
+                    if (spawned % 3 == 0) {
+                        world.spawnParticle(Particle.FLAME, spawnLoc, 2, 0.1, 0.1, 0.1, 0.01);
                     }
 
                     spawned++;
                 }
             }
-        }.runTaskTimer(plugin, 0L, 5L); // Tick toutes les 5 ticks au lieu de 10
+        }.runTaskTimer(plugin, 0L, 3L); // Tick toutes les 3 ticks = spawn ultra rapide
     }
 
     /**

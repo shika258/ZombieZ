@@ -1,9 +1,17 @@
 package com.rinaorc.zombiez.progression.journey.chapter2;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.comphenix.protocol.wrappers.WrappedDataValue;
+import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.*;
 import org.bukkit.Registry;
 import org.bukkit.attribute.Attribute;
@@ -50,6 +58,7 @@ public class Chapter2Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final ProtocolManager protocolManager;
 
     // === CLÉS PDC ===
     private final NamespacedKey INJURED_MINER_KEY;
@@ -114,6 +123,7 @@ public class Chapter2Systems implements Listener {
     public Chapter2Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
+        this.protocolManager = ProtocolLibrary.getProtocolManager();
 
         // Initialiser les clés PDC
         INJURED_MINER_KEY = new NamespacedKey(plugin, "injured_miner");
@@ -136,6 +146,7 @@ public class Chapter2Systems implements Listener {
                     initializeBossDisplay(world);
                     spawnManorBoss(world);
                     startBossDisplayUpdater();
+                    startNPCNameUpdater(); // Mise à jour personnalisée des noms de NPC
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -265,7 +276,7 @@ public class Chapter2Systems implements Listener {
 
         // Créer un villageois comme NPC
         Villager miner = world.spawn(loc, Villager.class, npc -> {
-            npc.setCustomName("§c§l❤ §eMinerur Blessé §c§l❤");
+            npc.setCustomName("§c§l❤ §eMineur Blessé §c§l❤");
             npc.setCustomNameVisible(true);
             npc.setProfession(Villager.Profession.TOOLSMITH);
             npc.setVillagerLevel(1);
@@ -384,10 +395,11 @@ public class Chapter2Systems implements Listener {
         // Valider l'étape
         journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
 
-        // Changer l'apparence du NPC (soigné)
+        // Envoyer immédiatement le nom "soigné" à CE joueur seulement
+        // Le nom server-side reste "blessé" pour les autres joueurs qui n'ont pas encore fait la quête
         if (entity instanceof Villager villager) {
-            villager.setCustomName("§a§l✓ §7Mineur (Soigné)");
             villager.removePotionEffect(PotionEffectType.SLOWNESS);
+            sendCustomMinerName(player, villager, true); // true = healed
         }
     }
 
@@ -413,6 +425,9 @@ public class Chapter2Systems implements Listener {
 
     // ==================== IGOR ET RÉCOLTE DE BOIS (ÉTAPE 7) ====================
 
+    // Clé PDC pour identifier les bûches livrables à Igor
+    private final NamespacedKey IGOR_LOG_KEY = new NamespacedKey(plugin, "igor_log");
+
     /**
      * Gère l'interaction avec Igor pour donner du bois
      */
@@ -434,12 +449,12 @@ public class Chapter2Systems implements Listener {
             return;
         }
 
-        // Compter le bois de chêne dans l'inventaire
+        // Compter les bûches pour Igor dans l'inventaire (item en main)
         ItemStack handItem = player.getInventory().getItemInMainHand();
         int woodCount = 0;
 
-        // Accepter tous les types de bûches
-        if (isLog(handItem)) {
+        // Accepter uniquement les "Bûches pour Igor" (item spécial)
+        if (isIgorLog(handItem)) {
             woodCount = handItem.getAmount();
         }
 
@@ -448,15 +463,7 @@ public class Chapter2Systems implements Listener {
             player.sendMessage("");
             player.sendMessage("§6§lIgor: §f\"J'ai besoin de bûches de bois pour rebâtir mon village!\"");
             player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e8 §7bûches");
-
-            // Vérifier si le joueur a la hache, sinon lui en donner une nouvelle
-            if (!journeyManager.hasWoodcutterAxe(player)) {
-                player.sendMessage("");
-                player.sendMessage("§6§lIgor: §f\"Tu n'as plus ma hache? Tiens, en voici une autre!\"");
-                journeyManager.giveWoodcutterAxe(player, true);
-            } else {
-                player.sendMessage("§8(Utilise la Hache de Bûcheron pour couper du chêne)");
-            }
+            player.sendMessage("§8(Casse des bûches d'arbres pour récolter du bois)");
             player.sendMessage("");
             return;
         }
@@ -488,23 +495,20 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Vérifie si un item est une bûche de bois
+     * Vérifie si un item est une "Bûche pour Igor" (item spécial avec PDC)
      */
-    private boolean isLog(ItemStack item) {
-        if (item == null) return false;
-        return switch (item.getType()) {
-            case OAK_LOG, SPRUCE_LOG, BIRCH_LOG, JUNGLE_LOG,
-                 ACACIA_LOG, DARK_OAK_LOG, MANGROVE_LOG, CHERRY_LOG,
-                 CRIMSON_STEM, WARPED_STEM -> true;
-            default -> false;
-        };
+    private boolean isIgorLog(ItemStack item) {
+        if (item == null || item.getType() != Material.OAK_LOG) return false;
+        if (!item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(IGOR_LOG_KEY, PersistentDataType.BYTE);
     }
 
     /**
-     * Gère la récolte de bois en frappant les arbres
+     * Gère la récolte de bois en cassant les arbres (mode Survival)
+     * Le bloc ne se casse pas réellement, mais donne un item livrable à Igor
      */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onBlockDamage(BlockDamageEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent event) {
         Player player = event.getPlayer();
         Material blockType = event.getBlock().getType();
 
@@ -515,32 +519,56 @@ public class Chapter2Systems implements Listener {
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
         if (currentStep == null || currentStep != JourneyStep.STEP_2_7) return;
 
-        // Ne pas casser le bloc, mais donner la ressource
+        // Annuler le cassage du bloc (préserver la map)
         event.setCancelled(true);
 
-        // Convertir le type de bloc en item
-        Material logItem = blockToLogItem(blockType);
-        if (logItem == null) return;
-
-        // Donner la bûche au joueur (avec cooldown pour éviter le spam)
+        // Cooldown pour éviter le spam
         UUID uuid = player.getUniqueId();
         if (isOnCooldown(uuid, "wood_harvest")) return;
-        setCooldown(uuid, "wood_harvest", 500); // 500ms cooldown
+        setCooldown(uuid, "wood_harvest", 800); // 800ms cooldown
+
+        // Créer un item "Bûche pour Igor" spécial
+        ItemStack deliverableLog = createDeliverableLog();
 
         // Ajouter à l'inventaire ou drop
-        ItemStack log = new ItemStack(logItem, 1);
-        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(log);
+        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(deliverableLog);
         if (!leftover.isEmpty()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), log);
+            player.getWorld().dropItemNaturally(player.getLocation(), deliverableLog);
         }
 
-        // Effets visuels et sonores
+        // Effets visuels et sonores (simuler le cassage sans détruire)
         Location blockLoc = event.getBlock().getLocation().add(0.5, 0.5, 0.5);
-        player.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 10, 0.3, 0.3, 0.3, 0, blockType.createBlockData());
-        player.playSound(blockLoc, Sound.BLOCK_WOOD_HIT, 1f, 1f);
+        player.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 15, 0.3, 0.3, 0.3, 0, blockType.createBlockData());
+        player.playSound(blockLoc, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
 
         // Message
-        player.sendActionBar(Component.text("§a+1 §7Bûche récoltée"));
+        player.sendActionBar(Component.text("§a+1 §6Bûche pour Igor §7récoltée"));
+    }
+
+    /**
+     * Crée une bûche spéciale livrable à Igor
+     */
+    private ItemStack createDeliverableLog() {
+        ItemStack log = new ItemStack(Material.OAK_LOG);
+        var meta = log.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("§6Bûche pour Igor", net.kyori.adventure.text.format.NamedTextColor.GOLD)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            meta.lore(java.util.List.of(
+                    Component.text("§7Bois récolté pour aider Igor", net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
+                    Component.text("§eClique sur Igor pour lui donner", net.kyori.adventure.text.format.NamedTextColor.YELLOW)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
+            ));
+            // Marquer avec PDC pour identification
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "igor_log"),
+                    PersistentDataType.BYTE,
+                    (byte) 1
+            );
+            log.setItemMeta(meta);
+        }
+        return log;
     }
 
     private boolean isLogBlock(Material type) {
@@ -553,22 +581,6 @@ public class Chapter2Systems implements Listener {
                  STRIPPED_MANGROVE_LOG, STRIPPED_CHERRY_LOG,
                  STRIPPED_CRIMSON_STEM, STRIPPED_WARPED_STEM -> true;
             default -> false;
-        };
-    }
-
-    private Material blockToLogItem(Material blockType) {
-        return switch (blockType) {
-            case OAK_LOG, STRIPPED_OAK_LOG -> Material.OAK_LOG;
-            case SPRUCE_LOG, STRIPPED_SPRUCE_LOG -> Material.SPRUCE_LOG;
-            case BIRCH_LOG, STRIPPED_BIRCH_LOG -> Material.BIRCH_LOG;
-            case JUNGLE_LOG, STRIPPED_JUNGLE_LOG -> Material.JUNGLE_LOG;
-            case ACACIA_LOG, STRIPPED_ACACIA_LOG -> Material.ACACIA_LOG;
-            case DARK_OAK_LOG, STRIPPED_DARK_OAK_LOG -> Material.DARK_OAK_LOG;
-            case MANGROVE_LOG, STRIPPED_MANGROVE_LOG -> Material.MANGROVE_LOG;
-            case CHERRY_LOG, STRIPPED_CHERRY_LOG -> Material.CHERRY_LOG;
-            case CRIMSON_STEM, STRIPPED_CRIMSON_STEM -> Material.CRIMSON_STEM;
-            case WARPED_STEM, STRIPPED_WARPED_STEM -> Material.WARPED_STEM;
-            default -> null;
         };
     }
 
@@ -659,9 +671,8 @@ public class Chapter2Systems implements Listener {
                 // Marquer comme zombie incendié pour le tracking Journey
                 zombie.getPersistentDataContainer().set(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE, (byte) 1);
 
-                // Effet de spawn
-                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
-                world.spawnParticle(Particle.LAVA, spawnLoc.clone().add(0, 0.5, 0), 5, 0.3, 0.3, 0.3, 0);
+                // Effet de spawn minimal (le visuel principal vient de setVisualFire)
+                world.spawnParticle(Particle.FLAME, spawnLoc.clone().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0.02);
             }
         }
     }
@@ -718,7 +729,8 @@ public class Chapter2Systems implements Listener {
     // ==================== BOSS DU MANOIR (ÉTAPE 10) ====================
 
     /**
-     * Fait spawn le boss du manoir
+     * Fait spawn le boss du manoir via le système ZombieZ
+     * Utilise ZombieType.MANOR_LORD avec IA JourneyBossAI
      */
     private void spawnManorBoss(World world) {
         // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas en créer un nouveau
@@ -739,67 +751,35 @@ public class Chapter2Systems implements Listener {
         bossContributors.clear();
         bossRespawnScheduled = false;
 
-        // Créer un Zombie géant comme boss
-        Zombie boss = world.spawn(loc, Zombie.class, zombie -> {
-            zombie.setCustomName("§4§l☠ Seigneur du Manoir ☠");
-            zombie.setCustomNameVisible(true);
-            zombie.setBaby(false);
-            zombie.setCanPickupItems(false);
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.log(Level.WARNING, "ZombieManager non disponible, spawn du boss annulé");
+            return;
+        }
 
-            // Scale x3 via Paper API
-            var scale = zombie.getAttribute(Attribute.SCALE);
-            if (scale != null) {
-                scale.setBaseValue(3.0);
-            }
+        // Spawn via ZombieManager (avec IA JourneyBossAI, display name dynamique, système de dégâts ZombieZ)
+        int bossLevel = 10; // Niveau du boss pour le chapitre 2
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.MANOR_LORD, loc, bossLevel);
 
-            var health = zombie.getAttribute(Attribute.MAX_HEALTH);
-            if (health != null) {
-                health.setBaseValue(500); // 250 coeurs
-                zombie.setHealth(500);
-            }
+        if (activeZombie == null) {
+            plugin.log(Level.WARNING, "Échec du spawn du boss du Manoir via ZombieManager");
+            return;
+        }
 
-            var damage = zombie.getAttribute(Attribute.ATTACK_DAMAGE);
-            if (damage != null) {
-                damage.setBaseValue(15); // Dégâts importants
-            }
-
-            var speed = zombie.getAttribute(Attribute.MOVEMENT_SPEED);
-            if (speed != null) {
-                speed.setBaseValue(0.28); // Plus rapide que normal
-            }
-
-            var knockback = zombie.getAttribute(Attribute.ATTACK_KNOCKBACK);
-            if (knockback != null) {
-                knockback.setBaseValue(2.0); // Fort knockback
-            }
-
-            // Équipement épique
-            zombie.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
-            zombie.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
-            zombie.getEquipment().setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
-            zombie.getEquipment().setBoots(new ItemStack(Material.NETHERITE_BOOTS));
-            zombie.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
-
-            // Pas de drop
-            zombie.getEquipment().setHelmetDropChance(0);
-            zombie.getEquipment().setChestplateDropChance(0);
-            zombie.getEquipment().setLeggingsDropChance(0);
-            zombie.getEquipment().setBootsDropChance(0);
-            zombie.getEquipment().setItemInMainHandDropChance(0);
-
-            // Effets de boss
-            zombie.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
-            zombie.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
-            zombie.setGlowing(true);
-
-            // Marquer comme boss du manoir
-            zombie.getPersistentDataContainer().set(MANOR_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+        // Récupérer l'entité pour appliquer les modifications visuelles
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (!(entity instanceof Zombie boss)) {
+            plugin.log(Level.WARNING, "Boss du Manoir n'est pas un Zombie valide");
+            return;
+        }
 
         manorBossEntity = boss;
 
-        // Démarrer l'IA du boss (attaques spéciales)
-        startBossAI(boss);
+        // Appliquer les modifications visuelles spécifiques au boss du Manoir
+        applyManorBossVisuals(boss);
+
+        // Marquer comme boss du manoir pour le tracking Journey
+        boss.getPersistentDataContainer().set(MANOR_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
 
         // Annoncer le spawn
         for (Player player : world.getPlayers()) {
@@ -809,82 +789,38 @@ public class Chapter2Systems implements Listener {
                 player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.5f);
             }
         }
+
+        plugin.log(Level.INFO, "§c§lBoss du Manoir spawné avec succès (système ZombieZ)");
     }
 
     /**
-     * IA spéciale du boss - attaques périodiques
+     * Applique les modifications visuelles au boss du Manoir
+     * (Scale x3, équipement netherite, effets visuels)
      */
-    private void startBossAI(Zombie boss) {
-        new BukkitRunnable() {
-            int tick = 0;
+    private void applyManorBossVisuals(Zombie boss) {
+        // Scale x3 via Paper API
+        var scale = boss.getAttribute(Attribute.SCALE);
+        if (scale != null) {
+            scale.setBaseValue(2.5);
+        }
 
-            @Override
-            public void run() {
-                if (boss == null || !boss.isValid() || boss.isDead()) {
-                    cancel();
-                    return;
-                }
+        // Équipement netherite épique
+        boss.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+        boss.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+        boss.getEquipment().setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
+        boss.getEquipment().setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+        boss.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
 
-                tick++;
-                World world = boss.getWorld();
-                Location bossLoc = boss.getLocation();
+        // Pas de drop d'équipement
+        boss.getEquipment().setHelmetDropChance(0);
+        boss.getEquipment().setChestplateDropChance(0);
+        boss.getEquipment().setLeggingsDropChance(0);
+        boss.getEquipment().setBootsDropChance(0);
+        boss.getEquipment().setItemInMainHandDropChance(0);
 
-                // Leash check: toutes les secondes, vérifier si le boss est trop loin de son spawn
-                if (tick % 20 == 0) {
-                    Location spawnLoc = MANOR_BOSS_LOCATION.clone();
-                    spawnLoc.setWorld(world);
-                    double distSq = bossLoc.distanceSquared(spawnLoc);
-
-                    if (distSq > BOSS_LEASH_RANGE_SQUARED) {
-                        // Téléporter le boss à son spawn
-                        boss.teleport(spawnLoc);
-                        boss.setTarget(null); // Reset le ciblage
-                        world.playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
-                        world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
-                    }
-                }
-
-                // Toutes les 5 secondes: attaque de zone
-                if (tick % 100 == 0) {
-                    // Onde de choc
-                    world.playSound(bossLoc, Sound.ENTITY_RAVAGER_ROAR, 2f, 0.5f);
-                    world.spawnParticle(Particle.EXPLOSION, bossLoc, 10, 2, 1, 2, 0);
-
-                    // Repousser les joueurs proches
-                    for (Entity entity : boss.getNearbyEntities(5, 3, 5)) {
-                        if (entity instanceof Player player) {
-                            player.damage(8, boss);
-                            player.setVelocity(player.getLocation().toVector()
-                                .subtract(bossLoc.toVector()).normalize().multiply(1.5).setY(0.5));
-                        }
-                    }
-                }
-
-                // Toutes les 8 secondes: invocation de renforts
-                if (tick % 160 == 0) {
-                    world.playSound(bossLoc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 2f, 0.8f);
-
-                    // Spawn 2-3 zombies normaux
-                    int reinforcements = ThreadLocalRandom.current().nextInt(2, 4);
-                    for (int i = 0; i < reinforcements; i++) {
-                        Location spawnLoc = bossLoc.clone().add(
-                            ThreadLocalRandom.current().nextDouble(-3, 3),
-                            0,
-                            ThreadLocalRandom.current().nextDouble(-3, 3)
-                        );
-                        world.spawn(spawnLoc, Zombie.class, z -> {
-                            z.setCustomName("§7Serviteur du Manoir");
-                            z.setCustomNameVisible(true);
-                        });
-                    }
-                }
-
-                // Particules constantes
-                if (tick % 10 == 0) {
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, bossLoc.add(0, 1, 0), 5, 0.5, 0.5, 0.5, 0.02);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
+        // Effets visuels
+        boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
+        boss.setGlowing(true);
     }
 
     /**
@@ -993,6 +929,100 @@ public class Chapter2Systems implements Listener {
     private void setCooldown(UUID uuid, String action, long ms) {
         String key = uuid.toString() + "_" + action;
         cooldowns.put(key, System.currentTimeMillis());
+    }
+
+    // ==================== NOM PERSONNALISÉ PAR JOUEUR (NPC) ====================
+
+    /**
+     * Démarre le système de mise à jour des noms de NPC personnalisés par joueur.
+     * Envoie des packets de métadonnées personnalisés pour que chaque joueur
+     * voit le nom approprié selon sa progression de quête.
+     */
+    private void startNPCNameUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) return;
+
+                // Pour chaque joueur proche du mineur, envoyer le nom approprié
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(injuredMinerEntity.getWorld())) continue;
+                    if (player.getLocation().distanceSquared(injuredMinerEntity.getLocation()) > 50 * 50) continue;
+
+                    // Vérifier si le joueur a déjà complété l'étape 4 (HEAL_NPC)
+                    boolean hasHealed = hasPlayerHealedMiner(player);
+                    sendCustomMinerName(player, injuredMinerEntity, hasHealed);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+    }
+
+    /**
+     * Vérifie si le joueur a déjà soigné le mineur (étape 4 du chapitre 2 complétée ou dépassée)
+     */
+    private boolean hasPlayerHealedMiner(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return false;
+
+        // Si le joueur est au chapitre 2 étape 5 ou plus, ou dans un chapitre supérieur
+        if (currentStep.getChapter().getChapterNumber() > 2) return true;
+        if (currentStep.getChapter().getChapterNumber() == 2 && currentStep.getStepNumber() > 4) return true;
+
+        // Si le joueur est exactement à l'étape 4, vérifier la progression
+        if (currentStep == JourneyStep.STEP_2_4) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            return progress >= 1; // 1 = a soigné le mineur
+        }
+
+        return false;
+    }
+
+    /**
+     * Envoie un packet de métadonnées pour afficher un nom personnalisé au joueur.
+     * Utilise ProtocolLib pour envoyer le nom du NPC de manière client-side.
+     *
+     * @param player Le joueur qui doit voir le nom
+     * @param entity L'entité dont on modifie le nom
+     * @param healed true si le joueur a déjà soigné le mineur
+     */
+    private void sendCustomMinerName(Player player, Entity entity, boolean healed) {
+        try {
+            PacketContainer metadataPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
+
+            // Entity ID
+            metadataPacket.getIntegers().write(0, entity.getEntityId());
+
+            // Créer les data values pour le nom personnalisé
+            List<WrappedDataValue> dataValues = new ArrayList<>();
+
+            // Choisir le nom approprié
+            String customName = healed
+                    ? "§a§l✓ §7Mineur (Soigné)"
+                    : "§c§l❤ §eMineur Blessé §c§l❤";
+
+            // Index 2: Custom Name (Optional<Component>)
+            Component nameComponent = Component.text(customName);
+            String jsonName = GsonComponentSerializer.gson().serialize(nameComponent);
+            WrappedChatComponent wrappedName = WrappedChatComponent.fromJson(jsonName);
+
+            // Utiliser le serializer pour Optional<Component>
+            var optChatSerializer = WrappedDataWatcher.Registry.getChatComponentSerializer(true);
+            dataValues.add(new WrappedDataValue(2, optChatSerializer, Optional.of(wrappedName.getHandle())));
+
+            // Index 3: Custom Name Visible (Boolean) - toujours visible
+            dataValues.add(new WrappedDataValue(3, WrappedDataWatcher.Registry.get(Boolean.class), true));
+
+            // Écrire et envoyer le packet
+            var dataValueModifier = metadataPacket.getDataValueCollectionModifier();
+            if (dataValueModifier.size() > 0) {
+                dataValueModifier.write(0, dataValues);
+                protocolManager.sendServerPacket(player, metadataPacket);
+            }
+
+        } catch (Exception e) {
+            // Log uniquement en FINE pour éviter le spam
+            plugin.log(Level.FINE, "Erreur envoi nom NPC personnalisé: " + e.getMessage());
+        }
     }
 
     /**

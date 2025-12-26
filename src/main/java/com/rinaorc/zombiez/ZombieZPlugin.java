@@ -223,6 +223,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
+    @Getter
+    private com.rinaorc.zombiez.navigation.GPSManager gpsManager;
 
     // Système WorldBorder par joueur (progression zones)
     @Getter
@@ -426,6 +428,11 @@ public class ZombieZPlugin extends JavaPlugin {
             chapter2Systems.cleanup();
         }
 
+        // Cleanup GPS Manager
+        if (gpsManager != null) {
+            gpsManager.shutdown();
+        }
+
         // Cleanup Zone Border Manager
         if (zoneBorderManager != null) {
             zoneBorderManager.cleanup();
@@ -554,6 +561,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Chapter 2 Systems - NPCs, Zombies Incendiés, Boss du Manoir
         chapter2Systems = new com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems(this);
+
+        // GPS Manager - Navigation vers les objectifs du Journey
+        gpsManager = new com.rinaorc.zombiez.navigation.GPSManager(this);
 
         // Zone Border Manager - WorldBorder par joueur basé sur la progression
         zoneBorderManager = new com.rinaorc.zombiez.managers.ZoneBorderManager(this);
@@ -773,6 +783,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("journey").setExecutor(journeyCmd);
         getCommand("journey").setTabCompleter(journeyCmd);
 
+        // Commande Joueur - GPS (Navigation Journey)
+        com.rinaorc.zombiez.commands.player.GPSCommand gpsCmd = new com.rinaorc.zombiez.commands.player.GPSCommand(this);
+        getCommand("gps").setExecutor(gpsCmd);
+        getCommand("gps").setTabCompleter(gpsCmd);
+
         // Commandes Joueur - Économie
         BankCommand bankCmd = new BankCommand(this);
         getCommand("bank").setExecutor(bankCmd);
@@ -785,6 +800,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Commande Joueur - Achievements
         getCommand("achievements").setExecutor(new com.rinaorc.zombiez.commands.player.AchievementCommand(this));
+
+        // Commande Joueur - Missions
+        getCommand("mission").setExecutor(new com.rinaorc.zombiez.commands.player.MissionCommand(this));
 
         // Commandes Joueur - Classes
         ClassCommand classCmd = new ClassCommand(this);
@@ -838,6 +856,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de parcours (Journey) - Blocage de zones et progression
         journeyListener = new com.rinaorc.zombiez.progression.journey.JourneyListener(this);
         pm.registerEvents(journeyListener, this);
+
+        // Listener GPS - Navigation vers objectifs du Journey
+        pm.registerEvents(gpsManager, this);
 
         // Listeners système d'items
         itemListener = new ItemListener(this);

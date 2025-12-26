@@ -1243,8 +1243,14 @@ public class BeastManager {
             target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
         }
 
+        // Marquer comme dégâts de bête (pour bypass la restriction arc/arbalète dans CombatListener)
+        target.setMetadata("zombiez_beast_damage", new FixedMetadataValue(plugin, true));
+
         // Appliquer les dégâts
         target.damage(damage, owner);
+
+        // Retirer le marqueur
+        target.removeMetadata("zombiez_beast_damage", plugin);
 
         // Mettre à jour l'affichage de vie du zombie
         if (plugin.getZombieManager().isZombieZMob(target)) {
@@ -1434,8 +1440,14 @@ public class BeastManager {
             target.setMetadata("last_damage_player", new FixedMetadataValue(plugin, owner.getUniqueId().toString()));
         }
 
+        // Marquer comme dégâts de bête (pour bypass la restriction arc/arbalète dans CombatListener)
+        target.setMetadata("zombiez_beast_damage", new FixedMetadataValue(plugin, true));
+
         // Appliquer les dégâts
         target.damage(result.damage, owner);
+
+        // Retirer le marqueur
+        target.removeMetadata("zombiez_beast_damage", plugin);
 
         // Mettre à jour l'affichage de vie du zombie
         if (plugin.getZombieManager().isZombieZMob(target)) {

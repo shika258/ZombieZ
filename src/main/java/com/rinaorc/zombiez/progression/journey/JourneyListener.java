@@ -663,7 +663,7 @@ public class JourneyListener implements Listener {
 
         // Mettre à jour selon le type d'étape
         if (currentStep.getType() == JourneyStep.StepType.SURVIVE_ZONE_TIME) {
-            // STEP_3_2: Survie 5 minutes en Zone 2
+            // Survie en zone (nécessite Zone 2+)
             if (currentZoneId >= 2) {
                 journeyManager.updateProgress(player, JourneyStep.StepType.SURVIVE_ZONE_TIME, secondsInZone);
             }
