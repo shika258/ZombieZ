@@ -501,6 +501,11 @@ public class ZombieManager {
             knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // VARIATION D'ÉCHELLE PROCÉDURALE (15% des mobs)
+        // ═══════════════════════════════════════════════════════════════════
+        applyProceduralScale(zombie, type);
+
         // Équipement basé sur le type
         applyZombieEquipment(zombie, type, level);
 
@@ -558,6 +563,11 @@ public class ZombieManager {
             knockbackAttr.setBaseValue(Math.min(0.8, type.getTier() * 0.1));
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // VARIATION D'ÉCHELLE PROCÉDURALE (15% des mobs)
+        // ═══════════════════════════════════════════════════════════════════
+        applyProceduralScale(entity, type);
+
         // Effets de potion basés sur la catégorie
         applyZombieEffectsToEntity(entity, type);
 
@@ -590,6 +600,61 @@ public class ZombieManager {
                     entity.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 0, false, false));
                 }
             }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYSTÈME DE VARIATION D'ÉCHELLE PROCÉDURALE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Configuration de la variation d'échelle
+    private static final double SCALE_VARIATION_CHANCE = 0.15; // 15% des mobs ont une taille modifiée
+    private static final double SCALE_MIN = 0.6;  // -40% de la taille normale
+    private static final double SCALE_MAX = 2.0;  // +100% de la taille normale
+    private static final Random scaleRandom = new Random();
+
+    /**
+     * Applique une variation d'échelle procédurale à une entité
+     * - 85% des mobs gardent leur taille normale (scale = 1.0)
+     * - 15% des mobs ont une taille modifiée (0.6x à 2.0x)
+     * - Les boss ne sont PAS affectés par cette variation (ils ont leurs propres échelles)
+     *
+     * @param entity L'entité à modifier
+     * @param type Le type de zombie
+     */
+    private void applyProceduralScale(LivingEntity entity, ZombieType type) {
+        // Les boss ont leurs propres échelles définies - ne pas modifier
+        if (type.isBoss()) {
+            return;
+        }
+
+        // 85% des mobs gardent leur taille normale
+        if (scaleRandom.nextDouble() >= SCALE_VARIATION_CHANCE) {
+            return;
+        }
+
+        // Générer une échelle aléatoire entre SCALE_MIN et SCALE_MAX
+        // Distribution: légèrement biaisée vers les tailles normales
+        // On utilise une distribution qui favorise les valeurs proches de 1.0
+        double randomValue = scaleRandom.nextDouble();
+
+        // Décider si on réduit ou agrandit (50/50)
+        double scale;
+        if (scaleRandom.nextBoolean()) {
+            // Réduction: 0.6 à 1.0
+            // Distribution linéaire pour les petits
+            scale = SCALE_MIN + (randomValue * (1.0 - SCALE_MIN));
+        } else {
+            // Agrandissement: 1.0 à 2.0
+            // Distribution légèrement biaisée vers les tailles modérées
+            // On utilise une racine carrée pour favoriser les tailles moyennes
+            scale = 1.0 + (Math.sqrt(randomValue) * (SCALE_MAX - 1.0));
+        }
+
+        // Appliquer l'échelle via l'attribut SCALE
+        var scaleAttr = entity.getAttribute(Attribute.SCALE);
+        if (scaleAttr != null) {
+            scaleAttr.setBaseValue(scale);
         }
     }
 
