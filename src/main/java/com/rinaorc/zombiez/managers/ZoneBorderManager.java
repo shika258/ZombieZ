@@ -189,29 +189,23 @@ public class ZoneBorderManager {
         // Zone N: minZ = 10000 - (N * ZONE_SIZE)
         int northernLimit = ZoneManager.ZONE_START_Z - (maxZone * ZONE_SIZE);
 
-        // Limite sud (spawn)
-        int southernLimit = SPAWN_MAX_Z;
-
-        // Span en Z
-        double zSpan = southernLimit - northernLimit;
-
-        // La taille du border doit couvrir le plus grand des deux spans
-        double size = Math.max(MAP_WIDTH, zSpan + 100); // +100 pour marge
+        // La taille du border est la largeur de la carte (le border est carré)
+        double size = MAP_WIDTH;
 
         // Centre X: milieu de la map
         double centerX = CENTER_X;
 
-        // Centre Z: positionné pour que le border couvre de northernLimit à southernLimit
-        // Pour un border carré centré sur centerZ avec taille size:
-        // - Limite nord = centerZ - size/2
-        // - Limite sud = centerZ + size/2
-        // On veut: centerZ - size/2 <= northernLimit ET centerZ + size/2 >= southernLimit
-        // Donc: centerZ = (northernLimit + southernLimit) / 2
-        double centerZ = (northernLimit + southernLimit) / 2.0;
-
-        // Ajustement: s'assurer que le border couvre bien toute la zone
-        // Si zSpan < MAP_WIDTH, le border sera carré et couvrira plus que nécessaire en Z
-        // C'est acceptable car le border sera au-delà des limites de la map
+        // CORRECTION: Le centre Z doit être positionné pour que la LIMITE NORD
+        // du border corresponde exactement à northernLimit (minZ de la zone accessible)
+        //
+        // Formule: limite_nord = centerZ - size/2
+        // Donc: centerZ = northernLimit + size/2
+        //
+        // Exemple avec zone 1 (minZ = 9800):
+        // - centerZ = 9800 + 650 = 10450
+        // - Limite nord du border = 10450 - 650 = 9800 ✓ (empêche d'aller en zone 2)
+        // - Limite sud du border = 10450 + 650 = 11100 (largement au sud, pas de problème)
+        double centerZ = northernLimit + (size / 2.0);
 
         return new double[] { centerX, centerZ, size };
     }
