@@ -425,6 +425,9 @@ public class Chapter2Systems implements Listener {
 
     // ==================== IGOR ET RÉCOLTE DE BOIS (ÉTAPE 7) ====================
 
+    // Clé PDC pour identifier les bûches livrables à Igor
+    private final NamespacedKey IGOR_LOG_KEY = new NamespacedKey(plugin, "igor_log");
+
     /**
      * Gère l'interaction avec Igor pour donner du bois
      */
@@ -446,12 +449,12 @@ public class Chapter2Systems implements Listener {
             return;
         }
 
-        // Compter le bois de chêne dans l'inventaire
+        // Compter les bûches pour Igor dans l'inventaire (item en main)
         ItemStack handItem = player.getInventory().getItemInMainHand();
         int woodCount = 0;
 
-        // Accepter tous les types de bûches
-        if (isLog(handItem)) {
+        // Accepter uniquement les "Bûches pour Igor" (item spécial)
+        if (isIgorLog(handItem)) {
             woodCount = handItem.getAmount();
         }
 
@@ -460,15 +463,7 @@ public class Chapter2Systems implements Listener {
             player.sendMessage("");
             player.sendMessage("§6§lIgor: §f\"J'ai besoin de bûches de bois pour rebâtir mon village!\"");
             player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e8 §7bûches");
-
-            // Vérifier si le joueur a la hache, sinon lui en donner une nouvelle
-            if (!journeyManager.hasWoodcutterAxe(player)) {
-                player.sendMessage("");
-                player.sendMessage("§6§lIgor: §f\"Tu n'as plus ma hache? Tiens, en voici une autre!\"");
-                journeyManager.giveWoodcutterAxe(player, true);
-            } else {
-                player.sendMessage("§8(Utilise la Hache de Bûcheron pour couper du chêne)");
-            }
+            player.sendMessage("§8(Casse des bûches d'arbres pour récolter du bois)");
             player.sendMessage("");
             return;
         }
@@ -500,23 +495,20 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Vérifie si un item est une bûche de bois
+     * Vérifie si un item est une "Bûche pour Igor" (item spécial avec PDC)
      */
-    private boolean isLog(ItemStack item) {
-        if (item == null) return false;
-        return switch (item.getType()) {
-            case OAK_LOG, SPRUCE_LOG, BIRCH_LOG, JUNGLE_LOG,
-                 ACACIA_LOG, DARK_OAK_LOG, MANGROVE_LOG, CHERRY_LOG,
-                 CRIMSON_STEM, WARPED_STEM -> true;
-            default -> false;
-        };
+    private boolean isIgorLog(ItemStack item) {
+        if (item == null || item.getType() != Material.OAK_LOG) return false;
+        if (!item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(IGOR_LOG_KEY, PersistentDataType.BYTE);
     }
 
     /**
-     * Gère la récolte de bois en frappant les arbres
+     * Gère la récolte de bois en cassant les arbres (mode Survival)
+     * Le bloc ne se casse pas réellement, mais donne un item livrable à Igor
      */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onBlockDamage(BlockDamageEvent event) {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent event) {
         Player player = event.getPlayer();
         Material blockType = event.getBlock().getType();
 
@@ -527,32 +519,56 @@ public class Chapter2Systems implements Listener {
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
         if (currentStep == null || currentStep != JourneyStep.STEP_2_7) return;
 
-        // Ne pas casser le bloc, mais donner la ressource
+        // Annuler le cassage du bloc (préserver la map)
         event.setCancelled(true);
 
-        // Convertir le type de bloc en item
-        Material logItem = blockToLogItem(blockType);
-        if (logItem == null) return;
-
-        // Donner la bûche au joueur (avec cooldown pour éviter le spam)
+        // Cooldown pour éviter le spam
         UUID uuid = player.getUniqueId();
         if (isOnCooldown(uuid, "wood_harvest")) return;
-        setCooldown(uuid, "wood_harvest", 500); // 500ms cooldown
+        setCooldown(uuid, "wood_harvest", 800); // 800ms cooldown
+
+        // Créer un item "Bûche pour Igor" spécial
+        ItemStack deliverableLog = createDeliverableLog();
 
         // Ajouter à l'inventaire ou drop
-        ItemStack log = new ItemStack(logItem, 1);
-        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(log);
+        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(deliverableLog);
         if (!leftover.isEmpty()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), log);
+            player.getWorld().dropItemNaturally(player.getLocation(), deliverableLog);
         }
 
-        // Effets visuels et sonores
+        // Effets visuels et sonores (simuler le cassage sans détruire)
         Location blockLoc = event.getBlock().getLocation().add(0.5, 0.5, 0.5);
-        player.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 10, 0.3, 0.3, 0.3, 0, blockType.createBlockData());
-        player.playSound(blockLoc, Sound.BLOCK_WOOD_HIT, 1f, 1f);
+        player.getWorld().spawnParticle(Particle.BLOCK, blockLoc, 15, 0.3, 0.3, 0.3, 0, blockType.createBlockData());
+        player.playSound(blockLoc, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
 
         // Message
-        player.sendActionBar(Component.text("§a+1 §7Bûche récoltée"));
+        player.sendActionBar(Component.text("§a+1 §6Bûche pour Igor §7récoltée"));
+    }
+
+    /**
+     * Crée une bûche spéciale livrable à Igor
+     */
+    private ItemStack createDeliverableLog() {
+        ItemStack log = new ItemStack(Material.OAK_LOG);
+        var meta = log.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("§6Bûche pour Igor", net.kyori.adventure.text.format.NamedTextColor.GOLD)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            meta.lore(java.util.List.of(
+                    Component.text("§7Bois récolté pour aider Igor", net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
+                    Component.text("§eClique sur Igor pour lui donner", net.kyori.adventure.text.format.NamedTextColor.YELLOW)
+                            .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
+            ));
+            // Marquer avec PDC pour identification
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "igor_log"),
+                    PersistentDataType.BYTE,
+                    (byte) 1
+            );
+            log.setItemMeta(meta);
+        }
+        return log;
     }
 
     private boolean isLogBlock(Material type) {
@@ -565,22 +581,6 @@ public class Chapter2Systems implements Listener {
                  STRIPPED_MANGROVE_LOG, STRIPPED_CHERRY_LOG,
                  STRIPPED_CRIMSON_STEM, STRIPPED_WARPED_STEM -> true;
             default -> false;
-        };
-    }
-
-    private Material blockToLogItem(Material blockType) {
-        return switch (blockType) {
-            case OAK_LOG, STRIPPED_OAK_LOG -> Material.OAK_LOG;
-            case SPRUCE_LOG, STRIPPED_SPRUCE_LOG -> Material.SPRUCE_LOG;
-            case BIRCH_LOG, STRIPPED_BIRCH_LOG -> Material.BIRCH_LOG;
-            case JUNGLE_LOG, STRIPPED_JUNGLE_LOG -> Material.JUNGLE_LOG;
-            case ACACIA_LOG, STRIPPED_ACACIA_LOG -> Material.ACACIA_LOG;
-            case DARK_OAK_LOG, STRIPPED_DARK_OAK_LOG -> Material.DARK_OAK_LOG;
-            case MANGROVE_LOG, STRIPPED_MANGROVE_LOG -> Material.MANGROVE_LOG;
-            case CHERRY_LOG, STRIPPED_CHERRY_LOG -> Material.CHERRY_LOG;
-            case CRIMSON_STEM, STRIPPED_CRIMSON_STEM -> Material.CRIMSON_STEM;
-            case WARPED_STEM, STRIPPED_WARPED_STEM -> Material.WARPED_STEM;
-            default -> null;
         };
     }
 
