@@ -102,10 +102,8 @@ public class Chapter2Systems implements Listener {
     private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
     private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
 
-    // Stats du boss pour l'affichage
+    // Config du boss (stats gérées par ZombieType.MANOR_LORD + calculateHealth/Damage)
     private static final String BOSS_NAME = "Seigneur du Manoir";
-    private static final int BOSS_MAX_HP = 500;
-    private static final int BOSS_DAMAGE = 15;
     private static final double BOSS_LEASH_RANGE = 32.0; // Distance max avant retour au spawn
     private static final double BOSS_LEASH_RANGE_SQUARED = BOSS_LEASH_RANGE * BOSS_LEASH_RANGE;
 
@@ -214,18 +212,22 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
-     * NOTE: Quand le boss est vivant, on CACHE le display statique pour éviter
-     * le doublon avec le nom ZombieZ (qui affiche déjà les HP).
+     * NOTE: Quand le boss est vivant, on CACHE COMPLÈTEMENT le display statique
+     * car le système ZombieZ affiche déjà les HP via le customName de l'entité.
      * Le display statique n'apparaît que pour le countdown de respawn.
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - CACHER le display (le système ZombieZ affiche déjà les HP)
+            // Boss vivant - CACHER COMPLÈTEMENT le display
+            // (le système ZombieZ gère l'affichage des HP via le customName du zombie)
             display.text(Component.empty());
+            display.setViewRange(0f); // Rendre invisible
         } else {
             // Boss mort - afficher countdown de respawn
+            display.setViewRange(100f); // Rendre visible à nouveau
+
             StringBuilder text = new StringBuilder();
             text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
 
