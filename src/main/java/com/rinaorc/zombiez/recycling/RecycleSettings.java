@@ -21,6 +21,10 @@ public class RecycleSettings {
     @Setter
     private boolean autoRecycleEnabled = false;
 
+    // Activation du recyclage des consommables
+    @Setter
+    private boolean recycleConsumablesEnabled = false;
+
     // Activation par rareté (par défaut: uniquement COMMON et UNCOMMON activés)
     private final Map<Rarity, Boolean> recycleByRarity;
 
@@ -192,7 +196,7 @@ public class RecycleSettings {
 
     /**
      * Sérialise les paramètres en chaîne pour stockage BDD
-     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle"
+     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle;consumablesEnabled"
      */
     public String serialize() {
         StringBuilder sb = new StringBuilder();
@@ -217,6 +221,10 @@ public class RecycleSettings {
 
         // Meilleur recyclage unique
         sb.append(bestSingleRecycle);
+        sb.append(";");
+
+        // Recyclage des consommables
+        sb.append(recycleConsumablesEnabled ? "1" : "0");
 
         return sb.toString();
     }
@@ -276,10 +284,22 @@ public class RecycleSettings {
             if (parts.length >= 6 && !parts[5].isEmpty()) {
                 settings.bestSingleRecycle = Integer.parseInt(parts[5]);
             }
+
+            // Charger le recyclage des consommables
+            if (parts.length >= 7 && !parts[6].isEmpty()) {
+                settings.setRecycleConsumablesEnabled(parts[6].equals("1"));
+            }
         } catch (Exception e) {
             // En cas d'erreur, retourner les paramètres par défaut
         }
 
         return settings;
+    }
+
+    /**
+     * Vérifie si les consommables doivent être auto-recyclés
+     */
+    public boolean shouldRecycleConsumables() {
+        return autoRecycleEnabled && recycleConsumablesEnabled;
     }
 }
