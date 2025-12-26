@@ -611,7 +611,7 @@ public class Chapter2Systems implements Listener {
 
         // Effets visuels et sonores
         player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, crateLoc.clone().add(0, 0.5, 0), 20, 0.5, 0.5, 0.5, 0);
-        player.getWorld().spawnParticle(Particle.ITEM_CHEST, crateLoc.clone().add(0, 0.5, 0), 10, 0.3, 0.3, 0.3, 0.1);
+        player.getWorld().spawnParticle(Particle.POOF, crateLoc.clone().add(0, 0.5, 0), 10, 0.3, 0.3, 0.3, 0.05);
         player.playSound(crateLoc, Sound.ENTITY_ITEM_PICKUP, 1f, 1.2f);
         player.playSound(crateLoc, Sound.BLOCK_CHEST_OPEN, 0.8f, 1.3f);
 
