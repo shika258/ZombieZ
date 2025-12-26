@@ -12,8 +12,13 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import com.rinaorc.zombiez.mobs.PassiveMobManager;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -581,6 +586,65 @@ public class JourneyManager {
                 chestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
             }
         }
+
+        // Étape 2.7: Aide Igor - Donne une hache spéciale pour couper du bois en Adventure
+        if (step == JourneyStep.STEP_2_7) {
+            giveWoodcutterAxe(player);
+        }
+    }
+
+    /**
+     * Donne une hache spéciale au joueur pour couper du bois en mode Adventure
+     * La hache a le tag can_break pour OAK_LOG uniquement
+     */
+    @SuppressWarnings("deprecation")
+    private void giveWoodcutterAxe(Player player) {
+        ItemStack axe = new ItemStack(Material.IRON_AXE);
+        ItemMeta meta = axe.getItemMeta();
+        if (meta == null) return;
+
+        // Nom et lore
+        meta.displayName(Component.text("Hache de Bûcheron", NamedTextColor.GOLD)
+            .decoration(TextDecoration.ITALIC, false)
+            .decoration(TextDecoration.BOLD, true));
+
+        meta.lore(List.of(
+            Component.text(""),
+            Component.text("Hache spéciale d'Igor", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+            Component.text("Peut couper les bûches de chêne", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
+            Component.text(""),
+            Component.text("Ramène 8 bûches à Igor!", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
+        ));
+
+        // Permettre de casser les bûches de chêne en mode Adventure
+        // Utilise l'API dépréciée mais toujours fonctionnelle en 1.21.4
+        meta.setDestroyableKeys(List.of(
+            NamespacedKey.minecraft("oak_log"),
+            NamespacedKey.minecraft("oak_wood"),
+            NamespacedKey.minecraft("stripped_oak_log"),
+            NamespacedKey.minecraft("stripped_oak_wood")
+        ));
+
+        // Rendre incassable pour ne pas perdre la hache
+        meta.setUnbreakable(true);
+
+        axe.setItemMeta(meta);
+
+        // Donner au joueur
+        if (player.getInventory().firstEmpty() != -1) {
+            player.getInventory().addItem(axe);
+        } else {
+            player.getWorld().dropItemNaturally(player.getLocation(), axe);
+        }
+
+        // Message
+        player.sendMessage("");
+        player.sendMessage("§6§l✦ §eIgor t'a prêté sa §6Hache de Bûcheron§e!");
+        player.sendMessage("§7Tu peux maintenant couper des bûches de chêne.");
+        player.sendMessage("§7Ramène-lui §f8 bûches §7pour l'aider à reconstruire.");
+        player.sendMessage("");
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
     }
 
     /**
