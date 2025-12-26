@@ -38,6 +38,7 @@ public class ZoneBorderManager {
     // Constantes de la map
     private static final double CENTER_X = 621.0; // Milieu de 0-1242
     private static final double MAP_WIDTH = 1300.0; // Légèrement plus que 1242 pour marge
+    private static final double SPAWN_SOUTH_BUFFER = 200.0; // Extension au sud pour éloigner le border du spawn
 
     // Zone spawn
     private static final int SPAWN_MAX_Z = 10200;
@@ -191,22 +192,21 @@ public class ZoneBorderManager {
         // Zone N: minZ = 10000 - (N * ZONE_SIZE)
         int northernLimit = ZoneManager.ZONE_START_Z - (maxZone * ZONE_SIZE);
 
-        // La taille du border est la largeur de la carte (le border est carré)
-        double size = MAP_WIDTH;
+        // La taille du border inclut le buffer au sud pour éloigner le border du spawn
+        double size = MAP_WIDTH + SPAWN_SOUTH_BUFFER;
 
         // Centre X: milieu de la map
         double centerX = CENTER_X;
 
-        // CORRECTION: Le centre Z doit être positionné pour que la LIMITE NORD
-        // du border corresponde exactement à northernLimit (minZ de la zone accessible)
+        // Le centre Z est positionné pour que la LIMITE NORD corresponde à northernLimit
+        // et que la LIMITE SUD soit repoussée de SPAWN_SOUTH_BUFFER blocs
         //
-        // Formule: limite_nord = centerZ - size/2
+        // Formule: limite_nord = centerZ - size/2 = northernLimit
         // Donc: centerZ = northernLimit + size/2
         //
-        // Exemple avec zone 1 (minZ = 9800):
-        // - centerZ = 9800 + 650 = 10450
-        // - Limite nord du border = 10450 - 650 = 9800 ✓ (empêche d'aller en zone 2)
-        // - Limite sud du border = 10450 + 650 = 11100 (largement au sud, pas de problème)
+        // Avec size = MAP_WIDTH + SPAWN_SOUTH_BUFFER:
+        // - Limite nord = northernLimit (inchangée, bloque les zones verrouillées)
+        // - Limite sud = northernLimit + size (repoussée de 200 blocs derrière le spawn)
         double centerZ = northernLimit + (size / 2.0);
 
         return new double[] { centerX, centerZ, size };
