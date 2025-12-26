@@ -334,7 +334,15 @@ public class Chapter2Systems implements Listener {
             player.sendMessage("");
             player.sendMessage("§6§lIgor: §f\"J'ai besoin de bûches de bois pour rebâtir mon village!\"");
             player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e8 §7bûches");
-            player.sendMessage("§8(Frappe un arbre pour récolter du bois)");
+
+            // Vérifier si le joueur a la hache, sinon lui en donner une nouvelle
+            if (!journeyManager.hasWoodcutterAxe(player)) {
+                player.sendMessage("");
+                player.sendMessage("§6§lIgor: §f\"Tu n'as plus ma hache? Tiens, en voici une autre!\"");
+                journeyManager.giveWoodcutterAxe(player, true);
+            } else {
+                player.sendMessage("§8(Utilise la Hache de Bûcheron pour couper du chêne)");
+            }
             player.sendMessage("");
             return;
         }

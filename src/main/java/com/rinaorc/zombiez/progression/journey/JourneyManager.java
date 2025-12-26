@@ -593,18 +593,98 @@ public class JourneyManager {
         }
     }
 
+    // Nom de la hache pour identification
+    private static final String WOODCUTTER_AXE_NAME = "Hache de Bûcheron";
+
+    /**
+     * Vérifie si le joueur possède la hache de bûcheron
+     */
+    public boolean hasWoodcutterAxe(Player player) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (isWoodcutterAxe(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Vérifie si un item est la hache de bûcheron
+     */
+    public boolean isWoodcutterAxe(ItemStack item) {
+        if (item == null || item.getType() != Material.IRON_AXE) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null || !meta.hasDisplayName()) return false;
+
+        // Vérifier le nom (en utilisant le plain text)
+        String displayName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+            .plainText().serialize(meta.displayName());
+        return displayName.contains(WOODCUTTER_AXE_NAME);
+    }
+
     /**
      * Donne une hache spéciale au joueur pour couper du bois en mode Adventure
      * La hache a le tag can_break pour OAK_LOG uniquement
+     * @param isReplacement true si c'est un remplacement (message différent)
      */
     @SuppressWarnings("deprecation")
-    private void giveWoodcutterAxe(Player player) {
+    public void giveWoodcutterAxe(Player player, boolean isReplacement) {
+        // Ne pas donner si le joueur en a déjà une
+        if (hasWoodcutterAxe(player)) {
+            if (isReplacement) {
+                player.sendMessage("§6§lIgor: §f\"Tu as déjà ma hache, survivant!\"");
+            }
+            return;
+        }
+
+        ItemStack axe = createWoodcutterAxe();
+
+        // Donner au joueur
+        if (player.getInventory().firstEmpty() != -1) {
+            player.getInventory().addItem(axe);
+        } else {
+            // Inventaire plein - forcer dans la main secondaire ou dropper avec message clair
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (offhand.getType() == Material.AIR) {
+                player.getInventory().setItemInOffHand(axe);
+                player.sendMessage("§e§l⚠ §7Inventaire plein! Hache placée dans ta main secondaire.");
+            } else {
+                // Vraiment plein - drop avec glow effect
+                org.bukkit.entity.Item droppedItem = player.getWorld().dropItemNaturally(player.getLocation(), axe);
+                droppedItem.setGlowing(true);
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.customName(Component.text("§6§lHache de Bûcheron §7(Ramasse-moi!)", NamedTextColor.GOLD));
+                // Empêcher le despawn pendant 10 minutes
+                droppedItem.setUnlimitedLifetime(true);
+                player.sendMessage("§c§l⚠ §eInventaire plein! §7La hache brille au sol, ramasse-la!");
+            }
+        }
+
+        // Message
+        player.sendMessage("");
+        if (isReplacement) {
+            player.sendMessage("§6§lIgor: §f\"Tiens, je te reprête ma hache!\"");
+        } else {
+            player.sendMessage("§6§l✦ §eIgor t'a prêté sa §6Hache de Bûcheron§e!");
+        }
+        player.sendMessage("§7Tu peux maintenant couper des bûches de chêne.");
+        player.sendMessage("§7Ramène-lui §f8 bûches §7pour l'aider à reconstruire.");
+        player.sendMessage("");
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
+    }
+
+    /**
+     * Crée la hache de bûcheron (sans la donner)
+     */
+    @SuppressWarnings("deprecation")
+    private ItemStack createWoodcutterAxe() {
         ItemStack axe = new ItemStack(Material.IRON_AXE);
         ItemMeta meta = axe.getItemMeta();
-        if (meta == null) return;
+        if (meta == null) return axe;
 
         // Nom et lore
-        meta.displayName(Component.text("Hache de Bûcheron", NamedTextColor.GOLD)
+        meta.displayName(Component.text(WOODCUTTER_AXE_NAME, NamedTextColor.GOLD)
             .decoration(TextDecoration.ITALIC, false)
             .decoration(TextDecoration.BOLD, true));
 
@@ -617,7 +697,6 @@ public class JourneyManager {
         ));
 
         // Permettre de casser les bûches de chêne en mode Adventure
-        // Utilise l'API dépréciée mais toujours fonctionnelle en 1.21.4
         meta.setDestroyableKeys(List.of(
             NamespacedKey.minecraft("oak_log"),
             NamespacedKey.minecraft("oak_wood"),
@@ -629,22 +708,14 @@ public class JourneyManager {
         meta.setUnbreakable(true);
 
         axe.setItemMeta(meta);
+        return axe;
+    }
 
-        // Donner au joueur
-        if (player.getInventory().firstEmpty() != -1) {
-            player.getInventory().addItem(axe);
-        } else {
-            player.getWorld().dropItemNaturally(player.getLocation(), axe);
-        }
-
-        // Message
-        player.sendMessage("");
-        player.sendMessage("§6§l✦ §eIgor t'a prêté sa §6Hache de Bûcheron§e!");
-        player.sendMessage("§7Tu peux maintenant couper des bûches de chêne.");
-        player.sendMessage("§7Ramène-lui §f8 bûches §7pour l'aider à reconstruire.");
-        player.sendMessage("");
-
-        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
+    /**
+     * Wrapper pour l'appel initial (non-replacement)
+     */
+    private void giveWoodcutterAxe(Player player) {
+        giveWoodcutterAxe(player, false);
     }
 
     /**
