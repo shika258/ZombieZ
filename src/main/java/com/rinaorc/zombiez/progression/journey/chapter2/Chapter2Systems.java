@@ -73,6 +73,17 @@ public class Chapter2Systems implements Listener {
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
 
+    // === BOSS DISPLAY ===
+    private TextDisplay bossSpawnDisplay;
+    private long bossRespawnTime = 0; // Timestamp du prochain respawn
+    private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
+    private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
+
+    // Stats du boss pour l'affichage
+    private static final String BOSS_NAME = "Seigneur du Manoir";
+    private static final int BOSS_MAX_HP = 500;
+    private static final int BOSS_DAMAGE = 15;
+
     // Trims disponibles pour randomisation (chargés depuis Registry)
     private static final List<TrimPattern> TRIM_PATTERNS = new ArrayList<>();
     private static final List<TrimMaterial> TRIM_MATERIALS = new ArrayList<>();
@@ -119,10 +130,110 @@ public class Chapter2Systems implements Listener {
                 if (world != null) {
                     initializeNPCs(world);
                     startFireZombieSpawner(world);
+                    initializeBossDisplay(world);
                     spawnManorBoss(world);
+                    startBossDisplayUpdater();
                 }
             }
         }.runTaskLater(plugin, 100L);
+    }
+
+    // ==================== BOSS DISPLAY ====================
+
+    /**
+     * Initialise le TextDisplay au-dessus du spawn du boss
+     */
+    private void initializeBossDisplay(World world) {
+        Location displayLoc = MANOR_BOSS_LOCATION.clone();
+        displayLoc.setWorld(world);
+        displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
+
+        // Supprimer l'ancien display si existant
+        if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+            bossSpawnDisplay.remove();
+        }
+
+        bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            // Configuration de base
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
+
+            // Scale x3
+            display.setTransformation(new org.bukkit.util.Transformation(
+                new org.joml.Vector3f(0, 0, 0),           // Translation
+                new org.joml.AxisAngle4f(0, 0, 0, 1),    // Left rotation
+                new org.joml.Vector3f(3f, 3f, 3f),        // Scale x3
+                new org.joml.AxisAngle4f(0, 0, 0, 1)     // Right rotation
+            ));
+
+            // Distance de vue
+            display.setViewRange(100f);
+
+            // Texte initial
+            updateBossDisplayText(display, true, 0);
+        });
+    }
+
+    /**
+     * Met à jour le texte du display selon l'état du boss
+     */
+    private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
+        if (display == null || !display.isValid()) return;
+
+        StringBuilder text = new StringBuilder();
+
+        if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
+            // Boss vivant - afficher stats
+            int currentHp = (int) ((Zombie) manorBossEntity).getHealth();
+            int hearts = currentHp / 2;
+            int maxHearts = BOSS_MAX_HP / 2;
+
+            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
+            text.append("§c❤ ").append(currentHp).append("§7/§c").append(BOSS_MAX_HP).append(" §7(").append(hearts).append("/").append(maxHearts).append(" ♥)\n");
+            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
+            text.append("§a§l✓ BOSS ACTIF");
+        } else {
+            // Boss mort - afficher countdown
+            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
+            text.append("§c❤ HP: §f").append(BOSS_MAX_HP).append(" §7(").append(BOSS_MAX_HP / 2).append(" ♥)\n");
+            text.append("§6⚔ Dégâts: §f").append(BOSS_DAMAGE).append("\n");
+
+            if (respawnSeconds > 0) {
+                text.append("§e⏱ Respawn: §f").append(respawnSeconds).append("s");
+            } else {
+                text.append("§c§l✗ EN ATTENTE");
+            }
+        }
+
+        display.text(Component.text(text.toString()));
+    }
+
+    /**
+     * Démarre la tâche de mise à jour du display (toutes les secondes)
+     */
+    private void startBossDisplayUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
+                    return;
+                }
+
+                boolean bossAlive = manorBossEntity != null && manorBossEntity.isValid();
+                int respawnSeconds = 0;
+
+                if (!bossAlive && bossRespawnTime > 0) {
+                    long remaining = (bossRespawnTime - System.currentTimeMillis()) / 1000;
+                    respawnSeconds = Math.max(0, (int) remaining);
+                }
+
+                updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
     }
 
     // ==================== NPC MINEUR BLESSÉ (ÉTAPE 4) ====================
@@ -826,17 +937,20 @@ public class Chapter2Systems implements Listener {
         // Programmer le respawn (1 minute)
         if (!bossRespawnScheduled) {
             bossRespawnScheduled = true;
+            bossRespawnTime = System.currentTimeMillis() + (BOSS_RESPAWN_SECONDS * 1000L);
+
             new BukkitRunnable() {
                 @Override
                 public void run() {
                     spawnManorBoss(world);
+                    bossRespawnTime = 0;
                 }
-            }.runTaskLater(plugin, 20L * 60); // 60 secondes
+            }.runTaskLater(plugin, 20L * BOSS_RESPAWN_SECONDS);
 
             // Annoncer le respawn
             for (Player player : world.getPlayers()) {
                 if (player.getLocation().distance(deathLoc) < 100) {
-                    player.sendMessage("§8Le Seigneur du Manoir reviendra dans §c1 minute§8...");
+                    player.sendMessage("§8Le Seigneur du Manoir reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
                 }
             }
         }
@@ -864,5 +978,6 @@ public class Chapter2Systems implements Listener {
         if (injuredMinerEntity != null) injuredMinerEntity.remove();
         if (igorEntity != null) igorEntity.remove();
         if (manorBossEntity != null) manorBossEntity.remove();
+        if (bossSpawnDisplay != null) bossSpawnDisplay.remove();
     }
 }
