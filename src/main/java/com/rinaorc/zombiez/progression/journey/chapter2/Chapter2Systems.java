@@ -5,6 +5,7 @@ import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import net.kyori.adventure.text.Component;
 import org.bukkit.*;
+import org.bukkit.Registry;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -31,6 +32,9 @@ import org.bukkit.util.BoundingBox;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableType;
 
 /**
  * Gère tous les systèmes spécifiques au Chapitre 2:
@@ -67,9 +71,29 @@ public class Chapter2Systems implements Listener {
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
 
-    // Trims disponibles pour randomisation
-    private static final TrimPattern[] TRIM_PATTERNS = TrimPattern.values().toArray(new TrimPattern[0]);
-    private static final TrimMaterial[] TRIM_MATERIALS = TrimMaterial.values().toArray(new TrimMaterial[0]);
+    // Trims disponibles pour randomisation (chargés depuis Registry)
+    private static final List<TrimPattern> TRIM_PATTERNS = new ArrayList<>();
+    private static final List<TrimMaterial> TRIM_MATERIALS = new ArrayList<>();
+
+    static {
+        // Charger les patterns depuis Registry
+        String[] patterns = {"coast", "dune", "wild", "sentry", "vex", "rib", "snout", "tide", "ward", "eye"};
+        for (String key : patterns) {
+            try {
+                TrimPattern pattern = Registry.TRIM_PATTERN.get(NamespacedKey.minecraft(key));
+                if (pattern != null) TRIM_PATTERNS.add(pattern);
+            } catch (Exception ignored) {}
+        }
+
+        // Charger les matériaux depuis Registry
+        String[] materials = {"copper", "iron", "gold", "redstone", "lapis", "amethyst", "diamond"};
+        for (String key : materials) {
+            try {
+                TrimMaterial material = Registry.TRIM_MATERIAL.get(NamespacedKey.minecraft(key));
+                if (material != null) TRIM_MATERIALS.add(material);
+            } catch (Exception ignored) {}
+        }
+    }
 
     public Chapter2Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -252,22 +276,23 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Vérifie si un item est un bandage
+     * Vérifie si un item est un bandage (utilise le système Consumable)
      */
     private boolean isBandage(ItemStack item) {
         if (item == null || item.getType() != Material.PAPER) return false;
         if (!item.hasItemMeta()) return false;
 
-        // Vérifier le nom ou le PDC pour identifier un bandage
+        // Vérifier via le PDC du système de consommables
         var meta = item.getItemMeta();
-        if (meta.hasDisplayName()) {
-            String name = meta.displayName().toString().toLowerCase();
-            return name.contains("bandage");
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+
+        // Utiliser la clé du système Consumable
+        if (pdc.has(Consumable.CONSUMABLE_KEY, PersistentDataType.STRING)) {
+            String typeStr = pdc.get(Consumable.CONSUMABLE_KEY, PersistentDataType.STRING);
+            return ConsumableType.BANDAGE.name().equals(typeStr);
         }
 
-        // Vérifier le PDC (si le système de bandage utilise ça)
-        NamespacedKey bandageKey = new NamespacedKey(plugin, "bandage");
-        return meta.getPersistentDataContainer().has(bandageKey, PersistentDataType.BYTE);
+        return false;
     }
 
     // ==================== IGOR ET RÉCOLTE DE BOIS (ÉTAPE 7) ====================
@@ -521,9 +546,9 @@ public class Chapter2Systems implements Listener {
             leatherMeta.setColor(Color.fromRGB(180, 30, 30));
 
             // Ajouter un trim aléatoire (50% de chance)
-            if (ThreadLocalRandom.current().nextBoolean()) {
-                TrimPattern pattern = TRIM_PATTERNS[ThreadLocalRandom.current().nextInt(TRIM_PATTERNS.length)];
-                TrimMaterial material = TRIM_MATERIALS[ThreadLocalRandom.current().nextInt(TRIM_MATERIALS.length)];
+            if (ThreadLocalRandom.current().nextBoolean() && !TRIM_PATTERNS.isEmpty() && !TRIM_MATERIALS.isEmpty()) {
+                TrimPattern pattern = TRIM_PATTERNS.get(ThreadLocalRandom.current().nextInt(TRIM_PATTERNS.size()));
+                TrimMaterial material = TRIM_MATERIALS.get(ThreadLocalRandom.current().nextInt(TRIM_MATERIALS.size()));
 
                 if (leatherMeta instanceof ArmorMeta armorMeta) {
                     armorMeta.setTrim(new ArmorTrim(material, pattern));
@@ -584,9 +609,11 @@ public class Chapter2Systems implements Listener {
             zombie.setBaby(false);
             zombie.setCanPickupItems(false);
 
-            // Scale x3 (nécessite Paper API)
-            // Note: Minecraft vanilla ne supporte pas le scaling direct
-            // On utilise les attributs pour simuler un boss puissant
+            // Scale x3 via Paper API
+            var scale = zombie.getAttribute(Attribute.SCALE);
+            if (scale != null) {
+                scale.setBaseValue(3.0);
+            }
 
             var health = zombie.getAttribute(Attribute.MAX_HEALTH);
             if (health != null) {
