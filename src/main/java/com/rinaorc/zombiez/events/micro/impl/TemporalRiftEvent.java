@@ -452,6 +452,11 @@ public class TemporalRiftEvent extends MicroEvent {
 
         // ============ GÉRER LA MORT SI NÉCESSAIRE ============
         if (newHealth <= 0) {
+            // Appeler handleDeath IMMÉDIATEMENT pour incrémenter le compteur
+            // AVANT que l'entité soit supprimée (entity.getKiller() retourne null
+            // quand on utilise setHealth(0) directement)
+            handleDeath(entity, attacker);
+
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (entity.isValid() && !entity.isDead()) {
                     entity.setHealth(0);

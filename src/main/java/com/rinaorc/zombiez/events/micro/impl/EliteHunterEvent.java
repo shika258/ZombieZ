@@ -453,8 +453,11 @@ public class EliteHunterEvent extends MicroEvent {
 
         // ============ GÉRER LA MORT SI NÉCESSAIRE ============
         if (newHealth <= 0) {
-            // Le mob meurt - déclencher handleDeath manuellement via le scheduler
-            // pour éviter les problèmes de timing
+            // Appeler handleDeath IMMÉDIATEMENT pour valider le kill
+            // AVANT que l'entité soit supprimée (entity.getKiller() retourne null
+            // quand on utilise setHealth(0) directement)
+            handleDeath(entity, attacker);
+
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (entity.isValid() && !entity.isDead()) {
                     entity.setHealth(0); // Force la mort

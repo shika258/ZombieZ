@@ -279,6 +279,10 @@ public class PinataZombieEvent extends MicroEvent {
             // Appliquer les degats fixes manuellement
             double newHealth = pinataZombie.getHealth() - DAMAGE_PER_HIT;
             if (newHealth <= 0) {
+                // Appeler handleDeath IMMÉDIATEMENT pour valider le kill
+                // AVANT que l'entité soit supprimée (entity.getKiller() retourne null
+                // quand on utilise setHealth(0) directement)
+                handleDeath(entity, attacker);
                 pinataZombie.setHealth(0);
             } else {
                 pinataZombie.setHealth(newHealth);
