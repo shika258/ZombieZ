@@ -723,11 +723,24 @@ public abstract class WorldBoss {
      * Tick appelé chaque seconde - applique les effets procéduraux des traits
      */
     protected void tick() {
-        if (entity == null || !entity.isValid() || modifiers == null) return;
+        if (entity == null || !entity.isValid()) return;
 
         Location bossLoc = entity.getLocation();
         World world = bossLoc.getWorld();
         if (world == null) return;
+
+        // ============ ACQUISITION DE CIBLE ============
+        // Forcer le zombie à cibler le joueur le plus proche
+        // Cela corrige le problème où les zombies à grande échelle ne bougent pas
+        Player nearestTarget = findNearestPlayer(bossLoc, 50);
+        if (nearestTarget != null) {
+            if (entity.getTarget() == null || !entity.getTarget().equals(nearestTarget)) {
+                entity.setTarget(nearestTarget);
+            }
+        }
+
+        // Skip les effets procéduraux si pas de modifiers
+        if (modifiers == null) return;
 
         // Trait: Régénération
         if (modifiers.getRegenerationRate() > 0) {
@@ -1303,5 +1316,28 @@ public abstract class WorldBoss {
             .filter(e -> e instanceof Player)
             .map(e -> (Player) e)
             .toList();
+    }
+
+    /**
+     * Trouve le joueur le plus proche dans un rayon donné
+     */
+    protected Player findNearestPlayer(Location location, double radius) {
+        World world = location.getWorld();
+        if (world == null) return null;
+
+        Player nearest = null;
+        double nearestDistSq = radius * radius;
+
+        for (Entity e : world.getNearbyEntities(location, radius, radius, radius)) {
+            if (e instanceof Player player) {
+                double distSq = player.getLocation().distanceSquared(location);
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = player;
+                }
+            }
+        }
+
+        return nearest;
     }
 }
