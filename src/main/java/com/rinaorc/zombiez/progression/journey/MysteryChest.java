@@ -20,30 +20,61 @@ public enum MysteryChest {
     CHAPTER_1_CHEST(
         "chest_1_1",
         JourneyChapter.CHAPTER_1,
+        1, // Zone ID
         "Coffre Mystérieux de la Zone 1",
         625, 93, 9853,
         3.0 // Rayon de détection en blocs
-    );
+    ),
 
-    // ==================== CHAPITRE 2+ (à ajouter plus tard) ====================
+    // ==================== CHAPITRE 2 ====================
+
+    CHAPTER_2_ZONE2_CHEST(
+        "chest_2_zone2",
+        JourneyChapter.CHAPTER_2,
+        2, // Zone ID
+        "Coffre Mystérieux de la Zone 2",
+        373, 94, 9767,
+        3.0
+    ),
+
+    CHAPTER_2_ZONE3_CHEST(
+        "chest_2_zone3",
+        JourneyChapter.CHAPTER_2,
+        3, // Zone ID
+        "Coffre Mystérieux de la Zone 3",
+        463, 121, 9440,
+        3.0
+    );
 
     private final String id;
     private final JourneyChapter chapter;
+    private final int zoneId;
     private final String displayName;
     private final int x;
     private final int y;
     private final int z;
     private final double detectionRadius;
 
-    MysteryChest(String id, JourneyChapter chapter, String displayName,
+    MysteryChest(String id, JourneyChapter chapter, int zoneId, String displayName,
                  int x, int y, int z, double detectionRadius) {
         this.id = id;
         this.chapter = chapter;
+        this.zoneId = zoneId;
         this.displayName = displayName;
         this.x = x;
         this.y = y;
         this.z = z;
         this.detectionRadius = detectionRadius;
+    }
+
+    /**
+     * Obtient un coffre par son ID de zone
+     */
+    public static MysteryChest getByZoneId(int zoneId) {
+        for (MysteryChest chest : values()) {
+            if (chest.zoneId == zoneId) return chest;
+        }
+        return null;
     }
 
     /**
