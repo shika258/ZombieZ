@@ -444,6 +444,30 @@ public class JourneyListener implements Listener {
         if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS) {
             journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS, 1);
         }
+
+        // Étape en 2 temps: classe + voie (progress 0 -> 1)
+        if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS_AND_BRANCH) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress < 1) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS_AND_BRANCH, 1);
+            }
+        }
+    }
+
+    /**
+     * Appelé quand le joueur sélectionne une voie/branche
+     */
+    public void onBranchSelect(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        // Étape en 2 temps: classe + voie (progress 1 -> 2)
+        if (currentStep.getType() == JourneyStep.StepType.SELECT_CLASS_AND_BRANCH) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress >= 1 && progress < 2) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.SELECT_CLASS_AND_BRANCH, 2);
+            }
+        }
     }
 
     /**

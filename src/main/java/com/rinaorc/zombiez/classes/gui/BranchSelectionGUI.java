@@ -212,6 +212,11 @@ public class BranchSelectionGUI implements Listener {
                 plugin.getBeastManager().syncBeastsWithTalents(player);
             }
 
+            // Notifier le système de Journey (étape 2.1 en 2 temps)
+            if (plugin.getJourneyListener() != null) {
+                plugin.getJourneyListener().onBranchSelect(player);
+            }
+
             // Ouvrir le menu des talents
             player.closeInventory();
             plugin.getTalentSelectionGUI().open(player);

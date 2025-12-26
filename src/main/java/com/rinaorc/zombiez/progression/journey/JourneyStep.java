@@ -51,8 +51,8 @@ public enum JourneyStep {
 
     // ==================== CHAPITRE 2: CHOIX DU DESTIN ====================
 
-    STEP_2_1(JourneyChapter.CHAPTER_2, 1, "Choisis ta classe",
-        "Guerrier, Chasseur ou Occultiste?", StepType.SELECT_CLASS, 1,
+    STEP_2_1(JourneyChapter.CHAPTER_2, 1, "Choisis ta classe et ta voie",
+        "Classe puis spécialisation!", StepType.SELECT_CLASS_AND_BRANCH, 2,
         100, 3, Material.NETHERITE_CHESTPLATE),
 
     STEP_2_2(JourneyChapter.CHAPTER_2, 2, "Tue 50 zombies avec ta classe",
@@ -378,6 +378,11 @@ public enum JourneyStep {
             case SURVIVE_ZONE_TIME, SURVIVE_ENVIRONMENT -> formatTime(current) + "/" + formatTime(targetValue);
             case KILL_STREAK -> current + "/" + targetValue + " kills d'affilée";
             case SELECT_CLASS -> current >= 1 ? "✓ Classe choisie" : "Fais /classe";
+            case SELECT_CLASS_AND_BRANCH -> {
+                if (current >= 2) yield "✓ Classe et voie choisies";
+                else if (current >= 1) yield "1/2 - Choisis ta voie!";
+                else yield "0/2 - Fais /classe";
+            }
             case USE_CLASS_TRAIT, USE_TALENT -> current + "/" + targetValue + " utilisations";
             case UNLOCK_TALENT, UNLOCK_SKILLS, TALENTS_UNLOCKED -> current + "/" + targetValue + " débloqué(s)";
             case SKILL_TIER -> "Tier " + current + "/" + targetValue;
@@ -494,6 +499,7 @@ public enum JourneyStep {
 
         // Classe & Talents
         SELECT_CLASS("Choisis une classe"),
+        SELECT_CLASS_AND_BRANCH("Choisis une classe et une voie"),
         USE_CLASS_TRAIT("Utilise ton trait de classe"),
         UNLOCK_TALENT("Débloque un talent"),
         USE_TALENT("Utilise un talent"),
