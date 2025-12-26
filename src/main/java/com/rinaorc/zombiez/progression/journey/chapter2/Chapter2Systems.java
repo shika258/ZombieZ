@@ -619,7 +619,7 @@ public class Chapter2Systems implements Listener {
                     spawnFireZombie(world);
                 }
             }
-        }.runTaskTimer(plugin, 200L, 100L); // Toutes les 5 secondes
+        }.runTaskTimer(plugin, 200L, 40L); // Toutes les 2 secondes (spawn rate x2.5)
     }
 
     private boolean isNearFireZombieZone(Location loc) {
