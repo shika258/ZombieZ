@@ -201,8 +201,8 @@ public class ZoneLockDisplayManager {
      * Calcule la position du display en fonction de la position du joueur
      */
     private Location calculateDisplayLocation(Location playerLoc, Zone currentZone) {
-        // Le display est à la limite nord de la zone actuelle
-        double displayZ = currentZone.getMinZ() - 2; // Juste après la limite
+        // Le display est à la limite nord de la zone actuelle (1 bloc devant le worldborder)
+        double displayZ = currentZone.getMinZ() - 1; // Juste devant le worldborder
         double displayX = playerLoc.getX(); // Même X que le joueur
         double displayY = playerLoc.getY() + DISPLAY_HEIGHT;
 
@@ -361,9 +361,8 @@ public class ZoneLockDisplayManager {
         // Index 24: Line width (largeur max avant retour à la ligne)
         dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 400));
 
-        // Index 25: Background color (ARGB format - 0x40000000 = ~25% transparent noir)
-        // Pour un fond semi-transparent sombre: alpha=0x40, R=0x00, G=0x00, B=0x00
-        dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0x40000000));
+        // Index 25: Background color (ARGB format - 0 = transparent/désactivé)
+        dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0));
 
         // Index 26: Text opacity (255 = opaque, -1 en byte signé = 255)
         dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
