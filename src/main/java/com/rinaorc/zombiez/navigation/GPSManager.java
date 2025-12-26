@@ -116,13 +116,23 @@ public class GPSManager implements Listener {
      * Active le GPS pour un joueur
      */
     public boolean enableGPS(Player player) {
+        return enableGPS(player, true);
+    }
+
+    /**
+     * Active le GPS pour un joueur (avec ou sans feedback)
+     * @param silent Si true, pas de message ni son (pour activation automatique)
+     */
+    public boolean enableGPS(Player player, boolean showFeedback) {
         UUID uuid = player.getUniqueId();
 
         // Vérifier si l'étape actuelle a des coordonnées
         Location destination = getDestinationForPlayer(player);
         if (destination == null) {
-            player.sendMessage("§c§l✗ §7Aucune destination disponible pour cette étape.");
-            player.sendMessage("§8Le GPS fonctionne pour les étapes avec coordonnées.");
+            if (showFeedback) {
+                player.sendMessage("§c§l✗ §7Aucune destination disponible pour cette étape.");
+                player.sendMessage("§8Le GPS fonctionne pour les étapes avec coordonnées.");
+            }
             return false;
         }
 
@@ -136,13 +146,22 @@ public class GPSManager implements Listener {
         GPSArrow arrow = new GPSArrow(player, destination);
         activeArrows.put(uuid, arrow);
 
-        // Feedback
-        double distance = player.getLocation().distance(destination);
-        player.sendMessage("§a§l✓ §eGPS activé! §7Distance: §e" + String.format("%.0f", distance) + " blocs");
-        player.sendMessage("§7Suivez la §eflèche dorée §7pour atteindre votre objectif.");
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.5f);
+        // Feedback (optionnel)
+        if (showFeedback) {
+            double distance = player.getLocation().distance(destination);
+            player.sendMessage("§a§l✓ §eGPS activé! §7Distance: §e" + String.format("%.0f", distance) + " blocs");
+            player.sendMessage("§7Suivez la §eflèche §7pour atteindre votre objectif.");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.5f);
+        }
 
         return true;
+    }
+
+    /**
+     * Active le GPS silencieusement (pour activation automatique au changement d'étape)
+     */
+    public boolean enableGPSSilently(Player player) {
+        return enableGPS(player, false);
     }
 
     /**
@@ -407,36 +426,45 @@ public class GPSManager implements Listener {
             // === METTRE À JOUR LA TRANSFORMATION (ROTATION DE LA FLÈCHE) ===
             if (arrowEntity instanceof ItemDisplay display) {
                 // La flèche spectrale pointe naturellement vers le haut (+Y)
-                // On doit la tourner pour qu'elle pointe horizontalement vers la destination
+                // On doit la tourner pour qu'elle pointe vers la destination
+                //
+                // Approche: utiliser des quaternions composés correctement
+                // 1. Rotation de base: -90° sur X pour coucher la flèche (pointe vers +Z)
+                // 2. Rotation de yaw: sur Y pour la direction horizontale
+                // 3. Rotation de pitch: sur X pour l'inclinaison verticale
 
-                // 1. D'abord rotation de -90° sur X pour mettre la pointe vers l'avant (au lieu du haut)
-                // 2. Puis rotation sur Y pour le yaw
-                // 3. Puis rotation sur X pour le pitch
+                float yawRad = (float) Math.toRadians(-currentYaw); // Inverser pour Minecraft
+                float pitchRad = (float) Math.toRadians(currentPitch);
 
-                float yawRad = (float) Math.toRadians(currentYaw);
-                float pitchRad = (float) Math.toRadians(-currentPitch);
+                // Créer les quaternions individuels
+                org.joml.Quaternionf baseRotation = new org.joml.Quaternionf()
+                    .rotateX((float) Math.toRadians(-90)); // Coucher la flèche
 
-                // Rotation combinée: d'abord coucher la flèche (-90° sur X), puis appliquer yaw et pitch
-                // Utiliser les quaternions via AxisAngle pour une rotation correcte
+                org.joml.Quaternionf yawRotation = new org.joml.Quaternionf()
+                    .rotateY(yawRad);
 
-                // leftRotation: rotation de base pour orienter la flèche horizontalement
-                // rightRotation: rotation vers la destination (yaw)
+                org.joml.Quaternionf pitchRotation = new org.joml.Quaternionf()
+                    .rotateX(pitchRad);
+
+                // Composer: d'abord la base, puis yaw, puis pitch
+                // L'ordre de multiplication: result = yaw * pitch * base
+                // (appliqué de droite à gauche sur le vecteur)
+                org.joml.Quaternionf finalRotation = new org.joml.Quaternionf()
+                    .set(yawRotation)
+                    .mul(pitchRotation)
+                    .mul(baseRotation);
 
                 display.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
-                    // Left rotation: coucher la flèche (-90° sur Z) et appliquer le pitch
-                    new AxisAngle4f((float) Math.toRadians(-90) + pitchRad, 0, 0, 1),
+                    finalRotation,
                     new Vector3f(scale, scale, scale),
-                    // Right rotation: yaw pour pointer vers la destination
-                    new AxisAngle4f(yawRad, 0, 1, 0)
+                    new org.joml.Quaternionf() // Pas de right rotation
                 ));
             }
 
-            // === ACTIONBAR AVEC DISTANCE ===
-            if (tickCount % 20 == 0) { // Toutes les secondes
-                String distStr = distance < 10 ? String.format("%.1f", distance) : String.format("%.0f", distance);
-                String direction = getCardinalDirection(currentYaw);
-                player.sendActionBar(Component.text("§e➤ §7Destination: §e" + distStr + " blocs §7(" + direction + ")"));
+            // === METTRE À JOUR LA COULEUR DU GLOW SELON LA DISTANCE ===
+            if (tickCount % 10 == 0) { // Toutes les 0.5 secondes
+                updateGlowColor(distance);
             }
         }
 
@@ -464,20 +492,42 @@ public class GPSManager implements Listener {
         }
 
         /**
-         * Direction cardinale pour l'ActionBar
+         * Met à jour la couleur du glow selon la distance
+         * - Rouge: > 100 blocs (loin)
+         * - Orange: 50-100 blocs (moins loin)
+         * - Jaune: 20-50 blocs (moyennement proche)
+         * - Vert: < 20 blocs (proche)
          */
-        private String getCardinalDirection(float yaw) {
-            // Normaliser le yaw
-            yaw = ((yaw % 360) + 360) % 360;
+        private void updateGlowColor(double distance) {
+            if (!(arrowEntity instanceof ItemDisplay display)) return;
 
-            if (yaw >= 337.5 || yaw < 22.5) return "§fS";
-            if (yaw >= 22.5 && yaw < 67.5) return "§fSO";
-            if (yaw >= 67.5 && yaw < 112.5) return "§fO";
-            if (yaw >= 112.5 && yaw < 157.5) return "§fNO";
-            if (yaw >= 157.5 && yaw < 202.5) return "§fN";
-            if (yaw >= 202.5 && yaw < 247.5) return "§fNE";
-            if (yaw >= 247.5 && yaw < 292.5) return "§fE";
-            return "§fSE";
+            Color glowColor;
+            net.kyori.adventure.text.format.NamedTextColor teamColor;
+
+            if (distance > 100) {
+                // Rouge - très loin
+                glowColor = Color.fromRGB(255, 60, 60);
+                teamColor = net.kyori.adventure.text.format.NamedTextColor.RED;
+            } else if (distance > 50) {
+                // Orange - loin
+                glowColor = Color.fromRGB(255, 165, 0);
+                teamColor = net.kyori.adventure.text.format.NamedTextColor.GOLD;
+            } else if (distance > 20) {
+                // Jaune - moyen
+                glowColor = Color.fromRGB(255, 255, 0);
+                teamColor = net.kyori.adventure.text.format.NamedTextColor.YELLOW;
+            } else {
+                // Vert - proche
+                glowColor = Color.fromRGB(0, 255, 100);
+                teamColor = net.kyori.adventure.text.format.NamedTextColor.GREEN;
+            }
+
+            display.setGlowColorOverride(glowColor);
+
+            // Mettre à jour la couleur de la team aussi pour que le glow soit visible
+            if (gpsTeam != null) {
+                gpsTeam.color(teamColor);
+            }
         }
 
         /**
