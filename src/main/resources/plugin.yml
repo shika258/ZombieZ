@@ -155,6 +155,12 @@ commands:
     permission: zombiez.progression
     aliases: [ach, succes, achievement]
 
+  mission:
+    description: Menu des missions journalières et hebdomadaires
+    usage: /<command>
+    permission: zombiez.progression
+    aliases: [missions]
+
   # Commandes Classes
   class:
     description: Système de classes

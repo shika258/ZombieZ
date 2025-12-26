@@ -786,6 +786,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Commande Joueur - Achievements
         getCommand("achievements").setExecutor(new com.rinaorc.zombiez.commands.player.AchievementCommand(this));
 
+        // Commande Joueur - Missions
+        getCommand("mission").setExecutor(new com.rinaorc.zombiez.commands.player.MissionCommand(this));
+
         // Commandes Joueur - Classes
         ClassCommand classCmd = new ClassCommand(this);
         getCommand("class").setExecutor(classCmd);
