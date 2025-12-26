@@ -51,8 +51,11 @@ public class MicroEventListener implements Listener {
         // Deleguer au manager
         boolean handled = manager.handleEntityDamage(victim, attacker, event.getDamage());
 
-        // Note: On ne cancel pas l'event pour que les degats s'appliquent normalement
-        // sauf si le handler specifique le demande (ex: JackpotZombie)
+        // Si le handler a traité les dégâts (ex: calcul custom ZombieZ), annuler l'event vanilla
+        // pour éviter les dégâts doubles
+        if (handled) {
+            event.setCancelled(true);
+        }
     }
 
     /**

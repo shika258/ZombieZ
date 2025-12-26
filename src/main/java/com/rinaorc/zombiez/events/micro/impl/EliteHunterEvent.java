@@ -1,8 +1,11 @@
 package com.rinaorc.zombiez.events.micro.impl;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.events.micro.MicroEvent;
 import com.rinaorc.zombiez.events.micro.MicroEventType;
+import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import com.rinaorc.zombiez.zones.Zone;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -24,16 +27,19 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.joml.Vector3f;
 
+import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 /**
- * Elite Chasseur - Un zombie elite fuit le joueur
+ * Fuyeur Doré - Un zombie doré fuit le joueur
  *
  * Mecanique:
- * - Un zombie elite spawn a distance et FUIT le joueur
+ * - Un zombie doré spawn a distance et FUIT le joueur
  * - Le joueur doit le traquer et le tuer avant qu'il ne s'echappe
- * - Le zombie laisse une trainee de particules
+ * - Le zombie laisse une trainee de particules dorées
  * - Recompenses augmentent si tue rapidement
+ * - Applique les dégâts ZombieZ (stats, crits, etc.)
  */
 public class EliteHunterEvent extends MicroEvent {
 
@@ -42,6 +48,7 @@ public class EliteHunterEvent extends MicroEvent {
     private int ticksSinceLastParticle = 0;
     private boolean killed = false;
     private long killTime = 0;
+    private final Random random = new Random();
 
     // TextDisplay flottant au-dessus du zombie
     private TextDisplay healthDisplay;
@@ -81,7 +88,7 @@ public class EliteHunterEvent extends MicroEvent {
         registerEntity(eliteZombie);
 
         // Configuration du zombie - plus intelligent et menaçant
-        eliteZombie.setCustomName("§c§l💀 Elite Chasseur §7[§e" + (int) eliteMaxHealth + "§c❤§7]");
+        eliteZombie.setCustomName("§6§l✦ Fuyeur Doré §7[§e" + (int) eliteMaxHealth + "§c❤§7]");
         eliteZombie.setCustomNameVisible(true);
         eliteZombie.setBaby(false);
         eliteZombie.setShouldBurnInDay(false);
@@ -90,12 +97,12 @@ public class EliteHunterEvent extends MicroEvent {
         eliteZombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(eliteMaxHealth);
         eliteZombie.setHealth(eliteMaxHealth);
         eliteZombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(ELITE_SPEED);
-        eliteZombie.getAttribute(Attribute.ARMOR).setBaseValue(12.0); // Plus resistant
-        eliteZombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE).setBaseValue(0.6); // Resist aux knockbacks
+        eliteZombie.getAttribute(Attribute.ARMOR).setBaseValue(8.0); // Moins résistant pour faciliter le kill
+        eliteZombie.getAttribute(Attribute.KNOCKBACK_RESISTANCE).setBaseValue(0.3); // Moins de résistance au knockback
 
-        // Desactiver la conscience du zombie pour qu'il n'attaque pas le joueur
-        // Cela permet au pathfinder de fonctionner sans conflit avec l'IA d'attaque
-        eliteZombie.setAware(false);
+        // Garder l'IA active pour le pathfinding mais sans cible d'attaque
+        eliteZombie.setAware(true);
+        eliteZombie.setTarget(null); // Pas de cible à attaquer
 
         // Equipement distinctif (armure en or)
         eliteZombie.getEquipment().setHelmet(new ItemStack(Material.GOLDEN_HELMET));
@@ -107,8 +114,9 @@ public class EliteHunterEvent extends MicroEvent {
         eliteZombie.getEquipment().setLeggingsDropChance(0f);
         eliteZombie.getEquipment().setBootsDropChance(0f);
 
-        // Effets visuels - pas de bonus de vitesse (vitesse reduite)
+        // Effets visuels - glowing doré + bonus de vitesse pour fuir
         eliteZombie.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+        eliteZombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
 
         // Tag pour identification
         eliteZombie.addScoreboardTag("micro_event_entity");
@@ -153,7 +161,7 @@ public class EliteHunterEvent extends MicroEvent {
             bar.append(i < filled ? "█" : "░");
         }
 
-        return Component.text("💀 ÉLITE CHASSEUR 💀", NamedTextColor.RED, TextDecoration.BOLD)
+        return Component.text("✦ FUYEUR DORÉ ✦", NamedTextColor.GOLD, TextDecoration.BOLD)
             .appendNewline()
             .append(Component.text(bar.toString(), healthColor))
             .append(Component.text(" " + (int) currentHealth + "❤", healthColor));
@@ -192,14 +200,14 @@ public class EliteHunterEvent extends MicroEvent {
         double distance = eliteZombie.getLocation().distance(player.getLocation());
         if (distance > 80) {
             // Le zombie s'est echappe!
-            player.sendMessage("§c§l✗ §7L'Elite Chasseur s'est echappe!");
+            player.sendMessage("§c§l✗ §7Le Fuyeur Doré s'est echappé!");
             fail();
             return;
         }
 
         // ActionBar avec infos
         String direction = getDirectionToTarget();
-        sendActionBar("§c💀 Elite Chasseur §7| Distance: §e" + (int) distance + "m " + direction +
+        sendActionBar("§6✦ Fuyeur Doré §7| Distance: §e" + (int) distance + "m " + direction +
             " §7| Temps: §e" + getRemainingTimeSeconds() + "s");
 
         // Le nom du zombie n'est plus necessaire car on utilise le TextDisplay
@@ -215,6 +223,9 @@ public class EliteHunterEvent extends MicroEvent {
         Location zombieLoc = eliteZombie.getLocation();
         Location playerLoc = player.getLocation();
 
+        // S'assurer que le zombie n'a pas de cible d'attaque
+        eliteZombie.setTarget(null);
+
         // Direction opposee au joueur
         Vector fleeDirection = zombieLoc.toVector().subtract(playerLoc.toVector());
 
@@ -226,13 +237,13 @@ public class EliteHunterEvent extends MicroEvent {
 
         // Ajouter un peu de randomisation pour un comportement plus naturel
         fleeDirection.add(new Vector(
-            (Math.random() - 0.5) * 0.3,
+            (Math.random() - 0.5) * 0.4,
             0,
-            (Math.random() - 0.5) * 0.3
+            (Math.random() - 0.5) * 0.4
         )).normalize();
 
-        // Calculer la destination (8 blocs pour une navigation plus reactive)
-        Location targetLoc = zombieLoc.clone().add(fleeDirection.clone().multiply(8));
+        // Calculer la destination (12 blocs pour une fuite plus efficace)
+        Location targetLoc = zombieLoc.clone().add(fleeDirection.clone().multiply(12));
 
         // Ajuster Y au sol pour eviter les bugs de navigation
         int highestY = targetLoc.getWorld().getHighestBlockYAt(targetLoc);
@@ -246,10 +257,7 @@ public class EliteHunterEvent extends MicroEvent {
 
         // Utiliser le Pathfinder natif de Paper pour une navigation fluide
         try {
-            // Reactiver temporairement l'awareness pour le pathfinding
-            eliteZombie.setAware(true);
-            boolean pathFound = eliteZombie.getPathfinder().moveTo(targetLoc, ELITE_SPEED);
-            eliteZombie.setAware(false);
+            boolean pathFound = eliteZombie.getPathfinder().moveTo(targetLoc, ELITE_SPEED * 1.5);
 
             // Si pas de chemin trouve, utiliser velocite directe
             if (!pathFound) {
@@ -287,14 +295,16 @@ public class EliteHunterEvent extends MicroEvent {
     }
 
     /**
-     * Spawn les particules de trainee
+     * Spawn les particules de trainee dorées
      */
     private void spawnTrailParticles() {
         if (eliteZombie == null || eliteZombie.isDead()) return;
 
         Location loc = eliteZombie.getLocation().add(0, 0.5, 0);
-        loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 3, 0.2, 0.2, 0.2, 0.01);
-        loc.getWorld().spawnParticle(Particle.SMOKE, loc, 2, 0.1, 0.1, 0.1, 0.01);
+        // Particules dorées pour le Fuyeur Doré
+        loc.getWorld().spawnParticle(Particle.DUST, loc, 4, 0.2, 0.2, 0.2, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.0f)); // Doré
+        loc.getWorld().spawnParticle(Particle.END_ROD, loc, 2, 0.1, 0.1, 0.1, 0.01);
     }
 
     /**
@@ -350,12 +360,110 @@ public class EliteHunterEvent extends MicroEvent {
 
     @Override
     public boolean handleDamage(LivingEntity entity, Player attacker, double damage) {
-        if (entity.getUniqueId().equals(eliteUUID)) {
-            // Effet de hit
-            entity.getWorld().spawnParticle(Particle.CRIT, entity.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.1);
-            return true;
+        if (!entity.getUniqueId().equals(eliteUUID)) {
+            return false;
         }
-        return false;
+
+        // ============ CALCUL DES DÉGÂTS ZOMBIEZ ============
+        double finalDamage = damage;
+        boolean isCritical = false;
+
+        // 1. STATS D'ÉQUIPEMENT
+        Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(attacker);
+
+        // Bonus de dégâts flat
+        double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
+        finalDamage += flatDamageBonus;
+
+        // Bonus de dégâts en pourcentage
+        double damagePercent = playerStats.getOrDefault(StatType.DAMAGE_PERCENT, 0.0);
+        finalDamage *= (1 + damagePercent / 100.0);
+
+        // 2. SKILL TREE BONUSES
+        var skillManager = plugin.getSkillTreeManager();
+        double skillDamageBonus = skillManager.getSkillBonus(attacker, SkillBonus.DAMAGE_PERCENT);
+        finalDamage *= (1 + skillDamageBonus / 100.0);
+
+        // 3. SYSTÈME DE CRITIQUE
+        double baseCritChance = playerStats.getOrDefault(StatType.CRIT_CHANCE, 0.0);
+        double skillCritChance = skillManager.getSkillBonus(attacker, SkillBonus.CRIT_CHANCE);
+        double totalCritChance = baseCritChance + skillCritChance;
+
+        if (random.nextDouble() * 100 < totalCritChance) {
+            isCritical = true;
+            double baseCritDamage = 150.0;
+            double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
+            double skillCritDamage = skillManager.getSkillBonus(attacker, SkillBonus.CRIT_DAMAGE);
+            double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
+            finalDamage *= critMultiplier;
+        }
+
+        // 4. MOMENTUM SYSTEM
+        var momentumManager = plugin.getMomentumManager();
+        double momentumMultiplier = momentumManager.getDamageMultiplier(attacker);
+        finalDamage *= momentumMultiplier;
+
+        // 5. EXECUTE DAMAGE (<20% HP)
+        double mobHealthPercent = entity.getHealth() / entity.getMaxHealth() * 100;
+        double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
+        if (mobHealthPercent <= executeThreshold) {
+            double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
+            double skillExecuteBonus = skillManager.getSkillBonus(attacker, SkillBonus.EXECUTE_DAMAGE);
+            finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // 6. LIFESTEAL
+        double lifestealPercent = playerStats.getOrDefault(StatType.LIFESTEAL, 0.0);
+        double skillLifesteal = skillManager.getSkillBonus(attacker, SkillBonus.LIFESTEAL);
+        double totalLifesteal = lifestealPercent + skillLifesteal;
+        if (totalLifesteal > 0) {
+            double healAmount = finalDamage * (totalLifesteal / 100.0);
+            double newHealth = Math.min(attacker.getHealth() + healAmount, attacker.getMaxHealth());
+            attacker.setHealth(newHealth);
+            if (healAmount > 1) {
+                attacker.getWorld().spawnParticle(Particle.HEART, attacker.getLocation().add(0, 1.5, 0), 2, 0.2, 0.2, 0.2);
+            }
+        }
+
+        // ============ APPLIQUER LES DÉGÂTS DIRECTEMENT À LA SANTÉ ============
+        // (évite la récursion avec entity.damage() qui déclenche un nouvel événement)
+        double newHealth = Math.max(0, entity.getHealth() - finalDamage);
+        entity.setHealth(newHealth);
+
+        // Effet de dégâts (animation rouge)
+        entity.playHurtAnimation(0);
+
+        // ============ AFFICHER L'INDICATEUR DE DÉGÂTS ============
+        PacketDamageIndicator.display(plugin, entity.getLocation().add(0, 1, 0), finalDamage, isCritical, attacker);
+
+        // ============ FEEDBACK VISUEL ============
+        if (isCritical) {
+            attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
+            entity.getWorld().spawnParticle(Particle.CRIT, entity.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+        } else {
+            // Particules dorées pour le hit normal
+            entity.getWorld().spawnParticle(Particle.DUST, entity.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 0), 1.2f));
+        }
+
+        // ============ METTRE À JOUR L'AFFICHAGE DE VIE ============
+        if (healthDisplay != null && healthDisplay.isValid() && entity.isValid()) {
+            healthDisplay.text(createHealthDisplay(newHealth, eliteMaxHealth));
+        }
+
+        // ============ GÉRER LA MORT SI NÉCESSAIRE ============
+        if (newHealth <= 0) {
+            // Le mob meurt - déclencher handleDeath manuellement via le scheduler
+            // pour éviter les problèmes de timing
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (entity.isValid() && !entity.isDead()) {
+                    entity.setHealth(0); // Force la mort
+                }
+            });
+        }
+
+        // Retourner true pour annuler les dégâts vanilla (on a déjà appliqué les dégâts manuellement)
+        return true;
     }
 
     @Override
@@ -372,7 +480,7 @@ public class EliteHunterEvent extends MicroEvent {
 
             // Annonce
             long timeToKill = killTime - startTime;
-            player.sendMessage("§a§l✓ §7Elite Chasseur elimine en §e" + String.format("%.1f", timeToKill / 1000.0) + "s§7!");
+            player.sendMessage("§a§l✓ §7Fuyeur Doré éliminé en §e" + String.format("%.1f", timeToKill / 1000.0) + "s§7!");
 
             return true;
         }
