@@ -41,8 +41,8 @@ public enum JourneyStep {
         "Coordonnées: §b625, 93, 9853", StepType.DISCOVER_CHEST, 1,
         250, 4, Material.CHEST),
 
-    STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Chasse 3 animaux",
-        "Les animaux peuvent te nourrir!", StepType.PASSIVE_ANIMAL_KILLS, 3,
+    STEP_1_6(JourneyChapter.CHAPTER_1, 6, "Chasse 1 animal",
+        "Les animaux peuvent te nourrir!", StepType.PASSIVE_ANIMAL_KILLS, 1,
         275, 4, Material.COOKED_BEEF),
 
     STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Atteins le niveau 3",
@@ -393,7 +393,7 @@ public enum JourneyStep {
             case ACHIEVEMENTS -> current + "/" + targetValue + " achievements";
             case RECYCLE_ITEMS -> current + "/" + targetValue + " items recyclés";
             case DISCOVER_CHEST -> current >= targetValue ? "✓ Coffre découvert!" : "Cherche le coffre...";
-            case PASSIVE_ANIMAL_KILLS -> current + "/" + targetValue + " animaux chassés";
+            case PASSIVE_ANIMAL_KILLS -> current + "/" + targetValue + " animal chassé";
             case ZONE_EXPLORATION -> current + "/" + 50 + "% exploré";
             case HEAL_NPC -> current >= targetValue ? "✓ PNJ soigné!" : "Trouve et soigne le PNJ";
             case GIVE_WOOD_NPC -> current + "/" + targetValue + " bûches données";
