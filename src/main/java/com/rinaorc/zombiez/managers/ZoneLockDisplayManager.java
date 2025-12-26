@@ -421,26 +421,21 @@ public class ZoneLockDisplayManager {
         }
 
         // Envoyer un paquet de téléportation
-        // Note: En 1.21.2+, ENTITY_TELEPORT a été renommé en ENTITY_POSITION_SYNC
-        // L'ancien ENTITY_TELEPORT sert maintenant à synchroniser les véhicules
+        // Note: ProtocolLib utilise toujours ENTITY_TELEPORT comme nom de constante
         try {
-            PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_POSITION_SYNC);
+            PacketContainer teleportPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
 
-            // Structure du paquet entity_position_sync en 1.21.4:
+            // Structure du paquet en 1.21.4:
             // - Entity ID (VarInt)
             // - X, Y, Z (Double) - position absolue
-            // - Delta X, Y, Z (Double) - vélocité (0 pour un teleport statique)
-            // - Yaw, Pitch (Float) - rotation
+            // - Yaw, Pitch (Byte) - rotation
             // - On Ground (Boolean)
             teleportPacket.getIntegers().write(0, display.entityId);
             teleportPacket.getDoubles().write(0, newLoc.getX());
             teleportPacket.getDoubles().write(1, newLoc.getY());
             teleportPacket.getDoubles().write(2, newLoc.getZ());
-            teleportPacket.getDoubles().write(3, 0.0); // Delta X (vélocité)
-            teleportPacket.getDoubles().write(4, 0.0); // Delta Y (vélocité)
-            teleportPacket.getDoubles().write(5, 0.0); // Delta Z (vélocité)
-            teleportPacket.getFloat().write(0, 0.0f); // Yaw
-            teleportPacket.getFloat().write(1, 0.0f); // Pitch
+            teleportPacket.getBytes().write(0, (byte) 0); // Yaw
+            teleportPacket.getBytes().write(1, (byte) 0); // Pitch
             teleportPacket.getBooleans().write(0, false); // On ground
 
             protocolManager.sendServerPacket(player, teleportPacket);
