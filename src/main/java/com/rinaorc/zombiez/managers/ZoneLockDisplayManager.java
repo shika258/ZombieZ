@@ -43,7 +43,7 @@ public class ZoneLockDisplayManager {
 
     // Cooldown pour éviter le spam de création/suppression
     private final Map<UUID, Long> displayCooldowns = new ConcurrentHashMap<>();
-    private static final long DISPLAY_COOLDOWN_MS = 500;
+    private static final long DISPLAY_COOLDOWN_MS = 250; // Réduit pour meilleur réactivité
 
     // Configuration
     private static final double DETECTION_DISTANCE = 30.0; // Distance de détection de la limite de zone
@@ -75,7 +75,7 @@ public class ZoneLockDisplayManager {
                 }
             }
         };
-        checkTask.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes (optimisé pour 200 joueurs)
+        checkTask.runTaskTimer(plugin, 10L, 5L); // Toutes les 5 ticks (0.25s) pour suivi fluide de position X
 
         plugin.log(Level.INFO, "§a✓ ZoneLockDisplayManager démarré");
     }
@@ -157,6 +157,13 @@ public class ZoneLockDisplayManager {
         // Créer un nouveau display
         createLockDisplay(player, currentZone, nextZoneId);
         displayCooldowns.put(uuid, System.currentTimeMillis());
+
+        // Rafraîchir le WorldBorder pour s'assurer qu'il est visible
+        // (le client peut l'avoir "oublié" après s'être éloigné)
+        ZoneBorderManager borderManager = plugin.getZoneBorderManager();
+        if (borderManager != null) {
+            borderManager.refreshBorder(player);
+        }
     }
 
     /**
@@ -342,8 +349,8 @@ public class ZoneLockDisplayManager {
         // Index 15: Billboard mode (3 = CENTER - toujours face au joueur)
         dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
 
-        // Index 17: View range (portée de vue en chunks, 100 = visible de loin)
-        dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 100.0f));
+        // Index 17: View range (multiplicateur: 1.0 = 64 blocs de visibilité)
+        dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 1.0f));
 
         // Index 23: Text (Component en JSON)
         Component textComponent = Component.text(text);
@@ -354,12 +361,16 @@ public class ZoneLockDisplayManager {
         // Index 24: Line width (largeur max avant retour à la ligne)
         dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 400));
 
+        // Index 25: Background color (ARGB format - 0x40000000 = ~25% transparent noir)
+        // Pour un fond semi-transparent sombre: alpha=0x40, R=0x00, G=0x00, B=0x00
+        dataValues.add(new WrappedDataValue(25, WrappedDataWatcher.Registry.get(Integer.class), 0x40000000));
+
         // Index 26: Text opacity (255 = opaque, -1 en byte signé = 255)
         dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
 
         // Index 27: Flags (combiné: bit 0=shadow, bit 1=see-through, bit 2=default_background, bits 3-4=alignment)
-        // Valeur: 0x01 (shadow) | 0x04 (default_background) = 0x05
-        byte textFlags = (byte) (0x01 | 0x04); // Shadow ON + Default background ON
+        // Valeur: 0x01 (shadow) - PAS de default_background pour utiliser notre couleur custom
+        byte textFlags = (byte) 0x01; // Shadow ON uniquement
         dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), textFlags));
 
         // Vérifier que le modifier est disponible avant d'écrire (1.21.4 compatibility)
@@ -424,8 +435,8 @@ public class ZoneLockDisplayManager {
         Location playerLoc = player.getLocation();
         Location newLoc = calculateDisplayLocation(playerLoc, currentZone);
 
-        // Vérifier si la position a significativement changé (5 blocs)
-        if (display.location.distanceSquared(newLoc) < 25) {
+        // Vérifier si la position a changé (2 blocs - suivi plus réactif sur l'axe X)
+        if (display.location.distanceSquared(newLoc) < 4) {
             return; // Pas besoin de mettre à jour
         }
 
