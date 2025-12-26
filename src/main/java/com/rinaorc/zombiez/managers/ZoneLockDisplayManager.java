@@ -346,8 +346,8 @@ public class ZoneLockDisplayManager {
         // Index 0: Entity flags (invisible = false)
         dataValues.add(new WrappedDataValue(0, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
 
-        // Index 15: Billboard mode (3 = CENTER - toujours face au joueur)
-        dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 3));
+        // Index 15: Billboard mode (0 = FIXED - reste fixe sans rotation)
+        dataValues.add(new WrappedDataValue(15, WrappedDataWatcher.Registry.get(Byte.class), (byte) 0));
 
         // Index 17: View range (multiplicateur: 1.0 = 64 blocs de visibilité)
         dataValues.add(new WrappedDataValue(17, WrappedDataWatcher.Registry.get(Float.class), 1.0f));
