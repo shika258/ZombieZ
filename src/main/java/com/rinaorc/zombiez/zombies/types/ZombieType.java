@@ -174,8 +174,8 @@ public enum ZombieType {
     // ═══════════════════════════════════════════════════════════════════
     // JOURNEY - Zombies spéciaux pour les étapes du parcours
     // ═══════════════════════════════════════════════════════════════════
-    FIRE_ZOMBIE("ZZ_FireZombie", "Pyromort", 2, 40, 6, 0.22,     // Pyro + mort (Zone 2 - Chapitre 2 Étape 6)
-        new int[]{2}, ZombieCategory.ELEMENTAL),
+    FIRE_ZOMBIE("ZZ_FireZombie", "Pyromort", 2, 40, 6, 0.22,     // Pyro + mort (Chapitre 2 Étape 6 - spawn exclusif via Chapter2Systems)
+        new int[]{}, ZombieCategory.ELEMENTAL),  // Pas de zone: spawn uniquement via Chapter2Systems.spawnFireZombie()
 
     MANOR_LORD("ZZ_ManorLord", "Seigneur du Manoir", 0, 500, 15, 0.22,  // Boss Chapitre 2 Étape 10
         new int[]{2}, ZombieCategory.JOURNEY_BOSS),

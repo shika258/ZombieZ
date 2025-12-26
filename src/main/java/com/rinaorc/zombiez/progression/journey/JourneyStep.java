@@ -71,7 +71,7 @@ public enum JourneyStep {
         "Coordonnées: §b373, 94, 9767", StepType.DISCOVER_CHEST, 2,
         350, 8, Material.CHEST),
 
-    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 zombies incendiés",
+    STEP_2_6(JourneyChapter.CHAPTER_2, 6, "Tue 50 Pyromorts",
         "Zone météore: §b~345, ~86, ~9500", StepType.FIRE_ZOMBIE_KILLS, 50,
         400, 10, Material.FIRE_CHARGE),
 
@@ -397,7 +397,7 @@ public enum JourneyStep {
             case ZONE_EXPLORATION -> current + "/" + 50 + "% exploré";
             case HEAL_NPC -> current >= targetValue ? "✓ PNJ soigné!" : "Trouve et soigne le PNJ";
             case GIVE_WOOD_NPC -> current + "/" + targetValue + " bûches données";
-            case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " zombies incendiés";
+            case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
         };
     }
@@ -542,7 +542,7 @@ public enum JourneyStep {
         GIVE_WOOD_NPC("Donne du bois à un PNJ"),
 
         // Zombies spéciaux
-        FIRE_ZOMBIE_KILLS("Tue des zombies incendiés"),
+        FIRE_ZOMBIE_KILLS("Tue des Pyromorts"),
 
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir");
