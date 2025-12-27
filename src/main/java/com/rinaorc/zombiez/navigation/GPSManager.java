@@ -495,7 +495,7 @@ public class GPSManager implements Listener {
 
                 // Ajouter la rotation de 45° sur l'axe local pour compenser l'orientation de l'item flèche
                 // (l'item flèche dans Minecraft est tourné de 45° dans son modèle)
-                targetRotation.rotateLocal(0, 0, (float) Math.toRadians(45));
+                targetRotation.rotateLocalZ((float) Math.toRadians(45));
 
                 // Interpoler la rotation pour fluidité
                 if (currentRotation == null) {
