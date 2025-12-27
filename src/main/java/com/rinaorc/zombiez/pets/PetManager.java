@@ -286,16 +286,11 @@ public class PetManager {
     // ==================== OEUFS ====================
 
     /**
-     * Ouvre un oeuf et donne le pet
+     * Ouvre un oeuf et donne le pet (roll aléatoire)
      */
     public PetType openEgg(Player player, EggType eggType) {
         PlayerPetData data = getPlayerData(player.getUniqueId());
         if (data == null) return null;
-
-        if (!data.removeEgg(eggType)) {
-            player.sendMessage("§c[Pet] §7Vous n'avez pas d'oeuf de ce type!");
-            return null;
-        }
 
         // Vérifier le pity
         PetRarity pityGuarantee = data.checkPityGuarantee(eggType);
@@ -304,14 +299,30 @@ public class PetManager {
         double luckBonus = plugin.getPlayerDataManager().getPlayer(player).getLootLuckBonus();
         PetType pet = eggType.rollPet(luckBonus, pityGuarantee);
 
-        // Ajouter le pet
-        boolean isNew = data.addPet(pet);
+        // Utiliser la méthode commune
+        return openEggWithResult(player, eggType, pet);
+    }
+
+    /**
+     * Ouvre un oeuf avec un résultat pré-déterminé (pour l'animation qui pré-calcule le résultat)
+     */
+    public PetType openEggWithResult(Player player, EggType eggType, PetType predeterminedPet) {
+        PlayerPetData data = getPlayerData(player.getUniqueId());
+        if (data == null) return null;
+
+        if (!data.removeEgg(eggType)) {
+            player.sendMessage("§c[Pet] §7Vous n'avez pas d'oeuf de ce type!");
+            return null;
+        }
+
+        // Ajouter le pet pré-déterminé
+        boolean isNew = data.addPet(predeterminedPet);
 
         // Mettre à jour les stats
         data.incrementEggsOpened();
 
         // Gérer le pity
-        if (pet.getRarity().isAtLeast(PetRarity.RARE)) {
+        if (predeterminedPet.getRarity().isAtLeast(PetRarity.RARE)) {
             data.resetPity(eggType);
         } else {
             data.incrementPity(eggType);
@@ -319,19 +330,19 @@ public class PetManager {
 
         // Annonces
         if (isNew) {
-            player.sendMessage("§a[Pet] §7Nouveau pet obtenu: " + pet.getColoredName() + "§7!");
+            player.sendMessage("§a[Pet] §7Nouveau pet obtenu: " + predeterminedPet.getColoredName() + "§7!");
 
             // Annonce serveur pour légendaires+
-            if (pet.getRarity().isAtLeast(PetRarity.LEGENDARY)) {
+            if (predeterminedPet.getRarity().isAtLeast(PetRarity.LEGENDARY)) {
                 Bukkit.broadcastMessage("§6§l[PET] §e" + player.getName() + " §7a obtenu " +
-                    pet.getColoredName() + "§7!");
+                    predeterminedPet.getColoredName() + "§7!");
             }
         } else {
-            int fragments = pet.getRarity().getFragmentsPerDuplicate();
-            player.sendMessage("§a[Pet] §7Duplicata: " + pet.getColoredName() + "§7! §7(+§d" + fragments + " fragments§7)");
+            int fragments = predeterminedPet.getRarity().getFragmentsPerDuplicate();
+            player.sendMessage("§a[Pet] §7Duplicata: " + predeterminedPet.getColoredName() + "§7! §7(+§d" + fragments + " fragments§7)");
         }
 
-        return pet;
+        return isNew ? predeterminedPet : null; // Retourne null si c'est un duplicata (pour le flag isNew)
     }
 
     /**
