@@ -355,25 +355,6 @@ public class PinataZombieEvent extends MicroEvent {
                 plugin.getItemManager().applyGlowForRarity(droppedItem, lootResult.rarity);
             }
         }
-
-        // Ajouter quelques pieces (points visuels) avec Glowing dore
-        for (int i = 0; i < 5; i++) {
-            ItemStack goldNugget = new ItemStack(Material.GOLD_NUGGET, random.nextInt(5) + 1);
-            Item nugget = center.getWorld().dropItem(center, goldNugget);
-
-            double angle = random.nextDouble() * Math.PI * 2;
-            nugget.setVelocity(new Vector(
-                Math.cos(angle) * 0.3,
-                0.5,
-                Math.sin(angle) * 0.3
-            ));
-
-            // Pieces dorees brillantes
-            nugget.setCustomName("§6✧ Pièce d'or");
-            nugget.setCustomNameVisible(true);
-            nugget.setGlowing(true);
-            plugin.getItemManager().applyGlowForRarity(nugget, Rarity.LEGENDARY);
-        }
     }
 
     /**

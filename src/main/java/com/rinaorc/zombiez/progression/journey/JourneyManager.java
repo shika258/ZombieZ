@@ -136,13 +136,24 @@ public class JourneyManager {
             default -> "§7⚔";
         };
 
-        // Format: ⚔ Ch.2 | Choisis ta classe | 0/1
-        String title = String.format("%s §7Ch.%d §8| §f%s §8| §e%s",
-            phaseIcon,
-            step.getChapter().getId(),
-            truncate(step.getName(), 25),
-            progressText
-        );
+        // Format spécial pour l'étape des pets avec /pet affiché
+        String title;
+        if (step.getType() == JourneyStep.StepType.OPEN_AND_EQUIP_PET) {
+            title = String.format("%s §7Ch.%d §8| §f%s §8| §e%s §8| §b/pet",
+                phaseIcon,
+                step.getChapter().getId(),
+                truncate(step.getName(), 20),
+                progressText
+            );
+        } else {
+            // Format: ⚔ Ch.2 | Choisis ta classe | 0/1
+            title = String.format("%s §7Ch.%d §8| §f%s §8| §e%s",
+                phaseIcon,
+                step.getChapter().getId(),
+                truncate(step.getName(), 25),
+                progressText
+            );
+        }
 
         bossBar.setTitle(title);
         bossBar.setProgress(Math.min(1.0, Math.max(0.0, percent)));
@@ -557,6 +568,11 @@ public class JourneyManager {
             spawnAnimalsForHuntingStep(player);
         }
 
+        // Étape 3.1: Introduction aux pets - Donner un oeuf standard
+        if (step == JourneyStep.STEP_3_1) {
+            givePetEggForIntroduction(player);
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
@@ -655,6 +671,27 @@ public class JourneyManager {
 
         // Son d'apparition
         player.playSound(playerLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+    }
+
+    /**
+     * Donne un oeuf de pet standard au joueur pour l'introduction aux pets
+     */
+    private void givePetEggForIntroduction(Player player) {
+        var petManager = plugin.getPetManager();
+        if (petManager == null) return;
+
+        // Donner un oeuf standard
+        petManager.giveEgg(player, com.rinaorc.zombiez.pets.eggs.EggType.STANDARD, 1);
+
+        // Message
+        player.sendMessage("");
+        player.sendMessage("§a§l➤ §eUn oeuf de compagnon t'a été offert!");
+        player.sendMessage("§7  Tape §e/pet §7pour l'ouvrir et découvrir ton compagnon.");
+        player.sendMessage("");
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+        player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0);
     }
 
     /**

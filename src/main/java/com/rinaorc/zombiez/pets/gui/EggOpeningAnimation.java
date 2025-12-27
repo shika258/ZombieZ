@@ -264,8 +264,8 @@ public class EggOpeningAnimation implements InventoryHolder {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.3f);
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.0f);
 
-            // Appliquer le résultat
-            boolean isNew = plugin.getPetManager().openEgg(player, eggType) != null;
+            // Appliquer le résultat avec le pet pré-calculé (évite un nouveau roll)
+            boolean isNew = plugin.getPetManager().openEggWithResult(player, eggType, pet) != null;
             PlayerPetData petData = plugin.getPetManager().getPlayerData(player.getUniqueId());
 
             // Effets selon la rareté
@@ -524,7 +524,8 @@ public class EggOpeningAnimation implements InventoryHolder {
 
                 if (tick % revealDelay == 0) {
                     PetType pet = results.get(index);
-                    boolean isNew = plugin.getPetManager().openEgg(player, eggType) != null;
+                    // Utiliser le pet pré-calculé (évite un nouveau roll)
+                    boolean isNew = plugin.getPetManager().openEggWithResult(player, eggType, pet) != null;
 
                     // Son punch pour chaque révélation
                     float pitch = 1.0f + (float) pet.getRarity().ordinal() * 0.15f;

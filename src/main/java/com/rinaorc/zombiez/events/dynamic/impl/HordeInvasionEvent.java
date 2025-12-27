@@ -9,10 +9,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.entity.Zombie;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Transformation;
@@ -62,6 +66,14 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     // Statistiques
     private boolean waveClear = true;
+
+    // Tracking des zombies de la horde
+    private final Set<UUID> hordeZombies = new HashSet<>();
+
+    // Configuration des zombies (style TemporalRift)
+    private static final double BASE_ZOMBIE_HEALTH = 40.0;
+    private static final double HEALTH_PER_ZONE = 10.0;
+    private static final Color HORDE_COLOR = Color.fromRGB(139, 0, 0); // Rouge foncé
 
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
@@ -347,7 +359,7 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     /**
      * Spawn les zombies de la vague - BURST MASSIF pour vraie sensation de horde
-     * Tous les zombies spawnent en 2-3 ticks maximum autour du centre
+     * Spawn direct comme TemporalRiftEvent (sans passer par SpawnSystem)
      */
     private void spawnWaveZombies() {
         World world = location.getWorld();
@@ -357,6 +369,9 @@ public class HordeInvasionEvent extends DynamicEvent {
         if (waveSpawnTask != null && !waveSpawnTask.isCancelled()) {
             waveSpawnTask.cancel();
         }
+
+        // Calculer les HP selon la zone et la vague
+        double zombieHealth = BASE_ZOMBIE_HEALTH + (zone.getId() * HEALTH_PER_ZONE) + (currentWave * 5);
 
         // Pré-calculer les positions de spawn pour un burst instantané
         List<Location> spawnLocations = new ArrayList<>();
@@ -371,6 +386,7 @@ public class HordeInvasionEvent extends DynamicEvent {
         }
 
         // BURST SPAWN: Spawn massif en 2 ticks pour effet de horde
+        final double finalZombieHealth = zombieHealth;
         waveSpawnTask = new BukkitRunnable() {
             int tick = 0;
             int spawnIndex = 0;
@@ -387,10 +403,7 @@ public class HordeInvasionEvent extends DynamicEvent {
                 int toSpawn = Math.min(zombiesPerTick, spawnLocations.size() - spawnIndex);
                 for (int i = 0; i < toSpawn; i++) {
                     Location spawnLoc = spawnLocations.get(spawnIndex + i);
-
-                    // Spawn avec niveau bonus basé sur la vague
-                    int levelBonus = currentWave - 1;
-                    plugin.getSpawnSystem().spawnSingleZombie(spawnLoc, zone.getId() + levelBonus);
+                    spawnHordeZombie(spawnLoc, finalZombieHealth);
                 }
 
                 // Effet visuel et sonore MASSIF pour le burst
@@ -418,6 +431,67 @@ public class HordeInvasionEvent extends DynamicEvent {
                 }
             }
         }.runTaskTimer(plugin, 0L, 2L); // Tick toutes les 2 ticks = burst ultra rapide
+    }
+
+    /**
+     * Spawn un zombie de horde custom (style TemporalRiftEvent)
+     */
+    private void spawnHordeZombie(Location spawnLoc, double zombieHealth) {
+        Zombie zombie = (Zombie) spawnLoc.getWorld().spawnEntity(spawnLoc, EntityType.ZOMBIE);
+        hordeZombies.add(zombie.getUniqueId());
+
+        // Configuration du zombie de horde
+        zombie.setCustomName(createHordeZombieName((int) zombieHealth, (int) zombieHealth));
+        zombie.setCustomNameVisible(true);
+        zombie.setBaby(false);
+        zombie.setShouldBurnInDay(false);
+
+        // Stats adaptées à la zone et vague
+        zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombieHealth);
+        zombie.setHealth(zombieHealth);
+        zombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.25 + (zone.getId() * 0.003) + (currentWave * 0.01));
+        zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(4.0 + (zone.getId() * 0.4) + (currentWave * 0.5));
+
+        // Armure en cuir rouge foncé (style horde)
+        zombie.getEquipment().setHelmet(createHordeArmor(Material.LEATHER_HELMET));
+        zombie.getEquipment().setChestplate(createHordeArmor(Material.LEATHER_CHESTPLATE));
+        zombie.getEquipment().setLeggings(createHordeArmor(Material.LEATHER_LEGGINGS));
+        zombie.getEquipment().setBoots(createHordeArmor(Material.LEATHER_BOOTS));
+        zombie.getEquipment().setHelmetDropChance(0f);
+        zombie.getEquipment().setChestplateDropChance(0f);
+        zombie.getEquipment().setLeggingsDropChance(0f);
+        zombie.getEquipment().setBootsDropChance(0f);
+
+        // Tags pour identification
+        zombie.addScoreboardTag("dynamic_event_entity");
+        zombie.addScoreboardTag("horde_invasion");
+    }
+
+    /**
+     * Crée une pièce d'armure en cuir colorée (style horde)
+     */
+    private ItemStack createHordeArmor(Material material) {
+        ItemStack item = new ItemStack(material);
+        LeatherArmorMeta meta = (LeatherArmorMeta) item.getItemMeta();
+        meta.setColor(HORDE_COLOR);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /**
+     * Crée le nom du zombie de horde avec affichage des HP
+     */
+    private String createHordeZombieName(int currentHealth, int maxHealth) {
+        double healthPercent = (double) currentHealth / maxHealth;
+        String healthColor;
+        if (healthPercent > 0.66) {
+            healthColor = "§a";
+        } else if (healthPercent > 0.33) {
+            healthColor = "§e";
+        } else {
+            healthColor = "§c";
+        }
+        return "§4💀 Zombie de Horde " + healthColor + currentHealth + "§7/§a" + maxHealth + " §c❤";
     }
 
     /**
@@ -556,6 +630,15 @@ public class HordeInvasionEvent extends DynamicEvent {
             waveSpawnTask.cancel();
             waveSpawnTask = null;
         }
+
+        // Supprimer tous les zombies de horde restants
+        for (UUID zombieId : hordeZombies) {
+            var entity = plugin.getServer().getEntity(zombieId);
+            if (entity != null && entity.isValid() && !entity.isDead()) {
+                entity.remove();
+            }
+        }
+        hordeZombies.clear();
 
         // Supprimer les marqueurs TextDisplay
         if (centerMarker != null && centerMarker.isValid()) {
