@@ -381,15 +381,18 @@ public class CombatListener implements Listener {
             }
         }
 
-        // Joueur attaque mob passif ZombieZ
+        // Joueur attaque mob passif (ZombieZ ou vanilla)
         if (damager instanceof Player player && victim instanceof Animals animal) {
             if (plugin.getPassiveMobManager().isZombieZPassiveMob(animal)) {
                 handlePlayerAttackPassiveMob(event, player, animal);
-                return;
+            } else {
+                // Animal vanilla - appliquer les stats d'arme ZombieZ
+                handlePlayerAttackGenericMob(event, player, animal);
             }
+            return;
         }
 
-        // Joueur attaque n'importe quel autre mob (vanilla) - afficher hologramme de dégâts
+        // Joueur attaque n'importe quel autre mob (vanilla non-animal) - afficher hologramme de dégâts
         if (damager instanceof Player player && victim instanceof LivingEntity livingVictim) {
             if (!(livingVictim instanceof Player)) {
                 handlePlayerAttackGenericMob(event, player, livingVictim);
