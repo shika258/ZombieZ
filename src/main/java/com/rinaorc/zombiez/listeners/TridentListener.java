@@ -104,7 +104,7 @@ public class TridentListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRiptide(PlayerRiptideEvent event) {
-        ItemStack item = event.getItemStack();
+        ItemStack item = event.getPlayer().getInventory().getItemInMainHand();
         if (item != null && item.getType() == Material.TRIDENT) {
             // Le riptide est annulé par défaut quand on empêche le lancer
             // Mais on ajoute un feedback

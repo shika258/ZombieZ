@@ -155,7 +155,7 @@ public class WanderingBossEvent extends DynamicEvent {
         boss = living;
 
         // Récupérer et configurer l'IA
-        ZombieAI ai = plugin.getZombieAIManager().getAI(boss.getUniqueId());
+        ZombieAI ai = plugin.getZombieManager().getAiManager().getAI(boss.getUniqueId());
         if (ai instanceof WanderingBossAI wanderingAI) {
             bossAI = wanderingAI;
             // Configurer l'IA avec la destination et le nom

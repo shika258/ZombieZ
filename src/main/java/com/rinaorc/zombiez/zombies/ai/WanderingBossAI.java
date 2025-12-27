@@ -335,7 +335,7 @@ public class WanderingBossAI extends ZombieAI {
 
         playSound(Sound.ENTITY_GENERIC_EXPLODE, 1f, 0.7f);
         playParticles(Particle.BLOCK, bossLoc, 50, 3, 0.5, 3,
-                     org.bukkit.Material.DIRT.createBlockData());
+                     org.bukkit.Material.DIRT);
 
         for (Entity entity : world.getNearbyEntities(bossLoc, 6, 4, 6)) {
             if (entity instanceof Player player) {
