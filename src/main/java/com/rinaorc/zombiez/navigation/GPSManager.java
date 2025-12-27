@@ -60,11 +60,11 @@ public class GPSManager implements Listener {
     private static final Pattern COORD_PATTERN = Pattern.compile("§b~?(-?\\d+),?\\s*~?(-?\\d+),?\\s*~?(-?\\d+)");
 
     // Configuration - Flèche devant le joueur (direction du regard)
-    private static final double ARROW_DISTANCE = 5.0;    // 5 blocs devant le joueur
-    private static final double ARROW_HEIGHT = 2.5;      // Au-dessus des yeux pour ne pas obstruer
-    private static final float ARROW_SCALE = 2.0f;       // Taille de la flèche
-    private static final float LERP_SPEED = 0.35f;       // Interpolation agressive pour fluidité
-    private static final double ARRIVAL_DISTANCE = 5.0;  // Distance pour effet pulse
+    private static final double ARROW_DISTANCE = 5.5; // 5 blocs devant le joueur
+    private static final double ARROW_HEIGHT = 3.0; // Au-dessus des yeux pour ne pas obstruer
+    private static final float ARROW_SCALE = 2.0f; // Taille de la flèche
+    private static final float LERP_SPEED = 0.35f; // Interpolation agressive pour fluidité
+    private static final double ARRIVAL_DISTANCE = 5.0; // Distance pour effet pulse
 
     // Team pour le glow coloré
     private Team gpsTeam;
@@ -121,6 +121,7 @@ public class GPSManager implements Listener {
 
     /**
      * Active le GPS pour un joueur (avec ou sans feedback)
+     * 
      * @param silent Si true, pas de message ni son (pour activation automatique)
      */
     public boolean enableGPS(Player player, boolean showFeedback) {
@@ -158,7 +159,8 @@ public class GPSManager implements Listener {
     }
 
     /**
-     * Active le GPS silencieusement (pour activation automatique au changement d'étape)
+     * Active le GPS silencieusement (pour activation automatique au changement
+     * d'étape)
      */
     public boolean enableGPSSilently(Player player) {
         return enableGPS(player, false);
@@ -191,7 +193,8 @@ public class GPSManager implements Listener {
      */
     public Location getDestinationForPlayer(Player player) {
         JourneyStep step = journeyManager.getCurrentStep(player);
-        if (step == null) return null;
+        if (step == null)
+            return null;
 
         return parseCoordinates(step.getDescription(), player.getWorld().getName());
     }
@@ -200,10 +203,12 @@ public class GPSManager implements Listener {
      * Parse les coordonnées depuis une description d'étape
      */
     private Location parseCoordinates(String description, String worldName) {
-        if (description == null) return null;
+        if (description == null)
+            return null;
 
         Matcher matcher = COORD_PATTERN.matcher(description);
-        if (!matcher.find()) return null;
+        if (!matcher.find())
+            return null;
 
         try {
             int x = Integer.parseInt(matcher.group(1));
@@ -260,10 +265,11 @@ public class GPSManager implements Listener {
     }
 
     private boolean isSameLocation(Location a, Location b) {
-        if (a == null || b == null) return false;
+        if (a == null || b == null)
+            return false;
         return a.getBlockX() == b.getBlockX() &&
-               a.getBlockY() == b.getBlockY() &&
-               a.getBlockZ() == b.getBlockZ();
+                a.getBlockY() == b.getBlockY() &&
+                a.getBlockZ() == b.getBlockZ();
     }
 
     // ==================== EVENT HANDLERS ====================
@@ -294,7 +300,8 @@ public class GPSManager implements Listener {
         if (gpsTeam != null) {
             try {
                 gpsTeam.unregister();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -364,6 +371,10 @@ public class GPSManager implements Listener {
                 display.setInterpolationDuration(1);
 
                 display.setCustomNameVisible(false);
+                display.setPersistent(false); // Ne pas sauvegarder au restart
+
+                // INVISIBLE PAR DÉFAUT - visible uniquement par le propriétaire
+                display.setVisibleByDefault(false);
             });
 
             // Ajouter à la team pour le glow coloré
@@ -383,19 +394,31 @@ public class GPSManager implements Listener {
 
                 // Taille du texte
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new org.joml.Quaternionf(),
-                    new Vector3f(1.5f, 1.5f, 1.5f),
-                    new org.joml.Quaternionf()
-                ));
+                        new Vector3f(0, 0, 0),
+                        new org.joml.Quaternionf(),
+                        new Vector3f(1.5f, 1.5f, 1.5f),
+                        new org.joml.Quaternionf()));
 
                 display.setViewRange(128f);
                 display.setTeleportDuration(1);
+                display.setPersistent(false); // Ne pas sauvegarder au restart
+
+                // INVISIBLE PAR DÉFAUT - visible uniquement par le propriétaire
+                display.setVisibleByDefault(false);
 
                 // Texte initial
                 double dist = player.getLocation().distance(destination);
                 display.text(createDistanceText(dist));
             });
+
+            // === VISIBILITÉ CLIENT-SIDE ===
+            // Montrer les entités UNIQUEMENT au joueur propriétaire
+            if (arrowEntity != null) {
+                player.showEntity(plugin, arrowEntity);
+            }
+            if (distanceDisplay != null) {
+                player.showEntity(plugin, distanceDisplay);
+            }
 
             initialized = true;
         }
@@ -458,18 +481,22 @@ public class GPSManager implements Listener {
                 scale = ARROW_SCALE * (0.8f + 0.4f * (float) Math.sin(System.currentTimeMillis() * 0.01));
             }
 
-            // === TÉLÉPORTER L'ENTITÉ (position uniquement, rotation via Transformation) ===
+            // === TÉLÉPORTER L'ENTITÉ (position uniquement, rotation via Transformation)
+            // ===
             arrowEntity.teleport(arrowLoc);
 
             // === METTRE À JOUR LA TRANSFORMATION (ROTATION DE LA FLÈCHE) ===
             if (arrowEntity instanceof ItemDisplay display) {
-                // L'item flèche spectrale dans ItemDisplay est affiché avec la pointe vers le HAUT par défaut
-                // On doit calculer la rotation pour la faire pointer HORIZONTALEMENT vers la destination
+                // L'item flèche spectrale dans ItemDisplay est affiché avec la pointe vers le
+                // HAUT par défaut
+                // On doit calculer la rotation pour la faire pointer HORIZONTALEMENT vers la
+                // destination
                 //
                 // Stratégie:
                 // 1. Calculer le yaw (rotation horizontale) vers la destination
                 // 2. Calculer le pitch (inclinaison verticale) vers la destination
-                // 3. Appliquer une rotation de base de -90° sur X pour mettre la flèche à l'horizontale
+                // 3. Appliquer une rotation de base de -90° sur X pour mettre la flèche à
+                // l'horizontale
                 // 4. Puis appliquer le yaw sur Y et le pitch sur X
 
                 // Direction vers la destination
@@ -495,14 +522,16 @@ public class GPSManager implements Listener {
                 double pitch = Math.atan2(-dirY, horizontalDistance);
 
                 // Construire la rotation:
-                // Les rotations JOML sont post-multipliées, donc l'ordre dans le code = ordre d'application
-                // 1. Rotation de base: -90° sur X pour passer de "pointe vers haut" à "pointe vers avant (+Z)"
-                // 2. Appliquer le pitch (inclinaison verticale)
-                // 3. Appliquer le yaw (rotation horizontale autour de Y)
+                // L'item SPECTRAL_ARROW dans un ItemDisplay est affiché en DIAGONALE par défaut
+                // (pointe vers le haut-droite, environ 135° sur l'axe Z)
+                //
+                // Avec les quaternions JOML (post-multiplication), on applique dans l'ordre
+                // inverse du résultat visuel souhaité:
                 org.joml.Quaternionf targetRotation = new org.joml.Quaternionf()
-                    .rotateX((float) Math.toRadians(-90)) // D'abord mettre la flèche à l'horizontale (pointe vers +Z)
-                    .rotateX((float) pitch)               // Puis l'inclinaison vers le haut/bas
-                    .rotateY((float) -yaw);               // Enfin la rotation horizontale (inversée pour matcher Minecraft)
+                        .rotateY((float) (-yaw + Math.PI)) // Direction + 180° pour pointer vers l'objectif
+                        .rotateX((float) -pitch) // Inclinaison verticale
+                        .rotateX((float) Math.toRadians(-90)) // Mettre la flèche à l'horizontale
+                        .rotateZ((float) Math.toRadians(-45)); // Corriger l'orientation diagonale de l'item
 
                 // Interpoler la rotation pour fluidité
                 if (currentRotation == null) {
@@ -512,10 +541,10 @@ public class GPSManager implements Listener {
                 }
 
                 display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new org.joml.Quaternionf(currentRotation), // Copie pour éviter les mutations
-                    new Vector3f(scale, scale, scale),
-                    new org.joml.Quaternionf() // Pas de right rotation
+                        new Vector3f(0, 0, 0),
+                        new org.joml.Quaternionf(currentRotation), // Copie pour éviter les mutations
+                        new Vector3f(scale, scale, scale),
+                        new org.joml.Quaternionf() // Pas de right rotation
                 ));
             }
 
@@ -538,12 +567,14 @@ public class GPSManager implements Listener {
         }
 
         /**
-         * Calcule la position cible: 5 blocs devant le joueur (direction du regard horizontal)
+         * Calcule la position cible: 5 blocs devant le joueur (direction du regard
+         * horizontal)
          */
         private Location calculateTargetPosition(Player player) {
             Location playerLoc = player.getLocation();
 
-            // Direction du regard HORIZONTAL (ignorer le pitch pour que la flèche reste devant)
+            // Direction du regard HORIZONTAL (ignorer le pitch pour que la flèche reste
+            // devant)
             float yaw = playerLoc.getYaw();
             double yawRad = Math.toRadians(yaw);
 
@@ -553,11 +584,10 @@ public class GPSManager implements Listener {
 
             // Position: devant le joueur + en hauteur
             return new Location(
-                playerLoc.getWorld(),
-                playerLoc.getX() + dirX * ARROW_DISTANCE,
-                playerLoc.getY() + ARROW_HEIGHT,
-                playerLoc.getZ() + dirZ * ARROW_DISTANCE
-            );
+                    playerLoc.getWorld(),
+                    playerLoc.getX() + dirX * ARROW_DISTANCE,
+                    playerLoc.getY() + ARROW_HEIGHT,
+                    playerLoc.getZ() + dirZ * ARROW_DISTANCE);
         }
 
         /**
@@ -568,7 +598,8 @@ public class GPSManager implements Listener {
          * - Vert: < 20 blocs (proche)
          */
         private void updateGlowColor(double distance) {
-            if (!(arrowEntity instanceof ItemDisplay display)) return;
+            if (!(arrowEntity instanceof ItemDisplay display))
+                return;
 
             Color glowColor;
             net.kyori.adventure.text.format.NamedTextColor teamColor;

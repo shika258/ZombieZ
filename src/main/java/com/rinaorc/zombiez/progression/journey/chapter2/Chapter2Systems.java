@@ -82,8 +82,9 @@ public class Chapter2Systems implements Listener {
     // Deux TextDisplays fixes: un pour "Blessé", un pour "Soigné"
     // La visibilité est gérée per-player via showEntity/hideEntity
     private TextDisplay minerDisplayInjured; // Visible par ceux qui n'ont pas soigné
-    private TextDisplay minerDisplayHealed;  // Visible par ceux qui ont soigné
-    private final Set<UUID> playersWhoHealedMiner = ConcurrentHashMap.newKeySet(); // Joueurs ayant soigné (en plus de la progression)
+    private TextDisplay minerDisplayHealed; // Visible par ceux qui ont soigné
+    private final Set<UUID> playersWhoHealedMiner = ConcurrentHashMap.newKeySet(); // Joueurs ayant soigné (en plus de
+                                                                                   // la progression)
     private static final double MINER_DISPLAY_HEIGHT = 2.3; // Hauteur au-dessus du mineur
     private static final double MINER_VIEW_DISTANCE = 50.0; // Distance max pour voir l'hologramme
 
@@ -98,7 +99,8 @@ public class Chapter2Systems implements Listener {
     private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
     private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
 
-    // Config du boss (stats gérées par ZombieType.MANOR_LORD + calculateHealth/Damage)
+    // Config du boss (stats gérées par ZombieType.MANOR_LORD +
+    // calculateHealth/Damage)
     private static final String BOSS_NAME = "Seigneur du Manoir";
     private static final double BOSS_LEASH_RANGE = 32.0; // Distance max avant retour au spawn
     private static final double BOSS_LEASH_RANGE_SQUARED = BOSS_LEASH_RANGE * BOSS_LEASH_RANGE;
@@ -109,21 +111,25 @@ public class Chapter2Systems implements Listener {
 
     static {
         // Charger les patterns depuis Registry
-        String[] patterns = {"coast", "dune", "wild", "sentry", "vex", "rib", "snout", "tide", "ward", "eye"};
+        String[] patterns = { "coast", "dune", "wild", "sentry", "vex", "rib", "snout", "tide", "ward", "eye" };
         for (String key : patterns) {
             try {
                 TrimPattern pattern = Registry.TRIM_PATTERN.get(NamespacedKey.minecraft(key));
-                if (pattern != null) TRIM_PATTERNS.add(pattern);
-            } catch (Exception ignored) {}
+                if (pattern != null)
+                    TRIM_PATTERNS.add(pattern);
+            } catch (Exception ignored) {
+            }
         }
 
         // Charger les matériaux depuis Registry
-        String[] materials = {"copper", "iron", "gold", "redstone", "lapis", "amethyst", "diamond"};
+        String[] materials = { "copper", "iron", "gold", "redstone", "lapis", "amethyst", "diamond" };
         for (String key : materials) {
             try {
                 TrimMaterial material = Registry.TRIM_MATERIAL.get(NamespacedKey.minecraft(key));
-                if (material != null) TRIM_MATERIALS.add(material);
-            } catch (Exception ignored) {}
+                if (material != null)
+                    TRIM_MATERIALS.add(material);
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -180,7 +186,8 @@ public class Chapter2Systems implements Listener {
             bossSpawnDisplay.remove();
         }
 
-        // IMPORTANT: Nettoyer tous les anciens TextDisplays du boss qui auraient persisté après un reboot
+        // IMPORTANT: Nettoyer tous les anciens TextDisplays du boss qui auraient
+        // persisté après un reboot
         // Cela évite la duplication des displays
         cleanupOrphanedBossDisplays(world);
 
@@ -195,10 +202,10 @@ public class Chapter2Systems implements Listener {
 
             // Scale x3
             display.setTransformation(new org.bukkit.util.Transformation(
-                new org.joml.Vector3f(0, 0, 0),           // Translation
-                new org.joml.AxisAngle4f(0, 0, 0, 1),    // Left rotation
-                new org.joml.Vector3f(3f, 3f, 3f),        // Scale x3
-                new org.joml.AxisAngle4f(0, 0, 0, 1)     // Right rotation
+                    new org.joml.Vector3f(0, 0, 0), // Translation
+                    new org.joml.AxisAngle4f(0, 0, 0, 1), // Left rotation
+                    new org.joml.Vector3f(3f, 3f, 3f), // Scale x3
+                    new org.joml.AxisAngle4f(0, 0, 0, 1) // Right rotation
             ));
 
             // Distance de vue
@@ -221,7 +228,8 @@ public class Chapter2Systems implements Listener {
         bossLoc.setWorld(world);
 
         int removed = 0;
-        // Chercher les TextDisplays avec le tag manor_boss_display dans un rayon de 20 blocs
+        // Chercher les TextDisplays avec le tag manor_boss_display dans un rayon de 20
+        // blocs
         for (Entity entity : world.getNearbyEntities(bossLoc, 20, 20, 20)) {
             if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("manor_boss_display")) {
                 entity.remove();
@@ -237,11 +245,13 @@ public class Chapter2Systems implements Listener {
     /**
      * Met à jour le texte du display selon l'état du boss
      * UN SEUL TextDisplay qui affiche:
-     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le
+     * boss)
      * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
-        if (display == null || !display.isValid()) return;
+        if (display == null || !display.isValid())
+            return;
 
         World world = display.getWorld();
         StringBuilder text = new StringBuilder();
@@ -265,7 +275,7 @@ public class Chapter2Systems implements Listener {
                 }
 
                 text.append(healthColor).append("❤ ")
-                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+                        .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
             }
         } else {
             // Boss mort - afficher countdown de respawn
@@ -289,7 +299,8 @@ public class Chapter2Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 // Recréer le display s'il est invalide
                 if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
@@ -355,7 +366,8 @@ public class Chapter2Systems implements Listener {
      * Téléporte le boss à son point de spawn avec effets visuels
      */
     private void teleportBossToSpawn(World world, Location spawnLoc) {
-        if (manorBossEntity == null || !manorBossEntity.isValid()) return;
+        if (manorBossEntity == null || !manorBossEntity.isValid())
+            return;
 
         Location oldLoc = manorBossEntity.getLocation();
 
@@ -412,6 +424,11 @@ public class Chapter2Systems implements Listener {
     private void spawnInjuredMiner(World world) {
         Location loc = MINER_LOCATION.clone();
         loc.setWorld(world);
+
+        // Forcer le chargement du chunk pour garantir le spawn
+        if (!loc.getChunk().isLoaded()) {
+            loc.getChunk().load();
+        }
 
         // Supprimer l'ancien si existant
         if (injuredMinerEntity != null && injuredMinerEntity.isValid()) {
@@ -473,7 +490,8 @@ public class Chapter2Systems implements Listener {
 
         Location displayLoc = minerLoc.clone().add(0, MINER_DISPLAY_HEIGHT, 0);
 
-        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient initialement)
+        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient
+        // initialement)
         minerDisplayInjured = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -483,20 +501,19 @@ public class Chapter2Systems implements Listener {
             entity.setBackgroundColor(Color.fromARGB(128, 0, 0, 0));
             entity.setText("§c§l❤ §eMineur Blessé §c§l❤");
             entity.setTransformation(new org.bukkit.util.Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.2f, 1.2f, 1.2f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
             entity.setViewRange(64f);
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
-            entity.setPersistent(false);
             // VISIBLE PAR DÉFAUT - tous les joueurs voient "Blessé" initialement
             entity.setVisibleByDefault(true);
         });
 
-        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux joueurs qui ont soigné)
+        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux
+        // joueurs qui ont soigné)
         minerDisplayHealed = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -506,33 +523,34 @@ public class Chapter2Systems implements Listener {
             entity.setBackgroundColor(Color.fromARGB(128, 0, 0, 0));
             entity.setText("§a§l✓ §fMineur §a§lSoigné");
             entity.setTransformation(new org.bukkit.util.Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.2f, 1.2f, 1.2f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
             entity.setViewRange(64f);
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
-            entity.setPersistent(false);
             // INVISIBLE PAR DÉFAUT - seulement visible pour ceux qui ont soigné
             entity.setVisibleByDefault(false);
         });
 
-        // IMPORTANT: Initialiser immédiatement la visibilité pour tous les joueurs en ligne
-        // Sans cet appel, les displays restent invisibles jusqu'au prochain tick du updater
+        // IMPORTANT: Initialiser immédiatement la visibilité pour tous les joueurs en
+        // ligne
+        // Sans cet appel, les displays restent invisibles jusqu'au prochain tick du
+        // updater
         initializeMinerDisplayVisibility();
     }
 
     /**
      * Initialise la visibilité des TextDisplays pour tous les joueurs en ligne.
-     * Le display "Blessé" est visible par défaut, on doit juste basculer vers "Soigné"
+     * Le display "Blessé" est visible par défaut, on doit juste basculer vers
+     * "Soigné"
      * pour les joueurs qui ont déjà soigné le mineur.
      */
     private void initializeMinerDisplayVisibility() {
         if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-            minerDisplayHealed == null || !minerDisplayHealed.isValid() ||
-            injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
+                minerDisplayHealed == null || !minerDisplayHealed.isValid() ||
+                injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
             return;
         }
 
@@ -540,7 +558,7 @@ public class Chapter2Systems implements Listener {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
-                              player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
+                    player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
 
             if (inRange) {
                 boolean hasHealed = hasPlayerHealedMiner(player);
@@ -653,8 +671,10 @@ public class Chapter2Systems implements Listener {
      * Vérifie si un item est un bandage (utilise le système Consumable)
      */
     private boolean isBandage(ItemStack item) {
-        if (item == null || item.getType() != Material.PAPER) return false;
-        if (!item.hasItemMeta()) return false;
+        if (item == null || item.getType() != Material.PAPER)
+            return false;
+        if (!item.hasItemMeta())
+            return false;
 
         // Vérifier via le PDC du système de consommables
         var meta = item.getItemMeta();
@@ -669,7 +689,8 @@ public class Chapter2Systems implements Listener {
         return false;
     }
 
-    // ==================== IGOR ET CAISSES DE RAVITAILLEMENT (ÉTAPE 7) ====================
+    // ==================== IGOR ET CAISSES DE RAVITAILLEMENT (ÉTAPE 7)
+    // ====================
 
     /**
      * Gère l'interaction avec Igor pour afficher la progression
@@ -697,7 +718,8 @@ public class Chapter2Systems implements Listener {
         if (currentProgress >= SUPPLY_CRATE_COUNT) {
             player.sendMessage("");
             player.sendMessage("§6§lIgor: §f\"Merci infiniment! Grâce à ces ravitaillements, je peux tenir!\"");
-            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0);
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getLocation().add(0, 1, 0), 20, 0.5, 0.5,
+                    0.5, 0);
             player.sendMessage("");
             return;
         }
@@ -723,7 +745,8 @@ public class Chapter2Systems implements Listener {
         }
     }
 
-    // Hauteur maximum pour les caisses par rapport à Igor (évite les spawns dans les arbres)
+    // Hauteur maximum pour les caisses par rapport à Igor (évite les spawns dans
+    // les arbres)
     private static final double CRATE_MAX_HEIGHT_ABOVE_IGOR = 5.0;
     private static final int CRATE_SPAWN_MAX_ATTEMPTS = 10; // Nombre max de tentatives pour trouver une position valide
 
@@ -731,8 +754,8 @@ public class Chapter2Systems implements Listener {
      * Trouve une position valide pour spawner une caisse de ravitaillement.
      * Évite les positions trop hautes (arbres) en limitant à Y d'Igor + 5 blocs.
      *
-     * @param world Le monde
-     * @param igorLoc Position d'Igor
+     * @param world       Le monde
+     * @param igorLoc     Position d'Igor
      * @param maxAllowedY Hauteur maximum autorisée
      * @return Une position valide pour la caisse
      */
@@ -741,7 +764,8 @@ public class Chapter2Systems implements Listener {
         for (int attempt = 0; attempt < CRATE_SPAWN_MAX_ATTEMPTS; attempt++) {
             // Position aléatoire autour d'Igor
             double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
-            double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
+            double distance = CRATE_SPAWN_RADIUS_MIN
+                    + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
             double x = igorLoc.getX() + Math.cos(angle) * distance;
             double z = igorLoc.getZ() + Math.sin(angle) * distance;
             double y = world.getHighestBlockYAt((int) x, (int) z) + 1;
@@ -756,7 +780,8 @@ public class Chapter2Systems implements Listener {
         // forcer le spawn à la hauteur max autorisée (au sol près d'Igor)
         // Trouver une position au sol en cherchant vers le bas depuis maxAllowedY
         double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
-        double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
+        double distance = CRATE_SPAWN_RADIUS_MIN
+                + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
         double x = igorLoc.getX() + Math.cos(angle) * distance;
         double z = igorLoc.getZ() + Math.sin(angle) * distance;
 
@@ -772,7 +797,8 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Spawn des caisses de ravitaillement autour d'Igor pour un joueur
-     * Chaque joueur a ses propres caisses (INVISIBLES par défaut, visibles uniquement par le propriétaire)
+     * Chaque joueur a ses propres caisses (INVISIBLES par défaut, visibles
+     * uniquement par le propriétaire)
      * Utilise ItemDisplay (visuel) + Interaction (cliquable) pour chaque caisse
      */
     public void spawnSupplyCratesForPlayer(Player player) {
@@ -801,10 +827,10 @@ public class Chapter2Systems implements Listener {
 
                 // Taille x1.5 pour visibilité
                 display.setTransformation(new org.bukkit.util.Transformation(
-                    new org.joml.Vector3f(0, 0.5f, 0),        // Translation (légèrement au-dessus du sol)
-                    new org.joml.AxisAngle4f(0, 0, 1, 0),     // Left rotation
-                    new org.joml.Vector3f(1.5f, 1.5f, 1.5f),  // Scale x1.5
-                    new org.joml.AxisAngle4f(0, 0, 1, 0)      // Right rotation
+                        new org.joml.Vector3f(0, 0.5f, 0), // Translation (légèrement au-dessus du sol)
+                        new org.joml.AxisAngle4f(0, 0, 1, 0), // Left rotation
+                        new org.joml.Vector3f(1.5f, 1.5f, 1.5f), // Scale x1.5
+                        new org.joml.AxisAngle4f(0, 0, 1, 0) // Right rotation
                 ));
 
                 // FIXED pour que la caisse ne tourne pas (plus réaliste)
@@ -836,7 +862,8 @@ public class Chapter2Systems implements Listener {
                 pdc.set(CRATE_OWNER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
 
                 // Lier au visuel pour le supprimer ensemble
-                pdc.set(new NamespacedKey(plugin, "visual_uuid"), PersistentDataType.STRING, visual.getUniqueId().toString());
+                pdc.set(new NamespacedKey(plugin, "visual_uuid"), PersistentDataType.STRING,
+                        visual.getUniqueId().toString());
 
                 // INVISIBLE PAR DÉFAUT - sera visible uniquement par le propriétaire
                 interaction.setVisibleByDefault(false);
@@ -917,7 +944,8 @@ public class Chapter2Systems implements Listener {
                         crates.remove(visualEntity);
                     }
                 }
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         // Supprimer l'entité d'interaction
@@ -935,7 +963,8 @@ public class Chapter2Systems implements Listener {
 
         // Feedback
         int newProgress = progress + 1;
-        player.sendActionBar(Component.text("§a+1 §eCaisse récupérée §7(" + newProgress + "/" + SUPPLY_CRATE_COUNT + ")"));
+        player.sendActionBar(
+                Component.text("§a+1 §eCaisse récupérée §7(" + newProgress + "/" + SUPPLY_CRATE_COUNT + ")"));
 
         if (newProgress >= SUPPLY_CRATE_COUNT) {
             player.sendMessage("");
@@ -992,15 +1021,17 @@ public class Chapter2Systems implements Listener {
                     }
                 }
 
-                if (!playersNearby) return;
+                if (!playersNearby)
+                    return;
 
                 // Compter les zombies incendiés existants
                 long fireZombieCount = world.getEntitiesByClass(Zombie.class).stream()
-                    .filter(z -> z.getPersistentDataContainer().has(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE))
-                    .count();
+                        .filter(z -> z.getPersistentDataContainer().has(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE))
+                        .count();
 
                 // Limiter à 15 zombies max
-                if (fireZombieCount >= 15) return;
+                if (fireZombieCount >= 15)
+                    return;
 
                 // Spawn 1-3 zombies
                 int toSpawn = ThreadLocalRandom.current().nextInt(1, 4);
@@ -1013,9 +1044,9 @@ public class Chapter2Systems implements Listener {
 
     private boolean isNearFireZombieZone(Location loc) {
         return loc.getX() >= FIRE_ZOMBIE_ZONE.getMinX() - 50 &&
-               loc.getX() <= FIRE_ZOMBIE_ZONE.getMaxX() + 50 &&
-               loc.getZ() >= FIRE_ZOMBIE_ZONE.getMinZ() - 50 &&
-               loc.getZ() <= FIRE_ZOMBIE_ZONE.getMaxZ() + 50;
+                loc.getX() <= FIRE_ZOMBIE_ZONE.getMaxX() + 50 &&
+                loc.getZ() >= FIRE_ZOMBIE_ZONE.getMinZ() - 50 &&
+                loc.getZ() <= FIRE_ZOMBIE_ZONE.getMaxZ() + 50;
     }
 
     /**
@@ -1023,7 +1054,8 @@ public class Chapter2Systems implements Listener {
      */
     private void spawnFireZombie(World world) {
         ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) return;
+        if (zombieManager == null)
+            return;
 
         // Position aléatoire dans la zone
         double x = ThreadLocalRandom.current().nextDouble(FIRE_ZOMBIE_ZONE.getMinX(), FIRE_ZOMBIE_ZONE.getMaxX());
@@ -1098,15 +1130,19 @@ public class Chapter2Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFireZombieDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie zombie)) return;
-        if (!zombie.getPersistentDataContainer().has(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie zombie))
+            return;
+        if (!zombie.getPersistentDataContainer().has(FIRE_ZOMBIE_KEY, PersistentDataType.BYTE))
+            return;
 
         Player killer = zombie.getKiller();
-        if (killer == null) return;
+        if (killer == null)
+            return;
 
         // Vérifier si le joueur est à l'étape 6
         JourneyStep currentStep = journeyManager.getCurrentStep(killer);
-        if (currentStep == null || currentStep != JourneyStep.STEP_2_6) return;
+        if (currentStep == null || currentStep != JourneyStep.STEP_2_6)
+            return;
 
         // Mettre à jour la progression
         int progress = journeyManager.getStepProgress(killer, currentStep);
@@ -1123,7 +1159,8 @@ public class Chapter2Systems implements Listener {
      * Utilise ZombieType.MANOR_LORD avec IA JourneyBossAI
      */
     private void spawnManorBoss(World world) {
-        // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas en créer un nouveau
+        // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas
+        // en créer un nouveau
         if (manorBossEntity != null && manorBossEntity.isValid() && !manorBossEntity.isDead()) {
             plugin.log(Level.FINE, "Boss du Manoir déjà présent, spawn ignoré");
             return;
@@ -1152,7 +1189,8 @@ public class Chapter2Systems implements Listener {
             return;
         }
 
-        // Spawn via ZombieManager (avec IA JourneyBossAI, display name dynamique, système de dégâts ZombieZ)
+        // Spawn via ZombieManager (avec IA JourneyBossAI, display name dynamique,
+        // système de dégâts ZombieZ)
         int bossLevel = 10; // Niveau du boss pour le chapitre 2
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.MANOR_LORD, loc, bossLevel);
 
@@ -1226,14 +1264,16 @@ public class Chapter2Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBossDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
-        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie boss))
+            return;
+        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE))
+            return;
 
         Player damager = null;
         if (event.getDamager() instanceof Player player) {
             damager = player;
         } else if (event.getDamager() instanceof Projectile projectile &&
-                   projectile.getShooter() instanceof Player player) {
+                projectile.getShooter() instanceof Player player) {
             damager = player;
         }
 
@@ -1247,8 +1287,10 @@ public class Chapter2Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onBossTarget(EntityTargetEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
-        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie boss))
+            return;
+        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE))
+            return;
 
         // Ne cibler que les joueurs
         if (!(event.getTarget() instanceof Player)) {
@@ -1261,8 +1303,10 @@ public class Chapter2Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onManorBossDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
-        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie boss))
+            return;
+        if (!boss.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE))
+            return;
 
         Location deathLoc = boss.getLocation();
         World world = boss.getWorld();
@@ -1308,7 +1352,8 @@ public class Chapter2Systems implements Listener {
             // Annoncer le respawn
             for (Player player : world.getPlayers()) {
                 if (player.getLocation().distance(deathLoc) < 100) {
-                    player.sendMessage("§8Le Seigneur du Manoir reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
+                    player.sendMessage(
+                            "§8Le Seigneur du Manoir reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
                 }
             }
         }
@@ -1329,8 +1374,10 @@ public class Chapter2Systems implements Listener {
         cooldowns.put(key, System.currentTimeMillis());
     }
 
-    // ==================== TEXTDISPLAY PER-PLAYER VIA VISIBILITÉ (MINEUR) ====================
-    // Utilise 2 TextDisplays fixes avec Paper API showEntity/hideEntity pour la visibilité per-player
+    // ==================== TEXTDISPLAY PER-PLAYER VIA VISIBILITÉ (MINEUR)
+    // ====================
+    // Utilise 2 TextDisplays fixes avec Paper API showEntity/hideEntity pour la
+    // visibilité per-player
 
     /**
      * Démarre le système de TextDisplay per-player.
@@ -1347,7 +1394,7 @@ public class Chapter2Systems implements Listener {
 
                 // Vérifier et recréer les displays si nécessaire
                 if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-                    minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
+                        minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
                     World world = injuredMinerEntity.getWorld();
                     spawnMinerTextDisplays(world, injuredMinerEntity.getLocation());
                 }
@@ -1364,24 +1411,27 @@ public class Chapter2Systems implements Listener {
                 Location minerLoc = injuredMinerEntity.getLocation();
 
                 // Mettre à jour la visibilité pour chaque joueur à portée
-                // Note: Minecraft gère automatiquement le culling par distance, pas besoin de cacher manuellement
+                // Note: Minecraft gère automatiquement le culling par distance, pas besoin de
+                // cacher manuellement
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
-                                      player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
+                            player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
 
                     if (inRange) {
                         // Joueur à portée: basculer entre "Blessé" et "Soigné" selon son état
                         boolean hasHealed = hasPlayerHealedMiner(player);
                         updateMinerDisplayVisibilityForPlayer(player, hasHealed);
                     }
-                    // Pas besoin de cacher quand hors de portée - le distance culling de Minecraft s'en charge
+                    // Pas besoin de cacher quand hors de portée - le distance culling de Minecraft
+                    // s'en charge
                 }
             }
         }.runTaskTimer(plugin, 20L, 10L); // Toutes les 10 ticks (0.5 sec)
     }
 
     /**
-     * Vérifie si le joueur a déjà soigné le mineur (étape 4 du chapitre 2 complétée ou dépassée)
+     * Vérifie si le joueur a déjà soigné le mineur (étape 4 du chapitre 2 complétée
+     * ou dépassée)
      */
     private boolean hasPlayerHealedMiner(Player player) {
         // Vérifier d'abord dans le cache de session (pour mise à jour immédiate)
@@ -1390,11 +1440,14 @@ public class Chapter2Systems implements Listener {
         }
 
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep == null) return false;
+        if (currentStep == null)
+            return false;
 
         // Si le joueur est au chapitre 2 étape 5 ou plus, ou dans un chapitre supérieur
-        if (currentStep.getChapter().getId() > 2) return true;
-        if (currentStep.getChapter().getId() == 2 && currentStep.getStepNumber() > 4) return true;
+        if (currentStep.getChapter().getId() > 2)
+            return true;
+        if (currentStep.getChapter().getId() == 2 && currentStep.getStepNumber() > 4)
+            return true;
 
         // Si le joueur est exactement à l'étape 4, vérifier la progression
         if (currentStep == JourneyStep.STEP_2_4) {
@@ -1414,7 +1467,7 @@ public class Chapter2Systems implements Listener {
      */
     private void updateMinerDisplayVisibilityForPlayer(Player player, boolean healed) {
         if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-            minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
+                minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
             return;
         }
 
@@ -1463,7 +1516,8 @@ public class Chapter2Systems implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
 
-        // Nettoyer le cache de soin du mineur (sera rechargé via progression au reconnect)
+        // Nettoyer le cache de soin du mineur (sera rechargé via progression au
+        // reconnect)
         playersWhoHealedMiner.remove(playerId);
 
         // Nettoyer aussi les caisses de ravitaillement du joueur
@@ -1477,10 +1531,14 @@ public class Chapter2Systems implements Listener {
         // Détruire les TextDisplays per-player
         destroyAllMinerDisplays();
 
-        if (injuredMinerEntity != null) injuredMinerEntity.remove();
-        if (igorEntity != null) igorEntity.remove();
-        if (manorBossEntity != null) manorBossEntity.remove();
-        if (bossSpawnDisplay != null) bossSpawnDisplay.remove();
+        if (injuredMinerEntity != null)
+            injuredMinerEntity.remove();
+        if (igorEntity != null)
+            igorEntity.remove();
+        if (manorBossEntity != null)
+            manorBossEntity.remove();
+        if (bossSpawnDisplay != null)
+            bossSpawnDisplay.remove();
         cleanupAllSupplyCrates(); // Nettoyer toutes les caisses de ravitaillement
     }
 }

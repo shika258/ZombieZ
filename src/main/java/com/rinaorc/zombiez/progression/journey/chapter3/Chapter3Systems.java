@@ -73,10 +73,10 @@ public class Chapter3Systems implements Listener {
 
     // === POSITIONS DES INDICES (autour de la maison) ===
     private static final Location[] CLUE_LOCATIONS = {
-        new Location(null, 873.5, 88.5, 8942.5, 0, 0),   // Indice 1: Journal - près de l'entrée
-        new Location(null, 877.5, 89.5, 8945.5, 0, 0),   // Indice 2: Fiole - intérieur
-        new Location(null, 874.5, 92.5, 8946.5, 0, 0),   // Indice 3: Photo - étage/grenier
-        new Location(null, 876.5, 88.5, 8941.5, 0, 0)    // Indice 4: Lettre - caché dehors
+            new Location(null, 873.5, 88.5, 8942.5, 0, 0), // Indice 1: Journal - près de l'entrée
+            new Location(null, 877.5, 89.5, 8945.5, 0, 0), // Indice 2: Fiole - intérieur
+            new Location(null, 874.5, 92.5, 8946.5, 0, 0), // Indice 3: Photo - étage/grenier
+            new Location(null, 876.5, 88.5, 8941.5, 0, 0) // Indice 4: Lettre - caché dehors
     };
 
     // Village à défendre (NPC survivant)
@@ -84,14 +84,14 @@ public class Chapter3Systems implements Listener {
 
     // Points de spawn des zombies autour du village (8 points en cercle)
     private static final Location[] ZOMBIE_SPAWN_POINTS = {
-        new Location(null, 547, 90, 8994, 0, 0),   // Est
-        new Location(null, 507, 90, 8994, 0, 0),   // Ouest
-        new Location(null, 527, 90, 8974, 0, 0),   // Sud
-        new Location(null, 527, 90, 9014, 0, 0),   // Nord
-        new Location(null, 542, 90, 8979, 0, 0),   // Sud-Est
-        new Location(null, 512, 90, 8979, 0, 0),   // Sud-Ouest
-        new Location(null, 542, 90, 9009, 0, 0),   // Nord-Est
-        new Location(null, 512, 90, 9009, 0, 0)    // Nord-Ouest
+            new Location(null, 547, 90, 8994, 0, 0), // Est
+            new Location(null, 507, 90, 8994, 0, 0), // Ouest
+            new Location(null, 527, 90, 8974, 0, 0), // Sud
+            new Location(null, 527, 90, 9014, 0, 0), // Nord
+            new Location(null, 542, 90, 8979, 0, 0), // Sud-Est
+            new Location(null, 512, 90, 8979, 0, 0), // Sud-Ouest
+            new Location(null, 542, 90, 9009, 0, 0), // Nord-Est
+            new Location(null, 512, 90, 9009, 0, 0) // Nord-Ouest
     };
 
     // Panneau de contrôle du Zeppelin (étape 8)
@@ -150,7 +150,8 @@ public class Chapter3Systems implements Listener {
     private final Set<UUID> playersWhoCompletedPuzzle = ConcurrentHashMap.newKeySet();
     // Joueurs ayant sauvé le chat
     private final Set<UUID> playersWhoRescuedCat = ConcurrentHashMap.newKeySet();
-    // Indices trouvés par joueur (bitmask: bit 0 = indice 1, bit 1 = indice 2, etc.)
+    // Indices trouvés par joueur (bitmask: bit 0 = indice 1, bit 1 = indice 2,
+    // etc.)
     private final Map<UUID, Integer> playerCluesFound = new ConcurrentHashMap<>();
     // Joueurs ayant défendu le village avec succès
     private final Set<UUID> playersWhoDefendedVillage = ConcurrentHashMap.newKeySet();
@@ -237,7 +238,8 @@ public class Chapter3Systems implements Listener {
         startSurvivorVisibilityUpdater();
         startZeppelinControlVisibilityUpdater();
 
-        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village, Zeppelin, Boss Mine)");
+        plugin.log(Level.INFO,
+                "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village, Zeppelin, Boss Mine)");
     }
 
     /**
@@ -383,14 +385,14 @@ public class Chapter3Systems implements Listener {
 
         forainDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                .append(Component.text("🎪 ", NamedTextColor.LIGHT_PURPLE))
-                .append(Component.text("LE FORAIN", NamedTextColor.GOLD, TextDecoration.BOLD))
-                .append(Component.text(" 🎪", NamedTextColor.LIGHT_PURPLE))
-                .append(Component.newline())
-                .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                .append(Component.newline())
-                .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                .build());
+                    .append(Component.text("🎪 ", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text("LE FORAIN", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" 🎪", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                    .build());
 
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -400,11 +402,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.8f, 1.8f, 1.8f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.5f);
             display.setPersistent(false);
@@ -421,7 +422,8 @@ public class Chapter3Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 // Vérifier si le Forain existe toujours
                 if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
@@ -497,12 +499,12 @@ public class Chapter3Systems implements Listener {
 
         lostCatDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                .append(Component.text("🐱 ", NamedTextColor.GOLD))
-                .append(Component.text("Chat Perdu", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" 🐱", NamedTextColor.GOLD))
-                .append(Component.newline())
-                .append(Component.text("▶ Clic droit pour sauver", NamedTextColor.WHITE))
-                .build());
+                    .append(Component.text("🐱 ", NamedTextColor.GOLD))
+                    .append(Component.text("Chat Perdu", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(" 🐱", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour sauver", NamedTextColor.WHITE))
+                    .build());
 
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -512,11 +514,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(128, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.5f, 1.5f, 1.5f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.5f);
             display.setPersistent(false);
@@ -532,7 +533,7 @@ public class Chapter3Systems implements Listener {
      */
     private void initializeCatVisibility() {
         if (lostCatEntity == null || !lostCatEntity.isValid() ||
-            lostCatDisplay == null || !lostCatDisplay.isValid()) {
+                lostCatDisplay == null || !lostCatDisplay.isValid()) {
             return;
         }
 
@@ -540,7 +541,7 @@ public class Chapter3Systems implements Listener {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             boolean inRange = player.getWorld().equals(catLoc.getWorld()) &&
-                              player.getLocation().distanceSquared(catLoc) <= CAT_VIEW_DISTANCE * CAT_VIEW_DISTANCE;
+                    player.getLocation().distanceSquared(catLoc) <= CAT_VIEW_DISTANCE * CAT_VIEW_DISTANCE;
 
             if (inRange) {
                 boolean hasRescued = hasPlayerRescuedCat(player);
@@ -558,7 +559,8 @@ public class Chapter3Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 // Respawn le chat s'il a disparu
                 if (lostCatEntity == null || !lostCatEntity.isValid() || lostCatEntity.isDead()) {
@@ -599,7 +601,7 @@ public class Chapter3Systems implements Listener {
      */
     private void updateCatVisibilityForPlayer(Player player, boolean hasRescued) {
         if (lostCatEntity == null || !lostCatEntity.isValid() ||
-            lostCatDisplay == null || !lostCatDisplay.isValid()) {
+                lostCatDisplay == null || !lostCatDisplay.isValid()) {
             return;
         }
 
@@ -672,10 +674,9 @@ public class Chapter3Systems implements Listener {
 
         // Notification de succès
         player.sendTitle(
-            "§a§l🐱 CHAT SAUVÉ!",
-            "§7Il te remercie chaleureusement",
-            10, 60, 20
-        );
+                "§a§l🐱 CHAT SAUVÉ!",
+                "§7Il te remercie chaleureusement",
+                10, 60, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
@@ -695,55 +696,55 @@ public class Chapter3Systems implements Listener {
 
     // Contenu des indices (histoire du Patient Zéro)
     private static final String[][] CLUE_CONTENT = {
-        // Indice 1: Journal du Docteur
-        {
-            "§6§l📖 JOURNAL DU DOCTEUR",
-            "",
-            "§7\"Jour 1 - J'ai enfin isolé le virus.",
-            "§7Mon sérum expérimental pourrait",
-            "§7être la clé de notre salut...\"",
-            "",
-            "§8[Le journal est taché de sang séché]"
-        },
-        // Indice 2: Fiole Brisée
-        {
-            "§c§l🧪 FIOLE BRISÉE",
-            "",
-            "§7Une fiole cassée repose au sol.",
-            "§7L'étiquette indique: §c\"SÉRUM-X\"",
-            "§7avec la mention §c\"NE PAS INHALER\"",
-            "",
-            "§8[L'échec de la cure originelle...]"
-        },
-        // Indice 3: Photo de Famille
-        {
-            "§e§l📷 PHOTO DE FAMILLE",
-            "",
-            "§7Une photo ternie montre un homme",
-            "§7souriant avec sa femme et ses enfants.",
-            "§7Au dos: §e\"Dr. Marcus Vern - 2019\"",
-            "",
-            "§8[Il avait une vie avant tout ça...]"
-        },
-        // Indice 4: Lettre d'Adieu
-        {
-            "§d§l✉ LETTRE D'ADIEU",
-            "",
-            "§7\"À qui trouvera ceci...",
-            "§7Je suis le Patient Zéro.",
-            "§7Mon sérum devait sauver l'humanité,",
-            "§7mais il a créé cette apocalypse.",
-            "§7Pardonnez-moi... §8- Dr. Marcus Vern\"",
-            "",
-            "§c[La vérité sur l'origine du virus]"
-        }
+            // Indice 1: Journal du Docteur
+            {
+                    "§6§l📖 JOURNAL DU DOCTEUR",
+                    "",
+                    "§7\"Jour 1 - J'ai enfin isolé le virus.",
+                    "§7Mon sérum expérimental pourrait",
+                    "§7être la clé de notre salut...\"",
+                    "",
+                    "§8[Le journal est taché de sang séché]"
+            },
+            // Indice 2: Fiole Brisée
+            {
+                    "§c§l🧪 FIOLE BRISÉE",
+                    "",
+                    "§7Une fiole cassée repose au sol.",
+                    "§7L'étiquette indique: §c\"SÉRUM-X\"",
+                    "§7avec la mention §c\"NE PAS INHALER\"",
+                    "",
+                    "§8[L'échec de la cure originelle...]"
+            },
+            // Indice 3: Photo de Famille
+            {
+                    "§e§l📷 PHOTO DE FAMILLE",
+                    "",
+                    "§7Une photo ternie montre un homme",
+                    "§7souriant avec sa femme et ses enfants.",
+                    "§7Au dos: §e\"Dr. Marcus Vern - 2019\"",
+                    "",
+                    "§8[Il avait une vie avant tout ça...]"
+            },
+            // Indice 4: Lettre d'Adieu
+            {
+                    "§d§l✉ LETTRE D'ADIEU",
+                    "",
+                    "§7\"À qui trouvera ceci...",
+                    "§7Je suis le Patient Zéro.",
+                    "§7Mon sérum devait sauver l'humanité,",
+                    "§7mais il a créé cette apocalypse.",
+                    "§7Pardonnez-moi... §8- Dr. Marcus Vern\"",
+                    "",
+                    "§c[La vérité sur l'origine du virus]"
+            }
     };
 
     private static final String[] CLUE_NAMES = {
-        "§6📖 Journal",
-        "§c🧪 Fiole",
-        "§e📷 Photo",
-        "§d✉ Lettre"
+            "§6📖 Journal",
+            "§c🧪 Fiole",
+            "§e📷 Photo",
+            "§d✉ Lettre"
     };
 
     /**
@@ -804,12 +805,12 @@ public class Chapter3Systems implements Listener {
 
         clueDisplays[clueIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                .append(Component.text("❓ ", NamedTextColor.GOLD))
-                .append(Component.text("Indice", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" ❓", NamedTextColor.GOLD))
-                .append(Component.newline())
-                .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                .build());
+                    .append(Component.text("❓ ", NamedTextColor.GOLD))
+                    .append(Component.text("Indice", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(" ❓", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                    .build());
 
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -819,11 +820,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.3f, 1.3f, 1.3f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.3f, 1.3f, 1.3f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.3f);
             display.setPersistent(false);
@@ -843,7 +843,8 @@ public class Chapter3Systems implements Listener {
             public void run() {
                 Location houseLoc = PATIENT_ZERO_HOUSE.clone();
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
                 houseLoc.setWorld(world);
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -934,7 +935,8 @@ public class Chapter3Systems implements Listener {
     private int countCluesFound(int bitmask) {
         int count = 0;
         for (int i = 0; i < 4; i++) {
-            if ((bitmask & (1 << i)) != 0) count++;
+            if ((bitmask & (1 << i)) != 0)
+                count++;
         }
         return count;
     }
@@ -1016,10 +1018,9 @@ public class Chapter3Systems implements Listener {
      */
     private void handleInvestigationComplete(Player player) {
         player.sendTitle(
-            "§a§l🔍 ENQUÊTE TERMINÉE!",
-            "§7Tu connais maintenant la vérité...",
-            10, 80, 20
-        );
+                "§a§l🔍 ENQUÊTE TERMINÉE!",
+                "§7Tu connais maintenant la vérité...",
+                10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
@@ -1096,14 +1097,14 @@ public class Chapter3Systems implements Listener {
 
         villageSurvivorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                .append(Component.text("🛡️ ", NamedTextColor.GOLD))
-                .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
-                .append(Component.text(" 🛡️", NamedTextColor.GOLD))
-                .append(Component.newline())
-                .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                .append(Component.newline())
-                .append(Component.text("▶ Clic droit pour aider", NamedTextColor.WHITE))
-                .build());
+                    .append(Component.text("🛡️ ", NamedTextColor.GOLD))
+                    .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" 🛡️", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour aider", NamedTextColor.WHITE))
+                    .build());
 
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -1113,11 +1114,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(150, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.8f, 1.8f, 1.8f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.5f);
             display.setPersistent(false);
@@ -1166,7 +1166,7 @@ public class Chapter3Systems implements Listener {
      */
     private void updateSurvivorVisibilityForPlayer(Player player, boolean hasDefended, boolean inDefenseEvent) {
         if (villageSurvivorEntity == null || !villageSurvivorEntity.isValid() ||
-            villageSurvivorDisplay == null || !villageSurvivorDisplay.isValid()) {
+                villageSurvivorDisplay == null || !villageSurvivorDisplay.isValid()) {
             return;
         }
 
@@ -1306,14 +1306,14 @@ public class Chapter3Systems implements Listener {
                 // Afficher le temps restant dans l'action bar
                 String healthBar = createHealthBar(defenseEvent.survivorHealth, SURVIVOR_MAX_DAMAGE);
                 player.sendActionBar(Component.text()
-                    .append(Component.text("⏱ ", NamedTextColor.GOLD))
-                    .append(Component.text(remaining + "s", NamedTextColor.YELLOW))
-                    .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                    .append(Component.text("Henri: ", NamedTextColor.GREEN))
-                    .append(Component.text(healthBar, NamedTextColor.RED))
-                    .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                    .append(Component.text("☠ " + defenseEvent.zombiesKilled, NamedTextColor.RED))
-                    .build());
+                        .append(Component.text("⏱ ", NamedTextColor.GOLD))
+                        .append(Component.text(remaining + "s", NamedTextColor.YELLOW))
+                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("Henri: ", NamedTextColor.GREEN))
+                        .append(Component.text(healthBar, NamedTextColor.RED))
+                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("☠ " + defenseEvent.zombiesKilled, NamedTextColor.RED))
+                        .build());
 
                 // Alertes de temps
                 if (remaining == 60 || remaining == 30 || remaining == 10) {
@@ -1363,7 +1363,8 @@ public class Chapter3Systems implements Listener {
                 // Spawn des zombies toutes les ZOMBIE_SPAWN_INTERVAL_TICKS
                 if (tickCounter % (ZOMBIE_SPAWN_INTERVAL_TICKS / 5) == 0) {
                     for (int i = 0; i < ZOMBIES_PER_WAVE; i++) {
-                        Location spawnPoint = ZOMBIE_SPAWN_POINTS[(int) (Math.random() * ZOMBIE_SPAWN_POINTS.length)].clone();
+                        Location spawnPoint = ZOMBIE_SPAWN_POINTS[(int) (Math.random() * ZOMBIE_SPAWN_POINTS.length)]
+                                .clone();
                         spawnPoint.setWorld(world);
 
                         // Ajuster Y pour le terrain
@@ -1534,10 +1535,9 @@ public class Chapter3Systems implements Listener {
         }
 
         player.sendTitle(
-            "§a§l🛡️ VILLAGE SAUVÉ!",
-            "§7" + defenseEvent.zombiesKilled + " zombies tués",
-            10, 80, 20
-        );
+                "§a§l🛡️ VILLAGE SAUVÉ!",
+                "§7" + defenseEvent.zombiesKilled + " zombies tués",
+                10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
@@ -1569,10 +1569,9 @@ public class Chapter3Systems implements Listener {
      */
     private void handleDefenseFailure(Player player, VillageDefenseEvent defenseEvent) {
         player.sendTitle(
-            "§c§l💀 ÉCHEC!",
-            "§7Henri est mort...",
-            10, 80, 20
-        );
+                "§c§l💀 ÉCHEC!",
+                "§7Henri est mort...",
+                10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
@@ -1613,10 +1612,9 @@ public class Chapter3Systems implements Listener {
             // Effet visuel
             if (villageSurvivorEntity != null && villageSurvivorEntity.isValid()) {
                 villageSurvivorEntity.getWorld().spawnParticle(
-                    Particle.DAMAGE_INDICATOR,
-                    villageSurvivorEntity.getLocation().add(0, 1, 0),
-                    5, 0.3, 0.3, 0.3, 0
-                );
+                        Particle.DAMAGE_INDICATOR,
+                        villageSurvivorEntity.getLocation().add(0, 1, 0),
+                        5, 0.3, 0.3, 0.3, 0);
             }
 
             owner.playSound(owner.getLocation(), Sound.ENTITY_VILLAGER_HURT, 1f, 0.8f);
@@ -1647,7 +1645,8 @@ public class Chapter3Systems implements Listener {
     // ==================== RÉPARATION DU ZEPPELIN (STEP 8) ====================
 
     /**
-     * Spawn le panneau de contrôle du Zeppelin (ArmorStand avec bloc de commande glowing)
+     * Spawn le panneau de contrôle du Zeppelin (ArmorStand avec bloc de commande
+     * glowing)
      */
     private void spawnZeppelinControl(World world) {
         Location loc = ZEPPELIN_CONTROL_LOCATION.clone();
@@ -1701,14 +1700,14 @@ public class Chapter3Systems implements Listener {
 
         zeppelinControlDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                .append(Component.text("⚡ ", NamedTextColor.GOLD))
-                .append(Component.text("PANNEAU DE CONTRÔLE", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" ⚡", NamedTextColor.GOLD))
-                .append(Component.newline())
-                .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
-                .append(Component.newline())
-                .append(Component.text("▶ Clic droit pour réparer", NamedTextColor.WHITE))
-                .build());
+                    .append(Component.text("⚡ ", NamedTextColor.GOLD))
+                    .append(Component.text("PANNEAU DE CONTRÔLE", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(" ⚡", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour réparer", NamedTextColor.WHITE))
+                    .build());
 
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -1718,11 +1717,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(150, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(1.5f, 1.5f, 1.5f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.5f);
             display.setPersistent(false);
@@ -1770,7 +1768,7 @@ public class Chapter3Systems implements Listener {
      */
     private void updateZeppelinControlVisibilityForPlayer(Player player, boolean hasRepaired) {
         if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid() ||
-            zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid()) {
+                zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid()) {
             return;
         }
 
@@ -1907,11 +1905,10 @@ public class Chapter3Systems implements Listener {
             display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
 
             display.setTransformation(new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(2f, 2f, 2f),
-                new AxisAngle4f(0, 0, 0, 1)
-            ));
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(2f, 2f, 2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(1f);
             display.setPersistent(false);
@@ -1924,11 +1921,13 @@ public class Chapter3Systems implements Listener {
     /**
      * Met à jour le texte du display selon l'état du boss
      * UN SEUL TextDisplay qui affiche:
-     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le
+     * boss)
      * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
-        if (display == null || !display.isValid()) return;
+        if (display == null || !display.isValid())
+            return;
 
         StringBuilder text = new StringBuilder();
         text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
@@ -1951,7 +1950,7 @@ public class Chapter3Systems implements Listener {
                 }
 
                 text.append(healthColor).append("❤ ")
-                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+                        .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
             }
         } else {
             // Boss mort - afficher countdown de respawn
@@ -1973,7 +1972,8 @@ public class Chapter3Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 // Recréer le display s'il est invalide
                 if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
@@ -2035,7 +2035,8 @@ public class Chapter3Systems implements Listener {
      * Téléporte le boss à son point de spawn avec effets visuels
      */
     private void teleportBossToSpawn(World world, Location spawnLoc) {
-        if (mineBossEntity == null || !mineBossEntity.isValid()) return;
+        if (mineBossEntity == null || !mineBossEntity.isValid())
+            return;
 
         Location oldLoc = mineBossEntity.getLocation();
 
@@ -2200,7 +2201,8 @@ public class Chapter3Systems implements Listener {
         if (entity.getScoreboardTags().contains("chapter3_investigation_clue")) {
             event.setCancelled(true);
             // Récupérer l'index de l'indice depuis le PDC
-            Integer clueIndex = entity.getPersistentDataContainer().get(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER);
+            Integer clueIndex = entity.getPersistentDataContainer().get(INVESTIGATION_CLUE_KEY,
+                    PersistentDataType.INTEGER);
             if (clueIndex != null) {
                 handleClueInteraction(player, clueIndex);
             }
@@ -2224,14 +2226,15 @@ public class Chapter3Systems implements Listener {
     @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
         Entity target = event.getTarget();
-        if (target == null) return;
+        if (target == null)
+            return;
 
         // Empêcher les mobs de cibler nos entités
         if (target.getScoreboardTags().contains("chapter3_forain") ||
-            target.getScoreboardTags().contains("chapter3_lost_cat") ||
-            target.getScoreboardTags().contains("chapter3_investigation_clue") ||
-            target.getScoreboardTags().contains("chapter3_village_survivor") ||
-            target.getScoreboardTags().contains("chapter3_zeppelin_control")) {
+                target.getScoreboardTags().contains("chapter3_lost_cat") ||
+                target.getScoreboardTags().contains("chapter3_investigation_clue") ||
+                target.getScoreboardTags().contains("chapter3_village_survivor") ||
+                target.getScoreboardTags().contains("chapter3_zeppelin_control")) {
             event.setCancelled(true);
         }
 
@@ -2247,10 +2250,10 @@ public class Chapter3Systems implements Listener {
     public void onEntityDamage(EntityDamageEvent event) {
         // Nos entités sont invulnérables
         if (event.getEntity().getScoreboardTags().contains("chapter3_forain") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_investigation_clue") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_village_survivor") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_zeppelin_control")) {
+                event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
+                event.getEntity().getScoreboardTags().contains("chapter3_investigation_clue") ||
+                event.getEntity().getScoreboardTags().contains("chapter3_village_survivor") ||
+                event.getEntity().getScoreboardTags().contains("chapter3_zeppelin_control")) {
             event.setCancelled(true);
         }
     }
@@ -2274,7 +2277,8 @@ public class Chapter3Systems implements Listener {
                     if (owner != null && owner.isOnline()) {
                         onDefenseZombieKilled(owner, entity);
                     }
-                } catch (IllegalArgumentException ignored) {}
+                } catch (IllegalArgumentException ignored) {
+                }
                 break;
             }
         }
@@ -2285,14 +2289,16 @@ public class Chapter3Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMineBossDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
-        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie boss))
+            return;
+        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE))
+            return;
 
         Player damager = null;
         if (event.getDamager() instanceof Player player) {
             damager = player;
         } else if (event.getDamager() instanceof Projectile projectile &&
-                   projectile.getShooter() instanceof Player player) {
+                projectile.getShooter() instanceof Player player) {
             damager = player;
         }
 
@@ -2306,8 +2312,10 @@ public class Chapter3Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMineBossDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
-        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie boss))
+            return;
+        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE))
+            return;
 
         Location deathLoc = boss.getLocation();
         World world = boss.getWorld();
@@ -2353,7 +2361,8 @@ public class Chapter3Systems implements Listener {
             // Annoncer le respawn
             for (Player player : world.getPlayers()) {
                 if (player.getLocation().distance(deathLoc) < 100) {
-                    player.sendMessage("§8Le Seigneur des Profondeurs reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
+                    player.sendMessage("§8Le Seigneur des Profondeurs reviendra dans §c" + BOSS_RESPAWN_SECONDS
+                            + " secondes§8...");
                 }
             }
         }
