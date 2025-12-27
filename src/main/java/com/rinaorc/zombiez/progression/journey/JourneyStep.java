@@ -101,8 +101,8 @@ public enum JourneyStep {
         "Active le beacon - Coords: §b675, 90, 9174", StepType.ACTIVATE_REFUGE_BEACON, 1,
         200, 6, Material.BEACON),
 
-    STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 100 zombies au total",
-        "Centième victime!", StepType.TOTAL_KILLS, 100,
+    STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 25 zombies",
+        "Prouve ta valeur au combat!", StepType.ZOMBIE_KILLS, 25,
         300, 8, Material.ZOMBIE_HEAD),
 
     STEP_3_4(JourneyChapter.CHAPTER_3, 4, "L'Énigme du Forain",
