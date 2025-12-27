@@ -42,6 +42,7 @@ import org.bukkit.scheduler.BukkitTask;
  * - Chat perdu (étape 5) - Visibilité per-player
  * - Investigation Patient Zéro (étape 6) - Indices cachés
  * - Défense du village (étape 7) - Protection d'un survivant
+ * - Réparation du Zeppelin (étape 8) - Puzzle de connexion de fils
  */
 public class Chapter3Systems implements Listener {
 
@@ -54,6 +55,7 @@ public class Chapter3Systems implements Listener {
     private final NamespacedKey INVESTIGATION_CLUE_KEY;
     private final NamespacedKey VILLAGE_SURVIVOR_KEY;
     private final NamespacedKey DEFENSE_ZOMBIE_KEY;
+    private final NamespacedKey ZEPPELIN_CONTROL_KEY;
 
     // === POSITIONS ===
     // NPC Forain au cirque
@@ -86,6 +88,9 @@ public class Chapter3Systems implements Listener {
         new Location(null, 512, 90, 9009, 0, 0)    // Nord-Ouest
     };
 
+    // Panneau de contrôle du Zeppelin (étape 8)
+    private static final Location ZEPPELIN_CONTROL_LOCATION = new Location(null, 345.5, 148, 8907.5, 0, 0);
+
     // Configuration de la défense
     private static final int DEFENSE_DURATION_SECONDS = 90;
     private static final int ZOMBIE_SPAWN_INTERVAL_TICKS = 60; // 3 secondes
@@ -116,6 +121,10 @@ public class Chapter3Systems implements Listener {
     private Entity villageSurvivorEntity;
     private TextDisplay villageSurvivorDisplay;
 
+    // Panneau de contrôle du Zeppelin (étape 8)
+    private ArmorStand zeppelinControlEntity;
+    private TextDisplay zeppelinControlDisplay;
+
     // Joueurs ayant complété le puzzle (évite de refaire)
     private final Set<UUID> playersWhoCompletedPuzzle = ConcurrentHashMap.newKeySet();
     // Joueurs ayant sauvé le chat
@@ -124,11 +133,15 @@ public class Chapter3Systems implements Listener {
     private final Map<UUID, Integer> playerCluesFound = new ConcurrentHashMap<>();
     // Joueurs ayant défendu le village avec succès
     private final Set<UUID> playersWhoDefendedVillage = ConcurrentHashMap.newKeySet();
+    // Joueurs ayant réparé le Zeppelin
+    private final Set<UUID> playersWhoRepairedZeppelin = ConcurrentHashMap.newKeySet();
     // Événements de défense actifs par joueur
     private final Map<UUID, VillageDefenseEvent> activeDefenseEvents = new ConcurrentHashMap<>();
 
     // Listener du Memory Game
     private final MemoryGameGUI.MemoryGameListener memoryGameListener;
+    // Listener du Wire Puzzle (Zeppelin)
+    private final WirePuzzleGUI.WirePuzzleListener wirePuzzleListener;
 
     public Chapter3Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -140,10 +153,15 @@ public class Chapter3Systems implements Listener {
         this.INVESTIGATION_CLUE_KEY = new NamespacedKey(plugin, "investigation_clue");
         this.VILLAGE_SURVIVOR_KEY = new NamespacedKey(plugin, "village_survivor");
         this.DEFENSE_ZOMBIE_KEY = new NamespacedKey(plugin, "defense_zombie");
+        this.ZEPPELIN_CONTROL_KEY = new NamespacedKey(plugin, "zeppelin_control");
 
         // Créer et enregistrer le listener du jeu de mémoire
         this.memoryGameListener = new MemoryGameGUI.MemoryGameListener(plugin);
         Bukkit.getPluginManager().registerEvents(memoryGameListener, plugin);
+
+        // Créer et enregistrer le listener du puzzle de fils (Zeppelin)
+        this.wirePuzzleListener = new WirePuzzleGUI.WirePuzzleListener(plugin);
+        Bukkit.getPluginManager().registerEvents(wirePuzzleListener, plugin);
 
         // Enregistrer le listener principal
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -182,12 +200,16 @@ public class Chapter3Systems implements Listener {
         // Spawn le survivant du village
         spawnVillageSurvivor(world);
 
+        // Spawn le panneau de contrôle du Zeppelin
+        spawnZeppelinControl(world);
+
         // Démarrer les systèmes de visibilité per-player
         startCatVisibilityUpdater();
         startClueVisibilityUpdater();
         startSurvivorVisibilityUpdater();
+        startZeppelinControlVisibilityUpdater();
 
-        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village)");
+        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village, Zeppelin)");
     }
 
     /**
@@ -249,6 +271,19 @@ public class Chapter3Systems implements Listener {
         // Nettoyer les zombies de défense restants
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter3_defense_zombie")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le panneau de contrôle du Zeppelin
+        Location zeppelinLoc = ZEPPELIN_CONTROL_LOCATION.clone();
+        zeppelinLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(zeppelinLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter3_zeppelin_control")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_zeppelin_display")) {
                 entity.remove();
             }
         }
@@ -1533,6 +1568,240 @@ public class Chapter3Systems implements Listener {
         }
     }
 
+    // ==================== RÉPARATION DU ZEPPELIN (STEP 8) ====================
+
+    /**
+     * Spawn le panneau de contrôle du Zeppelin (ArmorStand avec bloc de commande glowing)
+     */
+    private void spawnZeppelinControl(World world) {
+        Location loc = ZEPPELIN_CONTROL_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer l'ancien si existant
+        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
+            zeppelinControlEntity.remove();
+        }
+        if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
+            zeppelinControlDisplay.remove();
+        }
+
+        // Spawn l'ArmorStand avec un bloc de commande
+        zeppelinControlEntity = world.spawn(loc, ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setGravity(false);
+            stand.setInvulnerable(true);
+            stand.setMarker(false); // Pas marker pour pouvoir interagir
+            stand.setSmall(false);
+            stand.setCollidable(false);
+            stand.setArms(false);
+            stand.setBasePlate(false);
+
+            // Placer un bloc de commande sur la tête
+            stand.getEquipment().setHelmet(new ItemStack(Material.COMMAND_BLOCK));
+
+            // Effet glowing
+            stand.setGlowing(true);
+
+            // Tags
+            stand.addScoreboardTag("chapter3_zeppelin_control");
+            stand.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            stand.getPersistentDataContainer().set(ZEPPELIN_CONTROL_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            stand.setPersistent(false);
+            stand.setVisibleByDefault(false);
+        });
+
+        // Créer le TextDisplay au-dessus
+        createZeppelinControlDisplay(world, loc);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus du panneau de contrôle
+     */
+    private void createZeppelinControlDisplay(World world, Location loc) {
+        Location displayLoc = loc.clone().add(0, 2.0, 0);
+
+        zeppelinControlDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                .append(Component.text("⚡ ", NamedTextColor.GOLD))
+                .append(Component.text("PANNEAU DE CONTRÔLE", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                .append(Component.text(" ⚡", NamedTextColor.GOLD))
+                .append(Component.newline())
+                .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                .append(Component.newline())
+                .append(Component.text("▶ Clic droit pour réparer", NamedTextColor.WHITE))
+                .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(150, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(1.5f, 1.5f, 1.5f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+
+            display.setViewRange(0.5f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_zeppelin_display");
+
+            display.setVisibleByDefault(false);
+        });
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour le panneau de contrôle
+     */
+    private void startZeppelinControlVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid()) {
+                    return;
+                }
+
+                Location controlLoc = zeppelinControlEntity.getLocation();
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(controlLoc.getWorld())) {
+                        hideZeppelinControlForPlayer(player);
+                        continue;
+                    }
+
+                    double distSq = player.getLocation().distanceSquared(controlLoc);
+                    boolean inRange = distSq <= 64 * 64;
+
+                    if (inRange) {
+                        boolean hasRepaired = hasPlayerRepairedZeppelin(player);
+                        updateZeppelinControlVisibilityForPlayer(player, hasRepaired);
+                    } else {
+                        hideZeppelinControlForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité du panneau de contrôle pour un joueur
+     */
+    private void updateZeppelinControlVisibilityForPlayer(Player player, boolean hasRepaired) {
+        if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid() ||
+            zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid()) {
+            return;
+        }
+
+        if (hasRepaired) {
+            // Le joueur a déjà réparé le Zeppelin
+            player.hideEntity(plugin, zeppelinControlEntity);
+            player.hideEntity(plugin, zeppelinControlDisplay);
+        } else {
+            // Montrer le panneau de contrôle
+            player.showEntity(plugin, zeppelinControlEntity);
+            player.showEntity(plugin, zeppelinControlDisplay);
+        }
+    }
+
+    /**
+     * Cache le panneau de contrôle pour un joueur
+     */
+    private void hideZeppelinControlForPlayer(Player player) {
+        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
+            player.hideEntity(plugin, zeppelinControlEntity);
+        }
+        if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
+            player.hideEntity(plugin, zeppelinControlDisplay);
+        }
+    }
+
+    /**
+     * Vérifie si le joueur a déjà réparé le Zeppelin
+     */
+    public boolean hasPlayerRepairedZeppelin(Player player) {
+        if (playersWhoRepairedZeppelin.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_8);
+        return progress >= 1;
+    }
+
+    /**
+     * Gère l'interaction avec le panneau de contrôle du Zeppelin
+     */
+    private void handleZeppelinControlInteraction(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si déjà réparé
+        if (hasPlayerRepairedZeppelin(player)) {
+            player.sendMessage("");
+            player.sendMessage("§e⚡ §fLe panneau de contrôle fonctionne parfaitement!");
+            player.sendMessage("§7Le Zeppelin est prêt à voler.");
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 1f, 1.5f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_3_8) {
+            player.sendMessage("");
+            player.sendMessage("§e⚡ §fUn panneau de contrôle endommagé...");
+            player.sendMessage("§7Les fils semblent déconnectés.");
+            player.sendMessage("§7(Progresse dans ton Journal pour débloquer cette quête)");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Ouvrir le puzzle de fils
+        player.sendMessage("");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("  §e§l⚡ PANNEAU DE CONTRÔLE ENDOMMAGÉ");
+        player.sendMessage("");
+        player.sendMessage("  §7Les fils du Zeppelin sont déconnectés!");
+        player.sendMessage("  §7Reconnecte-les pour réparer le système.");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("");
+
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1f, 1f);
+
+        // Ouvrir le GUI du puzzle après un court délai
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (player.isOnline()) {
+                    wirePuzzleListener.addPlayerInGame(player.getUniqueId());
+                    WirePuzzleGUI gui = new WirePuzzleGUI(plugin, player, Chapter3Systems.this);
+                    gui.open();
+                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1.5f);
+                }
+            }
+        }.runTaskLater(plugin, 30L);
+    }
+
+    /**
+     * Appelé quand le joueur a réparé le Zeppelin avec succès
+     */
+    public void onZeppelinRepaired(Player player) {
+        playersWhoRepairedZeppelin.add(player.getUniqueId());
+
+        // Incrémenter la progression de l'étape
+        journeyManager.incrementProgress(player, JourneyStep.StepType.REPAIR_ZEPPELIN, 1);
+
+        // Cacher le panneau de contrôle pour ce joueur
+        updateZeppelinControlVisibilityForPlayer(player, true);
+
+        // Effets supplémentaires
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.3);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+    }
+
     // ==================== EVENT HANDLERS ====================
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -1569,6 +1838,13 @@ public class Chapter3Systems implements Listener {
         if (entity.getScoreboardTags().contains("chapter3_village_survivor")) {
             event.setCancelled(true);
             handleSurvivorInteraction(player);
+            return;
+        }
+
+        // Interaction avec le panneau de contrôle du Zeppelin
+        if (entity.getScoreboardTags().contains("chapter3_zeppelin_control")) {
+            event.setCancelled(true);
+            handleZeppelinControlInteraction(player);
         }
     }
 
@@ -1581,7 +1857,8 @@ public class Chapter3Systems implements Listener {
         if (target.getScoreboardTags().contains("chapter3_forain") ||
             target.getScoreboardTags().contains("chapter3_lost_cat") ||
             target.getScoreboardTags().contains("chapter3_investigation_clue") ||
-            target.getScoreboardTags().contains("chapter3_village_survivor")) {
+            target.getScoreboardTags().contains("chapter3_village_survivor") ||
+            target.getScoreboardTags().contains("chapter3_zeppelin_control")) {
             event.setCancelled(true);
         }
     }
@@ -1592,7 +1869,8 @@ public class Chapter3Systems implements Listener {
         if (event.getEntity().getScoreboardTags().contains("chapter3_forain") ||
             event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
             event.getEntity().getScoreboardTags().contains("chapter3_investigation_clue") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_village_survivor")) {
+            event.getEntity().getScoreboardTags().contains("chapter3_village_survivor") ||
+            event.getEntity().getScoreboardTags().contains("chapter3_zeppelin_control")) {
             event.setCancelled(true);
         }
     }
@@ -1630,6 +1908,7 @@ public class Chapter3Systems implements Listener {
         playersWhoRescuedCat.remove(playerId);
         playerCluesFound.remove(playerId);
         playersWhoDefendedVillage.remove(playerId);
+        playersWhoRepairedZeppelin.remove(playerId);
 
         // Annuler l'événement de défense si actif
         VillageDefenseEvent defenseEvent = activeDefenseEvents.remove(playerId);
@@ -1813,6 +2092,14 @@ public class Chapter3Systems implements Listener {
             villageSurvivorDisplay.remove();
         }
 
+        // Nettoyer le panneau de contrôle du Zeppelin
+        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
+            zeppelinControlEntity.remove();
+        }
+        if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
+            zeppelinControlDisplay.remove();
+        }
+
         // Annuler tous les événements de défense actifs
         for (VillageDefenseEvent defenseEvent : activeDefenseEvents.values()) {
             if (defenseEvent.timerTask != null) {
@@ -1835,5 +2122,6 @@ public class Chapter3Systems implements Listener {
         playersWhoRescuedCat.clear();
         playerCluesFound.clear();
         playersWhoDefendedVillage.clear();
+        playersWhoRepairedZeppelin.clear();
     }
 }

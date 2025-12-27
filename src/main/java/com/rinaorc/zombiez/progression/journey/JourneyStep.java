@@ -121,6 +121,10 @@ public enum JourneyStep {
         "Défends le survivant - Coords: §b527, 90, 8994", StepType.DEFEND_VILLAGE, 1,
         700, 18, Material.SHIELD),
 
+    STEP_3_8(JourneyChapter.CHAPTER_3, 8, "Répare le Zeppelin",
+        "Monte à bord et répare - Coords: §b345, 148, 8907", StepType.REPAIR_ZEPPELIN, 1,
+        800, 20, Material.COMMAND_BLOCK),
+
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
     STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
@@ -417,6 +421,7 @@ public enum JourneyStep {
             case RESCUE_LOST_CAT -> current >= targetValue ? "✓ Chat sauvé!" : "Trouve le chat perdu";
             case INVESTIGATE_PATIENT_ZERO -> current >= targetValue ? "✓ Enquête terminée!" : current + "/4 indices trouvés";
             case DEFEND_VILLAGE -> current >= targetValue ? "✓ Village défendu!" : "Parle au survivant";
+            case REPAIR_ZEPPELIN -> current >= targetValue ? "✓ Zeppelin réparé!" : "Trouve le panneau de contrôle";
         };
     }
 
@@ -581,7 +586,10 @@ public enum JourneyStep {
         INVESTIGATE_PATIENT_ZERO("Enquête sur le Patient Zéro"),
 
         // Défense de zone
-        DEFEND_VILLAGE("Défends le village");
+        DEFEND_VILLAGE("Défends le village"),
+
+        // Réparation
+        REPAIR_ZEPPELIN("Répare le Zeppelin");
 
         private final String description;
 
