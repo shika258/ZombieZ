@@ -210,8 +210,9 @@ public class Chapter3Systems implements Listener {
         // Nettoyer les anciens NPCs
         cleanupOldEntities(world);
 
-        // Spawn le Forain
+        // Spawn le Forain et démarrer le respawn checker
         spawnForain(world);
+        startForainRespawnChecker();
 
         // Spawn le chat perdu
         spawnLostCat(world);
@@ -409,6 +410,34 @@ public class Chapter3Systems implements Listener {
             display.setPersistent(false);
             display.addScoreboardTag("chapter3_forain_display");
         });
+    }
+
+    /**
+     * Démarre le vérificateur de respawn du Forain
+     * Respawn le NPC s'il a disparu (chunk unload, etc.)
+     */
+    private void startForainRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Vérifier si le Forain existe toujours
+                if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
+                    // Respawn le Forain
+                    spawnForain(world);
+                    plugin.log(Level.FINE, "Forain respawné (entité invalide)");
+                }
+
+                // Vérifier le TextDisplay
+                if (forainDisplay == null || !forainDisplay.isValid()) {
+                    Location loc = FORAIN_LOCATION.clone();
+                    loc.setWorld(world);
+                    createForainDisplay(world, loc);
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 100L); // Vérifier toutes les 5 secondes
     }
 
     // ==================== CHAT PERDU (STEP 5) ====================
@@ -1887,29 +1916,46 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
+     * UN SEUL TextDisplay qui affiche:
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
+        StringBuilder text = new StringBuilder();
+        text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
+
         if (bossAlive && mineBossEntity != null && mineBossEntity.isValid()) {
-            // Boss vivant - cacher le display (le système ZombieZ gère l'affichage des HP)
-            display.text(Component.empty());
-            display.setViewRange(0f);
+            // Boss vivant - afficher les HP
+            if (mineBossEntity instanceof LivingEntity livingBoss) {
+                double currentHealth = livingBoss.getHealth();
+                double maxHealth = livingBoss.getAttribute(Attribute.MAX_HEALTH).getValue();
+                int healthPercent = (int) ((currentHealth / maxHealth) * 100);
+
+                // Couleur selon le pourcentage de vie
+                String healthColor;
+                if (healthPercent > 50) {
+                    healthColor = "§a"; // Vert
+                } else if (healthPercent > 25) {
+                    healthColor = "§e"; // Jaune
+                } else {
+                    healthColor = "§c"; // Rouge
+                }
+
+                text.append(healthColor).append("❤ ")
+                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+            }
         } else {
             // Boss mort - afficher countdown de respawn
-            display.setViewRange(1f);
-
-            StringBuilder text = new StringBuilder();
-            text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
-
             if (respawnSeconds > 0) {
                 text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
             } else {
                 text.append("§7En attente de spawn...");
             }
-
-            display.text(Component.text(text.toString()));
         }
+
+        display.text(Component.text(text.toString()));
     }
 
     /**
@@ -2117,6 +2163,10 @@ public class Chapter3Systems implements Listener {
         // Effets visuels
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 2, false, true));
         boss.setGlowing(true);
+
+        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
+        // On utilise le TextDisplay statique pour afficher les infos du boss
+        boss.setCustomNameVisible(false);
     }
 
     // ==================== EVENT HANDLERS ====================

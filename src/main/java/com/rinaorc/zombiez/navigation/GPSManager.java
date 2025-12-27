@@ -463,39 +463,46 @@ public class GPSManager implements Listener {
 
             // === METTRE À JOUR LA TRANSFORMATION (ROTATION DE LA FLÈCHE) ===
             if (arrowEntity instanceof ItemDisplay display) {
-                // La flèche spectrale (item) pointe par défaut vers +Y (vers le haut)
-                // On utilise rotationTo() pour créer la rotation qui pointe vers la destination
+                // L'item flèche spectrale dans ItemDisplay est affiché avec la pointe vers le HAUT par défaut
+                // On doit calculer la rotation pour la faire pointer HORIZONTALEMENT vers la destination
                 //
-                // Principe:
-                // 1. Calculer le vecteur direction normalisé vers la destination
-                // 2. Utiliser rotationTo() pour créer la rotation de +Y vers cette direction
-                // 3. Ajouter la rotation de 45° sur Z pour compenser l'orientation de l'item flèche
+                // Stratégie:
+                // 1. Calculer le yaw (rotation horizontale) vers la destination
+                // 2. Calculer le pitch (inclinaison verticale) vers la destination
+                // 3. Appliquer une rotation de base de -90° sur X pour mettre la flèche à l'horizontale
+                // 4. Puis appliquer le yaw sur Y et le pitch sur X
 
-                // Vecteur direction vers la destination (déjà calculé ci-dessus)
-                org.joml.Vector3f directionVec;
+                // Direction vers la destination
+                double dirX, dirY, dirZ;
                 if (distance > 0.1) {
-                    directionVec = new org.joml.Vector3f(
-                        (float) toDestination.getX(),
-                        (float) toDestination.getY(),
-                        (float) toDestination.getZ()
-                    ).normalize();
+                    dirX = toDestination.getX();
+                    dirY = toDestination.getY();
+                    dirZ = toDestination.getZ();
                 } else {
                     // Si très proche, pointer vers l'avant du joueur
                     Vector playerDir = player.getLocation().getDirection();
-                    directionVec = new org.joml.Vector3f(
-                        (float) playerDir.getX(),
-                        (float) playerDir.getY(),
-                        (float) playerDir.getZ()
-                    ).normalize();
+                    dirX = playerDir.getX();
+                    dirY = playerDir.getY();
+                    dirZ = playerDir.getZ();
                 }
 
-                // Rotation qui transforme +Y (direction par défaut de la flèche) vers la destination
-                org.joml.Vector3f upVector = new org.joml.Vector3f(0, 1, 0);
-                org.joml.Quaternionf targetRotation = new org.joml.Quaternionf().rotationTo(upVector, directionVec);
+                // Calculer le yaw (angle horizontal) - rotation autour de Y
+                // atan2(-x, z) donne l'angle en radians depuis +Z vers la direction
+                double yaw = Math.atan2(-dirX, dirZ);
 
-                // Ajouter la rotation de 45° sur l'axe local pour compenser l'orientation de l'item flèche
-                // (l'item flèche dans Minecraft est tourné de 45° dans son modèle)
-                targetRotation.rotateLocalZ((float) Math.toRadians(45));
+                // Calculer le pitch (angle vertical) - rotation autour de X
+                double horizontalDistance = Math.sqrt(dirX * dirX + dirZ * dirZ);
+                double pitch = Math.atan2(-dirY, horizontalDistance);
+
+                // Construire la rotation:
+                // Les rotations JOML sont post-multipliées, donc l'ordre dans le code = ordre d'application
+                // 1. Rotation de base: -90° sur X pour passer de "pointe vers haut" à "pointe vers avant (+Z)"
+                // 2. Appliquer le pitch (inclinaison verticale)
+                // 3. Appliquer le yaw (rotation horizontale autour de Y)
+                org.joml.Quaternionf targetRotation = new org.joml.Quaternionf()
+                    .rotateX((float) Math.toRadians(-90)) // D'abord mettre la flèche à l'horizontale (pointe vers +Z)
+                    .rotateX((float) pitch)               // Puis l'inclinaison vers le haut/bas
+                    .rotateY((float) -yaw);               // Enfin la rotation horizontale (inversée pour matcher Minecraft)
 
                 // Interpoler la rotation pour fluidité
                 if (currentRotation == null) {

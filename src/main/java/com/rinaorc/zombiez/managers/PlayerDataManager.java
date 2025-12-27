@@ -207,6 +207,29 @@ public class PlayerDataManager {
             data.setFirstJoin(firstJoin.toInstant());
         }
 
+        // Charger les données Journey (avec fallback pour compatibilité)
+        try {
+            int journeyChapter = rs.getInt("journey_chapter");
+            int journeyStep = rs.getInt("journey_step");
+            String completedStepsStr = rs.getString("journey_completed_steps");
+            String completedChaptersStr = rs.getString("journey_completed_chapters");
+            String unlockedGatesStr = rs.getString("journey_unlocked_gates");
+            String stepProgressStr = rs.getString("journey_step_progress");
+
+            // Utiliser loadJourneyData pour charger toutes les données d'un coup
+            data.loadJourneyData(
+                journeyChapter > 0 ? journeyChapter : 1,
+                journeyStep > 0 ? journeyStep : 1,
+                deserializeStringSet(completedStepsStr),
+                deserializeIntegerSet(completedChaptersStr),
+                deserializeStringSet(unlockedGatesStr),
+                deserializeStepProgress(stepProgressStr)
+            );
+        } catch (SQLException e) {
+            // Colonnes pas encore migrées - utiliser les valeurs par défaut
+            plugin.log(Level.FINE, "Journey columns not found for " + uuid + ", using defaults");
+        }
+
         data.setLastLogin(Instant.now());
         data.startSession();
         data.clearDirty(); // Données fraîches de la BDD
@@ -221,8 +244,10 @@ public class PlayerDataManager {
         String sql = """
                 INSERT INTO %s (uuid, name, level, xp, prestige, points, gems, kills, deaths,
                                playtime, current_zone, max_zone, current_checkpoint, vip_rank,
-                               first_join, last_login)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               first_join, last_login,
+                               journey_chapter, journey_step, journey_completed_steps,
+                               journey_completed_chapters, journey_unlocked_gates, journey_step_progress)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.formatted(db.table("players"));
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -242,6 +267,14 @@ public class PlayerDataManager {
             stmt.setString(14, data.getVipRank());
             stmt.setTimestamp(15, Timestamp.from(data.getFirstJoin()));
             stmt.setTimestamp(16, Timestamp.from(Instant.now()));
+
+            // Journey data (defaults for new players)
+            stmt.setInt(17, data.getCurrentJourneyChapter());
+            stmt.setInt(18, data.getCurrentJourneyStep());
+            stmt.setString(19, serializeStringSet(data.getCompletedJourneySteps()));
+            stmt.setString(20, serializeIntegerSet(data.getCompletedJourneyChapters()));
+            stmt.setString(21, serializeStringSet(data.getUnlockedJourneyGates()));
+            stmt.setString(22, serializeStepProgress(data.getJourneyStepProgress()));
 
             stmt.executeUpdate();
         }
@@ -344,7 +377,9 @@ public class PlayerDataManager {
                     UPDATE %s SET
                         name = ?, level = ?, xp = ?, prestige = ?, points = ?, gems = ?,
                         kills = ?, deaths = ?, playtime = ?, current_zone = ?, max_zone = ?,
-                        current_checkpoint = ?, vip_rank = ?, vip_expiry = ?, last_login = ?, last_logout = ?
+                        current_checkpoint = ?, vip_rank = ?, vip_expiry = ?, last_login = ?, last_logout = ?,
+                        journey_chapter = ?, journey_step = ?, journey_completed_steps = ?,
+                        journey_completed_chapters = ?, journey_unlocked_gates = ?, journey_step_progress = ?
                     WHERE uuid = ?
                     """.formatted(db.table("players"));
 
@@ -365,13 +400,94 @@ public class PlayerDataManager {
                 stmt.setTimestamp(14, data.getVipExpiry() != null ? Timestamp.from(data.getVipExpiry()) : null);
                 stmt.setTimestamp(15, data.getLastLogin() != null ? Timestamp.from(data.getLastLogin()) : null);
                 stmt.setTimestamp(16, data.getLastLogout() != null ? Timestamp.from(data.getLastLogout()) : null);
-                stmt.setString(17, data.getUuid().toString());
+
+                // Journey data
+                stmt.setInt(17, data.getCurrentJourneyChapter());
+                stmt.setInt(18, data.getCurrentJourneyStep());
+                stmt.setString(19, serializeStringSet(data.getCompletedJourneySteps()));
+                stmt.setString(20, serializeIntegerSet(data.getCompletedJourneyChapters()));
+                stmt.setString(21, serializeStringSet(data.getUnlockedJourneyGates()));
+                stmt.setString(22, serializeStepProgress(data.getJourneyStepProgress()));
+
+                stmt.setString(23, data.getUuid().toString());
 
                 stmt.executeUpdate();
             }
         } catch (SQLException e) {
             plugin.log(Level.SEVERE, "§cErreur sauvegarde joueur " + data.getUuid() + ": " + e.getMessage());
         }
+    }
+
+    // ==================== SERIALIZATION HELPERS ====================
+
+    /**
+     * Sérialise un Set<String> en chaîne séparée par des virgules
+     */
+    private String serializeStringSet(Set<String> set) {
+        if (set == null || set.isEmpty()) return "";
+        return String.join(",", set);
+    }
+
+    /**
+     * Désérialise une chaîne séparée par des virgules en Set<String>
+     */
+    private Set<String> deserializeStringSet(String str) {
+        if (str == null || str.isEmpty()) return new HashSet<>();
+        return new HashSet<>(Arrays.asList(str.split(",")));
+    }
+
+    /**
+     * Sérialise un Set<Integer> en chaîne séparée par des virgules
+     */
+    private String serializeIntegerSet(Set<Integer> set) {
+        if (set == null || set.isEmpty()) return "";
+        return set.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("");
+    }
+
+    /**
+     * Désérialise une chaîne séparée par des virgules en Set<Integer>
+     */
+    private Set<Integer> deserializeIntegerSet(String str) {
+        if (str == null || str.isEmpty()) return new HashSet<>();
+        Set<Integer> result = new HashSet<>();
+        for (String s : str.split(",")) {
+            try {
+                result.add(Integer.parseInt(s.trim()));
+            } catch (NumberFormatException ignored) {}
+        }
+        return result;
+    }
+
+    /**
+     * Sérialise un Map<String, Integer> en chaîne (format: key=value,key=value)
+     */
+    private String serializeStepProgress(Map<String, Integer> map) {
+        if (map == null || map.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (Map.Entry<String, Integer> entry : map.entrySet()) {
+            if (!first) sb.append(",");
+            sb.append(entry.getKey()).append("=").append(entry.getValue());
+            first = false;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Désérialise une chaîne en Map<String, Integer>
+     */
+    private Map<String, Integer> deserializeStepProgress(String str) {
+        if (str == null || str.isEmpty()) return new HashMap<>();
+        Map<String, Integer> result = new HashMap<>();
+        for (String pair : str.split(",")) {
+            String[] parts = pair.split("=");
+            if (parts.length == 2) {
+                try {
+                    result.put(parts[0].trim(), Integer.parseInt(parts[1].trim()));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return result;
     }
 
     /**

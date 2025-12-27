@@ -236,33 +236,47 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
-     * NOTE: Quand le boss est vivant, on CACHE COMPLÈTEMENT le display statique
-     * car le système ZombieZ affiche déjà les HP via le customName de l'entité.
-     * Le display statique n'apparaît que pour le countdown de respawn.
+     * UN SEUL TextDisplay qui affiche:
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
+        World world = display.getWorld();
+        StringBuilder text = new StringBuilder();
+        text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
+
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - CACHER COMPLÈTEMENT le display
-            // (le système ZombieZ gère l'affichage des HP via le customName du zombie)
-            display.text(Component.empty());
-            display.setViewRange(0f); // Rendre invisible
+            // Boss vivant - afficher les HP
+            if (manorBossEntity instanceof LivingEntity livingBoss) {
+                double currentHealth = livingBoss.getHealth();
+                double maxHealth = livingBoss.getAttribute(Attribute.MAX_HEALTH).getValue();
+                int healthPercent = (int) ((currentHealth / maxHealth) * 100);
+
+                // Couleur selon le pourcentage de vie
+                String healthColor;
+                if (healthPercent > 50) {
+                    healthColor = "§a"; // Vert
+                } else if (healthPercent > 25) {
+                    healthColor = "§e"; // Jaune
+                } else {
+                    healthColor = "§c"; // Rouge
+                }
+
+                text.append(healthColor).append("❤ ")
+                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+            }
         } else {
             // Boss mort - afficher countdown de respawn
-            display.setViewRange(100f); // Rendre visible à nouveau
-
-            StringBuilder text = new StringBuilder();
-            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
-
             if (respawnSeconds > 0) {
                 text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
             } else {
                 text.append("§7En attente de spawn...");
             }
-
-            display.text(Component.text(text.toString()));
         }
+
+        display.text(Component.text(text.toString()));
     }
 
     /**
@@ -459,7 +473,7 @@ public class Chapter2Systems implements Listener {
 
         Location displayLoc = minerLoc.clone().add(0, MINER_DISPLAY_HEIGHT, 0);
 
-        // TextDisplay "Mineur Blessé" (invisible par défaut, montré aux joueurs qui n'ont pas soigné)
+        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient initialement)
         minerDisplayInjured = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -478,11 +492,11 @@ public class Chapter2Systems implements Listener {
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             entity.setPersistent(false);
-            // INVISIBLE PAR DÉFAUT - on contrôle la visibilité per-player
-            entity.setVisibleByDefault(false);
+            // VISIBLE PAR DÉFAUT - tous les joueurs voient "Blessé" initialement
+            entity.setVisibleByDefault(true);
         });
 
-        // TextDisplay "Mineur Soigné" (invisible par défaut, montré aux joueurs qui ont soigné)
+        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux joueurs qui ont soigné)
         minerDisplayHealed = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -501,7 +515,7 @@ public class Chapter2Systems implements Listener {
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             entity.setPersistent(false);
-            // INVISIBLE PAR DÉFAUT - on contrôle la visibilité per-player
+            // INVISIBLE PAR DÉFAUT - seulement visible pour ceux qui ont soigné
             entity.setVisibleByDefault(false);
         });
 
@@ -512,7 +526,8 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Initialise la visibilité des TextDisplays pour tous les joueurs en ligne.
-     * Appelé immédiatement après le spawn pour éviter le délai de visibilité.
+     * Le display "Blessé" est visible par défaut, on doit juste basculer vers "Soigné"
+     * pour les joueurs qui ont déjà soigné le mineur.
      */
     private void initializeMinerDisplayVisibility() {
         if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
@@ -529,7 +544,11 @@ public class Chapter2Systems implements Listener {
 
             if (inRange) {
                 boolean hasHealed = hasPlayerHealedMiner(player);
-                updateMinerDisplayVisibilityForPlayer(player, hasHealed);
+                // Seuls les joueurs qui ont soigné ont besoin d'une mise à jour
+                // (pour voir "Soigné" au lieu de "Blessé" visible par défaut)
+                if (hasHealed) {
+                    updateMinerDisplayVisibilityForPlayer(player, true);
+                }
             }
         }
     }
@@ -1182,6 +1201,10 @@ public class Chapter2Systems implements Listener {
         // Effets visuels
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
         boss.setGlowing(true);
+
+        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
+        // On utilise le TextDisplay statique pour afficher les infos du boss
+        boss.setCustomNameVisible(false);
     }
 
     /**
@@ -1326,19 +1349,18 @@ public class Chapter2Systems implements Listener {
 
                 Location minerLoc = injuredMinerEntity.getLocation();
 
-                // Mettre à jour la visibilité pour chaque joueur
+                // Mettre à jour la visibilité pour chaque joueur à portée
+                // Note: Minecraft gère automatiquement le culling par distance, pas besoin de cacher manuellement
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
                                       player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
 
                     if (inRange) {
-                        // Joueur à portée: montrer le bon display selon son état
+                        // Joueur à portée: basculer entre "Blessé" et "Soigné" selon son état
                         boolean hasHealed = hasPlayerHealedMiner(player);
                         updateMinerDisplayVisibilityForPlayer(player, hasHealed);
-                    } else {
-                        // Joueur hors de portée: cacher les deux displays
-                        hideBothMinerDisplaysForPlayer(player);
                     }
+                    // Pas besoin de cacher quand hors de portée - le distance culling de Minecraft s'en charge
                 }
             }
         }.runTaskTimer(plugin, 20L, 10L); // Toutes les 10 ticks (0.5 sec)

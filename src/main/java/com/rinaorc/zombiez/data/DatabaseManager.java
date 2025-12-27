@@ -419,7 +419,14 @@ public class DatabaseManager {
         String[] columnsToAdd = {
             "achievement_count INT DEFAULT 0",
             "boss_kills BIGINT DEFAULT 0",
-            "best_kill_streak INT DEFAULT 0"
+            "best_kill_streak INT DEFAULT 0",
+            // Journey progression columns
+            "journey_chapter INT DEFAULT 1",
+            "journey_step INT DEFAULT 1",
+            "journey_completed_steps TEXT",
+            "journey_completed_chapters TEXT",
+            "journey_unlocked_gates TEXT",
+            "journey_step_progress TEXT"
         };
 
         for (String columnDef : columnsToAdd) {

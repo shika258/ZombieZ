@@ -78,6 +78,8 @@ public class ZombieAIManager {
             case SKELETON -> new SkeletonZombieAI(plugin, zombie, type, level);
             case PACK -> new PackZombieAI(plugin, zombie, type, level);
             case ILLAGER -> new IllagerZombieAI(plugin, zombie, type, level);
+            case EVENT -> new BasicZombieAI(plugin, zombie, type, level); // Zombies d'événements (Horde, etc.)
+            case EVENT_BOSS -> new WanderingBossAI(plugin, zombie, type, level); // Boss d'événements (Wandering Boss)
         };
     }
 
