@@ -401,6 +401,34 @@ public class Chapter2Systems implements Listener {
             // INVISIBLE PAR DÉFAUT - on contrôle la visibilité per-player
             entity.setVisibleByDefault(false);
         });
+
+        // IMPORTANT: Initialiser immédiatement la visibilité pour tous les joueurs en ligne
+        // Sans cet appel, les displays restent invisibles jusqu'au prochain tick du updater
+        initializeMinerDisplayVisibility();
+    }
+
+    /**
+     * Initialise la visibilité des TextDisplays pour tous les joueurs en ligne.
+     * Appelé immédiatement après le spawn pour éviter le délai de visibilité.
+     */
+    private void initializeMinerDisplayVisibility() {
+        if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
+            minerDisplayHealed == null || !minerDisplayHealed.isValid() ||
+            injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
+            return;
+        }
+
+        Location minerLoc = injuredMinerEntity.getLocation();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
+                              player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
+
+            if (inRange) {
+                boolean hasHealed = hasPlayerHealedMiner(player);
+                updateMinerDisplayVisibilityForPlayer(player, hasHealed);
+            }
+        }
     }
 
     /**
