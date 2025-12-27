@@ -117,6 +117,10 @@ public enum JourneyStep {
         "Explore la maison - Coords: §b875, 88, 8944", StepType.INVESTIGATE_PATIENT_ZERO, 4,
         600, 15, Material.WRITABLE_BOOK),
 
+    STEP_3_7(JourneyChapter.CHAPTER_3, 7, "Protège le Village",
+        "Défends le survivant - Coords: §b750, 88, 8800", StepType.DEFEND_VILLAGE, 1,
+        700, 18, Material.SHIELD),
+
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
     STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
@@ -412,6 +416,7 @@ public enum JourneyStep {
             case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
             case RESCUE_LOST_CAT -> current >= targetValue ? "✓ Chat sauvé!" : "Trouve le chat perdu";
             case INVESTIGATE_PATIENT_ZERO -> current >= targetValue ? "✓ Enquête terminée!" : current + "/4 indices trouvés";
+            case DEFEND_VILLAGE -> current >= targetValue ? "✓ Village défendu!" : "Parle au survivant";
         };
     }
 
@@ -573,7 +578,10 @@ public enum JourneyStep {
         RESCUE_LOST_CAT("Sauve le chat perdu"),
 
         // Enquêtes
-        INVESTIGATE_PATIENT_ZERO("Enquête sur le Patient Zéro");
+        INVESTIGATE_PATIENT_ZERO("Enquête sur le Patient Zéro"),
+
+        // Défense de zone
+        DEFEND_VILLAGE("Défends le village");
 
         private final String description;
 
