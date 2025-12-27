@@ -775,6 +775,10 @@ public class JourneyManager {
             if (firstStep != null) {
                 currentStepCache.put(uuid, firstStep);
 
+                // Déclencher les effets spéciaux de la première étape du nouveau chapitre
+                // (ex: donner un oeuf de pet pour STEP_3_1)
+                triggerStepStartEffects(player, firstStep);
+
                 // Vérifier si la première étape du nouveau chapitre est déjà complétée
                 checkCurrentStepCompletion(player, firstStep);
             }
