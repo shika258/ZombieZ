@@ -34,10 +34,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Layout symétrique (54 slots = 6 lignes de 9):
  * ┌─────────────────────────────────┐
  * │ [▪][▪][▪][▪][ℹ][▪][▪][▪][▪]    │ Ligne 0: Bordure + Info
- * │ [▪][·][①][②][③][④][⑤][·][▪]    │ Ligne 1: Refuges 1-5
- * │ [▪][·][⑥][⑦][⑧][⑨][⑩][·][▪]    │ Ligne 2: Refuges 6-10
- * │ [▪][·][·][·][⚓][·][·][·][▪]    │ Ligne 3: Checkpoint actuel
- * │ [▪][·][·][·][·][·][·][·][▪]    │ Ligne 4: Espace
+ * │ [▪][·][⓪][①][②][③][④][·][▪]    │ Ligne 1: Refuges 0-4
+ * │ [▪][·][⑤][⑥][⑦][⑧][⑨][·][▪]    │ Ligne 2: Refuges 5-9
+ * │ [▪][·][·][·][⑩][·][·][·][▪]    │ Ligne 3: Refuge 10 (centré)
+ * │ [▪][·][·][·][⚓][·][·][·][▪]    │ Ligne 4: Checkpoint actuel
  * │ [▪][▪][▪][▪][✖][▪][▪][▪][▪]    │ Ligne 5: Bordure + Fermer
  * └─────────────────────────────────┘
  */
@@ -46,21 +46,22 @@ public class RefugeGUI implements InventoryHolder {
     private static final int SIZE = 54;
     private static final String TITLE = "§8§l🏠 Refuges";
 
-    // Slots pour les refuges (2 lignes de 5, parfaitement centrées)
-    // Ligne 1: slots 11, 12, 13, 14, 15 (refuges 1-5)
-    // Ligne 2: slots 20, 21, 22, 23, 24 (refuges 6-10)
-    private static final int[] REFUGE_SLOTS = {11, 12, 13, 14, 15, 20, 21, 22, 23, 24};
+    // Slots pour les refuges (3 lignes: 5 + 5 + 1 centré)
+    // Ligne 1: slots 11, 12, 13, 14, 15 (refuges 0-4)
+    // Ligne 2: slots 20, 21, 22, 23, 24 (refuges 5-9)
+    // Ligne 3: slot 31 centré (refuge 10)
+    private static final int[] REFUGE_SLOTS = {11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 31};
 
     // Slots spéciaux (tous centrés sur la colonne 4)
     private static final int SLOT_INFO = 4;
-    private static final int SLOT_CURRENT_CHECKPOINT = 31;
+    private static final int SLOT_CURRENT_CHECKPOINT = 40; // Déplacé en ligne 4
     private static final int SLOT_CLOSE = 49;
 
     // Bordures latérales (colonne 0 et 8)
     private static final int[] SIDE_BORDER_SLOTS = {9, 17, 18, 26, 27, 35, 36, 44};
 
-    // Décoration intérieure (colonnes 1 et 7)
-    private static final int[] INNER_DECOR_SLOTS = {10, 16, 19, 25, 28, 29, 30, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+    // Décoration intérieure (colonnes 1 et 7, plus les espaces autour du refuge 10)
+    private static final int[] INNER_DECOR_SLOTS = {10, 16, 19, 25, 28, 29, 30, 32, 33, 34, 37, 38, 39, 41, 42, 43};
 
     private final ZombieZPlugin plugin;
     private final Player player;
@@ -292,8 +293,9 @@ public class RefugeGUI implements InventoryHolder {
     }
 
     private String getZoneRange(int refugeId) {
-        // Les refuges correspondent aux zones: 1→4-5, 2→9-10, etc.
+        // Les refuges correspondent aux zones
         return switch (refugeId) {
+            case 0 -> "Spawn";
             case 1 -> "4-5";
             case 2 -> "9-10";
             case 3 -> "14-15";
@@ -311,7 +313,8 @@ public class RefugeGUI implements InventoryHolder {
     private int getUnlockedRefugesCount() {
         if (playerData == null) return 0;
         int currentCheckpoint = playerData.getCurrentCheckpoint().get();
-        return Math.min(currentCheckpoint, 10);
+        // +1 car le refuge 0 (Bastion du Réveil) est toujours débloqué
+        return Math.min(currentCheckpoint + 1, 11);
     }
 
     public void open() {

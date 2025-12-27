@@ -152,6 +152,10 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             villager.addScoreboardTag("convoy_survivor");
             villager.addScoreboardTag("event_" + id);
             villager.addScoreboardTag("no_trading"); // Tag pour empêcher le trade
+            villager.addScoreboardTag("dynamic_event_entity"); // Tag pour cleanup au redémarrage
+
+            // Ne pas persister au reboot (évite les entités orphelines)
+            villager.setPersistent(false);
 
             survivors.add(villager);
 
@@ -200,8 +204,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
             ));
             updateHealthDisplayText(d, villager);
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             d.addScoreboardTag("dynamic_event_entity");
+            d.setPersistent(false);
         });
 
         healthDisplays.put(villager, display);
@@ -256,8 +261,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             d.addScoreboardTag("dynamic_event_entity");
+            d.setPersistent(false);
         });
 
         // Timer
@@ -275,8 +281,9 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             d.addScoreboardTag("dynamic_event_entity");
+            d.setPersistent(false);
         });
     }
 
@@ -487,6 +494,10 @@ public class SurvivorConvoyEvent extends DynamicEvent {
                 zomb.addScoreboardTag("zombiez_mob");
                 zomb.addScoreboardTag("event_" + id);
                 zomb.addScoreboardTag("survivor_attacker");
+                zomb.addScoreboardTag("dynamic_event_entity"); // Tag pour cleanup au redémarrage
+
+                // Ne pas persister au reboot
+                zomb.setPersistent(false);
 
                 // Metadata pour le système ZombieZ
                 zomb.setMetadata("zombiez_type", new org.bukkit.metadata.FixedMetadataValue(plugin, "EVENT_ZOMBIE"));

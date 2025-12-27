@@ -186,6 +186,10 @@ public class WanderingBossEvent extends DynamicEvent {
         // Marquer comme boss d'événement
         boss.addScoreboardTag("event_boss");
         boss.addScoreboardTag("event_" + id);
+        boss.addScoreboardTag("dynamic_event_entity"); // Tag pour cleanup au redémarrage
+
+        // Ne pas persister au reboot (évite les entités orphelines)
+        boss.setPersistent(false);
 
         // Effet de spawn
         world.playSound(location, Sound.ENTITY_WITHER_SPAWN, 2f, 0.7f);

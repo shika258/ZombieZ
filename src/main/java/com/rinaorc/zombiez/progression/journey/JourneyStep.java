@@ -105,13 +105,33 @@ public enum JourneyStep {
         "Centième victime!", StepType.TOTAL_KILLS, 100,
         300, 8, Material.ZOMBIE_HEAD),
 
-    STEP_3_4(JourneyChapter.CHAPTER_3, 4, "Atteins la Zone 3",
-        "Plus loin encore", StepType.REACH_ZONE, 3,
-        400, 10, Material.FILLED_MAP),
+    STEP_3_4(JourneyChapter.CHAPTER_3, 4, "L'Énigme du Forain",
+        "Résous le puzzle - Coords: §b322, 93, 9201", StepType.SOLVE_CIRCUS_PUZZLE, 1,
+        400, 10, Material.FIREWORK_ROCKET),
 
-    STEP_3_5(JourneyChapter.CHAPTER_3, 5, "Atteins le niveau 15",
-        "Les talents t'attendent", StepType.LEVEL, 15,
-        500, 12, Material.ENCHANTED_BOOK),
+    STEP_3_5(JourneyChapter.CHAPTER_3, 5, "Sauve le chat perdu",
+        "Trouve le chat - Coords: §b1025, 120, 9136", StepType.RESCUE_LOST_CAT, 1,
+        500, 12, Material.STRING),
+
+    STEP_3_6(JourneyChapter.CHAPTER_3, 6, "L'Enquête du Patient Zéro",
+        "Explore la maison - Coords: §b875, 88, 8944", StepType.INVESTIGATE_PATIENT_ZERO, 4,
+        600, 15, Material.WRITABLE_BOOK),
+
+    STEP_3_7(JourneyChapter.CHAPTER_3, 7, "Protège le Village",
+        "Défends le survivant - Coords: §b527, 90, 8994", StepType.DEFEND_VILLAGE, 1,
+        700, 18, Material.SHIELD),
+
+    STEP_3_8(JourneyChapter.CHAPTER_3, 8, "Répare le Zeppelin",
+        "Monte à bord et répare - Coords: §b345, 148, 8907", StepType.REPAIR_ZEPPELIN, 1,
+        800, 20, Material.COMMAND_BLOCK),
+
+    STEP_3_9(JourneyChapter.CHAPTER_3, 9, "Maîtrise ta Classe",
+        "Atteins niveau 5 et active ton 2ème talent", StepType.CLASS_MASTERY, 2,
+        900, 22, Material.ENCHANTING_TABLE),
+
+    STEP_3_10(JourneyChapter.CHAPTER_3, 10, "Tue le Seigneur des Profondeurs",
+        "Mine abandonnée: §b1063, 76, 9127", StepType.KILL_MINE_BOSS, 1,
+        1000, 25, Material.DRAGON_HEAD),
 
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
@@ -399,12 +419,23 @@ public enum JourneyStep {
             case COLLECT_SUPPLY_CRATES -> current + "/" + targetValue + " caisses récupérées";
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
+            case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
                 else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
                 else yield "0/2 - Ouvre un oeuf /pet";
             }
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
+            case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
+            case RESCUE_LOST_CAT -> current >= targetValue ? "✓ Chat sauvé!" : "Trouve le chat perdu";
+            case INVESTIGATE_PATIENT_ZERO -> current >= targetValue ? "✓ Enquête terminée!" : current + "/4 indices trouvés";
+            case DEFEND_VILLAGE -> current >= targetValue ? "✓ Village défendu!" : "Parle au survivant";
+            case REPAIR_ZEPPELIN -> current >= targetValue ? "✓ Zeppelin réparé!" : "Trouve le panneau de contrôle";
+            case CLASS_MASTERY -> {
+                if (current >= targetValue) yield "✓ Classe maîtrisée!";
+                else if (current == 1) yield "1/2 - Active ton 2ème talent";
+                else yield "0/2 - Atteins niveau 5 de classe";
+            }
         };
     }
 
@@ -552,12 +583,31 @@ public enum JourneyStep {
 
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir"),
+        KILL_MINE_BOSS("Tue le boss de la mine"),
 
         // Pets
         OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
 
         // Refuges
-        ACTIVATE_REFUGE_BEACON("Active un beacon de refuge");
+        ACTIVATE_REFUGE_BEACON("Active un beacon de refuge"),
+
+        // Mini-jeux / Puzzles
+        SOLVE_CIRCUS_PUZZLE("Résous le puzzle du cirque"),
+
+        // Sauvetage
+        RESCUE_LOST_CAT("Sauve le chat perdu"),
+
+        // Enquêtes
+        INVESTIGATE_PATIENT_ZERO("Enquête sur le Patient Zéro"),
+
+        // Défense de zone
+        DEFEND_VILLAGE("Défends le village"),
+
+        // Réparation
+        REPAIR_ZEPPELIN("Répare le Zeppelin"),
+
+        // Maîtrise de classe
+        CLASS_MASTERY("Maîtrise ta classe");
 
         private final String description;
 

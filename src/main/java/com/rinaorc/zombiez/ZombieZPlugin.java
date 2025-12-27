@@ -223,6 +223,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems chapter3Systems;
 
     private com.rinaorc.zombiez.navigation.GPSManager gpsManager;
 
@@ -561,6 +563,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Chapter 2 Systems - NPCs, Zombies Incendiés, Boss du Manoir
         chapter2Systems = new com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems(this);
+
+        // Chapter 3 Systems - NPC Forain et puzzle Memory Game
+        chapter3Systems = new com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems(this);
 
         // GPS Manager - Navigation vers les objectifs du Journey
         gpsManager = new com.rinaorc.zombiez.navigation.GPSManager(this);
