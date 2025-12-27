@@ -1384,7 +1384,7 @@ public class Chapter3Systems implements Listener {
         if (zombieManager != null) {
             try {
                 // Utiliser un type de zombie basique
-                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.BASIC, loc, 8);
+                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WALKER, loc, 8);
                 Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
                 if (entity != null) {
                     entity.addScoreboardTag("chapter3_defense_zombie");
@@ -2005,10 +2005,12 @@ public class Chapter3Systems implements Listener {
         }
 
         // Heal partiel au retour (5%)
-        double currentHealth = mineBossEntity.getHealth();
-        double maxHealth = mineBossEntity.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double healAmount = maxHealth * 0.05;
-        mineBossEntity.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+        if (mineBossEntity instanceof org.bukkit.entity.LivingEntity livingBoss) {
+            double currentHealth = livingBoss.getHealth();
+            double maxHealth = livingBoss.getAttribute(Attribute.MAX_HEALTH).getValue();
+            double healAmount = maxHealth * 0.05;
+            livingBoss.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+        }
 
         // Message aux joueurs proches
         for (Player player : world.getNearbyEntities(spawnLoc, 50, 30, 50).stream()

@@ -364,10 +364,12 @@ public class Chapter2Systems implements Listener {
         }
 
         // Effet de régénération partielle au retour (récompense pour le leash)
-        double currentHealth = manorBossEntity.getHealth();
-        double maxHealth = manorBossEntity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
-        double healAmount = maxHealth * 0.05; // 5% de heal
-        manorBossEntity.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+        if (manorBossEntity instanceof org.bukkit.entity.LivingEntity livingBoss) {
+            double currentHealth = livingBoss.getHealth();
+            double maxHealth = livingBoss.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+            double healAmount = maxHealth * 0.05; // 5% de heal
+            livingBoss.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+        }
 
         // Message aux joueurs proches
         for (Player player : world.getNearbyEntities(spawnLoc, 50, 30, 50).stream()
