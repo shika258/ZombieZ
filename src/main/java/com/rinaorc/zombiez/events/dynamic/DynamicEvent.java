@@ -433,6 +433,10 @@ public abstract class DynamicEvent {
                         plugin.getJourneyListener().onEventParticipation(player, eventsCompleted);
                     }
 
+                    // ============ TRACKER MISSIONS: ÉVÉNEMENTS ============
+                    plugin.getMissionManager().updateProgress(player,
+                        com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EVENTS_PARTICIPATED, 1);
+
                     // Tracking spécifique selon le type d'événement
                     if (type == DynamicEventType.HORDE_INVASION) {
                         playerData.incrementStat("hordes_completed");

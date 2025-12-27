@@ -32,8 +32,16 @@ public class MissionManager {
     private static final int WEEKLY_MISSION_COUNT = 21;
     private static final LocalTime DAILY_RESET_TIME = LocalTime.of(0, 0);
     private static final DayOfWeek WEEKLY_RESET_DAY = DayOfWeek.MONDAY;
-    
+
     private final Random random = new Random();
+
+    // ============ TRACKING POUR NUITS SURVÉCUES ET REFUGES VISITÉS ============
+    // Joueurs en vie à la nuit tombante (pour tracker les nuits survécues)
+    private final Set<UUID> playersAliveAtNightfall = ConcurrentHashMap.newKeySet();
+    // Était-ce la nuit au dernier check? (pour détecter la transition nuit -> jour)
+    private boolean wasNight = false;
+    // Refuges visités par joueur (pour éviter de re-tracker le même refuge)
+    private final Map<UUID, Set<Integer>> visitedRefuges = new ConcurrentHashMap<>();
 
     public MissionManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -1059,6 +1067,12 @@ public class MissionManager {
         
         // Tracker achievement
         plugin.getAchievementManager().incrementProgress(player, "mission_master", 1);
+
+        // ============ TRACKER MISSIONS: MISSIONS JOURNALIÈRES COMPLÉTÉES ============
+        // Tracker uniquement les missions journalières (pas les hebdomadaires)
+        if (mission.getType() == MissionType.DAILY) {
+            updateProgress(player, MissionTracker.DAILY_MISSIONS_COMPLETED, 1);
+        }
     }
 
     /**
@@ -1119,24 +1133,83 @@ public class MissionManager {
         new BukkitRunnable() {
             private LocalDate lastDailyReset = LocalDate.now();
             private LocalDate lastWeeklyReset = LocalDate.now();
-            
+
             @Override
             public void run() {
                 LocalDateTime now = LocalDateTime.now();
                 LocalDate today = now.toLocalDate();
-                
+
                 // Reset journalier
                 if (!today.equals(lastDailyReset) && now.toLocalTime().isAfter(DAILY_RESET_TIME)) {
                     lastDailyReset = today;
                     resetDailyMissions();
                 }
-                
+
                 // Reset hebdomadaire
-                if (today.getDayOfWeek() == WEEKLY_RESET_DAY && 
-                    !today.equals(lastWeeklyReset) && 
+                if (today.getDayOfWeek() == WEEKLY_RESET_DAY &&
+                    !today.equals(lastWeeklyReset) &&
                     now.toLocalTime().isAfter(DAILY_RESET_TIME)) {
                     lastWeeklyReset = today;
                     resetWeeklyMissions();
+                }
+
+                // ============ TRACKING PÉRIODIQUE (chaque minute) ============
+
+                // Vérifier le cycle jour/nuit pour NIGHTS_SURVIVED
+                org.bukkit.World world = plugin.getServer().getWorlds().isEmpty() ? null : plugin.getServer().getWorlds().get(0);
+                if (world != null) {
+                    long time = world.getTime();
+                    boolean isNight = time >= 13000 && time <= 23000;
+
+                    // Transition jour -> nuit : enregistrer les joueurs en vie
+                    if (isNight && !wasNight) {
+                        playersAliveAtNightfall.clear();
+                        for (Player player : plugin.getServer().getOnlinePlayers()) {
+                            if (!player.isDead()) {
+                                playersAliveAtNightfall.add(player.getUniqueId());
+                            }
+                        }
+                    }
+
+                    // Transition nuit -> jour : tracker les survivants
+                    if (!isNight && wasNight) {
+                        for (UUID uuid : playersAliveAtNightfall) {
+                            Player player = plugin.getServer().getPlayer(uuid);
+                            if (player != null && player.isOnline() && !player.isDead()) {
+                                // Le joueur a survécu la nuit entière
+                                updateProgress(player, MissionTracker.NIGHTS_SURVIVED, 1);
+                            }
+                        }
+                        playersAliveAtNightfall.clear();
+                    }
+
+                    wasNight = isNight;
+                }
+
+                for (Player player : plugin.getServer().getOnlinePlayers()) {
+                    // Tracker PLAYTIME (+1 minute de jeu)
+                    updateProgress(player, MissionTracker.PLAYTIME, 1);
+
+                    // Tracker TIME_IN_DANGER_ZONE (si dans une zone dangereuse)
+                    var zone = plugin.getZoneManager().getPlayerZone(player);
+                    if (zone != null && zone.getId() >= 5) {
+                        // Zone 5+ est considérée comme "zone de danger"
+                        updateProgress(player, MissionTracker.TIME_IN_DANGER_ZONE, 1);
+                    }
+
+                    // Tracker REFUGES_VISITED (si dans un refuge non encore visité)
+                    var refugeManager = plugin.getRefugeManager();
+                    if (refugeManager != null) {
+                        var refuge = refugeManager.getRefugeAt(player.getLocation());
+                        if (refuge != null) {
+                            UUID uuid = player.getUniqueId();
+                            Set<Integer> playerVisited = visitedRefuges.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
+                            if (!playerVisited.contains(refuge.getId())) {
+                                playerVisited.add(refuge.getId());
+                                updateProgress(player, MissionTracker.REFUGES_VISITED, 1);
+                            }
+                        }
+                    }
                 }
             }
         }.runTaskTimer(plugin, 1200L, 1200L); // Check toutes les minutes
