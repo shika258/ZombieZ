@@ -210,8 +210,9 @@ public class Chapter3Systems implements Listener {
         // Nettoyer les anciens NPCs
         cleanupOldEntities(world);
 
-        // Spawn le Forain
+        // Spawn le Forain et démarrer le respawn checker
         spawnForain(world);
+        startForainRespawnChecker();
 
         // Spawn le chat perdu
         spawnLostCat(world);
@@ -409,6 +410,34 @@ public class Chapter3Systems implements Listener {
             display.setPersistent(false);
             display.addScoreboardTag("chapter3_forain_display");
         });
+    }
+
+    /**
+     * Démarre le vérificateur de respawn du Forain
+     * Respawn le NPC s'il a disparu (chunk unload, etc.)
+     */
+    private void startForainRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Vérifier si le Forain existe toujours
+                if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
+                    // Respawn le Forain
+                    spawnForain(world);
+                    plugin.log(Level.FINE, "Forain respawné (entité invalide)");
+                }
+
+                // Vérifier le TextDisplay
+                if (forainDisplay == null || !forainDisplay.isValid()) {
+                    Location loc = FORAIN_LOCATION.clone();
+                    loc.setWorld(world);
+                    createForainDisplay(world, loc);
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 100L); // Vérifier toutes les 5 secondes
     }
 
     // ==================== CHAT PERDU (STEP 5) ====================
