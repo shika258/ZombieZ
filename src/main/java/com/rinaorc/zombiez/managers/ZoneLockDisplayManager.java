@@ -201,8 +201,8 @@ public class ZoneLockDisplayManager {
      * Calcule la position du display en fonction de la position du joueur
      */
     private Location calculateDisplayLocation(Location playerLoc, Zone currentZone) {
-        // Le display est à la limite nord de la zone actuelle (1 bloc devant le worldborder)
-        double displayZ = currentZone.getMinZ() - 1; // Juste devant le worldborder
+        // Le display est à la limite nord de la zone actuelle (devant le worldborder)
+        double displayZ = currentZone.getMinZ(); // Exactement sur la limite, devant le worldborder
         double displayX = playerLoc.getX(); // Même X que le joueur
         double displayY = playerLoc.getY() + DISPLAY_HEIGHT;
 
