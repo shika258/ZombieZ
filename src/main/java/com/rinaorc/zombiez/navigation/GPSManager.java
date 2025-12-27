@@ -315,8 +315,7 @@ public class GPSManager implements Listener {
 
         // État d'interpolation pour fluidité
         private double currentX, currentY, currentZ;
-        private float currentYaw = 0;
-        private float currentPitch = 0;
+        private org.joml.Quaternionf currentRotation = null; // Rotation interpolée avec slerp
         private boolean initialized = false;
 
         // Compteur pour updates
@@ -448,20 +447,10 @@ public class GPSManager implements Listener {
             Vector toDestination = destination.toVector().subtract(arrowLoc.toVector());
             double distance = toDestination.length();
 
+            // Normaliser le vecteur direction si pas trop proche
             if (distance > 0.1) {
                 toDestination.normalize();
-            } else {
-                // Si très proche, pointer vers l'avant
-                toDestination = player.getLocation().getDirection();
             }
-
-            // Angles vers la destination (formule standard Minecraft)
-            float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ()));
-            float targetPitch = (float) -Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, toDestination.getY()))));
-
-            // Interpolation de la rotation
-            currentYaw = lerpAngle(currentYaw, targetYaw, LERP_SPEED);
-            currentPitch = lerpAngle(currentPitch, targetPitch, LERP_SPEED);
 
             // === EFFET DE PULSATION SI PROCHE ===
             float scale = ARROW_SCALE;
@@ -469,44 +458,55 @@ public class GPSManager implements Listener {
                 scale = ARROW_SCALE * (0.8f + 0.4f * (float) Math.sin(System.currentTimeMillis() * 0.01));
             }
 
-            // === TÉLÉPORTER L'ENTITÉ ===
-            arrowLoc.setYaw(currentYaw);
-            arrowLoc.setPitch(currentPitch);
+            // === TÉLÉPORTER L'ENTITÉ (position uniquement, rotation via Transformation) ===
             arrowEntity.teleport(arrowLoc);
 
             // === METTRE À JOUR LA TRANSFORMATION (ROTATION DE LA FLÈCHE) ===
             if (arrowEntity instanceof ItemDisplay display) {
-                // La flèche spectrale (item) a sa pointe orientée vers le haut-avant
-                // On construit une rotation qui oriente la flèche vers la destination
+                // La flèche spectrale (item) pointe par défaut vers +Y (vers le haut)
+                // On utilise rotationTo() pour créer la rotation qui pointe vers la destination
                 //
-                // Ordre d'application (de droite à gauche):
-                // 1. baseRotation: Couche la flèche pour pointer vers +Z
-                // 2. pitchRotation: Inclinaison verticale
-                // 3. yawRotation: Rotation horizontale
+                // Principe:
+                // 1. Calculer le vecteur direction normalisé vers la destination
+                // 2. Utiliser rotationTo() pour créer la rotation de +Y vers cette direction
+                // 3. Ajouter la rotation de 45° sur Z pour compenser l'orientation de l'item flèche
 
-                float yawRad = (float) Math.toRadians(currentYaw);
-                float pitchRad = (float) Math.toRadians(currentPitch);
+                // Vecteur direction vers la destination (déjà calculé ci-dessus)
+                org.joml.Vector3f directionVec;
+                if (distance > 0.1) {
+                    directionVec = new org.joml.Vector3f(
+                        (float) toDestination.getX(),
+                        (float) toDestination.getY(),
+                        (float) toDestination.getZ()
+                    ).normalize();
+                } else {
+                    // Si très proche, pointer vers l'avant du joueur
+                    Vector playerDir = player.getLocation().getDirection();
+                    directionVec = new org.joml.Vector3f(
+                        (float) playerDir.getX(),
+                        (float) playerDir.getY(),
+                        (float) playerDir.getZ()
+                    ).normalize();
+                }
 
-                // Rotation de base: -90° sur X couche la flèche, +45° sur Z ajuste l'orientation de l'item
-                org.joml.Quaternionf baseRotation = new org.joml.Quaternionf()
-                    .rotateX((float) Math.toRadians(-90))
-                    .rotateZ((float) Math.toRadians(45));
+                // Rotation qui transforme +Y (direction par défaut de la flèche) vers la destination
+                org.joml.Vector3f upVector = new org.joml.Vector3f(0, 1, 0);
+                org.joml.Quaternionf targetRotation = new org.joml.Quaternionf().rotationTo(upVector, directionVec);
 
-                org.joml.Quaternionf yawRotation = new org.joml.Quaternionf()
-                    .rotateY(yawRad);
+                // Ajouter la rotation de 45° sur l'axe local pour compenser l'orientation de l'item flèche
+                // (l'item flèche dans Minecraft est tourné de 45° dans son modèle)
+                targetRotation.rotateLocal(0, 0, (float) Math.toRadians(45));
 
-                org.joml.Quaternionf pitchRotation = new org.joml.Quaternionf()
-                    .rotateX(-pitchRad); // Inverser car le pitch positif doit pointer vers le haut
-
-                // Composer: yaw * pitch * base (appliqué de droite à gauche)
-                org.joml.Quaternionf finalRotation = new org.joml.Quaternionf()
-                    .set(yawRotation)
-                    .mul(pitchRotation)
-                    .mul(baseRotation);
+                // Interpoler la rotation pour fluidité
+                if (currentRotation == null) {
+                    currentRotation = new org.joml.Quaternionf(targetRotation);
+                } else {
+                    currentRotation.slerp(targetRotation, LERP_SPEED);
+                }
 
                 display.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
-                    finalRotation,
+                    new org.joml.Quaternionf(currentRotation), // Copie pour éviter les mutations
                     new Vector3f(scale, scale, scale),
                     new org.joml.Quaternionf() // Pas de right rotation
                 ));
@@ -606,17 +606,9 @@ public class GPSManager implements Listener {
             distanceDisplay = null;
         }
 
-        // Interpolation linéaire
+        // Interpolation linéaire pour la position
         private double lerp(double from, double to, double t) {
             return from + (to - from) * t;
-        }
-
-        // Interpolation d'angle (gère le wrap-around 360°)
-        private float lerpAngle(float from, float to, float t) {
-            float diff = to - from;
-            while (diff > 180) diff -= 360;
-            while (diff < -180) diff += 360;
-            return from + diff * t;
         }
     }
 }
