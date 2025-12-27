@@ -454,6 +454,21 @@ public class JourneyListener implements Listener {
         if (currentStep.getType() == JourneyStep.StepType.CLASS_LEVEL) {
             journeyManager.updateProgress(player, JourneyStep.StepType.CLASS_LEVEL, newClassLevel);
         }
+
+        // CLASS_MASTERY: première condition = atteindre niveau 5 de classe
+        if (currentStep.getType() == JourneyStep.StepType.CLASS_MASTERY && newClassLevel >= 5) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress < 1) {
+                // Première condition complétée
+                journeyManager.incrementProgress(player, JourneyStep.StepType.CLASS_MASTERY, 1);
+
+                // Vérifier si le joueur a déjà 2+ talents (auto-compléter la 2ème condition)
+                var classData = plugin.getClassManager().getClassData(player);
+                if (classData != null && classData.getSelectedTalentCount() >= 2) {
+                    journeyManager.incrementProgress(player, JourneyStep.StepType.CLASS_MASTERY, 1);
+                }
+            }
+        }
     }
 
     /**
@@ -523,6 +538,20 @@ public class JourneyListener implements Listener {
             if (classData != null) {
                 int tiersWithTalent = (int) classData.getAllSelectedTalents().size();
                 journeyManager.updateProgress(player, JourneyStep.StepType.TALENTS_UNLOCKED, tiersWithTalent);
+            }
+        }
+
+        // CLASS_MASTERY: deuxième condition = activer le 2ème talent
+        if (currentStep.getType() == JourneyStep.StepType.CLASS_MASTERY && totalTalents >= 2) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            var classData = plugin.getClassManager().getClassData(player);
+
+            if (progress == 0 && classData != null && classData.getClassLevel().get() >= 5) {
+                // Le joueur a niveau 5 mais pas encore comptabilisé, puis active son 2ème talent
+                journeyManager.incrementProgress(player, JourneyStep.StepType.CLASS_MASTERY, 2);
+            } else if (progress == 1) {
+                // Le joueur a déjà niveau 5 et vient d'activer son 2ème talent
+                journeyManager.incrementProgress(player, JourneyStep.StepType.CLASS_MASTERY, 1);
             }
         }
     }

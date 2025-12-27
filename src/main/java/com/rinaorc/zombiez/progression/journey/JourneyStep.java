@@ -125,6 +125,10 @@ public enum JourneyStep {
         "Monte à bord et répare - Coords: §b345, 148, 8907", StepType.REPAIR_ZEPPELIN, 1,
         800, 20, Material.COMMAND_BLOCK),
 
+    STEP_3_9(JourneyChapter.CHAPTER_3, 9, "Maîtrise ta Classe",
+        "Atteins niveau 5 et active ton 2ème talent", StepType.CLASS_MASTERY, 2,
+        900, 22, Material.ENCHANTING_TABLE),
+
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
     STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
@@ -422,6 +426,11 @@ public enum JourneyStep {
             case INVESTIGATE_PATIENT_ZERO -> current >= targetValue ? "✓ Enquête terminée!" : current + "/4 indices trouvés";
             case DEFEND_VILLAGE -> current >= targetValue ? "✓ Village défendu!" : "Parle au survivant";
             case REPAIR_ZEPPELIN -> current >= targetValue ? "✓ Zeppelin réparé!" : "Trouve le panneau de contrôle";
+            case CLASS_MASTERY -> {
+                if (current >= targetValue) yield "✓ Classe maîtrisée!";
+                else if (current == 1) yield "1/2 - Active ton 2ème talent";
+                else yield "0/2 - Atteins niveau 5 de classe";
+            }
         };
     }
 
@@ -589,7 +598,10 @@ public enum JourneyStep {
         DEFEND_VILLAGE("Défends le village"),
 
         // Réparation
-        REPAIR_ZEPPELIN("Répare le Zeppelin");
+        REPAIR_ZEPPELIN("Répare le Zeppelin"),
+
+        // Maîtrise de classe
+        CLASS_MASTERY("Maîtrise ta classe");
 
         private final String description;
 
