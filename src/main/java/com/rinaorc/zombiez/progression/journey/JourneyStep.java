@@ -105,9 +105,9 @@ public enum JourneyStep {
         "Centième victime!", StepType.TOTAL_KILLS, 100,
         300, 8, Material.ZOMBIE_HEAD),
 
-    STEP_3_4(JourneyChapter.CHAPTER_3, 4, "Atteins la Zone 3",
-        "Plus loin encore", StepType.REACH_ZONE, 3,
-        400, 10, Material.FILLED_MAP),
+    STEP_3_4(JourneyChapter.CHAPTER_3, 4, "L'Énigme du Forain",
+        "Résous le puzzle - Coords: §b322, 93, 9201", StepType.SOLVE_CIRCUS_PUZZLE, 1,
+        400, 10, Material.FIREWORK_ROCKET),
 
     STEP_3_5(JourneyChapter.CHAPTER_3, 5, "Atteins le niveau 15",
         "Les talents t'attendent", StepType.LEVEL, 15,
@@ -405,6 +405,7 @@ public enum JourneyStep {
                 else yield "0/2 - Ouvre un oeuf /pet";
             }
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
+            case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
         };
     }
 
@@ -557,7 +558,10 @@ public enum JourneyStep {
         OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
 
         // Refuges
-        ACTIVATE_REFUGE_BEACON("Active un beacon de refuge");
+        ACTIVATE_REFUGE_BEACON("Active un beacon de refuge"),
+
+        // Mini-jeux / Puzzles
+        SOLVE_CIRCUS_PUZZLE("Résous le puzzle du cirque");
 
         private final String description;
 
