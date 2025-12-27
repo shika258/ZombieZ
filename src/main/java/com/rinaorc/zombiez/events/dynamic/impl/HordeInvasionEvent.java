@@ -138,8 +138,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             display.addScoreboardTag("dynamic_event_entity");
+            display.setPersistent(false);
         });
 
         // Marqueur de vague - Sous le titre principal
@@ -157,8 +158,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             display.addScoreboardTag("dynamic_event_entity");
+            display.setPersistent(false);
         });
 
         // Marqueur de compteur de kills - Encore plus bas
@@ -176,8 +178,9 @@ public class HordeInvasionEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             display.addScoreboardTag("dynamic_event_entity");
+            display.setPersistent(false);
         });
 
         // Particules de zone
@@ -465,6 +468,9 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Tags pour identification
         zombie.addScoreboardTag("dynamic_event_entity");
         zombie.addScoreboardTag("horde_invasion");
+
+        // Ne pas persister au reboot (évite les entités orphelines)
+        zombie.setPersistent(false);
     }
 
     /**

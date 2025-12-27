@@ -212,8 +212,9 @@ public class AirdropEvent extends DynamicEvent {
                 new AxisAngle4f(0, 0, 0, 1)
             ));
 
-            // Tag pour cleanup au redemarrage
+            // Tag pour cleanup au redemarrage + ne pas persister
             display.addScoreboardTag("dynamic_event_entity");
+            display.setPersistent(false);
         });
 
         // Effet d'atterrissage
