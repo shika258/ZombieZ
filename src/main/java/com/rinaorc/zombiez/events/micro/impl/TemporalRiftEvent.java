@@ -140,10 +140,15 @@ public class TemporalRiftEvent extends MicroEvent {
             return;
         }
 
-        // Cleanup des zombies morts de la liste
+        // Cleanup des zombies morts de la liste ET comptage
+        // (gère les cas où le zombie meurt sans passer par handleDamage)
         riftZombies.removeIf(uuid -> {
             var entity = plugin.getServer().getEntity(uuid);
-            return entity == null || entity.isDead();
+            if (entity == null || entity.isDead()) {
+                zombiesKilled++; // Compter comme tué
+                return true;
+            }
+            return false;
         });
 
         // ActionBar
