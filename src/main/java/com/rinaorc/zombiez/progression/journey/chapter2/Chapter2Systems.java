@@ -175,10 +175,14 @@ public class Chapter2Systems implements Listener {
             displayLoc.getChunk().load();
         }
 
-        // Supprimer l'ancien display si existant
+        // Supprimer l'ancien display si existant (variable en mémoire)
         if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
             bossSpawnDisplay.remove();
         }
+
+        // IMPORTANT: Nettoyer tous les anciens TextDisplays du boss qui auraient persisté après un reboot
+        // Cela évite la duplication des displays
+        cleanupOrphanedBossDisplays(world);
 
         bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             // Configuration de base
@@ -200,9 +204,34 @@ public class Chapter2Systems implements Listener {
             // Distance de vue
             display.setViewRange(100f);
 
+            // Tag pour cleanup au redémarrage + ne pas persister
+            display.addScoreboardTag("manor_boss_display");
+            display.setPersistent(false);
+
             // Texte initial
             updateBossDisplayText(display, true, 0);
         });
+    }
+
+    /**
+     * Nettoie les TextDisplays orphelins du boss (persistés après un crash/reboot)
+     */
+    private void cleanupOrphanedBossDisplays(World world) {
+        Location bossLoc = MANOR_BOSS_LOCATION.clone();
+        bossLoc.setWorld(world);
+
+        int removed = 0;
+        // Chercher les TextDisplays avec le tag manor_boss_display dans un rayon de 20 blocs
+        for (Entity entity : world.getNearbyEntities(bossLoc, 20, 20, 20)) {
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("manor_boss_display")) {
+                entity.remove();
+                removed++;
+            }
+        }
+
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " TextDisplay(s) orphelin(s) du boss supprimé(s)");
+        }
     }
 
     /**
@@ -239,6 +268,7 @@ public class Chapter2Systems implements Listener {
     /**
      * Démarre la tâche de mise à jour du display (toutes les secondes)
      * Recrée le display et le boss s'ils sont invalides
+     * Vérifie aussi le leash range du boss
      */
     private void startBossDisplayUpdater() {
         new BukkitRunnable() {
@@ -257,7 +287,10 @@ public class Chapter2Systems implements Listener {
                 boolean bossAlive = manorBossEntity != null && manorBossEntity.isValid() && !manorBossEntity.isDead();
                 int respawnSeconds = 0;
 
-                if (!bossAlive) {
+                if (bossAlive) {
+                    // Boss vivant - vérifier le leash range
+                    checkBossLeashRange(world);
+                } else {
                     // Si pas de respawn programmé et pas de boss, spawn immédiatement
                     if (!bossRespawnScheduled && bossRespawnTime == 0) {
                         plugin.log(Level.INFO, "Boss du Manoir absent, spawn automatique...");
@@ -275,6 +308,74 @@ public class Chapter2Systems implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+    }
+
+    /**
+     * Vérifie si le boss est trop loin de son spawn et le téléporte si nécessaire
+     */
+    private void checkBossLeashRange(World world) {
+        if (manorBossEntity == null || !manorBossEntity.isValid() || manorBossEntity.isDead()) {
+            return;
+        }
+
+        Location spawnLoc = MANOR_BOSS_LOCATION.clone();
+        spawnLoc.setWorld(world);
+        spawnLoc.add(0.5, 0, 0.5); // Centrer sur le bloc
+
+        Location bossLoc = manorBossEntity.getLocation();
+
+        // Vérifier uniquement si dans le même monde
+        if (!bossLoc.getWorld().equals(world)) {
+            return;
+        }
+
+        double distanceSquared = bossLoc.distanceSquared(spawnLoc);
+
+        if (distanceSquared > BOSS_LEASH_RANGE_SQUARED) {
+            // Boss trop loin - le téléporter au spawn
+            teleportBossToSpawn(world, spawnLoc);
+        }
+    }
+
+    /**
+     * Téléporte le boss à son point de spawn avec effets visuels
+     */
+    private void teleportBossToSpawn(World world, Location spawnLoc) {
+        if (manorBossEntity == null || !manorBossEntity.isValid()) return;
+
+        Location oldLoc = manorBossEntity.getLocation();
+
+        // Effets de disparition
+        world.spawnParticle(Particle.SMOKE, oldLoc.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.05);
+        world.playSound(oldLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.8f);
+
+        // Téléporter le boss
+        spawnLoc.setYaw(oldLoc.getYaw());
+        spawnLoc.setPitch(0);
+        manorBossEntity.teleport(spawnLoc);
+
+        // Effets d'apparition
+        world.spawnParticle(Particle.REVERSE_PORTAL, spawnLoc.clone().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1);
+        world.playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
+
+        // Reset de la cible - le boss cherchera une nouvelle cible
+        if (manorBossEntity instanceof Mob mob) {
+            mob.setTarget(null);
+        }
+
+        // Effet de régénération partielle au retour (récompense pour le leash)
+        double currentHealth = manorBossEntity.getHealth();
+        double maxHealth = manorBossEntity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+        double healAmount = maxHealth * 0.05; // 5% de heal
+        manorBossEntity.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+
+        // Message aux joueurs proches
+        for (Player player : world.getNearbyEntities(spawnLoc, 50, 30, 50).stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .toList()) {
+            player.sendMessage("§4§l☠ §cLe " + BOSS_NAME + " §7retourne à son domaine!");
+        }
     }
 
     // ==================== NPC MINEUR BLESSÉ (ÉTAPE 4) ====================
