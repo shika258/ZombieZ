@@ -109,9 +109,9 @@ public enum JourneyStep {
         "Résous le puzzle - Coords: §b322, 93, 9201", StepType.SOLVE_CIRCUS_PUZZLE, 1,
         400, 10, Material.FIREWORK_ROCKET),
 
-    STEP_3_5(JourneyChapter.CHAPTER_3, 5, "Atteins le niveau 15",
-        "Les talents t'attendent", StepType.LEVEL, 15,
-        500, 12, Material.ENCHANTED_BOOK),
+    STEP_3_5(JourneyChapter.CHAPTER_3, 5, "Sauve le chat perdu",
+        "Trouve le chat - Coords: §b1025, 120, 9136", StepType.RESCUE_LOST_CAT, 1,
+        500, 12, Material.STRING),
 
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
@@ -406,6 +406,7 @@ public enum JourneyStep {
             }
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
             case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
+            case RESCUE_LOST_CAT -> current >= targetValue ? "✓ Chat sauvé!" : "Trouve le chat perdu";
         };
     }
 
@@ -561,7 +562,10 @@ public enum JourneyStep {
         ACTIVATE_REFUGE_BEACON("Active un beacon de refuge"),
 
         // Mini-jeux / Puzzles
-        SOLVE_CIRCUS_PUZZLE("Résous le puzzle du cirque");
+        SOLVE_CIRCUS_PUZZLE("Résous le puzzle du cirque"),
+
+        // Sauvetage
+        RESCUE_LOST_CAT("Sauve le chat perdu");
 
         private final String description;
 
