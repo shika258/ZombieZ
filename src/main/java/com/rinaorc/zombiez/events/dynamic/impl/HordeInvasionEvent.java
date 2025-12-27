@@ -45,9 +45,9 @@ public class HordeInvasionEvent extends DynamicEvent {
     private int waveIntervalSeconds = 3;  // Temps entre chaque vague (réduit à 3s pour dynamisme)
     private int secondsUntilNextWave;
 
-    // Zombies - Plafonné à 80 max pour vraie horde
-    private static final int MAX_TOTAL_ZOMBIES = 80;
-    private int baseZombiesPerWave = 15;  // Plus de zombies pour effet de horde
+    // Zombies - Plafonné à 150 max pour vraie horde MASSIVE
+    private static final int MAX_TOTAL_ZOMBIES = 150;
+    private int baseZombiesPerWave = 30;  // BEAUCOUP de zombies pour effet de horde réel
     private int zombiesThisWave = 0;
     private int zombiesKilledThisWave = 0;
     private int totalZombiesKilled = 0;
@@ -80,17 +80,17 @@ public class HordeInvasionEvent extends DynamicEvent {
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
 
-        // Configuration basée sur la zone - Intense et dynamique
+        // Configuration basée sur la zone - HORDE MASSIVE
         this.totalWaves = 3 + Math.min(zone.getId() / 5, 2);  // 3-5 vagues max
-        this.baseZombiesPerWave = 15 + zone.getId() / 2;  // 15-25 zombies par vague de base
+        this.baseZombiesPerWave = 30 + zone.getId();  // 30-70 zombies par vague de base
         this.secondsUntilNextWave = waveIntervalSeconds;
 
-        // Calculer l'objectif total de kills avec plafond à 80
+        // Calculer l'objectif total de kills avec plafond à 150
         this.totalZombiesToKill = 0;
         for (int w = 1; w <= totalWaves; w++) {
-            totalZombiesToKill += baseZombiesPerWave + (w * 3);  // +3 zombies par vague
+            totalZombiesToKill += baseZombiesPerWave + (w * 5);  // +5 zombies par vague
         }
-        // Plafonner à 80 zombies max
+        // Plafonner à 150 zombies max
         this.totalZombiesToKill = Math.min(this.totalZombiesToKill, MAX_TOTAL_ZOMBIES);
 
         // Durée courte pour garder l'intensité
@@ -318,10 +318,10 @@ public class HordeInvasionEvent extends DynamicEvent {
         waveClear = false;
         zombiesKilledThisWave = 0;
 
-        // Calcul dynamique: vraie horde avec scaling agressif
-        // +3 zombies par vague, +2 par défenseur supplémentaire
-        int defenderBonus = Math.max(0, defendersInArea - 1) * 2;
-        zombiesThisWave = baseZombiesPerWave + (currentWave * 3) + defenderBonus;
+        // Calcul dynamique: HORDE MASSIVE avec scaling agressif
+        // +5 zombies par vague, +3 par défenseur supplémentaire
+        int defenderBonus = Math.max(0, defendersInArea - 1) * 3;
+        zombiesThisWave = baseZombiesPerWave + (currentWave * 5) + defenderBonus;
 
         // Plafonner pour éviter de dépasser le max total
         int remainingQuota = MAX_TOTAL_ZOMBIES - totalZombiesKilled;
@@ -378,24 +378,29 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Calculer les HP selon la zone et la vague
         double zombieHealth = BASE_ZOMBIE_HEALTH + (zone.getId() * HEALTH_PER_ZONE) + (currentWave * 5);
 
-        // Pré-calculer les positions de spawn pour un burst instantané
+        // Pré-calculer les positions de spawn pour un burst instantané - ENCERCLEMENT TOTAL
         List<Location> spawnLocations = new ArrayList<>();
         for (int i = 0; i < zombiesThisWave; i++) {
-            // Distribution en cercle autour du périmètre - PROCHE pour pression immédiate
-            double angle = (Math.PI * 2 * i / zombiesThisWave) + (Math.random() * 0.5 - 0.25);
-            double distance = defenseRadius - 5 + Math.random() * 15; // 20-35 blocs du centre
+            // Distribution en PLUSIEURS cercles concentriques pour effet de horde massive
+            int ring = i % 3; // 3 anneaux de zombies
+            double baseAngle = (Math.PI * 2 * i / zombiesThisWave);
+            double angleOffset = (ring * 0.3) + (Math.random() * 0.4 - 0.2);
+            double angle = baseAngle + angleOffset;
+
+            // Distance variable selon l'anneau: 15-20, 25-30, 35-40 blocs
+            double distance = (15 + ring * 10) + Math.random() * 5;
             double x = location.getX() + Math.cos(angle) * distance;
             double z = location.getZ() + Math.sin(angle) * distance;
             int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
             spawnLocations.add(new Location(world, x, y, z));
         }
 
-        // BURST SPAWN: Spawn massif en 2 ticks pour effet de horde
+        // BURST SPAWN INSTANTANÉ: Spawn massif en 1-2 ticks pour effet de horde ÉCRASANTE
         final double finalZombieHealth = zombieHealth;
         waveSpawnTask = new BukkitRunnable() {
             int tick = 0;
             int spawnIndex = 0;
-            final int zombiesPerTick = Math.max(zombiesThisWave / 2, 10); // Moitié par tick, min 10
+            final int zombiesPerTick = Math.max(zombiesThisWave / 2, 20); // Moitié par tick, min 20
 
             @Override
             public void run() {
@@ -435,7 +440,7 @@ public class HordeInvasionEvent extends DynamicEvent {
                     cancel();
                 }
             }
-        }.runTaskTimer(plugin, 0L, 2L); // Tick toutes les 2 ticks = burst ultra rapide
+        }.runTaskTimer(plugin, 0L, 1L); // Tick CHAQUE tick = burst INSTANTANÉ
     }
 
     /**

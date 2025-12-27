@@ -551,17 +551,24 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Démarre le système de mise à jour de visibilité per-player pour le chat
+     * Inclut aussi le respawn si le chat a disparu (chunk unload, etc.)
      */
     private void startCatVisibilityUpdater() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (lostCatEntity == null || !lostCatEntity.isValid()) {
-                    return;
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Respawn le chat s'il a disparu
+                if (lostCatEntity == null || !lostCatEntity.isValid() || lostCatEntity.isDead()) {
+                    spawnLostCat(world);
+                    plugin.log(Level.FINE, "Chat perdu respawné (entité invalide)");
+                    return; // Attendre le prochain tick pour la visibilité
                 }
 
+                // Recréer le TextDisplay si nécessaire
                 if (lostCatDisplay == null || !lostCatDisplay.isValid()) {
-                    World world = lostCatEntity.getWorld();
                     createCatDisplay(world, lostCatEntity.getLocation());
                 }
 
@@ -2164,9 +2171,8 @@ public class Chapter3Systems implements Listener {
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 2, false, true));
         boss.setGlowing(true);
 
-        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
-        // On utilise le TextDisplay statique pour afficher les infos du boss
-        boss.setCustomNameVisible(false);
+        // Activer l'affichage du nom avec vie (système ZombieZ dynamique)
+        boss.setCustomNameVisible(true);
     }
 
     // ==================== EVENT HANDLERS ====================

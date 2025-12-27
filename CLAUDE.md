@@ -101,3 +101,32 @@ Plugin de survie par vagues ultra-performant conçu pour **200 joueurs simultan�
 - IA : `JourneyBossAI` avec attaques d'onde de choc et invocation
 - Spawn : `Chapter2Systems.spawnManorBoss()` via `ZombieManager`
 
+### ⚠️ RÈGLE CRITIQUE : Mobs invoqués par les boss/IA
+
+> **JAMAIS** utiliser `world.spawn(location, Zombie.class, ...)` pour des mobs ennemis invoqués par les boss ou les IA !
+
+Les serviteurs, minions et renforts DOIVENT être spawnés via `ZombieManager.spawnZombie()` pour :
+- Être soumis aux dégâts des armes ZombieZ
+- Avoir le display name dynamique avec vie
+- Être trackés par le système de combat
+- Donner du loot et de l'XP
+
+**❌ MAUVAIS :**
+```java
+zombie.getWorld().spawn(spawnLoc, Zombie.class, z -> {
+    z.setCustomName("Serviteur");
+});
+```
+
+**✅ BON :**
+```java
+var zombieManager = plugin.getZombieManager();
+var minion = zombieManager.spawnZombie(ZombieType.WALKER, spawnLoc, level);
+if (minion != null) {
+    Entity entity = plugin.getServer().getEntity(minion.getEntityId());
+    if (entity instanceof Zombie z) {
+        z.addScoreboardTag("boss_minion_" + bossId);
+    }
+}
+```
+

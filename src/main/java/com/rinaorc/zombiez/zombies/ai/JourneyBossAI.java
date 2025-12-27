@@ -125,26 +125,30 @@ public class JourneyBossAI extends ZombieAI {
     }
 
     /**
-     * Invocation de serviteurs
+     * Invocation de serviteurs via ZombieManager pour qu'ils soient reconnus par le système ZombieZ
+     * IMPORTANT: Toujours utiliser ZombieManager.spawnZombie() pour les mobs invoqués!
      */
     private void summonReinforcements() {
         playSound(Sound.ENTITY_EVOKER_PREPARE_SUMMON, 2f, 0.8f);
 
+        var zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) return;
+
         int count = phase == 1 ? 2 : 3; // Plus de renforts en phase 2
+        int minionLevel = Math.max(1, level - 3); // Niveau légèrement inférieur au boss
+
         for (int i = 0; i < count; i++) {
             Location spawnLoc = getRandomNearbyLocation(5);
             if (spawnLoc != null) {
-                zombie.getWorld().spawn(spawnLoc, Zombie.class, z -> {
-                    z.setCustomName("§7Serviteur du Manoir");
-                    z.setCustomNameVisible(true);
-                    z.setBaby(false);
-
-                    var health = z.getAttribute(Attribute.MAX_HEALTH);
-                    if (health != null) {
-                        health.setBaseValue(30);
-                        z.setHealth(30);
+                // Utiliser ZombieManager pour que les serviteurs soient soumis aux dégâts ZombieZ
+                var minion = zombieManager.spawnZombie(ZombieType.WALKER, spawnLoc, minionLevel);
+                if (minion != null) {
+                    Entity entity = plugin.getServer().getEntity(minion.getEntityId());
+                    if (entity instanceof Zombie z) {
+                        // Marquer comme serviteur du boss
+                        z.addScoreboardTag("journey_boss_minion_" + zombie.getUniqueId());
                     }
-                });
+                }
                 playParticles(Particle.SOUL, spawnLoc, 15, 0.3, 0.5, 0.3);
             }
         }

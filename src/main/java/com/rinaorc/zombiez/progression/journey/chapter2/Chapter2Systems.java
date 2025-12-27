@@ -772,10 +772,9 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Spawn des caisses de ravitaillement autour d'Igor pour un joueur
-     * Chaque joueur a ses propres caisses (visibles par tous mais collectables par le propriétaire)
+     * Chaque joueur a ses propres caisses (INVISIBLES par défaut, visibles uniquement par le propriétaire)
      * Utilise ItemDisplay (visuel) + Interaction (cliquable) pour chaque caisse
      */
-
     public void spawnSupplyCratesForPlayer(Player player) {
         World world = player.getWorld();
         Location igorLoc = IGOR_LOCATION.clone();
@@ -795,6 +794,7 @@ public class Chapter2Systems implements Listener {
             Location spawnLoc = findValidCrateSpawnLocation(world, igorLoc, maxAllowedY);
 
             // 1. Créer le VISUEL (ItemDisplay) - ne peut pas être cliqué
+            // INVISIBLE PAR DÉFAUT - visible uniquement par le propriétaire
             ItemDisplay visual = world.spawn(spawnLoc, ItemDisplay.class, display -> {
                 // Item affiché: Chest
                 display.setItemStack(new ItemStack(Material.CHEST));
@@ -816,9 +816,15 @@ public class Chapter2Systems implements Listener {
 
                 // Distance de vue
                 display.setViewRange(64f);
+
+                // INVISIBLE PAR DÉFAUT - sera visible uniquement par le propriétaire
+                display.setVisibleByDefault(false);
+                display.setPersistent(false);
+                display.addScoreboardTag("supply_crate_visual");
             });
 
             // 2. Créer l'entité INTERACTION (invisible mais cliquable)
+            // INVISIBLE PAR DÉFAUT - cliquable uniquement par le propriétaire
             Interaction hitbox = world.spawn(spawnLoc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
                 // Taille de la hitbox (largeur et hauteur)
                 interaction.setInteractionWidth(1.5f);
@@ -831,7 +837,16 @@ public class Chapter2Systems implements Listener {
 
                 // Lier au visuel pour le supprimer ensemble
                 pdc.set(new NamespacedKey(plugin, "visual_uuid"), PersistentDataType.STRING, visual.getUniqueId().toString());
+
+                // INVISIBLE PAR DÉFAUT - sera visible uniquement par le propriétaire
+                interaction.setVisibleByDefault(false);
+                interaction.setPersistent(false);
+                interaction.addScoreboardTag("supply_crate_hitbox");
             });
+
+            // Montrer les entités UNIQUEMENT au propriétaire
+            player.showEntity(plugin, visual);
+            player.showEntity(plugin, hitbox);
 
             // Stocker les deux entités (on gère la hitbox principalement)
             crates.add(hitbox);
@@ -1202,9 +1217,8 @@ public class Chapter2Systems implements Listener {
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
         boss.setGlowing(true);
 
-        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
-        // On utilise le TextDisplay statique pour afficher les infos du boss
-        boss.setCustomNameVisible(false);
+        // Activer l'affichage du nom avec vie (système ZombieZ dynamique)
+        boss.setCustomNameVisible(true);
     }
 
     /**

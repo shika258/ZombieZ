@@ -430,6 +430,19 @@ public class CombatListener implements Listener {
      * Applique: Cooldown d'attaque, Stats d'items, Momentum, Skills, Critiques, Effets
      */
     private void handlePlayerAttackZombieZMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
+        // ============ DUPLICATE EVENT PROTECTION ============
+        // Éviter le double traitement si l'événement est déclenché plusieurs fois
+        if (mob.hasMetadata("zombiez_melee_processed")) {
+            return;
+        }
+        mob.setMetadata("zombiez_melee_processed", new FixedMetadataValue(plugin, true));
+        // Nettoyer après 1 tick pour permettre les prochaines attaques
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (mob.isValid()) {
+                mob.removeMetadata("zombiez_melee_processed", plugin);
+            }
+        }, 1L);
+
         // ============ SECONDARY DAMAGE CHECK ============
         // Si les dégâts sont secondaires (AoE talents, pet multi-attack, etc.), ne pas afficher d'indicateur
         boolean isSecondaryDamage = mob.hasMetadata("zombiez_secondary_damage");
@@ -691,6 +704,17 @@ public class CombatListener implements Listener {
      * Affiche les indicateurs de dégâts et applique les stats d'équipement
      */
     private void handlePlayerAttackPassiveMob(EntityDamageByEntityEvent event, Player player, Animals animal) {
+        // ============ DUPLICATE EVENT PROTECTION ============
+        if (animal.hasMetadata("zombiez_melee_processed")) {
+            return;
+        }
+        animal.setMetadata("zombiez_melee_processed", new FixedMetadataValue(plugin, true));
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (animal.isValid()) {
+                animal.removeMetadata("zombiez_melee_processed", plugin);
+            }
+        }, 1L);
+
         // ============ SECONDARY DAMAGE CHECK ============
         boolean isSecondaryDamage = animal.hasMetadata("zombiez_secondary_damage");
         if (isSecondaryDamage) {
@@ -775,6 +799,17 @@ public class CombatListener implements Listener {
      * Affiche simplement l'indicateur de dégâts sans appliquer de bonus spéciaux
      */
     private void handlePlayerAttackGenericMob(EntityDamageByEntityEvent event, Player player, LivingEntity mob) {
+        // ============ DUPLICATE EVENT PROTECTION ============
+        if (mob.hasMetadata("zombiez_melee_processed")) {
+            return;
+        }
+        mob.setMetadata("zombiez_melee_processed", new FixedMetadataValue(plugin, true));
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (mob.isValid()) {
+                mob.removeMetadata("zombiez_melee_processed", plugin);
+            }
+        }, 1L);
+
         double baseDamage = event.getDamage();
         double finalDamage = baseDamage;
         boolean isCritical = false;
