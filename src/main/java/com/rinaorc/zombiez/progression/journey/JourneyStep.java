@@ -94,7 +94,7 @@ public enum JourneyStep {
     // ==================== CHAPITRE 3: PRENDRE SES MARQUES ====================
 
     STEP_3_1(JourneyChapter.CHAPTER_3, 1, "Découvre les Compagnons",
-        "Ouvre un oeuf puis équipe ton pet - /pet", StepType.OPEN_AND_EQUIP_PET, 2,
+        "Ouvre un oeuf puis équipe ton pet", StepType.OPEN_AND_EQUIP_PET, 2,
         150, 5, Material.EGG),
 
     STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Débloque Fort Havegris",
