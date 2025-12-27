@@ -91,10 +91,6 @@ public class TridentListener implements Listener {
             // Annuler le lancer
             event.setCancelled(true);
 
-            // Message d'avertissement
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§c⚠ Le trident ne peut pas être lancé !"
-            ));
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
         }
     }
@@ -104,15 +100,7 @@ public class TridentListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRiptide(PlayerRiptideEvent event) {
-        ItemStack item = event.getPlayer().getInventory().getItemInMainHand();
-        if (item != null && item.getType() == Material.TRIDENT) {
-            // Le riptide est annulé par défaut quand on empêche le lancer
-            // Mais on ajoute un feedback
-            Player player = event.getPlayer();
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§b⚡ Riptide désactivé - Utilisez l'attaque chargée !"
-            ));
-        }
+        // Le riptide est annulé par défaut quand on empêche le lancer
     }
 
     // ==================== SYSTÈME DE CHARGE ====================
@@ -135,10 +123,6 @@ public class TridentListener implements Listener {
 
             // Vérifier le cooldown
             if (isOnThrustCooldown(player)) {
-                long remaining = getThrustCooldownRemaining(player);
-                player.sendActionBar(net.kyori.adventure.text.Component.text(
-                    String.format("§c⏳ Estoc en recharge... %.1fs", remaining / 1000.0)
-                ));
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.3f, 0.8f);
                 return;
             }
@@ -236,9 +220,6 @@ public class TridentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 3, 0.3, 0.3, 0.3, 0.02);
                 if (lastLevel < 1) {
                     player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_2, 0.6f, 1.0f);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§b⚡ Charge moyenne §7(150% dégâts)"
-                    ));
                 }
             }
             case 2 -> {
@@ -247,9 +228,6 @@ public class TridentListener implements Listener {
                 player.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 3, 0.2, 0.2, 0.2, 0.03);
                 if (lastLevel < 2) {
                     player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, 0.8f, 1.2f);
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(
-                        "§a⚡ PLEINE CHARGE §7(200% dégâts + Dash)"
-                    ));
                 }
             }
         }
@@ -268,9 +246,6 @@ public class TridentListener implements Listener {
 
         // Si charge trop faible, annuler
         if (chargeLevel == 0) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                "§7Charge insuffisante..."
-            ));
             return;
         }
 
@@ -291,10 +266,6 @@ public class TridentListener implements Listener {
 
         // Effectuer l'attaque perforante avec le bonus de charge
         performPierceAttack(player, damageMultiplier, true);
-
-        // Feedback visuel
-        String chargeText = chargeLevel == 2 ? "§a⚡ ESTOC DÉVASTATEUR !" : "§b⚡ Estoc Chargé !";
-        player.sendActionBar(net.kyori.adventure.text.Component.text(chargeText));
     }
 
     /**
@@ -511,9 +482,6 @@ public class TridentListener implements Listener {
         // Son de perforation si plusieurs cibles touchées
         if (hitCount > 1) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 1.5f);
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                String.format("§6⚔ Perforation ! §7(%d cibles)", hitCount)
-            ));
         }
     }
 
