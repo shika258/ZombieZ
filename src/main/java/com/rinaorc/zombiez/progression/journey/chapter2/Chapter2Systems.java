@@ -459,7 +459,7 @@ public class Chapter2Systems implements Listener {
 
         Location displayLoc = minerLoc.clone().add(0, MINER_DISPLAY_HEIGHT, 0);
 
-        // TextDisplay "Mineur Blessé" (invisible par défaut, montré aux joueurs qui n'ont pas soigné)
+        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient initialement)
         minerDisplayInjured = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -478,11 +478,11 @@ public class Chapter2Systems implements Listener {
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             entity.setPersistent(false);
-            // INVISIBLE PAR DÉFAUT - on contrôle la visibilité per-player
-            entity.setVisibleByDefault(false);
+            // VISIBLE PAR DÉFAUT - tous les joueurs voient "Blessé" initialement
+            entity.setVisibleByDefault(true);
         });
 
-        // TextDisplay "Mineur Soigné" (invisible par défaut, montré aux joueurs qui ont soigné)
+        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux joueurs qui ont soigné)
         minerDisplayHealed = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -501,7 +501,7 @@ public class Chapter2Systems implements Listener {
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             entity.setPersistent(false);
-            // INVISIBLE PAR DÉFAUT - on contrôle la visibilité per-player
+            // INVISIBLE PAR DÉFAUT - seulement visible pour ceux qui ont soigné
             entity.setVisibleByDefault(false);
         });
 
@@ -512,7 +512,8 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Initialise la visibilité des TextDisplays pour tous les joueurs en ligne.
-     * Appelé immédiatement après le spawn pour éviter le délai de visibilité.
+     * Le display "Blessé" est visible par défaut, on doit juste basculer vers "Soigné"
+     * pour les joueurs qui ont déjà soigné le mineur.
      */
     private void initializeMinerDisplayVisibility() {
         if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
@@ -529,7 +530,11 @@ public class Chapter2Systems implements Listener {
 
             if (inRange) {
                 boolean hasHealed = hasPlayerHealedMiner(player);
-                updateMinerDisplayVisibilityForPlayer(player, hasHealed);
+                // Seuls les joueurs qui ont soigné ont besoin d'une mise à jour
+                // (pour voir "Soigné" au lieu de "Blessé" visible par défaut)
+                if (hasHealed) {
+                    updateMinerDisplayVisibilityForPlayer(player, true);
+                }
             }
         }
     }
@@ -1326,19 +1331,18 @@ public class Chapter2Systems implements Listener {
 
                 Location minerLoc = injuredMinerEntity.getLocation();
 
-                // Mettre à jour la visibilité pour chaque joueur
+                // Mettre à jour la visibilité pour chaque joueur à portée
+                // Note: Minecraft gère automatiquement le culling par distance, pas besoin de cacher manuellement
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
                                       player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
 
                     if (inRange) {
-                        // Joueur à portée: montrer le bon display selon son état
+                        // Joueur à portée: basculer entre "Blessé" et "Soigné" selon son état
                         boolean hasHealed = hasPlayerHealedMiner(player);
                         updateMinerDisplayVisibilityForPlayer(player, hasHealed);
-                    } else {
-                        // Joueur hors de portée: cacher les deux displays
-                        hideBothMinerDisplaysForPlayer(player);
                     }
+                    // Pas besoin de cacher quand hors de portée - le distance culling de Minecraft s'en charge
                 }
             }
         }.runTaskTimer(plugin, 20L, 10L); // Toutes les 10 ticks (0.5 sec)
