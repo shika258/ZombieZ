@@ -113,6 +113,10 @@ public enum JourneyStep {
         "Trouve le chat - Coords: §b1025, 120, 9136", StepType.RESCUE_LOST_CAT, 1,
         500, 12, Material.STRING),
 
+    STEP_3_6(JourneyChapter.CHAPTER_3, 6, "L'Enquête du Patient Zéro",
+        "Explore la maison - Coords: §b875, 88, 8944", StepType.INVESTIGATE_PATIENT_ZERO, 4,
+        600, 15, Material.WRITABLE_BOOK),
+
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
     STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
@@ -407,6 +411,7 @@ public enum JourneyStep {
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
             case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
             case RESCUE_LOST_CAT -> current >= targetValue ? "✓ Chat sauvé!" : "Trouve le chat perdu";
+            case INVESTIGATE_PATIENT_ZERO -> current >= targetValue ? "✓ Enquête terminée!" : current + "/4 indices trouvés";
         };
     }
 
@@ -565,7 +570,10 @@ public enum JourneyStep {
         SOLVE_CIRCUS_PUZZLE("Résous le puzzle du cirque"),
 
         // Sauvetage
-        RESCUE_LOST_CAT("Sauve le chat perdu");
+        RESCUE_LOST_CAT("Sauve le chat perdu"),
+
+        // Enquêtes
+        INVESTIGATE_PATIENT_ZERO("Enquête sur le Patient Zéro");
 
         private final String description;
 

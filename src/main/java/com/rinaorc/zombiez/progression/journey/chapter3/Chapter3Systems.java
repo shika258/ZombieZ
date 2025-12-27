@@ -43,18 +43,30 @@ public class Chapter3Systems implements Listener {
     // === CLÉS PDC ===
     private final NamespacedKey FORAIN_NPC_KEY;
     private final NamespacedKey LOST_CAT_KEY;
+    private final NamespacedKey INVESTIGATION_CLUE_KEY;
 
     // === POSITIONS ===
     // NPC Forain au cirque
     private static final Location FORAIN_LOCATION = new Location(null, 322.5, 93, 9201.5, 0, 0);
     // Chat perdu
     private static final Location CAT_LOCATION = new Location(null, 1025.5, 120, 9136.5, 0, 0);
+    // Maison du Patient Zéro (centre)
+    private static final Location PATIENT_ZERO_HOUSE = new Location(null, 875, 88, 8944, 0, 0);
+
+    // === POSITIONS DES INDICES (autour de la maison) ===
+    private static final Location[] CLUE_LOCATIONS = {
+        new Location(null, 873.5, 88.5, 8942.5, 0, 0),   // Indice 1: Journal - près de l'entrée
+        new Location(null, 877.5, 89.5, 8945.5, 0, 0),   // Indice 2: Fiole - intérieur
+        new Location(null, 874.5, 92.5, 8946.5, 0, 0),   // Indice 3: Photo - étage/grenier
+        new Location(null, 876.5, 88.5, 8941.5, 0, 0)    // Indice 4: Lettre - caché dehors
+    };
 
     // === NPC CONFIG ===
     private static final String FORAIN_NAME = "Marcel le Magnifique";
     private static final double FORAIN_DISPLAY_HEIGHT = 2.5;
     private static final double CAT_DISPLAY_HEIGHT = 1.2;
     private static final double CAT_VIEW_DISTANCE = 64;
+    private static final double CLUE_VIEW_DISTANCE = 32;
 
     // === TRACKING ===
     private Entity forainEntity;
@@ -64,10 +76,16 @@ public class Chapter3Systems implements Listener {
     private Entity lostCatEntity;
     private TextDisplay lostCatDisplay;
 
+    // Indices du Patient Zéro (per-player visibility)
+    private final Entity[] clueEntities = new Entity[4];
+    private final TextDisplay[] clueDisplays = new TextDisplay[4];
+
     // Joueurs ayant complété le puzzle (évite de refaire)
     private final Set<UUID> playersWhoCompletedPuzzle = ConcurrentHashMap.newKeySet();
     // Joueurs ayant sauvé le chat
     private final Set<UUID> playersWhoRescuedCat = ConcurrentHashMap.newKeySet();
+    // Indices trouvés par joueur (bitmask: bit 0 = indice 1, bit 1 = indice 2, etc.)
+    private final java.util.Map<UUID, Integer> playerCluesFound = new ConcurrentHashMap<>();
 
     // Listener du Memory Game
     private final MemoryGameGUI.MemoryGameListener memoryGameListener;
@@ -79,6 +97,7 @@ public class Chapter3Systems implements Listener {
         // Initialiser les clés PDC
         this.FORAIN_NPC_KEY = new NamespacedKey(plugin, "forain_npc");
         this.LOST_CAT_KEY = new NamespacedKey(plugin, "lost_cat");
+        this.INVESTIGATION_CLUE_KEY = new NamespacedKey(plugin, "investigation_clue");
 
         // Créer et enregistrer le listener du jeu de mémoire
         this.memoryGameListener = new MemoryGameGUI.MemoryGameListener(plugin);
@@ -115,10 +134,14 @@ public class Chapter3Systems implements Listener {
         // Spawn le chat perdu
         spawnLostCat(world);
 
-        // Démarrer le système de visibilité per-player pour le chat
-        startCatVisibilityUpdater();
+        // Spawn les indices du Patient Zéro
+        spawnInvestigationClues(world);
 
-        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain au cirque, Chat perdu)");
+        // Démarrer les systèmes de visibilité per-player
+        startCatVisibilityUpdater();
+        startClueVisibilityUpdater();
+
+        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat perdu, Investigation Patient Zéro)");
     }
 
     /**
@@ -147,6 +170,19 @@ public class Chapter3Systems implements Listener {
                 entity.remove();
             }
             if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_cat_display")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les indices de l'investigation
+        Location houseLoc = PATIENT_ZERO_HOUSE.clone();
+        houseLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(houseLoc, 20, 20, 20)) {
+            if (entity.getScoreboardTags().contains("chapter3_investigation_clue")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_clue_display")) {
                 entity.remove();
             }
         }
@@ -478,6 +514,353 @@ public class Chapter3Systems implements Listener {
         player.getWorld().spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 10, 0.5, 0.5, 0.5);
     }
 
+    // ==================== INVESTIGATION PATIENT ZÉRO (STEP 6) ====================
+
+    // Contenu des indices (histoire du Patient Zéro)
+    private static final String[][] CLUE_CONTENT = {
+        // Indice 1: Journal du Docteur
+        {
+            "§6§l📖 JOURNAL DU DOCTEUR",
+            "",
+            "§7\"Jour 1 - J'ai enfin isolé le virus.",
+            "§7Mon sérum expérimental pourrait",
+            "§7être la clé de notre salut...\"",
+            "",
+            "§8[Le journal est taché de sang séché]"
+        },
+        // Indice 2: Fiole Brisée
+        {
+            "§c§l🧪 FIOLE BRISÉE",
+            "",
+            "§7Une fiole cassée repose au sol.",
+            "§7L'étiquette indique: §c\"SÉRUM-X\"",
+            "§7avec la mention §c\"NE PAS INHALER\"",
+            "",
+            "§8[L'échec de la cure originelle...]"
+        },
+        // Indice 3: Photo de Famille
+        {
+            "§e§l📷 PHOTO DE FAMILLE",
+            "",
+            "§7Une photo ternie montre un homme",
+            "§7souriant avec sa femme et ses enfants.",
+            "§7Au dos: §e\"Dr. Marcus Vern - 2019\"",
+            "",
+            "§8[Il avait une vie avant tout ça...]"
+        },
+        // Indice 4: Lettre d'Adieu
+        {
+            "§d§l✉ LETTRE D'ADIEU",
+            "",
+            "§7\"À qui trouvera ceci...",
+            "§7Je suis le Patient Zéro.",
+            "§7Mon sérum devait sauver l'humanité,",
+            "§7mais il a créé cette apocalypse.",
+            "§7Pardonnez-moi... §8- Dr. Marcus Vern\"",
+            "",
+            "§c[La vérité sur l'origine du virus]"
+        }
+    };
+
+    private static final String[] CLUE_NAMES = {
+        "§6📖 Journal",
+        "§c🧪 Fiole",
+        "§e📷 Photo",
+        "§d✉ Lettre"
+    };
+
+    /**
+     * Spawn les indices de l'investigation autour de la maison
+     */
+    private void spawnInvestigationClues(World world) {
+        for (int i = 0; i < 4; i++) {
+            spawnClue(world, i);
+        }
+    }
+
+    /**
+     * Spawn un indice spécifique
+     */
+    private void spawnClue(World world, int clueIndex) {
+        Location loc = CLUE_LOCATIONS[clueIndex].clone();
+        loc.setWorld(world);
+
+        // Supprimer l'ancien si existant
+        if (clueEntities[clueIndex] != null && clueEntities[clueIndex].isValid()) {
+            clueEntities[clueIndex].remove();
+        }
+        if (clueDisplays[clueIndex] != null && clueDisplays[clueIndex].isValid()) {
+            clueDisplays[clueIndex].remove();
+        }
+
+        // Spawn un ArmorStand invisible comme point d'interaction
+        final int index = clueIndex;
+        clueEntities[clueIndex] = world.spawn(loc, ArmorStand.class, stand -> {
+            stand.setVisible(false);
+            stand.setGravity(false);
+            stand.setInvulnerable(true);
+            stand.setMarker(true);
+            stand.setSmall(true);
+            stand.setCollidable(false);
+
+            // Tags
+            stand.addScoreboardTag("chapter3_investigation_clue");
+            stand.addScoreboardTag("clue_index_" + index);
+            stand.addScoreboardTag("zombiez_npc");
+
+            // PDC avec l'index de l'indice
+            stand.getPersistentDataContainer().set(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER, index);
+
+            stand.setPersistent(false);
+            stand.setVisibleByDefault(false);
+        });
+
+        // TextDisplay au-dessus
+        createClueDisplay(world, loc, clueIndex);
+    }
+
+    /**
+     * Crée le TextDisplay pour un indice
+     */
+    private void createClueDisplay(World world, Location loc, int clueIndex) {
+        Location displayLoc = loc.clone().add(0, 1.5, 0);
+
+        clueDisplays[clueIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                .append(Component.text("❓ ", NamedTextColor.GOLD))
+                .append(Component.text("Indice", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                .append(Component.text(" ❓", NamedTextColor.GOLD))
+                .append(Component.newline())
+                .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(1.3f, 1.3f, 1.3f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_clue_display");
+            display.addScoreboardTag("clue_display_" + clueIndex);
+
+            display.setVisibleByDefault(false);
+        });
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les indices
+     */
+    private void startClueVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Location houseLoc = PATIENT_ZERO_HOUSE.clone();
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+                houseLoc.setWorld(world);
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllCluesForPlayer(player);
+                        continue;
+                    }
+
+                    double distSq = player.getLocation().distanceSquared(houseLoc);
+                    boolean inRange = distSq <= CLUE_VIEW_DISTANCE * CLUE_VIEW_DISTANCE;
+
+                    if (inRange) {
+                        updateClueVisibilityForPlayer(player);
+                    } else {
+                        hideAllCluesForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des indices pour un joueur
+     */
+    private void updateClueVisibilityForPlayer(Player player) {
+        int found = getPlayerCluesFound(player);
+
+        for (int i = 0; i < 4; i++) {
+            boolean hasFoundThis = (found & (1 << i)) != 0;
+
+            if (clueEntities[i] != null && clueEntities[i].isValid()) {
+                if (hasFoundThis) {
+                    player.hideEntity(plugin, clueEntities[i]);
+                } else {
+                    player.showEntity(plugin, clueEntities[i]);
+                }
+            }
+
+            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
+                if (hasFoundThis) {
+                    player.hideEntity(plugin, clueDisplays[i]);
+                } else {
+                    player.showEntity(plugin, clueDisplays[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cache tous les indices pour un joueur
+     */
+    private void hideAllCluesForPlayer(Player player) {
+        for (int i = 0; i < 4; i++) {
+            if (clueEntities[i] != null && clueEntities[i].isValid()) {
+                player.hideEntity(plugin, clueEntities[i]);
+            }
+            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
+                player.hideEntity(plugin, clueDisplays[i]);
+            }
+        }
+    }
+
+    /**
+     * Obtient le bitmask des indices trouvés par un joueur
+     */
+    private int getPlayerCluesFound(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier le cache
+        if (playerCluesFound.containsKey(uuid)) {
+            return playerCluesFound.get(uuid);
+        }
+
+        // Reconstruire depuis la progression du Journey
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
+        // On ne peut pas savoir exactement quels indices, donc on assume les premiers
+        int mask = 0;
+        for (int i = 0; i < progress && i < 4; i++) {
+            mask |= (1 << i);
+        }
+        playerCluesFound.put(uuid, mask);
+        return mask;
+    }
+
+    /**
+     * Compte le nombre d'indices trouvés
+     */
+    private int countCluesFound(int bitmask) {
+        int count = 0;
+        for (int i = 0; i < 4; i++) {
+            if ((bitmask & (1 << i)) != 0) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Vérifie si le joueur a terminé l'investigation
+     */
+    public boolean hasPlayerCompletedInvestigation(Player player) {
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
+        return progress >= 4;
+    }
+
+    /**
+     * Gère l'interaction avec un indice
+     */
+    private void handleClueInteraction(Player player, int clueIndex) {
+        // Vérifier si déjà terminé
+        if (hasPlayerCompletedInvestigation(player)) {
+            player.sendMessage("§7Tu as déjà terminé cette enquête.");
+            return;
+        }
+
+        // Vérifier si cet indice a déjà été trouvé
+        int found = getPlayerCluesFound(player);
+        if ((found & (1 << clueIndex)) != 0) {
+            return; // Déjà trouvé
+        }
+
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_3_6) {
+            player.sendMessage("");
+            player.sendMessage("§e§l❓ §fUn objet mystérieux...");
+            player.sendMessage("§7(Progresse dans ton Journal pour débloquer cette quête)");
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Marquer l'indice comme trouvé
+        found |= (1 << clueIndex);
+        playerCluesFound.put(player.getUniqueId(), found);
+
+        // Cacher l'indice pour ce joueur
+        updateClueVisibilityForPlayer(player);
+
+        // Incrémenter la progression
+        journeyManager.incrementProgress(player, JourneyStep.StepType.INVESTIGATE_PATIENT_ZERO, 1);
+
+        // Afficher le contenu de l'indice
+        player.sendMessage("");
+        player.sendMessage("§8§m                                        ");
+        for (String line : CLUE_CONTENT[clueIndex]) {
+            player.sendMessage("  " + line);
+        }
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("");
+
+        // Compter les indices trouvés
+        int cluesFoundCount = countCluesFound(found);
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.2f);
+        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.5);
+
+        // Message de progression
+        if (cluesFoundCount < 4) {
+            player.sendMessage("§e§l🔍 Indice " + cluesFoundCount + "/4 trouvé: " + CLUE_NAMES[clueIndex]);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1f);
+        } else {
+            // Investigation terminée!
+            handleInvestigationComplete(player);
+        }
+    }
+
+    /**
+     * Gère la fin de l'investigation
+     */
+    private void handleInvestigationComplete(Player player) {
+        player.sendTitle(
+            "§a§l🔍 ENQUÊTE TERMINÉE!",
+            "§7Tu connais maintenant la vérité...",
+            10, 80, 20
+        );
+
+        player.sendMessage("");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("  §a§l🔍 ENQUÊTE COMPLÈTE!");
+        player.sendMessage("");
+        player.sendMessage("  §7Tu as découvert l'origine du virus:");
+        player.sendMessage("  §7Le §cDr. Marcus Vern§7 a créé le sérum");
+        player.sendMessage("  §7qui a déclenché l'apocalypse zombie.");
+        player.sendMessage("");
+        player.sendMessage("  §e+600 Points §7| §a+15 Niveaux XP");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("");
+
+        // Effets épiques
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.3);
+    }
+
     // ==================== EVENT HANDLERS ====================
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -496,6 +879,17 @@ public class Chapter3Systems implements Listener {
         if (entity.getScoreboardTags().contains("chapter3_lost_cat")) {
             event.setCancelled(true);
             handleCatInteraction(player);
+            return;
+        }
+
+        // Interaction avec un indice de l'investigation
+        if (entity.getScoreboardTags().contains("chapter3_investigation_clue")) {
+            event.setCancelled(true);
+            // Récupérer l'index de l'indice depuis le PDC
+            Integer clueIndex = entity.getPersistentDataContainer().get(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER);
+            if (clueIndex != null) {
+                handleClueInteraction(player, clueIndex);
+            }
         }
     }
 
@@ -504,18 +898,20 @@ public class Chapter3Systems implements Listener {
         Entity target = event.getTarget();
         if (target == null) return;
 
-        // Empêcher les mobs de cibler le Forain ou le chat
+        // Empêcher les mobs de cibler nos entités
         if (target.getScoreboardTags().contains("chapter3_forain") ||
-            target.getScoreboardTags().contains("chapter3_lost_cat")) {
+            target.getScoreboardTags().contains("chapter3_lost_cat") ||
+            target.getScoreboardTags().contains("chapter3_investigation_clue")) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        // Le Forain et le chat sont invulnérables
+        // Nos entités sont invulnérables
         if (event.getEntity().getScoreboardTags().contains("chapter3_forain") ||
-            event.getEntity().getScoreboardTags().contains("chapter3_lost_cat")) {
+            event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
+            event.getEntity().getScoreboardTags().contains("chapter3_investigation_clue")) {
             event.setCancelled(true);
         }
     }
@@ -526,6 +922,7 @@ public class Chapter3Systems implements Listener {
         // Nettoyer les caches (sera rechargé via progression au reconnect)
         playersWhoCompletedPuzzle.remove(playerId);
         playersWhoRescuedCat.remove(playerId);
+        playerCluesFound.remove(playerId);
     }
 
     // ==================== FORAIN INTERACTION ====================
@@ -673,8 +1070,19 @@ public class Chapter3Systems implements Listener {
             lostCatDisplay.remove();
         }
 
+        // Nettoyer les indices de l'investigation
+        for (int i = 0; i < 4; i++) {
+            if (clueEntities[i] != null && clueEntities[i].isValid()) {
+                clueEntities[i].remove();
+            }
+            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
+                clueDisplays[i].remove();
+            }
+        }
+
         // Nettoyer les caches
         playersWhoCompletedPuzzle.clear();
         playersWhoRescuedCat.clear();
+        playerCluesFound.clear();
     }
 }
