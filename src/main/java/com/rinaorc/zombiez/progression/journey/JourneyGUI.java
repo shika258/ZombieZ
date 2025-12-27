@@ -103,9 +103,6 @@ public class JourneyGUI implements Listener {
         Inventory inv = Bukkit.createInventory(null, 54, Component.text(title));
         JourneyManager manager = plugin.getJourneyManager();
 
-        // Mémoriser le chapitre visualisé
-        viewingChapter.put(player.getUniqueId(), chapter.getId());
-
         // === BORDURE DÉCORATIVE ===
         fillBorder(inv, Material.GRAY_STAINED_GLASS_PANE);
 
@@ -164,7 +161,10 @@ public class JourneyGUI implements Listener {
         }
 
         player.openInventory(inv);
+        // IMPORTANT: Ces puts doivent être APRÈS openInventory car celui-ci ferme l'ancien
+        // inventaire et déclenche onInventoryClose qui supprime les entrées des maps
         openMenus.put(player.getUniqueId(), CHAPTER_MENU_ID);
+        viewingChapter.put(player.getUniqueId(), chapter.getId());
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 1.5f);
     }
 
@@ -702,7 +702,11 @@ public class JourneyGUI implements Listener {
                     JourneyChapter prevChapter = JourneyChapter.getById(currentChapterId - 1);
                     if (prevChapter != null) {
                         openChapterDetail(player, prevChapter);
+                    } else {
+                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
                     }
+                } else {
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
                 }
                 return;
             }
@@ -713,15 +717,21 @@ public class JourneyGUI implements Listener {
                 if (currentChapterId != null && currentChapterId < JourneyChapter.totalChapters()) {
                     JourneyChapter nextChapter = JourneyChapter.getById(currentChapterId + 1);
                     if (nextChapter != null) {
-                        // Vérifier que le joueur peut voir ce chapitre
+                        // Permettre de voir les chapitres déjà débloqués ou passés
                         JourneyChapter playerChapter = plugin.getJourneyManager().getCurrentChapter(player);
                         if (nextChapter.getId() <= playerChapter.getId() ||
                             plugin.getJourneyManager().isChapterCompleted(player, nextChapter)) {
                             openChapterDetail(player, nextChapter);
                         } else {
+                            // Chapitre verrouillé - feedback sonore
                             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
+                            player.sendMessage("§c§l✗ §7Ce chapitre n'est pas encore débloqué!");
                         }
+                    } else {
+                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
                     }
+                } else {
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1f);
                 }
                 return;
             }
