@@ -1269,6 +1269,8 @@ public class Chapter2Systems implements Listener {
             // Mettre à jour le texte du display existant
             sendVirtualDisplayMetadata(player, entityId, healed);
         }
+        // Synchroniser l'état pour éviter que la tâche périodique n'écrase le changement
+        playerMinerHealedState.put(player.getUniqueId(), healed);
     }
 
     /**
