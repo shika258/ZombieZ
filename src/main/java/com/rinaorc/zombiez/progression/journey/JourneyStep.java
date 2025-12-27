@@ -118,7 +118,7 @@ public enum JourneyStep {
         600, 15, Material.WRITABLE_BOOK),
 
     STEP_3_7(JourneyChapter.CHAPTER_3, 7, "Protège le Village",
-        "Défends le survivant - Coords: §b750, 88, 8800", StepType.DEFEND_VILLAGE, 1,
+        "Défends le survivant - Coords: §b527, 90, 8994", StepType.DEFEND_VILLAGE, 1,
         700, 18, Material.SHIELD),
 
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================

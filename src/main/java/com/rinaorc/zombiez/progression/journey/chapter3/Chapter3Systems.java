@@ -72,18 +72,18 @@ public class Chapter3Systems implements Listener {
     };
 
     // Village à défendre (NPC survivant)
-    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 750.5, 88, 8800.5, 180, 0);
+    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 527.5, 90, 8994.5, 180, 0);
 
     // Points de spawn des zombies autour du village (8 points en cercle)
     private static final Location[] ZOMBIE_SPAWN_POINTS = {
-        new Location(null, 770, 88, 8800, 0, 0),   // Est
-        new Location(null, 730, 88, 8800, 0, 0),   // Ouest
-        new Location(null, 750, 88, 8780, 0, 0),   // Sud
-        new Location(null, 750, 88, 8820, 0, 0),   // Nord
-        new Location(null, 765, 88, 8785, 0, 0),   // Sud-Est
-        new Location(null, 735, 88, 8785, 0, 0),   // Sud-Ouest
-        new Location(null, 765, 88, 8815, 0, 0),   // Nord-Est
-        new Location(null, 735, 88, 8815, 0, 0)    // Nord-Ouest
+        new Location(null, 547, 90, 8994, 0, 0),   // Est
+        new Location(null, 507, 90, 8994, 0, 0),   // Ouest
+        new Location(null, 527, 90, 8974, 0, 0),   // Sud
+        new Location(null, 527, 90, 9014, 0, 0),   // Nord
+        new Location(null, 542, 90, 8979, 0, 0),   // Sud-Est
+        new Location(null, 512, 90, 8979, 0, 0),   // Sud-Ouest
+        new Location(null, 542, 90, 9009, 0, 0),   // Nord-Est
+        new Location(null, 512, 90, 9009, 0, 0)    // Nord-Ouest
     };
 
     // Configuration de la défense
