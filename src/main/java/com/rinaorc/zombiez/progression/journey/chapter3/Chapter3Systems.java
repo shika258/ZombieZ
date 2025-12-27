@@ -12,9 +12,13 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -43,6 +47,7 @@ import org.bukkit.scheduler.BukkitTask;
  * - Investigation Patient Zéro (étape 6) - Indices cachés
  * - Défense du village (étape 7) - Protection d'un survivant
  * - Réparation du Zeppelin (étape 8) - Puzzle de connexion de fils
+ * - Boss Seigneur des Profondeurs (étape 10) - Boss de fin de chapitre
  */
 public class Chapter3Systems implements Listener {
 
@@ -56,6 +61,7 @@ public class Chapter3Systems implements Listener {
     private final NamespacedKey VILLAGE_SURVIVOR_KEY;
     private final NamespacedKey DEFENSE_ZOMBIE_KEY;
     private final NamespacedKey ZEPPELIN_CONTROL_KEY;
+    private final NamespacedKey MINE_BOSS_KEY;
 
     // === POSITIONS ===
     // NPC Forain au cirque
@@ -91,6 +97,14 @@ public class Chapter3Systems implements Listener {
     // Panneau de contrôle du Zeppelin (étape 8)
     private static final Location ZEPPELIN_CONTROL_LOCATION = new Location(null, 345.5, 148, 8907.5, 0, 0);
 
+    // Boss de la mine (étape 10)
+    private static final Location MINE_BOSS_LOCATION = new Location(null, 1063, 76, 9127, 0, 0);
+    private static final String MINE_BOSS_NAME = "Seigneur des Profondeurs";
+    private static final double BOSS_LEASH_RANGE = 35.0;
+    private static final double BOSS_LEASH_RANGE_SQUARED = BOSS_LEASH_RANGE * BOSS_LEASH_RANGE;
+    private static final int BOSS_RESPAWN_SECONDS = 60;
+    private static final double BOSS_DISPLAY_HEIGHT = 5.0;
+
     // Configuration de la défense
     private static final int DEFENSE_DURATION_SECONDS = 90;
     private static final int ZOMBIE_SPAWN_INTERVAL_TICKS = 60; // 3 secondes
@@ -125,6 +139,13 @@ public class Chapter3Systems implements Listener {
     private ArmorStand zeppelinControlEntity;
     private TextDisplay zeppelinControlDisplay;
 
+    // Boss de la mine (étape 10)
+    private Entity mineBossEntity;
+    private TextDisplay bossSpawnDisplay;
+    private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
+    private boolean bossRespawnScheduled = false;
+    private long bossRespawnTime = 0;
+
     // Joueurs ayant complété le puzzle (évite de refaire)
     private final Set<UUID> playersWhoCompletedPuzzle = ConcurrentHashMap.newKeySet();
     // Joueurs ayant sauvé le chat
@@ -154,6 +175,7 @@ public class Chapter3Systems implements Listener {
         this.VILLAGE_SURVIVOR_KEY = new NamespacedKey(plugin, "village_survivor");
         this.DEFENSE_ZOMBIE_KEY = new NamespacedKey(plugin, "defense_zombie");
         this.ZEPPELIN_CONTROL_KEY = new NamespacedKey(plugin, "zeppelin_control");
+        this.MINE_BOSS_KEY = new NamespacedKey(plugin, "mine_boss");
 
         // Créer et enregistrer le listener du jeu de mémoire
         this.memoryGameListener = new MemoryGameGUI.MemoryGameListener(plugin);
@@ -203,13 +225,18 @@ public class Chapter3Systems implements Listener {
         // Spawn le panneau de contrôle du Zeppelin
         spawnZeppelinControl(world);
 
+        // Initialiser le boss de la mine
+        initializeBossDisplay(world);
+        spawnMineBoss(world);
+        startBossDisplayUpdater();
+
         // Démarrer les systèmes de visibilité per-player
         startCatVisibilityUpdater();
         startClueVisibilityUpdater();
         startSurvivorVisibilityUpdater();
         startZeppelinControlVisibilityUpdater();
 
-        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village, Zeppelin)");
+        plugin.log(Level.INFO, "§a✓ Chapter3Systems initialisé (Forain, Chat, Investigation, Défense Village, Zeppelin, Boss Mine)");
     }
 
     /**
@@ -284,6 +311,19 @@ public class Chapter3Systems implements Listener {
                 entity.remove();
             }
             if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_zeppelin_display")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le boss de la mine et son display
+        Location bossLoc = MINE_BOSS_LOCATION.clone();
+        bossLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(bossLoc, 30, 30, 30)) {
+            if (entity.getScoreboardTags().contains("chapter3_mine_boss")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_boss_display")) {
                 entity.remove();
             }
         }
@@ -1802,6 +1842,281 @@ public class Chapter3Systems implements Listener {
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
     }
 
+    // ==================== BOSS DE LA MINE (STEP 10) ====================
+
+    /**
+     * Initialise le TextDisplay au-dessus du spawn du boss
+     */
+    private void initializeBossDisplay(World world) {
+        Location displayLoc = MINE_BOSS_LOCATION.clone();
+        displayLoc.setWorld(world);
+        displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
+
+        // Forcer le chargement du chunk
+        if (!displayLoc.getChunk().isLoaded()) {
+            displayLoc.getChunk().load();
+        }
+
+        // Supprimer l'ancien display si existant
+        if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+            bossSpawnDisplay.remove();
+        }
+
+        bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(2f, 2f, 2f),
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+
+            display.setViewRange(1f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_boss_display");
+
+            display.text(Component.text("§4§l☠ " + MINE_BOSS_NAME + " §4§l☠\n§7En attente de spawn..."));
+        });
+    }
+
+    /**
+     * Met à jour le texte du display selon l'état du boss
+     */
+    private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
+        if (display == null || !display.isValid()) return;
+
+        if (bossAlive && mineBossEntity != null && mineBossEntity.isValid()) {
+            // Boss vivant - cacher le display (le système ZombieZ gère l'affichage des HP)
+            display.text(Component.empty());
+            display.setViewRange(0f);
+        } else {
+            // Boss mort - afficher countdown de respawn
+            display.setViewRange(1f);
+
+            StringBuilder text = new StringBuilder();
+            text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
+
+            if (respawnSeconds > 0) {
+                text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
+            } else {
+                text.append("§7En attente de spawn...");
+            }
+
+            display.text(Component.text(text.toString()));
+        }
+    }
+
+    /**
+     * Démarre la tâche de mise à jour du display et du leash range
+     */
+    private void startBossDisplayUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Recréer le display s'il est invalide
+                if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
+                    initializeBossDisplay(world);
+                }
+
+                // Vérifier si le boss doit être respawné
+                boolean bossAlive = mineBossEntity != null && mineBossEntity.isValid() && !mineBossEntity.isDead();
+                int respawnSeconds = 0;
+
+                if (bossAlive) {
+                    // Boss vivant - vérifier le leash range
+                    checkBossLeashRange(world);
+                } else {
+                    // Si pas de respawn programmé et pas de boss, spawn immédiatement
+                    if (!bossRespawnScheduled && bossRespawnTime == 0) {
+                        spawnMineBoss(world);
+                        bossAlive = mineBossEntity != null && mineBossEntity.isValid();
+                    } else if (bossRespawnTime > 0) {
+                        long remaining = (bossRespawnTime - System.currentTimeMillis()) / 1000;
+                        respawnSeconds = Math.max(0, (int) remaining);
+                    }
+                }
+
+                // Mettre à jour le texte du display
+                if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+                    updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Vérifie si le boss est trop loin de son spawn et le téléporte si nécessaire
+     */
+    private void checkBossLeashRange(World world) {
+        if (mineBossEntity == null || !mineBossEntity.isValid() || mineBossEntity.isDead()) {
+            return;
+        }
+
+        Location spawnLoc = MINE_BOSS_LOCATION.clone();
+        spawnLoc.setWorld(world);
+        spawnLoc.add(0.5, 0, 0.5);
+
+        Location bossLoc = mineBossEntity.getLocation();
+
+        if (!bossLoc.getWorld().equals(world)) {
+            return;
+        }
+
+        double distanceSquared = bossLoc.distanceSquared(spawnLoc);
+
+        if (distanceSquared > BOSS_LEASH_RANGE_SQUARED) {
+            teleportBossToSpawn(world, spawnLoc);
+        }
+    }
+
+    /**
+     * Téléporte le boss à son point de spawn avec effets visuels
+     */
+    private void teleportBossToSpawn(World world, Location spawnLoc) {
+        if (mineBossEntity == null || !mineBossEntity.isValid()) return;
+
+        Location oldLoc = mineBossEntity.getLocation();
+
+        // Effets de disparition
+        world.spawnParticle(Particle.SMOKE, oldLoc.clone().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.05);
+        world.playSound(oldLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.8f);
+
+        // Téléporter le boss
+        spawnLoc.setYaw(oldLoc.getYaw());
+        spawnLoc.setPitch(0);
+        mineBossEntity.teleport(spawnLoc);
+
+        // Effets d'apparition
+        world.spawnParticle(Particle.REVERSE_PORTAL, spawnLoc.clone().add(0, 1, 0), 50, 0.5, 1, 0.5, 0.1);
+        world.playSound(spawnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
+
+        // Reset de la cible
+        if (mineBossEntity instanceof Mob mob) {
+            mob.setTarget(null);
+        }
+
+        // Heal partiel au retour (5%)
+        double currentHealth = mineBossEntity.getHealth();
+        double maxHealth = mineBossEntity.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double healAmount = maxHealth * 0.05;
+        mineBossEntity.setHealth(Math.min(maxHealth, currentHealth + healAmount));
+
+        // Message aux joueurs proches
+        for (Player player : world.getNearbyEntities(spawnLoc, 50, 30, 50).stream()
+                .filter(e -> e instanceof Player)
+                .map(e -> (Player) e)
+                .toList()) {
+            player.sendMessage("§4§l☠ §cLe " + MINE_BOSS_NAME + " §7retourne dans les profondeurs!");
+        }
+    }
+
+    /**
+     * Fait spawn le boss de la mine via le système ZombieZ
+     */
+    private void spawnMineBoss(World world) {
+        // Protection anti-spawn multiple
+        if (mineBossEntity != null && mineBossEntity.isValid() && !mineBossEntity.isDead()) {
+            return;
+        }
+
+        Location loc = MINE_BOSS_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Forcer le chargement du chunk
+        if (!loc.getChunk().isLoaded()) {
+            loc.getChunk().load();
+        }
+
+        // Nettoyer l'ancien boss s'il existe mais est invalide
+        if (mineBossEntity != null) {
+            mineBossEntity.remove();
+        }
+
+        // Nettoyer les contributeurs
+        bossContributors.clear();
+        bossRespawnScheduled = false;
+
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.log(Level.WARNING, "ZombieManager non disponible, spawn du boss de la mine annulé");
+            return;
+        }
+
+        // Spawn via ZombieManager (niveau 15 pour la zone 6)
+        int bossLevel = 15;
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.MINE_OVERLORD, loc, bossLevel);
+
+        if (activeZombie == null) {
+            plugin.log(Level.WARNING, "Échec du spawn du boss de la mine via ZombieManager");
+            return;
+        }
+
+        // Récupérer l'entité pour appliquer les modifications visuelles
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (!(entity instanceof Zombie boss)) {
+            plugin.log(Level.WARNING, "Boss de la mine n'est pas un Zombie valide");
+            return;
+        }
+
+        mineBossEntity = boss;
+
+        // Appliquer les modifications visuelles
+        applyMineBossVisuals(boss);
+
+        // Marquer comme boss de la mine pour le tracking Journey
+        boss.getPersistentDataContainer().set(MINE_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
+        boss.addScoreboardTag("chapter3_mine_boss");
+
+        // Annoncer le spawn
+        for (Player player : world.getPlayers()) {
+            if (player.getLocation().distance(loc) < 100) {
+                player.sendMessage("");
+                player.sendMessage("§4§l☠ Le Seigneur des Profondeurs émerge des ténèbres de la mine!");
+                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.5f);
+            }
+        }
+
+        plugin.log(Level.INFO, "§c§lBoss de la Mine spawné avec succès (système ZombieZ)");
+    }
+
+    /**
+     * Applique les modifications visuelles au boss de la mine
+     */
+    private void applyMineBossVisuals(Zombie boss) {
+        // Scale x3 via Paper API
+        var scale = boss.getAttribute(Attribute.SCALE);
+        if (scale != null) {
+            scale.setBaseValue(3.0);
+        }
+
+        // Équipement diamant avec teinte sombre
+        boss.getEquipment().setHelmet(new ItemStack(Material.DIAMOND_HELMET));
+        boss.getEquipment().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
+        boss.getEquipment().setLeggings(new ItemStack(Material.DIAMOND_LEGGINGS));
+        boss.getEquipment().setBoots(new ItemStack(Material.DIAMOND_BOOTS));
+        boss.getEquipment().setItemInMainHand(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        // Pas de drop d'équipement
+        boss.getEquipment().setHelmetDropChance(0);
+        boss.getEquipment().setChestplateDropChance(0);
+        boss.getEquipment().setLeggingsDropChance(0);
+        boss.getEquipment().setBootsDropChance(0);
+        boss.getEquipment().setItemInMainHandDropChance(0);
+
+        // Effets visuels
+        boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 2, false, true));
+        boss.setGlowing(true);
+    }
+
     // ==================== EVENT HANDLERS ====================
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -1861,6 +2176,13 @@ public class Chapter3Systems implements Listener {
             target.getScoreboardTags().contains("chapter3_zeppelin_control")) {
             event.setCancelled(true);
         }
+
+        // Le boss de la mine ne cible que les joueurs
+        if (event.getEntity().getScoreboardTags().contains("chapter3_mine_boss")) {
+            if (!(target instanceof Player)) {
+                event.setCancelled(true);
+            }
+        }
     }
 
     @EventHandler
@@ -1896,6 +2218,85 @@ public class Chapter3Systems implements Listener {
                     }
                 } catch (IllegalArgumentException ignored) {}
                 break;
+            }
+        }
+    }
+
+    /**
+     * Tracker les joueurs qui attaquent le boss de la mine
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMineBossDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Player damager = null;
+        if (event.getDamager() instanceof Player player) {
+            damager = player;
+        } else if (event.getDamager() instanceof Projectile projectile &&
+                   projectile.getShooter() instanceof Player player) {
+            damager = player;
+        }
+
+        if (damager != null) {
+            bossContributors.add(damager.getUniqueId());
+        }
+    }
+
+    /**
+     * Gère la mort du boss de la mine
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMineBossDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Location deathLoc = boss.getLocation();
+        World world = boss.getWorld();
+
+        // Effets de mort épiques
+        world.playSound(deathLoc, Sound.ENTITY_WITHER_DEATH, 2f, 0.5f);
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, deathLoc, 3, 1, 1, 1, 0);
+        world.spawnParticle(Particle.SOUL, deathLoc, 50, 2, 2, 2, 0.1);
+
+        // Valider l'étape pour TOUS les contributeurs
+        for (UUID uuid : bossContributors) {
+            Player contributor = Bukkit.getPlayer(uuid);
+            if (contributor != null && contributor.isOnline()) {
+                JourneyStep currentStep = journeyManager.getCurrentStep(contributor);
+                if (currentStep != null && currentStep == JourneyStep.STEP_3_10) {
+                    journeyManager.updateProgress(contributor, JourneyStep.StepType.KILL_MINE_BOSS, 1);
+
+                    contributor.sendMessage("");
+                    contributor.sendMessage("§6§l✦ §4Le Seigneur des Profondeurs a été vaincu!");
+                    contributor.sendMessage("§7Tu as contribué à sa défaite.");
+                    contributor.sendMessage("");
+                }
+            }
+        }
+
+        // Nettoyer
+        bossContributors.clear();
+        mineBossEntity = null;
+
+        // Programmer le respawn
+        if (!bossRespawnScheduled) {
+            bossRespawnScheduled = true;
+            bossRespawnTime = System.currentTimeMillis() + (BOSS_RESPAWN_SECONDS * 1000L);
+
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    spawnMineBoss(world);
+                    bossRespawnTime = 0;
+                }
+            }.runTaskLater(plugin, 20L * BOSS_RESPAWN_SECONDS);
+
+            // Annoncer le respawn
+            for (Player player : world.getPlayers()) {
+                if (player.getLocation().distance(deathLoc) < 100) {
+                    player.sendMessage("§8Le Seigneur des Profondeurs reviendra dans §c" + BOSS_RESPAWN_SECONDS + " secondes§8...");
+                }
             }
         }
     }
@@ -2116,6 +2517,15 @@ public class Chapter3Systems implements Listener {
             }
         }
         activeDefenseEvents.clear();
+
+        // Nettoyer le boss de la mine
+        if (mineBossEntity != null && mineBossEntity.isValid()) {
+            mineBossEntity.remove();
+        }
+        if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
+            bossSpawnDisplay.remove();
+        }
+        bossContributors.clear();
 
         // Nettoyer les caches
         playersWhoCompletedPuzzle.clear();

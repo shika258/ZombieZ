@@ -129,6 +129,10 @@ public enum JourneyStep {
         "Atteins niveau 5 et active ton 2ème talent", StepType.CLASS_MASTERY, 2,
         900, 22, Material.ENCHANTING_TABLE),
 
+    STEP_3_10(JourneyChapter.CHAPTER_3, 10, "Tue le Seigneur des Profondeurs",
+        "Mine abandonnée: §b1063, 76, 9127", StepType.KILL_MINE_BOSS, 1,
+        1000, 25, Material.DRAGON_HEAD),
+
     // ==================== CHAPITRE 4: L'ART DU COMBAT ====================
 
     STEP_4_1(JourneyChapter.CHAPTER_4, 1, "Accomplis un événement",
@@ -415,6 +419,7 @@ public enum JourneyStep {
             case COLLECT_SUPPLY_CRATES -> current + "/" + targetValue + " caisses récupérées";
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
+            case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
                 else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
@@ -578,6 +583,7 @@ public enum JourneyStep {
 
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir"),
+        KILL_MINE_BOSS("Tue le boss de la mine"),
 
         // Pets
         OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
