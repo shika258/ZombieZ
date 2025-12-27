@@ -439,7 +439,7 @@ public class MaceListener implements Listener {
         }
 
         // Effets visuels
-        target.getWorld().spawnParticle(Particle.CRIT_MAGIC,
+        target.getWorld().spawnParticle(Particle.ENCHANTED_HIT,
             target.getLocation().add(0, target.getHeight() + 0.3, 0),
             10, 0.3, 0.2, 0.3, 0.05);
 
