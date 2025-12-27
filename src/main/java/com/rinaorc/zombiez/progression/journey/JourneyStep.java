@@ -93,9 +93,9 @@ public enum JourneyStep {
 
     // ==================== CHAPITRE 3: PRENDRE SES MARQUES ====================
 
-    STEP_3_1(JourneyChapter.CHAPTER_3, 1, "Entre dans la Zone 2",
-        "Premiers pas dans le danger", StepType.REACH_ZONE, 2,
-        150, 5, Material.LEATHER_BOOTS),
+    STEP_3_1(JourneyChapter.CHAPTER_3, 1, "Découvre les Compagnons",
+        "Ouvre un oeuf puis équipe ton pet - /pet", StepType.OPEN_AND_EQUIP_PET, 2,
+        150, 5, Material.EGG),
 
     STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Tue 50 zombies avec ta classe",
         "Maîtrise ton style de combat", StepType.CLASS_KILLS, 50,
@@ -399,6 +399,11 @@ public enum JourneyStep {
             case COLLECT_SUPPLY_CRATES -> current + "/" + targetValue + " caisses récupérées";
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
+            case OPEN_AND_EQUIP_PET -> {
+                if (current >= 2) yield "✓ Compagnon équipé!";
+                else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
+                else yield "0/2 - Ouvre un oeuf /pet";
+            }
         };
     }
 
@@ -545,7 +550,10 @@ public enum JourneyStep {
         FIRE_ZOMBIE_KILLS("Tue des Pyromorts"),
 
         // Boss spécifiques
-        KILL_MANOR_BOSS("Tue le boss du manoir");
+        KILL_MANOR_BOSS("Tue le boss du manoir"),
+
+        // Pets
+        OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon");
 
         private final String description;
 

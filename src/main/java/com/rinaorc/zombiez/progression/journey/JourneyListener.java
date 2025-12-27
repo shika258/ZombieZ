@@ -617,6 +617,38 @@ public class JourneyListener implements Listener {
         }
     }
 
+    /**
+     * Appelé quand le joueur ouvre un oeuf de pet
+     */
+    public void onPetEggOpen(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        // Étape en 2 temps: ouvrir oeuf + équiper pet (progress 0 -> 1)
+        if (currentStep.getType() == JourneyStep.StepType.OPEN_AND_EQUIP_PET) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress < 1) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.OPEN_AND_EQUIP_PET, 1);
+            }
+        }
+    }
+
+    /**
+     * Appelé quand le joueur équipe un pet
+     */
+    public void onPetEquip(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        // Étape en 2 temps: ouvrir oeuf + équiper pet (progress 1 -> 2)
+        if (currentStep.getType() == JourneyStep.StepType.OPEN_AND_EQUIP_PET) {
+            int progress = journeyManager.getStepProgress(player, currentStep);
+            if (progress >= 1 && progress < 2) {
+                journeyManager.updateProgress(player, JourneyStep.StepType.OPEN_AND_EQUIP_PET, 2);
+            }
+        }
+    }
+
     // ==================== TRACKING DU TEMPS DE SURVIE ====================
 
     /**

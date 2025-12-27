@@ -195,6 +195,13 @@ public class PetManager {
         }
 
         player.sendMessage("§a[Pet] §7Vous avez équipé " + type.getColoredName() + "§7!");
+
+        // Notifier le système Journey
+        var journeyListener = plugin.getJourneyListener();
+        if (journeyListener != null) {
+            journeyListener.onPetEquip(player);
+        }
+
         return true;
     }
 
@@ -340,6 +347,12 @@ public class PetManager {
         } else {
             int fragments = predeterminedPet.getRarity().getFragmentsPerDuplicate();
             player.sendMessage("§a[Pet] §7Duplicata: " + predeterminedPet.getColoredName() + "§7! §7(+§d" + fragments + " fragments§7)");
+        }
+
+        // Notifier le système Journey
+        var journeyListener = plugin.getJourneyListener();
+        if (journeyListener != null) {
+            journeyListener.onPetEggOpen(player);
         }
 
         return isNew ? predeterminedPet : null; // Retourne null si c'est un duplicata (pour le flag isNew)
