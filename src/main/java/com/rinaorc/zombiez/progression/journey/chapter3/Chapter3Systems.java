@@ -1891,13 +1891,23 @@ public class Chapter3Systems implements Listener {
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
+        World world = Bukkit.getWorld("world");
+        if (world == null) return;
+
         if (bossAlive && mineBossEntity != null && mineBossEntity.isValid()) {
-            // Boss vivant - cacher le display (le système ZombieZ gère l'affichage des HP)
+            // Boss vivant - cacher le display en le téléportant sous terre
+            // (le système ZombieZ gère l'affichage des HP au-dessus du boss)
             display.text(Component.empty());
-            display.setViewRange(0f);
+            Location hiddenLoc = MINE_BOSS_LOCATION.clone();
+            hiddenLoc.setWorld(world);
+            hiddenLoc.setY(-100);
+            display.teleport(hiddenLoc);
         } else {
-            // Boss mort - afficher countdown de respawn
-            display.setViewRange(1f);
+            // Boss mort - afficher countdown de respawn à la position normale
+            Location displayLoc = MINE_BOSS_LOCATION.clone();
+            displayLoc.setWorld(world);
+            displayLoc.add(0, 3, 0);
+            display.teleport(displayLoc);
 
             StringBuilder text = new StringBuilder();
             text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");

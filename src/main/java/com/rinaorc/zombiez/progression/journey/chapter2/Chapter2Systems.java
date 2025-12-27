@@ -243,14 +243,23 @@ public class Chapter2Systems implements Listener {
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
+        World world = display.getWorld();
+
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - CACHER COMPLÈTEMENT le display
+            // Boss vivant - CACHER COMPLÈTEMENT le display en le téléportant sous le sol
             // (le système ZombieZ gère l'affichage des HP via le customName du zombie)
             display.text(Component.empty());
-            display.setViewRange(0f); // Rendre invisible
+            // Téléporter très loin sous le sol pour éviter tout chevauchement
+            Location hiddenLoc = MANOR_BOSS_LOCATION.clone();
+            hiddenLoc.setWorld(world);
+            hiddenLoc.setY(-100);
+            display.teleport(hiddenLoc);
         } else {
-            // Boss mort - afficher countdown de respawn
-            display.setViewRange(100f); // Rendre visible à nouveau
+            // Boss mort - afficher countdown de respawn au-dessus du spawn
+            Location visibleLoc = MANOR_BOSS_LOCATION.clone();
+            visibleLoc.setWorld(world);
+            visibleLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
+            display.teleport(visibleLoc);
 
             StringBuilder text = new StringBuilder();
             text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
