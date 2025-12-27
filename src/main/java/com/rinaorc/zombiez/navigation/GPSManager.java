@@ -456,7 +456,8 @@ public class GPSManager implements Listener {
             }
 
             // Angles vers la destination
-            float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ()));
+            // Note: +90° car la flèche spectrale pointe vers +X par défaut après baseRotation
+            float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ())) + 90f;
             float targetPitch = (float) Math.toDegrees(-Math.asin(Math.max(-1, Math.min(1, toDestination.getY()))));
 
             // Interpolation de la rotation
