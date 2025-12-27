@@ -236,42 +236,47 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
-     * NOTE: Quand le boss est vivant, on CACHE COMPLÈTEMENT le display statique
-     * car le système ZombieZ affiche déjà les HP via le customName de l'entité.
-     * Le display statique n'apparaît que pour le countdown de respawn.
+     * UN SEUL TextDisplay qui affiche:
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
         World world = display.getWorld();
+        StringBuilder text = new StringBuilder();
+        text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
 
         if (bossAlive && manorBossEntity != null && manorBossEntity.isValid()) {
-            // Boss vivant - CACHER COMPLÈTEMENT le display en le téléportant sous le sol
-            // (le système ZombieZ gère l'affichage des HP via le customName du zombie)
-            display.text(Component.empty());
-            // Téléporter très loin sous le sol pour éviter tout chevauchement
-            Location hiddenLoc = MANOR_BOSS_LOCATION.clone();
-            hiddenLoc.setWorld(world);
-            hiddenLoc.setY(-100);
-            display.teleport(hiddenLoc);
+            // Boss vivant - afficher les HP
+            if (manorBossEntity instanceof LivingEntity livingBoss) {
+                double currentHealth = livingBoss.getHealth();
+                double maxHealth = livingBoss.getAttribute(Attribute.MAX_HEALTH).getValue();
+                int healthPercent = (int) ((currentHealth / maxHealth) * 100);
+
+                // Couleur selon le pourcentage de vie
+                String healthColor;
+                if (healthPercent > 50) {
+                    healthColor = "§a"; // Vert
+                } else if (healthPercent > 25) {
+                    healthColor = "§e"; // Jaune
+                } else {
+                    healthColor = "§c"; // Rouge
+                }
+
+                text.append(healthColor).append("❤ ")
+                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+            }
         } else {
-            // Boss mort - afficher countdown de respawn au-dessus du spawn
-            Location visibleLoc = MANOR_BOSS_LOCATION.clone();
-            visibleLoc.setWorld(world);
-            visibleLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
-            display.teleport(visibleLoc);
-
-            StringBuilder text = new StringBuilder();
-            text.append("§4§l☠ ").append(BOSS_NAME).append(" §4§l☠\n");
-
+            // Boss mort - afficher countdown de respawn
             if (respawnSeconds > 0) {
                 text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
             } else {
                 text.append("§7En attente de spawn...");
             }
-
-            display.text(Component.text(text.toString()));
         }
+
+        display.text(Component.text(text.toString()));
     }
 
     /**
@@ -1196,6 +1201,10 @@ public class Chapter2Systems implements Listener {
         // Effets visuels
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
         boss.setGlowing(true);
+
+        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
+        // On utilise le TextDisplay statique pour afficher les infos du boss
+        boss.setCustomNameVisible(false);
     }
 
     /**

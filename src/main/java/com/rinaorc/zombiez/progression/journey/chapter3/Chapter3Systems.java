@@ -1887,39 +1887,46 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Met à jour le texte du display selon l'état du boss
+     * UN SEUL TextDisplay qui affiche:
+     * - Boss vivant: Nom + barre de vie (le customNameVisible est désactivé sur le boss)
+     * - Boss mort: Countdown de respawn
      */
     private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
         if (display == null || !display.isValid()) return;
 
-        World world = Bukkit.getWorld("world");
-        if (world == null) return;
+        StringBuilder text = new StringBuilder();
+        text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
 
         if (bossAlive && mineBossEntity != null && mineBossEntity.isValid()) {
-            // Boss vivant - cacher le display en le téléportant sous terre
-            // (le système ZombieZ gère l'affichage des HP au-dessus du boss)
-            display.text(Component.empty());
-            Location hiddenLoc = MINE_BOSS_LOCATION.clone();
-            hiddenLoc.setWorld(world);
-            hiddenLoc.setY(-100);
-            display.teleport(hiddenLoc);
+            // Boss vivant - afficher les HP
+            if (mineBossEntity instanceof LivingEntity livingBoss) {
+                double currentHealth = livingBoss.getHealth();
+                double maxHealth = livingBoss.getAttribute(Attribute.MAX_HEALTH).getValue();
+                int healthPercent = (int) ((currentHealth / maxHealth) * 100);
+
+                // Couleur selon le pourcentage de vie
+                String healthColor;
+                if (healthPercent > 50) {
+                    healthColor = "§a"; // Vert
+                } else if (healthPercent > 25) {
+                    healthColor = "§e"; // Jaune
+                } else {
+                    healthColor = "§c"; // Rouge
+                }
+
+                text.append(healthColor).append("❤ ")
+                    .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+            }
         } else {
-            // Boss mort - afficher countdown de respawn à la position normale
-            Location displayLoc = MINE_BOSS_LOCATION.clone();
-            displayLoc.setWorld(world);
-            displayLoc.add(0, 3, 0);
-            display.teleport(displayLoc);
-
-            StringBuilder text = new StringBuilder();
-            text.append("§4§l☠ ").append(MINE_BOSS_NAME).append(" §4§l☠\n");
-
+            // Boss mort - afficher countdown de respawn
             if (respawnSeconds > 0) {
                 text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
             } else {
                 text.append("§7En attente de spawn...");
             }
-
-            display.text(Component.text(text.toString()));
         }
+
+        display.text(Component.text(text.toString()));
     }
 
     /**
@@ -2127,6 +2134,10 @@ public class Chapter3Systems implements Listener {
         // Effets visuels
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 2, false, true));
         boss.setGlowing(true);
+
+        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
+        // On utilise le TextDisplay statique pour afficher les infos du boss
+        boss.setCustomNameVisible(false);
     }
 
     // ==================== EVENT HANDLERS ====================
