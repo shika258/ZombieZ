@@ -455,10 +455,9 @@ public class GPSManager implements Listener {
                 toDestination = player.getLocation().getDirection();
             }
 
-            // Angles vers la destination
-            // Note: -90° pour que la pointe de la flèche pointe vers la destination
-            float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ())) - 90f;
-            float targetPitch = (float) Math.toDegrees(-Math.asin(Math.max(-1, Math.min(1, toDestination.getY()))));
+            // Angles vers la destination (formule standard Minecraft)
+            float targetYaw = (float) Math.toDegrees(Math.atan2(-toDestination.getX(), toDestination.getZ()));
+            float targetPitch = (float) -Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, toDestination.getY()))));
 
             // Interpolation de la rotation
             currentYaw = lerpAngle(currentYaw, targetYaw, LERP_SPEED);
@@ -477,30 +476,29 @@ public class GPSManager implements Listener {
 
             // === METTRE À JOUR LA TRANSFORMATION (ROTATION DE LA FLÈCHE) ===
             if (arrowEntity instanceof ItemDisplay display) {
-                // La flèche spectrale pointe naturellement vers le haut (+Y)
-                // On doit la tourner pour qu'elle pointe vers la destination
+                // La flèche spectrale (item) a sa pointe orientée vers le haut-avant
+                // On construit une rotation qui oriente la flèche vers la destination
                 //
-                // Approche: utiliser des quaternions composés correctement
-                // 1. Rotation de base: -90° sur X pour coucher la flèche (pointe vers +Z)
-                // 2. Rotation de yaw: sur Y pour la direction horizontale
-                // 3. Rotation de pitch: sur X pour l'inclinaison verticale
+                // Ordre d'application (de droite à gauche):
+                // 1. baseRotation: Couche la flèche pour pointer vers +Z
+                // 2. pitchRotation: Inclinaison verticale
+                // 3. yawRotation: Rotation horizontale
 
-                float yawRad = (float) Math.toRadians(-currentYaw); // Inverser pour Minecraft
+                float yawRad = (float) Math.toRadians(currentYaw);
                 float pitchRad = (float) Math.toRadians(currentPitch);
 
-                // Créer les quaternions individuels
+                // Rotation de base: -90° sur X couche la flèche, +45° sur Z ajuste l'orientation de l'item
                 org.joml.Quaternionf baseRotation = new org.joml.Quaternionf()
-                    .rotateX((float) Math.toRadians(-90)); // Coucher la flèche
+                    .rotateX((float) Math.toRadians(-90))
+                    .rotateZ((float) Math.toRadians(45));
 
                 org.joml.Quaternionf yawRotation = new org.joml.Quaternionf()
                     .rotateY(yawRad);
 
                 org.joml.Quaternionf pitchRotation = new org.joml.Quaternionf()
-                    .rotateX(pitchRad);
+                    .rotateX(-pitchRad); // Inverser car le pitch positif doit pointer vers le haut
 
-                // Composer: d'abord la base, puis yaw, puis pitch
-                // L'ordre de multiplication: result = yaw * pitch * base
-                // (appliqué de droite à gauche sur le vecteur)
+                // Composer: yaw * pitch * base (appliqué de droite à gauche)
                 org.joml.Quaternionf finalRotation = new org.joml.Quaternionf()
                     .set(yawRotation)
                     .mul(pitchRotation)
