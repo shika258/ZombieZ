@@ -180,6 +180,9 @@ public enum ZombieType {
     HORDE_ZOMBIE("ZZ_HordeZombie", "Zombie de Horde", 2, 40, 5, 0.25,  // Zombie spécial pour l'événement Horde
         new int[]{}, ZombieCategory.EVENT),  // Pas de zone: spawn uniquement via HordeInvasionEvent
 
+    WANDERING_BOSS("ZZ_WanderingBoss", "Boss Errant", 0, 500, 15, 0.20,  // Boss pour l'événement Wandering Boss
+        new int[]{}, ZombieCategory.EVENT_BOSS),  // Pas de zone: spawn uniquement via WanderingBossEvent
+
     MANOR_LORD("ZZ_ManorLord", "Seigneur du Manoir", 0, 500, 15, 0.22,  // Boss Chapitre 2 Étape 10
         new int[]{2}, ZombieCategory.JOURNEY_BOSS),
 
@@ -311,6 +314,7 @@ public enum ZombieType {
             case PACK -> 7;          // Loups - récompense modérée
             case ILLAGER -> 10;      // Illagers - récompense élevée
             case EVENT -> 8;         // Zombies d'événements - récompense modérée
+            case EVENT_BOSS -> 300;  // Boss d'événements - grosse récompense
         };
     }
 
@@ -328,7 +332,8 @@ public enum ZombieType {
         return category == ZombieCategory.MINIBOSS ||
                category == ZombieCategory.ZONE_BOSS ||
                category == ZombieCategory.FINAL_BOSS ||
-               category == ZombieCategory.JOURNEY_BOSS;
+               category == ZombieCategory.JOURNEY_BOSS ||
+               category == ZombieCategory.EVENT_BOSS;
     }
 
     /**
@@ -388,6 +393,7 @@ public enum ZombieType {
         SKELETON,    // Squelettes archers (nouveaux)
         PACK,        // Loups en meute (nouveaux)
         ILLAGER,     // Illagers (Evoker, Pillager, Vindicator)
-        EVENT        // Zombies d'événements dynamiques (Horde, etc.)
+        EVENT,       // Zombies d'événements dynamiques (Horde, etc.)
+        EVENT_BOSS   // Boss d'événements dynamiques (Wandering Boss, etc.)
     }
 }

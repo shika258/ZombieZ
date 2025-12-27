@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.zombies.ZombieManager;
+import com.rinaorc.zombiez.zombies.ai.WanderingBossAI;
+import com.rinaorc.zombiez.zombies.ai.ZombieAI;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
@@ -16,10 +18,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.*;
 
@@ -35,9 +34,10 @@ import java.util.*;
  */
 public class WanderingBossEvent extends DynamicEvent {
 
-    // Le boss
+    // Le boss et son IA
     @Getter
     private LivingEntity boss;
+    private WanderingBossAI bossAI;
     private String bossName;
     private double bossMaxHealth;
     private double bossCurrentHealth;
@@ -45,21 +45,12 @@ public class WanderingBossEvent extends DynamicEvent {
     // Destination
     private Location destination;
     private double totalDistance;
-    private double moveSpeed = 0.08;
-
-    // Capacités
-    private int specialAbilityTimer = 0;
-    private int specialAbilityInterval = 15; // Secondes
-    private int addSpawnTimer = 0;
-    private int addSpawnInterval = 20; // Secondes
 
     // Boss bar spéciale
     private BossBar bossBossBar;
 
     // État
-    private boolean isEnraged = false;
     private int tickCounter = 0;
-    private int targetingTimer = 0;
 
     // Types de boss selon la zone
     private static final String[] BOSS_NAMES = {
@@ -76,13 +67,9 @@ public class WanderingBossEvent extends DynamicEvent {
         // Choisir un nom de boss
         this.bossName = BOSS_NAMES[new Random().nextInt(BOSS_NAMES.length)];
 
-        // Stats basées sur la zone
+        // Stats basées sur la zone (utilisées pour la BossBar)
         this.bossMaxHealth = 500 + (zone.getId() * 50);
         this.bossCurrentHealth = bossMaxHealth;
-
-        // Plus rapide et plus dangereux en zone avancée
-        this.moveSpeed = 0.06 + (zone.getId() * 0.002);
-        this.specialAbilityInterval = Math.max(8, 15 - zone.getId() / 10);
     }
 
     @Override
@@ -137,44 +124,74 @@ public class WanderingBossEvent extends DynamicEvent {
     }
 
     /**
-     * Spawn le boss
+     * Spawn le boss via ZombieManager pour bénéficier du système ZombieZ complet
      */
     private void spawnBoss() {
         World world = location.getWorld();
         if (world == null) return;
 
-        // Choisir le type de mob basé sur la zone
-        EntityType bossType = zone.getId() < 20 ? EntityType.ZOMBIE :
-            (zone.getId() < 35 ? EntityType.HUSK : EntityType.WITHER_SKELETON);
+        // Calculer le niveau du boss basé sur la zone
+        int bossLevel = zone.getId();
 
-        boss = (LivingEntity) world.spawnEntity(location, bossType);
+        // Spawn via ZombieManager pour bénéficier du système ZombieZ complet
+        ZombieManager zombieManager = plugin.getZombieManager();
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WANDERING_BOSS, location, bossLevel);
 
-        // Nom personnalisé
-        boss.setCustomName("§4§l" + bossName + " §c[BOSS]");
-        boss.setCustomNameVisible(true);
+        // Si le spawn a échoué, annuler l'événement
+        if (activeZombie == null) {
+            plugin.getLogger().warning("Échec du spawn du Wandering Boss - événement annulé");
+            fail();
+            return;
+        }
 
-        // Stats
-        boss.getAttribute(Attribute.MAX_HEALTH).setBaseValue(bossMaxHealth);
-        boss.setHealth(bossMaxHealth);
-        boss.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0); // On gère le mouvement
-        boss.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(15 + zone.getId());
+        // Récupérer l'entité spawnée
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (entity == null || !(entity instanceof LivingEntity living)) {
+            plugin.getLogger().warning("Entité du Wandering Boss invalide - événement annulé");
+            fail();
+            return;
+        }
+
+        boss = living;
+
+        // Récupérer et configurer l'IA
+        ZombieAI ai = plugin.getZombieAIManager().getAI(boss.getUniqueId());
+        if (ai instanceof WanderingBossAI wanderingAI) {
+            bossAI = wanderingAI;
+            // Configurer l'IA avec la destination et le nom
+            bossAI.setDestinationWithDistance(destination);
+            bossAI.setBossName(bossName);
+            // Vitesse adaptée à la zone
+            bossAI.setMoveSpeed(0.12 + (zone.getId() * 0.003));
+        }
+
+        // Ajuster les stats du boss (override les stats par défaut du ZombieType)
+        var maxHealthAttr = boss.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthAttr.setBaseValue(bossMaxHealth);
+            boss.setHealth(bossMaxHealth);
+        }
+
+        var damageAttr = boss.getAttribute(Attribute.ATTACK_DAMAGE);
+        if (damageAttr != null) {
+            damageAttr.setBaseValue(15 + zone.getId());
+        }
+
+        // Vitesse de mouvement normale (l'IA gère le pathfinding)
+        var speedAttr = boss.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (speedAttr != null) {
+            speedAttr.setBaseValue(0.25 + zone.getId() * 0.002);
+        }
 
         // Effets visuels
         boss.setGlowing(true);
-        boss.setFireTicks(0);
 
-        // Taille si c'est un zombie
-        if (boss instanceof Zombie zombie) {
-            zombie.setBaby(false);
-        }
-
-        // Armure - SANS DROP (empêcher le loot des équipements)
+        // Armure custom - SANS DROP
         if (boss.getEquipment() != null) {
             boss.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
             boss.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
             boss.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_AXE));
 
-            // IMPORTANT: Empêcher le drop des équipements
             boss.getEquipment().setHelmetDropChance(0f);
             boss.getEquipment().setChestplateDropChance(0f);
             boss.getEquipment().setLeggingsDropChance(0f);
@@ -183,20 +200,18 @@ public class WanderingBossEvent extends DynamicEvent {
             boss.getEquipment().setItemInOffHandDropChance(0f);
         }
 
-        // Marquer comme boss d'événement
+        // Tags pour identification de l'événement
         boss.addScoreboardTag("event_boss");
         boss.addScoreboardTag("event_" + id);
-        boss.addScoreboardTag("dynamic_event_entity"); // Tag pour cleanup au redémarrage
+        boss.addScoreboardTag("dynamic_event_entity");
 
-        // Ne pas persister au reboot (évite les entités orphelines)
+        // Ne pas persister au reboot
         boss.setPersistent(false);
 
-        // Effet de spawn
+        // Effet de spawn épique
         world.playSound(location, Sound.ENTITY_WITHER_SPAWN, 2f, 0.7f);
         world.spawnParticle(Particle.EXPLOSION, location, 5, 2, 2, 2, 0);
         world.spawnParticle(Particle.SOUL_FIRE_FLAME, location, 50, 2, 2, 2, 0.1);
-
-        // Strikle lightning
         world.strikeLightningEffect(location);
     }
 
@@ -229,38 +244,16 @@ public class WanderingBossEvent extends DynamicEvent {
         // Mettre à jour la santé
         bossCurrentHealth = boss.getHealth();
 
-        // Enrage à 30% de vie
-        if (!isEnraged && bossCurrentHealth < bossMaxHealth * 0.3) {
-            triggerEnrage();
+        // Vérifier si arrivé à destination (échec) - via l'IA ou calcul direct
+        boolean hasReachedDestination = false;
+        if (bossAI != null) {
+            hasReachedDestination = bossAI.hasReachedDestination();
+        } else {
+            double distToDest = safeDistance(boss.getLocation(), destination);
+            hasReachedDestination = distToDest != Double.MAX_VALUE && distToDest < 10;
         }
 
-        // Mouvement vers la destination
-        moveBoss();
-
-        // Faire focus le boss sur le joueur le plus proche (toutes les 2 secondes)
-        targetingTimer++;
-        if (targetingTimer >= 4) { // 4 ticks de 10 = 2 secondes
-            targetNearestPlayer();
-            targetingTimer = 0;
-        }
-
-        // Capacités spéciales
-        specialAbilityTimer++;
-        if (specialAbilityTimer >= specialAbilityInterval * 2) {
-            useSpecialAbility();
-            specialAbilityTimer = 0;
-        }
-
-        // Spawn d'adds
-        addSpawnTimer++;
-        if (addSpawnTimer >= addSpawnInterval * 2) {
-            spawnAdds();
-            addSpawnTimer = 0;
-        }
-
-        // Vérifier si arrivé à destination (échec)
-        double distToDest = safeDistance(boss.getLocation(), destination);
-        if (distToDest != Double.MAX_VALUE && distToDest < 10) {
+        if (hasReachedDestination) {
             onBossEscaped();
             return;
         }
@@ -271,201 +264,13 @@ public class WanderingBossEvent extends DynamicEvent {
         // Gérer la visibilité des boss bars
         updateBossBarVisibility();
 
-        // Particules ambiantes
-        if (tickCounter % 4 == 0) {
-            Location bossLoc = boss.getLocation();
-            world.spawnParticle(Particle.SOUL_FIRE_FLAME, bossLoc.clone().add(0, 1, 0),
-                5, 0.5, 0.5, 0.5, 0.02);
-
-            if (isEnraged) {
-                world.spawnParticle(Particle.ANGRY_VILLAGER, bossLoc.clone().add(0, 2, 0),
-                    3, 0.3, 0.3, 0.3, 0);
-            }
-        }
-    }
-
-    /**
-     * Fait target le boss sur le joueur le plus proche
-     * Le boss ne doit cibler QUE les joueurs, pas les autres mobs
-     */
-    private void targetNearestPlayer() {
-        if (boss == null || !boss.isValid()) return;
-        if (!(boss instanceof Mob mob)) return;
-
-        World world = boss.getLocation().getWorld();
-        if (world == null) return;
-
-        Player nearestPlayer = null;
-        double nearestDistance = Double.MAX_VALUE;
-
-        for (Entity entity : world.getNearbyEntities(boss.getLocation(), 20, 10, 20)) {
-            if (entity instanceof Player player) {
-                double distance = safeDistance(boss.getLocation(), player.getLocation());
-                if (distance < nearestDistance && distance != Double.MAX_VALUE) {
-                    nearestDistance = distance;
-                    nearestPlayer = player;
-                }
-            }
-        }
-
-        // Target le joueur le plus proche (uniquement les joueurs!)
-        if (nearestPlayer != null) {
-            mob.setTarget(nearestPlayer);
-        }
-    }
-
-    /**
-     * Déplace le boss vers sa destination
-     */
-    private void moveBoss() {
-        if (boss == null || !boss.isValid()) return;
-
-        Location bossLoc = boss.getLocation();
-        Vector direction = destination.toVector().subtract(bossLoc.toVector()).normalize();
-
-        // Vitesse augmentée si enragé
-        double speed = isEnraged ? moveSpeed * 1.5 : moveSpeed;
-
-        Location newLoc = bossLoc.clone().add(direction.multiply(speed));
-
-        World world = bossLoc.getWorld();
-        if (world != null) {
-            int groundY = world.getHighestBlockYAt(newLoc);
-            newLoc.setY(groundY + 1);
-        }
-
-        // Téléporter (mouvement smooth)
-        boss.teleport(newLoc);
-
-        // Faire face à la direction
-        float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
-        boss.setRotation(yaw, 0);
-    }
-
-    /**
-     * Active le mode enragé
-     */
-    private void triggerEnrage() {
-        isEnraged = true;
-
-        World world = boss.getLocation().getWorld();
-        if (world == null) return;
-
-        // Annonce
-        for (Player player : world.getNearbyEntities(boss.getLocation(), 80, 40, 80).stream()
-                .filter(e -> e instanceof Player)
-                .map(e -> (Player) e)
-                .toList()) {
-            player.sendTitle("§4§l⚠ " + bossName.toUpperCase() + " EST ENRAGÉ!", "§cIl devient plus dangereux!", 10, 40, 10);
-            player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.5f, 0.8f);
-        }
-
-        // Effet visuel
-        world.spawnParticle(Particle.EXPLOSION_EMITTER, boss.getLocation(), 3, 1, 1, 1, 0);
-
-        // Boost de stats
-        boss.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(
-            boss.getAttribute(Attribute.ATTACK_DAMAGE).getValue() * 1.5
-        );
-        boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 1));
-        boss.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 99999, 0));
-
-        // Changer la couleur de la boss bar
-        bossBossBar.setColor(BarColor.PURPLE);
-    }
-
-    /**
-     * Utilise une capacité spéciale
-     */
-    private void useSpecialAbility() {
-        if (boss == null || !boss.isValid()) return;
-
-        World world = boss.getLocation().getWorld();
-        if (world == null) return;
-
-        // Choisir une capacité
-        int ability = new Random().nextInt(4);
-
-        Location bossLoc = boss.getLocation();
-
-        switch (ability) {
-            case 0 -> { // Onde de choc
-                for (Player player : world.getNearbyEntities(bossLoc, 8, 4, 8).stream()
-                        .filter(e -> e instanceof Player)
-                        .map(e -> (Player) e)
-                        .toList()) {
-                    Vector knockback = player.getLocation().toVector()
-                        .subtract(bossLoc.toVector()).normalize().multiply(2).setY(0.8);
-                    player.setVelocity(knockback);
-                    player.damage(8 + zone.getId() / 5);
-                    player.sendMessage("§c" + bossName + " §7vous repousse!");
-                }
-                world.playSound(bossLoc, Sound.ENTITY_RAVAGER_ROAR, 1.5f, 0.8f);
-                world.spawnParticle(Particle.EXPLOSION, bossLoc, 20, 3, 1, 3, 0);
-            }
-            case 1 -> { // Rugissement terrifiant
-                for (Player player : world.getNearbyEntities(bossLoc, 15, 10, 15).stream()
-                        .filter(e -> e instanceof Player)
-                        .map(e -> (Player) e)
-                        .toList()) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 1));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 40, 0));
-                    player.sendMessage("§c" + bossName + " §7vous terrorise!");
-                }
-                world.playSound(bossLoc, Sound.ENTITY_WARDEN_ROAR, 2f, 0.6f);
-            }
-            case 2 -> { // Frappe au sol
-                for (Player player : world.getNearbyEntities(bossLoc, 6, 4, 6).stream()
-                        .filter(e -> e instanceof Player)
-                        .map(e -> (Player) e)
-                        .toList()) {
-                    player.damage(15 + zone.getId() / 3);
-                    player.setVelocity(new Vector(0, 1, 0));
-                }
-                world.playSound(bossLoc, Sound.ENTITY_GENERIC_EXPLODE, 1f, 0.7f);
-                world.spawnParticle(Particle.BLOCK, bossLoc, 50, 3, 0.5, 3, 0,
-                    Material.DIRT.createBlockData());
-            }
-            case 3 -> { // Auto-régénération
-                double healAmount = bossMaxHealth * 0.05; // 5% de regen
-                boss.setHealth(Math.min(bossMaxHealth, boss.getHealth() + healAmount));
-                world.playSound(bossLoc, Sound.ENTITY_WITCH_DRINK, 1f, 0.8f);
-                world.spawnParticle(Particle.HEART, bossLoc.clone().add(0, 2, 0), 5, 0.5, 0.5, 0.5, 0);
-
-                for (Player player : world.getNearbyEntities(bossLoc, 30, 20, 30).stream()
-                        .filter(e -> e instanceof Player)
-                        .map(e -> (Player) e)
-                        .toList()) {
-                    player.sendMessage("§c" + bossName + " §7se régénère!");
-                }
-            }
-        }
-    }
-
-    /**
-     * Spawn des zombies supplémentaires
-     */
-    private void spawnAdds() {
-        if (boss == null || !boss.isValid()) return;
-
-        World world = boss.getLocation().getWorld();
-        if (world == null) return;
-
-        int addCount = 2 + zone.getId() / 15;
-        Location bossLoc = boss.getLocation();
-
-        for (int i = 0; i < addCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double distance = 3 + Math.random() * 3;
-            double x = bossLoc.getX() + Math.cos(angle) * distance;
-            double z = bossLoc.getZ() + Math.sin(angle) * distance;
-            int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
-
-            Location spawnLoc = new Location(world, x, y, z);
-            plugin.getSpawnSystem().spawnSingleZombie(spawnLoc, zone.getId());
-        }
-
-        world.playSound(bossLoc, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1f, 0.8f);
+        // Note: L'IA (WanderingBossAI) gère automatiquement:
+        // - Le mouvement vers la destination
+        // - Le ciblage des joueurs
+        // - Les capacités spéciales
+        // - Le spawn d'adds
+        // - Le mode enragé
+        // - Les particules ambiantes
     }
 
     /**
@@ -566,11 +371,17 @@ public class WanderingBossEvent extends DynamicEvent {
 
         // Boss bar de santé du boss
         if (bossBossBar != null) {
+            // Vérifier l'état enragé via l'IA
+            boolean isEnraged = bossAI != null && bossAI.isEnraged();
+
             double healthPercent = bossCurrentHealth / bossMaxHealth;
             bossBossBar.setProgress(Math.max(0, Math.min(1, healthPercent)));
             bossBossBar.setTitle("§4§l" + bossName +
                 (isEnraged ? " §5[ENRAGÉ]" : "") +
                 " §c" + (int) bossCurrentHealth + "/" + (int) bossMaxHealth);
+
+            // Changer la couleur si enragé
+            bossBossBar.setColor(isEnraged ? BarColor.PURPLE : BarColor.RED);
         }
     }
 
@@ -678,6 +489,7 @@ public class WanderingBossEvent extends DynamicEvent {
                 distToDestination = -1; // Indication d'erreur
             }
         }
+        boolean isEnraged = bossAI != null && bossAI.isEnraged();
         return String.format("Boss: %s | Health: %.0f/%.0f | DistToDest: %.0f | Enraged: %s",
             bossName, bossCurrentHealth, bossMaxHealth, distToDestination, isEnraged);
     }
