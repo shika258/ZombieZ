@@ -702,11 +702,59 @@ public class Chapter2Systems implements Listener {
         }
     }
 
+    // Hauteur maximum pour les caisses par rapport à Igor (évite les spawns dans les arbres)
+    private static final double CRATE_MAX_HEIGHT_ABOVE_IGOR = 5.0;
+    private static final int CRATE_SPAWN_MAX_ATTEMPTS = 10; // Nombre max de tentatives pour trouver une position valide
+
+    /**
+     * Trouve une position valide pour spawner une caisse de ravitaillement.
+     * Évite les positions trop hautes (arbres) en limitant à Y d'Igor + 5 blocs.
+     *
+     * @param world Le monde
+     * @param igorLoc Position d'Igor
+     * @param maxAllowedY Hauteur maximum autorisée
+     * @return Une position valide pour la caisse
+     */
+    private Location findValidCrateSpawnLocation(World world, Location igorLoc, double maxAllowedY) {
+        // Essayer plusieurs fois de trouver une bonne position
+        for (int attempt = 0; attempt < CRATE_SPAWN_MAX_ATTEMPTS; attempt++) {
+            // Position aléatoire autour d'Igor
+            double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
+            double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
+            double x = igorLoc.getX() + Math.cos(angle) * distance;
+            double z = igorLoc.getZ() + Math.sin(angle) * distance;
+            double y = world.getHighestBlockYAt((int) x, (int) z) + 1;
+
+            // Vérifier si la position est à une hauteur acceptable
+            if (y <= maxAllowedY) {
+                return new Location(world, x, y, z);
+            }
+        }
+
+        // Si aucune position valide trouvée après toutes les tentatives,
+        // forcer le spawn à la hauteur max autorisée (au sol près d'Igor)
+        // Trouver une position au sol en cherchant vers le bas depuis maxAllowedY
+        double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
+        double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
+        double x = igorLoc.getX() + Math.cos(angle) * distance;
+        double z = igorLoc.getZ() + Math.sin(angle) * distance;
+
+        // Chercher le premier bloc solide en descendant depuis maxAllowedY
+        Location searchLoc = new Location(world, x, maxAllowedY, z);
+        while (searchLoc.getY() > igorLoc.getY() - 10 && !searchLoc.getBlock().getType().isSolid()) {
+            searchLoc.subtract(0, 1, 0);
+        }
+
+        // Position juste au-dessus du bloc solide trouvé
+        return new Location(world, x, searchLoc.getY() + 1, z);
+    }
+
     /**
      * Spawn des caisses de ravitaillement autour d'Igor pour un joueur
      * Chaque joueur a ses propres caisses (visibles par tous mais collectables par le propriétaire)
      * Utilise ItemDisplay (visuel) + Interaction (cliquable) pour chaque caisse
      */
+
     public void spawnSupplyCratesForPlayer(Player player) {
         World world = player.getWorld();
         Location igorLoc = IGOR_LOCATION.clone();
@@ -719,15 +767,11 @@ public class Chapter2Systems implements Listener {
         int currentProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_2_7);
         int cratesToSpawn = SUPPLY_CRATE_COUNT - currentProgress;
 
-        for (int i = 0; i < cratesToSpawn; i++) {
-            // Position aléatoire autour d'Igor
-            double angle = ThreadLocalRandom.current().nextDouble() * 2 * Math.PI;
-            double distance = CRATE_SPAWN_RADIUS_MIN + ThreadLocalRandom.current().nextDouble() * (CRATE_SPAWN_RADIUS_MAX - CRATE_SPAWN_RADIUS_MIN);
-            double x = igorLoc.getX() + Math.cos(angle) * distance;
-            double z = igorLoc.getZ() + Math.sin(angle) * distance;
-            double y = world.getHighestBlockYAt((int) x, (int) z) + 1;
+        // Hauteur max autorisée (Y d'Igor + 5 blocs)
+        double maxAllowedY = igorLoc.getY() + CRATE_MAX_HEIGHT_ABOVE_IGOR;
 
-            Location spawnLoc = new Location(world, x, y, z);
+        for (int i = 0; i < cratesToSpawn; i++) {
+            Location spawnLoc = findValidCrateSpawnLocation(world, igorLoc, maxAllowedY);
 
             // 1. Créer le VISUEL (ItemDisplay) - ne peut pas être cliqué
             ItemDisplay visual = world.spawn(spawnLoc, ItemDisplay.class, display -> {
