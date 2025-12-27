@@ -5,12 +5,19 @@ import com.rinaorc.zombiez.api.events.PlayerZoneChangeEvent;
 import com.rinaorc.zombiez.api.events.ZombieDeathEvent;
 import com.rinaorc.zombiez.data.PlayerData;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -647,6 +654,85 @@ public class JourneyListener implements Listener {
                 journeyManager.updateProgress(player, JourneyStep.StepType.OPEN_AND_EQUIP_PET, 2);
             }
         }
+    }
+
+    // ==================== TRACKING DES BEACONS DE REFUGE ====================
+
+    // Positions des beacons de refuge (x, y, z)
+    private static final int[][] REFUGE_BEACONS = {
+        {675, 90, 9174}  // Fort Havegris
+    };
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onBeaconInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
+        Block block = event.getClickedBlock();
+        if (block == null || block.getType() != Material.BEACON) return;
+
+        Player player = event.getPlayer();
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        // Vérifier si l'étape actuelle est ACTIVATE_REFUGE_BEACON
+        if (currentStep.getType() != JourneyStep.StepType.ACTIVATE_REFUGE_BEACON) return;
+
+        // Vérifier si c'est un beacon de refuge reconnu
+        Location beaconLoc = block.getLocation();
+        boolean isRefugeBeacon = false;
+
+        for (int[] coords : REFUGE_BEACONS) {
+            if (beaconLoc.getBlockX() == coords[0] &&
+                beaconLoc.getBlockY() == coords[1] &&
+                beaconLoc.getBlockZ() == coords[2]) {
+                isRefugeBeacon = true;
+                break;
+            }
+        }
+
+        if (!isRefugeBeacon) return;
+
+        // Annuler l'ouverture du GUI du beacon
+        event.setCancelled(true);
+
+        // Vérifier si déjà activé
+        int progress = journeyManager.getStepProgress(player, currentStep);
+        if (progress >= 1) {
+            player.sendMessage("§a§l✓ §7Ce refuge est déjà activé!");
+            return;
+        }
+
+        // Activer le refuge
+        activateRefuge(player, beaconLoc, "Fort Havegris");
+        journeyManager.updateProgress(player, JourneyStep.StepType.ACTIVATE_REFUGE_BEACON, 1);
+    }
+
+    /**
+     * Active un refuge avec effets visuels et sonores
+     */
+    private void activateRefuge(Player player, Location beaconLoc, String refugeName) {
+        // Effets visuels
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, beaconLoc.clone().add(0.5, 1, 0.5), 50, 0.5, 1, 0.5, 0.1);
+        player.getWorld().spawnParticle(Particle.END_ROD, beaconLoc.clone().add(0.5, 2, 0.5), 30, 0.3, 0.5, 0.3, 0.05);
+
+        // Sons
+        player.playSound(beaconLoc, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
+        player.playSound(beaconLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1.2f);
+
+        // Message
+        player.sendMessage("");
+        player.sendMessage("§6§l✦ REFUGE DÉBLOQUÉ ✦");
+        player.sendMessage("");
+        player.sendMessage("§e" + refugeName + " §7est maintenant accessible!");
+        player.sendMessage("§7Tu pourras y revenir à tout moment.");
+        player.sendMessage("");
+
+        // Title
+        player.sendTitle(
+            "§6✦ REFUGE ACTIVÉ ✦",
+            "§e" + refugeName,
+            10, 50, 20
+        );
     }
 
     // ==================== TRACKING DU TEMPS DE SURVIE ====================

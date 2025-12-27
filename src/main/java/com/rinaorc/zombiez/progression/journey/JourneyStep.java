@@ -97,9 +97,9 @@ public enum JourneyStep {
         "Ouvre un oeuf puis équipe ton pet - /pet", StepType.OPEN_AND_EQUIP_PET, 2,
         150, 5, Material.EGG),
 
-    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Tue 50 zombies avec ta classe",
-        "Maîtrise ton style de combat", StepType.CLASS_KILLS, 50,
-        200, 6, Material.DIAMOND_SWORD),
+    STEP_3_2(JourneyChapter.CHAPTER_3, 2, "Débloque Fort Havegris",
+        "Active le beacon - Coords: §b675, 90, 9174", StepType.ACTIVATE_REFUGE_BEACON, 1,
+        200, 6, Material.BEACON),
 
     STEP_3_3(JourneyChapter.CHAPTER_3, 3, "Tue 100 zombies au total",
         "Centième victime!", StepType.TOTAL_KILLS, 100,
@@ -404,6 +404,7 @@ public enum JourneyStep {
                 else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
                 else yield "0/2 - Ouvre un oeuf /pet";
             }
+            case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
         };
     }
 
@@ -553,7 +554,10 @@ public enum JourneyStep {
         KILL_MANOR_BOSS("Tue le boss du manoir"),
 
         // Pets
-        OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon");
+        OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
+
+        // Refuges
+        ACTIVATE_REFUGE_BEACON("Active un beacon de refuge");
 
         private final String description;
 
