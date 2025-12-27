@@ -429,6 +429,11 @@ public class PetShopGUI implements InventoryHolder {
                 player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.5f);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
                 player.sendMessage("§a§l✓ " + result.message());
+
+                // ============ TRACKER MISSIONS: TRADES COMPLÉTÉS ============
+                gui.plugin.getMissionManager().updateProgress(player,
+                    com.rinaorc.zombiez.progression.MissionManager.MissionTracker.TRADES_COMPLETED, 1);
+
                 new PetShopGUI(gui.plugin, player).open();
             } else {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);

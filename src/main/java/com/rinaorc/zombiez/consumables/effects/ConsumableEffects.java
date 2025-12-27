@@ -78,6 +78,12 @@ public class ConsumableEffects {
             applyCooldown(player, type, getCooldownForType(type, consumable));
         }
 
+        // ============ TRACKER DE MISSIONS: CONSOMMABLES UTILISÉS ============
+        if (consumed) {
+            plugin.getMissionManager().updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.CONSUMABLES_USED, 1);
+        }
+
         return consumed;
     }
 

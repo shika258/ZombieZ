@@ -101,6 +101,12 @@ public class ItemListener implements Listener {
                 com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EPIC_ITEMS_FOUND, 1);
         }
 
+        // Tracker les items légendaires+ (Legendary, Mythic, Exalted)
+        if (rarity.isAtLeast(Rarity.LEGENDARY)) {
+            missionManager.updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.LEGENDARY_ITEMS_FOUND, 1);
+        }
+
         // ============ ACHIEVEMENTS DE COLLECTION ============
         var achievementManager = plugin.getAchievementManager();
         var playerData = plugin.getPlayerDataManager().getPlayer(player);

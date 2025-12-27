@@ -652,6 +652,13 @@ public class CombatListener implements Listener {
 
         // Stocker les infos pour le loot (utilisé à la mort)
         mob.setMetadata("last_damage_player", new FixedMetadataValue(plugin, player.getUniqueId().toString()));
+
+        // ============ STOCKER LES INFOS POUR LE TRACKING DES MISSIONS ============
+        // Ces métadonnées persistent jusqu'à la mort du mob (non nettoyées par MONITOR)
+        mob.setMetadata("zombiez_last_hit_critical", new FixedMetadataValue(plugin, isCritical));
+        // Vérifier si c'est une attaque à distance (projectile)
+        boolean isRangedAttack = event.getDamager() instanceof Projectile;
+        mob.setMetadata("zombiez_last_hit_ranged", new FixedMetadataValue(plugin, isRangedAttack));
     }
 
     /**
@@ -948,6 +955,38 @@ public class CombatListener implements Listener {
         }
         // Réinitialiser pour le prochain kill (le joueur n'a pas pris de dégâts pour ce kill-ci)
         playersWithoutDamage.add(killerUuid);
+
+        // Critical kill tracking - vérifie si le dernier coup était critique
+        if (mob.hasMetadata("zombiez_last_hit_critical") &&
+            mob.getMetadata("zombiez_last_hit_critical").get(0).asBoolean()) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.CRIT_KILLS, 1);
+        }
+
+        // Ranged/Melee kill tracking - vérifie si le kill était à distance ou au corps à corps
+        boolean wasRangedKill = mob.hasMetadata("zombiez_last_hit_ranged") &&
+                                mob.getMetadata("zombiez_last_hit_ranged").get(0).asBoolean();
+        if (wasRangedKill) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.RANGED_KILLS, 1);
+        } else {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.MELEE_KILLS, 1);
+        }
+
+        // Night kill tracking - vérifie si c'est la nuit (13000-23000 ticks)
+        long worldTime = killer.getWorld().getTime();
+        if (worldTime >= 13000 && worldTime <= 23000) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.NIGHT_KILLS, 1);
+        }
+
+        // Kills in streak tracking - ajoute le streak actuel
+        int currentStreak = plugin.getMomentumManager().getStreak(killer);
+        if (currentStreak > 0) {
+            plugin.getMissionManager().updateProgress(killer,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.KILLS_IN_STREAK, 1);
+        }
 
         // ============ ACHIEVEMENTS ============
         PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);

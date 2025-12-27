@@ -285,6 +285,10 @@ public abstract class MicroEvent {
         var playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
         if (playerData != null) {
             playerData.addXp(xp);
+
+            // ============ TRACKER MISSIONS: MICRO-ÉVÉNEMENTS ============
+            plugin.getMissionManager().updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.MICRO_EVENTS_COMPLETED, 1);
         }
 
         // Message
