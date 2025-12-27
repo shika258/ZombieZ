@@ -565,6 +565,15 @@ public class CombatListener implements Listener {
         double momentumMultiplier = momentumManager.getDamageMultiplier(player);
         finalDamage *= momentumMultiplier;
 
+        // ============ 4.5 MACE ARMOR SHATTER ============
+        // L'armor shatter de la masse réduit la défense effective des mobs
+        if (mob.hasMetadata("zombiez_armor_shatter")) {
+            double armorShatter = mob.getMetadata("zombiez_armor_shatter").get(0).asDouble();
+            // Convertir la réduction d'armure en bonus de dégâts
+            // -30% armure = +30% dégâts (simplifié)
+            finalDamage *= (1 + armorShatter / 100.0);
+        }
+
         // ============ 5. EXECUTE DAMAGE (<20% HP) ============
         double mobHealthPercent = mob.getHealth() / mob.getMaxHealth() * 100;
         double executeThreshold = playerStats.getOrDefault(StatType.EXECUTE_THRESHOLD, 20.0);
