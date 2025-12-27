@@ -107,6 +107,19 @@ public class TridentListener implements Listener {
         // Ignorer si c'est une attaque d'estoc (déjà traitée)
         if (target.hasMetadata("zombiez_trident_thrust")) return;
 
+        // Ignorer si cette attaque a déjà été traitée (évite double dégâts)
+        if (target.hasMetadata("zombiez_trident_attack")) return;
+
+        // Marquer IMMÉDIATEMENT comme attaque trident pour éviter double-traitement
+        target.setMetadata("zombiez_trident_attack", new FixedMetadataValue(plugin, true));
+
+        // Nettoyer la métadonnée après 1 tick pour permettre les prochaines attaques
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (target.isValid()) {
+                target.removeMetadata("zombiez_trident_attack", plugin);
+            }
+        }, 1L);
+
         UUID playerId = player.getUniqueId();
         long currentTime = System.currentTimeMillis();
 
@@ -121,24 +134,6 @@ public class TridentListener implements Listener {
         int currentHits = hitCounter.getOrDefault(playerId, 0) + 1;
         hitCounter.put(playerId, currentHits);
         lastHitTime.put(playerId, currentTime);
-
-        // Appliquer le bonus aquatique aux dégâts de base
-        double aquaticMultiplier = calculateAquaticDamageBonus(player);
-        if (aquaticMultiplier > 1.0) {
-            event.setDamage(event.getDamage() * aquaticMultiplier);
-
-            // Particules d'eau
-            if (isInWater(player)) {
-                player.getWorld().spawnParticle(Particle.BUBBLE_POP,
-                    target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
-            } else {
-                player.getWorld().spawnParticle(Particle.DRIPPING_WATER,
-                    target.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0);
-            }
-        }
-
-        // Marquer comme attaque trident pour éviter double-traitement
-        target.setMetadata("zombiez_trident_attack", new FixedMetadataValue(plugin, true));
 
         // Feedback sonore pour le combo
         if (currentHits < HITS_FOR_THRUST) {
