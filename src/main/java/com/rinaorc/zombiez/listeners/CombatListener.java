@@ -490,6 +490,22 @@ public class CombatListener implements Listener {
         double finalDamage = baseDamage;
         boolean isCritical = false;
 
+        // ============ TRIDENT AQUATIC BONUS ============
+        // Le trident bénéficie d'un bonus de dégâts dans l'eau ou sous la pluie
+        ItemStack heldWeapon = player.getInventory().getItemInMainHand();
+        if (heldWeapon != null && heldWeapon.getType() == Material.TRIDENT) {
+            double aquaticBonus = calculateTridentAquaticBonus(player);
+            if (aquaticBonus > 1.0) {
+                finalDamage *= aquaticBonus;
+                // Particules d'eau
+                if (player.isInWater()) {
+                    mob.getWorld().spawnParticle(Particle.BUBBLE_POP, mob.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.05);
+                } else {
+                    mob.getWorld().spawnParticle(Particle.DRIPPING_WATER, mob.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0);
+                }
+            }
+        }
+
         // ============ 0. ATTACK COOLDOWN SYSTEM (PUNITIF) ============
         // Courbe quadratique pour punir le spam : 50% charge = 25% dégâts
         // EXCEPTION: Les talents (Shadow Step) bypass le cooldown penalty
@@ -1337,6 +1353,28 @@ public class CombatListener implements Listener {
      */
     private boolean isRangedWeapon(Material material) {
         return material == Material.BOW || material == Material.CROSSBOW;
+    }
+
+    /**
+     * Calcule le bonus de dégâts aquatique pour le trident
+     * +20% dans l'eau, +10% sous la pluie
+     */
+    private double calculateTridentAquaticBonus(Player player) {
+        // Bonus dans l'eau
+        if (player.isInWater()) {
+            return 1.20; // +20% dégâts
+        }
+
+        // Bonus sous la pluie (si exposé au ciel)
+        org.bukkit.World world = player.getWorld();
+        if (world.hasStorm()) {
+            Location loc = player.getLocation();
+            if (world.getHighestBlockYAt(loc) <= loc.getBlockY()) {
+                return 1.10; // +10% dégâts
+            }
+        }
+
+        return 1.0; // Pas de bonus
     }
 
     /**

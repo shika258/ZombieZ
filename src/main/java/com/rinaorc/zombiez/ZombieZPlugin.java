@@ -115,6 +115,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private ItemListener itemListener;
     @Getter
     private BowListener bowListener;
+    @Getter
+    private TridentListener tridentListener;
 
     // Systèmes de spawn spécialisés
     @Getter
@@ -874,6 +876,10 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de tir amélioré (arcs/arbalètes)
         bowListener = new BowListener(this);
         pm.registerEvents(bowListener, this);
+
+        // Listener système de trident amélioré (charge, pierce, bonus aquatique)
+        tridentListener = new TridentListener(this);
+        pm.registerEvents(tridentListener, this);
 
         // Le système d'éveils n'a pas de listener dédié
         // Les éveils sont gérés via le TalentListener existant
