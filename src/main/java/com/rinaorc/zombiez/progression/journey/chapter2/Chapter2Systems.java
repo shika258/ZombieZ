@@ -1217,9 +1217,8 @@ public class Chapter2Systems implements Listener {
         boss.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, Integer.MAX_VALUE, 1, false, true));
         boss.setGlowing(true);
 
-        // IMPORTANT: Désactiver le customName de ZombieZ pour éviter le chevauchement
-        // On utilise le TextDisplay statique pour afficher les infos du boss
-        boss.setCustomNameVisible(false);
+        // Activer l'affichage du nom avec vie (système ZombieZ dynamique)
+        boss.setCustomNameVisible(true);
     }
 
     /**
