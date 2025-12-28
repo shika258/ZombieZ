@@ -359,6 +359,34 @@ public class FoodItemRegistry {
             .addEffect(PotionEffectType.SPEED, 200, 0)
             .addLore("Des baies cueillies sous la pleine lune.")
             .addLore("§9+Vision nocturne pendant 30s"));
+
+        // ===== NOURRITURE DE ZOMBIE (drops des zombies - qualité inférieure) =====
+
+        // Viande Avariée - très mauvaise qualité, risque de faim
+        register(new FoodItem("rotten_meat", "Viande Avariée", Material.ROTTEN_FLESH,
+            FoodItem.FoodRarity.COMMON, 0, 2, 0.5f)
+            .addEffect(PotionEffectType.HUNGER, 100, 0) // 5 sec de faim
+            .addLore("§7De la chair en décomposition...")
+            .addLore("§cRisque de nausée."));
+
+        // Ration de Survie Zombie - un peu mieux mais toujours inférieur
+        register(new FoodItem("zombie_ration", "Ration de Survie", Material.ROTTEN_FLESH,
+            FoodItem.FoodRarity.UNCOMMON, 1, 3, 1.0f)
+            .addLore("§7Trouvée sur un zombie.")
+            .addLore("§7Pas très appétissant..."));
+
+        // Chair Préservée - version acceptable de nourriture zombie
+        register(new FoodItem("preserved_flesh", "Chair Préservée", Material.COOKED_BEEF,
+            FoodItem.FoodRarity.UNCOMMON, 2, 4, 2.0f)
+            .addLore("§7Viande séchée trouvée sur un zombie.")
+            .addLore("§7Étonnamment comestible."));
+
+        // Organes de Zombie - rare mais pas génial
+        register(new FoodItem("zombie_organs", "Organes de Zombie", Material.BEEF,
+            FoodItem.FoodRarity.RARE, 3, 5, 3.0f)
+            .addEffect(PotionEffectType.REGENERATION, 40, 0) // 2 sec regen faible
+            .addLore("§7Des organes encore frais...")
+            .addLore("§cÀ consommer avec précaution."));
     }
 
     /**
@@ -529,5 +557,36 @@ public class FoodItemRegistry {
      */
     public Collection<FoodItem> getAllItems() {
         return allItems.values();
+    }
+
+    /**
+     * Obtient une nourriture de zombie aléatoire
+     * Ces nourritures sont de qualité inférieure à celles des mobs passifs
+     */
+    public FoodItem getRandomZombieFood() {
+        // Liste des nourritures de zombie avec leurs poids
+        String[] zombieFoods = {"rotten_meat", "zombie_ration", "preserved_flesh", "zombie_organs"};
+        double[] weights = {0.50, 0.30, 0.15, 0.05}; // 50%, 30%, 15%, 5%
+
+        double roll = Math.random();
+        double cumulative = 0;
+
+        for (int i = 0; i < zombieFoods.length; i++) {
+            cumulative += weights[i];
+            if (roll < cumulative) {
+                return allItems.get(zombieFoods[i]);
+            }
+        }
+
+        // Fallback
+        return allItems.get("rotten_meat");
+    }
+
+    /**
+     * Vérifie si un item est une nourriture de zombie
+     */
+    public boolean isZombieFood(String id) {
+        return id.equals("rotten_meat") || id.equals("zombie_ration") ||
+               id.equals("preserved_flesh") || id.equals("zombie_organs");
     }
 }

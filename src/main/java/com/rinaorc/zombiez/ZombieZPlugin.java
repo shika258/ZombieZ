@@ -1079,6 +1079,13 @@ public class ZombieZPlugin extends JavaPlugin {
     }
 
     /**
+     * Obtient le PassiveMobManager
+     */
+    public com.rinaorc.zombiez.mobs.PassiveMobManager getPassiveMobManager() {
+        return passiveMobManager;
+    }
+
+    /**
      * Recharge la configuration du plugin
      */
     public void reload() {

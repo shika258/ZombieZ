@@ -37,12 +37,12 @@ public class PassiveMobManager implements Listener {
     // Configuration des spawns par zone
     private final Map<Integer, ZoneSpawnConfig> zoneConfigs;
 
-    // Limites globales
-    private static final int BASE_MAX_MOBS_PER_ZONE = 8;
-    private static final int MAX_MOBS_BONUS_HIGH_ZONES = 4; // Bonus pour zones 16+
-    private int spawnCheckIntervalTicks = 400; // 20 secondes (plus fréquent)
-    private double baseSpawnChance = 0.25; // 25% de chance par check (+25% augmenté)
-    private static final double MIN_SPAWN_CHANCE = 0.10; // 10% minimum garanti (+25%)
+    // Limites globales - Augmentées pour plus de nourriture disponible
+    private static final int BASE_MAX_MOBS_PER_ZONE = 14;
+    private static final int MAX_MOBS_BONUS_HIGH_ZONES = 6; // Bonus pour zones 16+
+    private int spawnCheckIntervalTicks = 200; // 10 secondes (doublé)
+    private double baseSpawnChance = 0.45; // 45% de chance par check (augmenté)
+    private static final double MIN_SPAWN_CHANCE = 0.20; // 20% minimum garanti (doublé)
 
     private final Random random = new Random();
 
@@ -172,13 +172,13 @@ public class PassiveMobManager implements Listener {
     private int calculateMaxMobsForZone(int zoneId) {
         if (zoneId >= 30) {
             // Zones très avancées: plus de mobs pour compenser la difficulté
-            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES + 2;
+            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES + 4;
         } else if (zoneId >= 16) {
             // Zones avancées: bonus standard
             return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES;
         } else if (zoneId >= 10) {
             // Zones intermédiaires: petit bonus
-            return BASE_MAX_MOBS_PER_ZONE + 2;
+            return BASE_MAX_MOBS_PER_ZONE + 4;
         }
         return BASE_MAX_MOBS_PER_ZONE;
     }
