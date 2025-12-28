@@ -26,6 +26,7 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -160,6 +161,9 @@ public class Chapter3Systems implements Listener {
     private final Set<UUID> playersWhoRepairedZeppelin = ConcurrentHashMap.newKeySet();
     // Événements de défense actifs par joueur
     private final Map<UUID, VillageDefenseEvent> activeDefenseEvents = new ConcurrentHashMap<>();
+    // Cooldown de défense après échec (timestamp de fin du cooldown)
+    private final Map<UUID, Long> defenseCooldowns = new ConcurrentHashMap<>();
+    private static final int DEFENSE_COOLDOWN_SECONDS = 10; // Cooldown après mort d'Henri
 
     // Listener du Memory Game
     private final MemoryGameGUI.MemoryGameListener memoryGameListener;
@@ -1223,6 +1227,23 @@ public class Chapter3Systems implements Listener {
             return;
         }
 
+        // Vérifier si en cooldown après échec (Henri mort ou joueur mort)
+        Long cooldownEnd = defenseCooldowns.get(player.getUniqueId());
+        if (cooldownEnd != null) {
+            long remaining = (cooldownEnd - System.currentTimeMillis()) / 1000;
+            if (remaining > 0) {
+                player.sendMessage("");
+                player.sendMessage("§a§lHenri: §f\"Attends un peu, je dois me remettre...\"");
+                player.sendMessage("§7(Réessaie dans §e" + remaining + " seconde" + (remaining > 1 ? "s" : "") + "§7)");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_HURT, 1f, 0.8f);
+                player.sendMessage("");
+                return;
+            } else {
+                // Cooldown expiré, nettoyer
+                defenseCooldowns.remove(player.getUniqueId());
+            }
+        }
+
         // Vérifier si déjà complété
         if (hasPlayerDefendedVillage(player)) {
             player.sendMessage("");
@@ -1580,6 +1601,10 @@ public class Chapter3Systems implements Listener {
      * Gère l'échec de la défense
      */
     private void handleDefenseFailure(Player player, VillageDefenseEvent defenseEvent) {
+        // Ajouter le cooldown de 10 secondes
+        defenseCooldowns.put(player.getUniqueId(),
+                System.currentTimeMillis() + (DEFENSE_COOLDOWN_SECONDS * 1000L));
+
         player.sendTitle(
                 "§c§lECHEC!",
                 "§7Henri est mort...",
@@ -1592,7 +1617,7 @@ public class Chapter3Systems implements Listener {
         player.sendMessage("  §7Henri a été tué par les zombies...");
         player.sendMessage("  §7Zombies tués: §c" + defenseEvent.zombiesKilled);
         player.sendMessage("");
-        player.sendMessage("  §e➤ Reparle à Henri pour réessayer!");
+        player.sendMessage("  §e➤ Henri se remet... Réessaie dans §c" + DEFENSE_COOLDOWN_SECONDS + "s§e!");
         player.sendMessage("§8§m                                        ");
         player.sendMessage("");
 
@@ -2437,6 +2462,33 @@ public class Chapter3Systems implements Listener {
             // Nettoyer le mode boss bar personnalisée
             journeyManager.exitCustomBossBarMode(event.getPlayer());
         }
+
+        // Nettoyer le cooldown de défense
+        defenseCooldowns.remove(playerId);
+    }
+
+    /**
+     * Gère la mort du joueur pendant la défense du village
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur était en train de défendre le village
+        VillageDefenseEvent defenseEvent = activeDefenseEvents.get(playerId);
+        if (defenseEvent == null) {
+            return;
+        }
+
+        // Le joueur est mort pendant la défense - c'est un échec
+        player.sendMessage("");
+        player.sendMessage("§c§l☠ Tu es mort pendant la défense!");
+        player.sendMessage("§7Henri n'a plus personne pour le protéger...");
+        player.sendMessage("");
+
+        // Terminer la défense comme un échec
+        endDefense(player, defenseEvent, false);
     }
 
     // ==================== FORAIN INTERACTION ====================
