@@ -1572,7 +1572,7 @@ public class Chapter4Systems implements Listener {
         Location loc = mushroomLocations.get(index);
 
         // 1. Créer le VISUEL (ItemDisplay avec RED_MUSHROOM scale x3 glowing rouge)
-        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.5, 0), ItemDisplay.class, display -> {
+        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.9, 0), ItemDisplay.class, display -> {
             display.setItemStack(new ItemStack(Material.RED_MUSHROOM));
 
             // Scale x3 pour visibilité
@@ -1598,7 +1598,7 @@ public class Chapter4Systems implements Listener {
         });
 
         // 2. Créer l'entité INTERACTION (hitbox invisible cliquable/frappable)
-        Interaction hitbox = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+        Interaction hitbox = world.spawn(loc.clone().add(0, 0.9, 0), Interaction.class, interaction -> {
             interaction.setInteractionWidth(1.5f);
             interaction.setInteractionHeight(1.5f);
             interaction.setResponsive(true); // Active la réponse aux attaques (left-click)
@@ -2211,6 +2211,11 @@ public class Chapter4Systems implements Listener {
                         hits[i] = getHitsForMushroom(i);
                     }
                     playerMushroomHits.put(player.getUniqueId(), hits);
+
+                    // Si le joueur a 12 champignons mais n'a pas encore livré, activer GPS vers le NPC
+                    if (estimatedMushrooms >= 12) {
+                        activateGPSToCollector(player);
+                    }
                 }
 
                 // Recharger la progression purification des âmes
