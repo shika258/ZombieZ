@@ -19,7 +19,13 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import com.rinaorc.zombiez.items.types.Rarity;
+import org.bukkit.entity.Item;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
+
 import java.util.*;
+import java.util.Random;
 
 /**
  * Événement Nid de Zombies
@@ -60,6 +66,9 @@ public class ZombieNestEvent extends DynamicEvent {
 
     // Particules
     private int tickCounter = 0;
+
+    // Random pour le loot
+    private final Random random = new Random();
 
     public ZombieNestEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.ZOMBIE_NEST, location, zone);
@@ -444,6 +453,9 @@ public class ZombieNestEvent extends DynamicEvent {
         world.spawnParticle(Particle.EXPLOSION, nestLoc.clone().add(0.5, 0.5, 0.5), 5, 1, 1, 1, 0);
         world.spawnParticle(Particle.SCULK_SOUL, nestLoc.clone().add(0.5, 0.5, 0.5), 50, 2, 2, 2, 0.1);
 
+        // EXPLOSION DE LOOT!
+        explodeLoot(nestLoc.clone().add(0.5, 1, 0.5));
+
         // Supprimer le nid
         nestBlock.setType(Material.AIR);
 
@@ -455,6 +467,64 @@ public class ZombieNestEvent extends DynamicEvent {
         }
 
         complete();
+    }
+
+    /**
+     * Fait exploser le loot dans toutes les directions à la destruction du nid
+     */
+    private void explodeLoot(Location center) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        // Calculer le nombre de loot basé sur la zone (6-10 items)
+        int lootCount = 6 + Math.min(4, zone.getId() / 10);
+
+        // Effet sonore de récompense
+        world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 30, 0.5, 0.5, 0.5, 0.2);
+
+        for (int i = 0; i < lootCount; i++) {
+            // Déterminer la rareté
+            double roll = random.nextDouble() * 100;
+            Rarity rarity;
+            if (roll < 50) {
+                rarity = Rarity.COMMON;
+            } else if (roll < 75) {
+                rarity = Rarity.UNCOMMON;
+            } else if (roll < 90) {
+                rarity = Rarity.RARE;
+            } else if (roll < 97) {
+                rarity = Rarity.EPIC;
+            } else {
+                rarity = Rarity.LEGENDARY;
+            }
+
+            // Générer l'item
+            ItemStack item = plugin.getItemManager().generateItem(zone.getId(), rarity);
+            if (item == null) continue;
+
+            // Spawn avec vélocité explosive
+            Item droppedItem = world.dropItem(center, item);
+
+            double angle = random.nextDouble() * Math.PI * 2;
+            double upward = 0.3 + random.nextDouble() * 0.3;
+            double outward = 0.2 + random.nextDouble() * 0.25;
+
+            Vector velocity = new Vector(
+                Math.cos(angle) * outward,
+                upward,
+                Math.sin(angle) * outward
+            );
+            droppedItem.setVelocity(velocity);
+
+            // Appliquer effets visuels
+            if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                droppedItem.setCustomName(item.getItemMeta().getDisplayName());
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+            }
+        }
     }
 
     /**

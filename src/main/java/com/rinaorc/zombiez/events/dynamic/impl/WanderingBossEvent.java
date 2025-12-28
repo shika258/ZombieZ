@@ -20,7 +20,11 @@ import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import org.bukkit.entity.Item;
+import org.bukkit.util.Vector;
+
 import java.util.*;
+import java.util.Random;
 
 /**
  * Événement Boss Errant
@@ -60,6 +64,9 @@ public class WanderingBossEvent extends DynamicEvent {
         "Le Faucheur",
         "Le Colosse Putride"
     };
+
+    // Random pour le loot
+    private final Random random = new Random();
 
     public WanderingBossEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.WANDERING_BOSS, location, zone);
@@ -295,31 +302,85 @@ public class WanderingBossEvent extends DynamicEvent {
     }
 
     /**
-     * Drop le loot du boss
+     * Drop le loot du boss avec effet d'explosion spectaculaire
      */
-    private void dropBossLoot(Location location) {
-        World world = location.getWorld();
+    private void dropBossLoot(Location center) {
+        World world = center.getWorld();
         if (world == null) return;
 
-        // Loot garanti de haute qualité
-        int itemCount = 3 + zone.getId() / 10;
+        // Effets visuels d'explosion de loot
+        world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.5f, 1f);
+        world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1f, 1f);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 60, 1.5, 1.5, 1.5, 0.4);
+        world.spawnParticle(Particle.FIREWORK, center, 30, 1, 1, 1, 0.2);
+
+        // Loot garanti de haute qualité (10-15 items pour un boss)
+        int itemCount = 10 + Math.min(5, zone.getId() / 10);
 
         for (int i = 0; i < itemCount; i++) {
-            Rarity rarity = i == 0 ? Rarity.LEGENDARY : // Premier item toujours légendaire
-                (Math.random() < 0.3 ? Rarity.EPIC : Rarity.RARE);
+            Rarity rarity;
+            if (i == 0) {
+                rarity = Rarity.LEGENDARY; // Premier item toujours légendaire
+            } else if (i < 3) {
+                rarity = Rarity.EPIC; // 2 items épiques garantis
+            } else if (random.nextDouble() < 0.4) {
+                rarity = Rarity.EPIC;
+            } else if (random.nextDouble() < 0.7) {
+                rarity = Rarity.RARE;
+            } else {
+                rarity = Rarity.UNCOMMON;
+            }
 
             ItemStack item = plugin.getItemManager().generateItem(zone.getId(), rarity);
-            if (item != null) {
-                world.dropItemNaturally(location, item);
+            if (item == null) continue;
+
+            // Spawn avec vélocité explosive
+            Item droppedItem = world.dropItem(center, item);
+
+            double angle = random.nextDouble() * Math.PI * 2;
+            double upward = 0.4 + random.nextDouble() * 0.4;
+            double outward = 0.3 + random.nextDouble() * 0.35;
+
+            Vector velocity = new Vector(
+                Math.cos(angle) * outward,
+                upward,
+                Math.sin(angle) * outward
+            );
+            droppedItem.setVelocity(velocity);
+
+            // Appliquer effets visuels
+            if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                droppedItem.setCustomName(item.getItemMeta().getDisplayName());
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
             }
         }
 
-        // Consommables bonus
+        // Consommables bonus avec explosion
         if (plugin.getConsumableManager() != null) {
             for (int i = 0; i < 5; i++) {
                 Consumable consumable = plugin.getConsumableManager().generateConsumable(zone.getId(), 0.0);
-                if (consumable != null) {
-                    world.dropItemNaturally(location, consumable.createItemStack());
+                if (consumable == null) continue;
+
+                ItemStack consumableItem = consumable.createItemStack();
+                Item droppedConsumable = world.dropItem(center, consumableItem);
+
+                double angle = random.nextDouble() * Math.PI * 2;
+                double upward = 0.3 + random.nextDouble() * 0.3;
+                double outward = 0.2 + random.nextDouble() * 0.25;
+
+                droppedConsumable.setVelocity(new Vector(
+                    Math.cos(angle) * outward,
+                    upward,
+                    Math.sin(angle) * outward
+                ));
+
+                // Nom visible pour les consommables
+                if (consumableItem.hasItemMeta() && consumableItem.getItemMeta().hasDisplayName()) {
+                    droppedConsumable.setCustomName(consumableItem.getItemMeta().getDisplayName());
+                    droppedConsumable.setCustomNameVisible(true);
+                    droppedConsumable.setGlowing(true);
                 }
             }
         }

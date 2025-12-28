@@ -25,6 +25,10 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import com.rinaorc.zombiez.items.types.Rarity;
+import org.bukkit.entity.Item;
+import org.bukkit.util.Vector;
+
 import java.util.*;
 
 /**
@@ -77,6 +81,9 @@ public class HordeInvasionEvent extends DynamicEvent {
     private static final double BASE_ZOMBIE_HEALTH = 40.0;
     private static final double HEALTH_PER_ZONE = 10.0;
     private static final Color HORDE_COLOR = Color.fromRGB(139, 0, 0); // Rouge foncé
+
+    // Random pour le loot
+    private final Random random = new Random();
 
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
@@ -577,6 +584,9 @@ public class HordeInvasionEvent extends DynamicEvent {
         int totalPoints = basePointsReward + (zone.getId() * 10) + (bonusMultiplier * 50);
         int totalXp = baseXpReward + (zone.getId() * 5) + (bonusMultiplier * 25);
 
+        // EXPLOSION DE LOOT au centre de la zone de défense!
+        explodeLoot(location.clone().add(0, 1, 0), wavesCompleted);
+
         for (UUID uuid : participants) {
             Player player = plugin.getServer().getPlayer(uuid);
             if (player != null && player.isOnline()) {
@@ -592,9 +602,71 @@ public class HordeInvasionEvent extends DynamicEvent {
                 player.sendMessage("§7Vagues complétées: §e" + wavesCompleted + "/" + totalWaves);
                 player.sendMessage("§7Zombies tués: §e" + totalZombiesKilled);
                 player.sendMessage("§7Récompenses: §e+" + totalPoints + " Points §7| §b+" + totalXp + " XP");
+                player.sendMessage("§7Loot déposé au centre!");
                 player.sendMessage("");
 
                 player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            }
+        }
+    }
+
+    /**
+     * Fait exploser le loot dans toutes les directions à la victoire
+     */
+    private void explodeLoot(Location center, int wavesCompleted) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        // Calculer le nombre de loot basé sur les vagues complétées (8-12 items)
+        int lootCount = 8 + Math.min(4, wavesCompleted);
+
+        // Effet sonore de récompense
+        world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+        world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1f, 1f);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 40, 1, 1, 1, 0.3);
+        world.spawnParticle(Particle.FIREWORK, center, 20, 0.5, 0.5, 0.5, 0.1);
+
+        for (int i = 0; i < lootCount; i++) {
+            // Déterminer la rareté (meilleure avec plus de vagues)
+            double roll = random.nextDouble() * 100;
+            double bonusRarity = wavesCompleted * 2; // +2% par vague pour meilleure rareté
+            Rarity rarity;
+            if (roll < (45 - bonusRarity)) {
+                rarity = Rarity.COMMON;
+            } else if (roll < (70 - bonusRarity / 2)) {
+                rarity = Rarity.UNCOMMON;
+            } else if (roll < 88) {
+                rarity = Rarity.RARE;
+            } else if (roll < 96) {
+                rarity = Rarity.EPIC;
+            } else {
+                rarity = Rarity.LEGENDARY;
+            }
+
+            // Générer l'item
+            ItemStack item = plugin.getItemManager().generateItem(zone.getId(), rarity);
+            if (item == null) continue;
+
+            // Spawn avec vélocité explosive
+            Item droppedItem = world.dropItem(center, item);
+
+            double angle = random.nextDouble() * Math.PI * 2;
+            double upward = 0.35 + random.nextDouble() * 0.35;
+            double outward = 0.25 + random.nextDouble() * 0.3;
+
+            Vector velocity = new Vector(
+                Math.cos(angle) * outward,
+                upward,
+                Math.sin(angle) * outward
+            );
+            droppedItem.setVelocity(velocity);
+
+            // Appliquer effets visuels
+            if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                droppedItem.setCustomName(item.getItemMeta().getDisplayName());
+                droppedItem.setCustomNameVisible(true);
+                droppedItem.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
             }
         }
     }
