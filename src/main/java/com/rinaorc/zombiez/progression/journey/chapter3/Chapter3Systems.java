@@ -1426,46 +1426,33 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Spawn un zombie de défense
+     * Spawn un zombie de défense via ZombieManager (système ZombieZ)
      */
     private void spawnDefenseZombie(World world, Location loc, Player player, VillageDefenseEvent defenseEvent) {
-        // Essayer d'utiliser ZombieManager pour un zombie custom
         ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager != null) {
-            try {
-                // Utiliser un type de zombie basique
-                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WALKER, loc, 8);
-                Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-                if (entity != null) {
-                    entity.addScoreboardTag("chapter3_defense_zombie");
-                    entity.addScoreboardTag("defense_owner_" + player.getUniqueId());
-                    defenseEvent.spawnedZombies.add(entity.getUniqueId());
+        if (zombieManager == null) {
+            return; // Pas de ZombieManager, pas de spawn
+        }
 
-                    // Orienter le zombie vers le survivant
-                    if (entity instanceof org.bukkit.entity.Mob mob) {
-                        if (villageSurvivorEntity instanceof LivingEntity target) {
-                            mob.setTarget(target);
-                        }
-                    }
+        // Spawn via ZombieManager pour bénéficier du système de dégâts ZombieZ
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WALKER, loc, 8);
+        if (activeZombie == null) {
+            return; // Limite atteinte, on ne spawn pas
+        }
+
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (entity != null) {
+            entity.addScoreboardTag("chapter3_defense_zombie");
+            entity.addScoreboardTag("defense_owner_" + player.getUniqueId());
+            defenseEvent.spawnedZombies.add(entity.getUniqueId());
+
+            // Orienter le zombie vers le survivant
+            if (entity instanceof org.bukkit.entity.Mob mob) {
+                if (villageSurvivorEntity instanceof LivingEntity target) {
+                    mob.setTarget(target);
                 }
-                return;
-            } catch (Exception e) {
-                // Fallback vers zombie vanilla
             }
         }
-
-        // Fallback: spawn zombie vanilla
-        Zombie zombie = world.spawn(loc, Zombie.class, z -> {
-            z.addScoreboardTag("chapter3_defense_zombie");
-            z.addScoreboardTag("defense_owner_" + player.getUniqueId());
-            z.customName(Component.text("Zombie", NamedTextColor.RED));
-            z.setCustomNameVisible(false);
-        });
-        // Cibler le survivant pour le pathfinding
-        if (villageSurvivorEntity instanceof LivingEntity target) {
-            zombie.setTarget(target);
-        }
-        defenseEvent.spawnedZombies.add(zombie.getUniqueId());
     }
 
     /**
