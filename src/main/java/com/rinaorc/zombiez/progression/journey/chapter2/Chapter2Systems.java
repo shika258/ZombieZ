@@ -1486,11 +1486,56 @@ public class Chapter2Systems implements Listener {
      * Démarre le système de TextDisplay per-player.
      * Utilise deux TextDisplays fixes (Blessé / Soigné) et gère la visibilité
      * per-player via l'API Paper showEntity/hideEntity.
+     * Respawne automatiquement le mineur si l'entité est invalide.
      */
     private void startNPCNameUpdater() {
         new BukkitRunnable() {
             @Override
             public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Vérifier si le mineur existe, sinon le respawner
+                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
+                    // Vérifier s'il y a des joueurs à proximité avant de respawner
+                    Location minerLoc = MINER_LOCATION.clone();
+                    minerLoc.setWorld(world);
+
+                    boolean playersNearby = false;
+                    for (Player player : world.getPlayers()) {
+                        if (player.getLocation().distanceSquared(minerLoc) <= 10000) { // 100 blocs
+                            playersNearby = true;
+                            break;
+                        }
+                    }
+
+                    if (playersNearby) {
+                        plugin.log(Level.INFO, "Mineur blessé invalide, respawn automatique...");
+                        spawnInjuredMiner(world);
+                    }
+                    // Continuer pour vérifier Igor aussi
+                }
+
+                // Vérifier si Igor existe, sinon le respawner
+                if (igorEntity == null || !igorEntity.isValid()) {
+                    Location igorLoc = IGOR_LOCATION.clone();
+                    igorLoc.setWorld(world);
+
+                    boolean playersNearIgor = false;
+                    for (Player player : world.getPlayers()) {
+                        if (player.getLocation().distanceSquared(igorLoc) <= 10000) { // 100 blocs
+                            playersNearIgor = true;
+                            break;
+                        }
+                    }
+
+                    if (playersNearIgor) {
+                        plugin.log(Level.INFO, "Igor invalide, respawn automatique...");
+                        spawnIgor(world);
+                    }
+                }
+
+                // Si le mineur n'est toujours pas valide, on arrête ici
                 if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
                     return;
                 }
@@ -1498,7 +1543,6 @@ public class Chapter2Systems implements Listener {
                 // Vérifier et recréer les displays si nécessaire
                 if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
                         minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
-                    World world = injuredMinerEntity.getWorld();
                     spawnMinerTextDisplays(world, injuredMinerEntity.getLocation());
                 }
 
