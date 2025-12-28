@@ -139,9 +139,9 @@ public enum JourneyStep {
         "Airdrop, Horde, Convoy, Boss ou Nid", StepType.PARTICIPATE_EVENT, 1,
         200, 8, Material.BEACON),
 
-    STEP_4_2(JourneyChapter.CHAPTER_4, 2, "Utilise ton talent 25 fois",
-        "La pratique mène à la perfection", StepType.USE_TALENT, 25,
-        300, 10, Material.BLAZE_POWDER),
+    STEP_4_2(JourneyChapter.CHAPTER_4, 2, "Le Fossoyeur",
+        "Cimetière: §b656, 91, 8682", StepType.GRAVEDIGGER_QUEST, 7,
+        300, 10, Material.IRON_SHOVEL),
 
     STEP_4_3(JourneyChapter.CHAPTER_4, 3, "Tue 25 zombies en 1 vie",
         "Série de kills!", StepType.KILL_STREAK, 25,
@@ -436,6 +436,12 @@ public enum JourneyStep {
                 else if (current == 1) yield "1/2 - Active ton 2ème talent";
                 else yield "0/2 - Atteins niveau 5 de classe";
             }
+            case GRAVEDIGGER_QUEST -> {
+                if (current >= 7) yield "✓ Fossoyeur terminé!";
+                else if (current >= 6) yield "Tue le boss!";
+                else if (current >= 1) yield (current - 1) + "/5 tombes creusées";
+                else yield "Parle au prêtre";
+            }
         };
     }
 
@@ -607,7 +613,10 @@ public enum JourneyStep {
         REPAIR_ZEPPELIN("Répare le Zeppelin"),
 
         // Maîtrise de classe
-        CLASS_MASTERY("Maîtrise ta classe");
+        CLASS_MASTERY("Maîtrise ta classe"),
+
+        // Quête du Fossoyeur (Chapitre 4)
+        GRAVEDIGGER_QUEST("Creuse les tombes et vaincs le boss");
 
         private final String description;
 

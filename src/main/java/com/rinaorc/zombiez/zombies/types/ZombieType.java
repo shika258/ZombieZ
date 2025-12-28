@@ -189,6 +189,9 @@ public enum ZombieType {
     MINE_OVERLORD("ZZ_MineOverlord", "Seigneur des Profondeurs", 0, 1200, 35, 0.24,  // Boss Chapitre 3 Étape 10
         new int[]{6}, ZombieCategory.JOURNEY_BOSS),
 
+    GRAVEDIGGER_BOSS("ZZ_GravediggerBoss", "Le Premier Mort", 0, 800, 20, 0.20,  // Boss Chapitre 4 Étape 2 - Wither Skeleton géant
+        new int[]{}, ZombieCategory.JOURNEY_BOSS),
+
     // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════
