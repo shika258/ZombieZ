@@ -25,6 +25,9 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Transformation;
@@ -72,6 +75,8 @@ public class Chapter4Systems implements Listener {
     private final NamespacedKey ORB_HITBOX_KEY;
     // Livraison Antidote
     private final NamespacedKey ANTIDOTE_NPC_KEY;
+    // Cristal de Corruption
+    private final NamespacedKey CRYSTAL_HITBOX_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -168,6 +173,13 @@ public class Chapter4Systems implements Listener {
     // === LIVRAISON ANTIDOTE (ÉTAPE 9) ===
     // Position du PNJ Alchimiste
     private static final Location ALCHEMIST_NPC_LOCATION = new Location(null, 317.5, 115, 8529.5, 90, 0);
+
+    // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
+    private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
+    private static final double CRYSTAL_MAX_HEALTH = 8000.0; // HP du cristal
+    private static final double CRYSTAL_REGEN_PER_SECOND = 80.0; // Régénération par seconde
+    private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
+    private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -283,6 +295,19 @@ public class Chapter4Systems implements Listener {
     private final Set<UUID> playersIntroducedToAntidote = ConcurrentHashMap.newKeySet();
     private static final double ALCHEMIST_DISPLAY_HEIGHT = 2.5;
 
+    // === TRACKING CRISTAL DE CORRUPTION (ÉTAPE 10) ===
+    // Entités du cristal
+    private ItemDisplay crystalVisual;
+    private Interaction crystalHitbox;
+    private TextDisplay crystalDisplay;
+
+    // Tracking par joueur
+    private final Map<UUID, Double> playerCrystalHealth = new ConcurrentHashMap<>();
+    private final Map<UUID, BossBar> playerCrystalBossBar = new ConcurrentHashMap<>();
+    private final Set<UUID> playersWhoDestroyedCrystal = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersIntroducedToCrystal = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersAttackingCrystal = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -299,6 +324,7 @@ public class Chapter4Systems implements Listener {
         this.CORRUPTION_SOURCE_KEY = new NamespacedKey(plugin, "corruption_source");
         this.ORB_HITBOX_KEY = new NamespacedKey(plugin, "orb_hitbox");
         this.ANTIDOTE_NPC_KEY = new NamespacedKey(plugin, "antidote_npc");
+        this.CRYSTAL_HITBOX_KEY = new NamespacedKey(plugin, "crystal_hitbox");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -380,7 +406,13 @@ public class Chapter4Systems implements Listener {
         // Démarrer le respawn checker
         startAlchemistNpcRespawnChecker();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste)");
+        // === ÉTAPE 10: CRISTAL DE CORRUPTION ===
+        spawnCorruptionCrystal(world);
+        startCrystalRespawnChecker();
+        startCrystalRegenSystem();
+        startCrystalVisibilityUpdater();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste, Cristal)");
     }
 
     /**
@@ -466,6 +498,16 @@ public class Chapter4Systems implements Listener {
                 entity.remove();
             }
             if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le Cristal de Corruption
+        Location crystalLoc = CRYSTAL_LOCATION.clone();
+        crystalLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(crystalLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter4_crystal")) {
                 entity.remove();
             }
         }
@@ -2080,6 +2122,25 @@ public class Chapter4Systems implements Listener {
                     handleOrbCollected(attacker, orbIndex);
                 }
             }
+            return;
+        }
+
+        // Hit sur le Cristal de Corruption (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+
+            Player attacker = null;
+            double damage = event.getDamage();
+
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                handleCrystalHit(attacker, damage);
+            }
         }
     }
 
@@ -2200,6 +2261,13 @@ public class Chapter4Systems implements Listener {
                     playersWhoDeliveredAntidote.add(player.getUniqueId());
                     playersIntroducedToAntidote.add(player.getUniqueId());
                 }
+
+                // === ÉTAPE 10: CRISTAL DE CORRUPTION ===
+                int crystalProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_10);
+                if (crystalProgress >= 1) {
+                    playersWhoDestroyedCrystal.add(player.getUniqueId());
+                    playersIntroducedToCrystal.add(player.getUniqueId());
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -2252,6 +2320,17 @@ public class Chapter4Systems implements Listener {
 
         // Nettoyer les données temporaires - Livraison Antidote
         playersIntroducedToAntidote.remove(uuid);
+
+        // Nettoyer les données temporaires - Cristal de Corruption
+        playersIntroducedToCrystal.remove(uuid);
+        playersAttackingCrystal.remove(uuid);
+        playerCrystalHealth.remove(uuid);
+
+        // Supprimer la BossBar du joueur
+        BossBar bossBar = playerCrystalBossBar.remove(uuid);
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -3771,6 +3850,470 @@ public class Chapter4Systems implements Listener {
             return true;
         }
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_9);
+        return progress >= 1;
+    }
+
+    // ==================== ÉTAPE 10: CRISTAL DE CORRUPTION ====================
+
+    /**
+     * Spawn le Cristal de Corruption
+     */
+    private void spawnCorruptionCrystal(World world) {
+        Location loc = CRYSTAL_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer les anciens
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            crystalVisual.remove();
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            crystalHitbox.remove();
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            crystalDisplay.remove();
+        }
+
+        // Créer le visuel du cristal (ItemDisplay avec AMETHYST_CLUSTER)
+        crystalVisual = world.spawn(loc.clone().add(0, 1.5, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.AMETHYST_CLUSTER));
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Scale x3 pour un gros cristal
+            Transformation transformation = new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(4.0f, 4.0f, 4.0f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            );
+            display.setTransformation(transformation);
+
+            display.addScoreboardTag("chapter4_crystal");
+            display.addScoreboardTag("chapter4_crystal_visual");
+            display.setPersistent(false);
+        });
+
+        // Appliquer le glow violet
+        applyCrystalGlow(crystalVisual);
+
+        // Créer la hitbox (Interaction)
+        crystalHitbox = world.spawn(loc.clone().add(0, 1, 0), Interaction.class, hitbox -> {
+            hitbox.setInteractionWidth(3.0f);
+            hitbox.setInteractionHeight(4.0f);
+
+            hitbox.addScoreboardTag("chapter4_crystal");
+            hitbox.addScoreboardTag("chapter4_crystal_hitbox");
+
+            // PDC pour identifier le cristal
+            hitbox.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
+            hitbox.setPersistent(false);
+        });
+
+        // Créer le TextDisplay au-dessus
+        crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
+                    .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.WHITE))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.4f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_crystal");
+            display.addScoreboardTag("chapter4_crystal_display");
+        });
+    }
+
+    /**
+     * Applique un glow violet au cristal
+     */
+    private void applyCrystalGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("crystal_glow_purple");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("crystal_glow_purple");
+            team.color(NamedTextColor.DARK_PURPLE);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+        entity.setGlowing(true);
+    }
+
+    /**
+     * Démarre le vérificateur de respawn du cristal
+     */
+    private void startCrystalRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                boolean needsRespawn = crystalVisual == null || !crystalVisual.isValid() ||
+                        crystalHitbox == null || !crystalHitbox.isValid();
+
+                if (needsRespawn) {
+                    spawnCorruptionCrystal(world);
+                    plugin.log(Level.FINE, "Cristal de Corruption respawné");
+                }
+
+                if (crystalDisplay == null || !crystalDisplay.isValid()) {
+                    Location loc = CRYSTAL_LOCATION.clone();
+                    loc.setWorld(world);
+                    // Recréer le display
+                    crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+                        display.text(Component.text()
+                                .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
+                                .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                                .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                                .build());
+                        display.setBillboard(Display.Billboard.CENTER);
+                        display.setShadowed(true);
+                        display.setPersistent(false);
+                        display.addScoreboardTag("chapter4_crystal");
+                    });
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Démarre le système de régénération du cristal
+     */
+    private void startCrystalRegenSystem() {
+        double regenPerTick = CRYSTAL_REGEN_PER_SECOND * (CRYSTAL_REGEN_INTERVAL / 20.0);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Pour chaque joueur qui attaque le cristal
+                for (UUID uuid : playersAttackingCrystal) {
+                    Player player = plugin.getServer().getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    // Vérifier si le joueur a déjà détruit le cristal
+                    if (playersWhoDestroyedCrystal.contains(uuid)) continue;
+
+                    Double currentHealth = playerCrystalHealth.get(uuid);
+                    if (currentHealth == null) continue;
+
+                    // Régénérer la vie
+                    double newHealth = Math.min(CRYSTAL_MAX_HEALTH, currentHealth + regenPerTick);
+                    playerCrystalHealth.put(uuid, newHealth);
+
+                    // Mettre à jour la BossBar
+                    updateCrystalBossBar(player, newHealth);
+
+                    // Particules de régénération (vertes)
+                    if (crystalVisual != null && crystalVisual.isValid() && Math.random() < 0.3) {
+                        Location loc = crystalVisual.getLocation();
+                        player.spawnParticle(Particle.HAPPY_VILLAGER, loc, 3, 0.5, 0.5, 0.5, 0);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, CRYSTAL_REGEN_INTERVAL, CRYSTAL_REGEN_INTERVAL);
+    }
+
+    /**
+     * Démarre le système de mise à jour de visibilité du cristal
+     */
+    private void startCrystalVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : world.getPlayers()) {
+                    updateCrystalVisibilityForPlayer(player);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité du cristal pour un joueur
+     */
+    private void updateCrystalVisibilityForPlayer(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        boolean isAtStep = currentStep == JourneyStep.STEP_4_10;
+        boolean hasCompleted = playersWhoDestroyedCrystal.contains(player.getUniqueId());
+
+        if (!isAtStep || hasCompleted) {
+            // Cacher le cristal et retirer la BossBar
+            hideCrystalForPlayer(player);
+
+            BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+            if (bossBar != null) {
+                bossBar.removePlayer(player);
+            }
+            playersAttackingCrystal.remove(player.getUniqueId());
+            return;
+        }
+
+        // Vérifier la distance
+        Location playerLoc = player.getLocation();
+        Location crystalLoc = CRYSTAL_LOCATION.clone();
+        crystalLoc.setWorld(player.getWorld());
+
+        double distance = playerLoc.distance(crystalLoc);
+        if (distance > CRYSTAL_VIEW_DISTANCE) {
+            hideCrystalForPlayer(player);
+
+            BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+            if (bossBar != null) {
+                bossBar.removePlayer(player);
+            }
+            return;
+        }
+
+        // Montrer le cristal
+        showCrystalForPlayer(player);
+
+        // Introduction si pas encore faite
+        if (!playersIntroducedToCrystal.contains(player.getUniqueId())) {
+            introducePlayerToCrystal(player);
+        }
+    }
+
+    /**
+     * Montre le cristal au joueur
+     */
+    private void showCrystalForPlayer(Player player) {
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            player.showEntity(plugin, crystalVisual);
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            player.showEntity(plugin, crystalHitbox);
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            player.showEntity(plugin, crystalDisplay);
+        }
+    }
+
+    /**
+     * Cache le cristal pour un joueur
+     */
+    private void hideCrystalForPlayer(Player player) {
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            player.hideEntity(plugin, crystalVisual);
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            player.hideEntity(plugin, crystalHitbox);
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            player.hideEntity(plugin, crystalDisplay);
+        }
+    }
+
+    /**
+     * Gère un hit sur le cristal
+     */
+    private void handleCrystalHit(Player player, double damage) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_10) {
+            player.sendMessage("§7Ce cristal semble réagir à quelque chose...");
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.5f, 1.2f);
+            return;
+        }
+
+        if (playersWhoDestroyedCrystal.contains(player.getUniqueId())) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // Initialiser la vie si première attaque
+        if (!playerCrystalHealth.containsKey(uuid)) {
+            playerCrystalHealth.put(uuid, CRYSTAL_MAX_HEALTH);
+            playersAttackingCrystal.add(uuid);
+
+            // Créer la BossBar
+            BossBar bossBar = Bukkit.createBossBar(
+                    "§d§lCristal de Corruption §7- §c" + (int)CRYSTAL_MAX_HEALTH + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤",
+                    BarColor.PURPLE,
+                    BarStyle.SOLID
+            );
+            bossBar.setProgress(1.0);
+            bossBar.addPlayer(player);
+            playerCrystalBossBar.put(uuid, bossBar);
+        }
+
+        // Appliquer les dégâts
+        double currentHealth = playerCrystalHealth.get(uuid);
+        double newHealth = Math.max(0, currentHealth - damage);
+        playerCrystalHealth.put(uuid, newHealth);
+
+        // Mettre à jour la BossBar
+        updateCrystalBossBar(player, newHealth);
+
+        // Effets visuels et sonores
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            Location loc = crystalVisual.getLocation();
+            player.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.8f, 0.5f + (float)(1.0 - newHealth / CRYSTAL_MAX_HEALTH));
+            player.spawnParticle(Particle.DUST, loc, 10, 0.5, 0.5, 0.5, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 1.5f));
+        }
+
+        // Vérifier si le cristal est détruit
+        if (newHealth <= 0) {
+            onCrystalDestroyed(player);
+        }
+    }
+
+    /**
+     * Met à jour la BossBar du cristal
+     */
+    private void updateCrystalBossBar(Player player, double currentHealth) {
+        BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+        if (bossBar == null) return;
+
+        double progress = currentHealth / CRYSTAL_MAX_HEALTH;
+        bossBar.setProgress(Math.max(0, Math.min(1, progress)));
+
+        // Couleur selon le pourcentage
+        String healthColor;
+        if (progress > 0.5) {
+            healthColor = "§a";
+            bossBar.setColor(BarColor.PURPLE);
+        } else if (progress > 0.25) {
+            healthColor = "§e";
+            bossBar.setColor(BarColor.YELLOW);
+        } else {
+            healthColor = "§c";
+            bossBar.setColor(BarColor.RED);
+        }
+
+        bossBar.setTitle("§d§lCristal de Corruption §7- " + healthColor + (int)currentHealth + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤");
+    }
+
+    /**
+     * Appelé quand le cristal est détruit par un joueur
+     */
+    private void onCrystalDestroyed(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Marquer comme complété
+        playersWhoDestroyedCrystal.add(uuid);
+        playersAttackingCrystal.remove(uuid);
+
+        // Supprimer la BossBar
+        BossBar bossBar = playerCrystalBossBar.remove(uuid);
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_4_10, 1);
+
+        // Effets visuels et sonores
+        Location loc = CRYSTAL_LOCATION.clone();
+        loc.setWorld(player.getWorld());
+        loc.add(0, 2, 0);
+
+        player.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+        player.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 2f, 0.5f);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+
+        // Particules d'explosion
+        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0);
+        player.getWorld().spawnParticle(Particle.DUST, loc, 100, 2, 2, 2, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 2f));
+        player.getWorld().spawnParticle(Particle.END_ROD, loc, 50, 2, 2, 2, 0.1);
+
+        // Cacher le cristal pour ce joueur
+        hideCrystalForPlayer(player);
+
+        // Message de victoire
+        player.sendTitle("§a§l✓ CRISTAL DÉTRUIT!", "§7Tu as prouvé ta puissance!", 10, 60, 20);
+
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+        player.sendMessage("  §d§l✦ L'ÉPREUVE DU CRISTAL ✦");
+        player.sendMessage("");
+        player.sendMessage("  §7Tu as vaincu le §dCristal de Corruption§7!");
+        player.sendMessage("  §7Ton DPS a surpassé sa régénération.");
+        player.sendMessage("");
+        player.sendMessage("  §6Récompenses:");
+        player.sendMessage("  §7▸ §e+1200 Points");
+        player.sendMessage("  §7▸ §a+30 XP");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+
+        // Compléter l'étape via JourneyManager
+        journeyManager.onStepProgress(player, JourneyStep.STEP_4_10, 1);
+    }
+
+    /**
+     * Introduction à la quête du Cristal de Corruption
+     */
+    private void introducePlayerToCrystal(Player player) {
+        playersIntroducedToCrystal.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§d§lL'ÉPREUVE DU CRISTAL", "§7Montre que tu es prêt pour la suite...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 0.8f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§d§l⚡ §fUn cristal de corruption pulse devant toi!");
+                    }
+                    case 2 -> {
+                        player.sendMessage("§d§l⚡ §fIl §crégénère sa vie§f en permanence.");
+                        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 0.8f);
+                    }
+                    case 3 -> {
+                        player.sendMessage("§d§l⚡ §fTu dois infliger plus de §edégâts§f que sa régénération!");
+                    }
+                    case 4 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §7Objectif: §fDétruis le cristal avant qu'il ne se régénère!");
+                        player.sendMessage("§e§l➤ §7GPS: §e529, 102, 8473");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 30L);
+    }
+
+    /**
+     * Vérifie si un joueur a déjà détruit le cristal
+     */
+    public boolean hasPlayerDestroyedCrystal(Player player) {
+        if (playersWhoDestroyedCrystal.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_10);
         return progress >= 1;
     }
 }

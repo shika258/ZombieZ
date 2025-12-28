@@ -171,6 +171,10 @@ public enum JourneyStep {
         "Loot: Antidote sur monstres - PNJ: §b317, 115, 8529", StepType.DELIVER_ANTIDOTE, 1,
         1100, 28, Material.POTION),
 
+    STEP_4_10(JourneyChapter.CHAPTER_4, 10, "L'Épreuve du Cristal",
+        "Cristal de Corruption: §b529, 102, 8473", StepType.DPS_CHECK, 1,
+        1200, 30, Material.AMETHYST_CLUSTER),
+
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
     STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
@@ -474,6 +478,7 @@ public enum JourneyStep {
                 else yield current + "/8 orbes collectées";
             }
             case DELIVER_ANTIDOTE -> current >= 1 ? "✓ Antidote livré!" : "Livre l'antidote au PNJ";
+            case DPS_CHECK -> current >= 1 ? "✓ Cristal détruit!" : "Détruis le Cristal de Corruption";
         };
     }
 
@@ -663,7 +668,8 @@ public enum JourneyStep {
         CREAKING_BOSS_QUEST("Collecte les orbes et vaincs le Creaking"),
 
         // Livraison d'antidote (Chapitre 4)
-        DELIVER_ANTIDOTE("Livre un antidote au PNJ");
+        DELIVER_ANTIDOTE("Livre un antidote au PNJ"),
+        DPS_CHECK("Détruis le Cristal de Corruption");
 
         private final String description;
 
