@@ -838,6 +838,15 @@ public class Chapter3Systems implements Listener {
                     return;
                 houseLoc.setWorld(world);
 
+                // Respawn les indices si les entités sont devenues invalides (chunk unload, etc.)
+                for (int i = 0; i < 4; i++) {
+                    boolean visualInvalid = clueVisuals[i] == null || !clueVisuals[i].isValid();
+                    boolean hitboxInvalid = clueHitboxes[i] == null || !clueHitboxes[i].isValid();
+                    if (visualInvalid || hitboxInvalid) {
+                        spawnClue(world, i);
+                    }
+                }
+
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(world)) {
                         hideAllCluesForPlayer(player);
