@@ -1263,6 +1263,9 @@ public class Chapter3Systems implements Listener {
 
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
 
+        // Activer le mode boss bar personnalisée pour éviter le clignotement
+        journeyManager.enterCustomBossBarMode(player);
+
         // Créer l'événement de défense
         VillageDefenseEvent defenseEvent = new VillageDefenseEvent(player.getUniqueId());
         activeDefenseEvents.put(player.getUniqueId(), defenseEvent);
@@ -1498,7 +1501,8 @@ public class Chapter3Systems implements Listener {
         // Retirer l'événement
         activeDefenseEvents.remove(player.getUniqueId());
 
-        // Restaurer la BossBar normale du Journey
+        // Désactiver le mode boss bar personnalisée et restaurer la BossBar normale du Journey
+        journeyManager.exitCustomBossBarMode(player);
         journeyManager.createOrUpdateBossBar(player);
 
         if (success) {
@@ -1672,11 +1676,11 @@ public class Chapter3Systems implements Listener {
         zeppelinControlVisual = world.spawn(loc, ItemDisplay.class, display -> {
             display.setItemStack(new ItemStack(Material.COMMAND_BLOCK));
 
-            // Taille x2 pour visibilité
+            // Taille x1.2 pour visibilité sans être trop imposant
             display.setTransformation(new Transformation(
-                    new Vector3f(0, 0.8f, 0), // Translation (au-dessus du sol)
+                    new Vector3f(0, 0.5f, 0), // Translation (au-dessus du sol)
                     new AxisAngle4f(0, 0, 1, 0),
-                    new Vector3f(2.0f, 2.0f, 2.0f), // Scale x2
+                    new Vector3f(1.2f, 1.2f, 1.2f), // Scale x1.2
                     new AxisAngle4f(0, 0, 1, 0)
             ));
 
@@ -1693,9 +1697,9 @@ public class Chapter3Systems implements Listener {
         });
 
         // 2. Créer l'entité INTERACTION (hitbox cliquable)
-        zeppelinControlHitbox = world.spawn(loc.clone().add(0, 0.8, 0), Interaction.class, interaction -> {
-            interaction.setInteractionWidth(1.5f);
-            interaction.setInteractionHeight(1.5f);
+        zeppelinControlHitbox = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.2f);
+            interaction.setInteractionHeight(1.2f);
 
             // Tags
             interaction.addScoreboardTag("chapter3_zeppelin_control");
@@ -1716,7 +1720,7 @@ public class Chapter3Systems implements Listener {
      * Crée le TextDisplay au-dessus du panneau de contrôle
      */
     private void createZeppelinControlDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, 2.0, 0);
+        Location displayLoc = loc.clone().add(0, 1.5, 0);
 
         zeppelinControlDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
@@ -2428,6 +2432,8 @@ public class Chapter3Systems implements Listener {
                     entity.remove();
                 }
             }
+            // Nettoyer le mode boss bar personnalisée
+            journeyManager.exitCustomBossBarMode(event.getPlayer());
         }
     }
 

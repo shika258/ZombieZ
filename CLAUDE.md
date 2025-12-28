@@ -130,3 +130,37 @@ if (minion != null) {
 }
 ```
 
+---
+
+## 🗺️ Système Journey (Quêtes) - RÈGLES CRITIQUES
+
+> **Règles absolues pour toutes les étapes du Journey**
+
+### ⛔ INTERDIT : ActionBar
+* **JAMAIS** utiliser `player.sendActionBar()` pour les étapes Journey
+* L'ActionBar est réservée au système de combat et aux informations temps réel du HUD
+* Les étapes Journey utilisent **Titles** et **Chat messages** uniquement
+
+### ✅ Feedback visuel pour les quêtes
+| Type | Méthode |
+|------|---------|
+| Progression | `player.sendTitle("§a✓ Titre", "§7X/Y complété", ...)` |
+| Introduction quête | `player.sendTitle("§6TITRE QUÊTE", "§7Description", ...)` |
+| Instructions | `player.sendMessage("§e▸ §fInstruction...")` |
+| GPS/Coordonnées | `player.sendMessage("§e§l➤ §7Zone: §eX, Y, Z")` |
+
+### 🧭 GPS obligatoire
+* Chaque quête Journey DOIT avoir un système GPS
+* Afficher les coordonnées de la zone/objectif au début de la quête
+* Mettre à jour le GPS après chaque sous-objectif complété
+
+### 📝 Checklist nouvelle quête Journey
+1. ☐ Créer le `StepType` dans `JourneyStep.java`
+2. ☐ Ajouter le case dans `getProgressText()`
+3. ☐ Implémenter le système dans `ChapterXSystems.java`
+4. ☐ Ajouter méthode GPS (`activateGPSTo...`)
+5. ☐ Ajouter introduction avec Title + GPS
+6. ☐ Tracker sur `PlayerJoin` (restaurer progression)
+7. ☐ Cleanup sur `PlayerQuit` (nettoyer Maps/Sets)
+8. ☐ **Vérifier : AUCUN sendActionBar()**
+

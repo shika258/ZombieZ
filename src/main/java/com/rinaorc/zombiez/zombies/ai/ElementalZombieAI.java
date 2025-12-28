@@ -55,6 +55,7 @@ public class ElementalZombieAI extends ZombieAI {
             case DEMON -> tickDemon();
             case INFERNAL -> tickInfernal();
             case FIRE_ZOMBIE -> tickFireZombie(); // Pyromorts - particules minimales
+            case DAMNED_SOUL -> tickDamnedSoul(); // Âmes Damnées - particules spectrales
             default -> tickFrozen();
         }
     }
@@ -230,6 +231,20 @@ public class ElementalZombieAI extends ZombieAI {
 
         // Pas d'abilities spéciales - juste un zombie de base en feu
         // Le combat se fait via l'IA standard du ZombieManager
+    }
+
+    /**
+     * Damned Soul (Âme Damnée): Zombie spectral pour le Journey Chapitre 4
+     * Particules d'âme, comportement simple
+     */
+    private void tickDamnedSoul() {
+        // Particules spectrales occasionnelles
+        if (tickCounter % 30 == 0) { // Toutes les 1.5 secondes
+            playParticles(Particle.SOUL, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3, 0.01);
+        }
+
+        // Pas d'abilities spéciales - juste un zombie spectral
+        // Le joueur doit le tuer pour obtenir le purificateur ou l'utiliser dessus
     }
 
     // ═══════════════════════════════════════════════════════════════
