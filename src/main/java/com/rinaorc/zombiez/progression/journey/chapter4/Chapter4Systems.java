@@ -179,7 +179,7 @@ public class Chapter4Systems implements Listener {
 
     // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
     private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
-    private static final double CRYSTAL_MAX_HEALTH = 8000.0; // HP du cristal
+    private static final double CRYSTAL_MAX_HEALTH = 3000.0; // HP du cristal
     private static final double CRYSTAL_REGEN_PER_SECOND = 80.0; // Régénération par seconde
     private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
     private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
@@ -3925,22 +3925,38 @@ public class Chapter4Systems implements Listener {
 
     // ==================== ÉTAPE 10: CRISTAL DE CORRUPTION ====================
 
+    // Flag pour éviter le spawn concurrent de cristaux
+    private volatile boolean isSpawningCrystal = false;
+
     /**
      * Spawn le Cristal de Corruption (EnderCrystal réel pour supporter les flèches)
      */
     private void spawnCorruptionCrystal(World world) {
-        Location loc = CRYSTAL_LOCATION.clone();
-        loc.setWorld(world);
+        // Sécurité : éviter le spawn concurrent
+        if (isSpawningCrystal) return;
+        isSpawningCrystal = true;
 
-        // Supprimer les anciens
-        if (crystalEntity != null && crystalEntity.isValid()) {
-            crystalEntity.remove();
-        }
-        if (crystalDisplay != null && crystalDisplay.isValid()) {
-            crystalDisplay.remove();
-        }
+        try {
+            Location loc = CRYSTAL_LOCATION.clone();
+            loc.setWorld(world);
 
-        // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
+            // Supprimer les anciens (référence trackée)
+            if (crystalEntity != null && crystalEntity.isValid()) {
+                crystalEntity.remove();
+            }
+            if (crystalDisplay != null && crystalDisplay.isValid()) {
+                crystalDisplay.remove();
+            }
+
+            // SÉCURITÉ : Nettoyer TOUS les cristaux existants dans la zone
+            // (évite les duplications si la référence crystalEntity était perdue)
+            for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+                if (entity.getScoreboardTags().contains("chapter4_crystal")) {
+                    entity.remove();
+                }
+            }
+
+            // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
         crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
             crystal.setShowingBottom(false); // Pas de socle pour un look plus clean
             crystal.setInvulnerable(false); // Doit pouvoir être endommagé
@@ -3984,6 +4000,9 @@ public class Chapter4Systems implements Listener {
             display.addScoreboardTag("chapter4_crystal");
             display.addScoreboardTag("chapter4_crystal_display");
         });
+        } finally {
+            isSpawningCrystal = false;
+        }
     }
 
     /**
