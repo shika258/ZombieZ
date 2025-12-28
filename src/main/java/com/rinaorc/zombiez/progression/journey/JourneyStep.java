@@ -45,7 +45,11 @@ public enum JourneyStep {
         "Les animaux peuvent te nourrir!", StepType.PASSIVE_ANIMAL_KILLS, 1,
         275, 4, Material.COOKED_BEEF),
 
-    STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Atteins le niveau 3",
+    STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Aide le Fermier",
+        "Fermier: §b474, 95, 9999", StepType.FIRE_MINIGAME, 1,
+        290, 4, Material.CAMPFIRE),
+
+    STEP_1_8(JourneyChapter.CHAPTER_1, 8, "Atteins le niveau 3",
         "Prêt à choisir ta voie", StepType.LEVEL, 3,
         300, 5, Material.NETHER_STAR),
 
@@ -158,6 +162,22 @@ public enum JourneyStep {
     STEP_4_6(JourneyChapter.CHAPTER_4, 6, "Purifie 5 Âmes Damnées",
         "Cimetière: §b914, 87, 8640", StepType.SOUL_PURIFICATION, 5,
         700, 20, Material.SOUL_LANTERN),
+
+    STEP_4_7(JourneyChapter.CHAPTER_4, 7, "La Brume Toxique",
+        "Marécages: §b807, 85, 8450", StepType.TOXIC_FOG_QUEST, 4,
+        800, 22, Material.DRAGON_BREATH),
+
+    STEP_4_8(JourneyChapter.CHAPTER_4, 8, "L'Éveil de l'Arbre Maudit",
+        "Arbre corrompu: §b453, 91, 8515", StepType.CREAKING_BOSS_QUEST, 9,
+        1000, 25, Material.PALE_OAK_LOG),
+
+    STEP_4_9(JourneyChapter.CHAPTER_4, 9, "Le Remède",
+        "Loot: Antidote sur monstres - PNJ: §b317, 115, 8529", StepType.DELIVER_ANTIDOTE, 1,
+        1100, 28, Material.POTION),
+
+    STEP_4_10(JourneyChapter.CHAPTER_4, 10, "L'Épreuve du Cristal",
+        "Cristal de Corruption: §b529, 102, 8473", StepType.DPS_CHECK, 1,
+        1200, 30, Material.AMETHYST_CLUSTER),
 
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
@@ -426,8 +446,8 @@ public enum JourneyStep {
             case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
-                else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
-                else yield "0/2 - Ouvre un oeuf /pet";
+                else if (current >= 1) yield "1/2 - Équipe ton pet!";
+                else yield "0/2 - Ouvre un oeuf";
             }
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
             case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
@@ -452,6 +472,18 @@ public enum JourneyStep {
                 else yield current + "/12 champignons";
             }
             case SOUL_PURIFICATION -> current + "/" + targetValue + " âmes purifiées";
+            case TOXIC_FOG_QUEST -> {
+                if (current >= 4) yield "✓ Brume dissipée!";
+                else yield current + "/4 sources détruites";
+            }
+            case CREAKING_BOSS_QUEST -> {
+                if (current >= 9) yield "✓ Arbre purifié!";
+                else if (current >= 8) yield "Vaincs le Creaking!";
+                else yield current + "/8 orbes collectées";
+            }
+            case DELIVER_ANTIDOTE -> current >= 1 ? "✓ Antidote livré!" : "Livre l'antidote au PNJ";
+            case DPS_CHECK -> current >= 1 ? "✓ Cristal détruit!" : "Détruis le Cristal de Corruption";
+            case FIRE_MINIGAME -> current >= 1 ? "✓ Incendie éteint!" : "Éteins l'incendie du moulin";
         };
     }
 
@@ -632,7 +664,18 @@ public enum JourneyStep {
         MUSHROOM_COLLECTION("Collecte les champignons maudits"),
 
         // Purification d'âmes (Chapitre 4)
-        SOUL_PURIFICATION("Purifie les âmes damnées");
+        SOUL_PURIFICATION("Purifie les âmes damnées"),
+
+        // Brume Toxique (Chapitre 4)
+        TOXIC_FOG_QUEST("Détruis les sources de corruption"),
+
+        // Boss Creaking de l'Arbre Maudit (Chapitre 4)
+        CREAKING_BOSS_QUEST("Collecte les orbes et vaincs le Creaking"),
+
+        // Livraison d'antidote (Chapitre 4)
+        DELIVER_ANTIDOTE("Livre un antidote au PNJ"),
+        DPS_CHECK("Détruis le Cristal de Corruption"),
+        FIRE_MINIGAME("Éteins l'incendie du moulin");
 
         private final String description;
 

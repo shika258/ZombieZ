@@ -1,6 +1,8 @@
 package com.rinaorc.zombiez.progression.journey.chapter4;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableType;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.zombies.ZombieManager;
@@ -23,6 +25,11 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -62,6 +69,14 @@ public class Chapter4Systems implements Listener {
     // Âmes Damnées
     private final NamespacedKey DAMNED_SOUL_KEY;
     private final NamespacedKey PURIFIER_ITEM_KEY;
+    // Brume Toxique
+    private final NamespacedKey CORRUPTION_SOURCE_KEY;
+    // Arbre Maudit (Creaking Boss)
+    private final NamespacedKey ORB_HITBOX_KEY;
+    // Livraison Antidote
+    private final NamespacedKey ANTIDOTE_NPC_KEY;
+    // Cristal de Corruption
+    private final NamespacedKey CRYSTAL_HITBOX_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -108,8 +123,63 @@ public class Chapter4Systems implements Listener {
 
     // Configuration Âmes Damnées
     private static final int MAX_DAMNED_SOULS = 12; // Nombre max d'âmes damnées en même temps
-    private static final double PURIFIER_DROP_CHANCE = 0.33; // 33% de chance de drop
+    private static final double PURIFIER_DROP_CHANCE = 0.40; // 40% de chance de drop
     private static final int SOULS_TO_PURIFY = 5; // Nombre d'âmes à purifier
+
+    // === BRUME TOXIQUE (ÉTAPE 7) ===
+    // Zone des marécages (corners: 752,85,8402 à 863,86,8498)
+    private static final int SWAMP_ZONE_MIN_X = 752;
+    private static final int SWAMP_ZONE_MAX_X = 863;
+    private static final int SWAMP_ZONE_MIN_Y = 80;
+    private static final int SWAMP_ZONE_MAX_Y = 95;
+    private static final int SWAMP_ZONE_MIN_Z = 8402;
+    private static final int SWAMP_ZONE_MAX_Z = 8498;
+
+    // Positions des 4 sources de corruption
+    private static final Location[] CORRUPTION_SOURCE_LOCATIONS = {
+            new Location(null, 770, 85, 8430, 0, 0),   // Source 1 (Sud-Ouest)
+            new Location(null, 840, 85, 8420, 0, 0),   // Source 2 (Sud-Est)
+            new Location(null, 780, 86, 8480, 0, 0),   // Source 3 (Nord-Ouest)
+            new Location(null, 830, 85, 8470, 0, 0)    // Source 4 (Nord-Est) - Mini-boss
+    };
+
+    // Configuration Brume Toxique
+    private static final int CORRUPTION_SOURCE_COUNT = 4; // Nombre de sources de corruption
+    private static final int HITS_TO_DESTROY_SOURCE = 15; // Coups pour détruire une source
+    private static final int SWAMP_WALKERS_PER_SOURCE = 3; // Mobs gardiens par source
+    private static final double POISON_DAMAGE = 1.0; // Dégâts de poison par tick
+    private static final int POISON_TICK_INTERVAL = 40; // Interval en ticks (2 secondes)
+
+    // === ARBRE MAUDIT - CREAKING BOSS (ÉTAPE 8) ===
+    // Positions des 8 orbes autour de l'arbre
+    private static final Location[] ORB_LOCATIONS = {
+            new Location(null, 462.5, 91, 8523.5, 0, 0),   // Orbe 1
+            new Location(null, 453.5, 98, 8519.5, 0, 0),   // Orbe 2 (en hauteur)
+            new Location(null, 442.5, 92, 8525.5, 0, 0),   // Orbe 3
+            new Location(null, 442.5, 91, 8510.5, 0, 0),   // Orbe 4
+            new Location(null, 453.5, 96, 8506.5, 0, 0),   // Orbe 5 (en hauteur)
+            new Location(null, 460.5, 91, 8505.5, 0, 0),   // Orbe 6
+            new Location(null, 469.5, 95, 8510.5, 0, 0),   // Orbe 7 (en hauteur)
+            new Location(null, 460.5, 91, 8519.5, 0, 0)    // Orbe 8
+    };
+
+    // Position de spawn du boss Creaking
+    private static final Location CREAKING_BOSS_SPAWN = new Location(null, 453.5, 91, 8530.5, 0, 0);
+
+    // Configuration Arbre Maudit
+    private static final int ORB_COUNT = 8;
+    private static final double ORB_VIEW_DISTANCE = 50;
+
+    // === LIVRAISON ANTIDOTE (ÉTAPE 9) ===
+    // Position du PNJ Alchimiste
+    private static final Location ALCHEMIST_NPC_LOCATION = new Location(null, 317.5, 115, 8529.5, 90, 0);
+
+    // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
+    private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
+    private static final double CRYSTAL_MAX_HEALTH = 8000.0; // HP du cristal
+    private static final double CRYSTAL_REGEN_PER_SECOND = 80.0; // Régénération par seconde
+    private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
+    private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -120,8 +190,9 @@ public class Chapter4Systems implements Listener {
     private final Interaction[] graveHitboxes = new Interaction[5];
     private final TextDisplay[] graveDisplays = new TextDisplay[5];
 
-    // Champignons (ArmorStand invisible + ItemDisplay RED_MUSHROOM glowing)
-    private final List<ArmorStand> mushroomEntities = new ArrayList<>();
+    // Champignons (ItemDisplay RED_MUSHROOM scale x3 glowing + Interaction hitbox)
+    private final List<ItemDisplay> mushroomVisuals = new ArrayList<>();
+    private final List<Interaction> mushroomHitboxes = new ArrayList<>();
     private final List<Location> mushroomLocations = new ArrayList<>();
 
     // Collecteur de champignons
@@ -170,6 +241,73 @@ public class Chapter4Systems implements Listener {
     // Joueurs ayant reçu l'introduction de la quête (pour éviter spam)
     private final Set<UUID> playersIntroducedToSouls = ConcurrentHashMap.newKeySet();
 
+    // === TRACKING BRUME TOXIQUE ===
+    // Sources de corruption (ItemDisplay visuels + Interaction hitbox)
+    private final ItemDisplay[] corruptionSourceVisuals = new ItemDisplay[4];
+    private final Interaction[] corruptionSourceHitboxes = new Interaction[4];
+    private final TextDisplay[] corruptionSourceDisplays = new TextDisplay[4];
+
+    // Hits sur chaque source par joueur: sourceIndex -> hits
+    private final Map<UUID, int[]> playerSourceHits = new ConcurrentHashMap<>();
+
+    // Sources détruites par joueur
+    private final Map<UUID, Set<Integer>> playerDestroyedSources = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoCompletedToxicFog = ConcurrentHashMap.newKeySet();
+
+    // Joueurs ayant reçu l'introduction
+    private final Set<UUID> playersIntroducedToToxicFog = ConcurrentHashMap.newKeySet();
+
+    // Joueurs actuellement dans la zone (pour poison)
+    private final Set<UUID> playersInSwampZone = ConcurrentHashMap.newKeySet();
+
+    // === TRACKING ARBRE MAUDIT (ÉTAPE 8) ===
+    // Orbes (ItemDisplay END_CRYSTAL glowing + Interaction hitbox)
+    private final ItemDisplay[] orbVisuals = new ItemDisplay[ORB_COUNT];
+    private final Interaction[] orbHitboxes = new Interaction[ORB_COUNT];
+
+    // Orbes collectées par joueur (Set des indices)
+    private final Map<UUID, Set<Integer>> playerCollectedOrbs = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoCompletedCreakingQuest = ConcurrentHashMap.newKeySet();
+
+    // Joueurs ayant reçu l'introduction
+    private final Set<UUID> playersIntroducedToCreaking = ConcurrentHashMap.newKeySet();
+
+    // Boss Creaking actif par joueur
+    private final Map<UUID, UUID> playerCreakingBossMap = new ConcurrentHashMap<>();
+
+    // Joueurs ayant un boss Creaking actif
+    private final Set<UUID> playersWithActiveCreakingBoss = ConcurrentHashMap.newKeySet();
+
+    // Compteur pour le nombre total de sources détruites (step progress)
+    private final Map<UUID, Integer> playerSourcesDestroyed = new ConcurrentHashMap<>();
+
+    // === TRACKING LIVRAISON ANTIDOTE (ÉTAPE 9) ===
+    // PNJ Alchimiste
+    private Entity alchemistNpcEntity;
+    private TextDisplay alchemistNpcDisplay;
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoDeliveredAntidote = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersIntroducedToAntidote = ConcurrentHashMap.newKeySet();
+    private static final double ALCHEMIST_DISPLAY_HEIGHT = 2.5;
+
+    // === TRACKING CRISTAL DE CORRUPTION (ÉTAPE 10) ===
+    // Entités du cristal
+    private ItemDisplay crystalVisual;
+    private Interaction crystalHitbox;
+    private TextDisplay crystalDisplay;
+
+    // Tracking par joueur
+    private final Map<UUID, Double> playerCrystalHealth = new ConcurrentHashMap<>();
+    private final Map<UUID, BossBar> playerCrystalBossBar = new ConcurrentHashMap<>();
+    private final Set<UUID> playersWhoDestroyedCrystal = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersIntroducedToCrystal = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersAttackingCrystal = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -183,6 +321,10 @@ public class Chapter4Systems implements Listener {
         this.MUSHROOM_HITBOX_KEY = new NamespacedKey(plugin, "mushroom_hitbox");
         this.DAMNED_SOUL_KEY = new NamespacedKey(plugin, "damned_soul");
         this.PURIFIER_ITEM_KEY = new NamespacedKey(plugin, "soul_purifier");
+        this.CORRUPTION_SOURCE_KEY = new NamespacedKey(plugin, "corruption_source");
+        this.ORB_HITBOX_KEY = new NamespacedKey(plugin, "orb_hitbox");
+        this.ANTIDOTE_NPC_KEY = new NamespacedKey(plugin, "antidote_npc");
+        this.CRYSTAL_HITBOX_KEY = new NamespacedKey(plugin, "crystal_hitbox");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -240,7 +382,37 @@ public class Chapter4Systems implements Listener {
         // Démarrer le spawn des Âmes Damnées dans la zone du cimetière
         startDamnedSoulSpawner(world);
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte Maudite, Purification)");
+        // === ÉTAPE 7: LA BRUME TOXIQUE ===
+        // Spawn les sources de corruption
+        spawnCorruptionSources(world);
+
+        // Démarrer les systèmes de mise à jour
+        startCorruptionSourceVisibilityUpdater();
+        startCorruptionSourceRespawnChecker();
+        startSwampPoisonChecker();
+
+        // === ÉTAPE 8: L'ARBRE MAUDIT ===
+        // Spawn les orbes autour de l'arbre
+        spawnOrbs(world);
+
+        // Démarrer les systèmes de mise à jour
+        startOrbVisibilityUpdater();
+        startOrbRespawnChecker();
+
+        // === ÉTAPE 9: LIVRAISON ANTIDOTE ===
+        // Spawn le PNJ Alchimiste
+        spawnAlchemistNpc(world);
+
+        // Démarrer le respawn checker
+        startAlchemistNpcRespawnChecker();
+
+        // === ÉTAPE 10: CRISTAL DE CORRUPTION ===
+        spawnCorruptionCrystal(world);
+        startCrystalRespawnChecker();
+        startCrystalRegenSystem();
+        startCrystalVisibilityUpdater();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste, Cristal)");
     }
 
     /**
@@ -298,6 +470,44 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les champignons
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_mushroom")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les sources de corruption
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_corruption_source")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les orbes et le boss Creaking
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_orb") ||
+                entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le PNJ Alchimiste
+        Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
+        alchemistLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(alchemistLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter4_alchemist")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le Cristal de Corruption
+        Location crystalLoc = CRYSTAL_LOCATION.clone();
+        crystalLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(crystalLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter4_crystal")) {
                 entity.remove();
             }
         }
@@ -1038,11 +1248,14 @@ public class Chapter4Systems implements Listener {
 
     // ==================== BOSS (PHASE 3) ====================
 
+    // Position fixe de spawn du boss Fossoyeur
+    private static final Location GRAVEDIGGER_BOSS_SPAWN = new Location(null, 668.5, 90, 8733.5);
+
     /**
      * Spawn le boss "Le Premier Mort"
      */
     private void spawnGravediggerBoss(Player player, Location loc) {
-        World world = loc.getWorld();
+        World world = player.getWorld();
         if (world == null) return;
 
         ZombieManager zombieManager = plugin.getZombieManager();
@@ -1051,10 +1264,14 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
+        // Position fixe du boss (indépendant de la dernière tombe creusée)
+        Location bossSpawnLoc = GRAVEDIGGER_BOSS_SPAWN.clone();
+        bossSpawnLoc.setWorld(world);
+
         // Spawn via ZombieManager
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(
                 ZombieType.GRAVEDIGGER_BOSS,
-                loc.add(0, 1, 0),
+                bossSpawnLoc,
                 20 // Niveau 20
         );
 
@@ -1076,8 +1293,12 @@ public class Chapter4Systems implements Listener {
         playerBossMap.put(player.getUniqueId(), bossZombie.getUniqueId());
 
         // Effets de spawn
-        world.playSound(loc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 2f, 0.5f);
-        world.spawnParticle(Particle.EXPLOSION_EMITTER, loc, 2, 0, 0, 0);
+        world.playSound(bossSpawnLoc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 2f, 0.5f);
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, bossSpawnLoc, 2, 0, 0, 0);
+
+        // Indiquer la position du boss au joueur
+        player.sendMessage("§c§l⚠ §7Le boss est apparu en §e" + (int) bossSpawnLoc.getX() + ", " +
+                (int) bossSpawnLoc.getY() + ", " + (int) bossSpawnLoc.getZ() + "§7!");
     }
 
     /**
@@ -1110,6 +1331,23 @@ public class Chapter4Systems implements Listener {
 
         // Target le joueur
         boss.setTarget(player);
+
+        // Glowing rouge pour visibilité
+        boss.setGlowing(true);
+        applyRedGlowing(boss);
+    }
+
+    /**
+     * Applique un glowing rouge au boss via le scoreboard
+     */
+    private void applyRedGlowing(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team redTeam = scoreboard.getTeam("gravedigger_boss_red");
+        if (redTeam == null) {
+            redTeam = scoreboard.registerNewTeam("gravedigger_boss_red");
+            redTeam.color(NamedTextColor.RED);
+        }
+        redTeam.addEntity(entity);
     }
 
     /**
@@ -1303,13 +1541,21 @@ public class Chapter4Systems implements Listener {
      * Spawn tous les champignons
      */
     private void spawnMushrooms(World world) {
-        // Nettoyer les anciens
-        for (ArmorStand mushroom : mushroomEntities) {
-            if (mushroom != null && mushroom.isValid()) {
-                mushroom.remove();
+        // Nettoyer les anciens visuels
+        for (ItemDisplay visual : mushroomVisuals) {
+            if (visual != null && visual.isValid()) {
+                visual.remove();
             }
         }
-        mushroomEntities.clear();
+        mushroomVisuals.clear();
+
+        // Nettoyer les anciennes hitboxes
+        for (Interaction hitbox : mushroomHitboxes) {
+            if (hitbox != null && hitbox.isValid()) {
+                hitbox.remove();
+            }
+        }
+        mushroomHitboxes.clear();
 
         // Spawner les nouveaux
         for (int i = 0; i < mushroomLocations.size(); i++) {
@@ -1318,45 +1564,68 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Spawn un champignon à l'index donné
+     * Spawn un champignon à l'index donné (ItemDisplay + Interaction)
      */
     private void spawnMushroom(World world, int index) {
         if (index >= mushroomLocations.size()) return;
 
         Location loc = mushroomLocations.get(index);
 
-        // ArmorStand invisible avec champignon rouge glowing
-        ArmorStand mushroom = world.spawn(loc, ArmorStand.class, armorStand -> {
-            armorStand.setInvisible(true);
-            armorStand.setInvulnerable(false); // Peut être "détruit" (hit)
-            armorStand.setGravity(false);
-            armorStand.setCanPickupItems(false);
-            armorStand.setSmall(true);
+        // 1. Créer le VISUEL (ItemDisplay avec RED_MUSHROOM scale x3 glowing rouge)
+        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.5, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.RED_MUSHROOM));
 
-            // Équipement: champignon rouge sur la tête
-            armorStand.getEquipment().setHelmet(new ItemStack(Material.RED_MUSHROOM));
+            // Scale x3 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(3.0f, 3.0f, 3.0f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
 
-            // Glow rouge (la couleur dépend de l'équipe scoreboard du joueur)
-            armorStand.setGlowing(true);
+            display.setBillboard(Display.Billboard.FIXED);
 
-            // Tags
-            armorStand.addScoreboardTag("chapter4_mushroom");
-            armorStand.addScoreboardTag("mushroom_" + index);
-            armorStand.addScoreboardTag("zombiez_npc");
+            // Glow effect rouge
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 50, 50));
 
-            // PDC
-            armorStand.getPersistentDataContainer().set(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER, index);
-
-            // Invisible par défaut (visibilité per-player)
-            armorStand.setVisibleByDefault(false);
-            armorStand.setPersistent(false);
+            display.setViewRange(48f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_mushroom");
+            display.addScoreboardTag("chapter4_mushroom_visual");
+            display.addScoreboardTag("mushroom_visual_" + index);
         });
 
-        // Ajouter à la liste
-        while (mushroomEntities.size() <= index) {
-            mushroomEntities.add(null);
+        // 2. Créer l'entité INTERACTION (hitbox invisible cliquable/frappable)
+        Interaction hitbox = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.5f);
+            interaction.setInteractionHeight(1.5f);
+            interaction.setResponsive(true); // Active la réponse aux attaques (left-click)
+
+            // Tags
+            interaction.addScoreboardTag("chapter4_mushroom");
+            interaction.addScoreboardTag("chapter4_mushroom_hitbox");
+            interaction.addScoreboardTag("mushroom_hitbox_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            interaction.getPersistentDataContainer().set(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER, index);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+
+        // Ajouter aux listes
+        while (mushroomVisuals.size() <= index) {
+            mushroomVisuals.add(null);
         }
-        mushroomEntities.set(index, mushroom);
+        mushroomVisuals.set(index, visual);
+
+        while (mushroomHitboxes.size() <= index) {
+            mushroomHitboxes.add(null);
+        }
+        mushroomHitboxes.set(index, hitbox);
     }
 
     /**
@@ -1397,21 +1666,29 @@ public class Chapter4Systems implements Listener {
         UUID uuid = player.getUniqueId();
         int[] hits = playerMushroomHits.get(uuid);
 
-        for (int i = 0; i < mushroomEntities.size(); i++) {
-            ArmorStand mushroom = mushroomEntities.get(i);
-            if (mushroom == null || !mushroom.isValid()) continue;
+        for (int i = 0; i < mushroomVisuals.size(); i++) {
+            ItemDisplay visual = mushroomVisuals.get(i);
+            Interaction hitbox = i < mushroomHitboxes.size() ? mushroomHitboxes.get(i) : null;
+
+            if (visual == null || !visual.isValid()) continue;
 
             // Vérifier si ce champignon a été collecté par ce joueur
             boolean collected = hits != null && hits.length > i && hits[i] >= getHitsForMushroom(i);
 
             // Distance check
-            double distSq = player.getLocation().distanceSquared(mushroom.getLocation());
+            double distSq = player.getLocation().distanceSquared(visual.getLocation());
             boolean inRange = distSq <= MUSHROOM_VIEW_DISTANCE * MUSHROOM_VIEW_DISTANCE;
 
             if (collected || !inRange) {
-                player.hideEntity(plugin, mushroom);
+                player.hideEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) {
+                    player.hideEntity(plugin, hitbox);
+                }
             } else {
-                player.showEntity(plugin, mushroom);
+                player.showEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) {
+                    player.showEntity(plugin, hitbox);
+                }
             }
         }
     }
@@ -1420,9 +1697,14 @@ public class Chapter4Systems implements Listener {
      * Cache tous les champignons pour un joueur
      */
     private void hideAllMushroomsForPlayer(Player player) {
-        for (ArmorStand mushroom : mushroomEntities) {
-            if (mushroom != null && mushroom.isValid()) {
-                player.hideEntity(plugin, mushroom);
+        for (ItemDisplay visual : mushroomVisuals) {
+            if (visual != null && visual.isValid()) {
+                player.hideEntity(plugin, visual);
+            }
+        }
+        for (Interaction hitbox : mushroomHitboxes) {
+            if (hitbox != null && hitbox.isValid()) {
+                player.hideEntity(plugin, hitbox);
             }
         }
     }
@@ -1438,8 +1720,15 @@ public class Chapter4Systems implements Listener {
                 if (world == null) return;
 
                 for (int i = 0; i < mushroomLocations.size(); i++) {
-                    if (i >= mushroomEntities.size() || mushroomEntities.get(i) == null ||
-                            !mushroomEntities.get(i).isValid()) {
+                    // Vérifier si le visuel ou la hitbox sont invalides
+                    boolean needsRespawn = i >= mushroomVisuals.size() ||
+                            mushroomVisuals.get(i) == null ||
+                            !mushroomVisuals.get(i).isValid() ||
+                            i >= mushroomHitboxes.size() ||
+                            mushroomHitboxes.get(i) == null ||
+                            !mushroomHitboxes.get(i).isValid();
+
+                    if (needsRespawn) {
                         spawnMushroom(world, i);
                         plugin.log(Level.FINE, "Champignon " + i + " respawné");
                     }
@@ -1600,9 +1889,9 @@ public class Chapter4Systems implements Listener {
         int currentHits = hits[mushroomIndex];
 
         // Effets de cueillette
-        ArmorStand mushroom = mushroomIndex < mushroomEntities.size() ? mushroomEntities.get(mushroomIndex) : null;
-        if (mushroom != null) {
-            Location loc = mushroom.getLocation();
+        ItemDisplay visual = mushroomIndex < mushroomVisuals.size() ? mushroomVisuals.get(mushroomIndex) : null;
+        if (visual != null) {
+            Location loc = visual.getLocation();
             player.playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 0.8f, 1f + (float) currentHits / requiredHits * 0.5f);
             player.getWorld().spawnParticle(Particle.ITEM, loc.add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.05,
                     new ItemStack(Material.RED_MUSHROOM));
@@ -1742,6 +2031,13 @@ public class Chapter4Systems implements Listener {
         if (entity.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
             event.setCancelled(true);
             handleMushroomCollectorInteraction(player);
+            return;
+        }
+
+        // Interaction avec l'alchimiste
+        if (entity.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleAlchemistInteraction(player);
         }
     }
 
@@ -1769,9 +2065,9 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
-        // Hit sur un champignon (ArmorStand)
-        if (damaged instanceof ArmorStand && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
-            event.setCancelled(true); // Ne pas détruire l'ArmorStand
+        // Hit sur un champignon (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
             if (event.getDamager() instanceof Player p) {
@@ -1786,6 +2082,65 @@ public class Chapter4Systems implements Listener {
                     handleMushroomHit(attacker, mushroomIndex);
                 }
             }
+            return;
+        }
+
+        // Hit sur une source de corruption (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer sourceIndex = damaged.getPersistentDataContainer().get(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER);
+                if (sourceIndex != null) {
+                    handleCorruptionSourceHit(attacker, sourceIndex);
+                }
+            }
+            return;
+        }
+
+        // Hit sur une orbe (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(ORB_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer orbIndex = damaged.getPersistentDataContainer().get(ORB_HITBOX_KEY, PersistentDataType.INTEGER);
+                if (orbIndex != null) {
+                    handleOrbCollected(attacker, orbIndex);
+                }
+            }
+            return;
+        }
+
+        // Hit sur le Cristal de Corruption (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+
+            Player attacker = null;
+            double damage = event.getDamage();
+
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                handleCrystalHit(attacker, damage);
+            }
         }
     }
 
@@ -1797,6 +2152,12 @@ public class Chapter4Systems implements Listener {
         if (entity instanceof Zombie zombie && entity.getScoreboardTags().contains("chapter4_gravedigger_boss")) {
             Player killer = zombie.getKiller();
             handleBossKilled(killer, zombie);
+        }
+
+        // Mort du boss Creaking (c'est un Zombie avec le tag chapter4_creaking_boss)
+        if (entity instanceof Zombie creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+            Player killer = creakingBoss.getKiller();
+            handleCreakingBossKilled(killer, creakingBoss);
         }
     }
 
@@ -1861,6 +2222,52 @@ public class Chapter4Systems implements Listener {
                     playerSoulsPurified.put(player.getUniqueId(), soulProgress);
                     playersIntroducedToSouls.add(player.getUniqueId()); // Déjà introduit si progression > 0
                 }
+
+                // Recharger la progression brume toxique
+                int toxicFogProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_7);
+                if (toxicFogProgress >= CORRUPTION_SOURCE_COUNT) {
+                    playersWhoCompletedToxicFog.add(player.getUniqueId());
+                    playersIntroducedToToxicFog.add(player.getUniqueId());
+                } else if (toxicFogProgress > 0) {
+                    playerSourcesDestroyed.put(player.getUniqueId(), toxicFogProgress);
+                    playersIntroducedToToxicFog.add(player.getUniqueId());
+
+                    // Reconstruire les hits (marquer les premières sources comme détruites)
+                    int[] hits = new int[CORRUPTION_SOURCE_COUNT];
+                    for (int i = 0; i < toxicFogProgress && i < CORRUPTION_SOURCE_COUNT; i++) {
+                        hits[i] = HITS_TO_DESTROY_SOURCE;
+                    }
+                    playerSourceHits.put(player.getUniqueId(), hits);
+                }
+
+                // Recharger la progression arbre maudit
+                int creakingProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_8);
+                if (creakingProgress >= ORB_COUNT + 1) { // 8 orbes + boss tué = 9
+                    playersWhoCompletedCreakingQuest.add(player.getUniqueId());
+                    playersIntroducedToCreaking.add(player.getUniqueId());
+                } else if (creakingProgress > 0) {
+                    playersIntroducedToCreaking.add(player.getUniqueId());
+                    // Reconstruire les orbes collectées
+                    Set<Integer> collectedOrbs = ConcurrentHashMap.newKeySet();
+                    for (int i = 0; i < Math.min(creakingProgress, ORB_COUNT); i++) {
+                        collectedOrbs.add(i);
+                    }
+                    playerCollectedOrbs.put(player.getUniqueId(), collectedOrbs);
+                }
+
+                // === ÉTAPE 9: LIVRAISON ANTIDOTE ===
+                int antidoteProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_9);
+                if (antidoteProgress >= 1) {
+                    playersWhoDeliveredAntidote.add(player.getUniqueId());
+                    playersIntroducedToAntidote.add(player.getUniqueId());
+                }
+
+                // === ÉTAPE 10: CRISTAL DE CORRUPTION ===
+                int crystalProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_10);
+                if (crystalProgress >= 1) {
+                    playersWhoDestroyedCrystal.add(player.getUniqueId());
+                    playersIntroducedToCrystal.add(player.getUniqueId());
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -1891,6 +2298,39 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les données temporaires - Âmes Damnées
         playerSoulsPurified.remove(uuid);
         playersIntroducedToSouls.remove(uuid);
+
+        // Nettoyer les données temporaires - Brume Toxique
+        playerSourcesDestroyed.remove(uuid);
+        playerSourceHits.remove(uuid);
+        playersIntroducedToToxicFog.remove(uuid);
+
+        // Nettoyer les données temporaires - Arbre Maudit
+        playerCollectedOrbs.remove(uuid);
+        playersIntroducedToCreaking.remove(uuid);
+        playersWithActiveCreakingBoss.remove(uuid);
+
+        // Despawn le boss Creaking du joueur s'il existe
+        UUID creakingBossUuid = playerCreakingBossMap.remove(uuid);
+        if (creakingBossUuid != null) {
+            Entity creakingBoss = plugin.getServer().getEntity(creakingBossUuid);
+            if (creakingBoss != null && creakingBoss.isValid()) {
+                creakingBoss.remove();
+            }
+        }
+
+        // Nettoyer les données temporaires - Livraison Antidote
+        playersIntroducedToAntidote.remove(uuid);
+
+        // Nettoyer les données temporaires - Cristal de Corruption
+        playersIntroducedToCrystal.remove(uuid);
+        playersAttackingCrystal.remove(uuid);
+        playerCrystalHealth.remove(uuid);
+
+        // Supprimer la BossBar du joueur
+        BossBar bossBar = playerCrystalBossBar.remove(uuid);
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -2259,5 +2699,1621 @@ public class Chapter4Systems implements Listener {
 
         player.sendMessage("§e§l➤ §7Zone du cimetière: §e" + centerX + ", " + SOUL_ZONE_MIN_Y + ", " + centerZ);
         player.sendMessage("");
+    }
+
+    // ==================== BRUME TOXIQUE (ÉTAPE 7) ====================
+
+    /**
+     * Spawn toutes les sources de corruption
+     */
+    private void spawnCorruptionSources(World world) {
+        for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+            spawnCorruptionSource(world, i);
+        }
+    }
+
+    /**
+     * Spawn une source de corruption (ItemDisplay + Interaction + TextDisplay)
+     */
+    private void spawnCorruptionSource(World world, int index) {
+        if (index >= CORRUPTION_SOURCE_LOCATIONS.length) return;
+
+        Location loc = CORRUPTION_SOURCE_LOCATIONS[index].clone();
+        loc.setWorld(world);
+
+        // Supprimer les anciens
+        if (corruptionSourceVisuals[index] != null && corruptionSourceVisuals[index].isValid()) {
+            corruptionSourceVisuals[index].remove();
+        }
+        if (corruptionSourceHitboxes[index] != null && corruptionSourceHitboxes[index].isValid()) {
+            corruptionSourceHitboxes[index].remove();
+        }
+        if (corruptionSourceDisplays[index] != null && corruptionSourceDisplays[index].isValid()) {
+            corruptionSourceDisplays[index].remove();
+        }
+
+        // 1. Créer le VISUEL (ItemDisplay avec DRAGON_BREATH glowing vert toxique)
+        corruptionSourceVisuals[index] = world.spawn(loc.clone().add(0, 1, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.DRAGON_BREATH));
+
+            // Scale x2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(2.5f, 2.5f, 2.5f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
+
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Glow effect vert toxique
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(50, 200, 50));
+
+            display.setViewRange(64f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_corruption_source");
+            display.addScoreboardTag("chapter4_corruption_visual");
+            display.addScoreboardTag("corruption_visual_" + index);
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox invisible)
+        corruptionSourceHitboxes[index] = world.spawn(loc.clone().add(0, 1, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(2.0f);
+            interaction.setInteractionHeight(2.0f);
+            interaction.setResponsive(true);
+
+            interaction.addScoreboardTag("chapter4_corruption_source");
+            interaction.addScoreboardTag("chapter4_corruption_hitbox");
+            interaction.addScoreboardTag("corruption_hitbox_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            interaction.getPersistentDataContainer().set(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER, index);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+
+        // 3. Créer le TextDisplay au-dessus
+        corruptionSourceDisplays[index] = world.spawn(loc.clone().add(0, 3, 0), TextDisplay.class, display -> {
+            boolean isLastSource = (index == 3);
+            String title = isLastSource ? "§4§lSOURCE PRINCIPALE" : "§2§lSOURCE DE CORRUPTION";
+            String subtitle = isLastSource ? "§c☠ Gardien: Marécageux Alpha" : "§a☠ Frappe pour détruire";
+
+            display.text(Component.text()
+                    .append(Component.text("☣ ", NamedTextColor.GREEN))
+                    .append(Component.text(title.substring(2), isLastSource ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" ☣", NamedTextColor.GREEN))
+                    .append(Component.newline())
+                    .append(Component.text("━━━━━━━━━", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text(subtitle.substring(2), NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(150, 0, 50, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.5f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_corruption_source");
+            display.addScoreboardTag("chapter4_corruption_display");
+            display.addScoreboardTag("corruption_display_" + index);
+        });
+
+        // Particules d'ambiance autour de la source
+        world.spawnParticle(Particle.DRAGON_BREATH, loc.clone().add(0, 1.5, 0), 20, 0.5, 0.5, 0.5, 0.01);
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les sources
+     */
+    private void startCorruptionSourceVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllSourcesForPlayer(player);
+                        continue;
+                    }
+
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    boolean shouldSeeSources = currentStep == JourneyStep.STEP_4_7 &&
+                            !playersWhoCompletedToxicFog.contains(player.getUniqueId());
+
+                    if (shouldSeeSources) {
+                        updateSourceVisibilityForPlayer(player);
+
+                        // Introduction si pas encore faite
+                        if (!playersIntroducedToToxicFog.contains(player.getUniqueId())) {
+                            introducePlayerToToxicFog(player);
+                        }
+                    } else {
+                        hideAllSourcesForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des sources pour un joueur
+     */
+    private void updateSourceVisibilityForPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        Set<Integer> destroyed = playerDestroyedSources.getOrDefault(uuid, Set.of());
+
+        for (int i = 0; i < corruptionSourceVisuals.length; i++) {
+            ItemDisplay visual = corruptionSourceVisuals[i];
+            Interaction hitbox = corruptionSourceHitboxes[i];
+            TextDisplay display = corruptionSourceDisplays[i];
+
+            if (visual == null || !visual.isValid()) continue;
+
+            // Si cette source est détruite par le joueur, la cacher
+            if (destroyed.contains(i)) {
+                if (visual != null) player.hideEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) player.hideEntity(plugin, hitbox);
+                if (display != null && display.isValid()) player.hideEntity(plugin, display);
+            } else {
+                // Sinon, la montrer
+                if (visual != null) player.showEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) player.showEntity(plugin, hitbox);
+                if (display != null && display.isValid()) player.showEntity(plugin, display);
+            }
+        }
+    }
+
+    /**
+     * Cache toutes les sources pour un joueur
+     */
+    private void hideAllSourcesForPlayer(Player player) {
+        for (int i = 0; i < corruptionSourceVisuals.length; i++) {
+            if (corruptionSourceVisuals[i] != null && corruptionSourceVisuals[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceVisuals[i]);
+            }
+            if (corruptionSourceHitboxes[i] != null && corruptionSourceHitboxes[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceHitboxes[i]);
+            }
+            if (corruptionSourceDisplays[i] != null && corruptionSourceDisplays[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceDisplays[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des sources
+     */
+    private void startCorruptionSourceRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+                    boolean needsRespawn = corruptionSourceVisuals[i] == null ||
+                            !corruptionSourceVisuals[i].isValid() ||
+                            corruptionSourceHitboxes[i] == null ||
+                            !corruptionSourceHitboxes[i].isValid();
+
+                    if (needsRespawn) {
+                        spawnCorruptionSource(world, i);
+                        plugin.log(Level.FINE, "Source de corruption " + i + " respawnée");
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Démarre le système de poison dans le marais
+     */
+    private void startSwampPoisonChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    if (currentStep != JourneyStep.STEP_4_7) continue;
+                    if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) continue;
+
+                    // Vérifier si dans la zone
+                    if (isInSwampZone(player.getLocation())) {
+                        playersInSwampZone.add(player.getUniqueId());
+
+                        // Compter les sources non détruites
+                        Set<Integer> destroyed = playerDestroyedSources.getOrDefault(player.getUniqueId(), Set.of());
+                        int remainingSources = 4 - destroyed.size();
+
+                        if (remainingSources > 0) {
+                            // Appliquer poison proportionnel aux sources restantes
+                            double damage = POISON_DAMAGE * (remainingSources / 4.0);
+                            player.damage(damage);
+                            player.getWorld().spawnParticle(Particle.DRAGON_BREATH,
+                                    player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.01);
+
+                            // Message occasionnel
+                            if (Math.random() < 0.1) {
+                                player.sendMessage("§2§o*La brume toxique te brûle les poumons...*");
+                            }
+                        }
+                    } else {
+                        playersInSwampZone.remove(player.getUniqueId());
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 60L, POISON_TICK_INTERVAL);
+    }
+
+    /**
+     * Vérifie si une location est dans la zone du marais
+     */
+    private boolean isInSwampZone(Location loc) {
+        return loc.getX() >= SWAMP_ZONE_MIN_X && loc.getX() <= SWAMP_ZONE_MAX_X &&
+               loc.getY() >= SWAMP_ZONE_MIN_Y && loc.getY() <= SWAMP_ZONE_MAX_Y &&
+               loc.getZ() >= SWAMP_ZONE_MIN_Z && loc.getZ() <= SWAMP_ZONE_MAX_Z;
+    }
+
+    /**
+     * Gère le hit sur une source de corruption
+     */
+    private void handleCorruptionSourceHit(Player player, int sourceIndex) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_4_7) {
+            player.sendMessage("§7Une étrange source de corruption... Elle semble liée à la brume.");
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.5f, 0.5f);
+            return;
+        }
+
+        // Vérifier si la quête est finie
+        if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) {
+            return;
+        }
+
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si cette source est déjà détruite par ce joueur
+        Set<Integer> destroyed = playerDestroyedSources.get(uuid);
+        if (destroyed != null && destroyed.contains(sourceIndex)) {
+            return;
+        }
+
+        // Initialiser les hits si nécessaire
+        int[] hits = playerSourceHits.get(uuid);
+        if (hits == null) {
+            hits = new int[4];
+            playerSourceHits.put(uuid, hits);
+        }
+
+        // Incrémenter les hits
+        hits[sourceIndex]++;
+        int currentHits = hits[sourceIndex];
+
+        // Effets de hit
+        ItemDisplay visual = corruptionSourceVisuals[sourceIndex];
+        if (visual != null && visual.isValid()) {
+            Location loc = visual.getLocation();
+            player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 0.5f + (float) currentHits / HITS_TO_DESTROY_SOURCE);
+            player.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 10, 0.5, 0.5, 0.5, 0.02);
+        }
+
+        // Progression visuelle
+        float progress = (float) currentHits / HITS_TO_DESTROY_SOURCE;
+        player.sendMessage("§2☣ §7Source endommagée: §e" + (int)(progress * 100) + "%");
+
+        // Source détruite!
+        if (currentHits >= HITS_TO_DESTROY_SOURCE) {
+            onSourceDestroyed(player, sourceIndex);
+        }
+    }
+
+    /**
+     * Appelé quand une source est détruite par un joueur
+     */
+    private void onSourceDestroyed(Player player, int sourceIndex) {
+        UUID uuid = player.getUniqueId();
+
+        // Marquer comme détruite
+        Set<Integer> destroyed = playerDestroyedSources.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
+        destroyed.add(sourceIndex);
+
+        // Mettre à jour la progression Journey
+        journeyManager.updateProgress(player, JourneyStep.StepType.TOXIC_FOG_QUEST, destroyed.size());
+
+        // Effets visuels
+        ItemDisplay visual = corruptionSourceVisuals[sourceIndex];
+        if (visual != null && visual.isValid()) {
+            Location loc = visual.getLocation();
+            player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0);
+            player.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 50, 1, 1, 1, 0.1);
+            player.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+            player.playSound(loc, Sound.ENTITY_ALLAY_DEATH, 1.0f, 0.5f);
+        }
+
+        // Cacher la source pour ce joueur
+        updateSourceVisibilityForPlayer(player);
+
+        boolean isLastSource = (sourceIndex == 3);
+        int remainingSources = 4 - destroyed.size();
+
+        // Message et effets
+        if (remainingSources > 0) {
+            player.sendTitle("§a✓ SOURCE DÉTRUITE!", "§7" + destroyed.size() + "/4 - " + remainingSources + " restante(s)", 10, 40, 10);
+            player.sendMessage("");
+            player.sendMessage("§a§l✦ §7Source de corruption détruite! §e" + destroyed.size() + "/4");
+
+            // GPS vers la prochaine source non détruite
+            for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+                if (!destroyed.contains(i)) {
+                    Location nextLoc = CORRUPTION_SOURCE_LOCATIONS[i];
+                    String warning = (i == 3) ? " §c(Gardien!)" : "";
+                    player.sendMessage("§e§l➤ §7Prochaine source: §e" + (int)nextLoc.getX() + ", " +
+                            (int)nextLoc.getY() + ", " + (int)nextLoc.getZ() + warning);
+                    break;
+                }
+            }
+            player.sendMessage("");
+        } else {
+            // Quête complétée!
+            onToxicFogQuestComplete(player);
+        }
+
+        // Spawn mini-boss si c'est la dernière source (index 3)
+        if (isLastSource && remainingSources == 0) {
+            // Le boss est géré dans onToxicFogQuestComplete
+        }
+    }
+
+    /**
+     * Appelé quand la quête de la brume toxique est complétée
+     */
+    private void onToxicFogQuestComplete(Player player) {
+        playersWhoCompletedToxicFog.add(player.getUniqueId());
+
+        // Effets de victoire
+        player.sendTitle("§a§l✦ BRUME DISSIPÉE! ✦", "§7Le marais est purifié!", 10, 60, 20);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+
+        // Particules de purification autour du joueur
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.1);
+
+        // Message de récompense
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+        player.sendMessage("  §a§l✦ BRUME TOXIQUE DISSIPÉE! ✦");
+        player.sendMessage("");
+        player.sendMessage("  §7Tu as détruit les §e4 sources de corruption§7!");
+        player.sendMessage("  §7Le marais peut enfin respirer...");
+        player.sendMessage("");
+        player.sendMessage("  §6Récompenses:");
+        player.sendMessage("  §7▸ §e+800 Points");
+        player.sendMessage("  §7▸ §a+22 XP");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+
+        // Cacher toutes les sources
+        hideAllSourcesForPlayer(player);
+    }
+
+    /**
+     * Introduction à la quête de la brume toxique
+     */
+    private void introducePlayerToToxicFog(Player player) {
+        playersIntroducedToToxicFog.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.sendTitle("§2§l☣ LA BRUME TOXIQUE ☣", "§7Une corruption empoisonne le marais...", 10, 60, 20);
+                player.playSound(player.getLocation(), Sound.AMBIENT_BASALT_DELTAS_MOOD, 1.0f, 0.5f);
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        player.sendMessage("");
+                        player.sendMessage("§8§m                                            ");
+                        player.sendMessage("");
+                        player.sendMessage("  §2§l☣ LA BRUME TOXIQUE");
+                        player.sendMessage("");
+                        player.sendMessage("  §7Une brume empoisonnée a envahi le marais.");
+                        player.sendMessage("  §7Quatre §asources de corruption §7en sont");
+                        player.sendMessage("  §7la cause. Tu dois les §edétruire§7!");
+                        player.sendMessage("");
+                        player.sendMessage("  §c⚠ §7La brume te fait des dégâts tant que");
+                        player.sendMessage("  §7les sources existent!");
+                        player.sendMessage("");
+                        player.sendMessage("  §e▸ Frappe les sources pour les détruire");
+                        player.sendMessage("  §e▸ Attention à la dernière source (gardien)!");
+                        player.sendMessage("");
+                        player.sendMessage("§8§m                                            ");
+                        player.sendMessage("");
+
+                        // GPS vers la première source
+                        Location firstLoc = CORRUPTION_SOURCE_LOCATIONS[0];
+                        player.sendMessage("§e§l➤ §7Première source: §e" + (int)firstLoc.getX() + ", " +
+                                (int)firstLoc.getY() + ", " + (int)firstLoc.getZ());
+                        player.sendMessage("");
+                    }
+                }.runTaskLater(plugin, 40L);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Vérifie si un joueur a complété la quête brume toxique
+     */
+    private boolean hasPlayerCompletedToxicFogQuest(Player player) {
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_7);
+        return progress >= 4;
+    }
+
+    // ==================== ÉTAPE 8: L'ARBRE MAUDIT - CREAKING BOSS ====================
+
+    /**
+     * Spawn les orbes autour de l'arbre maudit
+     */
+    private void spawnOrbs(World world) {
+        for (int i = 0; i < ORB_COUNT; i++) {
+            spawnOrb(world, i);
+        }
+        plugin.log(Level.INFO, "§a  - " + ORB_COUNT + " orbes spawnées autour de l'arbre");
+    }
+
+    /**
+     * Spawn une orbe individuelle
+     */
+    private void spawnOrb(World world, int index) {
+        Location loc = ORB_LOCATIONS[index].clone();
+        loc.setWorld(world);
+
+        // Créer l'ItemDisplay (orbe visuelle - END_CRYSTAL avec glow)
+        ItemDisplay display = world.spawn(loc, ItemDisplay.class, d -> {
+            d.setItemStack(new ItemStack(Material.END_CRYSTAL));
+            d.setGlowing(true);
+            d.setBillboard(Display.Billboard.CENTER);
+
+            // Scale x0.8 pour une taille appropriée
+            Transformation transformation = new Transformation(
+                    new Vector3f(0, 0.3f, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(0.8f, 0.8f, 0.8f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            );
+            d.setTransformation(transformation);
+
+            d.addScoreboardTag("chapter4_orb");
+            d.addScoreboardTag("chapter4_orb_" + index);
+            d.setVisibleByDefault(false);
+        });
+
+        // Créer l'Interaction (hitbox invisible)
+        Interaction interaction = world.spawn(loc, Interaction.class, i -> {
+            i.setInteractionWidth(1.2f);
+            i.setInteractionHeight(1.2f);
+            i.addScoreboardTag("chapter4_orb");
+            i.addScoreboardTag("chapter4_orb_hitbox_" + index);
+
+            // PDC pour identifier l'orbe
+            i.getPersistentDataContainer().set(ORB_HITBOX_KEY, PersistentDataType.INTEGER, index);
+        });
+
+        // Appliquer le glow cyan via team
+        applyOrbGlow(display);
+
+        orbVisuals[index] = display;
+        orbHitboxes[index] = interaction;
+    }
+
+    /**
+     * Applique un glow cyan aux orbes
+     */
+    private void applyOrbGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("orb_glow_cyan");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("orb_glow_cyan");
+            team.color(NamedTextColor.AQUA);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+    }
+
+    /**
+     * Démarre le système de mise à jour de visibilité des orbes
+     */
+    private void startOrbVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : world.getPlayers()) {
+                    updateOrbVisibilityForPlayer(player);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des orbes pour un joueur
+     */
+    private void updateOrbVisibilityForPlayer(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        boolean isAtStep = currentStep == JourneyStep.STEP_4_8;
+        boolean hasCompleted = playersWhoCompletedCreakingQuest.contains(player.getUniqueId());
+
+        if (!isAtStep || hasCompleted) {
+            hideAllOrbsForPlayer(player);
+            return;
+        }
+
+        Location playerLoc = player.getLocation();
+        Location treeLoc = ORB_LOCATIONS[0].clone();
+        treeLoc.setWorld(player.getWorld());
+
+        // Vérifier si le joueur est proche de l'arbre
+        double distance = playerLoc.distance(treeLoc);
+        if (distance > ORB_VIEW_DISTANCE) {
+            hideAllOrbsForPlayer(player);
+            return;
+        }
+
+        // Introduction si pas encore faite
+        if (!playersIntroducedToCreaking.contains(player.getUniqueId())) {
+            introducePlayerToCreaking(player);
+        }
+
+        // Obtenir les orbes collectées par ce joueur
+        Set<Integer> collected = playerCollectedOrbs.getOrDefault(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+
+        // Montrer les orbes non collectées
+        for (int i = 0; i < ORB_COUNT; i++) {
+            if (collected.contains(i)) {
+                // Orbe déjà collectée - masquer
+                if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                    player.hideEntity(plugin, orbVisuals[i]);
+                }
+                if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                    player.hideEntity(plugin, orbHitboxes[i]);
+                }
+            } else {
+                // Orbe disponible - montrer
+                if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                    player.showEntity(plugin, orbVisuals[i]);
+                }
+                if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                    player.showEntity(plugin, orbHitboxes[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Masque toutes les orbes pour un joueur
+     */
+    private void hideAllOrbsForPlayer(Player player) {
+        for (int i = 0; i < ORB_COUNT; i++) {
+            if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                player.hideEntity(plugin, orbVisuals[i]);
+            }
+            if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                player.hideEntity(plugin, orbHitboxes[i]);
+            }
+        }
+    }
+
+    /**
+     * Vérifie et respawn les orbes si nécessaire
+     */
+    private void startOrbRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < ORB_COUNT; i++) {
+                    if (orbVisuals[i] == null || !orbVisuals[i].isValid() ||
+                        orbHitboxes[i] == null || !orbHitboxes[i].isValid()) {
+
+                        // Nettoyer
+                        if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                            orbVisuals[i].remove();
+                        }
+                        if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                            orbHitboxes[i].remove();
+                        }
+
+                        // Respawn
+                        spawnOrb(world, i);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Gère la collecte d'une orbe par un joueur
+     */
+    private void handleOrbCollected(Player player, int orbIndex) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_8) return;
+
+        if (playersWhoCompletedCreakingQuest.contains(player.getUniqueId())) return;
+
+        // Vérifier si l'orbe n'est pas déjà collectée
+        Set<Integer> collected = playerCollectedOrbs.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
+        if (collected.contains(orbIndex)) return;
+
+        // Marquer comme collectée
+        collected.add(orbIndex);
+        int totalCollected = collected.size();
+
+        // Effets visuels et sonores
+        Location orbLoc = ORB_LOCATIONS[orbIndex].clone();
+        orbLoc.setWorld(player.getWorld());
+
+        player.playSound(orbLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.5f, 1.2f);
+        player.playSound(orbLoc, Sound.BLOCK_BEACON_ACTIVATE, 0.5f, 2f);
+        orbLoc.getWorld().spawnParticle(Particle.END_ROD, orbLoc.add(0, 0.5, 0), 30, 0.5, 0.5, 0.5, 0.1);
+        orbLoc.getWorld().spawnParticle(Particle.ENCHANT, orbLoc, 20, 0.3, 0.3, 0.3, 0.5);
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_4_8, totalCollected);
+
+        // Feedback au joueur
+        player.sendTitle("§b✦ ORBE " + totalCollected + "/" + ORB_COUNT + " ✦", "§7Une énergie ancienne vous traverse...", 5, 30, 10);
+
+        // Vérifier si toutes les orbes sont collectées
+        if (totalCollected >= ORB_COUNT) {
+            onAllOrbsCollected(player);
+        }
+    }
+
+    /**
+     * Appelé quand le joueur a collecté toutes les orbes
+     */
+    private void onAllOrbsCollected(Player player) {
+        if (playersWithActiveCreakingBoss.contains(player.getUniqueId())) return;
+
+        playersWithActiveCreakingBoss.add(player.getUniqueId());
+
+        // Effets dramatiques
+        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1f, 0.5f);
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 0.7f);
+
+        player.sendTitle("§4§l⚠ L'ARBRE S'ÉVEILLE ⚠", "§cLe Gardien de l'Arbre Maudit surgit!", 10, 60, 20);
+
+        // Spawn du boss après un délai dramatique
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    playersWithActiveCreakingBoss.remove(player.getUniqueId());
+                    return;
+                }
+
+                spawnCreakingBoss(player);
+            }
+        }.runTaskLater(plugin, 60L);
+    }
+
+    /**
+     * Spawn le boss Creaking pour un joueur
+     */
+    private void spawnCreakingBoss(Player player) {
+        World world = player.getWorld();
+        Location spawnLoc = CREAKING_BOSS_SPAWN.clone();
+        spawnLoc.setWorld(world);
+
+        // Calculer la direction vers le joueur
+        Location playerLoc = player.getLocation();
+        float yaw = (float) Math.toDegrees(Math.atan2(
+                playerLoc.getZ() - spawnLoc.getZ(),
+                playerLoc.getX() - spawnLoc.getX()
+        )) - 90;
+
+        spawnLoc.setYaw(yaw);
+
+        // Utiliser ZombieManager pour spawner le boss
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            playersWithActiveCreakingBoss.remove(player.getUniqueId());
+            return;
+        }
+
+        // Spawn le boss via le système ZombieZ
+        int bossLevel = Math.max(15, journeyManager.getPlayerLevel(player));
+        var activeZombie = zombieManager.spawnZombie(ZombieType.CREAKING_BOSS, spawnLoc, bossLevel);
+
+        if (activeZombie != null) {
+            Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+            if (entity instanceof Zombie creakingBoss) {
+                // Configuration additionnelle du boss
+                creakingBoss.addScoreboardTag("chapter4_creaking_boss");
+                creakingBoss.addScoreboardTag("journey_boss");
+                creakingBoss.addScoreboardTag("player_boss_" + player.getUniqueId());
+
+                // Scale x2.5 pour le rendre géant
+                var scale = creakingBoss.getAttribute(Attribute.SCALE);
+                if (scale != null) {
+                    scale.setBaseValue(2.5);
+                }
+
+                // Glow rouge
+                applyCreakingGlow(creakingBoss);
+
+                // Tracker le boss
+                playerCreakingBossMap.put(player.getUniqueId(), creakingBoss.getUniqueId());
+
+                // Effets de spawn
+                world.playSound(spawnLoc, Sound.ENTITY_WARDEN_EMERGE, 2f, 0.5f);
+                world.playSound(spawnLoc, Sound.BLOCK_WOOD_BREAK, 2f, 0.3f);
+                world.spawnParticle(Particle.BLOCK, spawnLoc.clone().add(0, 1.5, 0), 100, 1.5, 2, 1.5,
+                        Material.PALE_OAK_LOG.createBlockData());
+                world.spawnParticle(Particle.SOUL, spawnLoc.clone().add(0, 1, 0), 50, 1, 1.5, 1, 0.02);
+
+                // Message au joueur
+                player.sendMessage("§c§l⚔ §4Le Gardien de l'Arbre Maudit §c§lémerge des racines!");
+                player.sendMessage("§7Vaincs-le pour purifier l'arbre corrompu!");
+            }
+        } else {
+            playersWithActiveCreakingBoss.remove(player.getUniqueId());
+            plugin.log(Level.WARNING, "§cImpossible de spawner le boss Creaking pour " + player.getName());
+        }
+    }
+
+    /**
+     * Applique un glow rouge au boss Creaking
+     */
+    private void applyCreakingGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("creaking_boss_glow");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("creaking_boss_glow");
+            team.color(NamedTextColor.DARK_RED);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+        entity.setGlowing(true);
+    }
+
+    /**
+     * Gère la mort du boss Creaking
+     */
+    private void handleCreakingBossKilled(Player killer, Zombie creakingBoss) {
+        // Trouver le joueur propriétaire du boss
+        UUID ownerUuid = null;
+        for (String tag : creakingBoss.getScoreboardTags()) {
+            if (tag.startsWith("player_boss_")) {
+                String uuidStr = tag.substring("player_boss_".length());
+                try {
+                    ownerUuid = UUID.fromString(uuidStr);
+                    break;
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        // Si le killer est le propriétaire ou qu'on a trouvé le propriétaire
+        Player owner = ownerUuid != null ? plugin.getServer().getPlayer(ownerUuid) : killer;
+        if (owner == null) owner = killer;
+        if (owner == null) return;
+
+        UUID ownerId = owner.getUniqueId();
+
+        // Nettoyer les trackers
+        playerCreakingBossMap.remove(ownerId);
+        playersWithActiveCreakingBoss.remove(ownerId);
+
+        // Marquer comme complété
+        playersWhoCompletedCreakingQuest.add(ownerId);
+
+        // Finaliser la quête (8 orbes + 1 boss = 9)
+        journeyManager.setStepProgress(owner, JourneyStep.STEP_4_8, ORB_COUNT + 1);
+
+        // Effets de victoire
+        Location deathLoc = creakingBoss.getLocation();
+        deathLoc.getWorld().playSound(deathLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 2f, 1f);
+        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+
+        deathLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, deathLoc.add(0, 1.5, 0), 100, 2, 2, 2, 0.3);
+        deathLoc.getWorld().spawnParticle(Particle.SOUL, deathLoc, 50, 2, 2, 2, 0.05);
+
+        // Message de victoire
+        owner.sendTitle("§a§l✓ VICTOIRE!", "§7L'Arbre Maudit est purifié!", 10, 60, 20);
+        owner.sendMessage("");
+        owner.sendMessage("§a§l⭐ §eL'Arbre Maudit retrouve sa lumière!");
+        owner.sendMessage("§7Le Gardien corrompu a été vaincu.");
+        owner.sendMessage("");
+
+        // Compléter l'étape via JourneyManager
+        journeyManager.onStepProgress(owner, JourneyStep.STEP_4_8, ORB_COUNT + 1);
+    }
+
+    /**
+     * Introduction à la quête de l'Arbre Maudit
+     */
+    private void introducePlayerToCreaking(Player player) {
+        playersIntroducedToCreaking.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§4§lL'ARBRE MAUDIT", "§7Une énergie sombre émane de cet arbre...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD, 1f, 0.5f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §fDes orbes d'énergie flottent autour de l'arbre.");
+                        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.5f, 1.5f);
+                    }
+                    case 2 -> {
+                        player.sendMessage("§e§l➤ §fCollecte les §b8 orbes§f pour réveiller le gardien.");
+                        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1f);
+                    }
+                    case 3 -> {
+                        player.sendMessage("§e§l➤ §7GPS: §e453, 91, 8515 §7(Centre de l'arbre)");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 40L);
+    }
+
+    /**
+     * Vérifie si un joueur a complété la quête de l'arbre maudit
+     */
+    private boolean hasPlayerCompletedCreakingQuest(Player player) {
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_8);
+        return progress >= ORB_COUNT + 1;
+    }
+
+    // ==================== ÉTAPE 9: LIVRAISON ANTIDOTE ====================
+
+    /**
+     * Spawn le PNJ Alchimiste
+     */
+    private void spawnAlchemistNpc(World world) {
+        Location loc = ALCHEMIST_NPC_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer l'ancien si existant
+        if (alchemistNpcEntity != null && alchemistNpcEntity.isValid()) {
+            alchemistNpcEntity.remove();
+        }
+        if (alchemistNpcDisplay != null && alchemistNpcDisplay.isValid()) {
+            alchemistNpcDisplay.remove();
+        }
+
+        // Spawn le Villager alchimiste
+        alchemistNpcEntity = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("Maître Elric", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
+            villager.setCustomNameVisible(true);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setCollidable(false);
+            villager.setProfession(Villager.Profession.CLERIC);
+            villager.setVillagerType(Villager.Type.SWAMP);
+
+            // Tags
+            villager.addScoreboardTag("chapter4_alchemist");
+            villager.addScoreboardTag("no_trading");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Ne pas persister
+            villager.setPersistent(false);
+
+            // Orientation
+            villager.setRotation(loc.getYaw(), 0);
+        });
+
+        // Créer le TextDisplay au-dessus
+        createAlchemistDisplay(world, loc);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus de l'alchimiste
+     */
+    private void createAlchemistDisplay(World world, Location loc) {
+        Location displayLoc = loc.clone().add(0, ALCHEMIST_DISPLAY_HEIGHT, 0);
+
+        alchemistNpcDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("⚗ ", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text("L'ALCHIMISTE", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" ⚗", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.5f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_alchemist_display");
+        });
+    }
+
+    /**
+     * Démarre le vérificateur de respawn de l'alchimiste
+     */
+    private void startAlchemistNpcRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid() || alchemistNpcEntity.isDead()) {
+                    spawnAlchemistNpc(world);
+                    plugin.log(Level.FINE, "Alchimiste respawné (entité invalide)");
+                }
+
+                if (alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid()) {
+                    Location loc = ALCHEMIST_NPC_LOCATION.clone();
+                    loc.setWorld(world);
+                    createAlchemistDisplay(world, loc);
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Gère l'interaction avec l'alchimiste
+     */
+    private void handleAlchemistInteraction(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si déjà livré l'antidote
+        if (hasPlayerDeliveredAntidote(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"Merci encore pour l'antidote, aventurier.\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Grâce à toi, je pourrai soigner les malades.\"");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Si le joueur n'est pas à l'étape 9
+        if (currentStep != JourneyStep.STEP_4_9) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"Bonjour voyageur...\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Si tu trouves un antidote, apporte-le moi!\"");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Introduction à la quête si première fois
+        if (!playersIntroducedToAntidote.contains(player.getUniqueId())) {
+            introducePlayerToAntidote(player);
+            return;
+        }
+
+        // Vérifier si le joueur a un antidote en main
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        ConsumableType consumableType = Consumable.getType(itemInHand);
+
+        if (consumableType == ConsumableType.ANTIDOTE) {
+            // Retirer l'antidote de la main du joueur
+            if (itemInHand.getAmount() > 1) {
+                itemInHand.setAmount(itemInHand.getAmount() - 1);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
+
+            // Marquer comme complété
+            playersWhoDeliveredAntidote.add(player.getUniqueId());
+
+            // Mettre à jour la progression
+            journeyManager.setStepProgress(player, JourneyStep.STEP_4_9, 1);
+
+            // Effets visuels et sonores
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+            player.getWorld().spawnParticle(Particle.EFFECT, alchemistNpcEntity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.5);
+
+            // Message de victoire
+            player.sendTitle("§a§l✓ ANTIDOTE LIVRÉ!", "§7L'alchimiste te remercie!", 10, 60, 20);
+
+            player.sendMessage("");
+            player.sendMessage("§8§m                                            ");
+            player.sendMessage("");
+            player.sendMessage("  §a§l✦ LE REMÈDE ✦");
+            player.sendMessage("");
+            player.sendMessage("  §5§lMaître Elric: §f\"Merveilleux! Un antidote!\"");
+            player.sendMessage("  §5§lMaître Elric: §f\"Grâce à toi, je pourrai sauver\"");
+            player.sendMessage("  §5§lMaître Elric: §f\"de nombreuses vies! Merci, héros!\"");
+            player.sendMessage("");
+            player.sendMessage("  §6Récompenses:");
+            player.sendMessage("  §7▸ §e+1100 Points");
+            player.sendMessage("  §7▸ §a+28 XP");
+            player.sendMessage("");
+            player.sendMessage("§8§m                                            ");
+            player.sendMessage("");
+
+            // Compléter l'étape via JourneyManager
+            journeyManager.onStepProgress(player, JourneyStep.STEP_4_9, 1);
+        } else {
+            // Le joueur n'a pas d'antidote en main
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"As-tu trouvé un antidote?\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Tiens-le en main et parle-moi!\"");
+            player.sendMessage("");
+            player.sendMessage("§e§l➤ §7Rappel: §fLes antidotes peuvent être trouvés");
+            player.sendMessage("  §fsur les §emonstres §fde la zone.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            player.sendMessage("");
+        }
+    }
+
+    /**
+     * Introduction à la quête de livraison d'antidote
+     */
+    private void introducePlayerToAntidote(Player player) {
+        playersIntroducedToAntidote.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§5§lLE REMÈDE", "§7L'alchimiste a besoin d'aide...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 1f, 0.8f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§5§lMaître Elric: §f\"Aventurier, j'ai besoin de ton aide!\"");
+                    }
+                    case 2 -> {
+                        player.sendMessage("§5§lMaître Elric: §f\"La brume toxique a rendu les gens malades.\"");
+                    }
+                    case 3 -> {
+                        player.sendMessage("§5§lMaître Elric: §f\"Apporte-moi un §eantidote §fpour que je\"");
+                        player.sendMessage("§5§lMaître Elric: §f\"puisse créer un remède!\"");
+                    }
+                    case 4 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §7Objectif: §fTrouve un §eantidote §fsur les monstres!");
+                        player.sendMessage("§e§l➤ §7Puis tiens-le en main et parle à l'alchimiste.");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 30L);
+    }
+
+    /**
+     * Vérifie si un joueur a déjà livré l'antidote
+     */
+    public boolean hasPlayerDeliveredAntidote(Player player) {
+        if (playersWhoDeliveredAntidote.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_9);
+        return progress >= 1;
+    }
+
+    // ==================== ÉTAPE 10: CRISTAL DE CORRUPTION ====================
+
+    /**
+     * Spawn le Cristal de Corruption
+     */
+    private void spawnCorruptionCrystal(World world) {
+        Location loc = CRYSTAL_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer les anciens
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            crystalVisual.remove();
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            crystalHitbox.remove();
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            crystalDisplay.remove();
+        }
+
+        // Créer le visuel du cristal (ItemDisplay avec AMETHYST_CLUSTER)
+        crystalVisual = world.spawn(loc.clone().add(0, 1.5, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.AMETHYST_CLUSTER));
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Scale x3 pour un gros cristal
+            Transformation transformation = new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(4.0f, 4.0f, 4.0f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            );
+            display.setTransformation(transformation);
+
+            display.addScoreboardTag("chapter4_crystal");
+            display.addScoreboardTag("chapter4_crystal_visual");
+            display.setPersistent(false);
+        });
+
+        // Appliquer le glow violet
+        applyCrystalGlow(crystalVisual);
+
+        // Créer la hitbox (Interaction)
+        crystalHitbox = world.spawn(loc.clone().add(0, 1, 0), Interaction.class, hitbox -> {
+            hitbox.setInteractionWidth(3.0f);
+            hitbox.setInteractionHeight(4.0f);
+
+            hitbox.addScoreboardTag("chapter4_crystal");
+            hitbox.addScoreboardTag("chapter4_crystal_hitbox");
+
+            // PDC pour identifier le cristal
+            hitbox.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
+            hitbox.setPersistent(false);
+        });
+
+        // Créer le TextDisplay au-dessus
+        crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
+                    .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.WHITE))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.4f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_crystal");
+            display.addScoreboardTag("chapter4_crystal_display");
+        });
+    }
+
+    /**
+     * Applique un glow violet au cristal
+     */
+    private void applyCrystalGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("crystal_glow_purple");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("crystal_glow_purple");
+            team.color(NamedTextColor.DARK_PURPLE);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+        entity.setGlowing(true);
+    }
+
+    /**
+     * Démarre le vérificateur de respawn du cristal
+     */
+    private void startCrystalRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                boolean needsRespawn = crystalVisual == null || !crystalVisual.isValid() ||
+                        crystalHitbox == null || !crystalHitbox.isValid();
+
+                if (needsRespawn) {
+                    spawnCorruptionCrystal(world);
+                    plugin.log(Level.FINE, "Cristal de Corruption respawné");
+                }
+
+                if (crystalDisplay == null || !crystalDisplay.isValid()) {
+                    Location loc = CRYSTAL_LOCATION.clone();
+                    loc.setWorld(world);
+                    // Recréer le display
+                    crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+                        display.text(Component.text()
+                                .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
+                                .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                                .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                                .build());
+                        display.setBillboard(Display.Billboard.CENTER);
+                        display.setShadowed(true);
+                        display.setPersistent(false);
+                        display.addScoreboardTag("chapter4_crystal");
+                    });
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Démarre le système de régénération du cristal
+     */
+    private void startCrystalRegenSystem() {
+        double regenPerTick = CRYSTAL_REGEN_PER_SECOND * (CRYSTAL_REGEN_INTERVAL / 20.0);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Pour chaque joueur qui attaque le cristal
+                for (UUID uuid : playersAttackingCrystal) {
+                    Player player = plugin.getServer().getPlayer(uuid);
+                    if (player == null || !player.isOnline()) continue;
+
+                    // Vérifier si le joueur a déjà détruit le cristal
+                    if (playersWhoDestroyedCrystal.contains(uuid)) continue;
+
+                    Double currentHealth = playerCrystalHealth.get(uuid);
+                    if (currentHealth == null) continue;
+
+                    // Régénérer la vie
+                    double newHealth = Math.min(CRYSTAL_MAX_HEALTH, currentHealth + regenPerTick);
+                    playerCrystalHealth.put(uuid, newHealth);
+
+                    // Mettre à jour la BossBar
+                    updateCrystalBossBar(player, newHealth);
+
+                    // Particules de régénération (vertes)
+                    if (crystalVisual != null && crystalVisual.isValid() && Math.random() < 0.3) {
+                        Location loc = crystalVisual.getLocation();
+                        player.spawnParticle(Particle.HAPPY_VILLAGER, loc, 3, 0.5, 0.5, 0.5, 0);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, CRYSTAL_REGEN_INTERVAL, CRYSTAL_REGEN_INTERVAL);
+    }
+
+    /**
+     * Démarre le système de mise à jour de visibilité du cristal
+     */
+    private void startCrystalVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : world.getPlayers()) {
+                    updateCrystalVisibilityForPlayer(player);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité du cristal pour un joueur
+     */
+    private void updateCrystalVisibilityForPlayer(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        boolean isAtStep = currentStep == JourneyStep.STEP_4_10;
+        boolean hasCompleted = playersWhoDestroyedCrystal.contains(player.getUniqueId());
+
+        if (!isAtStep || hasCompleted) {
+            // Cacher le cristal et retirer la BossBar
+            hideCrystalForPlayer(player);
+
+            BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+            if (bossBar != null) {
+                bossBar.removePlayer(player);
+            }
+            playersAttackingCrystal.remove(player.getUniqueId());
+            return;
+        }
+
+        // Vérifier la distance
+        Location playerLoc = player.getLocation();
+        Location crystalLoc = CRYSTAL_LOCATION.clone();
+        crystalLoc.setWorld(player.getWorld());
+
+        double distance = playerLoc.distance(crystalLoc);
+        if (distance > CRYSTAL_VIEW_DISTANCE) {
+            hideCrystalForPlayer(player);
+
+            BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+            if (bossBar != null) {
+                bossBar.removePlayer(player);
+            }
+            return;
+        }
+
+        // Montrer le cristal
+        showCrystalForPlayer(player);
+
+        // Introduction si pas encore faite
+        if (!playersIntroducedToCrystal.contains(player.getUniqueId())) {
+            introducePlayerToCrystal(player);
+        }
+    }
+
+    /**
+     * Montre le cristal au joueur
+     */
+    private void showCrystalForPlayer(Player player) {
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            player.showEntity(plugin, crystalVisual);
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            player.showEntity(plugin, crystalHitbox);
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            player.showEntity(plugin, crystalDisplay);
+        }
+    }
+
+    /**
+     * Cache le cristal pour un joueur
+     */
+    private void hideCrystalForPlayer(Player player) {
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            player.hideEntity(plugin, crystalVisual);
+        }
+        if (crystalHitbox != null && crystalHitbox.isValid()) {
+            player.hideEntity(plugin, crystalHitbox);
+        }
+        if (crystalDisplay != null && crystalDisplay.isValid()) {
+            player.hideEntity(plugin, crystalDisplay);
+        }
+    }
+
+    /**
+     * Gère un hit sur le cristal
+     */
+    private void handleCrystalHit(Player player, double damage) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_10) {
+            player.sendMessage("§7Ce cristal semble réagir à quelque chose...");
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.5f, 1.2f);
+            return;
+        }
+
+        if (playersWhoDestroyedCrystal.contains(player.getUniqueId())) return;
+
+        UUID uuid = player.getUniqueId();
+
+        // Initialiser la vie si première attaque
+        if (!playerCrystalHealth.containsKey(uuid)) {
+            playerCrystalHealth.put(uuid, CRYSTAL_MAX_HEALTH);
+            playersAttackingCrystal.add(uuid);
+
+            // Créer la BossBar
+            BossBar bossBar = Bukkit.createBossBar(
+                    "§d§lCristal de Corruption §7- §c" + (int)CRYSTAL_MAX_HEALTH + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤",
+                    BarColor.PURPLE,
+                    BarStyle.SOLID
+            );
+            bossBar.setProgress(1.0);
+            bossBar.addPlayer(player);
+            playerCrystalBossBar.put(uuid, bossBar);
+        }
+
+        // Appliquer les dégâts
+        double currentHealth = playerCrystalHealth.get(uuid);
+        double newHealth = Math.max(0, currentHealth - damage);
+        playerCrystalHealth.put(uuid, newHealth);
+
+        // Mettre à jour la BossBar
+        updateCrystalBossBar(player, newHealth);
+
+        // Effets visuels et sonores
+        if (crystalVisual != null && crystalVisual.isValid()) {
+            Location loc = crystalVisual.getLocation();
+            player.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.8f, 0.5f + (float)(1.0 - newHealth / CRYSTAL_MAX_HEALTH));
+            player.spawnParticle(Particle.DUST, loc, 10, 0.5, 0.5, 0.5, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 1.5f));
+        }
+
+        // Vérifier si le cristal est détruit
+        if (newHealth <= 0) {
+            onCrystalDestroyed(player);
+        }
+    }
+
+    /**
+     * Met à jour la BossBar du cristal
+     */
+    private void updateCrystalBossBar(Player player, double currentHealth) {
+        BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
+        if (bossBar == null) return;
+
+        double progress = currentHealth / CRYSTAL_MAX_HEALTH;
+        bossBar.setProgress(Math.max(0, Math.min(1, progress)));
+
+        // Couleur selon le pourcentage
+        String healthColor;
+        if (progress > 0.5) {
+            healthColor = "§a";
+            bossBar.setColor(BarColor.PURPLE);
+        } else if (progress > 0.25) {
+            healthColor = "§e";
+            bossBar.setColor(BarColor.YELLOW);
+        } else {
+            healthColor = "§c";
+            bossBar.setColor(BarColor.RED);
+        }
+
+        bossBar.setTitle("§d§lCristal de Corruption §7- " + healthColor + (int)currentHealth + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤");
+    }
+
+    /**
+     * Appelé quand le cristal est détruit par un joueur
+     */
+    private void onCrystalDestroyed(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Marquer comme complété
+        playersWhoDestroyedCrystal.add(uuid);
+        playersAttackingCrystal.remove(uuid);
+
+        // Supprimer la BossBar
+        BossBar bossBar = playerCrystalBossBar.remove(uuid);
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_4_10, 1);
+
+        // Effets visuels et sonores
+        Location loc = CRYSTAL_LOCATION.clone();
+        loc.setWorld(player.getWorld());
+        loc.add(0, 2, 0);
+
+        player.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.8f);
+        player.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 2f, 0.5f);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+
+        // Particules d'explosion
+        player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0);
+        player.getWorld().spawnParticle(Particle.DUST, loc, 100, 2, 2, 2, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 2f));
+        player.getWorld().spawnParticle(Particle.END_ROD, loc, 50, 2, 2, 2, 0.1);
+
+        // Cacher le cristal pour ce joueur
+        hideCrystalForPlayer(player);
+
+        // Message de victoire
+        player.sendTitle("§a§l✓ CRISTAL DÉTRUIT!", "§7Tu as prouvé ta puissance!", 10, 60, 20);
+
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+        player.sendMessage("  §d§l✦ L'ÉPREUVE DU CRISTAL ✦");
+        player.sendMessage("");
+        player.sendMessage("  §7Tu as vaincu le §dCristal de Corruption§7!");
+        player.sendMessage("  §7Ton DPS a surpassé sa régénération.");
+        player.sendMessage("");
+        player.sendMessage("  §6Récompenses:");
+        player.sendMessage("  §7▸ §e+1200 Points");
+        player.sendMessage("  §7▸ §a+30 XP");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+
+        // Compléter l'étape via JourneyManager
+        journeyManager.onStepProgress(player, JourneyStep.STEP_4_10, 1);
+    }
+
+    /**
+     * Introduction à la quête du Cristal de Corruption
+     */
+    private void introducePlayerToCrystal(Player player) {
+        playersIntroducedToCrystal.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§d§lL'ÉPREUVE DU CRISTAL", "§7Montre que tu es prêt pour la suite...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 0.8f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§d§l⚡ §fUn cristal de corruption pulse devant toi!");
+                    }
+                    case 2 -> {
+                        player.sendMessage("§d§l⚡ §fIl §crégénère sa vie§f en permanence.");
+                        player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 0.8f);
+                    }
+                    case 3 -> {
+                        player.sendMessage("§d§l⚡ §fTu dois infliger plus de §edégâts§f que sa régénération!");
+                    }
+                    case 4 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §7Objectif: §fDétruis le cristal avant qu'il ne se régénère!");
+                        player.sendMessage("§e§l➤ §7GPS: §e529, 102, 8473");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 30L);
+    }
+
+    /**
+     * Vérifie si un joueur a déjà détruit le cristal
+     */
+    public boolean hasPlayerDestroyedCrystal(Player player) {
+        if (playersWhoDestroyedCrystal.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_10);
+        return progress >= 1;
     }
 }

@@ -226,6 +226,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
     @Getter
+    private com.rinaorc.zombiez.progression.journey.chapter1.Chapter1Systems chapter1Systems;
+    @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems chapter3Systems;
@@ -566,6 +568,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Journey Manager - Progression guidée avec blocage de zones
         journeyManager = new com.rinaorc.zombiez.progression.journey.JourneyManager(this);
         journeyManager.start(); // Démarre le système de coffres mystères
+
+        // Chapter 1 Systems - Fermier et mini-jeu incendie
+        chapter1Systems = new com.rinaorc.zombiez.progression.journey.chapter1.Chapter1Systems(this);
 
         // Chapter 2 Systems - NPCs, Zombies Incendiés, Boss du Manoir
         chapter2Systems = new com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems(this);

@@ -89,6 +89,7 @@ public class ZombieAIManager {
     private ZombieAI createJourneyBossAI(Zombie zombie, ZombieType type, int level) {
         return switch (type) {
             case GRAVEDIGGER_BOSS -> new GravediggerBossAI(plugin, zombie, type, level);
+            case CREAKING_BOSS -> new CreakingBossAI(plugin, zombie, type, level);
             default -> new JourneyBossAI(plugin, zombie, type, level);
         };
     }

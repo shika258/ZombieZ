@@ -180,6 +180,11 @@ public class ZoneBorderManager {
     /**
      * Calcule les paramètres du WorldBorder pour une zone max donnée
      *
+     * Le WorldBorder est un CARRÉ, donc on doit calculer le centre et la taille
+     * pour que:
+     * - La limite NORD soit exactement à la zone max débloquée
+     * - La limite SUD soit toujours au-delà du spawn (les anciennes zones restent accessibles)
+     *
      * @param maxZone Zone maximale débloquée par le joueur
      * @return [centerX, centerZ, size]
      */
@@ -187,27 +192,33 @@ public class ZoneBorderManager {
         // Zone 1 est toujours accessible, donc au minimum maxZone = 1
         maxZone = Math.max(1, maxZone);
 
-        // Calculer la limite nord (minZ de la zone la plus au nord accessible)
-        // Zone 1: maxZ = 10000, minZ = 9800
-        // Zone N: minZ = 10000 - (N * ZONE_SIZE)
-        int northernLimit = ZoneManager.ZONE_START_Z - (maxZone * ZONE_SIZE);
+        // LIMITE NORD DYNAMIQUE: s'étend vers le nord au fur et à mesure
+        // Zone 1: minZ = 10000 - (1 * 200) = 9800
+        // Zone N: minZ = 10000 - (N * 200)
+        double northernLimit = ZoneManager.ZONE_START_Z - (maxZone * ZONE_SIZE);
 
-        // La taille du border inclut le buffer au sud pour éloigner le border du spawn
-        double size = MAP_WIDTH + SPAWN_SOUTH_BUFFER;
+        // LIMITE SUD FIXE: on veut que le border aille toujours au moins jusqu'au spawn + buffer
+        // fixedSouthernLimit = 10200 + 200 = 10400
+        double fixedSouthernLimit = SPAWN_MAX_Z + SPAWN_SOUTH_BUFFER;
+
+        // Calculer la taille minimale en Z pour couvrir du nord au sud
+        double minSizeZ = fixedSouthernLimit - northernLimit;
+
+        // Le WorldBorder est carré, donc on prend le max entre X et Z
+        double size = Math.max(MAP_WIDTH, minSizeZ);
 
         // Centre X: milieu de la map
         double centerX = CENTER_X;
 
-        // Le centre Z est positionné pour que la LIMITE NORD corresponde à northernLimit
-        // et que la LIMITE SUD soit repoussée de SPAWN_SOUTH_BUFFER blocs
-        //
+        // Centre Z: calculé pour que la limite NORD soit exactement à northernLimit
         // Formule: limite_nord = centerZ - size/2 = northernLimit
         // Donc: centerZ = northernLimit + size/2
-        //
-        // Avec size = MAP_WIDTH + SPAWN_SOUTH_BUFFER:
-        // - Limite nord = northernLimit (inchangée, bloque les zones verrouillées)
-        // - Limite sud = northernLimit + size (repoussée de 200 blocs derrière le spawn)
         double centerZ = northernLimit + (size / 2.0);
+
+        // Avec cette formule:
+        // - Limite nord = centerZ - size/2 = northernLimit (exact!)
+        // - Limite sud = centerZ + size/2 = northernLimit + size (>= fixedSouthernLimit)
+        // Les anciennes zones sont TOUJOURS accessibles car la limite sud ne recule jamais
 
         return new double[] { centerX, centerZ, size };
     }

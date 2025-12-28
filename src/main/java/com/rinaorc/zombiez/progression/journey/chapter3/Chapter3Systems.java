@@ -1383,8 +1383,10 @@ public class Chapter3Systems implements Listener {
                                 .clone();
                         spawnPoint.setWorld(world);
 
-                        // Ajuster Y pour le terrain
-                        spawnPoint.setY(world.getHighestBlockYAt(spawnPoint) + 1);
+                        // Ajuster Y pour le terrain (limite Y max = Henri.Y + 5 pour éviter spawn dans les arbres)
+                        int maxY = (int) VILLAGE_SURVIVOR_LOCATION.getY() + 5; // 90 + 5 = 95
+                        int terrainY = world.getHighestBlockYAt(spawnPoint) + 1;
+                        spawnPoint.setY(Math.min(terrainY, maxY));
 
                         // Spawn un zombie via ZombieManager si disponible, sinon un zombie vanilla
                         spawnDefenseZombie(world, spawnPoint, player, defenseEvent);
