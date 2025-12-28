@@ -73,9 +73,10 @@ public class Chapter3Systems implements Listener {
 
     // === POSITIONS DES INDICES (autour de la maison) ===
     private static final Location[] CLUE_LOCATIONS = {
-            new Location(null, 876.5, 88, 8936.5, 0, 0), // Indice 1: Journal
-            new Location(null, 878.5, 87, 8947.5, 0, 0), // Indice 2: Fiole
-            new Location(null, 872.5, 94, 8943.5, 0, 0)  // Indice 3: Photo
+            new Location(null, 876.5, 88, 8936.5, 0, 0),  // Indice 1: Journal
+            new Location(null, 878.5, 87, 8947.5, 0, 0),  // Indice 2: Fiole
+            new Location(null, 872.5, 94, 8943.5, 0, 0),  // Indice 3: Photo
+            new Location(null, 876.5, 92, 8938.5, 0, 0)   // Indice 4: Lettre
     };
 
     // Village à défendre (NPC survivant)
@@ -127,8 +128,8 @@ public class Chapter3Systems implements Listener {
     private TextDisplay lostCatDisplay;
 
     // Indices du Patient Zéro (per-player visibility) - ItemDisplay + Interaction comme supply crates
-    private final Interaction[] clueHitboxes = new Interaction[3];
-    private final ItemDisplay[] clueVisuals = new ItemDisplay[3];
+    private final Interaction[] clueHitboxes = new Interaction[4];
+    private final ItemDisplay[] clueVisuals = new ItemDisplay[4];
 
     // Survivant du village (étape 7)
     private Entity villageSurvivorEntity;
@@ -724,13 +725,26 @@ public class Chapter3Systems implements Listener {
                     "§7Au dos: §e\"Dr. Marcus Vern - 2019\"",
                     "",
                     "§8[Il avait une vie avant tout ça...]"
+            },
+            // Indice 4: Lettre d'Adieu
+            {
+                    "§d§l✉ LETTRE D'ADIEU",
+                    "",
+                    "§7\"À qui trouvera ceci...",
+                    "§7Je suis le Patient Zéro.",
+                    "§7Mon sérum devait sauver l'humanité,",
+                    "§7mais il a créé cette apocalypse.",
+                    "§7Pardonnez-moi... §8- Dr. Marcus Vern\"",
+                    "",
+                    "§c[La vérité sur l'origine du virus]"
             }
     };
 
     private static final String[] CLUE_NAMES = {
             "§6📖 Journal",
             "§c🧪 Fiole",
-            "§e📷 Photo"
+            "§e📷 Photo",
+            "§d✉ Lettre"
     };
 
     /**
@@ -738,7 +752,7 @@ public class Chapter3Systems implements Listener {
      * Utilise ItemDisplay + Interaction comme les caisses de ravitaillement (Chapitre 2)
      */
     private void spawnInvestigationClues(World world) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             spawnClue(world, i);
         }
     }
@@ -848,7 +862,7 @@ public class Chapter3Systems implements Listener {
     private void updateClueVisibilityForPlayer(Player player) {
         int found = getPlayerCluesFound(player);
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             boolean hasFoundThis = (found & (1 << i)) != 0;
 
             if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
@@ -873,7 +887,7 @@ public class Chapter3Systems implements Listener {
      * Cache tous les indices pour un joueur
      */
     private void hideAllCluesForPlayer(Player player) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
                 player.hideEntity(plugin, clueHitboxes[i]);
             }
@@ -898,7 +912,7 @@ public class Chapter3Systems implements Listener {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
         // On ne peut pas savoir exactement quels indices, donc on assume les premiers
         int mask = 0;
-        for (int i = 0; i < progress && i < 3; i++) {
+        for (int i = 0; i < progress && i < 4; i++) {
             mask |= (1 << i);
         }
         playerCluesFound.put(uuid, mask);
@@ -910,7 +924,7 @@ public class Chapter3Systems implements Listener {
      */
     private int countCluesFound(int bitmask) {
         int count = 0;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             if ((bitmask & (1 << i)) != 0)
                 count++;
         }
@@ -922,7 +936,7 @@ public class Chapter3Systems implements Listener {
      */
     public boolean hasPlayerCompletedInvestigation(Player player) {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
-        return progress >= 3;
+        return progress >= 4;
     }
 
     /**
@@ -980,8 +994,8 @@ public class Chapter3Systems implements Listener {
         player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.5);
 
         // Message de progression
-        if (cluesFoundCount < 3) {
-            player.sendMessage("§e§l🔍 Indice " + cluesFoundCount + "/3 trouvé: " + CLUE_NAMES[clueIndex]);
+        if (cluesFoundCount < 4) {
+            player.sendMessage("§e§l🔍 Indice " + cluesFoundCount + "/4 trouvé: " + CLUE_NAMES[clueIndex]);
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1f);
         } else {
             // Investigation terminée!
@@ -2519,7 +2533,7 @@ public class Chapter3Systems implements Listener {
         }
 
         // Nettoyer les indices de l'investigation
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
                 clueHitboxes[i].remove();
             }
