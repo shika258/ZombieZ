@@ -73,10 +73,9 @@ public class Chapter3Systems implements Listener {
 
     // === POSITIONS DES INDICES (autour de la maison) ===
     private static final Location[] CLUE_LOCATIONS = {
-            new Location(null, 873.5, 88.5, 8942.5, 0, 0), // Indice 1: Journal - près de l'entrée
-            new Location(null, 877.5, 89.5, 8945.5, 0, 0), // Indice 2: Fiole - intérieur
-            new Location(null, 874.5, 92.5, 8946.5, 0, 0), // Indice 3: Photo - étage/grenier
-            new Location(null, 876.5, 88.5, 8941.5, 0, 0) // Indice 4: Lettre - caché dehors
+            new Location(null, 876.5, 88, 8936.5, 0, 0), // Indice 1: Journal
+            new Location(null, 878.5, 87, 8947.5, 0, 0), // Indice 2: Fiole
+            new Location(null, 872.5, 94, 8943.5, 0, 0)  // Indice 3: Photo
     };
 
     // Village à défendre (NPC survivant)
@@ -127,9 +126,9 @@ public class Chapter3Systems implements Listener {
     private Entity lostCatEntity;
     private TextDisplay lostCatDisplay;
 
-    // Indices du Patient Zéro (per-player visibility)
-    private final Entity[] clueEntities = new Entity[4];
-    private final TextDisplay[] clueDisplays = new TextDisplay[4];
+    // Indices du Patient Zéro (per-player visibility) - ItemDisplay + Interaction comme supply crates
+    private final Interaction[] clueHitboxes = new Interaction[3];
+    private final ItemDisplay[] clueVisuals = new ItemDisplay[3];
 
     // Survivant du village (étape 7)
     private Entity villageSurvivorEntity;
@@ -725,112 +724,89 @@ public class Chapter3Systems implements Listener {
                     "§7Au dos: §e\"Dr. Marcus Vern - 2019\"",
                     "",
                     "§8[Il avait une vie avant tout ça...]"
-            },
-            // Indice 4: Lettre d'Adieu
-            {
-                    "§d§l✉ LETTRE D'ADIEU",
-                    "",
-                    "§7\"À qui trouvera ceci...",
-                    "§7Je suis le Patient Zéro.",
-                    "§7Mon sérum devait sauver l'humanité,",
-                    "§7mais il a créé cette apocalypse.",
-                    "§7Pardonnez-moi... §8- Dr. Marcus Vern\"",
-                    "",
-                    "§c[La vérité sur l'origine du virus]"
             }
     };
 
     private static final String[] CLUE_NAMES = {
             "§6📖 Journal",
             "§c🧪 Fiole",
-            "§e📷 Photo",
-            "§d✉ Lettre"
+            "§e📷 Photo"
     };
 
     /**
      * Spawn les indices de l'investigation autour de la maison
+     * Utilise ItemDisplay + Interaction comme les caisses de ravitaillement (Chapitre 2)
      */
     private void spawnInvestigationClues(World world) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             spawnClue(world, i);
         }
     }
 
     /**
-     * Spawn un indice spécifique
+     * Spawn un indice spécifique avec ItemDisplay (Paper glowing) + Interaction (hitbox)
      */
     private void spawnClue(World world, int clueIndex) {
         Location loc = CLUE_LOCATIONS[clueIndex].clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (clueEntities[clueIndex] != null && clueEntities[clueIndex].isValid()) {
-            clueEntities[clueIndex].remove();
+        // Supprimer les anciens si existants
+        if (clueHitboxes[clueIndex] != null && clueHitboxes[clueIndex].isValid()) {
+            clueHitboxes[clueIndex].remove();
         }
-        if (clueDisplays[clueIndex] != null && clueDisplays[clueIndex].isValid()) {
-            clueDisplays[clueIndex].remove();
+        if (clueVisuals[clueIndex] != null && clueVisuals[clueIndex].isValid()) {
+            clueVisuals[clueIndex].remove();
         }
 
-        // Spawn un ArmorStand invisible comme point d'interaction
         final int index = clueIndex;
-        clueEntities[clueIndex] = world.spawn(loc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setInvulnerable(true);
-            stand.setMarker(true);
-            stand.setSmall(true);
-            stand.setCollidable(false);
 
-            // Tags
-            stand.addScoreboardTag("chapter3_investigation_clue");
-            stand.addScoreboardTag("clue_index_" + index);
-            stand.addScoreboardTag("zombiez_npc");
+        // 1. Créer le VISUEL (ItemDisplay avec Paper glowing)
+        clueVisuals[clueIndex] = world.spawn(loc, ItemDisplay.class, display -> {
+            // Item affiché: Paper
+            display.setItemStack(new ItemStack(Material.PAPER));
 
-            // PDC avec l'index de l'indice
-            stand.getPersistentDataContainer().set(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER, index);
+            // Taille x1.2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0.5f, 0), // Translation (légèrement au-dessus du sol)
+                    new AxisAngle4f(0, 0, 1, 0), // Left rotation
+                    new Vector3f(1.2f, 1.2f, 1.2f), // Scale x1.2
+                    new AxisAngle4f(0, 0, 1, 0) // Right rotation
+            ));
 
-            stand.setPersistent(false);
-            stand.setVisibleByDefault(false);
+            // Billboard CENTER pour que le papier tourne vers le joueur
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Glow effect jaune/or pour visibilité
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 220, 100)); // Jaune doré
+
+            // Distance de vue
+            display.setViewRange(48f);
+
+            // INVISIBLE PAR DÉFAUT - visible uniquement à proximité
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_clue_visual");
+            display.addScoreboardTag("clue_visual_" + index);
         });
 
-        // TextDisplay au-dessus
-        createClueDisplay(world, loc, clueIndex);
-    }
+        // 2. Créer l'entité INTERACTION (invisible mais cliquable)
+        clueHitboxes[clueIndex] = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            // Taille de la hitbox (largeur et hauteur)
+            interaction.setInteractionWidth(1.0f);
+            interaction.setInteractionHeight(1.0f);
 
-    /**
-     * Crée le TextDisplay pour un indice
-     */
-    private void createClueDisplay(World world, Location loc, int clueIndex) {
-        Location displayLoc = loc.clone().add(0, 1.5, 0);
+            // Marquer comme indice d'investigation
+            interaction.getPersistentDataContainer().set(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER, index);
 
-        clueDisplays[clueIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("❓ ", NamedTextColor.GOLD))
-                    .append(Component.text("Indice", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                    .append(Component.text(" ❓", NamedTextColor.GOLD))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
+            // Tags pour identification
+            interaction.addScoreboardTag("chapter3_investigation_clue");
+            interaction.addScoreboardTag("clue_index_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
 
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.3f, 1.3f, 1.3f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.3f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter3_clue_display");
-            display.addScoreboardTag("clue_display_" + clueIndex);
-
-            display.setVisibleByDefault(false);
+            // INVISIBLE PAR DÉFAUT - visible uniquement à proximité
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
         });
     }
 
@@ -872,22 +848,22 @@ public class Chapter3Systems implements Listener {
     private void updateClueVisibilityForPlayer(Player player) {
         int found = getPlayerCluesFound(player);
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             boolean hasFoundThis = (found & (1 << i)) != 0;
 
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
                 if (hasFoundThis) {
-                    player.hideEntity(plugin, clueEntities[i]);
+                    player.hideEntity(plugin, clueHitboxes[i]);
                 } else {
-                    player.showEntity(plugin, clueEntities[i]);
+                    player.showEntity(plugin, clueHitboxes[i]);
                 }
             }
 
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
                 if (hasFoundThis) {
-                    player.hideEntity(plugin, clueDisplays[i]);
+                    player.hideEntity(plugin, clueVisuals[i]);
                 } else {
-                    player.showEntity(plugin, clueDisplays[i]);
+                    player.showEntity(plugin, clueVisuals[i]);
                 }
             }
         }
@@ -897,12 +873,12 @@ public class Chapter3Systems implements Listener {
      * Cache tous les indices pour un joueur
      */
     private void hideAllCluesForPlayer(Player player) {
-        for (int i = 0; i < 4; i++) {
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
-                player.hideEntity(plugin, clueEntities[i]);
+        for (int i = 0; i < 3; i++) {
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
+                player.hideEntity(plugin, clueHitboxes[i]);
             }
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
-                player.hideEntity(plugin, clueDisplays[i]);
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
+                player.hideEntity(plugin, clueVisuals[i]);
             }
         }
     }
@@ -922,7 +898,7 @@ public class Chapter3Systems implements Listener {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
         // On ne peut pas savoir exactement quels indices, donc on assume les premiers
         int mask = 0;
-        for (int i = 0; i < progress && i < 4; i++) {
+        for (int i = 0; i < progress && i < 3; i++) {
             mask |= (1 << i);
         }
         playerCluesFound.put(uuid, mask);
@@ -934,7 +910,7 @@ public class Chapter3Systems implements Listener {
      */
     private int countCluesFound(int bitmask) {
         int count = 0;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             if ((bitmask & (1 << i)) != 0)
                 count++;
         }
@@ -946,7 +922,7 @@ public class Chapter3Systems implements Listener {
      */
     public boolean hasPlayerCompletedInvestigation(Player player) {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_3_6);
-        return progress >= 4;
+        return progress >= 3;
     }
 
     /**
@@ -1004,8 +980,8 @@ public class Chapter3Systems implements Listener {
         player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.5);
 
         // Message de progression
-        if (cluesFoundCount < 4) {
-            player.sendMessage("§e§l🔍 Indice " + cluesFoundCount + "/4 trouvé: " + CLUE_NAMES[clueIndex]);
+        if (cluesFoundCount < 3) {
+            player.sendMessage("§e§l🔍 Indice " + cluesFoundCount + "/3 trouvé: " + CLUE_NAMES[clueIndex]);
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1f, 1f);
         } else {
             // Investigation terminée!
@@ -2543,12 +2519,12 @@ public class Chapter3Systems implements Listener {
         }
 
         // Nettoyer les indices de l'investigation
-        for (int i = 0; i < 4; i++) {
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
-                clueEntities[i].remove();
+        for (int i = 0; i < 3; i++) {
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
+                clueHitboxes[i].remove();
             }
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
-                clueDisplays[i].remove();
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
+                clueVisuals[i].remove();
             }
         }
 
