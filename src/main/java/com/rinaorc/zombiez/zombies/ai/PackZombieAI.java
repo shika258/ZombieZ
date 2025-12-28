@@ -33,8 +33,8 @@ public class PackZombieAI extends ZombieAI {
     // Cooldown du hurlement (alerter la meute)
     private static final long HOWL_COOLDOWN = 15000; // 15 secondes
 
-    public PackZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public PackZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 4000; // Attaque spéciale toutes les 4 secondes
     }
 

@@ -2213,8 +2213,8 @@ public class Chapter4Systems implements Listener {
             handleBossKilled(killer, zombie);
         }
 
-        // Mort du boss Creaking (c'est un Zombie avec le tag chapter4_creaking_boss)
-        if (entity instanceof Zombie creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+        // Mort du boss Creaking (entité Creaking avec le tag chapter4_creaking_boss)
+        if (entity instanceof Creaking creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
             Player killer = creakingBoss.getKiller();
             handleCreakingBossKilled(killer, creakingBoss);
         }
@@ -3518,7 +3518,7 @@ public class Chapter4Systems implements Listener {
 
         if (activeZombie != null) {
             Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-            if (entity instanceof Zombie creakingBoss) {
+            if (entity instanceof Creaking creakingBoss) {
                 // Configuration additionnelle du boss
                 creakingBoss.addScoreboardTag("chapter4_creaking_boss");
                 creakingBoss.addScoreboardTag("journey_boss");
@@ -3570,7 +3570,7 @@ public class Chapter4Systems implements Listener {
     /**
      * Gère la mort du boss Creaking
      */
-    private void handleCreakingBossKilled(Player killer, Zombie creakingBoss) {
+    private void handleCreakingBossKilled(Player killer, Creaking creakingBoss) {
         // Trouver le joueur propriétaire du boss
         UUID ownerUuid = null;
         for (String tag : creakingBoss.getScoreboardTags()) {

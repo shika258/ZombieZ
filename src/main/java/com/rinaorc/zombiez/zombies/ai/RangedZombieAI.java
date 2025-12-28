@@ -23,8 +23,8 @@ public class RangedZombieAI extends ZombieAI {
     private static final double PREFERRED_DISTANCE = 12.0;
     private static final double TOO_CLOSE = 6.0;
 
-    public RangedZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public RangedZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 3000; // 3 secondes entre tirs
     }
 

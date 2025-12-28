@@ -36,8 +36,8 @@ public class IllagerZombieAI extends ZombieAI {
     // Distance préférée selon le type
     private double preferredDistance;
 
-    public IllagerZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public IllagerZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
 
         // Configurer selon le type
         switch (zombieType) {

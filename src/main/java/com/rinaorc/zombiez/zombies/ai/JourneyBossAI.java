@@ -10,8 +10,8 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -39,10 +39,10 @@ public class JourneyBossAI extends ZombieAI {
     private long lastSpecialAttack = 0;
     private static final long SPECIAL_COOLDOWN = 10000; // 10 secondes
 
-    public JourneyBossAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public JourneyBossAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 5000; // 5 secondes entre les attaques
-        this.spawnLocation = zombie.getLocation().clone();
+        this.spawnLocation = entity.getLocation().clone();
 
         setupBossBar();
         applyBossBuffs();

@@ -40,6 +40,7 @@ import org.bukkit.entity.Evoker;
 import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Giant;
+import org.bukkit.entity.Creaking;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
@@ -479,6 +480,16 @@ public class ZombieManager {
                 // Le Giant est ÉNORME et lent mais dévastateur
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 2, false, false));
+            });
+
+            // ═══════════════════════════════════════════════════════════════════
+            // CREAKING BOSS (Chapitre 4 Étape 8 - Gardien de l'Arbre Maudit)
+            // ═══════════════════════════════════════════════════════════════════
+            case CREAKING_BOSS -> location.getWorld().spawn(location, Creaking.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Le Creaking est une entité terrifiante du Pale Garden
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             });
 
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {
