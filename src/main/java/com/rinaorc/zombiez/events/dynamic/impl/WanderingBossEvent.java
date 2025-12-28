@@ -502,6 +502,26 @@ public class WanderingBossEvent extends DynamicEvent {
                 var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
                 if (playerData != null) {
                     playerData.addXp(totalXp);
+
+                    // ============ TRACKER ÉVÉNEMENTS (manquait!) ============
+                    playerData.incrementStat("events_completed");
+                    int eventsCompleted = (int) playerData.getStat("events_completed");
+
+                    // Notifier le système de Parcours (Journey)
+                    if (plugin.getJourneyListener() != null) {
+                        plugin.getJourneyListener().onEventParticipation(player, eventsCompleted);
+                    }
+
+                    // Tracker missions
+                    plugin.getMissionManager().updateProgress(player,
+                        com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EVENTS_PARTICIPATED, 1);
+
+                    // Achievements
+                    var achievementManager = plugin.getAchievementManager();
+                    achievementManager.incrementProgress(player, "first_event", 1);
+                    achievementManager.checkAndUnlock(player, "event_veteran", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_champion", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_legend", eventsCompleted);
                 }
 
                 player.sendMessage("");
