@@ -107,7 +107,7 @@ public class PackZombieAI extends ZombieAI {
         double distance = zombie.getLocation().distance(target.getLocation());
 
         // Toujours cibler agressivement
-        zombie.setTarget(target);
+        setZombieTarget(target);
 
         // Boost de vitesse permanent (les loups sont RAPIDES)
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, packBonus > 0 ? 1 : 0, false, false));

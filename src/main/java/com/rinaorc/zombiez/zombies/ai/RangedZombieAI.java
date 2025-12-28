@@ -42,7 +42,7 @@ public class RangedZombieAI extends ZombieAI {
             retreat(target);
         } else if (distance > PREFERRED_DISTANCE * 1.5) {
             // Se rapprocher
-            zombie.setTarget(target);
+            setZombieTarget(target);
         } else if (canUseAbility()) {
             // Tirer
             fireProjectile(target);

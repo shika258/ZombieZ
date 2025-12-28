@@ -353,13 +353,19 @@ public class ZombieManager {
         String tierColor = getTierColor(type.getTier());
         String customName = tierColor + type.getDisplayName() + " §7[Lv." + level + "] " + healthDisplay;
 
+        // Variables finales pour les lambdas
+        final double effectiveHealth = finalHealth;
+        final double effectiveDamage = finalDamage;
+        final double effectiveSpeed = finalSpeed;
+        final String effectiveName = customName;
+
         // Spawn selon le type
         return switch (type) {
             case HUSK -> location.getWorld().spawn(location, Husk.class, entity -> {
-                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });
             case DROWNED, DROWNED_TRIDENT, DROWNER -> location.getWorld().spawn(location, Drowned.class, entity -> {
-                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Équiper un trident pour DROWNED_TRIDENT
                 if (type == ZombieType.DROWNED_TRIDENT && entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.TRIDENT));
@@ -367,10 +373,10 @@ public class ZombieManager {
                 }
             });
             case ZOMBIE_VILLAGER -> location.getWorld().spawn(location, ZombieVillager.class, entity -> {
-                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });
             case ZOMBIFIED_PIGLIN -> location.getWorld().spawn(location, PigZombie.class, entity -> {
-                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 entity.setAngry(true);
                 entity.setAnger(Integer.MAX_VALUE);
                 // Équiper une épée d'or
@@ -380,13 +386,13 @@ public class ZombieManager {
                 }
             });
             case ZOGLIN -> location.getWorld().spawn(location, Zoglin.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });
             case RAVAGER_BEAST -> location.getWorld().spawn(location, Ravager.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });
             case PIGLIN_BRUTE -> location.getWorld().spawn(location, PiglinBrute.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 entity.setImmuneToZombification(true);
                 // Équiper une hache d'or
                 if (entity.getEquipment() != null) {
@@ -400,7 +406,7 @@ public class ZombieManager {
             // ═══════════════════════════════════════════════════════════════════
 
             case SKELETON -> location.getWorld().spawn(location, Skeleton.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Équiper un arc
                 if (entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
@@ -414,7 +420,7 @@ public class ZombieManager {
             });
 
             case STRAY -> location.getWorld().spawn(location, Stray.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Équiper un arc
                 if (entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.BOW));
@@ -428,7 +434,7 @@ public class ZombieManager {
             });
 
             case RABID_WOLF -> location.getWorld().spawn(location, Wolf.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 entity.setAngry(true);
                 entity.setTamed(false);
                 // Le loup enragé a un collar rouge sang
@@ -438,7 +444,7 @@ public class ZombieManager {
             });
 
             case CREEPER -> location.getWorld().spawn(location, Creeper.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Le creeper ZombieZ est plus puissant
                 entity.setExplosionRadius((int) (3 + level * 0.1));
                 entity.setMaxFuseTicks(30); // 1.5 secondes
@@ -449,13 +455,13 @@ public class ZombieManager {
             });
 
             case EVOKER -> location.getWorld().spawn(location, Evoker.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // L'Evoker est un mage puissant
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             });
 
             case PILLAGER -> location.getWorld().spawn(location, Pillager.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Équiper une arbalète
                 if (entity.getEquipment() != null) {
                     entity.getEquipment().setItemInMainHand(new ItemStack(Material.CROSSBOW));
@@ -464,7 +470,7 @@ public class ZombieManager {
             });
 
             case VINDICATOR -> location.getWorld().spawn(location, Vindicator.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Équiper une hache de fer/diamant
                 if (entity.getEquipment() != null) {
                     Material axeMaterial = level > 15 ? Material.DIAMOND_AXE : Material.IRON_AXE;
@@ -476,7 +482,7 @@ public class ZombieManager {
             });
 
             case GIANT_BOSS -> location.getWorld().spawn(location, Giant.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Le Giant est ÉNORME et lent mais dévastateur
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 2, false, false));
@@ -486,14 +492,14 @@ public class ZombieManager {
             // CREAKING BOSS (Chapitre 4 Étape 8 - Gardien de l'Arbre Maudit)
             // ═══════════════════════════════════════════════════════════════════
             case CREAKING_BOSS -> location.getWorld().spawn(location, Creaking.class, entity -> {
-                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
                 // Le Creaking est une entité terrifiante du Pale Garden
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             });
 
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {
-                configureZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });
         };
     }

@@ -68,7 +68,7 @@ public class StealthZombieAI extends ZombieAI {
         if (isInvisible) {
             // S'approcher silencieusement
             if (distance > ATTACK_RANGE) {
-                zombie.setTarget(target);
+                setZombieTarget(target);
             } else if (canAmbush()) {
                 // Attaque surprise!
                 ambush(target);

@@ -126,7 +126,7 @@ public class SupportZombieAI extends ZombieAI {
         screamCharges--;
 
         // Animation de préparation
-        zombie.setTarget(null);
+        setZombieTarget(null);
         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 10, false, false));
 
         playSound(Sound.ENTITY_RAVAGER_ROAR, 0.5f, 2f);

@@ -12,6 +12,7 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -201,7 +202,7 @@ public class JourneyBossAI extends ZombieAI {
 
         if (zombie.getLocation().distanceSquared(spawnLocation) > LEASH_RANGE_SQUARED) {
             zombie.teleport(spawnLocation);
-            zombie.setTarget(null);
+            setZombieTarget(null);
             playSound(Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
             playParticles(Particle.PORTAL, spawnLocation.clone().add(0, 1, 0), 30, 0.5, 1, 0.5);
         }
