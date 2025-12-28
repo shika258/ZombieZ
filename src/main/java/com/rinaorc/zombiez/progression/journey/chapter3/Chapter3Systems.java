@@ -1309,17 +1309,24 @@ public class Chapter3Systems implements Listener {
 
                 int remaining = DEFENSE_DURATION_SECONDS - defenseEvent.secondsElapsed;
 
-                // Afficher le temps restant dans l'action bar
+                // Afficher la progression via la BossBar du Journey
+                double healthPercent = defenseEvent.survivorHealth / SURVIVOR_MAX_DAMAGE;
                 String healthBar = createHealthBar(defenseEvent.survivorHealth, SURVIVOR_MAX_DAMAGE);
-                player.sendActionBar(Component.text()
-                        .append(Component.text("⏱ ", NamedTextColor.GOLD))
-                        .append(Component.text(remaining + "s", NamedTextColor.YELLOW))
-                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("Henri: ", NamedTextColor.GREEN))
-                        .append(Component.text(healthBar, NamedTextColor.RED))
-                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("☠ " + defenseEvent.zombiesKilled, NamedTextColor.RED))
-                        .build());
+
+                // Couleur selon la santé d'Henri
+                org.bukkit.boss.BarColor barColor;
+                if (healthPercent > 0.6) {
+                    barColor = org.bukkit.boss.BarColor.GREEN;
+                } else if (healthPercent > 0.3) {
+                    barColor = org.bukkit.boss.BarColor.YELLOW;
+                } else {
+                    barColor = org.bukkit.boss.BarColor.RED;
+                }
+
+                String title = String.format("§c⚔ §fDéfense du Village §8| §e⏱ %ds §8| §aHenri: %s §8| §c☠ %d",
+                        remaining, healthBar, defenseEvent.zombiesKilled);
+
+                journeyManager.updateBossBarCustom(player, title, healthPercent, barColor);
 
                 // Alertes de temps
                 if (remaining == 60 || remaining == 30 || remaining == 10) {
@@ -1503,6 +1510,9 @@ public class Chapter3Systems implements Listener {
 
         // Retirer l'événement
         activeDefenseEvents.remove(player.getUniqueId());
+
+        // Restaurer la BossBar normale du Journey
+        journeyManager.createOrUpdateBossBar(player);
 
         if (success) {
             handleDefenseSuccess(player, defenseEvent);
