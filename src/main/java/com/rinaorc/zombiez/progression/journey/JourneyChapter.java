@@ -55,11 +55,11 @@ public enum JourneyChapter {
         Material.COMPASS,
         "Explore les premières zones dangereuses",
         4, 6,  // Zones 4-6
-        new JourneyGate[]{JourneyGate.TALENTS_TIER_1, JourneyGate.ZONE_7, JourneyGate.ZONE_8}, // Débloque zones 7-8
+        new JourneyGate[]{JourneyGate.ZONE_7, JourneyGate.ZONE_8}, // Débloque zones 7-8
         2500,
         45,
         "§eCoffre de Zone (Rare garanti)",
-        "§aTalents Tier 1 Débloqués!"
+        ""
     ),
 
     // ==================== PHASE 2: CROISSANCE (Zones 7-12) ====================

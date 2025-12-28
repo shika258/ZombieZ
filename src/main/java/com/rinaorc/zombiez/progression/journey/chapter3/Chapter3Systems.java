@@ -838,6 +838,15 @@ public class Chapter3Systems implements Listener {
                     return;
                 houseLoc.setWorld(world);
 
+                // Respawn les indices si les entités sont devenues invalides (chunk unload, etc.)
+                for (int i = 0; i < 4; i++) {
+                    boolean visualInvalid = clueVisuals[i] == null || !clueVisuals[i].isValid();
+                    boolean hitboxInvalid = clueHitboxes[i] == null || !clueHitboxes[i].isValid();
+                    if (visualInvalid || hitboxInvalid) {
+                        spawnClue(world, i);
+                    }
+                }
+
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(world)) {
                         hideAllCluesForPlayer(player);
@@ -1300,17 +1309,24 @@ public class Chapter3Systems implements Listener {
 
                 int remaining = DEFENSE_DURATION_SECONDS - defenseEvent.secondsElapsed;
 
-                // Afficher le temps restant dans l'action bar
+                // Afficher la progression via la BossBar du Journey
+                double healthPercent = defenseEvent.survivorHealth / SURVIVOR_MAX_DAMAGE;
                 String healthBar = createHealthBar(defenseEvent.survivorHealth, SURVIVOR_MAX_DAMAGE);
-                player.sendActionBar(Component.text()
-                        .append(Component.text("⏱ ", NamedTextColor.GOLD))
-                        .append(Component.text(remaining + "s", NamedTextColor.YELLOW))
-                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("Henri: ", NamedTextColor.GREEN))
-                        .append(Component.text(healthBar, NamedTextColor.RED))
-                        .append(Component.text(" │ ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("☠ " + defenseEvent.zombiesKilled, NamedTextColor.RED))
-                        .build());
+
+                // Couleur selon la santé d'Henri
+                org.bukkit.boss.BarColor barColor;
+                if (healthPercent > 0.6) {
+                    barColor = org.bukkit.boss.BarColor.GREEN;
+                } else if (healthPercent > 0.3) {
+                    barColor = org.bukkit.boss.BarColor.YELLOW;
+                } else {
+                    barColor = org.bukkit.boss.BarColor.RED;
+                }
+
+                String title = String.format("§c⚔ §fDéfense du Village §8| §e⏱ %ds §8| §aHenri: %s §8| §c☠ %d",
+                        remaining, healthBar, defenseEvent.zombiesKilled);
+
+                journeyManager.updateBossBarCustom(player, title, healthPercent, barColor);
 
                 // Alertes de temps
                 if (remaining == 60 || remaining == 30 || remaining == 10) {
@@ -1410,46 +1426,33 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Spawn un zombie de défense
+     * Spawn un zombie de défense via ZombieManager (système ZombieZ)
      */
     private void spawnDefenseZombie(World world, Location loc, Player player, VillageDefenseEvent defenseEvent) {
-        // Essayer d'utiliser ZombieManager pour un zombie custom
         ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager != null) {
-            try {
-                // Utiliser un type de zombie basique
-                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WALKER, loc, 8);
-                Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-                if (entity != null) {
-                    entity.addScoreboardTag("chapter3_defense_zombie");
-                    entity.addScoreboardTag("defense_owner_" + player.getUniqueId());
-                    defenseEvent.spawnedZombies.add(entity.getUniqueId());
+        if (zombieManager == null) {
+            return; // Pas de ZombieManager, pas de spawn
+        }
 
-                    // Orienter le zombie vers le survivant
-                    if (entity instanceof org.bukkit.entity.Mob mob) {
-                        if (villageSurvivorEntity instanceof LivingEntity target) {
-                            mob.setTarget(target);
-                        }
-                    }
+        // Spawn via ZombieManager pour bénéficier du système de dégâts ZombieZ
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.WALKER, loc, 8);
+        if (activeZombie == null) {
+            return; // Limite atteinte, on ne spawn pas
+        }
+
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (entity != null) {
+            entity.addScoreboardTag("chapter3_defense_zombie");
+            entity.addScoreboardTag("defense_owner_" + player.getUniqueId());
+            defenseEvent.spawnedZombies.add(entity.getUniqueId());
+
+            // Orienter le zombie vers le survivant
+            if (entity instanceof org.bukkit.entity.Mob mob) {
+                if (villageSurvivorEntity instanceof LivingEntity target) {
+                    mob.setTarget(target);
                 }
-                return;
-            } catch (Exception e) {
-                // Fallback vers zombie vanilla
             }
         }
-
-        // Fallback: spawn zombie vanilla
-        Zombie zombie = world.spawn(loc, Zombie.class, z -> {
-            z.addScoreboardTag("chapter3_defense_zombie");
-            z.addScoreboardTag("defense_owner_" + player.getUniqueId());
-            z.customName(Component.text("Zombie", NamedTextColor.RED));
-            z.setCustomNameVisible(false);
-        });
-        // Cibler le survivant pour le pathfinding
-        if (villageSurvivorEntity instanceof LivingEntity target) {
-            zombie.setTarget(target);
-        }
-        defenseEvent.spawnedZombies.add(zombie.getUniqueId());
     }
 
     /**
@@ -1494,6 +1497,9 @@ public class Chapter3Systems implements Listener {
 
         // Retirer l'événement
         activeDefenseEvents.remove(player.getUniqueId());
+
+        // Restaurer la BossBar normale du Journey
+        journeyManager.createOrUpdateBossBar(player);
 
         if (success) {
             handleDefenseSuccess(player, defenseEvent);
@@ -1751,8 +1757,16 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid()) {
-                    return;
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Respawn le panneau de contrôle si les entités sont devenues invalides (chunk unload, etc.)
+                boolean visualInvalid = zeppelinControlVisual == null || !zeppelinControlVisual.isValid();
+                boolean hitboxInvalid = zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid();
+                boolean displayInvalid = zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid();
+                if (visualInvalid || hitboxInvalid || displayInvalid) {
+                    spawnZeppelinControl(world);
+                    return; // Attendre le prochain tick pour la visibilité
                 }
 
                 Location controlLoc = zeppelinControlHitbox.getLocation();

@@ -216,7 +216,7 @@ public class InteractListener implements Listener {
 
         // Messages de confirmation
         MessageUtils.sendRaw(player, "");
-        MessageUtils.sendRaw(player, "§a§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "§a§l═════════════════════════");
         MessageUtils.sendRaw(player, "");
         MessageUtils.sendRaw(player, "  §a§l✓ REFUGE DÉBLOQUÉ!");
         MessageUtils.sendRaw(player, "");
@@ -227,7 +227,7 @@ public class InteractListener implements Listener {
         MessageUtils.sendRaw(player, "");
         MessageUtils.sendRaw(player, "  §6-" + EconomyManager.formatPoints(cost) + " Points");
         MessageUtils.sendRaw(player, "");
-        MessageUtils.sendRaw(player, "§a§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "§a§l═════════════════════════");
         MessageUtils.sendRaw(player, "");
 
         // Title pour plus d'impact
@@ -258,7 +258,7 @@ public class InteractListener implements Listener {
 
         // Header
         MessageUtils.sendRaw(player, "");
-        MessageUtils.sendRaw(player, "§e§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "§e§l═════════════════════════");
         MessageUtils.sendRaw(player, "");
         MessageUtils.sendRaw(player, "  §6§l🏠 " + refuge.getName().toUpperCase());
 
@@ -294,7 +294,7 @@ public class InteractListener implements Listener {
         MessageUtils.sendRaw(player, "  §7Coût d'activation: §6" + EconomyManager.formatPoints(refuge.getCost()) + " Points");
         MessageUtils.sendRaw(player, "  §7Niveau minimum: §e" + refuge.getRequiredLevel());
         MessageUtils.sendRaw(player, "");
-        MessageUtils.sendRaw(player, "§e§l═══════════════════════════════════");
+        MessageUtils.sendRaw(player, "§e§l═════════════════════════");
         MessageUtils.sendRaw(player, "  §8§oOuverture du menu des refuges...");
         MessageUtils.sendRaw(player, "");
     }

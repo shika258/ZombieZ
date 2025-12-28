@@ -193,6 +193,24 @@ public class JourneyManager {
         }
     }
 
+    /**
+     * Met à jour la BossBar avec un titre et une progression personnalisés
+     * Utilisé pour les événements spéciaux (défense du village, etc.)
+     */
+    public void updateBossBarCustom(Player player, String title, double progress, BarColor color) {
+        BossBar bossBar = playerBossBars.get(player.getUniqueId());
+        if (bossBar == null) {
+            bossBar = Bukkit.createBossBar("", color, BarStyle.SOLID);
+            bossBar.addPlayer(player);
+            playerBossBars.put(player.getUniqueId(), bossBar);
+        }
+        bossBar.setTitle(title);
+        bossBar.setProgress(Math.min(1.0, Math.max(0.0, progress)));
+        bossBar.setColor(color);
+        bossBar.setStyle(BarStyle.SOLID);
+        bossBar.setVisible(true);
+    }
+
     // ==================== VÉRIFICATION DES GATES (BLOCAGE) ====================
 
     /**
