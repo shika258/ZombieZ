@@ -243,12 +243,12 @@ public class Chapter1Systems implements Listener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!event.getView().title().equals(Component.text(FIRE_GUI_TITLE.substring(2)))) return;
-        // Note: Le titre GUI perd le § initial en comparaison, on utilise contains
 
+        // Vérifier le titre du GUI avec getOriginalTitle()
         String title = event.getView().getOriginalTitle();
         if (!title.equals(FIRE_GUI_TITLE)) return;
 
+        // IMPORTANT: Annuler l'événement EN PREMIER pour empêcher le vol d'items
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
