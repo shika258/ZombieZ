@@ -64,6 +64,8 @@ public class Chapter4Systems implements Listener {
     // Âmes Damnées
     private final NamespacedKey DAMNED_SOUL_KEY;
     private final NamespacedKey PURIFIER_ITEM_KEY;
+    // Brume Toxique
+    private final NamespacedKey CORRUPTION_SOURCE_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -112,6 +114,29 @@ public class Chapter4Systems implements Listener {
     private static final int MAX_DAMNED_SOULS = 12; // Nombre max d'âmes damnées en même temps
     private static final double PURIFIER_DROP_CHANCE = 0.40; // 40% de chance de drop
     private static final int SOULS_TO_PURIFY = 5; // Nombre d'âmes à purifier
+
+    // === BRUME TOXIQUE (ÉTAPE 7) ===
+    // Zone des marécages (corners: 752,85,8402 à 863,86,8498)
+    private static final int SWAMP_ZONE_MIN_X = 752;
+    private static final int SWAMP_ZONE_MAX_X = 863;
+    private static final int SWAMP_ZONE_MIN_Y = 80;
+    private static final int SWAMP_ZONE_MAX_Y = 95;
+    private static final int SWAMP_ZONE_MIN_Z = 8402;
+    private static final int SWAMP_ZONE_MAX_Z = 8498;
+
+    // Positions des 4 sources de corruption
+    private static final Location[] CORRUPTION_SOURCE_LOCATIONS = {
+            new Location(null, 770, 85, 8430, 0, 0),   // Source 1 (Sud-Ouest)
+            new Location(null, 840, 85, 8420, 0, 0),   // Source 2 (Sud-Est)
+            new Location(null, 780, 86, 8480, 0, 0),   // Source 3 (Nord-Ouest)
+            new Location(null, 830, 85, 8470, 0, 0)    // Source 4 (Nord-Est) - Mini-boss
+    };
+
+    // Configuration Brume Toxique
+    private static final int HITS_TO_DESTROY_SOURCE = 15; // Coups pour détruire une source
+    private static final int SWAMP_WALKERS_PER_SOURCE = 3; // Mobs gardiens par source
+    private static final double POISON_DAMAGE = 1.0; // Dégâts de poison par tick
+    private static final int POISON_TICK_INTERVAL = 40; // Interval en ticks (2 secondes)
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -173,6 +198,27 @@ public class Chapter4Systems implements Listener {
     // Joueurs ayant reçu l'introduction de la quête (pour éviter spam)
     private final Set<UUID> playersIntroducedToSouls = ConcurrentHashMap.newKeySet();
 
+    // === TRACKING BRUME TOXIQUE ===
+    // Sources de corruption (ItemDisplay visuels + Interaction hitbox)
+    private final ItemDisplay[] corruptionSourceVisuals = new ItemDisplay[4];
+    private final Interaction[] corruptionSourceHitboxes = new Interaction[4];
+    private final TextDisplay[] corruptionSourceDisplays = new TextDisplay[4];
+
+    // Hits sur chaque source par joueur: sourceIndex -> hits
+    private final Map<UUID, int[]> playerSourceHits = new ConcurrentHashMap<>();
+
+    // Sources détruites par joueur
+    private final Map<UUID, Set<Integer>> playerDestroyedSources = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoCompletedToxicFog = ConcurrentHashMap.newKeySet();
+
+    // Joueurs ayant reçu l'introduction
+    private final Set<UUID> playersIntroducedToToxicFog = ConcurrentHashMap.newKeySet();
+
+    // Joueurs actuellement dans la zone (pour poison)
+    private final Set<UUID> playersInSwampZone = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -186,6 +232,7 @@ public class Chapter4Systems implements Listener {
         this.MUSHROOM_HITBOX_KEY = new NamespacedKey(plugin, "mushroom_hitbox");
         this.DAMNED_SOUL_KEY = new NamespacedKey(plugin, "damned_soul");
         this.PURIFIER_ITEM_KEY = new NamespacedKey(plugin, "soul_purifier");
+        this.CORRUPTION_SOURCE_KEY = new NamespacedKey(plugin, "corruption_source");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -243,7 +290,16 @@ public class Chapter4Systems implements Listener {
         // Démarrer le spawn des Âmes Damnées dans la zone du cimetière
         startDamnedSoulSpawner(world);
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte Maudite, Purification)");
+        // === ÉTAPE 7: LA BRUME TOXIQUE ===
+        // Spawn les sources de corruption
+        spawnCorruptionSources(world);
+
+        // Démarrer les systèmes de mise à jour
+        startCorruptionSourceVisibilityUpdater();
+        startCorruptionSourceRespawnChecker();
+        startSwampPoisonChecker();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique)");
     }
 
     /**
@@ -301,6 +357,13 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les champignons
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_mushroom")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les sources de corruption
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_corruption_source")) {
                 entity.remove();
             }
         }
@@ -1868,6 +1931,26 @@ public class Chapter4Systems implements Listener {
                     handleMushroomHit(attacker, mushroomIndex);
                 }
             }
+            return;
+        }
+
+        // Hit sur une source de corruption (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer sourceIndex = damaged.getPersistentDataContainer().get(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER);
+                if (sourceIndex != null) {
+                    handleCorruptionSourceHit(attacker, sourceIndex);
+                }
+            }
         }
     }
 
@@ -1943,6 +2026,23 @@ public class Chapter4Systems implements Listener {
                     playerSoulsPurified.put(player.getUniqueId(), soulProgress);
                     playersIntroducedToSouls.add(player.getUniqueId()); // Déjà introduit si progression > 0
                 }
+
+                // Recharger la progression brume toxique
+                int toxicFogProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_7);
+                if (toxicFogProgress >= CORRUPTION_SOURCE_COUNT) {
+                    playersWhoCompletedToxicFog.add(player.getUniqueId());
+                    playersIntroducedToToxicFog.add(player.getUniqueId());
+                } else if (toxicFogProgress > 0) {
+                    playerSourcesDestroyed.put(player.getUniqueId(), toxicFogProgress);
+                    playersIntroducedToToxicFog.add(player.getUniqueId());
+
+                    // Reconstruire les hits (marquer les premières sources comme détruites)
+                    int[] hits = new int[CORRUPTION_SOURCE_COUNT];
+                    for (int i = 0; i < toxicFogProgress && i < CORRUPTION_SOURCE_COUNT; i++) {
+                        hits[i] = HITS_TO_DESTROY_SOURCE;
+                    }
+                    playerSourceHits.put(player.getUniqueId(), hits);
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -1973,6 +2073,11 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les données temporaires - Âmes Damnées
         playerSoulsPurified.remove(uuid);
         playersIntroducedToSouls.remove(uuid);
+
+        // Nettoyer les données temporaires - Brume Toxique
+        playerSourcesDestroyed.remove(uuid);
+        playerSourceHits.remove(uuid);
+        playersIntroducedToToxicFog.remove(uuid);
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -2341,5 +2446,471 @@ public class Chapter4Systems implements Listener {
 
         player.sendMessage("§e§l➤ §7Zone du cimetière: §e" + centerX + ", " + SOUL_ZONE_MIN_Y + ", " + centerZ);
         player.sendMessage("");
+    }
+
+    // ==================== BRUME TOXIQUE (ÉTAPE 7) ====================
+
+    /**
+     * Spawn toutes les sources de corruption
+     */
+    private void spawnCorruptionSources(World world) {
+        for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+            spawnCorruptionSource(world, i);
+        }
+    }
+
+    /**
+     * Spawn une source de corruption (ItemDisplay + Interaction + TextDisplay)
+     */
+    private void spawnCorruptionSource(World world, int index) {
+        if (index >= CORRUPTION_SOURCE_LOCATIONS.length) return;
+
+        Location loc = CORRUPTION_SOURCE_LOCATIONS[index].clone();
+        loc.setWorld(world);
+
+        // Supprimer les anciens
+        if (corruptionSourceVisuals[index] != null && corruptionSourceVisuals[index].isValid()) {
+            corruptionSourceVisuals[index].remove();
+        }
+        if (corruptionSourceHitboxes[index] != null && corruptionSourceHitboxes[index].isValid()) {
+            corruptionSourceHitboxes[index].remove();
+        }
+        if (corruptionSourceDisplays[index] != null && corruptionSourceDisplays[index].isValid()) {
+            corruptionSourceDisplays[index].remove();
+        }
+
+        // 1. Créer le VISUEL (ItemDisplay avec DRAGON_BREATH glowing vert toxique)
+        corruptionSourceVisuals[index] = world.spawn(loc.clone().add(0, 1, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.DRAGON_BREATH));
+
+            // Scale x2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(2.5f, 2.5f, 2.5f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
+
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Glow effect vert toxique
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(50, 200, 50));
+
+            display.setViewRange(64f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_corruption_source");
+            display.addScoreboardTag("chapter4_corruption_visual");
+            display.addScoreboardTag("corruption_visual_" + index);
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox invisible)
+        corruptionSourceHitboxes[index] = world.spawn(loc.clone().add(0, 1, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(2.0f);
+            interaction.setInteractionHeight(2.0f);
+            interaction.setResponsive(true);
+
+            interaction.addScoreboardTag("chapter4_corruption_source");
+            interaction.addScoreboardTag("chapter4_corruption_hitbox");
+            interaction.addScoreboardTag("corruption_hitbox_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            interaction.getPersistentDataContainer().set(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER, index);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+
+        // 3. Créer le TextDisplay au-dessus
+        corruptionSourceDisplays[index] = world.spawn(loc.clone().add(0, 3, 0), TextDisplay.class, display -> {
+            boolean isLastSource = (index == 3);
+            String title = isLastSource ? "§4§lSOURCE PRINCIPALE" : "§2§lSOURCE DE CORRUPTION";
+            String subtitle = isLastSource ? "§c☠ Gardien: Marécageux Alpha" : "§a☠ Frappe pour détruire";
+
+            display.text(Component.text()
+                    .append(Component.text("☣ ", NamedTextColor.GREEN))
+                    .append(Component.text(title.substring(2), isLastSource ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" ☣", NamedTextColor.GREEN))
+                    .append(Component.newline())
+                    .append(Component.text("━━━━━━━━━", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text(subtitle.substring(2), NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(150, 0, 50, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.5f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_corruption_source");
+            display.addScoreboardTag("chapter4_corruption_display");
+            display.addScoreboardTag("corruption_display_" + index);
+        });
+
+        // Particules d'ambiance autour de la source
+        world.spawnParticle(Particle.DRAGON_BREATH, loc.clone().add(0, 1.5, 0), 20, 0.5, 0.5, 0.5, 0.01);
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les sources
+     */
+    private void startCorruptionSourceVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllSourcesForPlayer(player);
+                        continue;
+                    }
+
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    boolean shouldSeeSources = currentStep == JourneyStep.STEP_4_7 &&
+                            !playersWhoCompletedToxicFog.contains(player.getUniqueId());
+
+                    if (shouldSeeSources) {
+                        updateSourceVisibilityForPlayer(player);
+
+                        // Introduction si pas encore faite
+                        if (!playersIntroducedToToxicFog.contains(player.getUniqueId())) {
+                            introducePlayerToToxicFog(player);
+                        }
+                    } else {
+                        hideAllSourcesForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des sources pour un joueur
+     */
+    private void updateSourceVisibilityForPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        Set<Integer> destroyed = playerDestroyedSources.getOrDefault(uuid, Set.of());
+
+        for (int i = 0; i < corruptionSourceVisuals.length; i++) {
+            ItemDisplay visual = corruptionSourceVisuals[i];
+            Interaction hitbox = corruptionSourceHitboxes[i];
+            TextDisplay display = corruptionSourceDisplays[i];
+
+            if (visual == null || !visual.isValid()) continue;
+
+            // Si cette source est détruite par le joueur, la cacher
+            if (destroyed.contains(i)) {
+                if (visual != null) player.hideEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) player.hideEntity(plugin, hitbox);
+                if (display != null && display.isValid()) player.hideEntity(plugin, display);
+            } else {
+                // Sinon, la montrer
+                if (visual != null) player.showEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) player.showEntity(plugin, hitbox);
+                if (display != null && display.isValid()) player.showEntity(plugin, display);
+            }
+        }
+    }
+
+    /**
+     * Cache toutes les sources pour un joueur
+     */
+    private void hideAllSourcesForPlayer(Player player) {
+        for (int i = 0; i < corruptionSourceVisuals.length; i++) {
+            if (corruptionSourceVisuals[i] != null && corruptionSourceVisuals[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceVisuals[i]);
+            }
+            if (corruptionSourceHitboxes[i] != null && corruptionSourceHitboxes[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceHitboxes[i]);
+            }
+            if (corruptionSourceDisplays[i] != null && corruptionSourceDisplays[i].isValid()) {
+                player.hideEntity(plugin, corruptionSourceDisplays[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des sources
+     */
+    private void startCorruptionSourceRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+                    boolean needsRespawn = corruptionSourceVisuals[i] == null ||
+                            !corruptionSourceVisuals[i].isValid() ||
+                            corruptionSourceHitboxes[i] == null ||
+                            !corruptionSourceHitboxes[i].isValid();
+
+                    if (needsRespawn) {
+                        spawnCorruptionSource(world, i);
+                        plugin.log(Level.FINE, "Source de corruption " + i + " respawnée");
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Démarre le système de poison dans le marais
+     */
+    private void startSwampPoisonChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    if (currentStep != JourneyStep.STEP_4_7) continue;
+                    if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) continue;
+
+                    // Vérifier si dans la zone
+                    if (isInSwampZone(player.getLocation())) {
+                        playersInSwampZone.add(player.getUniqueId());
+
+                        // Compter les sources non détruites
+                        Set<Integer> destroyed = playerDestroyedSources.getOrDefault(player.getUniqueId(), Set.of());
+                        int remainingSources = 4 - destroyed.size();
+
+                        if (remainingSources > 0) {
+                            // Appliquer poison proportionnel aux sources restantes
+                            double damage = POISON_DAMAGE * (remainingSources / 4.0);
+                            player.damage(damage);
+                            player.getWorld().spawnParticle(Particle.DRAGON_BREATH,
+                                    player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.01);
+
+                            // Message occasionnel
+                            if (Math.random() < 0.1) {
+                                player.sendMessage("§2§o*La brume toxique te brûle les poumons...*");
+                            }
+                        }
+                    } else {
+                        playersInSwampZone.remove(player.getUniqueId());
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 60L, POISON_TICK_INTERVAL);
+    }
+
+    /**
+     * Vérifie si une location est dans la zone du marais
+     */
+    private boolean isInSwampZone(Location loc) {
+        return loc.getX() >= SWAMP_ZONE_MIN_X && loc.getX() <= SWAMP_ZONE_MAX_X &&
+               loc.getY() >= SWAMP_ZONE_MIN_Y && loc.getY() <= SWAMP_ZONE_MAX_Y &&
+               loc.getZ() >= SWAMP_ZONE_MIN_Z && loc.getZ() <= SWAMP_ZONE_MAX_Z;
+    }
+
+    /**
+     * Gère le hit sur une source de corruption
+     */
+    private void handleCorruptionSourceHit(Player player, int sourceIndex) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_4_7) {
+            player.sendMessage("§7Une étrange source de corruption... Elle semble liée à la brume.");
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.5f, 0.5f);
+            return;
+        }
+
+        // Vérifier si la quête est finie
+        if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) {
+            return;
+        }
+
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si cette source est déjà détruite par ce joueur
+        Set<Integer> destroyed = playerDestroyedSources.get(uuid);
+        if (destroyed != null && destroyed.contains(sourceIndex)) {
+            return;
+        }
+
+        // Initialiser les hits si nécessaire
+        int[] hits = playerSourceHits.get(uuid);
+        if (hits == null) {
+            hits = new int[4];
+            playerSourceHits.put(uuid, hits);
+        }
+
+        // Incrémenter les hits
+        hits[sourceIndex]++;
+        int currentHits = hits[sourceIndex];
+
+        // Effets de hit
+        ItemDisplay visual = corruptionSourceVisuals[sourceIndex];
+        if (visual != null && visual.isValid()) {
+            Location loc = visual.getLocation();
+            player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 0.5f + (float) currentHits / HITS_TO_DESTROY_SOURCE);
+            player.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 10, 0.5, 0.5, 0.5, 0.02);
+        }
+
+        // Progression visuelle
+        float progress = (float) currentHits / HITS_TO_DESTROY_SOURCE;
+        player.sendMessage("§2☣ §7Source endommagée: §e" + (int)(progress * 100) + "%");
+
+        // Source détruite!
+        if (currentHits >= HITS_TO_DESTROY_SOURCE) {
+            onSourceDestroyed(player, sourceIndex);
+        }
+    }
+
+    /**
+     * Appelé quand une source est détruite par un joueur
+     */
+    private void onSourceDestroyed(Player player, int sourceIndex) {
+        UUID uuid = player.getUniqueId();
+
+        // Marquer comme détruite
+        Set<Integer> destroyed = playerDestroyedSources.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
+        destroyed.add(sourceIndex);
+
+        // Mettre à jour la progression Journey
+        journeyManager.updateProgress(player, JourneyStep.StepType.TOXIC_FOG_QUEST, destroyed.size());
+
+        // Effets visuels
+        ItemDisplay visual = corruptionSourceVisuals[sourceIndex];
+        if (visual != null && visual.isValid()) {
+            Location loc = visual.getLocation();
+            player.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0);
+            player.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 50, 1, 1, 1, 0.1);
+            player.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+            player.playSound(loc, Sound.ENTITY_ALLAY_DEATH, 1.0f, 0.5f);
+        }
+
+        // Cacher la source pour ce joueur
+        updateSourceVisibilityForPlayer(player);
+
+        boolean isLastSource = (sourceIndex == 3);
+        int remainingSources = 4 - destroyed.size();
+
+        // Message et effets
+        if (remainingSources > 0) {
+            player.sendTitle("§a✓ SOURCE DÉTRUITE!", "§7" + destroyed.size() + "/4 - " + remainingSources + " restante(s)", 10, 40, 10);
+            player.sendMessage("");
+            player.sendMessage("§a§l✦ §7Source de corruption détruite! §e" + destroyed.size() + "/4");
+
+            // GPS vers la prochaine source non détruite
+            for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
+                if (!destroyed.contains(i)) {
+                    Location nextLoc = CORRUPTION_SOURCE_LOCATIONS[i];
+                    String warning = (i == 3) ? " §c(Gardien!)" : "";
+                    player.sendMessage("§e§l➤ §7Prochaine source: §e" + (int)nextLoc.getX() + ", " +
+                            (int)nextLoc.getY() + ", " + (int)nextLoc.getZ() + warning);
+                    break;
+                }
+            }
+            player.sendMessage("");
+        } else {
+            // Quête complétée!
+            onToxicFogQuestComplete(player);
+        }
+
+        // Spawn mini-boss si c'est la dernière source (index 3)
+        if (isLastSource && remainingSources == 0) {
+            // Le boss est géré dans onToxicFogQuestComplete
+        }
+    }
+
+    /**
+     * Appelé quand la quête de la brume toxique est complétée
+     */
+    private void onToxicFogQuestComplete(Player player) {
+        playersWhoCompletedToxicFog.add(player.getUniqueId());
+
+        // Effets de victoire
+        player.sendTitle("§a§l✦ BRUME DISSIPÉE! ✦", "§7Le marais est purifié!", 10, 60, 20);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+
+        // Particules de purification autour du joueur
+        player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.1);
+
+        // Message de récompense
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+        player.sendMessage("  §a§l✦ BRUME TOXIQUE DISSIPÉE! ✦");
+        player.sendMessage("");
+        player.sendMessage("  §7Tu as détruit les §e4 sources de corruption§7!");
+        player.sendMessage("  §7Le marais peut enfin respirer...");
+        player.sendMessage("");
+        player.sendMessage("  §6Récompenses:");
+        player.sendMessage("  §7▸ §e+800 Points");
+        player.sendMessage("  §7▸ §a+22 XP");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                            ");
+        player.sendMessage("");
+
+        // Cacher toutes les sources
+        hideAllSourcesForPlayer(player);
+    }
+
+    /**
+     * Introduction à la quête de la brume toxique
+     */
+    private void introducePlayerToToxicFog(Player player) {
+        playersIntroducedToToxicFog.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.sendTitle("§2§l☣ LA BRUME TOXIQUE ☣", "§7Une corruption empoisonne le marais...", 10, 60, 20);
+                player.playSound(player.getLocation(), Sound.AMBIENT_BASALT_DELTAS_MOOD, 1.0f, 0.5f);
+
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        player.sendMessage("");
+                        player.sendMessage("§8§m                                            ");
+                        player.sendMessage("");
+                        player.sendMessage("  §2§l☣ LA BRUME TOXIQUE");
+                        player.sendMessage("");
+                        player.sendMessage("  §7Une brume empoisonnée a envahi le marais.");
+                        player.sendMessage("  §7Quatre §asources de corruption §7en sont");
+                        player.sendMessage("  §7la cause. Tu dois les §edétruire§7!");
+                        player.sendMessage("");
+                        player.sendMessage("  §c⚠ §7La brume te fait des dégâts tant que");
+                        player.sendMessage("  §7les sources existent!");
+                        player.sendMessage("");
+                        player.sendMessage("  §e▸ Frappe les sources pour les détruire");
+                        player.sendMessage("  §e▸ Attention à la dernière source (gardien)!");
+                        player.sendMessage("");
+                        player.sendMessage("§8§m                                            ");
+                        player.sendMessage("");
+
+                        // GPS vers la première source
+                        Location firstLoc = CORRUPTION_SOURCE_LOCATIONS[0];
+                        player.sendMessage("§e§l➤ §7Première source: §e" + (int)firstLoc.getX() + ", " +
+                                (int)firstLoc.getY() + ", " + (int)firstLoc.getZ());
+                        player.sendMessage("");
+                    }
+                }.runTaskLater(plugin, 40L);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Vérifie si un joueur a complété la quête brume toxique
+     */
+    private boolean hasPlayerCompletedToxicFogQuest(Player player) {
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_7);
+        return progress >= 4;
     }
 }

@@ -159,6 +159,10 @@ public enum JourneyStep {
         "Cimetière: §b914, 87, 8640", StepType.SOUL_PURIFICATION, 5,
         700, 20, Material.SOUL_LANTERN),
 
+    STEP_4_7(JourneyChapter.CHAPTER_4, 7, "La Brume Toxique",
+        "Marécages: §b807, 85, 8450", StepType.TOXIC_FOG_QUEST, 4,
+        800, 22, Material.DRAGON_BREATH),
+
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
     STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
@@ -452,6 +456,10 @@ public enum JourneyStep {
                 else yield current + "/12 champignons";
             }
             case SOUL_PURIFICATION -> current + "/" + targetValue + " âmes purifiées";
+            case TOXIC_FOG_QUEST -> {
+                if (current >= 4) yield "✓ Brume dissipée!";
+                else yield current + "/4 sources détruites";
+            }
         };
     }
 
@@ -632,7 +640,10 @@ public enum JourneyStep {
         MUSHROOM_COLLECTION("Collecte les champignons maudits"),
 
         // Purification d'âmes (Chapitre 4)
-        SOUL_PURIFICATION("Purifie les âmes damnées");
+        SOUL_PURIFICATION("Purifie les âmes damnées"),
+
+        // Brume Toxique (Chapitre 4)
+        TOXIC_FOG_QUEST("Détruis les sources de corruption");
 
         private final String description;
 
