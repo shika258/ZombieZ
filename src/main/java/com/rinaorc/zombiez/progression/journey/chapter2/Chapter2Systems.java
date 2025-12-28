@@ -615,6 +615,7 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Fait spawn Igor le survivant
+     * IMPORTANT: Nettoie les orphelins et ajoute les protections
      */
     private void spawnIgor(World world) {
         Location loc = IGOR_LOCATION.clone();
@@ -624,6 +625,9 @@ public class Chapter2Systems implements Listener {
         if (igorEntity != null && igorEntity.isValid()) {
             igorEntity.remove();
         }
+
+        // CLEANUP: Supprimer les Igor orphelins
+        cleanupOrphanedIgor(world);
 
         // Créer un villageois comme NPC
         Villager igor = world.spawn(loc, Villager.class, npc -> {
@@ -639,11 +643,39 @@ public class Chapter2Systems implements Listener {
             // Équiper avec une hache
             npc.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_AXE));
 
-            // Marquer comme notre NPC
+            // Marquer comme notre NPC (PDC + tag pour cleanup facile)
             npc.getPersistentDataContainer().set(IGOR_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npc.addScoreboardTag("zombiez_igor_npc");
+            npc.setPersistent(false); // Ne pas persister entre les redémarrages
         });
 
         igorEntity = igor;
+    }
+
+    /**
+     * Nettoie les Igor orphelins (en cas de duplication)
+     */
+    private void cleanupOrphanedIgor(World world) {
+        Location searchCenter = IGOR_LOCATION.clone();
+        searchCenter.setWorld(world);
+
+        int removed = 0;
+        for (Entity entity : world.getNearbyEntities(searchCenter, 50, 30, 50)) {
+            if (entity.getScoreboardTags().contains("zombiez_igor_npc")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+            if (entity instanceof Villager villager) {
+                if (villager.getPersistentDataContainer().has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " Igor orphelin(s) supprimé(s)");
+        }
     }
 
     /**
@@ -713,23 +745,26 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Protège le mineur blessé contre TOUS les types de dégâts.
+     * Protège les NPCs du Chapitre 2 contre TOUS les types de dégâts.
      * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
      * Ce listener est une protection supplémentaire.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onMinerDamage(EntityDamageEvent event) {
+    public void onChapter2NPCDamage(EntityDamageEvent event) {
         Entity entity = event.getEntity();
 
         // Vérifier par tag scoreboard (plus rapide que PDC)
-        if (entity.getScoreboardTags().contains("zombiez_injured_miner")) {
+        if (entity.getScoreboardTags().contains("zombiez_injured_miner") ||
+            entity.getScoreboardTags().contains("zombiez_igor_npc")) {
             event.setCancelled(true);
             return;
         }
 
         // Fallback: vérifier par PDC
         if (entity instanceof Villager villager) {
-            if (villager.getPersistentDataContainer().has(INJURED_MINER_KEY, PersistentDataType.BYTE)) {
+            PersistentDataContainer pdc = villager.getPersistentDataContainer();
+            if (pdc.has(INJURED_MINER_KEY, PersistentDataType.BYTE) ||
+                pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
                 event.setCancelled(true);
             }
         }

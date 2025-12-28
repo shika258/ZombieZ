@@ -19,6 +19,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -2147,6 +2148,22 @@ public class Chapter4Systems implements Listener {
                 double damage = calculateZombieZDamage(attacker, weapon, event.getDamage());
                 handleCrystalHit(attacker, damage);
             }
+        }
+    }
+
+    /**
+     * Protège les NPCs du Chapitre 4 contre TOUS les types de dégâts.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onChapter4NPCDamage(EntityDamageEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier par tag scoreboard (plus rapide que PDC)
+        if (entity.getScoreboardTags().contains("chapter4_priest") ||
+            entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
+            entity.getScoreboardTags().contains("chapter4_alchemist")) {
+            event.setCancelled(true);
         }
     }
 
