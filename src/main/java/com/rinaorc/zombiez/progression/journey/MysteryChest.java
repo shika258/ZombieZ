@@ -44,6 +44,17 @@ public enum MysteryChest {
         "Coffre Mystérieux de la Zone 3",
         463, 121, 9440,
         3.0
+    ),
+
+    // ==================== CHAPITRE 4 ====================
+
+    CHAPTER_4_ZONE7_CHEST(
+        "chest_4_zone7",
+        JourneyChapter.CHAPTER_4,
+        7, // Zone ID
+        "Coffre Mystérieux de la Zone 7",
+        137, 150, 8797,
+        3.0
     );
 
     private final String id;
