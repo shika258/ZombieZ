@@ -68,27 +68,13 @@ public class SpawnCommand implements CommandExecutor {
 
     /**
      * Obtient la location de spawn appropriée
-     * Priorité: refugeLocation > centre de la zone spawn > spawn du monde
+     * Location fixe du village de départ ZombieZ
      */
     private Location getSpawnLocation(Zone spawnZone, World world) {
-        // 1. Si la zone a une refugeLocation définie, l'utiliser
-        if (spawnZone != null && spawnZone.getRefugeLocation() != null) {
-            return spawnZone.getRefugeLocation();
-        }
+        World targetWorld = Bukkit.getWorld("world");
+        if (targetWorld == null) targetWorld = world;
 
-        // 2. Si la zone existe, calculer le centre de la zone
-        if (spawnZone != null) {
-            World targetWorld = Bukkit.getWorld("world");
-            if (targetWorld == null) targetWorld = world;
-
-            int centerX = (spawnZone.getMinX() + spawnZone.getMaxX()) / 2;
-            int centerZ = (spawnZone.getMinZ() + spawnZone.getMaxZ()) / 2;
-            int y = targetWorld.getHighestBlockYAt(centerX, centerZ) + 1;
-
-            return new Location(targetWorld, centerX + 0.5, y, centerZ + 0.5);
-        }
-
-        // 3. Fallback: spawn du monde
-        return world.getSpawnLocation();
+        // Location fixe du spawn ZombieZ
+        return new Location(targetWorld, 728.5, 95, 9979.5);
     }
 }
