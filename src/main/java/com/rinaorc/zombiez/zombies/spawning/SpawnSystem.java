@@ -96,6 +96,18 @@ public class SpawnSystem {
     private static final double REDUCED_SPAWN_CHANCE_FIRE_ZONE = 0.25; // 25% de spawn normal dans la zone
     private final NamespacedKey FIRE_ZOMBIE_KEY; // Clé PDC pour tracking Journey étape 6
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ZONE SPÉCIALE: Zone du cimetière (Âmes Damnées - Chapitre 4 Étape 6)
+    // Réduction des spawns normaux pour éviter interférence avec la quête
+    // ═══════════════════════════════════════════════════════════════════════════
+    private static final int SOUL_ZONE_MIN_X = 891;
+    private static final int SOUL_ZONE_MAX_X = 937;
+    private static final int SOUL_ZONE_MIN_Y = 80;
+    private static final int SOUL_ZONE_MAX_Y = 95;
+    private static final int SOUL_ZONE_MIN_Z = 8607;
+    private static final int SOUL_ZONE_MAX_Z = 8673;
+    private static final double REDUCED_SPAWN_CHANCE_SOUL_ZONE = 0.15; // 15% de spawn normal (85% réduit)
+
     // Tick spread pour les joueurs - distribue sur 4 ticks (250ms chacun)
     private static final int PLAYER_SPREAD = 4;
     private int playerTickCounter = 0;
@@ -501,6 +513,16 @@ public class SpawnSystem {
             return; // Skip ce spawn pour réduire la densité de mobs normaux
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ZONE CIMETIÈRE: Réduction des spawns pour éviter interférence avec Âmes Damnées
+        // ═══════════════════════════════════════════════════════════════════
+        boolean inSoulZone = isInSoulZone(spawnLoc);
+
+        // Dans la zone du cimetière, réduire les spawns normaux (85% ignorés)
+        if (inSoulZone && random.nextDouble() > REDUCED_SPAWN_CHANCE_SOUL_ZONE) {
+            return; // Skip ce spawn pour éviter de gêner la quête Âmes Damnées
+        }
+
         // Choisir le type de zombie
         ZombieType type;
         if (inFireZone && random.nextDouble() < FIRE_ZOMBIE_SPAWN_CHANCE) {
@@ -534,6 +556,15 @@ public class SpawnSystem {
         return loc.getX() >= FIRE_ZONE_MIN_X && loc.getX() <= FIRE_ZONE_MAX_X &&
                loc.getY() >= FIRE_ZONE_MIN_Y && loc.getY() <= FIRE_ZONE_MAX_Y &&
                loc.getZ() >= FIRE_ZONE_MIN_Z && loc.getZ() <= FIRE_ZONE_MAX_Z;
+    }
+
+    /**
+     * Vérifie si une location est dans la zone du cimetière (Âmes Damnées)
+     */
+    private boolean isInSoulZone(Location loc) {
+        return loc.getX() >= SOUL_ZONE_MIN_X && loc.getX() <= SOUL_ZONE_MAX_X &&
+               loc.getY() >= SOUL_ZONE_MIN_Y && loc.getY() <= SOUL_ZONE_MAX_Y &&
+               loc.getZ() >= SOUL_ZONE_MIN_Z && loc.getZ() <= SOUL_ZONE_MAX_Z;
     }
 
     /**

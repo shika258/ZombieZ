@@ -110,7 +110,7 @@ public class Chapter4Systems implements Listener {
 
     // Configuration Âmes Damnées
     private static final int MAX_DAMNED_SOULS = 12; // Nombre max d'âmes damnées en même temps
-    private static final double PURIFIER_DROP_CHANCE = 0.33; // 33% de chance de drop
+    private static final double PURIFIER_DROP_CHANCE = 0.40; // 40% de chance de drop
     private static final int SOULS_TO_PURIFY = 5; // Nombre d'âmes à purifier
 
     // === TRACKING ENTITÉS ===
