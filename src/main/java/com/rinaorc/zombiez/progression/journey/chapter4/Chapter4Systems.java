@@ -1,6 +1,8 @@
 package com.rinaorc.zombiez.progression.journey.chapter4;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableType;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.zombies.ZombieManager;
@@ -68,6 +70,8 @@ public class Chapter4Systems implements Listener {
     private final NamespacedKey CORRUPTION_SOURCE_KEY;
     // Arbre Maudit (Creaking Boss)
     private final NamespacedKey ORB_HITBOX_KEY;
+    // Livraison Antidote
+    private final NamespacedKey ANTIDOTE_NPC_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -160,6 +164,10 @@ public class Chapter4Systems implements Listener {
     // Configuration Arbre Maudit
     private static final int ORB_COUNT = 8;
     private static final double ORB_VIEW_DISTANCE = 50;
+
+    // === LIVRAISON ANTIDOTE (ÉTAPE 9) ===
+    // Position du PNJ Alchimiste
+    private static final Location ALCHEMIST_NPC_LOCATION = new Location(null, 317.5, 115, 8529.5, 90, 0);
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -265,6 +273,16 @@ public class Chapter4Systems implements Listener {
     // Compteur pour le nombre total de sources détruites (step progress)
     private final Map<UUID, Integer> playerSourcesDestroyed = new ConcurrentHashMap<>();
 
+    // === TRACKING LIVRAISON ANTIDOTE (ÉTAPE 9) ===
+    // PNJ Alchimiste
+    private Entity alchemistNpcEntity;
+    private TextDisplay alchemistNpcDisplay;
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoDeliveredAntidote = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> playersIntroducedToAntidote = ConcurrentHashMap.newKeySet();
+    private static final double ALCHEMIST_DISPLAY_HEIGHT = 2.5;
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -280,6 +298,7 @@ public class Chapter4Systems implements Listener {
         this.PURIFIER_ITEM_KEY = new NamespacedKey(plugin, "soul_purifier");
         this.CORRUPTION_SOURCE_KEY = new NamespacedKey(plugin, "corruption_source");
         this.ORB_HITBOX_KEY = new NamespacedKey(plugin, "orb_hitbox");
+        this.ANTIDOTE_NPC_KEY = new NamespacedKey(plugin, "antidote_npc");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -354,7 +373,14 @@ public class Chapter4Systems implements Listener {
         startOrbVisibilityUpdater();
         startOrbRespawnChecker();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit)");
+        // === ÉTAPE 9: LIVRAISON ANTIDOTE ===
+        // Spawn le PNJ Alchimiste
+        spawnAlchemistNpc(world);
+
+        // Démarrer le respawn checker
+        startAlchemistNpcRespawnChecker();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste)");
     }
 
     /**
@@ -427,6 +453,19 @@ public class Chapter4Systems implements Listener {
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_orb") ||
                 entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le PNJ Alchimiste
+        Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
+        alchemistLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(alchemistLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter4_alchemist")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
                 entity.remove();
             }
         }
@@ -1950,6 +1989,13 @@ public class Chapter4Systems implements Listener {
         if (entity.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
             event.setCancelled(true);
             handleMushroomCollectorInteraction(player);
+            return;
+        }
+
+        // Interaction avec l'alchimiste
+        if (entity.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleAlchemistInteraction(player);
         }
     }
 
@@ -2147,6 +2193,13 @@ public class Chapter4Systems implements Listener {
                     }
                     playerCollectedOrbs.put(player.getUniqueId(), collectedOrbs);
                 }
+
+                // === ÉTAPE 9: LIVRAISON ANTIDOTE ===
+                int antidoteProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_9);
+                if (antidoteProgress >= 1) {
+                    playersWhoDeliveredAntidote.add(player.getUniqueId());
+                    playersIntroducedToAntidote.add(player.getUniqueId());
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -2196,6 +2249,9 @@ public class Chapter4Systems implements Listener {
                 creakingBoss.remove();
             }
         }
+
+        // Nettoyer les données temporaires - Livraison Antidote
+        playersIntroducedToAntidote.remove(uuid);
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -3462,5 +3518,259 @@ public class Chapter4Systems implements Listener {
     private boolean hasPlayerCompletedCreakingQuest(Player player) {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_8);
         return progress >= ORB_COUNT + 1;
+    }
+
+    // ==================== ÉTAPE 9: LIVRAISON ANTIDOTE ====================
+
+    /**
+     * Spawn le PNJ Alchimiste
+     */
+    private void spawnAlchemistNpc(World world) {
+        Location loc = ALCHEMIST_NPC_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer l'ancien si existant
+        if (alchemistNpcEntity != null && alchemistNpcEntity.isValid()) {
+            alchemistNpcEntity.remove();
+        }
+        if (alchemistNpcDisplay != null && alchemistNpcDisplay.isValid()) {
+            alchemistNpcDisplay.remove();
+        }
+
+        // Spawn le Villager alchimiste
+        alchemistNpcEntity = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("Maître Elric", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
+            villager.setCustomNameVisible(true);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setCollidable(false);
+            villager.setProfession(Villager.Profession.CLERIC);
+            villager.setVillagerType(Villager.Type.SWAMP);
+
+            // Tags
+            villager.addScoreboardTag("chapter4_alchemist");
+            villager.addScoreboardTag("no_trading");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Ne pas persister
+            villager.setPersistent(false);
+
+            // Orientation
+            villager.setRotation(loc.getYaw(), 0);
+        });
+
+        // Créer le TextDisplay au-dessus
+        createAlchemistDisplay(world, loc);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus de l'alchimiste
+     */
+    private void createAlchemistDisplay(World world, Location loc) {
+        Location displayLoc = loc.clone().add(0, ALCHEMIST_DISPLAY_HEIGHT, 0);
+
+        alchemistNpcDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("⚗ ", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text("L'ALCHIMISTE", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" ⚗", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.5f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_alchemist_display");
+        });
+    }
+
+    /**
+     * Démarre le vérificateur de respawn de l'alchimiste
+     */
+    private void startAlchemistNpcRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid() || alchemistNpcEntity.isDead()) {
+                    spawnAlchemistNpc(world);
+                    plugin.log(Level.FINE, "Alchimiste respawné (entité invalide)");
+                }
+
+                if (alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid()) {
+                    Location loc = ALCHEMIST_NPC_LOCATION.clone();
+                    loc.setWorld(world);
+                    createAlchemistDisplay(world, loc);
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Gère l'interaction avec l'alchimiste
+     */
+    private void handleAlchemistInteraction(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si déjà livré l'antidote
+        if (hasPlayerDeliveredAntidote(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"Merci encore pour l'antidote, aventurier.\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Grâce à toi, je pourrai soigner les malades.\"");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Si le joueur n'est pas à l'étape 9
+        if (currentStep != JourneyStep.STEP_4_9) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"Bonjour voyageur...\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Si tu trouves un antidote, apporte-le moi!\"");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Introduction à la quête si première fois
+        if (!playersIntroducedToAntidote.contains(player.getUniqueId())) {
+            introducePlayerToAntidote(player);
+            return;
+        }
+
+        // Vérifier si le joueur a un antidote en main
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        ConsumableType consumableType = Consumable.getType(itemInHand);
+
+        if (consumableType == ConsumableType.ANTIDOTE) {
+            // Retirer l'antidote de la main du joueur
+            if (itemInHand.getAmount() > 1) {
+                itemInHand.setAmount(itemInHand.getAmount() - 1);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
+
+            // Marquer comme complété
+            playersWhoDeliveredAntidote.add(player.getUniqueId());
+
+            // Mettre à jour la progression
+            journeyManager.setStepProgress(player, JourneyStep.STEP_4_9, 1);
+
+            // Effets visuels et sonores
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+            player.getWorld().spawnParticle(Particle.EFFECT, alchemistNpcEntity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.5);
+
+            // Message de victoire
+            player.sendTitle("§a§l✓ ANTIDOTE LIVRÉ!", "§7L'alchimiste te remercie!", 10, 60, 20);
+
+            player.sendMessage("");
+            player.sendMessage("§8§m                                            ");
+            player.sendMessage("");
+            player.sendMessage("  §a§l✦ LE REMÈDE ✦");
+            player.sendMessage("");
+            player.sendMessage("  §5§lMaître Elric: §f\"Merveilleux! Un antidote!\"");
+            player.sendMessage("  §5§lMaître Elric: §f\"Grâce à toi, je pourrai sauver\"");
+            player.sendMessage("  §5§lMaître Elric: §f\"de nombreuses vies! Merci, héros!\"");
+            player.sendMessage("");
+            player.sendMessage("  §6Récompenses:");
+            player.sendMessage("  §7▸ §e+1100 Points");
+            player.sendMessage("  §7▸ §a+28 XP");
+            player.sendMessage("");
+            player.sendMessage("§8§m                                            ");
+            player.sendMessage("");
+
+            // Compléter l'étape via JourneyManager
+            journeyManager.onStepProgress(player, JourneyStep.STEP_4_9, 1);
+        } else {
+            // Le joueur n'a pas d'antidote en main
+            player.sendMessage("");
+            player.sendMessage("§5§lMaître Elric: §f\"As-tu trouvé un antidote?\"");
+            player.sendMessage("§5§lMaître Elric: §f\"Tiens-le en main et parle-moi!\"");
+            player.sendMessage("");
+            player.sendMessage("§e§l➤ §7Rappel: §fLes antidotes peuvent être trouvés");
+            player.sendMessage("  §fsur les §emonstres §fde la zone.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            player.sendMessage("");
+        }
+    }
+
+    /**
+     * Introduction à la quête de livraison d'antidote
+     */
+    private void introducePlayerToAntidote(Player player) {
+        playersIntroducedToAntidote.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§5§lLE REMÈDE", "§7L'alchimiste a besoin d'aide...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 1f, 0.8f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§5§lMaître Elric: §f\"Aventurier, j'ai besoin de ton aide!\"");
+                    }
+                    case 2 -> {
+                        player.sendMessage("§5§lMaître Elric: §f\"La brume toxique a rendu les gens malades.\"");
+                    }
+                    case 3 -> {
+                        player.sendMessage("§5§lMaître Elric: §f\"Apporte-moi un §eantidote §fpour que je\"");
+                        player.sendMessage("§5§lMaître Elric: §f\"puisse créer un remède!\"");
+                    }
+                    case 4 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §7Objectif: §fTrouve un §eantidote §fsur les monstres!");
+                        player.sendMessage("§e§l➤ §7Puis tiens-le en main et parle à l'alchimiste.");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 30L);
+    }
+
+    /**
+     * Vérifie si un joueur a déjà livré l'antidote
+     */
+    public boolean hasPlayerDeliveredAntidote(Player player) {
+        if (playersWhoDeliveredAntidote.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_9);
+        return progress >= 1;
     }
 }

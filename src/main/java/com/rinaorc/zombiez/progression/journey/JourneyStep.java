@@ -167,6 +167,10 @@ public enum JourneyStep {
         "Arbre corrompu: §b453, 91, 8515", StepType.CREAKING_BOSS_QUEST, 9,
         1000, 25, Material.PALE_OAK_LOG),
 
+    STEP_4_9(JourneyChapter.CHAPTER_4, 9, "Le Remède",
+        "Loot: Antidote sur monstres - PNJ: §b317, 115, 8529", StepType.DELIVER_ANTIDOTE, 1,
+        1100, 28, Material.POTION),
+
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
     STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
@@ -469,6 +473,7 @@ public enum JourneyStep {
                 else if (current >= 8) yield "Vaincs le Creaking!";
                 else yield current + "/8 orbes collectées";
             }
+            case DELIVER_ANTIDOTE -> current >= 1 ? "✓ Antidote livré!" : "Livre l'antidote au PNJ";
         };
     }
 
@@ -655,7 +660,10 @@ public enum JourneyStep {
         TOXIC_FOG_QUEST("Détruis les sources de corruption"),
 
         // Boss Creaking de l'Arbre Maudit (Chapitre 4)
-        CREAKING_BOSS_QUEST("Collecte les orbes et vaincs le Creaking");
+        CREAKING_BOSS_QUEST("Collecte les orbes et vaincs le Creaking"),
+
+        // Livraison d'antidote (Chapitre 4)
+        DELIVER_ANTIDOTE("Livre un antidote au PNJ");
 
         private final String description;
 
