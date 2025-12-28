@@ -551,6 +551,67 @@ public class JourneyManager {
     }
 
     /**
+     * Définit directement la progression d'une étape spécifique
+     * Utilisé par les systèmes de quêtes personnalisées (Chapter1Systems, Chapter4Systems, etc.)
+     *
+     * @param player Le joueur
+     * @param step L'étape concernée
+     * @param progress La nouvelle valeur de progression
+     */
+    public void setStepProgress(Player player, JourneyStep step, int progress) {
+        UUID uuid = player.getUniqueId();
+        String stepId = step.getId();
+
+        // Mettre à jour le cache
+        stepProgressCache.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>())
+            .put(stepId, progress);
+
+        // Mettre à jour PlayerData
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data != null) {
+            data.setJourneyStepProgress(stepId, progress);
+        }
+
+        // Mettre à jour la BossBar
+        createOrUpdateBossBar(player);
+    }
+
+    /**
+     * Notifie le système qu'une étape a progressé et vérifie la complétion
+     * Utilisé après setStepProgress pour déclencher la complétion automatique
+     *
+     * @param player Le joueur
+     * @param step L'étape concernée
+     * @param progress La valeur de progression actuelle
+     */
+    public void onStepProgress(Player player, JourneyStep step, int progress) {
+        // Vérifier si c'est l'étape actuelle
+        JourneyStep currentStep = getCurrentStep(player);
+        if (currentStep != step) return;
+
+        // Vérifier la complétion
+        if (step.isCompleted(progress)) {
+            completeStep(player, step);
+        }
+
+        // Mettre à jour la BossBar
+        createOrUpdateBossBar(player);
+    }
+
+    /**
+     * Obtient le niveau du joueur
+     * Utilitaire pour les systèmes de quêtes
+     *
+     * @param player Le joueur
+     * @return Le niveau du joueur, ou 1 par défaut
+     */
+    public int getPlayerLevel(Player player) {
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
+        if (data == null) return 1;
+        return data.getLevel().get();
+    }
+
+    /**
      * Complète une étape et passe à la suivante
      */
     private void completeStep(Player player, JourneyStep step) {

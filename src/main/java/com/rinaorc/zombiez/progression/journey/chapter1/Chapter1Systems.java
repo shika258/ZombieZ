@@ -419,7 +419,7 @@ public class Chapter1Systems implements Listener {
         // Placer les flammes
         ItemStack fire = new ItemBuilder(Material.CAMPFIRE)
                 .name("§c§l🔥 FLAMME 🔥")
-                .addLoreLine("§7Clique pour éteindre!")
+                .lore("§7Clique pour éteindre!")
                 .build();
 
         for (int slot : FIRE_SLOTS) {
@@ -457,7 +457,7 @@ public class Chapter1Systems implements Listener {
         // Remplacer par de la fumée
         ItemStack smoke = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
                 .name("§7§l✓ Éteint!")
-                .addLoreLine("§aFlamme éteinte")
+                .lore("§aFlamme éteinte")
                 .build();
         gui.setItem(slot, smoke);
 
