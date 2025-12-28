@@ -1757,8 +1757,16 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid()) {
-                    return;
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Respawn le panneau de contrôle si les entités sont devenues invalides (chunk unload, etc.)
+                boolean visualInvalid = zeppelinControlVisual == null || !zeppelinControlVisual.isValid();
+                boolean hitboxInvalid = zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid();
+                boolean displayInvalid = zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid();
+                if (visualInvalid || hitboxInvalid || displayInvalid) {
+                    spawnZeppelinControl(world);
+                    return; // Attendre le prochain tick pour la visibilité
                 }
 
                 Location controlLoc = zeppelinControlHitbox.getLocation();
