@@ -2934,9 +2934,15 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
+                    // Vérifier si le joueur a DÉJÀ complété la quête (immunité permanente)
+                    if (hasPlayerCompletedToxicFogQuest(player)) {
+                        playersInSwampZone.remove(player.getUniqueId());
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est à l'étape de la brume toxique
                     JourneyStep currentStep = journeyManager.getCurrentStep(player);
                     if (currentStep != JourneyStep.STEP_4_7) continue;
-                    if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) continue;
 
                     // Vérifier si dans la zone
                     if (isInSwampZone(player.getLocation())) {
