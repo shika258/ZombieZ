@@ -45,7 +45,8 @@ public class Chapter4Systems implements Listener {
 
     // === CLÉS PDC ===
     private final NamespacedKey PRIEST_NPC_KEY;
-    private final NamespacedKey GRAVE_ARMORSTAND_KEY;
+    private final NamespacedKey GRAVE_VISUAL_KEY;
+    private final NamespacedKey GRAVE_HITBOX_KEY;
     private final NamespacedKey GRAVEDIGGER_BOSS_KEY;
 
     // === POSITIONS ===
@@ -71,8 +72,9 @@ public class Chapter4Systems implements Listener {
     private Entity priestEntity;
     private TextDisplay priestDisplay;
 
-    // ArmorStands des tombes (per-player visibility)
-    private final ArmorStand[] graveArmorStands = new ArmorStand[5];
+    // Tombes (ItemDisplay COARSE_DIRT glowing + Interaction hitbox + TextDisplay)
+    private final ItemDisplay[] graveVisuals = new ItemDisplay[5];
+    private final Interaction[] graveHitboxes = new Interaction[5];
     private final TextDisplay[] graveDisplays = new TextDisplay[5];
 
     // === TRACKING JOUEURS ===
@@ -103,7 +105,8 @@ public class Chapter4Systems implements Listener {
 
         // Initialiser les clés PDC
         this.PRIEST_NPC_KEY = new NamespacedKey(plugin, "gravedigger_priest");
-        this.GRAVE_ARMORSTAND_KEY = new NamespacedKey(plugin, "grave_armorstand");
+        this.GRAVE_VISUAL_KEY = new NamespacedKey(plugin, "grave_visual");
+        this.GRAVE_HITBOX_KEY = new NamespacedKey(plugin, "grave_hitbox");
         this.GRAVEDIGGER_BOSS_KEY = new NamespacedKey(plugin, "gravedigger_boss");
 
         // Enregistrer le listener
@@ -383,6 +386,49 @@ public class Chapter4Systems implements Listener {
 
         // Afficher le titre
         player.sendTitle("§6✝ LE FOSSOYEUR", "§7Creuse les 5 tombes maudites", 10, 60, 20);
+
+        // Activer le GPS vers la première tombe
+        activateGPSToNearestGrave(player);
+    }
+
+    /**
+     * Active le GPS vers la tombe non creusée la plus proche
+     */
+    private void activateGPSToNearestGrave(Player player) {
+        Location nearestGrave = findNearestUndugGrave(player);
+        if (nearestGrave != null) {
+            // Afficher les coordonnées dans le chat comme guide
+            player.sendMessage("");
+            player.sendMessage("§e§l➤ §7Tombe la plus proche: §e" +
+                    nearestGrave.getBlockX() + ", " +
+                    nearestGrave.getBlockY() + ", " +
+                    nearestGrave.getBlockZ());
+            player.sendMessage("§7Suis les §dtombes lumineuses §7dans le cimetière!");
+            player.sendMessage("");
+        }
+    }
+
+    /**
+     * Trouve la tombe non creusée la plus proche du joueur
+     */
+    private Location findNearestUndugGrave(Player player) {
+        Location playerLoc = player.getLocation();
+        Location nearest = null;
+        double nearestDistSq = Double.MAX_VALUE;
+
+        for (int i = 0; i < 5; i++) {
+            if (!hasPlayerDugGrave(player, i)) {
+                Location graveLoc = GRAVE_LOCATIONS[i].clone();
+                graveLoc.setWorld(player.getWorld());
+                double distSq = playerLoc.distanceSquared(graveLoc);
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearest = graveLoc;
+                }
+            }
+        }
+
+        return nearest;
     }
 
     /**
@@ -434,46 +480,64 @@ public class Chapter4Systems implements Listener {
         Location loc = GRAVE_LOCATIONS[graveIndex].clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien
-        if (graveArmorStands[graveIndex] != null && graveArmorStands[graveIndex].isValid()) {
-            graveArmorStands[graveIndex].remove();
+        // Supprimer les anciens
+        if (graveVisuals[graveIndex] != null && graveVisuals[graveIndex].isValid()) {
+            graveVisuals[graveIndex].remove();
+        }
+        if (graveHitboxes[graveIndex] != null && graveHitboxes[graveIndex].isValid()) {
+            graveHitboxes[graveIndex].remove();
         }
         if (graveDisplays[graveIndex] != null && graveDisplays[graveIndex].isValid()) {
             graveDisplays[graveIndex].remove();
         }
 
-        // Spawn l'ArmorStand (représente une pelle plantée dans le sol)
-        graveArmorStands[graveIndex] = world.spawn(loc, ArmorStand.class, as -> {
-            // Équipement: une pelle en fer dans la main
-            as.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_SHOVEL));
+        // 1. Créer le VISUEL (ItemDisplay avec COARSE_DIRT glowing)
+        graveVisuals[graveIndex] = world.spawn(loc.clone().add(0, 0.5, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.COARSE_DIRT));
 
-            // Configuration
-            as.setGravity(false);
-            as.setInvulnerable(false); // Doit pouvoir être frappé
-            as.setVisible(true);
-            as.setBasePlate(false);
-            as.setArms(true);
-            as.setSmall(false);
+            // Taille légèrement plus grande pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
 
-            // Pose: bras levé avec la pelle
-            as.setRightArmPose(new org.bukkit.util.EulerAngle(Math.toRadians(-45), 0, Math.toRadians(45)));
+            display.setBillboard(Display.Billboard.FIXED);
 
-            // Tags
-            as.addScoreboardTag("chapter4_grave");
-            as.addScoreboardTag("grave_index_" + graveIndex);
-            as.addScoreboardTag("zombiez_npc");
+            // Glow effect violet pour effet mystique
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(180, 100, 255));
+
+            display.setViewRange(48f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_grave_visual");
+            display.addScoreboardTag("grave_visual_" + graveIndex);
 
             // PDC
-            as.getPersistentDataContainer().set(GRAVE_ARMORSTAND_KEY, PersistentDataType.INTEGER, graveIndex);
-
-            // Ne pas persister
-            as.setPersistent(false);
-
-            // Invisible par défaut (per-player visibility)
-            as.setVisibleByDefault(false);
+            display.getPersistentDataContainer().set(GRAVE_VISUAL_KEY, PersistentDataType.INTEGER, graveIndex);
         });
 
-        // Créer le TextDisplay au-dessus
+        // 2. Créer l'entité INTERACTION (hitbox cliquable/frappable)
+        graveHitboxes[graveIndex] = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.5f);
+            interaction.setInteractionHeight(1.5f);
+            interaction.setResponsive(true); // Active la réponse aux attaques (left-click)
+
+            // Tags
+            interaction.addScoreboardTag("chapter4_grave_hitbox");
+            interaction.addScoreboardTag("grave_hitbox_" + graveIndex);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            interaction.getPersistentDataContainer().set(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER, graveIndex);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+
+        // 3. Créer le TextDisplay au-dessus
         createGraveDisplay(world, loc, graveIndex);
     }
 
@@ -549,26 +613,35 @@ public class Chapter4Systems implements Listener {
      * Met à jour la visibilité des tombes pour un joueur
      */
     private void updateGraveVisibilityForPlayer(Player player) {
-        int gravesDug = playerGravesDug.getOrDefault(player.getUniqueId(), 0);
-
         for (int i = 0; i < 5; i++) {
             boolean hasDigThis = hasPlayerDugGrave(player, i);
 
             // Distance check
             boolean inRange = false;
-            if (graveArmorStands[i] != null && graveArmorStands[i].isValid()) {
-                double distSq = player.getLocation().distanceSquared(graveArmorStands[i].getLocation());
+            if (graveVisuals[i] != null && graveVisuals[i].isValid()) {
+                double distSq = player.getLocation().distanceSquared(graveVisuals[i].getLocation());
                 inRange = distSq <= GRAVE_VIEW_DISTANCE * GRAVE_VIEW_DISTANCE;
             }
 
-            if (graveArmorStands[i] != null && graveArmorStands[i].isValid()) {
+            // Visual (COARSE_DIRT block)
+            if (graveVisuals[i] != null && graveVisuals[i].isValid()) {
                 if (hasDigThis || !inRange) {
-                    player.hideEntity(plugin, graveArmorStands[i]);
+                    player.hideEntity(plugin, graveVisuals[i]);
                 } else {
-                    player.showEntity(plugin, graveArmorStands[i]);
+                    player.showEntity(plugin, graveVisuals[i]);
                 }
             }
 
+            // Hitbox (Interaction)
+            if (graveHitboxes[i] != null && graveHitboxes[i].isValid()) {
+                if (hasDigThis || !inRange) {
+                    player.hideEntity(plugin, graveHitboxes[i]);
+                } else {
+                    player.showEntity(plugin, graveHitboxes[i]);
+                }
+            }
+
+            // TextDisplay
             if (graveDisplays[i] != null && graveDisplays[i].isValid()) {
                 if (hasDigThis || !inRange) {
                     player.hideEntity(plugin, graveDisplays[i]);
@@ -584,8 +657,11 @@ public class Chapter4Systems implements Listener {
      */
     private void hideAllGravesForPlayer(Player player) {
         for (int i = 0; i < 5; i++) {
-            if (graveArmorStands[i] != null && graveArmorStands[i].isValid()) {
-                player.hideEntity(plugin, graveArmorStands[i]);
+            if (graveVisuals[i] != null && graveVisuals[i].isValid()) {
+                player.hideEntity(plugin, graveVisuals[i]);
+            }
+            if (graveHitboxes[i] != null && graveHitboxes[i].isValid()) {
+                player.hideEntity(plugin, graveHitboxes[i]);
             }
             if (graveDisplays[i] != null && graveDisplays[i].isValid()) {
                 player.hideEntity(plugin, graveDisplays[i]);
@@ -604,7 +680,11 @@ public class Chapter4Systems implements Listener {
                 if (world == null) return;
 
                 for (int i = 0; i < 5; i++) {
-                    if (graveArmorStands[i] == null || !graveArmorStands[i].isValid()) {
+                    boolean needsRespawn = (graveVisuals[i] == null || !graveVisuals[i].isValid()) ||
+                            (graveHitboxes[i] == null || !graveHitboxes[i].isValid()) ||
+                            (graveDisplays[i] == null || !graveDisplays[i].isValid());
+
+                    if (needsRespawn) {
                         spawnGrave(world, i);
                         plugin.log(Level.FINE, "Tombe " + i + " respawnée");
                     }
@@ -654,10 +734,9 @@ public class Chapter4Systems implements Listener {
         hits[graveIndex]++;
         int currentHits = hits[graveIndex];
 
-        // Afficher la progression
+        // Afficher la progression dans le TextDisplay de la tombe
         double progress = (double) currentHits / HITS_TO_DIG;
-        String progressBar = createProgressBar(progress);
-        player.sendActionBar(Component.text("§e⛏ Creusage: " + progressBar + " §7(" + currentHits + "/" + HITS_TO_DIG + ")"));
+        updateGraveDisplayProgress(graveIndex, currentHits, HITS_TO_DIG);
 
         // Effets de creusage
         Location graveLoc = GRAVE_LOCATIONS[graveIndex].clone();
@@ -671,6 +750,26 @@ public class Chapter4Systems implements Listener {
         if (currentHits >= HITS_TO_DIG) {
             onGraveDug(player, graveIndex);
         }
+    }
+
+    /**
+     * Met à jour le TextDisplay d'une tombe avec la progression
+     */
+    private void updateGraveDisplayProgress(int graveIndex, int currentHits, int maxHits) {
+        TextDisplay display = graveDisplays[graveIndex];
+        if (display == null || !display.isValid()) return;
+
+        String progressBar = createProgressBar((double) currentHits / maxHits);
+
+        display.text(Component.text()
+                .append(Component.text("⚰ ", NamedTextColor.DARK_PURPLE))
+                .append(Component.text("TOMBE " + (graveIndex + 1), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                .append(Component.text(" ⚰", NamedTextColor.DARK_PURPLE))
+                .append(Component.newline())
+                .append(Component.text("⛏ ", NamedTextColor.YELLOW))
+                .append(Component.text(progressBar, NamedTextColor.WHITE))
+                .append(Component.text(" " + currentHits + "/" + maxHits, NamedTextColor.GRAY))
+                .build());
     }
 
     /**
@@ -703,6 +802,9 @@ public class Chapter4Systems implements Listener {
         // Cacher la tombe pour ce joueur
         updateGraveVisibilityForPlayer(player);
 
+        // Incrémenter la progression du Journey (+1 par tombe)
+        journeyManager.incrementProgress(player, JourneyStep.StepType.GRAVEDIGGER_QUEST, 1);
+
         // Effets de découverte
         player.playSound(graveLoc, Sound.BLOCK_STONE_BREAK, 1f, 0.5f);
         player.getWorld().spawnParticle(Particle.SOUL, graveLoc.add(0, 0.5, 0), 20, 0.5, 0.5, 0.5, 0.02);
@@ -720,6 +822,9 @@ public class Chapter4Systems implements Listener {
             } else {
                 onZombiesSpawn(player, graveLoc, gravesDug);
             }
+
+            // Activer le GPS vers la prochaine tombe
+            activateGPSToNearestGrave(player);
         }
 
         // Message de progression
@@ -992,9 +1097,9 @@ public class Chapter4Systems implements Listener {
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         Entity damaged = event.getEntity();
 
-        // Hit sur une tombe (ArmorStand)
-        if (damaged instanceof ArmorStand && damaged.getPersistentDataContainer().has(GRAVE_ARMORSTAND_KEY, PersistentDataType.INTEGER)) {
-            event.setCancelled(true); // Ne pas détruire l'ArmorStand
+        // Hit sur une tombe (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
             if (event.getDamager() instanceof Player p) {
@@ -1004,7 +1109,7 @@ public class Chapter4Systems implements Listener {
             }
 
             if (attacker != null) {
-                Integer graveIndex = damaged.getPersistentDataContainer().get(GRAVE_ARMORSTAND_KEY, PersistentDataType.INTEGER);
+                Integer graveIndex = damaged.getPersistentDataContainer().get(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER);
                 if (graveIndex != null) {
                     handleGraveHit(attacker, graveIndex);
                 }
