@@ -4,7 +4,9 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.combat.DPSTracker;
 import com.rinaorc.zombiez.combat.PacketDamageIndicator;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.progression.SkillTreeManager.SkillBonus;
 import com.rinaorc.zombiez.zones.Zone;
 import org.bukkit.Color;
@@ -894,16 +896,23 @@ public class CombatListener implements Listener {
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
         var skillManager = plugin.getSkillTreeManager();
 
-        // ============ ARMURE (réduction asymptotique) ============
-        // Formule: reduction = armor / (armor + 100)
-        // 50 armure = 33% réduction, 100 = 50%, 200 = 66%
+        // ============ ARMURE (réduction asymptotique améliorée) ============
+        // Formule: reduction = armor / (armor + 50)
+        // 25 armure = 33% réduction, 50 = 50%, 100 = 66%, 150 = 75%
         double armor = playerStats.getOrDefault(StatType.ARMOR, 0.0);
         double armorPercent = playerStats.getOrDefault(StatType.ARMOR_PERCENT, 0.0);
         double totalArmor = armor * (1 + armorPercent / 100.0);
 
         if (totalArmor > 0) {
-            double armorReduction = totalArmor / (totalArmor + 100.0);
+            double armorReduction = totalArmor / (totalArmor + 50.0);
             finalDamage *= (1 - armorReduction);
+        }
+
+        // ============ BONUS DE RARETÉ D'ARMURE ============
+        // Les armures de haute rareté offrent une réduction de dégâts bonus
+        double rarityBonus = calculateArmorRarityBonus(player);
+        if (rarityBonus > 0) {
+            finalDamage *= (1 - rarityBonus / 100.0);
         }
 
         // ============ RÉDUCTION DE DÉGÂTS % (items + skills) ============
@@ -1448,5 +1457,57 @@ public class CombatListener implements Listener {
         // Lueur ambiante
         loc.getWorld().spawnParticle(Particle.DUST, bottom.add(0, 0.5, 0), 10, 0.5, 0.5, 0.5, 0,
             new Particle.DustOptions(Color.fromRGB(200, 220, 255), 1.2f));
+    }
+
+    /**
+     * Calcule le bonus de réduction de dégâts basé sur la rareté moyenne des armures équipées.
+     * Les armures de haute rareté offrent une protection supplémentaire.
+     *
+     * @param player Le joueur
+     * @return Le pourcentage de réduction bonus (0-15%)
+     */
+    private double calculateArmorRarityBonus(Player player) {
+        // Bonus par rareté d'armure (par pièce)
+        // COMMON = 0%, UNCOMMON = 1%, RARE = 2%, EPIC = 3%, LEGENDARY = 4%
+        // Full set bonus: COMMON = 0%, UNCOMMON = 4%, RARE = 8%, EPIC = 12%, LEGENDARY = 16%
+
+        double totalBonus = 0;
+        int armorPieces = 0;
+
+        ItemStack[] armorContents = player.getInventory().getArmorContents();
+        for (ItemStack armor : armorContents) {
+            if (armor == null || armor.getType().isAir()) continue;
+
+            Rarity rarity = ZombieZItem.getItemRarity(armor);
+            if (rarity != null) {
+                armorPieces++;
+                totalBonus += switch (rarity) {
+                    case COMMON -> 0.0;
+                    case UNCOMMON -> 1.0;
+                    case RARE -> 2.0;
+                    case EPIC -> 3.0;
+                    case LEGENDARY -> 4.0;
+                    case MYTHIC -> 5.0;
+                    case EXALTED -> 6.0;
+                };
+            }
+        }
+
+        // Bonus supplémentaire si full set de même rareté haute (Epic+)
+        if (armorPieces == 4) {
+            Rarity firstRarity = ZombieZItem.getItemRarity(armorContents[0]);
+            boolean fullSet = true;
+            for (ItemStack armor : armorContents) {
+                if (armor == null || ZombieZItem.getItemRarity(armor) != firstRarity) {
+                    fullSet = false;
+                    break;
+                }
+            }
+            if (fullSet && firstRarity != null && firstRarity.ordinal() >= Rarity.EPIC.ordinal()) {
+                totalBonus += 2.0; // Bonus set complet
+            }
+        }
+
+        return totalBonus;
     }
 }
