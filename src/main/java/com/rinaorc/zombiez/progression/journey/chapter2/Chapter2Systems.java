@@ -413,10 +413,59 @@ public class Chapter2Systems implements Listener {
      * Initialise les NPCs du chapitre 2
      */
     private void initializeNPCs(World world) {
+        // Nettoyage GLOBAL de tous les NPCs orphelins avant spawn (sécurité maxmobs=1)
+        cleanupAllOrphanedNPCs(world);
+
         // Spawn le mineur blessé
         spawnInjuredMiner(world);
         // Spawn Igor
         spawnIgor(world);
+    }
+
+    /**
+     * Nettoyage GLOBAL de tous les NPCs de quête orphelins dans le monde entier.
+     * Garantit maxmobs=1 en supprimant TOUTES les instances avant de respawner.
+     * Recherche dans le monde entier, pas juste à proximité des spawns.
+     */
+    private void cleanupAllOrphanedNPCs(World world) {
+        int totalRemoved = 0;
+
+        for (Entity entity : world.getEntities()) {
+            // Nettoyer les mineurs blessés orphelins
+            if (entity.getScoreboardTags().contains("zombiez_injured_miner")) {
+                entity.remove();
+                totalRemoved++;
+                continue;
+            }
+
+            // Nettoyer les Igor orphelins
+            if (entity.getScoreboardTags().contains("zombiez_igor_npc")) {
+                entity.remove();
+                totalRemoved++;
+                continue;
+            }
+
+            // Nettoyer les displays du mineur
+            if (entity.getScoreboardTags().contains("miner_display")) {
+                entity.remove();
+                totalRemoved++;
+                continue;
+            }
+
+            // Fallback: vérifier par PDC pour les anciennes entités sans tag
+            if (entity instanceof Villager villager) {
+                PersistentDataContainer pdc = villager.getPersistentDataContainer();
+                if (pdc.has(INJURED_MINER_KEY, PersistentDataType.BYTE) ||
+                    pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    totalRemoved++;
+                }
+            }
+        }
+
+        if (totalRemoved > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter2: " + totalRemoved + " entité(s) orpheline(s) supprimée(s)");
+        }
     }
 
     /**
@@ -484,20 +533,24 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Nettoie tous les villageois orphelins avec la clé PDC du mineur blessé.
-     * Appelé avant chaque spawn pour garantir qu'il n'y a jamais plus d'un mineur.
-     * Optimisé: utilise le scoreboard tag pour une recherche rapide.
+     * Nettoie TOUS les villageois orphelins avec la clé PDC du mineur blessé dans le MONDE ENTIER.
+     * Appelé avant chaque spawn pour garantir MAXMOBS=1 (une seule instance).
+     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOrphanedInjuredMiners(World world) {
         int removed = 0;
 
-        // Recherche dans un rayon large autour de la position du mineur
-        Location searchCenter = MINER_LOCATION.clone();
-        searchCenter.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(searchCenter, 100, 50, 100)) {
+        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
+        for (Entity entity : world.getEntities()) {
             // Vérifier par tag scoreboard (plus rapide)
             if (entity.getScoreboardTags().contains("zombiez_injured_miner")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer aussi les displays du mineur
+            if (entity.getScoreboardTags().contains("miner_display")) {
                 entity.remove();
                 removed++;
                 continue;
@@ -513,7 +566,7 @@ public class Chapter2Systems implements Listener {
         }
 
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " mineur(s) blessé(s) orphelin(s) supprimé(s)");
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " mineur(s) blessé(s) orphelin(s) supprimé(s)");
         }
     }
 
@@ -653,14 +706,15 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Nettoie les Igor orphelins (en cas de duplication)
+     * Nettoie TOUS les Igor orphelins dans le MONDE ENTIER.
+     * Garantit MAXMOBS=1 (une seule instance d'Igor).
+     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOrphanedIgor(World world) {
-        Location searchCenter = IGOR_LOCATION.clone();
-        searchCenter.setWorld(world);
-
         int removed = 0;
-        for (Entity entity : world.getNearbyEntities(searchCenter, 50, 30, 50)) {
+
+        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
+        for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("zombiez_igor_npc")) {
                 entity.remove();
                 removed++;
@@ -674,7 +728,7 @@ public class Chapter2Systems implements Listener {
             }
         }
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " Igor orphelin(s) supprimé(s)");
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " Igor orphelin(s) supprimé(s)");
         }
     }
 
@@ -1483,10 +1537,12 @@ public class Chapter2Systems implements Listener {
     // visibilité per-player
 
     /**
-     * Démarre le système de TextDisplay per-player.
+     * Démarre le système de TextDisplay per-player et le respawn automatique des NPCs.
      * Utilise deux TextDisplays fixes (Blessé / Soigné) et gère la visibilité
      * per-player via l'API Paper showEntity/hideEntity.
-     * Respawne automatiquement le mineur si l'entité est invalide.
+     *
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement les NPCs s'ils sont invalides,
+     * avec nettoyage préalable pour garantir une seule instance.
      */
     private void startNPCNameUpdater() {
         new BukkitRunnable() {
@@ -1495,44 +1551,39 @@ public class Chapter2Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
-                // Vérifier si le mineur existe, sinon le respawner
+                // === SÉCURITÉ MINEUR BLESSÉ (maxmobs=1) ===
+                // Respawn TOUJOURS si l'entité est invalide, pas besoin de joueurs à proximité
+                // Car le chunk peut être chargé par d'autres moyens (téléportation, etc.)
                 if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
-                    // Vérifier s'il y a des joueurs à proximité avant de respawner
+                    // Forcer le chargement du chunk avant le respawn
                     Location minerLoc = MINER_LOCATION.clone();
                     minerLoc.setWorld(world);
-
-                    boolean playersNearby = false;
-                    for (Player player : world.getPlayers()) {
-                        if (player.getLocation().distanceSquared(minerLoc) <= 10000) { // 100 blocs
-                            playersNearby = true;
-                            break;
-                        }
+                    if (!minerLoc.getChunk().isLoaded()) {
+                        minerLoc.getChunk().load();
                     }
 
-                    if (playersNearby) {
-                        plugin.log(Level.INFO, "Mineur blessé invalide, respawn automatique...");
-                        spawnInjuredMiner(world);
-                    }
-                    // Continuer pour vérifier Igor aussi
+                    // Nettoyage global avant respawn pour garantir maxmobs=1
+                    cleanupOrphanedInjuredMiners(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter2] Mineur blessé invalide, respawn automatique...");
+                    spawnInjuredMiner(world);
                 }
 
-                // Vérifier si Igor existe, sinon le respawner
+                // === SÉCURITÉ IGOR (maxmobs=1) ===
+                // Respawn TOUJOURS si l'entité est invalide
                 if (igorEntity == null || !igorEntity.isValid()) {
+                    // Forcer le chargement du chunk avant le respawn
                     Location igorLoc = IGOR_LOCATION.clone();
                     igorLoc.setWorld(world);
-
-                    boolean playersNearIgor = false;
-                    for (Player player : world.getPlayers()) {
-                        if (player.getLocation().distanceSquared(igorLoc) <= 10000) { // 100 blocs
-                            playersNearIgor = true;
-                            break;
-                        }
+                    if (!igorLoc.getChunk().isLoaded()) {
+                        igorLoc.getChunk().load();
                     }
 
-                    if (playersNearIgor) {
-                        plugin.log(Level.INFO, "Igor invalide, respawn automatique...");
-                        spawnIgor(world);
-                    }
+                    // Nettoyage global avant respawn pour garantir maxmobs=1
+                    cleanupOrphanedIgor(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter2] Igor invalide, respawn automatique...");
+                    spawnIgor(world);
                 }
 
                 // Si le mineur n'est toujours pas valide, on arrête ici
