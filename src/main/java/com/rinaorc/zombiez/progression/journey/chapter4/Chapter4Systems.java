@@ -23,6 +23,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -1038,11 +1040,14 @@ public class Chapter4Systems implements Listener {
 
     // ==================== BOSS (PHASE 3) ====================
 
+    // Position fixe de spawn du boss Fossoyeur
+    private static final Location GRAVEDIGGER_BOSS_SPAWN = new Location(null, 668.5, 90, 8733.5);
+
     /**
      * Spawn le boss "Le Premier Mort"
      */
     private void spawnGravediggerBoss(Player player, Location loc) {
-        World world = loc.getWorld();
+        World world = player.getWorld();
         if (world == null) return;
 
         ZombieManager zombieManager = plugin.getZombieManager();
@@ -1051,10 +1056,14 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
+        // Position fixe du boss (indépendant de la dernière tombe creusée)
+        Location bossSpawnLoc = GRAVEDIGGER_BOSS_SPAWN.clone();
+        bossSpawnLoc.setWorld(world);
+
         // Spawn via ZombieManager
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(
                 ZombieType.GRAVEDIGGER_BOSS,
-                loc.add(0, 1, 0),
+                bossSpawnLoc,
                 20 // Niveau 20
         );
 
@@ -1076,8 +1085,12 @@ public class Chapter4Systems implements Listener {
         playerBossMap.put(player.getUniqueId(), bossZombie.getUniqueId());
 
         // Effets de spawn
-        world.playSound(loc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 2f, 0.5f);
-        world.spawnParticle(Particle.EXPLOSION_EMITTER, loc, 2, 0, 0, 0);
+        world.playSound(bossSpawnLoc, Sound.ENTITY_WITHER_SKELETON_AMBIENT, 2f, 0.5f);
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, bossSpawnLoc, 2, 0, 0, 0);
+
+        // Indiquer la position du boss au joueur
+        player.sendMessage("§c§l⚠ §7Le boss est apparu en §e" + (int) bossSpawnLoc.getX() + ", " +
+                (int) bossSpawnLoc.getY() + ", " + (int) bossSpawnLoc.getZ() + "§7!");
     }
 
     /**
@@ -1110,6 +1123,23 @@ public class Chapter4Systems implements Listener {
 
         // Target le joueur
         boss.setTarget(player);
+
+        // Glowing rouge pour visibilité
+        boss.setGlowing(true);
+        applyRedGlowing(boss);
+    }
+
+    /**
+     * Applique un glowing rouge au boss via le scoreboard
+     */
+    private void applyRedGlowing(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team redTeam = scoreboard.getTeam("gravedigger_boss_red");
+        if (redTeam == null) {
+            redTeam = scoreboard.registerNewTeam("gravedigger_boss_red");
+            redTeam.color(NamedTextColor.RED);
+        }
+        redTeam.addEntity(entity);
     }
 
     /**
