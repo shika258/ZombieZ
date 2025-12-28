@@ -1849,6 +1849,14 @@ public class Chapter4Systems implements Listener {
                     }
                     playerMushroomHits.put(player.getUniqueId(), hits);
                 }
+
+                // Recharger la progression purification des âmes
+                int soulProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_6);
+                if (soulProgress >= SOULS_TO_PURIFY) {
+                    playersWhoCompletedSouls.add(player.getUniqueId());
+                } else if (soulProgress > 0) {
+                    playerSoulsPurified.put(player.getUniqueId(), soulProgress);
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
