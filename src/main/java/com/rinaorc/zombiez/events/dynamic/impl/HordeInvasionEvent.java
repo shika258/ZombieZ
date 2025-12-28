@@ -617,8 +617,8 @@ public class HordeInvasionEvent extends DynamicEvent {
         World world = center.getWorld();
         if (world == null) return;
 
-        // Calculer le nombre de loot basé sur les vagues complétées (8-12 items)
-        int lootCount = 8 + Math.min(4, wavesCompleted);
+        // Calculer le nombre de loot basé sur les vagues complétées (4-8 items)
+        int lootCount = 4 + Math.min(4, wavesCompleted);
 
         // Effet sonore de récompense
         world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);

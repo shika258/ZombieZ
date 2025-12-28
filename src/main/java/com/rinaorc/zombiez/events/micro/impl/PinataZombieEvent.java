@@ -52,8 +52,8 @@ public class PinataZombieEvent extends MicroEvent {
     // Configuration - Max health in Minecraft is 1024000.0
     private static final double PINATA_HEALTH = 1024000.0;
     private static final double DAMAGE_PER_HIT = 102400.0; // Degats fixes par hit (garantit ~10 hits minimum)
-    private static final int BASE_LOOT_COUNT = 8;
-    private static final int MAX_LOOT_COUNT = 15;
+    private static final int BASE_LOOT_COUNT = 1;
+    private static final int MAX_LOOT_COUNT = 5;
     private static final float TEXT_SCALE = 1.4f;
 
     public PinataZombieEvent(ZombieZPlugin plugin, Player player, Location location, Zone zone) {
@@ -161,7 +161,7 @@ public class PinataZombieEvent extends MicroEvent {
             .append(Component.text("Hits: ", NamedTextColor.GRAY))
             .append(Component.text(hits + " ", NamedTextColor.WHITE, TextDecoration.BOLD))
             .append(Component.text("| Loot: ", NamedTextColor.GRAY))
-            .append(Component.text("+" + Math.min(hits / 3, MAX_LOOT_COUNT - BASE_LOOT_COUNT), NamedTextColor.GREEN));
+            .append(Component.text("+" + Math.min(hits / 5, MAX_LOOT_COUNT - BASE_LOOT_COUNT), NamedTextColor.GREEN));
     }
 
     /**
@@ -325,8 +325,8 @@ public class PinataZombieEvent extends MicroEvent {
      * Avec affichage du nom et Glowing selon la rarete
      */
     private void explodeLoot(Location center) {
-        // Calculer le nombre de loot (base + bonus hits)
-        int lootCount = BASE_LOOT_COUNT + Math.min(hitCount / 3, MAX_LOOT_COUNT - BASE_LOOT_COUNT);
+        // Calculer le nombre de loot (1-5 items basé sur hits)
+        int lootCount = BASE_LOOT_COUNT + Math.min(hitCount / 5, MAX_LOOT_COUNT - BASE_LOOT_COUNT);
 
         for (int i = 0; i < lootCount; i++) {
             // Generer un item avec sa rarete

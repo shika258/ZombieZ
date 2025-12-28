@@ -314,18 +314,18 @@ public class WanderingBossEvent extends DynamicEvent {
         world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 60, 1.5, 1.5, 1.5, 0.4);
         world.spawnParticle(Particle.FIREWORK, center, 30, 1, 1, 1, 0.2);
 
-        // Loot garanti de haute qualité (10-15 items pour un boss)
-        int itemCount = 10 + Math.min(5, zone.getId() / 10);
+        // Loot garanti de haute qualité (4-8 items pour un boss)
+        int itemCount = 4 + Math.min(4, zone.getId() / 12);
 
         for (int i = 0; i < itemCount; i++) {
             Rarity rarity;
             if (i == 0) {
                 rarity = Rarity.LEGENDARY; // Premier item toujours légendaire
-            } else if (i < 3) {
-                rarity = Rarity.EPIC; // 2 items épiques garantis
-            } else if (random.nextDouble() < 0.4) {
+            } else if (i == 1) {
+                rarity = Rarity.EPIC; // 1 item épique garanti
+            } else if (random.nextDouble() < 0.35) {
                 rarity = Rarity.EPIC;
-            } else if (random.nextDouble() < 0.7) {
+            } else if (random.nextDouble() < 0.65) {
                 rarity = Rarity.RARE;
             } else {
                 rarity = Rarity.UNCOMMON;
@@ -357,9 +357,10 @@ public class WanderingBossEvent extends DynamicEvent {
             }
         }
 
-        // Consommables bonus avec explosion
+        // Consommables bonus avec explosion (1-2)
         if (plugin.getConsumableManager() != null) {
-            for (int i = 0; i < 5; i++) {
+            int consumableCount = 1 + (zone.getId() >= 25 ? 1 : 0);
+            for (int i = 0; i < consumableCount; i++) {
                 Consumable consumable = plugin.getConsumableManager().generateConsumable(zone.getId(), 0.0);
                 if (consumable == null) continue;
 

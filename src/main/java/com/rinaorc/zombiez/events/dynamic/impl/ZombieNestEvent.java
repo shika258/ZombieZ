@@ -476,8 +476,8 @@ public class ZombieNestEvent extends DynamicEvent {
         World world = center.getWorld();
         if (world == null) return;
 
-        // Calculer le nombre de loot basé sur la zone (6-10 items)
-        int lootCount = 6 + Math.min(4, zone.getId() / 10);
+        // Calculer le nombre de loot basé sur la zone (4-8 items)
+        int lootCount = 4 + Math.min(4, zone.getId() / 12);
 
         // Effet sonore de récompense
         world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
