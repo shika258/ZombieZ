@@ -66,6 +66,8 @@ public class Chapter4Systems implements Listener {
     private final NamespacedKey PURIFIER_ITEM_KEY;
     // Brume Toxique
     private final NamespacedKey CORRUPTION_SOURCE_KEY;
+    // Arbre Maudit (Creaking Boss)
+    private final NamespacedKey ORB_HITBOX_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -133,10 +135,31 @@ public class Chapter4Systems implements Listener {
     };
 
     // Configuration Brume Toxique
+    private static final int CORRUPTION_SOURCE_COUNT = 4; // Nombre de sources de corruption
     private static final int HITS_TO_DESTROY_SOURCE = 15; // Coups pour détruire une source
     private static final int SWAMP_WALKERS_PER_SOURCE = 3; // Mobs gardiens par source
     private static final double POISON_DAMAGE = 1.0; // Dégâts de poison par tick
     private static final int POISON_TICK_INTERVAL = 40; // Interval en ticks (2 secondes)
+
+    // === ARBRE MAUDIT - CREAKING BOSS (ÉTAPE 8) ===
+    // Positions des 8 orbes autour de l'arbre
+    private static final Location[] ORB_LOCATIONS = {
+            new Location(null, 462.5, 91, 8523.5, 0, 0),   // Orbe 1
+            new Location(null, 453.5, 98, 8519.5, 0, 0),   // Orbe 2 (en hauteur)
+            new Location(null, 442.5, 92, 8525.5, 0, 0),   // Orbe 3
+            new Location(null, 442.5, 91, 8510.5, 0, 0),   // Orbe 4
+            new Location(null, 453.5, 96, 8506.5, 0, 0),   // Orbe 5 (en hauteur)
+            new Location(null, 460.5, 91, 8505.5, 0, 0),   // Orbe 6
+            new Location(null, 469.5, 95, 8510.5, 0, 0),   // Orbe 7 (en hauteur)
+            new Location(null, 460.5, 91, 8519.5, 0, 0)    // Orbe 8
+    };
+
+    // Position de spawn du boss Creaking
+    private static final Location CREAKING_BOSS_SPAWN = new Location(null, 453.5, 91, 8530.5, 0, 0);
+
+    // Configuration Arbre Maudit
+    private static final int ORB_COUNT = 8;
+    private static final double ORB_VIEW_DISTANCE = 50;
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -219,6 +242,29 @@ public class Chapter4Systems implements Listener {
     // Joueurs actuellement dans la zone (pour poison)
     private final Set<UUID> playersInSwampZone = ConcurrentHashMap.newKeySet();
 
+    // === TRACKING ARBRE MAUDIT (ÉTAPE 8) ===
+    // Orbes (ItemDisplay END_CRYSTAL glowing + Interaction hitbox)
+    private final ItemDisplay[] orbVisuals = new ItemDisplay[ORB_COUNT];
+    private final Interaction[] orbHitboxes = new Interaction[ORB_COUNT];
+
+    // Orbes collectées par joueur (Set des indices)
+    private final Map<UUID, Set<Integer>> playerCollectedOrbs = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête
+    private final Set<UUID> playersWhoCompletedCreakingQuest = ConcurrentHashMap.newKeySet();
+
+    // Joueurs ayant reçu l'introduction
+    private final Set<UUID> playersIntroducedToCreaking = ConcurrentHashMap.newKeySet();
+
+    // Boss Creaking actif par joueur
+    private final Map<UUID, UUID> playerCreakingBossMap = new ConcurrentHashMap<>();
+
+    // Joueurs ayant un boss Creaking actif
+    private final Set<UUID> playersWithActiveCreakingBoss = ConcurrentHashMap.newKeySet();
+
+    // Compteur pour le nombre total de sources détruites (step progress)
+    private final Map<UUID, Integer> playerSourcesDestroyed = new ConcurrentHashMap<>();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -233,6 +279,7 @@ public class Chapter4Systems implements Listener {
         this.DAMNED_SOUL_KEY = new NamespacedKey(plugin, "damned_soul");
         this.PURIFIER_ITEM_KEY = new NamespacedKey(plugin, "soul_purifier");
         this.CORRUPTION_SOURCE_KEY = new NamespacedKey(plugin, "corruption_source");
+        this.ORB_HITBOX_KEY = new NamespacedKey(plugin, "orb_hitbox");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -299,7 +346,15 @@ public class Chapter4Systems implements Listener {
         startCorruptionSourceRespawnChecker();
         startSwampPoisonChecker();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique)");
+        // === ÉTAPE 8: L'ARBRE MAUDIT ===
+        // Spawn les orbes autour de l'arbre
+        spawnOrbs(world);
+
+        // Démarrer les systèmes de mise à jour
+        startOrbVisibilityUpdater();
+        startOrbRespawnChecker();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit)");
     }
 
     /**
@@ -364,6 +419,14 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les sources de corruption
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_corruption_source")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les orbes et le boss Creaking
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_orb") ||
+                entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
                 entity.remove();
             }
         }
@@ -1951,6 +2014,26 @@ public class Chapter4Systems implements Listener {
                     handleCorruptionSourceHit(attacker, sourceIndex);
                 }
             }
+            return;
+        }
+
+        // Hit sur une orbe (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(ORB_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer orbIndex = damaged.getPersistentDataContainer().get(ORB_HITBOX_KEY, PersistentDataType.INTEGER);
+                if (orbIndex != null) {
+                    handleOrbCollected(attacker, orbIndex);
+                }
+            }
         }
     }
 
@@ -1962,6 +2045,12 @@ public class Chapter4Systems implements Listener {
         if (entity instanceof Zombie zombie && entity.getScoreboardTags().contains("chapter4_gravedigger_boss")) {
             Player killer = zombie.getKiller();
             handleBossKilled(killer, zombie);
+        }
+
+        // Mort du boss Creaking (c'est un Zombie avec le tag chapter4_creaking_boss)
+        if (entity instanceof Zombie creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+            Player killer = creakingBoss.getKiller();
+            handleCreakingBossKilled(killer, creakingBoss);
         }
     }
 
@@ -2043,6 +2132,21 @@ public class Chapter4Systems implements Listener {
                     }
                     playerSourceHits.put(player.getUniqueId(), hits);
                 }
+
+                // Recharger la progression arbre maudit
+                int creakingProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_8);
+                if (creakingProgress >= ORB_COUNT + 1) { // 8 orbes + boss tué = 9
+                    playersWhoCompletedCreakingQuest.add(player.getUniqueId());
+                    playersIntroducedToCreaking.add(player.getUniqueId());
+                } else if (creakingProgress > 0) {
+                    playersIntroducedToCreaking.add(player.getUniqueId());
+                    // Reconstruire les orbes collectées
+                    Set<Integer> collectedOrbs = ConcurrentHashMap.newKeySet();
+                    for (int i = 0; i < Math.min(creakingProgress, ORB_COUNT); i++) {
+                        collectedOrbs.add(i);
+                    }
+                    playerCollectedOrbs.put(player.getUniqueId(), collectedOrbs);
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -2078,6 +2182,20 @@ public class Chapter4Systems implements Listener {
         playerSourcesDestroyed.remove(uuid);
         playerSourceHits.remove(uuid);
         playersIntroducedToToxicFog.remove(uuid);
+
+        // Nettoyer les données temporaires - Arbre Maudit
+        playerCollectedOrbs.remove(uuid);
+        playersIntroducedToCreaking.remove(uuid);
+        playersWithActiveCreakingBoss.remove(uuid);
+
+        // Despawn le boss Creaking du joueur s'il existe
+        UUID creakingBossUuid = playerCreakingBossMap.remove(uuid);
+        if (creakingBossUuid != null) {
+            Entity creakingBoss = plugin.getServer().getEntity(creakingBossUuid);
+            if (creakingBoss != null && creakingBoss.isValid()) {
+                creakingBoss.remove();
+            }
+        }
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -2912,5 +3030,437 @@ public class Chapter4Systems implements Listener {
     private boolean hasPlayerCompletedToxicFogQuest(Player player) {
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_7);
         return progress >= 4;
+    }
+
+    // ==================== ÉTAPE 8: L'ARBRE MAUDIT - CREAKING BOSS ====================
+
+    /**
+     * Spawn les orbes autour de l'arbre maudit
+     */
+    private void spawnOrbs(World world) {
+        for (int i = 0; i < ORB_COUNT; i++) {
+            spawnOrb(world, i);
+        }
+        plugin.log(Level.INFO, "§a  - " + ORB_COUNT + " orbes spawnées autour de l'arbre");
+    }
+
+    /**
+     * Spawn une orbe individuelle
+     */
+    private void spawnOrb(World world, int index) {
+        Location loc = ORB_LOCATIONS[index].clone();
+        loc.setWorld(world);
+
+        // Créer l'ItemDisplay (orbe visuelle - END_CRYSTAL avec glow)
+        ItemDisplay display = world.spawn(loc, ItemDisplay.class, d -> {
+            d.setItemStack(new ItemStack(Material.END_CRYSTAL));
+            d.setGlowing(true);
+            d.setBillboard(Display.Billboard.CENTER);
+
+            // Scale x0.8 pour une taille appropriée
+            Transformation transformation = new Transformation(
+                    new Vector3f(0, 0.3f, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(0.8f, 0.8f, 0.8f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            );
+            d.setTransformation(transformation);
+
+            d.addScoreboardTag("chapter4_orb");
+            d.addScoreboardTag("chapter4_orb_" + index);
+            d.setVisibleByDefault(false);
+        });
+
+        // Créer l'Interaction (hitbox invisible)
+        Interaction interaction = world.spawn(loc, Interaction.class, i -> {
+            i.setInteractionWidth(1.2f);
+            i.setInteractionHeight(1.2f);
+            i.addScoreboardTag("chapter4_orb");
+            i.addScoreboardTag("chapter4_orb_hitbox_" + index);
+
+            // PDC pour identifier l'orbe
+            i.getPersistentDataContainer().set(ORB_HITBOX_KEY, PersistentDataType.INTEGER, index);
+        });
+
+        // Appliquer le glow cyan via team
+        applyOrbGlow(display);
+
+        orbVisuals[index] = display;
+        orbHitboxes[index] = interaction;
+    }
+
+    /**
+     * Applique un glow cyan aux orbes
+     */
+    private void applyOrbGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("orb_glow_cyan");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("orb_glow_cyan");
+            team.color(NamedTextColor.AQUA);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+    }
+
+    /**
+     * Démarre le système de mise à jour de visibilité des orbes
+     */
+    private void startOrbVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : world.getPlayers()) {
+                    updateOrbVisibilityForPlayer(player);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des orbes pour un joueur
+     */
+    private void updateOrbVisibilityForPlayer(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        boolean isAtStep = currentStep == JourneyStep.STEP_4_8;
+        boolean hasCompleted = playersWhoCompletedCreakingQuest.contains(player.getUniqueId());
+
+        if (!isAtStep || hasCompleted) {
+            hideAllOrbsForPlayer(player);
+            return;
+        }
+
+        Location playerLoc = player.getLocation();
+        Location treeLoc = ORB_LOCATIONS[0].clone();
+        treeLoc.setWorld(player.getWorld());
+
+        // Vérifier si le joueur est proche de l'arbre
+        double distance = playerLoc.distance(treeLoc);
+        if (distance > ORB_VIEW_DISTANCE) {
+            hideAllOrbsForPlayer(player);
+            return;
+        }
+
+        // Introduction si pas encore faite
+        if (!playersIntroducedToCreaking.contains(player.getUniqueId())) {
+            introducePlayerToCreaking(player);
+        }
+
+        // Obtenir les orbes collectées par ce joueur
+        Set<Integer> collected = playerCollectedOrbs.getOrDefault(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+
+        // Montrer les orbes non collectées
+        for (int i = 0; i < ORB_COUNT; i++) {
+            if (collected.contains(i)) {
+                // Orbe déjà collectée - masquer
+                if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                    player.hideEntity(plugin, orbVisuals[i]);
+                }
+                if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                    player.hideEntity(plugin, orbHitboxes[i]);
+                }
+            } else {
+                // Orbe disponible - montrer
+                if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                    player.showEntity(plugin, orbVisuals[i]);
+                }
+                if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                    player.showEntity(plugin, orbHitboxes[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Masque toutes les orbes pour un joueur
+     */
+    private void hideAllOrbsForPlayer(Player player) {
+        for (int i = 0; i < ORB_COUNT; i++) {
+            if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                player.hideEntity(plugin, orbVisuals[i]);
+            }
+            if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                player.hideEntity(plugin, orbHitboxes[i]);
+            }
+        }
+    }
+
+    /**
+     * Vérifie et respawn les orbes si nécessaire
+     */
+    private void startOrbRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < ORB_COUNT; i++) {
+                    if (orbVisuals[i] == null || !orbVisuals[i].isValid() ||
+                        orbHitboxes[i] == null || !orbHitboxes[i].isValid()) {
+
+                        // Nettoyer
+                        if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
+                            orbVisuals[i].remove();
+                        }
+                        if (orbHitboxes[i] != null && orbHitboxes[i].isValid()) {
+                            orbHitboxes[i].remove();
+                        }
+
+                        // Respawn
+                        spawnOrb(world, i);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Gère la collecte d'une orbe par un joueur
+     */
+    private void handleOrbCollected(Player player, int orbIndex) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_8) return;
+
+        if (playersWhoCompletedCreakingQuest.contains(player.getUniqueId())) return;
+
+        // Vérifier si l'orbe n'est pas déjà collectée
+        Set<Integer> collected = playerCollectedOrbs.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
+        if (collected.contains(orbIndex)) return;
+
+        // Marquer comme collectée
+        collected.add(orbIndex);
+        int totalCollected = collected.size();
+
+        // Effets visuels et sonores
+        Location orbLoc = ORB_LOCATIONS[orbIndex].clone();
+        orbLoc.setWorld(player.getWorld());
+
+        player.playSound(orbLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.5f, 1.2f);
+        player.playSound(orbLoc, Sound.BLOCK_BEACON_ACTIVATE, 0.5f, 2f);
+        orbLoc.getWorld().spawnParticle(Particle.END_ROD, orbLoc.add(0, 0.5, 0), 30, 0.5, 0.5, 0.5, 0.1);
+        orbLoc.getWorld().spawnParticle(Particle.ENCHANT, orbLoc, 20, 0.3, 0.3, 0.3, 0.5);
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_4_8, totalCollected);
+
+        // Feedback au joueur
+        player.sendTitle("§b✦ ORBE " + totalCollected + "/" + ORB_COUNT + " ✦", "§7Une énergie ancienne vous traverse...", 5, 30, 10);
+
+        // Vérifier si toutes les orbes sont collectées
+        if (totalCollected >= ORB_COUNT) {
+            onAllOrbsCollected(player);
+        }
+    }
+
+    /**
+     * Appelé quand le joueur a collecté toutes les orbes
+     */
+    private void onAllOrbsCollected(Player player) {
+        if (playersWithActiveCreakingBoss.contains(player.getUniqueId())) return;
+
+        playersWithActiveCreakingBoss.add(player.getUniqueId());
+
+        // Effets dramatiques
+        player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1f, 0.5f);
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 0.7f);
+
+        player.sendTitle("§4§l⚠ L'ARBRE S'ÉVEILLE ⚠", "§cLe Gardien de l'Arbre Maudit surgit!", 10, 60, 20);
+
+        // Spawn du boss après un délai dramatique
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    playersWithActiveCreakingBoss.remove(player.getUniqueId());
+                    return;
+                }
+
+                spawnCreakingBoss(player);
+            }
+        }.runTaskLater(plugin, 60L);
+    }
+
+    /**
+     * Spawn le boss Creaking pour un joueur
+     */
+    private void spawnCreakingBoss(Player player) {
+        World world = player.getWorld();
+        Location spawnLoc = CREAKING_BOSS_SPAWN.clone();
+        spawnLoc.setWorld(world);
+
+        // Calculer la direction vers le joueur
+        Location playerLoc = player.getLocation();
+        float yaw = (float) Math.toDegrees(Math.atan2(
+                playerLoc.getZ() - spawnLoc.getZ(),
+                playerLoc.getX() - spawnLoc.getX()
+        )) - 90;
+
+        spawnLoc.setYaw(yaw);
+
+        // Utiliser ZombieManager pour spawner le boss
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            playersWithActiveCreakingBoss.remove(player.getUniqueId());
+            return;
+        }
+
+        // Spawn le boss via le système ZombieZ
+        int bossLevel = Math.max(15, journeyManager.getPlayerLevel(player));
+        var activeZombie = zombieManager.spawnZombie(ZombieType.CREAKING_BOSS, spawnLoc, bossLevel);
+
+        if (activeZombie != null) {
+            Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+            if (entity instanceof Zombie creakingBoss) {
+                // Configuration additionnelle du boss
+                creakingBoss.addScoreboardTag("chapter4_creaking_boss");
+                creakingBoss.addScoreboardTag("journey_boss");
+                creakingBoss.addScoreboardTag("player_boss_" + player.getUniqueId());
+
+                // Scale x2.5 pour le rendre géant
+                var scale = creakingBoss.getAttribute(Attribute.SCALE);
+                if (scale != null) {
+                    scale.setBaseValue(2.5);
+                }
+
+                // Glow rouge
+                applyCreakingGlow(creakingBoss);
+
+                // Tracker le boss
+                playerCreakingBossMap.put(player.getUniqueId(), creakingBoss.getUniqueId());
+
+                // Effets de spawn
+                world.playSound(spawnLoc, Sound.ENTITY_WARDEN_EMERGE, 2f, 0.5f);
+                world.playSound(spawnLoc, Sound.BLOCK_WOOD_BREAK, 2f, 0.3f);
+                world.spawnParticle(Particle.BLOCK, spawnLoc.clone().add(0, 1.5, 0), 100, 1.5, 2, 1.5,
+                        Material.PALE_OAK_LOG.createBlockData());
+                world.spawnParticle(Particle.SOUL, spawnLoc.clone().add(0, 1, 0), 50, 1, 1.5, 1, 0.02);
+
+                // Message au joueur
+                player.sendMessage("§c§l⚔ §4Le Gardien de l'Arbre Maudit §c§lémerge des racines!");
+                player.sendMessage("§7Vaincs-le pour purifier l'arbre corrompu!");
+            }
+        } else {
+            playersWithActiveCreakingBoss.remove(player.getUniqueId());
+            plugin.log(Level.WARNING, "§cImpossible de spawner le boss Creaking pour " + player.getName());
+        }
+    }
+
+    /**
+     * Applique un glow rouge au boss Creaking
+     */
+    private void applyCreakingGlow(Entity entity) {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team team = scoreboard.getTeam("creaking_boss_glow");
+        if (team == null) {
+            team = scoreboard.registerNewTeam("creaking_boss_glow");
+            team.color(NamedTextColor.DARK_RED);
+        }
+        team.addEntry(entity.getUniqueId().toString());
+        entity.setGlowing(true);
+    }
+
+    /**
+     * Gère la mort du boss Creaking
+     */
+    private void handleCreakingBossKilled(Player killer, Zombie creakingBoss) {
+        // Trouver le joueur propriétaire du boss
+        UUID ownerUuid = null;
+        for (String tag : creakingBoss.getScoreboardTags()) {
+            if (tag.startsWith("player_boss_")) {
+                String uuidStr = tag.substring("player_boss_".length());
+                try {
+                    ownerUuid = UUID.fromString(uuidStr);
+                    break;
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        // Si le killer est le propriétaire ou qu'on a trouvé le propriétaire
+        Player owner = ownerUuid != null ? plugin.getServer().getPlayer(ownerUuid) : killer;
+        if (owner == null) owner = killer;
+        if (owner == null) return;
+
+        UUID ownerId = owner.getUniqueId();
+
+        // Nettoyer les trackers
+        playerCreakingBossMap.remove(ownerId);
+        playersWithActiveCreakingBoss.remove(ownerId);
+
+        // Marquer comme complété
+        playersWhoCompletedCreakingQuest.add(ownerId);
+
+        // Finaliser la quête (8 orbes + 1 boss = 9)
+        journeyManager.setStepProgress(owner, JourneyStep.STEP_4_8, ORB_COUNT + 1);
+
+        // Effets de victoire
+        Location deathLoc = creakingBoss.getLocation();
+        deathLoc.getWorld().playSound(deathLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 2f, 1f);
+        deathLoc.getWorld().playSound(deathLoc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
+
+        deathLoc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, deathLoc.add(0, 1.5, 0), 100, 2, 2, 2, 0.3);
+        deathLoc.getWorld().spawnParticle(Particle.SOUL, deathLoc, 50, 2, 2, 2, 0.05);
+
+        // Message de victoire
+        owner.sendTitle("§a§l✓ VICTOIRE!", "§7L'Arbre Maudit est purifié!", 10, 60, 20);
+        owner.sendMessage("");
+        owner.sendMessage("§a§l⭐ §eL'Arbre Maudit retrouve sa lumière!");
+        owner.sendMessage("§7Le Gardien corrompu a été vaincu.");
+        owner.sendMessage("");
+
+        // Compléter l'étape via JourneyManager
+        journeyManager.onStepProgress(owner, JourneyStep.STEP_4_8, ORB_COUNT + 1);
+    }
+
+    /**
+     * Introduction à la quête de l'Arbre Maudit
+     */
+    private void introducePlayerToCreaking(Player player) {
+        playersIntroducedToCreaking.add(player.getUniqueId());
+
+        new BukkitRunnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                switch (step) {
+                    case 0 -> {
+                        player.sendTitle("§4§lL'ARBRE MAUDIT", "§7Une énergie sombre émane de cet arbre...", 10, 50, 10);
+                        player.playSound(player.getLocation(), Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD, 1f, 0.5f);
+                    }
+                    case 1 -> {
+                        player.sendMessage("");
+                        player.sendMessage("§e§l➤ §fDes orbes d'énergie flottent autour de l'arbre.");
+                        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.5f, 1.5f);
+                    }
+                    case 2 -> {
+                        player.sendMessage("§e§l➤ §fCollecte les §b8 orbes§f pour réveiller le gardien.");
+                        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1f);
+                    }
+                    case 3 -> {
+                        player.sendMessage("§e§l➤ §7GPS: §e453, 91, 8515 §7(Centre de l'arbre)");
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+                        cancel();
+                        return;
+                    }
+                }
+                step++;
+            }
+        }.runTaskTimer(plugin, 0L, 40L);
+    }
+
+    /**
+     * Vérifie si un joueur a complété la quête de l'arbre maudit
+     */
+    private boolean hasPlayerCompletedCreakingQuest(Player player) {
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_8);
+        return progress >= ORB_COUNT + 1;
     }
 }

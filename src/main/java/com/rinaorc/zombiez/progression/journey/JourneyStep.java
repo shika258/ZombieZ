@@ -163,6 +163,10 @@ public enum JourneyStep {
         "Marécages: §b807, 85, 8450", StepType.TOXIC_FOG_QUEST, 4,
         800, 22, Material.DRAGON_BREATH),
 
+    STEP_4_8(JourneyChapter.CHAPTER_4, 8, "L'Éveil de l'Arbre Maudit",
+        "Arbre corrompu: §b453, 91, 8515", StepType.CREAKING_BOSS_QUEST, 9,
+        1000, 25, Material.PALE_OAK_LOG),
+
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
     STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
@@ -460,6 +464,11 @@ public enum JourneyStep {
                 if (current >= 4) yield "✓ Brume dissipée!";
                 else yield current + "/4 sources détruites";
             }
+            case CREAKING_BOSS_QUEST -> {
+                if (current >= 9) yield "✓ Arbre purifié!";
+                else if (current >= 8) yield "Vaincs le Creaking!";
+                else yield current + "/8 orbes collectées";
+            }
         };
     }
 
@@ -643,7 +652,10 @@ public enum JourneyStep {
         SOUL_PURIFICATION("Purifie les âmes damnées"),
 
         // Brume Toxique (Chapitre 4)
-        TOXIC_FOG_QUEST("Détruis les sources de corruption");
+        TOXIC_FOG_QUEST("Détruis les sources de corruption"),
+
+        // Boss Creaking de l'Arbre Maudit (Chapitre 4)
+        CREAKING_BOSS_QUEST("Collecte les orbes et vaincs le Creaking");
 
         private final String description;
 
