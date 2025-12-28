@@ -151,9 +151,9 @@ public enum JourneyStep {
         "Coordonnées: §b137, 150, 8797", StepType.DISCOVER_CHEST, 7,
         500, 15, Material.CHEST),
 
-    STEP_4_5(JourneyChapter.CHAPTER_4, 5, "Atteins le niveau 25",
-        "Les zones 4-5 s'ouvrent à toi", StepType.LEVEL, 25,
-        600, 18, Material.SPRUCE_FENCE_GATE),
+    STEP_4_5(JourneyChapter.CHAPTER_4, 5, "Explore la Zone 7 (50%)",
+        "Parcours les terres maudites", StepType.ZONE_EXPLORATION, 7,
+        600, 18, Material.FILLED_MAP),
 
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
