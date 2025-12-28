@@ -167,6 +167,9 @@ public class Chapter4Systems implements Listener {
     // Joueurs ayant complété la quête de purification
     private final Set<UUID> playersWhoCompletedSouls = ConcurrentHashMap.newKeySet();
 
+    // Joueurs ayant reçu l'introduction de la quête (pour éviter spam)
+    private final Set<UUID> playersIntroducedToSouls = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -1854,8 +1857,10 @@ public class Chapter4Systems implements Listener {
                 int soulProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_6);
                 if (soulProgress >= SOULS_TO_PURIFY) {
                     playersWhoCompletedSouls.add(player.getUniqueId());
+                    playersIntroducedToSouls.add(player.getUniqueId());
                 } else if (soulProgress > 0) {
                     playerSoulsPurified.put(player.getUniqueId(), soulProgress);
+                    playersIntroducedToSouls.add(player.getUniqueId()); // Déjà introduit si progression > 0
                 }
             }
         }.runTaskLater(plugin, 20L);
@@ -1886,6 +1891,7 @@ public class Chapter4Systems implements Listener {
 
         // Nettoyer les données temporaires - Âmes Damnées
         playerSoulsPurified.remove(uuid);
+        playersIntroducedToSouls.remove(uuid);
     }
 
     // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
@@ -1916,6 +1922,12 @@ public class Chapter4Systems implements Listener {
                     JourneyStep currentStep = journeyManager.getCurrentStep(player);
                     if (currentStep == JourneyStep.STEP_4_6 && !playersWhoCompletedSouls.contains(player.getUniqueId())) {
                         playersNearby = true;
+
+                        // Introduction de la quête si première fois
+                        if (!playersIntroducedToSouls.contains(player.getUniqueId())) {
+                            playersIntroducedToSouls.add(player.getUniqueId());
+                            introduceSoulQuest(player);
+                        }
                         break;
                     }
                 }
@@ -2052,9 +2064,9 @@ public class Chapter4Systems implements Listener {
             // Drop le purificateur
             zombie.getWorld().dropItemNaturally(zombie.getLocation(), createSoulPurifier());
 
-            // Effets
+            // Effets visuels et sonores
             killer.playSound(killer.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
-            killer.sendActionBar(Component.text("✦ Un Purificateur d'Âmes est tombé!", NamedTextColor.AQUA));
+            killer.sendTitle("§b✦ Purificateur obtenu!", "§7Utilise-le sur une Âme Damnée", 5, 40, 10);
         }
 
         // Particules de mort
@@ -2141,9 +2153,9 @@ public class Chapter4Systems implements Listener {
         world.spawnParticle(Particle.SOUL, loc.clone().add(0, 1, 0), 30, 0.4, 0.8, 0.4, 0.05);
         world.playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.5f);
 
-        // Message au joueur
+        // Message au joueur via Title
         int purified = playerSoulsPurified.getOrDefault(player.getUniqueId(), 0);
-        player.sendActionBar(Component.text("✦ Âme purifiée! (" + purified + "/" + SOULS_TO_PURIFY + ")", NamedTextColor.GREEN));
+        player.sendTitle("§a✦ Âme purifiée!", "§7" + purified + "/" + SOULS_TO_PURIFY + " âmes libérées", 5, 30, 10);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
 
         // Disparition après 2 secondes avec nuage de fumée
@@ -2210,5 +2222,43 @@ public class Chapter4Systems implements Listener {
         player.sendMessage(Component.text("═══════════════════════════════════", NamedTextColor.DARK_AQUA));
 
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+    }
+
+    /**
+     * Introduit la quête de purification au joueur
+     */
+    private void introduceSoulQuest(Player player) {
+        // Titre d'introduction
+        player.sendTitle("§b✦ PURIFICATION DES ÂMES", "§7Libère 5 âmes damnées", 10, 60, 20);
+        player.playSound(player.getLocation(), Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD, 1.0f, 0.8f);
+
+        // Message explicatif
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                player.sendMessage("");
+                player.sendMessage("§b§l✦ PURIFICATION DES ÂMES ✦");
+                player.sendMessage("§7Des âmes tourmentées errent dans ce cimetière.");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fTue les §bÂmes Damnées §fpour obtenir un §bPurificateur");
+                player.sendMessage("§e▸ §fUtilise le Purificateur §7(clic droit) §fsur une âme");
+                player.sendMessage("§e▸ §fLibère §a5 âmes §fpour terminer la quête");
+                player.sendMessage("");
+
+                // Activer le GPS
+                activateGPSToSoulZone(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Active le GPS vers la zone des âmes damnées
+     */
+    private void activateGPSToSoulZone(Player player) {
+        int centerX = (SOUL_ZONE_MIN_X + SOUL_ZONE_MAX_X) / 2;
+        int centerZ = (SOUL_ZONE_MIN_Z + SOUL_ZONE_MAX_Z) / 2;
+
+        player.sendMessage("§e§l➤ §7Zone du cimetière: §e" + centerX + ", " + SOUL_ZONE_MIN_Y + ", " + centerZ);
+        player.sendMessage("");
     }
 }
