@@ -93,7 +93,8 @@ public final class ChasseurTalents {
                 "",
                 "§6Points par attaque: §e+1",
                 "§6Maximum: §e5 §7points",
-                "§6Bonus (3+ pts): §a+30% §7vitesse d'attaque"
+                "§6Bonus (3+ pts): §a+30% §7vitesse d'attaque",
+                "§6Bonus (3+ pts): §a+40% §7vitesse de déplacement"
             })
             .classType(ClassType.CHASSEUR)
             .tier(TalentTier.TIER_1)

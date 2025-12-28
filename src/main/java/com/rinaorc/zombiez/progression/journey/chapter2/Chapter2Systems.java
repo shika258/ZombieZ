@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -420,6 +421,7 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Fait spawn le mineur blessé
+     * IMPORTANT: Nettoie tous les villageois orphelins avec la clé PDC avant de spawner
      */
     private void spawnInjuredMiner(World world) {
         Location loc = MINER_LOCATION.clone();
@@ -435,6 +437,10 @@ public class Chapter2Systems implements Listener {
             injuredMinerEntity.remove();
         }
 
+        // CLEANUP CRITIQUE: Supprimer TOUS les villageois orphelins avec la clé PDC
+        // Cela évite la duplication en cas de bug, explosion AOE, ou rechargement de chunk
+        cleanupOrphanedInjuredMiners(world);
+
         // Créer un villageois comme NPC
         Villager miner = world.spawn(loc, Villager.class, npc -> {
             // NE PAS mettre de customName visible - on utilise un TextDisplay per-player
@@ -449,8 +455,10 @@ public class Chapter2Systems implements Listener {
             // Équiper avec une pioche
             npc.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_PICKAXE));
 
-            // Marquer comme notre NPC
+            // Marquer comme notre NPC (PDC + tag pour cleanup facile)
             npc.getPersistentDataContainer().set(INJURED_MINER_KEY, PersistentDataType.BYTE, (byte) 1);
+            npc.addScoreboardTag("zombiez_injured_miner");
+            npc.setPersistent(false); // Ne pas persister entre les redémarrages
 
             // Ajouter l'effet visuel de blessure (particules)
             npc.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
@@ -473,6 +481,40 @@ public class Chapter2Systems implements Listener {
                 world.spawnParticle(Particle.DAMAGE_INDICATOR, particleLoc, 3, 0.3, 0.3, 0.3, 0);
             }
         }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    /**
+     * Nettoie tous les villageois orphelins avec la clé PDC du mineur blessé.
+     * Appelé avant chaque spawn pour garantir qu'il n'y a jamais plus d'un mineur.
+     * Optimisé: utilise le scoreboard tag pour une recherche rapide.
+     */
+    private void cleanupOrphanedInjuredMiners(World world) {
+        int removed = 0;
+
+        // Recherche dans un rayon large autour de la position du mineur
+        Location searchCenter = MINER_LOCATION.clone();
+        searchCenter.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(searchCenter, 100, 50, 100)) {
+            // Vérifier par tag scoreboard (plus rapide)
+            if (entity.getScoreboardTags().contains("zombiez_injured_miner")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Fallback: vérifier par PDC (pour les anciens villageois sans tag)
+            if (entity instanceof Villager villager) {
+                if (villager.getPersistentDataContainer().has(INJURED_MINER_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
+                }
+            }
+        }
+
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " mineur(s) blessé(s) orphelin(s) supprimé(s)");
+        }
     }
 
     /**
@@ -573,6 +615,7 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Fait spawn Igor le survivant
+     * IMPORTANT: Nettoie les orphelins et ajoute les protections
      */
     private void spawnIgor(World world) {
         Location loc = IGOR_LOCATION.clone();
@@ -582,6 +625,9 @@ public class Chapter2Systems implements Listener {
         if (igorEntity != null && igorEntity.isValid()) {
             igorEntity.remove();
         }
+
+        // CLEANUP: Supprimer les Igor orphelins
+        cleanupOrphanedIgor(world);
 
         // Créer un villageois comme NPC
         Villager igor = world.spawn(loc, Villager.class, npc -> {
@@ -597,11 +643,39 @@ public class Chapter2Systems implements Listener {
             // Équiper avec une hache
             npc.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_AXE));
 
-            // Marquer comme notre NPC
+            // Marquer comme notre NPC (PDC + tag pour cleanup facile)
             npc.getPersistentDataContainer().set(IGOR_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npc.addScoreboardTag("zombiez_igor_npc");
+            npc.setPersistent(false); // Ne pas persister entre les redémarrages
         });
 
         igorEntity = igor;
+    }
+
+    /**
+     * Nettoie les Igor orphelins (en cas de duplication)
+     */
+    private void cleanupOrphanedIgor(World world) {
+        Location searchCenter = IGOR_LOCATION.clone();
+        searchCenter.setWorld(world);
+
+        int removed = 0;
+        for (Entity entity : world.getNearbyEntities(searchCenter, 50, 30, 50)) {
+            if (entity.getScoreboardTags().contains("zombiez_igor_npc")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+            if (entity instanceof Villager villager) {
+                if (villager.getPersistentDataContainer().has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage: " + removed + " Igor orphelin(s) supprimé(s)");
+        }
     }
 
     /**
@@ -664,6 +738,35 @@ public class Chapter2Systems implements Listener {
 
             // Mettre à jour IMMÉDIATEMENT la visibilité des TextDisplays pour ce joueur
             updateMinerDisplayVisibilityForPlayer(player, true);
+
+            // Feedback visuel de l'hologramme mis à jour
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.5f);
+        }
+    }
+
+    /**
+     * Protège les NPCs du Chapitre 2 contre TOUS les types de dégâts.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     * Ce listener est une protection supplémentaire.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onChapter2NPCDamage(EntityDamageEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier par tag scoreboard (plus rapide que PDC)
+        if (entity.getScoreboardTags().contains("zombiez_injured_miner") ||
+            entity.getScoreboardTags().contains("zombiez_igor_npc")) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // Fallback: vérifier par PDC
+        if (entity instanceof Villager villager) {
+            PersistentDataContainer pdc = villager.getPersistentDataContainer();
+            if (pdc.has(INJURED_MINER_KEY, PersistentDataType.BYTE) ||
+                pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                event.setCancelled(true);
+            }
         }
     }
 

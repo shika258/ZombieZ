@@ -12,6 +12,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -302,6 +303,28 @@ public class Chapter1Systems implements Listener {
         playersIntroducedToFarmer.remove(uuid);
         playersInFireMinigame.remove(uuid);
         playerExtinguishedFires.remove(uuid);
+    }
+
+    /**
+     * Protège le fermier contre TOUS les types de dégâts.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onFarmerDamage(EntityDamageEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier par tag scoreboard (plus rapide)
+        if (entity.getScoreboardTags().contains("chapter1_farmer")) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // Fallback: vérifier par PDC
+        if (entity instanceof Villager villager) {
+            if (villager.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
+                event.setCancelled(true);
+            }
+        }
     }
 
     // ==================== FERMIER INTERACTION ====================

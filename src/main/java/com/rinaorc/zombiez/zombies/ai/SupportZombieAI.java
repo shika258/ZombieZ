@@ -9,7 +9,6 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -34,8 +33,8 @@ public class SupportZombieAI extends ZombieAI {
     private static final double SUPPORT_RANGE = 15.0;
     private static final long JUMP_COOLDOWN = 3000; // 3 secondes de cooldown entre les sauts en arrière
 
-    public SupportZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public SupportZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 5000;
     }
 

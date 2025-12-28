@@ -41,8 +41,8 @@ public class PassiveMobManager implements Listener {
     private static final int BASE_MAX_MOBS_PER_ZONE = 8;
     private static final int MAX_MOBS_BONUS_HIGH_ZONES = 4; // Bonus pour zones 16+
     private int spawnCheckIntervalTicks = 400; // 20 secondes (plus fréquent)
-    private double baseSpawnChance = 0.20; // 20% de chance par check (augmenté)
-    private static final double MIN_SPAWN_CHANCE = 0.08; // 8% minimum garanti
+    private double baseSpawnChance = 0.25; // 25% de chance par check (+25% augmenté)
+    private static final double MIN_SPAWN_CHANCE = 0.10; // 10% minimum garanti (+25%)
 
     private final Random random = new Random();
 
@@ -381,7 +381,7 @@ public class PassiveMobManager implements Listener {
         // Toujours dropper au moins 1 item commun
         FoodItem guaranteedDrop = foodRegistry.getGuaranteedDrop(mobType);
         if (guaranteedDrop != null) {
-            int amount = 1 + random.nextInt(2); // 1-2 items
+            int amount = 1 + random.nextInt(3); // 1-3 items
             loot.add(guaranteedDrop.createItemStack(amount));
         }
 

@@ -6,8 +6,8 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -31,8 +31,8 @@ public class ExplosiveZombieAI extends ZombieAI {
     private static final double TRIGGER_DISTANCE = 3.0;
     private static final double CREEPER_TRIGGER_DISTANCE = 2.5;
 
-    public ExplosiveZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public ExplosiveZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 10000;
     }
 

@@ -19,6 +19,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -178,7 +179,7 @@ public class Chapter4Systems implements Listener {
 
     // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
     private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
-    private static final double CRYSTAL_MAX_HEALTH = 8000.0; // HP du cristal
+    private static final double CRYSTAL_MAX_HEALTH = 3000.0; // HP du cristal
     private static final double CRYSTAL_REGEN_PER_SECOND = 80.0; // Régénération par seconde
     private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
     private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
@@ -2151,6 +2152,22 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
+     * Protège les NPCs du Chapitre 4 contre TOUS les types de dégâts.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onChapter4NPCDamage(EntityDamageEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier par tag scoreboard (plus rapide que PDC)
+        if (entity.getScoreboardTags().contains("chapter4_priest") ||
+            entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
+            entity.getScoreboardTags().contains("chapter4_alchemist")) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
      * Calcule les dégâts en prenant en compte les stats des armes ZombieZ
      */
     private double calculateZombieZDamage(Player player, ItemStack weapon, double baseDamage) {
@@ -2196,8 +2213,8 @@ public class Chapter4Systems implements Listener {
             handleBossKilled(killer, zombie);
         }
 
-        // Mort du boss Creaking (c'est un Zombie avec le tag chapter4_creaking_boss)
-        if (entity instanceof Zombie creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
+        // Mort du boss Creaking (entité Creaking avec le tag chapter4_creaking_boss)
+        if (entity instanceof Creaking creakingBoss && entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
             Player killer = creakingBoss.getKiller();
             handleCreakingBossKilled(killer, creakingBoss);
         }
@@ -3501,7 +3518,7 @@ public class Chapter4Systems implements Listener {
 
         if (activeZombie != null) {
             Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-            if (entity instanceof Zombie creakingBoss) {
+            if (entity instanceof Creaking creakingBoss) {
                 // Configuration additionnelle du boss
                 creakingBoss.addScoreboardTag("chapter4_creaking_boss");
                 creakingBoss.addScoreboardTag("journey_boss");
@@ -3553,7 +3570,7 @@ public class Chapter4Systems implements Listener {
     /**
      * Gère la mort du boss Creaking
      */
-    private void handleCreakingBossKilled(Player killer, Zombie creakingBoss) {
+    private void handleCreakingBossKilled(Player killer, Creaking creakingBoss) {
         // Trouver le joueur propriétaire du boss
         UUID ownerUuid = null;
         for (String tag : creakingBoss.getScoreboardTags()) {
@@ -3908,22 +3925,38 @@ public class Chapter4Systems implements Listener {
 
     // ==================== ÉTAPE 10: CRISTAL DE CORRUPTION ====================
 
+    // Flag pour éviter le spawn concurrent de cristaux
+    private volatile boolean isSpawningCrystal = false;
+
     /**
      * Spawn le Cristal de Corruption (EnderCrystal réel pour supporter les flèches)
      */
     private void spawnCorruptionCrystal(World world) {
-        Location loc = CRYSTAL_LOCATION.clone();
-        loc.setWorld(world);
+        // Sécurité : éviter le spawn concurrent
+        if (isSpawningCrystal) return;
+        isSpawningCrystal = true;
 
-        // Supprimer les anciens
-        if (crystalEntity != null && crystalEntity.isValid()) {
-            crystalEntity.remove();
-        }
-        if (crystalDisplay != null && crystalDisplay.isValid()) {
-            crystalDisplay.remove();
-        }
+        try {
+            Location loc = CRYSTAL_LOCATION.clone();
+            loc.setWorld(world);
 
-        // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
+            // Supprimer les anciens (référence trackée)
+            if (crystalEntity != null && crystalEntity.isValid()) {
+                crystalEntity.remove();
+            }
+            if (crystalDisplay != null && crystalDisplay.isValid()) {
+                crystalDisplay.remove();
+            }
+
+            // SÉCURITÉ : Nettoyer TOUS les cristaux existants dans la zone
+            // (évite les duplications si la référence crystalEntity était perdue)
+            for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+                if (entity.getScoreboardTags().contains("chapter4_crystal")) {
+                    entity.remove();
+                }
+            }
+
+            // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
         crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
             crystal.setShowingBottom(false); // Pas de socle pour un look plus clean
             crystal.setInvulnerable(false); // Doit pouvoir être endommagé
@@ -3967,6 +4000,9 @@ public class Chapter4Systems implements Listener {
             display.addScoreboardTag("chapter4_crystal");
             display.addScoreboardTag("chapter4_crystal_display");
         });
+        } finally {
+            isSpawningCrystal = false;
+        }
     }
 
     /**

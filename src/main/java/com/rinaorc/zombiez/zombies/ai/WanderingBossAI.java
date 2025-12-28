@@ -10,9 +10,9 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -65,8 +65,8 @@ public class WanderingBossAI extends ZombieAI {
     @Getter @Setter
     private String bossName = "Boss Errant";
 
-    public WanderingBossAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public WanderingBossAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 8000;
 
         applyBossBuffs();

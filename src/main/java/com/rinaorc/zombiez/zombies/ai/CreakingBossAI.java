@@ -7,9 +7,10 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
+import org.bukkit.entity.Creaking;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -19,6 +20,7 @@ import java.util.*;
 
 /**
  * IA originale pour le boss Creaking (Gardien de l'Arbre Maudit)
+ * Utilise l'entité Creaking (Grinceur) de Minecraft 1.21+
  *
  * Mécaniques:
  * - ROOT SLAM: Frappe le sol, faisant surgir des racines qui endommagent les joueurs
@@ -55,10 +57,10 @@ public class CreakingBossAI extends ZombieAI {
     private boolean isAttacking = false;
     private String currentAttack = "";
 
-    public CreakingBossAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public CreakingBossAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 3000;
-        this.spawnLocation = zombie.getLocation().clone();
+        this.spawnLocation = entity.getLocation().clone();
 
         setupBossBar();
         applyBossBuffs();

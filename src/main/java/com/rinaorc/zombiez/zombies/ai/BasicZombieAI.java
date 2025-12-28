@@ -5,8 +5,8 @@ import com.rinaorc.zombiez.zombies.types.ZombieType;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 
 /**
  * IA basique pour les zombies BASIC
@@ -18,8 +18,8 @@ public class BasicZombieAI extends ZombieAI {
     private int tickCounter = 0;
     private boolean isGroaning = false;
 
-    public BasicZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public BasicZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 8000; // 8 secondes
     }
 

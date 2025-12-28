@@ -286,9 +286,12 @@ public class MomentumManager {
                     boolean expired = (player != null) ? isFeverExpired(data, player) : isFeverExpired(data);
 
                     if (expired) {
+                        int finalStreak = data.streak;
                         data.inFever = false;
+                        data.streak = 0; // Reset le streak pour éviter la réactivation immédiate de Fever
+                        data.feverStartTime = 0; // Reset le timer Fever
                         if (player != null) {
-                            MessageUtils.sendTitle(player, "", "§7§l🔥 FEVER TERMINÉ! §8Streak: " + data.streak + " kills", 5, 30, 10);
+                            MessageUtils.sendTitle(player, "", "§7§l🔥 FEVER TERMINÉ! §8Streak: " + finalStreak + " kills", 5, 30, 10);
                             player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.0f);
                         }
                     }

@@ -285,6 +285,22 @@ public class ItemGenerator {
                 // Cap la chance de blocage à 25%
                 stats.put(StatType.BLOCK_CHANCE, Math.min(25, Math.round(finalBlockChance * 10) / 10.0));
             }
+        } else if (itemType == ItemType.SHIELD) {
+            // Bouclier: Armure + Chance de Blocage (comme l'armure mais avec plus de blocage)
+            double baseArmor = itemType.getBaseStat1ForTier(tier);
+            double baseBlockChance = itemType.getBaseStat2ForTier(tier);
+
+            double armorVariation = 0.9 + random.nextDouble() * 0.3;
+            double blockVariation = 0.9 + random.nextDouble() * 0.2;
+
+            // Appliquer ZONE SCALING pour l'armure
+            double finalArmor = baseArmor * armorVariation * zoneMultiplier * (1 + qualityBonus);
+            // La chance de blocage scale légèrement avec la zone et la qualité
+            double finalBlockChance = baseBlockChance * blockVariation * (1 + zoneId * 0.02) * (1 + qualityBonus * 0.5);
+
+            stats.put(StatType.ARMOR, Math.round(finalArmor * 10) / 10.0);
+            // Cap la chance de blocage à 25%
+            stats.put(StatType.BLOCK_CHANCE, Math.min(25, Math.round(finalBlockChance * 10) / 10.0));
         }
 
         return stats;

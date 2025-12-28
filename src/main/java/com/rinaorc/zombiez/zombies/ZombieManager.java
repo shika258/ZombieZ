@@ -40,6 +40,7 @@ import org.bukkit.entity.Evoker;
 import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Giant;
+import org.bukkit.entity.Creaking;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
@@ -271,7 +272,7 @@ public class ZombieManager {
         }
 
         // Spawner l'entité personnalisée (peut être zombie ou autre)
-        LivingEntity entity = spawnEntityByType(type, location, level);
+        LivingEntity entity = spawnEntityByType(type, location, level, zoneId);
 
         if (entity == null) {
             return null;
@@ -328,10 +329,22 @@ public class ZombieManager {
     /**
      * Spawn l'entité appropriée en fonction du type de zombie
      */
-    private LivingEntity spawnEntityByType(ZombieType type, Location location, int level) {
+    private LivingEntity spawnEntityByType(ZombieType type, Location location, int level, int zoneId) {
         // Calculer les stats
         double finalHealth = type.calculateHealth(level);
         double finalDamage = type.calculateDamage(level);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // NERF EARLY GAME - Réduction des dégâts pour les zones 1-10
+        // Rend le début de partie plus accessible aux nouveaux joueurs
+        // ═══════════════════════════════════════════════════════════════════
+        if (zoneId >= 1 && zoneId <= 10 && !type.isBoss()) {
+            // Réduction progressive: zone 1 = -30%, zone 10 = -5%
+            // Formule: 30% - (zone - 1) * 2.78% ≈ 30% à 5%
+            double earlyGameReduction = 0.30 - ((zoneId - 1) * 0.0278);
+            finalDamage *= (1.0 - Math.max(0.05, earlyGameReduction));
+        }
+
         double baseSpeed = type.getBaseSpeed();
         double speedMultiplier = 1.0 + (level * 0.005);
         double finalSpeed = Math.min(0.45, baseSpeed * speedMultiplier);
@@ -467,6 +480,16 @@ public class ZombieManager {
                 // Le Giant est ÉNORME et lent mais dévastateur
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 2, false, false));
+            });
+
+            // ═══════════════════════════════════════════════════════════════════
+            // CREAKING BOSS (Chapitre 4 Étape 8 - Gardien de l'Arbre Maudit)
+            // ═══════════════════════════════════════════════════════════════════
+            case CREAKING_BOSS -> location.getWorld().spawn(location, Creaking.class, entity -> {
+                configureNonZombieEntity(entity, type, level, finalHealth, finalDamage, finalSpeed, customName);
+                // Le Creaking est une entité terrifiante du Pale Garden
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
             });
 
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {

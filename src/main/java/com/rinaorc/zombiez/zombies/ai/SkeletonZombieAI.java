@@ -29,8 +29,8 @@ public class SkeletonZombieAI extends ZombieAI {
     private static final double TOO_CLOSE = 8.0;
     private static final double MAX_RANGE = 25.0;
 
-    public SkeletonZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public SkeletonZombieAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = zombieType == ZombieType.STRAY ? 2500 : 2000; // Stray tire un peu plus lentement
     }
 

@@ -18,12 +18,13 @@ import java.util.Random;
 /**
  * Classe de base pour l'IA des zombies personnalisés
  * Chaque catégorie de zombie a son propre comportement
+ * Supporte les entités LivingEntity (Zombie, Creaking, etc.)
  */
 @Getter
 public abstract class ZombieAI {
 
     protected final ZombieZPlugin plugin;
-    protected final Zombie zombie;
+    protected final LivingEntity zombie; // LivingEntity pour supporter Zombie, Creaking, etc.
     protected final ZombieType zombieType;
     protected final int level;
     protected final Random random = new Random();
@@ -36,7 +37,7 @@ public abstract class ZombieAI {
     protected boolean isEnraged = false;
     protected Player currentTarget = null;
 
-    public ZombieAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
+    public ZombieAI(ZombieZPlugin plugin, LivingEntity zombie, ZombieType zombieType, int level) {
         this.plugin = plugin;
         this.zombie = zombie;
         this.zombieType = zombieType;

@@ -46,60 +46,33 @@ public class ConsumableManager {
 
     /**
      * Initialise les consommables disponibles par catégorie de zone
+     * Tous les consommables sont disponibles dès le début pour plus de variété
      */
     private Map<ZoneCategory, List<ConsumableType>> initializeConsumablesByZone() {
         Map<ZoneCategory, List<ConsumableType>> map = new EnumMap<>(ZoneCategory.class);
 
-        // Zones débutantes (1-10): Basiques
-        map.put(ZoneCategory.BEGINNER, Arrays.asList(
-            ConsumableType.TNT_GRENADE,
-            ConsumableType.BANDAGE,
-            ConsumableType.COBWEB_TRAP
-        ));
-
-        // Zones intermédiaires (11-25): Plus de variété
-        map.put(ZoneCategory.INTERMEDIATE, Arrays.asList(
-            ConsumableType.TNT_GRENADE,
-            ConsumableType.INCENDIARY_BOMB,
-            ConsumableType.BANDAGE,
-            ConsumableType.ANTIDOTE,
-            ConsumableType.COBWEB_TRAP,
-            ConsumableType.UNSTABLE_PEARL,
-            ConsumableType.DECOY
-        ));
-
-        // Zones avancées (26-40): Tous les consommables standards
-        map.put(ZoneCategory.ADVANCED, Arrays.asList(
-            ConsumableType.TNT_GRENADE,
-            ConsumableType.INCENDIARY_BOMB,
-            ConsumableType.STICKY_CHARGE,
-            ConsumableType.ACID_JAR,
-            ConsumableType.BANDAGE,
-            ConsumableType.ANTIDOTE,
-            ConsumableType.ADRENALINE_KIT,
-            ConsumableType.COBWEB_TRAP,
-            ConsumableType.UNSTABLE_PEARL,
-            ConsumableType.GRAPPLING_HOOK,
-            ConsumableType.DECOY,
-            ConsumableType.TURRET
-        ));
-
-        // Zones expertes (41-50): Tous + Jetpack
-        map.put(ZoneCategory.EXPERT, Arrays.asList(
+        // Tous les consommables disponibles dès le début
+        List<ConsumableType> allConsumables = Arrays.asList(
             ConsumableType.TNT_GRENADE,
             ConsumableType.INCENDIARY_BOMB,
             ConsumableType.STICKY_CHARGE,
             ConsumableType.ACID_JAR,
             ConsumableType.JETPACK,
+            ConsumableType.GRAPPLING_HOOK,
+            ConsumableType.UNSTABLE_PEARL,
+            ConsumableType.COBWEB_TRAP,
+            ConsumableType.DECOY,
+            ConsumableType.TURRET,
             ConsumableType.BANDAGE,
             ConsumableType.ANTIDOTE,
-            ConsumableType.ADRENALINE_KIT,
-            ConsumableType.COBWEB_TRAP,
-            ConsumableType.UNSTABLE_PEARL,
-            ConsumableType.GRAPPLING_HOOK,
-            ConsumableType.DECOY,
-            ConsumableType.TURRET
-        ));
+            ConsumableType.ADRENALINE_KIT
+        );
+
+        // Toutes les zones ont accès à tous les consommables
+        map.put(ZoneCategory.BEGINNER, allConsumables);
+        map.put(ZoneCategory.INTERMEDIATE, allConsumables);
+        map.put(ZoneCategory.ADVANCED, allConsumables);
+        map.put(ZoneCategory.EXPERT, allConsumables);
 
         return map;
     }

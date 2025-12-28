@@ -10,8 +10,8 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Zombie;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -58,10 +58,10 @@ public class GravediggerBossAI extends ZombieAI {
     private int chargeTicks = 0;
     private Location chargeTarget = null;
 
-    public GravediggerBossAI(ZombieZPlugin plugin, Zombie zombie, ZombieType zombieType, int level) {
-        super(plugin, zombie, zombieType, level);
+    public GravediggerBossAI(ZombieZPlugin plugin, LivingEntity entity, ZombieType zombieType, int level) {
+        super(plugin, entity, zombieType, level);
         this.abilityCooldown = 6000; // 6 secondes entre les attaques
-        this.spawnLocation = zombie.getLocation().clone();
+        this.spawnLocation = entity.getLocation().clone();
 
         setupBossBar();
         applyBossBuffs();

@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
 import lombok.Getter;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -44,13 +45,13 @@ public class ZombieAIManager {
     }
 
     /**
-     * Crée et enregistre une IA pour un zombie
+     * Crée et enregistre une IA pour un zombie/mob
      */
-    public ZombieAI createAI(Zombie zombie, ZombieType type, int level) {
-        ZombieAI ai = createAIForType(zombie, type, level);
+    public ZombieAI createAI(LivingEntity entity, ZombieType type, int level) {
+        ZombieAI ai = createAIForType(entity, type, level);
 
         if (ai != null) {
-            activeAIs.put(zombie.getUniqueId(), ai);
+            activeAIs.put(entity.getUniqueId(), ai);
             totalAIsCreated++;
         }
 
@@ -60,37 +61,37 @@ public class ZombieAIManager {
     /**
      * Crée l'IA appropriée selon le type de zombie
      */
-    private ZombieAI createAIForType(Zombie zombie, ZombieType type, int level) {
+    private ZombieAI createAIForType(LivingEntity entity, ZombieType type, int level) {
         return switch (type.getCategory()) {
-            case BASIC -> new BasicZombieAI(plugin, zombie, type, level);
-            case TANK -> new TankZombieAI(plugin, zombie, type, level);
-            case MELEE -> new MeleeZombieAI(plugin, zombie, type, level);
-            case RANGED -> new RangedZombieAI(plugin, zombie, type, level);
-            case SUPPORT -> new SupportZombieAI(plugin, zombie, type, level);
-            case STEALTH -> new StealthZombieAI(plugin, zombie, type, level);
-            case EXPLOSIVE -> new ExplosiveZombieAI(plugin, zombie, type, level);
-            case HAZARD -> new HazardZombieAI(plugin, zombie, type, level);
-            case SUMMONER -> new SummonerZombieAI(plugin, zombie, type, level);
-            case ELEMENTAL -> new ElementalZombieAI(plugin, zombie, type, level);
-            case SPECIAL, ELITE -> new EliteZombieAI(plugin, zombie, type, level);
-            case MINIBOSS, ZONE_BOSS, FINAL_BOSS -> new BossZombieAI(plugin, zombie, type, level);
-            case JOURNEY_BOSS -> createJourneyBossAI(zombie, type, level);
-            case SKELETON -> new SkeletonZombieAI(plugin, zombie, type, level);
-            case PACK -> new PackZombieAI(plugin, zombie, type, level);
-            case ILLAGER -> new IllagerZombieAI(plugin, zombie, type, level);
-            case EVENT -> new BasicZombieAI(plugin, zombie, type, level); // Zombies d'événements (Horde, etc.)
-            case EVENT_BOSS -> new WanderingBossAI(plugin, zombie, type, level); // Boss d'événements (Wandering Boss)
+            case BASIC -> new BasicZombieAI(plugin, entity, type, level);
+            case TANK -> new TankZombieAI(plugin, entity, type, level);
+            case MELEE -> new MeleeZombieAI(plugin, entity, type, level);
+            case RANGED -> new RangedZombieAI(plugin, entity, type, level);
+            case SUPPORT -> new SupportZombieAI(plugin, entity, type, level);
+            case STEALTH -> new StealthZombieAI(plugin, entity, type, level);
+            case EXPLOSIVE -> new ExplosiveZombieAI(plugin, entity, type, level);
+            case HAZARD -> new HazardZombieAI(plugin, entity, type, level);
+            case SUMMONER -> new SummonerZombieAI(plugin, entity, type, level);
+            case ELEMENTAL -> new ElementalZombieAI(plugin, entity, type, level);
+            case SPECIAL, ELITE -> new EliteZombieAI(plugin, entity, type, level);
+            case MINIBOSS, ZONE_BOSS, FINAL_BOSS -> new BossZombieAI(plugin, entity, type, level);
+            case JOURNEY_BOSS -> createJourneyBossAI(entity, type, level);
+            case SKELETON -> new SkeletonZombieAI(plugin, entity, type, level);
+            case PACK -> new PackZombieAI(plugin, entity, type, level);
+            case ILLAGER -> new IllagerZombieAI(plugin, entity, type, level);
+            case EVENT -> new BasicZombieAI(plugin, entity, type, level); // Zombies d'événements (Horde, etc.)
+            case EVENT_BOSS -> new WanderingBossAI(plugin, entity, type, level); // Boss d'événements (Wandering Boss)
         };
     }
 
     /**
      * Crée l'IA appropriée pour les boss Journey selon leur type spécifique
      */
-    private ZombieAI createJourneyBossAI(Zombie zombie, ZombieType type, int level) {
+    private ZombieAI createJourneyBossAI(LivingEntity entity, ZombieType type, int level) {
         return switch (type) {
-            case GRAVEDIGGER_BOSS -> new GravediggerBossAI(plugin, zombie, type, level);
-            case CREAKING_BOSS -> new CreakingBossAI(plugin, zombie, type, level);
-            default -> new JourneyBossAI(plugin, zombie, type, level);
+            case GRAVEDIGGER_BOSS -> new GravediggerBossAI(plugin, entity, type, level);
+            case CREAKING_BOSS -> new CreakingBossAI(plugin, entity, type, level);
+            default -> new JourneyBossAI(plugin, entity, type, level);
         };
     }
 

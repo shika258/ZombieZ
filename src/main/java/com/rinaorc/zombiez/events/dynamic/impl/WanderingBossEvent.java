@@ -20,7 +20,11 @@ import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import org.bukkit.entity.Item;
+import org.bukkit.util.Vector;
+
 import java.util.*;
+import java.util.Random;
 
 /**
  * Événement Boss Errant
@@ -60,6 +64,9 @@ public class WanderingBossEvent extends DynamicEvent {
         "Le Faucheur",
         "Le Colosse Putride"
     };
+
+    // Random pour le loot
+    private final Random random = new Random();
 
     public WanderingBossEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.WANDERING_BOSS, location, zone);
@@ -295,31 +302,98 @@ public class WanderingBossEvent extends DynamicEvent {
     }
 
     /**
-     * Drop le loot du boss
+     * Drop le loot du boss avec effet d'explosion spectaculaire
      */
-    private void dropBossLoot(Location location) {
-        World world = location.getWorld();
+    private void dropBossLoot(Location center) {
+        World world = center.getWorld();
         if (world == null) return;
 
-        // Loot garanti de haute qualité
-        int itemCount = 3 + zone.getId() / 10;
+        // Effets visuels d'explosion de loot
+        world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.5f, 1f);
+        world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1f, 1f);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 60, 1.5, 1.5, 1.5, 0.4);
+        world.spawnParticle(Particle.FIREWORK, center, 30, 1, 1, 1, 0.2);
+
+        // Loot garanti de haute qualité (4-8 items pour un boss)
+        int itemCount = 4 + Math.min(4, zone.getId() / 12);
 
         for (int i = 0; i < itemCount; i++) {
-            Rarity rarity = i == 0 ? Rarity.LEGENDARY : // Premier item toujours légendaire
-                (Math.random() < 0.3 ? Rarity.EPIC : Rarity.RARE);
+            Rarity rarity;
+            if (i == 0) {
+                rarity = Rarity.LEGENDARY; // Premier item toujours légendaire
+            } else if (i == 1) {
+                rarity = Rarity.EPIC; // 1 item épique garanti
+            } else if (random.nextDouble() < 0.35) {
+                rarity = Rarity.EPIC;
+            } else if (random.nextDouble() < 0.65) {
+                rarity = Rarity.RARE;
+            } else {
+                rarity = Rarity.UNCOMMON;
+            }
 
             ItemStack item = plugin.getItemManager().generateItem(zone.getId(), rarity);
-            if (item != null) {
-                world.dropItemNaturally(location, item);
+            if (item == null) continue;
+
+            // Spawn avec vélocité explosive
+            Item droppedItem = world.dropItem(center, item);
+
+            double angle = random.nextDouble() * Math.PI * 2;
+            double upward = 0.4 + random.nextDouble() * 0.4;
+            double outward = 0.3 + random.nextDouble() * 0.35;
+
+            Vector velocity = new Vector(
+                Math.cos(angle) * outward,
+                upward,
+                Math.sin(angle) * outward
+            );
+            droppedItem.setVelocity(velocity);
+
+            // Appliquer effets visuels (glow + nom visible) - toujours, pas de condition
+            droppedItem.setGlowing(true);
+            plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+
+            // Utiliser l'API Adventure pour le nom
+            if (item.hasItemMeta()) {
+                var meta = item.getItemMeta();
+                var displayName = meta.displayName();
+                if (displayName != null) {
+                    droppedItem.customName(displayName);
+                    droppedItem.setCustomNameVisible(true);
+                }
             }
         }
 
-        // Consommables bonus
+        // Consommables bonus avec explosion (1-2)
         if (plugin.getConsumableManager() != null) {
-            for (int i = 0; i < 5; i++) {
+            int consumableCount = 1 + (zone.getId() >= 25 ? 1 : 0);
+            for (int i = 0; i < consumableCount; i++) {
                 Consumable consumable = plugin.getConsumableManager().generateConsumable(zone.getId(), 0.0);
-                if (consumable != null) {
-                    world.dropItemNaturally(location, consumable.createItemStack());
+                if (consumable == null) continue;
+
+                ItemStack consumableItem = consumable.createItemStack();
+                Item droppedConsumable = world.dropItem(center, consumableItem);
+
+                double angle = random.nextDouble() * Math.PI * 2;
+                double upward = 0.3 + random.nextDouble() * 0.3;
+                double outward = 0.2 + random.nextDouble() * 0.25;
+
+                droppedConsumable.setVelocity(new Vector(
+                    Math.cos(angle) * outward,
+                    upward,
+                    Math.sin(angle) * outward
+                ));
+
+                // Glow et nom visible pour les consommables
+                droppedConsumable.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedConsumable, Rarity.UNCOMMON);
+
+                if (consumableItem.hasItemMeta()) {
+                    var meta = consumableItem.getItemMeta();
+                    var displayName = meta.displayName();
+                    if (displayName != null) {
+                        droppedConsumable.customName(displayName);
+                        droppedConsumable.setCustomNameVisible(true);
+                    }
                 }
             }
         }
@@ -440,6 +514,26 @@ public class WanderingBossEvent extends DynamicEvent {
                 var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
                 if (playerData != null) {
                     playerData.addXp(totalXp);
+
+                    // ============ TRACKER ÉVÉNEMENTS (manquait!) ============
+                    playerData.incrementStat("events_completed");
+                    int eventsCompleted = (int) playerData.getStat("events_completed");
+
+                    // Notifier le système de Parcours (Journey)
+                    if (plugin.getJourneyListener() != null) {
+                        plugin.getJourneyListener().onEventParticipation(player, eventsCompleted);
+                    }
+
+                    // Tracker missions
+                    plugin.getMissionManager().updateProgress(player,
+                        com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EVENTS_PARTICIPATED, 1);
+
+                    // Achievements
+                    var achievementManager = plugin.getAchievementManager();
+                    achievementManager.incrementProgress(player, "first_event", 1);
+                    achievementManager.checkAndUnlock(player, "event_veteran", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_champion", eventsCompleted);
+                    achievementManager.checkAndUnlock(player, "event_legend", eventsCompleted);
                 }
 
                 player.sendMessage("");
