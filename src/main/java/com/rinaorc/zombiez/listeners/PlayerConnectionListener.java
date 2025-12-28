@@ -12,6 +12,7 @@ import com.rinaorc.zombiez.mobs.food.FoodItem;
 import com.rinaorc.zombiez.mobs.food.FoodItemRegistry;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -95,6 +96,14 @@ public class PlayerConnectionListener implements Listener {
         boolean isNew = data.getKills().get() == 0 && data.getPlaytime().get() < 60;
 
         if (isNew) {
+            // Nouveau joueur - téléporter au spawn de départ
+            Location spawnLocation = new Location(
+                player.getWorld(),
+                728.5, 95, 9979.5,
+                180f, 0f
+            );
+            player.teleport(spawnLocation);
+
             // Nouveau joueur - donner le stuff de départ
             giveStarterKit(player);
             sendWelcomeMessage(player);
