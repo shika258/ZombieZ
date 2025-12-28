@@ -3,6 +3,8 @@ package com.rinaorc.zombiez.progression.journey.chapter4;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.consumables.ConsumableType;
+import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.zombies.ZombieManager;
@@ -147,7 +149,7 @@ public class Chapter4Systems implements Listener {
     private static final int CORRUPTION_SOURCE_COUNT = 4; // Nombre de sources de corruption
     private static final int HITS_TO_DESTROY_SOURCE = 15; // Coups pour détruire une source
     private static final int SWAMP_WALKERS_PER_SOURCE = 3; // Mobs gardiens par source
-    private static final double POISON_DAMAGE = 1.0; // Dégâts de poison par tick
+    private static final double POISON_DAMAGE = 0.5; // Dégâts de poison par tick (réduit)
     private static final int POISON_TICK_INTERVAL = 40; // Interval en ticks (2 secondes)
 
     // === ARBRE MAUDIT - CREAKING BOSS (ÉTAPE 8) ===
@@ -296,9 +298,8 @@ public class Chapter4Systems implements Listener {
     private static final double ALCHEMIST_DISPLAY_HEIGHT = 2.5;
 
     // === TRACKING CRISTAL DE CORRUPTION (ÉTAPE 10) ===
-    // Entités du cristal
-    private ItemDisplay crystalVisual;
-    private Interaction crystalHitbox;
+    // Entités du cristal (EnderCrystal réel pour supporter les flèches)
+    private EnderCrystal crystalEntity;
     private TextDisplay crystalDisplay;
 
     // Tracking par joueur
@@ -1572,7 +1573,7 @@ public class Chapter4Systems implements Listener {
         Location loc = mushroomLocations.get(index);
 
         // 1. Créer le VISUEL (ItemDisplay avec RED_MUSHROOM scale x3 glowing rouge)
-        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.5, 0), ItemDisplay.class, display -> {
+        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.9, 0), ItemDisplay.class, display -> {
             display.setItemStack(new ItemStack(Material.RED_MUSHROOM));
 
             // Scale x3 pour visibilité
@@ -1598,7 +1599,7 @@ public class Chapter4Systems implements Listener {
         });
 
         // 2. Créer l'entité INTERACTION (hitbox invisible cliquable/frappable)
-        Interaction hitbox = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+        Interaction hitbox = world.spawn(loc.clone().add(0, 0.9, 0), Interaction.class, interaction -> {
             interaction.setInteractionWidth(1.5f);
             interaction.setInteractionHeight(1.5f);
             interaction.setResponsive(true); // Active la réponse aux attaques (left-click)
@@ -2125,23 +2126,64 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
-        // Hit sur le Cristal de Corruption (Interaction hitbox)
-        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
-            event.setCancelled(true);
+        // Hit sur le Cristal de Corruption (EnderCrystal)
+        if (damaged instanceof EnderCrystal crystal && crystal.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true); // Empêcher l'explosion par défaut
 
             Player attacker = null;
-            double damage = event.getDamage();
+            ItemStack weapon = null;
 
             if (event.getDamager() instanceof Player p) {
                 attacker = p;
+                weapon = p.getInventory().getItemInMainHand();
             } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
                 attacker = p;
+                // Pour les projectiles, récupérer l'arme utilisée (arc/arbalète)
+                weapon = p.getInventory().getItemInMainHand();
             }
 
             if (attacker != null) {
+                // Calculer les dégâts avec les armes ZombieZ
+                double damage = calculateZombieZDamage(attacker, weapon, event.getDamage());
                 handleCrystalHit(attacker, damage);
             }
         }
+    }
+
+    /**
+     * Calcule les dégâts en prenant en compte les stats des armes ZombieZ
+     */
+    private double calculateZombieZDamage(Player player, ItemStack weapon, double baseDamage) {
+        if (weapon == null || weapon.getType() == Material.AIR) {
+            return baseDamage;
+        }
+
+        // Essayer de parser l'item comme un item ZombieZ
+        ZombieZItem zombiezItem = ZombieZItem.fromItemStack(weapon);
+        if (zombiezItem == null) {
+            return baseDamage;
+        }
+
+        // Récupérer les stats de dégâts
+        double weaponDamage = zombiezItem.getStat(StatType.DAMAGE);
+        double damagePercent = zombiezItem.getStat(StatType.DAMAGE_PERCENT);
+        double fireDamage = zombiezItem.getStat(StatType.FIRE_DAMAGE);
+        double iceDamage = zombiezItem.getStat(StatType.ICE_DAMAGE);
+        double lightningDamage = zombiezItem.getStat(StatType.LIGHTNING_DAMAGE);
+
+        // Calculer les dégâts totaux
+        double totalDamage = weaponDamage > 0 ? weaponDamage : baseDamage;
+
+        // Appliquer le bonus de pourcentage
+        if (damagePercent != 0) {
+            totalDamage *= (1 + damagePercent / 100.0);
+        }
+
+        // Ajouter les dégâts élémentaires
+        totalDamage += fireDamage + iceDamage + lightningDamage;
+
+        // Minimum 1 dégât
+        return Math.max(1.0, totalDamage);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -2211,6 +2253,11 @@ public class Chapter4Systems implements Listener {
                         hits[i] = getHitsForMushroom(i);
                     }
                     playerMushroomHits.put(player.getUniqueId(), hits);
+
+                    // Si le joueur a 12 champignons mais n'a pas encore livré, activer GPS vers le NPC
+                    if (estimatedMushrooms >= 12) {
+                        activateGPSToCollector(player);
+                    }
                 }
 
                 // Recharger la progression purification des âmes
@@ -2929,9 +2976,15 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
+                    // Vérifier si le joueur a DÉJÀ complété la quête (immunité permanente)
+                    if (hasPlayerCompletedToxicFogQuest(player)) {
+                        playersInSwampZone.remove(player.getUniqueId());
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est à l'étape de la brume toxique
                     JourneyStep currentStep = journeyManager.getCurrentStep(player);
                     if (currentStep != JourneyStep.STEP_4_7) continue;
-                    if (playersWhoCompletedToxicFog.contains(player.getUniqueId())) continue;
 
                     // Vérifier si dans la zone
                     if (isInSwampZone(player.getLocation())) {
@@ -3856,68 +3909,44 @@ public class Chapter4Systems implements Listener {
     // ==================== ÉTAPE 10: CRISTAL DE CORRUPTION ====================
 
     /**
-     * Spawn le Cristal de Corruption
+     * Spawn le Cristal de Corruption (EnderCrystal réel pour supporter les flèches)
      */
     private void spawnCorruptionCrystal(World world) {
         Location loc = CRYSTAL_LOCATION.clone();
         loc.setWorld(world);
 
         // Supprimer les anciens
-        if (crystalVisual != null && crystalVisual.isValid()) {
-            crystalVisual.remove();
-        }
-        if (crystalHitbox != null && crystalHitbox.isValid()) {
-            crystalHitbox.remove();
+        if (crystalEntity != null && crystalEntity.isValid()) {
+            crystalEntity.remove();
         }
         if (crystalDisplay != null && crystalDisplay.isValid()) {
             crystalDisplay.remove();
         }
 
-        // Créer le visuel du cristal (ItemDisplay avec AMETHYST_CLUSTER)
-        crystalVisual = world.spawn(loc.clone().add(0, 1.5, 0), ItemDisplay.class, display -> {
-            display.setItemStack(new ItemStack(Material.AMETHYST_CLUSTER));
-            display.setBillboard(Display.Billboard.CENTER);
+        // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
+        crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
+            crystal.setShowingBottom(false); // Pas de socle pour un look plus clean
+            crystal.setInvulnerable(false); // Doit pouvoir être endommagé
 
-            // Scale x3 pour un gros cristal
-            Transformation transformation = new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(4.0f, 4.0f, 4.0f),
-                    new AxisAngle4f(0, 0, 1, 0)
-            );
-            display.setTransformation(transformation);
+            crystal.addScoreboardTag("chapter4_crystal");
+            crystal.addScoreboardTag("zombiez_npc"); // Pour empêcher certains systèmes de le cibler
+            crystal.setPersistent(false);
 
-            display.addScoreboardTag("chapter4_crystal");
-            display.addScoreboardTag("chapter4_crystal_visual");
-            display.setPersistent(false);
+            // PDC pour identifier le cristal
+            crystal.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
         });
 
         // Appliquer le glow violet
-        applyCrystalGlow(crystalVisual);
+        applyCrystalGlow(crystalEntity);
 
-        // Créer la hitbox (Interaction)
-        crystalHitbox = world.spawn(loc.clone().add(0, 1, 0), Interaction.class, hitbox -> {
-            hitbox.setInteractionWidth(3.0f);
-            hitbox.setInteractionHeight(4.0f);
-
-            hitbox.addScoreboardTag("chapter4_crystal");
-            hitbox.addScoreboardTag("chapter4_crystal_hitbox");
-
-            // PDC pour identifier le cristal
-            hitbox.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
-            hitbox.setPersistent(false);
-        });
-
-        // Créer le TextDisplay au-dessus
-        crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+        // Créer le TextDisplay unique au-dessus (fusion des 2 anciens displays)
+        crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
             display.text(Component.text()
                     .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
                     .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
                     .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
                     .append(Component.newline())
-                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.WHITE))
+                    .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
                     .build());
 
             display.setBillboard(Display.Billboard.CENTER);
@@ -3930,7 +3959,7 @@ public class Chapter4Systems implements Listener {
             display.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.5f, 1.5f, 1.5f),
+                    new Vector3f(1.3f, 1.3f, 1.3f),
                     new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(0.4f);
@@ -3964,8 +3993,7 @@ public class Chapter4Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
-                boolean needsRespawn = crystalVisual == null || !crystalVisual.isValid() ||
-                        crystalHitbox == null || !crystalHitbox.isValid();
+                boolean needsRespawn = crystalEntity == null || !crystalEntity.isValid();
 
                 if (needsRespawn) {
                     spawnCorruptionCrystal(world);
@@ -3975,14 +4003,17 @@ public class Chapter4Systems implements Listener {
                 if (crystalDisplay == null || !crystalDisplay.isValid()) {
                     Location loc = CRYSTAL_LOCATION.clone();
                     loc.setWorld(world);
-                    // Recréer le display
-                    crystalDisplay = world.spawn(loc.clone().add(0, 4.5, 0), TextDisplay.class, display -> {
+                    // Recréer le display (fusion des 2 anciens displays)
+                    crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
                         display.text(Component.text()
                                 .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
                                 .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
                                 .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                                .append(Component.newline())
+                                .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
                                 .build());
                         display.setBillboard(Display.Billboard.CENTER);
+                        display.setAlignment(TextDisplay.TextAlignment.CENTER);
                         display.setShadowed(true);
                         display.setPersistent(false);
                         display.addScoreboardTag("chapter4_crystal");
@@ -4020,8 +4051,8 @@ public class Chapter4Systems implements Listener {
                     updateCrystalBossBar(player, newHealth);
 
                     // Particules de régénération (vertes)
-                    if (crystalVisual != null && crystalVisual.isValid() && Math.random() < 0.3) {
-                        Location loc = crystalVisual.getLocation();
+                    if (crystalEntity != null && crystalEntity.isValid() && Math.random() < 0.3) {
+                        Location loc = crystalEntity.getLocation();
                         player.spawnParticle(Particle.HAPPY_VILLAGER, loc, 3, 0.5, 0.5, 0.5, 0);
                     }
                 }
@@ -4095,11 +4126,8 @@ public class Chapter4Systems implements Listener {
      * Montre le cristal au joueur
      */
     private void showCrystalForPlayer(Player player) {
-        if (crystalVisual != null && crystalVisual.isValid()) {
-            player.showEntity(plugin, crystalVisual);
-        }
-        if (crystalHitbox != null && crystalHitbox.isValid()) {
-            player.showEntity(plugin, crystalHitbox);
+        if (crystalEntity != null && crystalEntity.isValid()) {
+            player.showEntity(plugin, crystalEntity);
         }
         if (crystalDisplay != null && crystalDisplay.isValid()) {
             player.showEntity(plugin, crystalDisplay);
@@ -4110,11 +4138,8 @@ public class Chapter4Systems implements Listener {
      * Cache le cristal pour un joueur
      */
     private void hideCrystalForPlayer(Player player) {
-        if (crystalVisual != null && crystalVisual.isValid()) {
-            player.hideEntity(plugin, crystalVisual);
-        }
-        if (crystalHitbox != null && crystalHitbox.isValid()) {
-            player.hideEntity(plugin, crystalHitbox);
+        if (crystalEntity != null && crystalEntity.isValid()) {
+            player.hideEntity(plugin, crystalEntity);
         }
         if (crystalDisplay != null && crystalDisplay.isValid()) {
             player.hideEntity(plugin, crystalDisplay);
@@ -4161,9 +4186,9 @@ public class Chapter4Systems implements Listener {
         updateCrystalBossBar(player, newHealth);
 
         // Effets visuels et sonores
-        if (crystalVisual != null && crystalVisual.isValid()) {
-            Location loc = crystalVisual.getLocation();
-            player.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.8f, 0.5f + (float)(1.0 - newHealth / CRYSTAL_MAX_HEALTH));
+        if (crystalEntity != null && crystalEntity.isValid()) {
+            Location loc = crystalEntity.getLocation();
+            player.playSound(loc, Sound.BLOCK_END_PORTAL_FRAME_FILL, 0.8f, 0.5f + (float)(1.0 - newHealth / CRYSTAL_MAX_HEALTH));
             player.spawnParticle(Particle.DUST, loc, 10, 0.5, 0.5, 0.5, 0,
                     new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 1.5f));
         }

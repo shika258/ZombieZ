@@ -242,25 +242,32 @@ public class ZombieManager {
     public ActiveZombie spawnZombie(ZombieType type, Location location, int level) {
         int zoneId = plugin.getZoneManager().getZoneAt(location).getId();
 
+        // Les boss bypass toutes les limites (JOURNEY_BOSS, ZONE_BOSS, etc.)
+        boolean isBoss = type.isBoss();
+
         // ═══════════════════════════════════════════════════════════════════
-        // VÉRIFICATION 1: Limite globale (Global Cap)
+        // VÉRIFICATION 1: Limite globale (Global Cap) - Boss bypass
         // ═══════════════════════════════════════════════════════════════════
-        if (activeZombies.size() >= maxGlobalZombies) {
+        if (!isBoss && activeZombies.size() >= maxGlobalZombies) {
             return null;
         }
 
-        // Vérifier la limite de zone
-        int currentCount = zombieCountByZone.getOrDefault(zoneId, 0);
-        int maxCount = maxZombiesPerZone.getOrDefault(zoneId, 50);
+        // Vérifier la limite de zone - Boss bypass
+        if (!isBoss) {
+            int currentCount = zombieCountByZone.getOrDefault(zoneId, 0);
+            int maxCount = maxZombiesPerZone.getOrDefault(zoneId, 50);
 
-        if (currentCount >= maxCount) {
-            return null;
+            if (currentCount >= maxCount) {
+                return null;
+            }
         }
 
-        // Vérifier le cooldown de spawn
-        long lastSpawn = lastSpawnByZone.getOrDefault(zoneId, 0L);
-        if (System.currentTimeMillis() - lastSpawn < 500) { // 500ms minimum entre spawns
-            return null;
+        // Vérifier le cooldown de spawn - Boss bypass
+        if (!isBoss) {
+            long lastSpawn = lastSpawnByZone.getOrDefault(zoneId, 0L);
+            if (System.currentTimeMillis() - lastSpawn < 500) { // 500ms minimum entre spawns
+                return null;
+            }
         }
 
         // Spawner l'entité personnalisée (peut être zombie ou autre)
