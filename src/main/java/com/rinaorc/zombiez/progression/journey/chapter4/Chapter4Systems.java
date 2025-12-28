@@ -1336,9 +1336,8 @@ public class Chapter4Systems implements Listener {
             // Équipement: champignon rouge sur la tête
             armorStand.getEquipment().setHelmet(new ItemStack(Material.RED_MUSHROOM));
 
-            // Glow rouge
+            // Glow rouge (la couleur dépend de l'équipe scoreboard du joueur)
             armorStand.setGlowing(true);
-            armorStand.setGlowColorOverride(Color.fromRGB(255, 50, 50));
 
             // Tags
             armorStand.addScoreboardTag("chapter4_mushroom");
@@ -1990,7 +1989,7 @@ public class Chapter4Systems implements Listener {
                 // Effet visuel spectral
                 zombie.setGlowing(true);
                 zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                        org.bukkit.potion.PotionEffectType.SLOW, Integer.MAX_VALUE, 0, false, false));
+                        org.bukkit.potion.PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 0, false, false));
 
                 // Marquer comme Âme Damnée
                 zombie.getPersistentDataContainer().set(DAMNED_SOUL_KEY, PersistentDataType.BYTE, (byte) 1);

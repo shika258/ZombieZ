@@ -240,7 +240,7 @@ public class ElementalZombieAI extends ZombieAI {
     private void tickDamnedSoul() {
         // Particules spectrales occasionnelles
         if (tickCounter % 30 == 0) { // Toutes les 1.5 secondes
-            playParticles(Particle.SOUL, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3, 0.01);
+            playParticles(Particle.SOUL, zombie.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3);
         }
 
         // Pas d'abilities spéciales - juste un zombie spectral
