@@ -426,8 +426,8 @@ public enum JourneyStep {
             case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
-                else if (current >= 1) yield "1/2 - Équipe ton pet! /pet";
-                else yield "0/2 - Ouvre un oeuf /pet";
+                else if (current >= 1) yield "1/2 - Équipe ton pet!";
+                else yield "0/2 - Ouvre un oeuf";
             }
             case ACTIVATE_REFUGE_BEACON -> current >= targetValue ? "✓ Refuge débloqué!" : "Active le beacon";
             case SOLVE_CIRCUS_PUZZLE -> current >= targetValue ? "✓ Puzzle résolu!" : "Parle au Forain";
