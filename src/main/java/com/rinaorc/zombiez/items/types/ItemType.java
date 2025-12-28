@@ -172,8 +172,8 @@ public enum ItemType {
             Material.SHIELD
         },
         new int[]{2},
-        new double[]{0},
-        new double[]{0}
+        new double[]{3},    // Points d'armure de base
+        new double[]{8}     // Chance de blocage de base (%)
     );
 
     private final String displayName;
