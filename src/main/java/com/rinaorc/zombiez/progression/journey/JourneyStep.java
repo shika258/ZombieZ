@@ -147,9 +147,9 @@ public enum JourneyStep {
         "Cueille 12 champignons - Zone: §b474, 92, 8687", StepType.MUSHROOM_COLLECTION, 13,
         400, 12, Material.RED_MUSHROOM),
 
-    STEP_4_4(JourneyChapter.CHAPTER_4, 4, "Atteins niveau de classe 15",
-        "Expert de ta classe", StepType.CLASS_LEVEL, 15,
-        500, 15, Material.DIAMOND_CHESTPLATE),
+    STEP_4_4(JourneyChapter.CHAPTER_4, 4, "Trouve le coffre mystérieux (Zone 7)",
+        "Coordonnées: §b137, 150, 8797", StepType.DISCOVER_CHEST, 7,
+        500, 15, Material.CHEST),
 
     STEP_4_5(JourneyChapter.CHAPTER_4, 5, "Atteins le niveau 25",
         "Les zones 4-5 s'ouvrent à toi", StepType.LEVEL, 25,
