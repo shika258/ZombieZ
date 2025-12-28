@@ -104,19 +104,36 @@ public class Chapter1Systems implements Listener {
     }
 
     /**
-     * Nettoie les anciennes entités
+     * Nettoie TOUTES les anciennes entités du fermier dans le MONDE ENTIER.
+     * Garantit MAXMOBS=1 (une seule instance du fermier).
+     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOldEntities(World world) {
-        Location farmerLoc = FARMER_LOCATION.clone();
-        farmerLoc.setWorld(world);
+        int removed = 0;
 
-        for (Entity entity : world.getNearbyEntities(farmerLoc, 10, 10, 10)) {
+        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
+        for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter1_farmer")) {
                 entity.remove();
+                removed++;
+                continue;
             }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter1_farmer_display")) {
+            if (entity.getScoreboardTags().contains("chapter1_farmer_display")) {
                 entity.remove();
+                removed++;
+                continue;
             }
+            // Fallback: vérifier par PDC
+            if (entity instanceof Villager villager) {
+                if (villager.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
+                }
+            }
+        }
+
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter1: " + removed + " entité(s) fermier orpheline(s) supprimée(s)");
         }
     }
 
@@ -202,7 +219,8 @@ public class Chapter1Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du fermier
+     * Démarre le vérificateur de respawn du fermier.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement le fermier avec nettoyage préalable.
      */
     private void startFarmerRespawnChecker() {
         new BukkitRunnable() {
@@ -211,9 +229,20 @@ public class Chapter1Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
+                // === SÉCURITÉ FERMIER (maxmobs=1) ===
                 if (farmerEntity == null || !farmerEntity.isValid() || farmerEntity.isDead()) {
+                    // Forcer le chargement du chunk avant le respawn
+                    Location farmerLoc = FARMER_LOCATION.clone();
+                    farmerLoc.setWorld(world);
+                    if (!farmerLoc.getChunk().isLoaded()) {
+                        farmerLoc.getChunk().load();
+                    }
+
+                    // Nettoyage global avant respawn pour garantir maxmobs=1
+                    cleanupOldEntities(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter1] Fermier invalide, respawn automatique...");
                     spawnFarmer(world);
-                    plugin.log(Level.FINE, "Fermier respawné (entité invalide)");
                 }
 
                 if (farmerDisplay == null || !farmerDisplay.isValid()) {

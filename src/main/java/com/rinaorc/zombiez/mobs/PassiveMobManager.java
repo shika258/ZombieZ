@@ -37,12 +37,12 @@ public class PassiveMobManager implements Listener {
     // Configuration des spawns par zone
     private final Map<Integer, ZoneSpawnConfig> zoneConfigs;
 
-    // Limites globales
-    private static final int BASE_MAX_MOBS_PER_ZONE = 8;
-    private static final int MAX_MOBS_BONUS_HIGH_ZONES = 4; // Bonus pour zones 16+
-    private int spawnCheckIntervalTicks = 400; // 20 secondes (plus fréquent)
-    private double baseSpawnChance = 0.25; // 25% de chance par check (+25% augmenté)
-    private static final double MIN_SPAWN_CHANCE = 0.10; // 10% minimum garanti (+25%)
+    // Limites globales - Augmentées pour plus de nourriture disponible
+    private static final int BASE_MAX_MOBS_PER_ZONE = 14;
+    private static final int MAX_MOBS_BONUS_HIGH_ZONES = 6; // Bonus pour zones 16+
+    private int spawnCheckIntervalTicks = 200; // 10 secondes (doublé)
+    private double baseSpawnChance = 0.45; // 45% de chance par check (augmenté)
+    private static final double MIN_SPAWN_CHANCE = 0.20; // 20% minimum garanti (doublé)
 
     private final Random random = new Random();
 
@@ -172,13 +172,13 @@ public class PassiveMobManager implements Listener {
     private int calculateMaxMobsForZone(int zoneId) {
         if (zoneId >= 30) {
             // Zones très avancées: plus de mobs pour compenser la difficulté
-            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES + 2;
+            return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES + 4;
         } else if (zoneId >= 16) {
             // Zones avancées: bonus standard
             return BASE_MAX_MOBS_PER_ZONE + MAX_MOBS_BONUS_HIGH_ZONES;
         } else if (zoneId >= 10) {
             // Zones intermédiaires: petit bonus
-            return BASE_MAX_MOBS_PER_ZONE + 2;
+            return BASE_MAX_MOBS_PER_ZONE + 4;
         }
         return BASE_MAX_MOBS_PER_ZONE;
     }
@@ -347,28 +347,50 @@ public class PassiveMobManager implements Listener {
         Player killer = event.getEntity().getKiller();
         if (killer == null) return;
 
-        // Générer le loot custom
-        List<ItemStack> loot = generateFoodLoot(data.type, data.zoneId);
+        // Générer le loot custom avec les FoodItems pour le glow
+        List<FoodDropInfo> loot = generateFoodLootWithInfo(data.type, data.zoneId);
 
-        // Dropper les items
+        // Dropper les items avec glow et nom visible
         Location dropLoc = entity.getLocation();
-        for (ItemStack item : loot) {
-            dropLoc.getWorld().dropItemNaturally(dropLoc, item);
+        for (FoodDropInfo dropInfo : loot) {
+            ItemStack itemStack = dropInfo.foodItem.createItemStack(dropInfo.amount);
+            org.bukkit.entity.Item droppedItem = dropLoc.getWorld().dropItemNaturally(dropLoc, itemStack);
+
+            // Appliquer le glow et le nom visible comme les armes/armures
+            org.bukkit.ChatColor glowColor = getFoodRarityChatColor(dropInfo.foodItem.getRarity());
+            plugin.getItemManager().applyDroppedItemEffects(droppedItem, dropInfo.foodItem.getDisplayName(), glowColor);
         }
 
         // Message au joueur
         if (!loot.isEmpty()) {
-            String itemName = loot.get(0).getItemMeta() != null ?
-                loot.get(0).getItemMeta().getDisplayName() : data.type.getDisplayName();
-            killer.sendMessage("§a🍖 §7Vous avez obtenu: " + itemName);
+            String itemName = loot.get(0).foodItem.getDisplayName();
+            killer.sendMessage("§a🍖 §7Vous avez obtenu: " + loot.get(0).foodItem.getRarity().getColor() + itemName);
         }
     }
 
     /**
-     * Génère le loot de nourriture pour un mob
+     * Convertit une FoodRarity en ChatColor pour le glow
      */
-    private List<ItemStack> generateFoodLoot(PassiveMobType mobType, int zoneId) {
-        List<ItemStack> loot = new ArrayList<>();
+    private org.bukkit.ChatColor getFoodRarityChatColor(FoodItem.FoodRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> org.bukkit.ChatColor.WHITE;
+            case UNCOMMON -> org.bukkit.ChatColor.GREEN;
+            case RARE -> org.bukkit.ChatColor.BLUE;
+            case EPIC -> org.bukkit.ChatColor.DARK_PURPLE;
+            case LEGENDARY -> org.bukkit.ChatColor.GOLD;
+        };
+    }
+
+    /**
+     * Info pour un drop de nourriture (FoodItem + quantité)
+     */
+    private record FoodDropInfo(FoodItem foodItem, int amount) {}
+
+    /**
+     * Génère le loot de nourriture pour un mob avec les infos FoodItem pour le glow
+     */
+    private List<FoodDropInfo> generateFoodLootWithInfo(PassiveMobType mobType, int zoneId) {
+        List<FoodDropInfo> loot = new ArrayList<>();
 
         // Obtenir les drops possibles pour ce type de mob
         List<FoodItem> possibleDrops = foodRegistry.getDropsForMob(mobType);
@@ -382,7 +404,7 @@ public class PassiveMobManager implements Listener {
         FoodItem guaranteedDrop = foodRegistry.getGuaranteedDrop(mobType);
         if (guaranteedDrop != null) {
             int amount = 1 + random.nextInt(3); // 1-3 items
-            loot.add(guaranteedDrop.createItemStack(amount));
+            loot.add(new FoodDropInfo(guaranteedDrop, amount));
         }
 
         // Chance de drop rare (8% base + bonus zone)
@@ -390,7 +412,7 @@ public class PassiveMobManager implements Listener {
         if (random.nextDouble() < rareChance) {
             FoodItem rareDrop = foodRegistry.getRareDrop(mobType);
             if (rareDrop != null) {
-                loot.add(rareDrop.createItemStack(1));
+                loot.add(new FoodDropInfo(rareDrop, 1));
             }
         }
 
@@ -399,7 +421,7 @@ public class PassiveMobManager implements Listener {
         if (random.nextDouble() < epicChance) {
             FoodItem epicDrop = foodRegistry.getEpicDrop(mobType);
             if (epicDrop != null) {
-                loot.add(epicDrop.createItemStack(1));
+                loot.add(new FoodDropInfo(epicDrop, 1));
             }
         }
 
@@ -408,7 +430,7 @@ public class PassiveMobManager implements Listener {
         if (random.nextDouble() < legendaryChance) {
             FoodItem legendaryDrop = foodRegistry.getLegendaryDrop(mobType);
             if (legendaryDrop != null) {
-                loot.add(legendaryDrop.createItemStack(1));
+                loot.add(new FoodDropInfo(legendaryDrop, 1));
             }
         }
 

@@ -520,6 +520,9 @@ public class RecycleManager implements Listener {
         }, 20L * 60, 20L * 60); // Toutes les minutes
     }
 
+    // Constante pour la taille de la hotbar
+    private static final int HOTBAR_SIZE = 9;
+
     /**
      * Recycle automatiquement les items dans l'inventaire du joueur
      * selon ses paramètres de recyclage
@@ -535,12 +538,20 @@ public class RecycleManager implements Listener {
             return;
         }
 
+        // Vérifier si la protection de la hotbar est activée
+        boolean protectHotbar = settings.isProtectHotbarEnabled();
+
         double vipMultiplier = playerData.getPointsMultiplier();
         int totalRecycled = 0;
         int totalPoints = 0;
         int bestSingleRecycle = 0;
 
         for (int i = 0; i < contents.length; i++) {
+            // Protéger la hotbar (slots 0-8) si l'option est activée
+            if (protectHotbar && i < HOTBAR_SIZE) {
+                continue;
+            }
+
             ItemStack item = contents[i];
             if (item == null || item.getType().isAir()) {
                 continue;

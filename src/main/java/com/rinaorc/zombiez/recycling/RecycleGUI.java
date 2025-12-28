@@ -34,6 +34,7 @@ public class RecycleGUI implements Listener {
     private static final int SLOT_TOGGLE_MAIN = 4;        // Toggle principal
     private static final int SLOT_TOGGLE_CONSUMABLES = 39; // Toggle consommables
     private static final int SLOT_STATS = 40;             // Statistiques
+    private static final int SLOT_PROTECT_HOTBAR = 41;    // Protection hotbar
 
     // Slots pour les raretés (ligne du milieu)
     private static final int[] RARITY_SLOTS = {10, 12, 14, 16, 28, 30, 32};
@@ -189,6 +190,27 @@ public class RecycleGUI implements Listener {
             )
             .build());
 
+        // Protection de la hotbar (slot 41)
+        boolean protectHotbar = settings.isProtectHotbarEnabled();
+        inv.setItem(SLOT_PROTECT_HOTBAR, new ItemBuilder(protectHotbar ? Material.SHIELD : Material.IRON_SWORD)
+            .name(protectHotbar ? "§a§l🛡 HOTBAR PROTÉGÉE" : "§c§l⚔ HOTBAR NON PROTÉGÉE")
+            .lore(
+                "",
+                "§7Quand activé, les items dans",
+                "§7votre hotbar (9 premiers slots)",
+                "§7ne seront §eJAMAIS §7recyclés.",
+                "",
+                "§6⚠ Sécurité recommandée!",
+                "§7Évite de recycler vos armes,",
+                "§7outils et items importants.",
+                "",
+                protectHotbar ? "§aProtection: ACTIVÉE" : "§cProtection: DÉSACTIVÉE",
+                "",
+                protectHotbar ? "§7Clic pour §cdésactiver" : "§7Clic pour §aactiver"
+            )
+            .glow(protectHotbar)
+            .build());
+
         // Bouton "Activer tout" (slot 37)
         inv.setItem(37, new ItemBuilder(Material.EMERALD)
             .name("§a§lActiver Tout")
@@ -311,6 +333,31 @@ public class RecycleGUI implements Listener {
                 player.sendMessage("§7Les grenades, soins, jetpacks seront recyclés au ramassage.");
             } else {
                 player.sendMessage("§c§l♻ §cRecyclage des consommables §ldésactivé§c.");
+            }
+
+            // Rafraîchir le menu
+            open(player);
+            return;
+        }
+
+        // Toggle protection hotbar
+        if (slot == SLOT_PROTECT_HOTBAR) {
+            boolean newState = !settings.isProtectHotbarEnabled();
+            settings.setProtectHotbarEnabled(newState);
+
+            // Synchroniser immédiatement vers PlayerData
+            recycleManager.syncToPlayerData(player.getUniqueId());
+
+            player.playSound(player.getLocation(),
+                newState ? Sound.BLOCK_ANVIL_LAND : Sound.BLOCK_NOTE_BLOCK_BASS,
+                0.5f, newState ? 1.2f : 0.8f);
+
+            if (newState) {
+                player.sendMessage("§a§l🛡 §aProtection de la hotbar §lactivée§a!");
+                player.sendMessage("§7Les items dans vos 9 premiers slots ne seront jamais recyclés.");
+            } else {
+                player.sendMessage("§c§l⚔ §cProtection de la hotbar §ldésactivée§c!");
+                player.sendMessage("§c⚠ Attention: Vos items de hotbar peuvent maintenant être recyclés!");
             }
 
             // Rafraîchir le menu

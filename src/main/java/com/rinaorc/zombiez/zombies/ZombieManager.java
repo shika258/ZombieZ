@@ -42,12 +42,18 @@ import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Giant;
 import org.bukkit.entity.Creaking;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.Item;
+import org.bukkit.ChatColor;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.Sound;
 import org.bukkit.Particle;
 import com.rinaorc.zombiez.utils.MessageUtils;
+import com.rinaorc.zombiez.mobs.food.FoodItem;
+import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableType;
+import com.rinaorc.zombiez.consumables.ConsumableRarity;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1204,6 +1210,44 @@ public class ZombieManager {
         if (plugin.getConsumableManager() != null) {
             plugin.getConsumableManager().tryDropConsumable(dropLoc, zoneId, type, luckBonus);
         }
+
+        // === DROP NOURRITURE ZOMBIE (8% de base, qualité inférieure aux mobs passifs) ===
+        double foodDropChance = 0.08 + (luckBonus * 0.02); // 8% + bonus luck
+        if (Math.random() < foodDropChance && plugin.getPassiveMobManager() != null) {
+            FoodItem zombieFood = plugin.getPassiveMobManager().getFoodRegistry().getRandomZombieFood();
+            if (zombieFood != null) {
+                int amount = 1 + (Math.random() < 0.3 ? 1 : 0); // 30% de chance d'en avoir 2
+                ItemStack foodItem = zombieFood.createItemStack(amount);
+                Item droppedFood = dropLoc.getWorld().dropItemNaturally(dropLoc, foodItem);
+
+                // Appliquer le glow et le nom visible comme les armes/armures
+                org.bukkit.ChatColor glowColor = getFoodRarityChatColor(zombieFood.getRarity());
+                plugin.getItemManager().applyDroppedItemEffects(droppedFood, zombieFood.getDisplayName(), glowColor);
+            }
+        }
+
+        // === DROP BANDAGE RARE (2.5% de base) ===
+        double bandageDropChance = 0.025 + (luckBonus * 0.005); // 2.5% + petit bonus luck
+        if (Math.random() < bandageDropChance && plugin.getConsumableManager() != null) {
+            // Créer un bandage de rareté aléatoire (principalement common/uncommon)
+            ConsumableRarity bandageRarity = Math.random() < 0.8 ? ConsumableRarity.COMMON :
+                                             (Math.random() < 0.7 ? ConsumableRarity.UNCOMMON : ConsumableRarity.RARE);
+            Consumable bandage = new Consumable(ConsumableType.BANDAGE, bandageRarity, zoneId);
+            plugin.getConsumableManager().dropConsumable(dropLoc, bandage);
+        }
+    }
+
+    /**
+     * Convertit une FoodRarity en ChatColor pour le glow
+     */
+    private ChatColor getFoodRarityChatColor(FoodItem.FoodRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+        };
     }
 
     /**

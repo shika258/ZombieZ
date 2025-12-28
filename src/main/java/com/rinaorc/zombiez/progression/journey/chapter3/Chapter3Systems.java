@@ -248,92 +248,84 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Nettoie les anciennes entités du chapitre 3
+     * Nettoie TOUTES les anciennes entités du chapitre 3 dans le MONDE ENTIER.
+     * Garantit MAXMOBS=1 (une seule instance de chaque NPC).
+     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOldEntities(World world) {
-        // Nettoyer le Forain
-        Location forainLoc = FORAIN_LOCATION.clone();
-        forainLoc.setWorld(world);
+        int removed = 0;
 
-        for (Entity entity : world.getNearbyEntities(forainLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter3_forain")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_forain_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le chat perdu
-        Location catLoc = CAT_LOCATION.clone();
-        catLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(catLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter3_lost_cat")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_cat_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer les indices de l'investigation
-        Location houseLoc = PATIENT_ZERO_HOUSE.clone();
-        houseLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(houseLoc, 20, 20, 20)) {
-            if (entity.getScoreboardTags().contains("chapter3_investigation_clue")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_clue_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le survivant du village
-        Location villageLoc = VILLAGE_SURVIVOR_LOCATION.clone();
-        villageLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(villageLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter3_village_survivor")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_survivor_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer les zombies de défense restants
+        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
         for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter3_defense_zombie")) {
+            Set<String> tags = entity.getScoreboardTags();
+
+            // Nettoyer le Forain et son display
+            if (tags.contains("chapter3_forain") || tags.contains("chapter3_forain_display")) {
                 entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le chat perdu et son display
+            if (tags.contains("chapter3_lost_cat") || tags.contains("chapter3_cat_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer les indices de l'investigation
+            if (tags.contains("chapter3_investigation_clue") || tags.contains("chapter3_clue_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le survivant du village et son display
+            if (tags.contains("chapter3_village_survivor") || tags.contains("chapter3_survivor_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer les zombies de défense restants
+            if (tags.contains("chapter3_defense_zombie")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le panneau de contrôle du Zeppelin
+            if (tags.contains("chapter3_zeppelin_control") || tags.contains("chapter3_zeppelin_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le boss de la mine et son display
+            if (tags.contains("chapter3_mine_boss") || tags.contains("chapter3_boss_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Fallback: vérifier par PDC pour les anciennes entités sans tags
+            if (entity instanceof Villager villager) {
+                var pdc = villager.getPersistentDataContainer();
+                if (pdc.has(FORAIN_NPC_KEY, PersistentDataType.BYTE) ||
+                    pdc.has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
+                }
+            } else if (entity instanceof Cat cat) {
+                if (cat.getPersistentDataContainer().has(LOST_CAT_KEY, PersistentDataType.BYTE)) {
+                    cat.remove();
+                    removed++;
+                }
             }
         }
 
-        // Nettoyer le panneau de contrôle du Zeppelin
-        Location zeppelinLoc = ZEPPELIN_CONTROL_LOCATION.clone();
-        zeppelinLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(zeppelinLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter3_zeppelin_control")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_zeppelin_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le boss de la mine et son display
-        Location bossLoc = MINE_BOSS_LOCATION.clone();
-        bossLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(bossLoc, 30, 30, 30)) {
-            if (entity.getScoreboardTags().contains("chapter3_mine_boss")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter3_boss_display")) {
-                entity.remove();
-            }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter3: " + removed + " entité(s) orpheline(s) supprimée(s)");
         }
     }
 
@@ -419,8 +411,8 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du Forain
-     * Respawn le NPC s'il a disparu (chunk unload, etc.)
+     * Démarre le vérificateur de respawn du Forain.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startForainRespawnChecker() {
         new BukkitRunnable() {
@@ -430,11 +422,20 @@ public class Chapter3Systems implements Listener {
                 if (world == null)
                     return;
 
-                // Vérifier si le Forain existe toujours
+                // === SÉCURITÉ FORAIN (maxmobs=1) ===
                 if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
-                    // Respawn le Forain
+                    // Forcer le chargement du chunk avant le respawn
+                    Location forainLoc = FORAIN_LOCATION.clone();
+                    forainLoc.setWorld(world);
+                    if (!forainLoc.getChunk().isLoaded()) {
+                        forainLoc.getChunk().load();
+                    }
+
+                    // Nettoyage des forains orphelins avant respawn
+                    cleanupForainEntities(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter3] Forain invalide, respawn automatique...");
                     spawnForain(world);
-                    plugin.log(Level.FINE, "Forain respawné (entité invalide)");
                 }
 
                 // Vérifier le TextDisplay
@@ -444,7 +445,27 @@ public class Chapter3Systems implements Listener {
                     createForainDisplay(world, loc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L); // Vérifier toutes les 5 secondes
+        }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Nettoie TOUS les forains orphelins dans le monde entier (maxmobs=1)
+     */
+    private void cleanupForainEntities(World world) {
+        int removed = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter3_forain") ||
+                entity.getScoreboardTags().contains("chapter3_forain_display")) {
+                entity.remove();
+                removed++;
+            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
+                v.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " forain(s) orphelin(s) supprimé(s)");
+        }
     }
 
     // ==================== CHAT PERDU (STEP 5) ====================
@@ -1132,18 +1153,29 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Démarre le système de visibilité per-player pour le survivant
+     * Démarre le système de visibilité per-player pour le survivant.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startSurvivorVisibilityUpdater() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                // Respawn automatique si l'entité est invalide
+                // === SÉCURITÉ SURVIVANT (maxmobs=1) ===
                 if (villageSurvivorEntity == null || !villageSurvivorEntity.isValid()) {
                     World world = Bukkit.getWorld("world");
                     if (world != null) {
+                        // Forcer le chargement du chunk
+                        Location survivorLoc = VILLAGE_SURVIVOR_LOCATION.clone();
+                        survivorLoc.setWorld(world);
+                        if (!survivorLoc.getChunk().isLoaded()) {
+                            survivorLoc.getChunk().load();
+                        }
+
+                        // Nettoyage avant respawn
+                        cleanupSurvivorEntities(world);
+
+                        plugin.log(Level.INFO, "§e[Chapter3] Survivant invalide, respawn automatique...");
                         spawnVillageSurvivor(world);
-                        plugin.log(Level.INFO, "Survivant du village respawn automatiquement");
                     }
                     return;
                 }
@@ -1200,6 +1232,26 @@ public class Chapter3Systems implements Listener {
         }
         if (villageSurvivorDisplay != null && villageSurvivorDisplay.isValid()) {
             player.hideEntity(plugin, villageSurvivorDisplay);
+        }
+    }
+
+    /**
+     * Nettoie TOUS les survivants orphelins dans le monde entier (maxmobs=1)
+     */
+    private void cleanupSurvivorEntities(World world) {
+        int removed = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter3_village_survivor") ||
+                entity.getScoreboardTags().contains("chapter3_survivor_display")) {
+                entity.remove();
+                removed++;
+            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
+                v.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " survivant(s) orphelin(s) supprimé(s)");
         }
     }
 

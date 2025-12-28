@@ -359,6 +359,103 @@ public class FoodItemRegistry {
             .addEffect(PotionEffectType.SPEED, 200, 0)
             .addLore("Des baies cueillies sous la pleine lune.")
             .addLore("§9+Vision nocturne pendant 30s"));
+
+        // ===== NOURRITURE TROUVÉE SUR LES ZOMBIES (drops des zombies) =====
+        // Ces items représentent ce que les zombies portaient avant leur transformation
+
+        // 1. Banane - Common, simple et efficace
+        register(new FoodItem("banana", "Banane", Material.YELLOW_DYE,
+            FoodItem.FoodRarity.COMMON, 2, 4, 2.0f)
+            .addLore("§7Une banane bien mûre.")
+            .addLore("§aÉnergie rapide!"));
+
+        // 2. Boîte de Conserve - Common, nourrissant
+        register(new FoodItem("canned_food", "Boîte de Conserve", Material.IRON_NUGGET,
+            FoodItem.FoodRarity.COMMON, 2, 5, 3.0f)
+            .addLore("§7Contenu: Haricots.")
+            .addLore("§7Se conserve indéfiniment."));
+
+        // 3. Barre Énergétique - Common, boost de vitesse
+        register(new FoodItem("energy_bar", "Barre Énergétique", Material.COOKIE,
+            FoodItem.FoodRarity.COMMON, 1, 3, 1.5f)
+            .addEffect(PotionEffectType.SPEED, 100, 0) // 5 sec speed
+            .addLore("§7Chocolat et céréales.")
+            .addLore("§a+Vitesse 5s"));
+
+        // 4. Ration Militaire - Uncommon, très nourrissant
+        register(new FoodItem("military_ration", "Ration Militaire", Material.BROWN_DYE,
+            FoodItem.FoodRarity.UNCOMMON, 4, 8, 6.0f)
+            .addEffect(PotionEffectType.REGENERATION, 60, 0) // 3 sec regen
+            .addLore("§7Pack de survie complet.")
+            .addLore("§7Trouvé sur un soldat infecté.")
+            .addLore("§a+Régénération 3s"));
+
+        // 5. Eau Purifiée - Uncommon, régénération
+        register(new FoodItem("purified_water", "Eau Purifiée", Material.POTION,
+            FoodItem.FoodRarity.UNCOMMON, 2, 2, 1.0f)
+            .addEffect(PotionEffectType.REGENERATION, 100, 0) // 5 sec regen
+            .addEffect(PotionEffectType.FIRE_RESISTANCE, 200, 0) // 10 sec fire res
+            .addLore("§7Une bouteille d'eau filtrée.")
+            .addLore("§a+Régénération 5s")
+            .addLore("§6+Résistance au feu 10s"));
+
+        // 6. Sandwich Emballé - Uncommon, équilibré
+        register(new FoodItem("wrapped_sandwich", "Sandwich Emballé", Material.BREAD,
+            FoodItem.FoodRarity.UNCOMMON, 3, 6, 4.0f)
+            .addEffect(PotionEffectType.SATURATION, 40, 0) // 2 sec saturation
+            .addLore("§7Encore frais sous vide.")
+            .addLore("§7Jambon-fromage, un classique.")
+            .addLore("§a+Saturation"));
+
+        // 7. Kit de Premiers Soins - Rare, healing
+        register(new FoodItem("first_aid_kit", "Kit de Premiers Soins", Material.RED_DYE,
+            FoodItem.FoodRarity.RARE, 6, 4, 2.0f)
+            .addEffect(PotionEffectType.INSTANT_HEALTH, 1, 1) // Heal instant
+            .addEffect(PotionEffectType.REGENERATION, 200, 1) // 10 sec regen II
+            .addLore("§7Bandages et antiseptique.")
+            .addLore("§c+Soin instantané")
+            .addLore("§a+Régénération II 10s"));
+
+        // 8. Boisson Énergisante - Rare, multi-buff
+        register(new FoodItem("energy_drink", "Boisson Énergisante", Material.HONEY_BOTTLE,
+            FoodItem.FoodRarity.RARE, 3, 4, 3.0f)
+            .addEffect(PotionEffectType.SPEED, 300, 1) // 15 sec speed II
+            .addEffect(PotionEffectType.HASTE, 300, 0) // 15 sec haste
+            .addEffect(PotionEffectType.JUMP_BOOST, 300, 1) // 15 sec jump II
+            .addLore("§7Caféine et taurine concentrées.")
+            .addLore("§b+Vitesse II 15s")
+            .addLore("§e+Hâte & Saut 15s"));
+
+        // 9. Stim-Pack Médical - Epic, puissant healing
+        register(new FoodItem("stim_pack", "Stim-Pack Médical", Material.GLOW_INK_SAC,
+            FoodItem.FoodRarity.EPIC, 8, 6, 4.0f)
+            .addEffect(PotionEffectType.INSTANT_HEALTH, 1, 2) // Gros heal
+            .addEffect(PotionEffectType.REGENERATION, 400, 2) // 20 sec regen III
+            .addEffect(PotionEffectType.RESISTANCE, 200, 0) // 10 sec resistance
+            .addEffect(PotionEffectType.ABSORPTION, 400, 1) // 20 sec absorption II
+            .addLore("§5Injection de nano-médicaments.")
+            .addLore("§c+Soin puissant instantané")
+            .addLore("§a+Régénération III 20s")
+            .addLore("§e+4 ❤ dorés 20s"));
+
+        // 10. Seringue d'Adrénaline - Legendary, tous les buffs!
+        register(new FoodItem("adrenaline_syringe", "Seringue d'Adrénaline", Material.END_ROD,
+            FoodItem.FoodRarity.LEGENDARY, 0, 10, 8.0f)
+            .addEffect(PotionEffectType.INSTANT_HEALTH, 1, 2) // Full heal
+            .addEffect(PotionEffectType.REGENERATION, 600, 2) // 30 sec regen III
+            .addEffect(PotionEffectType.SPEED, 600, 2) // 30 sec speed III
+            .addEffect(PotionEffectType.STRENGTH, 600, 1) // 30 sec strength II
+            .addEffect(PotionEffectType.RESISTANCE, 600, 1) // 30 sec resistance II
+            .addEffect(PotionEffectType.ABSORPTION, 600, 2) // 30 sec absorption III
+            .addEffect(PotionEffectType.HEALTH_BOOST, 600, 1) // 30 sec +4 hearts
+            .addLore("§6✦ INJECTION D'ADRÉNALINE PURE ✦")
+            .addLore("§7Réservée aux situations critiques.")
+            .addLore("")
+            .addLore("§c+Soin complet instantané")
+            .addLore("§a+Régénération III 30s")
+            .addLore("§b+Vitesse III & Force II 30s")
+            .addLore("§e+Résistance II 30s")
+            .addLore("§d+6 ❤ dorés + 4 ❤ bonus 30s"));
     }
 
     /**
@@ -529,5 +626,55 @@ public class FoodItemRegistry {
      */
     public Collection<FoodItem> getAllItems() {
         return allItems.values();
+    }
+
+    /**
+     * Obtient une nourriture de zombie aléatoire
+     * Pondération basée sur la rareté: Common > Uncommon > Rare > Epic > Legendary
+     */
+    public FoodItem getRandomZombieFood() {
+        // Liste des nourritures de zombie avec leurs poids (total = 100%)
+        // Common (3): 20% chacun = 60%
+        // Uncommon (3): 10% chacun = 30%
+        // Rare (2): 3% chacun = 6%
+        // Epic (1): 3% = 3%
+        // Legendary (1): 1% = 1%
+        String[] zombieFoods = {
+            "banana", "canned_food", "energy_bar",           // Common (60%)
+            "military_ration", "purified_water", "wrapped_sandwich", // Uncommon (30%)
+            "first_aid_kit", "energy_drink",                 // Rare (6%)
+            "stim_pack",                                     // Epic (3%)
+            "adrenaline_syringe"                             // Legendary (1%)
+        };
+        double[] weights = {
+            0.20, 0.20, 0.20,    // Common: 60% total
+            0.10, 0.10, 0.10,    // Uncommon: 30% total
+            0.03, 0.03,          // Rare: 6% total
+            0.03,                // Epic: 3%
+            0.01                 // Legendary: 1%
+        };
+
+        double roll = Math.random();
+        double cumulative = 0;
+
+        for (int i = 0; i < zombieFoods.length; i++) {
+            cumulative += weights[i];
+            if (roll < cumulative) {
+                return allItems.get(zombieFoods[i]);
+            }
+        }
+
+        // Fallback
+        return allItems.get("banana");
+    }
+
+    /**
+     * Vérifie si un item est une nourriture de zombie
+     */
+    public boolean isZombieFood(String id) {
+        return id.equals("banana") || id.equals("canned_food") || id.equals("energy_bar") ||
+               id.equals("military_ration") || id.equals("purified_water") || id.equals("wrapped_sandwich") ||
+               id.equals("first_aid_kit") || id.equals("energy_drink") ||
+               id.equals("stim_pack") || id.equals("adrenaline_syringe");
     }
 }

@@ -25,6 +25,10 @@ public class RecycleSettings {
     @Setter
     private boolean recycleConsumablesEnabled = false;
 
+    // Protection de la hotbar (slots 0-8) contre le recyclage automatique
+    @Setter
+    private boolean protectHotbarEnabled = true;
+
     // Activation par rareté (par défaut: uniquement COMMON et UNCOMMON activés)
     private final Map<Rarity, Boolean> recycleByRarity;
 
@@ -196,7 +200,7 @@ public class RecycleSettings {
 
     /**
      * Sérialise les paramètres en chaîne pour stockage BDD
-     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle;consumablesEnabled"
+     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle;consumablesEnabled;protectHotbar"
      */
     public String serialize() {
         StringBuilder sb = new StringBuilder();
@@ -225,6 +229,10 @@ public class RecycleSettings {
 
         // Recyclage des consommables
         sb.append(recycleConsumablesEnabled ? "1" : "0");
+        sb.append(";");
+
+        // Protection de la hotbar
+        sb.append(protectHotbarEnabled ? "1" : "0");
 
         return sb.toString();
     }
@@ -288,6 +296,11 @@ public class RecycleSettings {
             // Charger le recyclage des consommables
             if (parts.length >= 7 && !parts[6].isEmpty()) {
                 settings.setRecycleConsumablesEnabled(parts[6].equals("1"));
+            }
+
+            // Charger la protection de la hotbar (défaut: true pour sécurité)
+            if (parts.length >= 8 && !parts[7].isEmpty()) {
+                settings.setProtectHotbarEnabled(parts[7].equals("1"));
             }
         } catch (Exception e) {
             // En cas d'erreur, retourner les paramètres par défaut

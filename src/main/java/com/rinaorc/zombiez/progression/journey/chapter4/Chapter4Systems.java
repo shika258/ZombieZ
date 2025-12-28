@@ -418,100 +418,94 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Nettoie les anciennes entités
+     * Nettoie TOUTES les anciennes entités du chapitre 4 dans le MONDE ENTIER.
+     * Garantit MAXMOBS=1 (une seule instance de chaque NPC).
+     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOldEntities(World world) {
-        // Nettoyer le prêtre
-        Location priestLoc = PRIEST_LOCATION.clone();
-        priestLoc.setWorld(world);
+        int removed = 0;
 
-        for (Entity entity : world.getNearbyEntities(priestLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter4_priest")) {
+        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
+        for (Entity entity : world.getEntities()) {
+            Set<String> tags = entity.getScoreboardTags();
+
+            // Nettoyer le prêtre
+            if (tags.contains("chapter4_priest") || tags.contains("chapter4_priest_display")) {
                 entity.remove();
+                removed++;
+                continue;
             }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_priest_display")) {
+
+            // Nettoyer les tombes
+            if (tags.contains("chapter4_grave") || tags.contains("chapter4_grave_display")) {
                 entity.remove();
+                removed++;
+                continue;
             }
-        }
 
-        // Nettoyer les tombes
-        for (Location graveLoc : GRAVE_LOCATIONS) {
-            Location loc = graveLoc.clone();
-            loc.setWorld(world);
+            // Nettoyer les boss du fossoyeur
+            if (tags.contains("chapter4_gravedigger_boss")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
 
-            for (Entity entity : world.getNearbyEntities(loc, 10, 10, 10)) {
-                if (entity.getScoreboardTags().contains("chapter4_grave")) {
-                    entity.remove();
+            // Nettoyer le collecteur de champignons
+            if (tags.contains("chapter4_mushroom_collector") || tags.contains("chapter4_mushroom_collector_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer les champignons
+            if (tags.contains("chapter4_mushroom")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer les sources de corruption
+            if (tags.contains("chapter4_corruption_source")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer les orbes et le boss Creaking
+            if (tags.contains("chapter4_orb") || tags.contains("chapter4_creaking_boss")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le PNJ Alchimiste
+            if (tags.contains("chapter4_alchemist") || tags.contains("chapter4_alchemist_display")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Nettoyer le Cristal de Corruption
+            if (tags.contains("chapter4_crystal")) {
+                entity.remove();
+                removed++;
+                continue;
+            }
+
+            // Fallback: vérifier par PDC pour les anciennes entités sans tags
+            if (entity instanceof Villager villager) {
+                var pdc = villager.getPersistentDataContainer();
+                if (pdc.has(PRIEST_NPC_KEY, PersistentDataType.BYTE) ||
+                    pdc.has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE) ||
+                    pdc.has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+                    villager.remove();
+                    removed++;
                 }
-                if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_grave_display")) {
-                    entity.remove();
-                }
             }
         }
 
-        // Nettoyer les boss du fossoyeur
-        for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter4_gravedigger_boss")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le collecteur de champignons
-        Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
-        collectorLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(collectorLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter4_mushroom_collector")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer les champignons
-        for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter4_mushroom")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer les sources de corruption
-        for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter4_corruption_source")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer les orbes et le boss Creaking
-        for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter4_orb") ||
-                entity.getScoreboardTags().contains("chapter4_creaking_boss")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le PNJ Alchimiste
-        Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
-        alchemistLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(alchemistLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter4_alchemist")) {
-                entity.remove();
-            }
-            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
-                entity.remove();
-            }
-        }
-
-        // Nettoyer le Cristal de Corruption
-        Location crystalLoc = CRYSTAL_LOCATION.clone();
-        crystalLoc.setWorld(world);
-
-        for (Entity entity : world.getNearbyEntities(crystalLoc, 10, 10, 10)) {
-            if (entity.getScoreboardTags().contains("chapter4_crystal")) {
-                entity.remove();
-            }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter4: " + removed + " entité(s) orpheline(s) supprimée(s)");
         }
     }
 
@@ -599,7 +593,8 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du prêtre
+     * Démarre le vérificateur de respawn du prêtre.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startPriestRespawnChecker() {
         new BukkitRunnable() {
@@ -608,9 +603,20 @@ public class Chapter4Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
+                // === SÉCURITÉ PRÊTRE (maxmobs=1) ===
                 if (priestEntity == null || !priestEntity.isValid() || priestEntity.isDead()) {
+                    // Forcer le chargement du chunk
+                    Location priestLoc = PRIEST_LOCATION.clone();
+                    priestLoc.setWorld(world);
+                    if (!priestLoc.getChunk().isLoaded()) {
+                        priestLoc.getChunk().load();
+                    }
+
+                    // Nettoyage avant respawn
+                    cleanupPriestEntities(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter4] Prêtre invalide, respawn automatique...");
                     spawnPriest(world);
-                    plugin.log(Level.FINE, "Prêtre respawné (entité invalide)");
                 }
 
                 if (priestDisplay == null || !priestDisplay.isValid()) {
@@ -620,6 +626,26 @@ public class Chapter4Systems implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Nettoie TOUS les prêtres orphelins dans le monde entier (maxmobs=1)
+     */
+    private void cleanupPriestEntities(World world) {
+        int removed = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_priest") ||
+                entity.getScoreboardTags().contains("chapter4_priest_display")) {
+                entity.remove();
+                removed++;
+            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
+                v.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " prêtre(s) orphelin(s) supprimé(s)");
+        }
     }
 
     /**
@@ -1497,7 +1523,8 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du collecteur
+     * Démarre le vérificateur de respawn du collecteur.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startMushroomCollectorRespawnChecker() {
         new BukkitRunnable() {
@@ -1506,9 +1533,20 @@ public class Chapter4Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
+                // === SÉCURITÉ COLLECTEUR (maxmobs=1) ===
                 if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid() || mushroomCollectorEntity.isDead()) {
+                    // Forcer le chargement du chunk
+                    Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
+                    collectorLoc.setWorld(world);
+                    if (!collectorLoc.getChunk().isLoaded()) {
+                        collectorLoc.getChunk().load();
+                    }
+
+                    // Nettoyage avant respawn
+                    cleanupMushroomCollectorEntities(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter4] Collecteur de champignons invalide, respawn automatique...");
                     spawnMushroomCollector(world);
-                    plugin.log(Level.FINE, "Collecteur de champignons respawné");
                 }
 
                 if (mushroomCollectorDisplay == null || !mushroomCollectorDisplay.isValid()) {
@@ -1518,6 +1556,26 @@ public class Chapter4Systems implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Nettoie TOUS les collecteurs de champignons orphelins (maxmobs=1)
+     */
+    private void cleanupMushroomCollectorEntities(World world) {
+        int removed = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
+                entity.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
+                entity.remove();
+                removed++;
+            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
+                v.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " collecteur(s) orphelin(s) supprimé(s)");
+        }
     }
 
     /**
@@ -3753,7 +3811,8 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn de l'alchimiste
+     * Démarre le vérificateur de respawn de l'alchimiste.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startAlchemistNpcRespawnChecker() {
         new BukkitRunnable() {
@@ -3762,9 +3821,20 @@ public class Chapter4Systems implements Listener {
                 World world = Bukkit.getWorld("world");
                 if (world == null) return;
 
+                // === SÉCURITÉ ALCHIMISTE (maxmobs=1) ===
                 if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid() || alchemistNpcEntity.isDead()) {
+                    // Forcer le chargement du chunk
+                    Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
+                    alchemistLoc.setWorld(world);
+                    if (!alchemistLoc.getChunk().isLoaded()) {
+                        alchemistLoc.getChunk().load();
+                    }
+
+                    // Nettoyage avant respawn
+                    cleanupAlchemistEntities(world);
+
+                    plugin.log(Level.INFO, "§e[Chapter4] Alchimiste invalide, respawn automatique...");
                     spawnAlchemistNpc(world);
-                    plugin.log(Level.FINE, "Alchimiste respawné (entité invalide)");
                 }
 
                 if (alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid()) {
@@ -3774,6 +3844,26 @@ public class Chapter4Systems implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Nettoie TOUS les alchimistes orphelins dans le monde entier (maxmobs=1)
+     */
+    private void cleanupAlchemistEntities(World world) {
+        int removed = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_alchemist") ||
+                entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
+                entity.remove();
+                removed++;
+            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+                v.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " alchimiste(s) orphelin(s) supprimé(s)");
+        }
     }
 
     /**
