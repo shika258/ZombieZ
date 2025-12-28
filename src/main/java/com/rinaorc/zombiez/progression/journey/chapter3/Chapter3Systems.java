@@ -135,8 +135,9 @@ public class Chapter3Systems implements Listener {
     private Entity villageSurvivorEntity;
     private TextDisplay villageSurvivorDisplay;
 
-    // Panneau de contrôle du Zeppelin (étape 8)
-    private ArmorStand zeppelinControlEntity;
+    // Panneau de contrôle du Zeppelin (étape 8) - ItemDisplay + Interaction
+    private ItemDisplay zeppelinControlVisual;
+    private Interaction zeppelinControlHitbox;
     private TextDisplay zeppelinControlDisplay;
 
     // Boss de la mine (étape 10)
@@ -1644,47 +1645,61 @@ public class Chapter3Systems implements Listener {
     // ==================== RÉPARATION DU ZEPPELIN (STEP 8) ====================
 
     /**
-     * Spawn le panneau de contrôle du Zeppelin (ArmorStand avec bloc de commande
-     * glowing)
+     * Spawn le panneau de contrôle du Zeppelin (ItemDisplay + Interaction)
      */
     private void spawnZeppelinControl(World world) {
         Location loc = ZEPPELIN_CONTROL_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            zeppelinControlEntity.remove();
+        // Supprimer les anciens si existants
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            zeppelinControlVisual.remove();
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            zeppelinControlHitbox.remove();
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             zeppelinControlDisplay.remove();
         }
 
-        // Spawn l'ArmorStand avec un bloc de commande
-        zeppelinControlEntity = world.spawn(loc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setInvulnerable(true);
-            stand.setMarker(false); // Pas marker pour pouvoir interagir
-            stand.setSmall(false);
-            stand.setCollidable(false);
-            stand.setArms(false);
-            stand.setBasePlate(false);
+        // 1. Créer le VISUEL (ItemDisplay avec Command Block glowing)
+        zeppelinControlVisual = world.spawn(loc, ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.COMMAND_BLOCK));
 
-            // Placer un bloc de commande sur la tête
-            stand.getEquipment().setHelmet(new ItemStack(Material.COMMAND_BLOCK));
+            // Taille x2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0.8f, 0), // Translation (au-dessus du sol)
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(2.0f, 2.0f, 2.0f), // Scale x2
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
 
-            // Effet glowing
-            stand.setGlowing(true);
+            display.setBillboard(Display.Billboard.FIXED);
+
+            // Glow effect jaune
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 200, 50));
+
+            display.setViewRange(64f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_zeppelin_visual");
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox cliquable)
+        zeppelinControlHitbox = world.spawn(loc.clone().add(0, 0.8, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.5f);
+            interaction.setInteractionHeight(1.5f);
 
             // Tags
-            stand.addScoreboardTag("chapter3_zeppelin_control");
-            stand.addScoreboardTag("zombiez_npc");
+            interaction.addScoreboardTag("chapter3_zeppelin_control");
+            interaction.addScoreboardTag("zombiez_npc");
 
             // PDC
-            stand.getPersistentDataContainer().set(ZEPPELIN_CONTROL_KEY, PersistentDataType.BYTE, (byte) 1);
+            interaction.getPersistentDataContainer().set(ZEPPELIN_CONTROL_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            stand.setPersistent(false);
-            stand.setVisibleByDefault(false);
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
         });
 
         // Créer le TextDisplay au-dessus
@@ -1736,11 +1751,11 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid()) {
+                if (zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid()) {
                     return;
                 }
 
-                Location controlLoc = zeppelinControlEntity.getLocation();
+                Location controlLoc = zeppelinControlHitbox.getLocation();
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(controlLoc.getWorld())) {
@@ -1766,18 +1781,21 @@ public class Chapter3Systems implements Listener {
      * Met à jour la visibilité du panneau de contrôle pour un joueur
      */
     private void updateZeppelinControlVisibilityForPlayer(Player player, boolean hasRepaired) {
-        if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid() ||
+        if (zeppelinControlVisual == null || !zeppelinControlVisual.isValid() ||
+                zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid() ||
                 zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid()) {
             return;
         }
 
         if (hasRepaired) {
             // Le joueur a déjà réparé le Zeppelin
-            player.hideEntity(plugin, zeppelinControlEntity);
+            player.hideEntity(plugin, zeppelinControlVisual);
+            player.hideEntity(plugin, zeppelinControlHitbox);
             player.hideEntity(plugin, zeppelinControlDisplay);
         } else {
             // Montrer le panneau de contrôle
-            player.showEntity(plugin, zeppelinControlEntity);
+            player.showEntity(plugin, zeppelinControlVisual);
+            player.showEntity(plugin, zeppelinControlHitbox);
             player.showEntity(plugin, zeppelinControlDisplay);
         }
     }
@@ -1786,8 +1804,11 @@ public class Chapter3Systems implements Listener {
      * Cache le panneau de contrôle pour un joueur
      */
     private void hideZeppelinControlForPlayer(Player player) {
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            player.hideEntity(plugin, zeppelinControlEntity);
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            player.hideEntity(plugin, zeppelinControlVisual);
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            player.hideEntity(plugin, zeppelinControlHitbox);
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             player.hideEntity(plugin, zeppelinControlDisplay);
@@ -2560,8 +2581,11 @@ public class Chapter3Systems implements Listener {
         }
 
         // Nettoyer le panneau de contrôle du Zeppelin
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            zeppelinControlEntity.remove();
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            zeppelinControlVisual.remove();
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            zeppelinControlHitbox.remove();
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             zeppelinControlDisplay.remove();
