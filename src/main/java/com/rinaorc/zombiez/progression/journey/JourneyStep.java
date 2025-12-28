@@ -155,6 +155,10 @@ public enum JourneyStep {
         "Parcours les terres maudites", StepType.ZONE_EXPLORATION, 7,
         600, 18, Material.FILLED_MAP),
 
+    STEP_4_6(JourneyChapter.CHAPTER_4, 6, "Purifie 5 Âmes Damnées",
+        "Cimetière: §b914, 87, 8640", StepType.SOUL_PURIFICATION, 5,
+        700, 20, Material.SOUL_LANTERN),
+
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
     STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
@@ -447,6 +451,7 @@ public enum JourneyStep {
                 else if (current >= 12) yield "Livre au collecteur!";
                 else yield current + "/12 champignons";
             }
+            case SOUL_PURIFICATION -> current + "/" + targetValue + " âmes purifiées";
         };
     }
 
@@ -624,7 +629,10 @@ public enum JourneyStep {
         GRAVEDIGGER_QUEST("Creuse les tombes et vaincs le boss"),
 
         // Collecte de champignons (Chapitre 4)
-        MUSHROOM_COLLECTION("Collecte les champignons maudits");
+        MUSHROOM_COLLECTION("Collecte les champignons maudits"),
+
+        // Purification d'âmes (Chapitre 4)
+        SOUL_PURIFICATION("Purifie les âmes damnées");
 
         private final String description;
 

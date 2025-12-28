@@ -40,6 +40,10 @@ import java.util.logging.Level;
  * - Étape 3: La Récolte Maudite
  *   - Collecter 12 champignons rouges dans la zone
  *   - Les livrer au collecteur
+ * - Étape 6: Purification des Âmes
+ *   - Tuer des Âmes Damnées dans le cimetière (33% drop Purificateur)
+ *   - Utiliser le Purificateur sur les Âmes Damnées pour les libérer
+ *   - Purifier 5 âmes -> transformation en villageois + nuage de fumée
  */
 public class Chapter4Systems implements Listener {
 
@@ -55,6 +59,9 @@ public class Chapter4Systems implements Listener {
     // Champignons
     private final NamespacedKey MUSHROOM_COLLECTOR_KEY;
     private final NamespacedKey MUSHROOM_HITBOX_KEY;
+    // Âmes Damnées
+    private final NamespacedKey DAMNED_SOUL_KEY;
+    private final NamespacedKey PURIFIER_ITEM_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -79,6 +86,14 @@ public class Chapter4Systems implements Listener {
     private static final int MUSHROOM_ZONE_MIN_Z = 8661;
     private static final int MUSHROOM_ZONE_MAX_Z = 8713;
 
+    // Zone du cimetière pour les Âmes Damnées (corners: 891,87,8607 à 937,86,8673)
+    private static final int SOUL_ZONE_MIN_X = 891;
+    private static final int SOUL_ZONE_MAX_X = 937;
+    private static final int SOUL_ZONE_MIN_Y = 86;
+    private static final int SOUL_ZONE_MAX_Y = 87;
+    private static final int SOUL_ZONE_MIN_Z = 8607;
+    private static final int SOUL_ZONE_MAX_Z = 8673;
+
     // === CONFIGURATION ===
     private static final int HITS_TO_DIG = 10; // Nombre de coups pour creuser une tombe
     private static final double GRAVE_VIEW_DISTANCE = 48;
@@ -90,6 +105,11 @@ public class Chapter4Systems implements Listener {
     private static final int MUSHROOMS_TO_COLLECT = 12; // Nombre à collecter
     private static final int HITS_TO_COLLECT_MUSHROOM = 2; // 1-3 coups pour collecter
     private static final double MUSHROOM_VIEW_DISTANCE = 32;
+
+    // Configuration Âmes Damnées
+    private static final int MAX_DAMNED_SOULS = 12; // Nombre max d'âmes damnées en même temps
+    private static final double PURIFIER_DROP_CHANCE = 0.33; // 33% de chance de drop
+    private static final int SOULS_TO_PURIFY = 5; // Nombre d'âmes à purifier
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -140,6 +160,13 @@ public class Chapter4Systems implements Listener {
     // Joueurs ayant complété la quête champignons
     private final Set<UUID> playersWhoCompletedMushrooms = ConcurrentHashMap.newKeySet();
 
+    // === TRACKING ÂMES DAMNÉES ===
+    // Âmes purifiées par joueur
+    private final Map<UUID, Integer> playerSoulsPurified = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête de purification
+    private final Set<UUID> playersWhoCompletedSouls = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -151,6 +178,8 @@ public class Chapter4Systems implements Listener {
         this.GRAVEDIGGER_BOSS_KEY = new NamespacedKey(plugin, "gravedigger_boss");
         this.MUSHROOM_COLLECTOR_KEY = new NamespacedKey(plugin, "mushroom_collector");
         this.MUSHROOM_HITBOX_KEY = new NamespacedKey(plugin, "mushroom_hitbox");
+        this.DAMNED_SOUL_KEY = new NamespacedKey(plugin, "damned_soul");
+        this.PURIFIER_ITEM_KEY = new NamespacedKey(plugin, "soul_purifier");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -204,7 +233,11 @@ public class Chapter4Systems implements Listener {
         startMushroomVisibilityUpdater();
         startMushroomRespawnChecker();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte Maudite)");
+        // === ÉTAPE 6: PURIFICATION DES ÂMES ===
+        // Démarrer le spawn des Âmes Damnées dans la zone du cimetière
+        startDamnedSoulSpawner(world);
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte Maudite, Purification)");
     }
 
     /**
@@ -1842,5 +1875,332 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les données temporaires - Champignons
         playerMushroomsCollected.remove(uuid);
         playerMushroomHits.remove(uuid);
+
+        // Nettoyer les données temporaires - Âmes Damnées
+        playerSoulsPurified.remove(uuid);
+    }
+
+    // ==================== ÉTAPE 6: PURIFICATION DES ÂMES ====================
+
+    /**
+     * Vérifie si une location est proche de la zone du cimetière
+     */
+    private boolean isNearSoulZone(Location loc) {
+        return loc.getX() >= SOUL_ZONE_MIN_X - 50 &&
+                loc.getX() <= SOUL_ZONE_MAX_X + 50 &&
+                loc.getZ() >= SOUL_ZONE_MIN_Z - 50 &&
+                loc.getZ() <= SOUL_ZONE_MAX_Z + 50;
+    }
+
+    /**
+     * Démarre le spawner d'Âmes Damnées dans la zone du cimetière
+     * Spawn prioritaire si un joueur est à l'étape 4_6
+     */
+    private void startDamnedSoulSpawner(World world) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Vérifier si des joueurs sont proches ET à l'étape 4_6
+                boolean playersNearby = false;
+                for (Player player : world.getPlayers()) {
+                    if (!isNearSoulZone(player.getLocation())) continue;
+
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    if (currentStep == JourneyStep.STEP_4_6 && !playersWhoCompletedSouls.contains(player.getUniqueId())) {
+                        playersNearby = true;
+                        break;
+                    }
+                }
+
+                if (!playersNearby) return;
+
+                // Compter les âmes damnées existantes
+                long soulCount = world.getEntitiesByClass(Zombie.class).stream()
+                        .filter(z -> z.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE))
+                        .count();
+
+                // Limiter à MAX_DAMNED_SOULS
+                if (soulCount >= MAX_DAMNED_SOULS) return;
+
+                // Spawn 1-2 âmes
+                int toSpawn = java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 3);
+                for (int i = 0; i < toSpawn && soulCount + i < MAX_DAMNED_SOULS; i++) {
+                    spawnDamnedSoul(world);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 60L); // Toutes les 3 secondes
+    }
+
+    /**
+     * Spawn une Âme Damnée via ZombieManager
+     */
+    private void spawnDamnedSoul(World world) {
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) return;
+
+        // Position aléatoire dans la zone
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        double x = random.nextDouble(SOUL_ZONE_MIN_X, SOUL_ZONE_MAX_X);
+        double z = random.nextDouble(SOUL_ZONE_MIN_Z, SOUL_ZONE_MAX_Z);
+        double y = world.getHighestBlockYAt((int) x, (int) z) + 1;
+
+        Location spawnLoc = new Location(world, x, y, z);
+
+        // Niveau aléatoire 5-10 pour la zone 7
+        int level = random.nextInt(5, 11);
+
+        // Spawn via ZombieManager
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.DAMNED_SOUL, spawnLoc, level);
+
+        if (activeZombie != null) {
+            Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+            if (entity instanceof Zombie zombie) {
+                // Apparence spectrale - armure de cuir cyan avec effets
+                zombie.getEquipment().setHelmet(createSoulArmor(Material.LEATHER_HELMET));
+                zombie.getEquipment().setChestplate(createSoulArmor(Material.LEATHER_CHESTPLATE));
+                zombie.getEquipment().setLeggings(createSoulArmor(Material.LEATHER_LEGGINGS));
+                zombie.getEquipment().setBoots(createSoulArmor(Material.LEATHER_BOOTS));
+
+                // Pas de drop d'armure
+                zombie.getEquipment().setHelmetDropChance(0);
+                zombie.getEquipment().setChestplateDropChance(0);
+                zombie.getEquipment().setLeggingsDropChance(0);
+                zombie.getEquipment().setBootsDropChance(0);
+
+                // Effet visuel spectral
+                zombie.setGlowing(true);
+                zombie.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                        org.bukkit.potion.PotionEffectType.SLOW, Integer.MAX_VALUE, 0, false, false));
+
+                // Marquer comme Âme Damnée
+                zombie.getPersistentDataContainer().set(DAMNED_SOUL_KEY, PersistentDataType.BYTE, (byte) 1);
+
+                // Particules de spawn
+                world.spawnParticle(Particle.SOUL, spawnLoc.clone().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.02);
+                world.playSound(spawnLoc, Sound.PARTICLE_SOUL_ESCAPE, 0.8f, 0.5f);
+            }
+        }
+    }
+
+    /**
+     * Crée une pièce d'armure spectrale pour les Âmes Damnées
+     */
+    private ItemStack createSoulArmor(Material armorType) {
+        ItemStack armor = new ItemStack(armorType);
+
+        if (armor.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta leatherMeta) {
+            // Couleur cyan spectrale
+            leatherMeta.setColor(Color.fromRGB(80, 180, 180));
+            armor.setItemMeta(leatherMeta);
+        }
+
+        return armor;
+    }
+
+    /**
+     * Crée l'item Purificateur d'Âmes
+     */
+    private ItemStack createSoulPurifier() {
+        ItemStack purifier = new ItemStack(Material.HEART_OF_THE_SEA);
+        var meta = purifier.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("✦ Purificateur d'Âmes ✦", NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, true));
+            meta.lore(Arrays.asList(
+                    Component.text("Utilise cet artefact sur une", NamedTextColor.GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("Âme Damnée", NamedTextColor.DARK_AQUA)
+                            .decoration(TextDecoration.ITALIC, false)
+                            .append(Component.text(" pour la libérer.", NamedTextColor.GRAY)),
+                    Component.empty(),
+                    Component.text("▸ Clic droit sur l'Âme Damnée", NamedTextColor.YELLOW)
+                            .decoration(TextDecoration.ITALIC, false)
+            ));
+            meta.setEnchantmentGlintOverride(true);
+            meta.getPersistentDataContainer().set(PURIFIER_ITEM_KEY, PersistentDataType.BYTE, (byte) 1);
+            purifier.setItemMeta(meta);
+        }
+        return purifier;
+    }
+
+    /**
+     * Gère la mort d'une Âme Damnée - drop du Purificateur (33%)
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamnedSoulDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Zombie zombie)) return;
+        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE)) return;
+
+        Player killer = zombie.getKiller();
+        if (killer == null) return;
+
+        // Vérifier si le joueur est à l'étape 4_6
+        JourneyStep currentStep = journeyManager.getCurrentStep(killer);
+        if (currentStep != JourneyStep.STEP_4_6) return;
+
+        // 33% de chance de drop
+        if (Math.random() < PURIFIER_DROP_CHANCE) {
+            // Drop le purificateur
+            zombie.getWorld().dropItemNaturally(zombie.getLocation(), createSoulPurifier());
+
+            // Effets
+            killer.playSound(killer.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
+            killer.sendActionBar(Component.text("✦ Un Purificateur d'Âmes est tombé!", NamedTextColor.AQUA));
+        }
+
+        // Particules de mort
+        zombie.getWorld().spawnParticle(Particle.SOUL, zombie.getLocation().add(0, 1, 0), 20, 0.4, 0.6, 0.4, 0.03);
+    }
+
+    /**
+     * Gère l'utilisation du Purificateur sur une Âme Damnée
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onPurifierUse(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (!(event.getRightClicked() instanceof Zombie zombie)) return;
+        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE)) return;
+
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        // Vérifier si c'est un purificateur
+        if (item.getType() != Material.HEART_OF_THE_SEA) return;
+        if (!item.hasItemMeta()) return;
+        if (!item.getItemMeta().getPersistentDataContainer().has(PURIFIER_ITEM_KEY, PersistentDataType.BYTE)) return;
+
+        // Vérifier si le joueur est à l'étape 4_6
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_6) {
+            player.sendMessage(Component.text("✗ Tu n'es pas à l'étape de purification des âmes.", NamedTextColor.RED));
+            return;
+        }
+
+        // Vérifier si déjà complété
+        if (playersWhoCompletedSouls.contains(player.getUniqueId())) return;
+
+        event.setCancelled(true);
+
+        // Consommer un purificateur
+        item.setAmount(item.getAmount() - 1);
+
+        // Incrémenter le compteur
+        int purified = playerSoulsPurified.merge(player.getUniqueId(), 1, Integer::sum);
+
+        // Transformer en villageois puis disparaître
+        transformSoulToVillager(zombie, player);
+
+        // Mettre à jour la progression Journey
+        journeyManager.updateProgress(player, JourneyStep.StepType.SOUL_PURIFICATION, purified);
+
+        // Vérifier si quête complète
+        if (purified >= SOULS_TO_PURIFY) {
+            playersWhoCompletedSouls.add(player.getUniqueId());
+
+            // Message de fin
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    sendSoulPurificationLore(player);
+                }
+            }.runTaskLater(plugin, 40L);
+        }
+    }
+
+    /**
+     * Transforme une Âme Damnée en villageois qui disparaît
+     */
+    private void transformSoulToVillager(Zombie zombie, Player player) {
+        Location loc = zombie.getLocation();
+        World world = zombie.getWorld();
+
+        // Supprimer le zombie
+        zombie.remove();
+
+        // Spawn un villageois temporaire
+        Villager villager = world.spawn(loc, Villager.class, v -> {
+            v.setAI(false);
+            v.setInvulnerable(true);
+            v.setSilent(true);
+            v.setProfession(org.bukkit.entity.Villager.Profession.CLERIC);
+            v.customName(Component.text("Âme Libérée", NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+            v.setCustomNameVisible(true);
+        });
+
+        // Effets immédiats
+        world.spawnParticle(Particle.SOUL, loc.clone().add(0, 1, 0), 30, 0.4, 0.8, 0.4, 0.05);
+        world.playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.5f);
+
+        // Message au joueur
+        int purified = playerSoulsPurified.getOrDefault(player.getUniqueId(), 0);
+        player.sendActionBar(Component.text("✦ Âme purifiée! (" + purified + "/" + SOULS_TO_PURIFY + ")", NamedTextColor.GREEN));
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+
+        // Disparition après 2 secondes avec nuage de fumée
+        new BukkitRunnable() {
+            private int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!villager.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+
+                // Particules pendant 2 secondes
+                if (ticks <= 40) {
+                    world.spawnParticle(Particle.SOUL, villager.getLocation().add(0, 1, 0), 3, 0.2, 0.3, 0.2, 0.01);
+                }
+
+                // Disparition à 2 secondes
+                if (ticks >= 40) {
+                    // Grand nuage de fumée
+                    world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, villager.getLocation().add(0, 1, 0), 25, 0.3, 0.5, 0.3, 0.02);
+                    world.spawnParticle(Particle.SOUL, villager.getLocation().add(0, 1.5, 0), 20, 0.2, 0.4, 0.2, 0.03);
+                    world.playSound(villager.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.6f, 1.8f);
+
+                    villager.remove();
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
+    }
+
+    /**
+     * Envoie le lore de fin de purification
+     */
+    private void sendSoulPurificationLore(Player player) {
+        player.sendMessage(Component.empty());
+        player.sendMessage(Component.text("═══════════════════════════════════", NamedTextColor.DARK_AQUA));
+        player.sendMessage(Component.text("        ✦ LES ÂMES PARLENT ✦", NamedTextColor.AQUA)
+                .decoration(TextDecoration.BOLD, true));
+        player.sendMessage(Component.text("═══════════════════════════════════", NamedTextColor.DARK_AQUA));
+        player.sendMessage(Component.empty());
+
+        player.sendMessage(Component.text("Les âmes libérées murmurent...", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, true));
+        player.sendMessage(Component.empty());
+
+        player.sendMessage(Component.text("\"Nous étions comme eux... avant que", NamedTextColor.WHITE));
+        player.sendMessage(Component.text("le Patient Zéro ne nous transforme.\"", NamedTextColor.WHITE));
+        player.sendMessage(Component.empty());
+
+        player.sendMessage(Component.text("\"Il cherchait l'immortalité... mais", NamedTextColor.WHITE));
+        player.sendMessage(Component.text("n'a trouvé qu'une malédiction éternelle.\"", NamedTextColor.WHITE));
+        player.sendMessage(Component.empty());
+
+        player.sendMessage(Component.text("\"Les réponses se trouvent dans les", NamedTextColor.GOLD));
+        player.sendMessage(Component.text("profondeurs... là où tout a commencé.\"", NamedTextColor.GOLD));
+        player.sendMessage(Component.empty());
+
+        player.sendMessage(Component.text("═══════════════════════════════════", NamedTextColor.DARK_AQUA));
+        player.sendMessage(Component.text("  Quête de purification terminée!", NamedTextColor.GREEN));
+        player.sendMessage(Component.text("═══════════════════════════════════", NamedTextColor.DARK_AQUA));
+
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
     }
 }

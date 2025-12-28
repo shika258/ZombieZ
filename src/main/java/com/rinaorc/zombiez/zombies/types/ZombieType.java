@@ -192,6 +192,9 @@ public enum ZombieType {
     GRAVEDIGGER_BOSS("ZZ_GravediggerBoss", "Le Premier Mort", 0, 2400, 25, 0.20,  // Boss Chapitre 4 Étape 2 - Wither Skeleton géant (x3 HP)
         new int[]{}, ZombieCategory.JOURNEY_BOSS),
 
+    DAMNED_SOUL("ZZ_DamnedSoul", "Âme Damnée", 2, 60, 8, 0.18,  // Chapitre 4 Étape 6 - Zombie du cimetière à purifier
+        new int[]{}, ZombieCategory.ELEMENTAL),  // Pas de zone: spawn uniquement via Chapter4Systems
+
     // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════
