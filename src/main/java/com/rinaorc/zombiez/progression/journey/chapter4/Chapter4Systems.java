@@ -122,8 +122,9 @@ public class Chapter4Systems implements Listener {
     private final Interaction[] graveHitboxes = new Interaction[5];
     private final TextDisplay[] graveDisplays = new TextDisplay[5];
 
-    // Champignons (ArmorStand invisible + ItemDisplay RED_MUSHROOM glowing)
-    private final List<ArmorStand> mushroomEntities = new ArrayList<>();
+    // Champignons (ItemDisplay RED_MUSHROOM scale x3 glowing + Interaction hitbox)
+    private final List<ItemDisplay> mushroomVisuals = new ArrayList<>();
+    private final List<Interaction> mushroomHitboxes = new ArrayList<>();
     private final List<Location> mushroomLocations = new ArrayList<>();
 
     // Collecteur de champignons
@@ -1333,13 +1334,21 @@ public class Chapter4Systems implements Listener {
      * Spawn tous les champignons
      */
     private void spawnMushrooms(World world) {
-        // Nettoyer les anciens
-        for (ArmorStand mushroom : mushroomEntities) {
-            if (mushroom != null && mushroom.isValid()) {
-                mushroom.remove();
+        // Nettoyer les anciens visuels
+        for (ItemDisplay visual : mushroomVisuals) {
+            if (visual != null && visual.isValid()) {
+                visual.remove();
             }
         }
-        mushroomEntities.clear();
+        mushroomVisuals.clear();
+
+        // Nettoyer les anciennes hitboxes
+        for (Interaction hitbox : mushroomHitboxes) {
+            if (hitbox != null && hitbox.isValid()) {
+                hitbox.remove();
+            }
+        }
+        mushroomHitboxes.clear();
 
         // Spawner les nouveaux
         for (int i = 0; i < mushroomLocations.size(); i++) {
@@ -1348,45 +1357,68 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Spawn un champignon à l'index donné
+     * Spawn un champignon à l'index donné (ItemDisplay + Interaction)
      */
     private void spawnMushroom(World world, int index) {
         if (index >= mushroomLocations.size()) return;
 
         Location loc = mushroomLocations.get(index);
 
-        // ArmorStand invisible avec champignon rouge glowing
-        ArmorStand mushroom = world.spawn(loc, ArmorStand.class, armorStand -> {
-            armorStand.setInvisible(true);
-            armorStand.setInvulnerable(false); // Peut être "détruit" (hit)
-            armorStand.setGravity(false);
-            armorStand.setCanPickupItems(false);
-            armorStand.setSmall(true);
+        // 1. Créer le VISUEL (ItemDisplay avec RED_MUSHROOM scale x3 glowing rouge)
+        ItemDisplay visual = world.spawn(loc.clone().add(0, 0.5, 0), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.RED_MUSHROOM));
 
-            // Équipement: champignon rouge sur la tête
-            armorStand.getEquipment().setHelmet(new ItemStack(Material.RED_MUSHROOM));
+            // Scale x3 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(3.0f, 3.0f, 3.0f),
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
 
-            // Glow rouge (la couleur dépend de l'équipe scoreboard du joueur)
-            armorStand.setGlowing(true);
+            display.setBillboard(Display.Billboard.FIXED);
 
-            // Tags
-            armorStand.addScoreboardTag("chapter4_mushroom");
-            armorStand.addScoreboardTag("mushroom_" + index);
-            armorStand.addScoreboardTag("zombiez_npc");
+            // Glow effect rouge
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 50, 50));
 
-            // PDC
-            armorStand.getPersistentDataContainer().set(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER, index);
-
-            // Invisible par défaut (visibilité per-player)
-            armorStand.setVisibleByDefault(false);
-            armorStand.setPersistent(false);
+            display.setViewRange(48f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_mushroom");
+            display.addScoreboardTag("chapter4_mushroom_visual");
+            display.addScoreboardTag("mushroom_visual_" + index);
         });
 
-        // Ajouter à la liste
-        while (mushroomEntities.size() <= index) {
-            mushroomEntities.add(null);
+        // 2. Créer l'entité INTERACTION (hitbox invisible cliquable/frappable)
+        Interaction hitbox = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.5f);
+            interaction.setInteractionHeight(1.5f);
+            interaction.setResponsive(true); // Active la réponse aux attaques (left-click)
+
+            // Tags
+            interaction.addScoreboardTag("chapter4_mushroom");
+            interaction.addScoreboardTag("chapter4_mushroom_hitbox");
+            interaction.addScoreboardTag("mushroom_hitbox_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            interaction.getPersistentDataContainer().set(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER, index);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+
+        // Ajouter aux listes
+        while (mushroomVisuals.size() <= index) {
+            mushroomVisuals.add(null);
         }
-        mushroomEntities.set(index, mushroom);
+        mushroomVisuals.set(index, visual);
+
+        while (mushroomHitboxes.size() <= index) {
+            mushroomHitboxes.add(null);
+        }
+        mushroomHitboxes.set(index, hitbox);
     }
 
     /**
@@ -1427,21 +1459,29 @@ public class Chapter4Systems implements Listener {
         UUID uuid = player.getUniqueId();
         int[] hits = playerMushroomHits.get(uuid);
 
-        for (int i = 0; i < mushroomEntities.size(); i++) {
-            ArmorStand mushroom = mushroomEntities.get(i);
-            if (mushroom == null || !mushroom.isValid()) continue;
+        for (int i = 0; i < mushroomVisuals.size(); i++) {
+            ItemDisplay visual = mushroomVisuals.get(i);
+            Interaction hitbox = i < mushroomHitboxes.size() ? mushroomHitboxes.get(i) : null;
+
+            if (visual == null || !visual.isValid()) continue;
 
             // Vérifier si ce champignon a été collecté par ce joueur
             boolean collected = hits != null && hits.length > i && hits[i] >= getHitsForMushroom(i);
 
             // Distance check
-            double distSq = player.getLocation().distanceSquared(mushroom.getLocation());
+            double distSq = player.getLocation().distanceSquared(visual.getLocation());
             boolean inRange = distSq <= MUSHROOM_VIEW_DISTANCE * MUSHROOM_VIEW_DISTANCE;
 
             if (collected || !inRange) {
-                player.hideEntity(plugin, mushroom);
+                player.hideEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) {
+                    player.hideEntity(plugin, hitbox);
+                }
             } else {
-                player.showEntity(plugin, mushroom);
+                player.showEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid()) {
+                    player.showEntity(plugin, hitbox);
+                }
             }
         }
     }
@@ -1450,9 +1490,14 @@ public class Chapter4Systems implements Listener {
      * Cache tous les champignons pour un joueur
      */
     private void hideAllMushroomsForPlayer(Player player) {
-        for (ArmorStand mushroom : mushroomEntities) {
-            if (mushroom != null && mushroom.isValid()) {
-                player.hideEntity(plugin, mushroom);
+        for (ItemDisplay visual : mushroomVisuals) {
+            if (visual != null && visual.isValid()) {
+                player.hideEntity(plugin, visual);
+            }
+        }
+        for (Interaction hitbox : mushroomHitboxes) {
+            if (hitbox != null && hitbox.isValid()) {
+                player.hideEntity(plugin, hitbox);
             }
         }
     }
@@ -1468,8 +1513,15 @@ public class Chapter4Systems implements Listener {
                 if (world == null) return;
 
                 for (int i = 0; i < mushroomLocations.size(); i++) {
-                    if (i >= mushroomEntities.size() || mushroomEntities.get(i) == null ||
-                            !mushroomEntities.get(i).isValid()) {
+                    // Vérifier si le visuel ou la hitbox sont invalides
+                    boolean needsRespawn = i >= mushroomVisuals.size() ||
+                            mushroomVisuals.get(i) == null ||
+                            !mushroomVisuals.get(i).isValid() ||
+                            i >= mushroomHitboxes.size() ||
+                            mushroomHitboxes.get(i) == null ||
+                            !mushroomHitboxes.get(i).isValid();
+
+                    if (needsRespawn) {
                         spawnMushroom(world, i);
                         plugin.log(Level.FINE, "Champignon " + i + " respawné");
                     }
@@ -1630,9 +1682,9 @@ public class Chapter4Systems implements Listener {
         int currentHits = hits[mushroomIndex];
 
         // Effets de cueillette
-        ArmorStand mushroom = mushroomIndex < mushroomEntities.size() ? mushroomEntities.get(mushroomIndex) : null;
-        if (mushroom != null) {
-            Location loc = mushroom.getLocation();
+        ItemDisplay visual = mushroomIndex < mushroomVisuals.size() ? mushroomVisuals.get(mushroomIndex) : null;
+        if (visual != null) {
+            Location loc = visual.getLocation();
             player.playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 0.8f, 1f + (float) currentHits / requiredHits * 0.5f);
             player.getWorld().spawnParticle(Particle.ITEM, loc.add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.05,
                     new ItemStack(Material.RED_MUSHROOM));
@@ -1799,9 +1851,9 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
-        // Hit sur un champignon (ArmorStand)
-        if (damaged instanceof ArmorStand && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
-            event.setCancelled(true); // Ne pas détruire l'ArmorStand
+        // Hit sur un champignon (Interaction hitbox)
+        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
             if (event.getDamager() instanceof Player p) {
