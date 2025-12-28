@@ -45,7 +45,11 @@ public enum JourneyStep {
         "Les animaux peuvent te nourrir!", StepType.PASSIVE_ANIMAL_KILLS, 1,
         275, 4, Material.COOKED_BEEF),
 
-    STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Atteins le niveau 3",
+    STEP_1_7(JourneyChapter.CHAPTER_1, 7, "Aide le Fermier",
+        "Fermier: §b474, 95, 9999", StepType.FIRE_MINIGAME, 1,
+        290, 4, Material.CAMPFIRE),
+
+    STEP_1_8(JourneyChapter.CHAPTER_1, 8, "Atteins le niveau 3",
         "Prêt à choisir ta voie", StepType.LEVEL, 3,
         300, 5, Material.NETHER_STAR),
 
@@ -479,6 +483,7 @@ public enum JourneyStep {
             }
             case DELIVER_ANTIDOTE -> current >= 1 ? "✓ Antidote livré!" : "Livre l'antidote au PNJ";
             case DPS_CHECK -> current >= 1 ? "✓ Cristal détruit!" : "Détruis le Cristal de Corruption";
+            case FIRE_MINIGAME -> current >= 1 ? "✓ Incendie éteint!" : "Éteins l'incendie du moulin";
         };
     }
 
@@ -669,7 +674,8 @@ public enum JourneyStep {
 
         // Livraison d'antidote (Chapitre 4)
         DELIVER_ANTIDOTE("Livre un antidote au PNJ"),
-        DPS_CHECK("Détruis le Cristal de Corruption");
+        DPS_CHECK("Détruis le Cristal de Corruption"),
+        FIRE_MINIGAME("Éteins l'incendie du moulin");
 
         private final String description;
 
