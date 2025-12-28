@@ -59,6 +59,10 @@ public class JourneyManager {
     // BossBar de progression par joueur
     private final Map<UUID, BossBar> playerBossBars = new ConcurrentHashMap<>();
 
+    // Joueurs en mode "boss bar personnalisée" (ex: événement de défense)
+    // Ces joueurs ne reçoivent pas les mises à jour automatiques de la boss bar Journey
+    private final Set<UUID> playersInCustomBossBarMode = ConcurrentHashMap.newKeySet();
+
     public JourneyManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.mysteryChestManager = new MysteryChestManager(plugin, this);
@@ -83,9 +87,16 @@ public class JourneyManager {
 
     /**
      * Crée ou met à jour la BossBar de progression d'un joueur
+     * Ne fait rien si le joueur est en mode boss bar personnalisée
      */
     public void createOrUpdateBossBar(Player player) {
         UUID uuid = player.getUniqueId();
+
+        // Ne pas mettre à jour si le joueur est en mode personnalisé (ex: événement de défense)
+        if (playersInCustomBossBarMode.contains(uuid)) {
+            return;
+        }
+
         JourneyStep step = getCurrentStep(player);
 
         BossBar bossBar = playerBossBars.get(uuid);
@@ -191,6 +202,31 @@ public class JourneyManager {
         if (bossBar != null) {
             bossBar.setVisible(true);
         }
+    }
+
+    /**
+     * Active le mode boss bar personnalisée pour un joueur
+     * Empêche les mises à jour automatiques de la boss bar Journey
+     * À utiliser au début d'un événement qui utilise sa propre boss bar
+     */
+    public void enterCustomBossBarMode(Player player) {
+        playersInCustomBossBarMode.add(player.getUniqueId());
+    }
+
+    /**
+     * Désactive le mode boss bar personnalisée pour un joueur
+     * Restaure les mises à jour automatiques de la boss bar Journey
+     * À utiliser à la fin d'un événement qui utilise sa propre boss bar
+     */
+    public void exitCustomBossBarMode(Player player) {
+        playersInCustomBossBarMode.remove(player.getUniqueId());
+    }
+
+    /**
+     * Vérifie si un joueur est en mode boss bar personnalisée
+     */
+    public boolean isInCustomBossBarMode(Player player) {
+        return playersInCustomBossBarMode.contains(player.getUniqueId());
     }
 
     /**

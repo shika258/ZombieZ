@@ -1263,6 +1263,9 @@ public class Chapter3Systems implements Listener {
 
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
 
+        // Activer le mode boss bar personnalisée pour éviter le clignotement
+        journeyManager.enterCustomBossBarMode(player);
+
         // Créer l'événement de défense
         VillageDefenseEvent defenseEvent = new VillageDefenseEvent(player.getUniqueId());
         activeDefenseEvents.put(player.getUniqueId(), defenseEvent);
@@ -1498,7 +1501,8 @@ public class Chapter3Systems implements Listener {
         // Retirer l'événement
         activeDefenseEvents.remove(player.getUniqueId());
 
-        // Restaurer la BossBar normale du Journey
+        // Désactiver le mode boss bar personnalisée et restaurer la BossBar normale du Journey
+        journeyManager.exitCustomBossBarMode(player);
         journeyManager.createOrUpdateBossBar(player);
 
         if (success) {
@@ -2428,6 +2432,8 @@ public class Chapter3Systems implements Listener {
                     entity.remove();
                 }
             }
+            // Nettoyer le mode boss bar personnalisée
+            journeyManager.exitCustomBossBarMode(event.getPlayer());
         }
     }
 
