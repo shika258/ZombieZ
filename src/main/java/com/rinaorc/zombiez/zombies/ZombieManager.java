@@ -42,6 +42,8 @@ import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Giant;
 import org.bukkit.entity.Creaking;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.Item;
+import org.bukkit.ChatColor;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -1216,7 +1218,11 @@ public class ZombieManager {
             if (zombieFood != null) {
                 int amount = 1 + (Math.random() < 0.3 ? 1 : 0); // 30% de chance d'en avoir 2
                 ItemStack foodItem = zombieFood.createItemStack(amount);
-                dropLoc.getWorld().dropItemNaturally(dropLoc, foodItem);
+                Item droppedFood = dropLoc.getWorld().dropItemNaturally(dropLoc, foodItem);
+
+                // Appliquer le glow et le nom visible comme les armes/armures
+                org.bukkit.ChatColor glowColor = getFoodRarityChatColor(zombieFood.getRarity());
+                plugin.getItemManager().applyDroppedItemEffects(droppedFood, zombieFood.getDisplayName(), glowColor);
             }
         }
 
@@ -1229,6 +1235,19 @@ public class ZombieManager {
             Consumable bandage = new Consumable(ConsumableType.BANDAGE, bandageRarity, zoneId);
             plugin.getConsumableManager().dropConsumable(dropLoc, bandage);
         }
+    }
+
+    /**
+     * Convertit une FoodRarity en ChatColor pour le glow
+     */
+    private ChatColor getFoodRarityChatColor(FoodItem.FoodRarity rarity) {
+        return switch (rarity) {
+            case COMMON -> ChatColor.WHITE;
+            case UNCOMMON -> ChatColor.GREEN;
+            case RARE -> ChatColor.BLUE;
+            case EPIC -> ChatColor.DARK_PURPLE;
+            case LEGENDARY -> ChatColor.GOLD;
+        };
     }
 
     /**
