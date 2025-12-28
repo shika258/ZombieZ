@@ -147,7 +147,7 @@ public class Chapter4Systems implements Listener {
     private static final int CORRUPTION_SOURCE_COUNT = 4; // Nombre de sources de corruption
     private static final int HITS_TO_DESTROY_SOURCE = 15; // Coups pour détruire une source
     private static final int SWAMP_WALKERS_PER_SOURCE = 3; // Mobs gardiens par source
-    private static final double POISON_DAMAGE = 1.0; // Dégâts de poison par tick
+    private static final double POISON_DAMAGE = 0.5; // Dégâts de poison par tick (réduit)
     private static final int POISON_TICK_INTERVAL = 40; // Interval en ticks (2 secondes)
 
     // === ARBRE MAUDIT - CREAKING BOSS (ÉTAPE 8) ===
