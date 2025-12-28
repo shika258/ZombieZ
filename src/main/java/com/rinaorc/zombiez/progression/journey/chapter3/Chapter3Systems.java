@@ -80,7 +80,7 @@ public class Chapter3Systems implements Listener {
     };
 
     // Village à défendre (NPC survivant)
-    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 527.5, 90, 8994.5, 180, 0);
+    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 527.5, 90, 8994.5, -90, 0);
 
     // Points de spawn des zombies autour du village (8 points en cercle)
     private static final Location[] ZOMBIE_SPAWN_POINTS = {
@@ -1068,8 +1068,8 @@ public class Chapter3Systems implements Listener {
             // Ne pas persister
             villager.setPersistent(false);
 
-            // Orientation
-            villager.setRotation(180, 0);
+            // Orientation (-90 = regarde vers l'Est)
+            villager.setRotation(-90, 0);
 
             // Invisible par défaut (visibilité per-player)
             villager.setVisibleByDefault(false);
@@ -1087,13 +1087,13 @@ public class Chapter3Systems implements Listener {
 
         villageSurvivorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                    .append(Component.text("🛡️ ", NamedTextColor.GOLD))
+                    .append(Component.text("\u2694 ", NamedTextColor.GOLD)) // Crossed swords
                     .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
-                    .append(Component.text(" 🛡️", NamedTextColor.GOLD))
+                    .append(Component.text(" \u2694", NamedTextColor.GOLD))
                     .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501", NamedTextColor.DARK_GRAY)) // Box drawing line
                     .append(Component.newline())
-                    .append(Component.text("▶ Clic droit pour aider", NamedTextColor.WHITE))
+                    .append(Component.text("\u25B6 Clic droit pour aider", NamedTextColor.WHITE))
                     .build());
 
             display.setBillboard(Display.Billboard.CENTER);
@@ -1124,7 +1124,13 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
+                // Respawn automatique si l'entité est invalide
                 if (villageSurvivorEntity == null || !villageSurvivorEntity.isValid()) {
+                    World world = Bukkit.getWorld("world");
+                    if (world != null) {
+                        spawnVillageSurvivor(world);
+                        plugin.log(Level.INFO, "Survivant du village respawn automatiquement");
+                    }
                     return;
                 }
 
@@ -1420,8 +1426,8 @@ public class Chapter3Systems implements Listener {
 
                     // Orienter le zombie vers le survivant
                     if (entity instanceof org.bukkit.entity.Mob mob) {
-                        if (villageSurvivorEntity != null && villageSurvivorEntity.isValid()) {
-                            mob.setTarget(null); // Le zombie va vers le survivant, pas le joueur
+                        if (villageSurvivorEntity instanceof LivingEntity target) {
+                            mob.setTarget(target);
                         }
                     }
                 }
@@ -1435,10 +1441,13 @@ public class Chapter3Systems implements Listener {
         Zombie zombie = world.spawn(loc, Zombie.class, z -> {
             z.addScoreboardTag("chapter3_defense_zombie");
             z.addScoreboardTag("defense_owner_" + player.getUniqueId());
-            z.setTarget(null); // Pas de cible initiale
             z.customName(Component.text("Zombie", NamedTextColor.RED));
             z.setCustomNameVisible(false);
         });
+        // Cibler le survivant pour le pathfinding
+        if (villageSurvivorEntity instanceof LivingEntity target) {
+            zombie.setTarget(target);
+        }
         defenseEvent.spawnedZombies.add(zombie.getUniqueId());
     }
 
@@ -1525,13 +1534,13 @@ public class Chapter3Systems implements Listener {
         }
 
         player.sendTitle(
-                "§a§l🛡️ VILLAGE SAUVÉ!",
-                "§7" + defenseEvent.zombiesKilled + " zombies tués",
+                "§a§lVILLAGE SAUVE!",
+                "§7" + defenseEvent.zombiesKilled + " zombies tues",
                 10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
-        player.sendMessage("  §a§l🛡️ DÉFENSE RÉUSSIE!");
+        player.sendMessage("  §a§l\u2694 DEFENSE REUSSIE!");
         player.sendMessage("");
         player.sendMessage("  §7Zombies tués: §c" + defenseEvent.zombiesKilled);
         player.sendMessage("  §7Santé d'Henri: §a" + healthPercent + "%");
@@ -1559,13 +1568,13 @@ public class Chapter3Systems implements Listener {
      */
     private void handleDefenseFailure(Player player, VillageDefenseEvent defenseEvent) {
         player.sendTitle(
-                "§c§l💀 ÉCHEC!",
+                "§c§lECHEC!",
                 "§7Henri est mort...",
                 10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
-        player.sendMessage("  §c§l💀 DÉFENSE ÉCHOUÉE!");
+        player.sendMessage("  §c§l\u2620 DEFENSE ECHOUEE!");
         player.sendMessage("");
         player.sendMessage("  §7Henri a été tué par les zombies...");
         player.sendMessage("  §7Zombies tués: §c" + defenseEvent.zombiesKilled);
