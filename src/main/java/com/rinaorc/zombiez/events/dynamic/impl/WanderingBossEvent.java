@@ -348,12 +348,18 @@ public class WanderingBossEvent extends DynamicEvent {
             );
             droppedItem.setVelocity(velocity);
 
-            // Appliquer effets visuels
-            if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
-                droppedItem.setCustomName(item.getItemMeta().getDisplayName());
-                droppedItem.setCustomNameVisible(true);
-                droppedItem.setGlowing(true);
-                plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+            // Appliquer effets visuels (glow + nom visible) - toujours, pas de condition
+            droppedItem.setGlowing(true);
+            plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+
+            // Utiliser l'API Adventure pour le nom
+            if (item.hasItemMeta()) {
+                var meta = item.getItemMeta();
+                var displayName = meta.displayName();
+                if (displayName != null) {
+                    droppedItem.customName(displayName);
+                    droppedItem.setCustomNameVisible(true);
+                }
             }
         }
 
@@ -377,11 +383,17 @@ public class WanderingBossEvent extends DynamicEvent {
                     Math.sin(angle) * outward
                 ));
 
-                // Nom visible pour les consommables
-                if (consumableItem.hasItemMeta() && consumableItem.getItemMeta().hasDisplayName()) {
-                    droppedConsumable.setCustomName(consumableItem.getItemMeta().getDisplayName());
-                    droppedConsumable.setCustomNameVisible(true);
-                    droppedConsumable.setGlowing(true);
+                // Glow et nom visible pour les consommables
+                droppedConsumable.setGlowing(true);
+                plugin.getItemManager().applyGlowForRarity(droppedConsumable, Rarity.UNCOMMON);
+
+                if (consumableItem.hasItemMeta()) {
+                    var meta = consumableItem.getItemMeta();
+                    var displayName = meta.displayName();
+                    if (displayName != null) {
+                        droppedConsumable.customName(displayName);
+                        droppedConsumable.setCustomNameVisible(true);
+                    }
                 }
             }
         }

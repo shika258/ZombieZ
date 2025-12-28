@@ -661,12 +661,17 @@ public class HordeInvasionEvent extends DynamicEvent {
             );
             droppedItem.setVelocity(velocity);
 
-            // Appliquer effets visuels
-            if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
-                droppedItem.setCustomName(item.getItemMeta().getDisplayName());
-                droppedItem.setCustomNameVisible(true);
-                droppedItem.setGlowing(true);
-                plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+            // Appliquer effets visuels (glow + nom visible) - toujours
+            droppedItem.setGlowing(true);
+            plugin.getItemManager().applyGlowForRarity(droppedItem, rarity);
+
+            if (item.hasItemMeta()) {
+                var meta = item.getItemMeta();
+                var displayName = meta.displayName();
+                if (displayName != null) {
+                    droppedItem.customName(displayName);
+                    droppedItem.setCustomNameVisible(true);
+                }
             }
         }
     }
