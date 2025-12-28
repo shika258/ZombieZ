@@ -732,16 +732,19 @@ public class Chapter4Systems implements Listener {
      * Appelé quand le joueur trouve un trésor dans une tombe
      */
     private void onTreasureFound(Player player, Location loc, int gravesDug) {
+        // Points bonus basés sur la progression (25-50 points)
+        int bonusPoints = 25 + (gravesDug * 5);
+
         player.sendMessage("");
         player.sendMessage("§a§l✦ TRÉSOR TROUVÉ!");
-        player.sendMessage("§7Tu as découvert des objets de valeur!");
+        player.sendMessage("§7Tu as découvert §e+" + bonusPoints + " points§7!");
         player.sendMessage("");
 
         player.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
 
-        // Donner des récompenses (points/gems via le système existant)
-        // Les vrais rewards sont donnés à la fin de la quête
+        // Donner les points
+        plugin.getEconomyManager().addPoints(player, bonusPoints, "Trésor du Fossoyeur");
     }
 
     /**
