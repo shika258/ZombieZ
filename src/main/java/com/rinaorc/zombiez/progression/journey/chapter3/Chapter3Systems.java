@@ -73,14 +73,14 @@ public class Chapter3Systems implements Listener {
 
     // === POSITIONS DES INDICES (autour de la maison) ===
     private static final Location[] CLUE_LOCATIONS = {
-            new Location(null, 873.5, 88.5, 8942.5, 0, 0), // Indice 1: Journal - près de l'entrée
-            new Location(null, 877.5, 89.5, 8945.5, 0, 0), // Indice 2: Fiole - intérieur
-            new Location(null, 874.5, 92.5, 8946.5, 0, 0), // Indice 3: Photo - étage/grenier
-            new Location(null, 876.5, 88.5, 8941.5, 0, 0) // Indice 4: Lettre - caché dehors
+            new Location(null, 876.5, 88, 8936.5, 0, 0),  // Indice 1: Journal
+            new Location(null, 878.5, 87, 8947.5, 0, 0),  // Indice 2: Fiole
+            new Location(null, 872.5, 94, 8943.5, 0, 0),  // Indice 3: Photo
+            new Location(null, 876.5, 92, 8938.5, 0, 0)   // Indice 4: Lettre
     };
 
     // Village à défendre (NPC survivant)
-    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 527.5, 90, 8994.5, 180, 0);
+    private static final Location VILLAGE_SURVIVOR_LOCATION = new Location(null, 527.5, 90, 8994.5, -90, 0);
 
     // Points de spawn des zombies autour du village (8 points en cercle)
     private static final Location[] ZOMBIE_SPAWN_POINTS = {
@@ -127,16 +127,17 @@ public class Chapter3Systems implements Listener {
     private Entity lostCatEntity;
     private TextDisplay lostCatDisplay;
 
-    // Indices du Patient Zéro (per-player visibility)
-    private final Entity[] clueEntities = new Entity[4];
-    private final TextDisplay[] clueDisplays = new TextDisplay[4];
+    // Indices du Patient Zéro (per-player visibility) - ItemDisplay + Interaction comme supply crates
+    private final Interaction[] clueHitboxes = new Interaction[4];
+    private final ItemDisplay[] clueVisuals = new ItemDisplay[4];
 
     // Survivant du village (étape 7)
     private Entity villageSurvivorEntity;
     private TextDisplay villageSurvivorDisplay;
 
-    // Panneau de contrôle du Zeppelin (étape 8)
-    private ArmorStand zeppelinControlEntity;
+    // Panneau de contrôle du Zeppelin (étape 8) - ItemDisplay + Interaction
+    private ItemDisplay zeppelinControlVisual;
+    private Interaction zeppelinControlHitbox;
     private TextDisplay zeppelinControlDisplay;
 
     // Boss de la mine (étape 10)
@@ -749,6 +750,7 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Spawn les indices de l'investigation autour de la maison
+     * Utilise ItemDisplay + Interaction comme les caisses de ravitaillement (Chapitre 2)
      */
     private void spawnInvestigationClues(World world) {
         for (int i = 0; i < 4; i++) {
@@ -757,80 +759,69 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Spawn un indice spécifique
+     * Spawn un indice spécifique avec ItemDisplay (Paper glowing) + Interaction (hitbox)
      */
     private void spawnClue(World world, int clueIndex) {
         Location loc = CLUE_LOCATIONS[clueIndex].clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (clueEntities[clueIndex] != null && clueEntities[clueIndex].isValid()) {
-            clueEntities[clueIndex].remove();
+        // Supprimer les anciens si existants
+        if (clueHitboxes[clueIndex] != null && clueHitboxes[clueIndex].isValid()) {
+            clueHitboxes[clueIndex].remove();
         }
-        if (clueDisplays[clueIndex] != null && clueDisplays[clueIndex].isValid()) {
-            clueDisplays[clueIndex].remove();
+        if (clueVisuals[clueIndex] != null && clueVisuals[clueIndex].isValid()) {
+            clueVisuals[clueIndex].remove();
         }
 
-        // Spawn un ArmorStand invisible comme point d'interaction
         final int index = clueIndex;
-        clueEntities[clueIndex] = world.spawn(loc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setInvulnerable(true);
-            stand.setMarker(true);
-            stand.setSmall(true);
-            stand.setCollidable(false);
 
-            // Tags
-            stand.addScoreboardTag("chapter3_investigation_clue");
-            stand.addScoreboardTag("clue_index_" + index);
-            stand.addScoreboardTag("zombiez_npc");
+        // 1. Créer le VISUEL (ItemDisplay avec Paper glowing)
+        clueVisuals[clueIndex] = world.spawn(loc, ItemDisplay.class, display -> {
+            // Item affiché: Paper
+            display.setItemStack(new ItemStack(Material.PAPER));
 
-            // PDC avec l'index de l'indice
-            stand.getPersistentDataContainer().set(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER, index);
+            // Taille x1.2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0.5f, 0), // Translation (légèrement au-dessus du sol)
+                    new AxisAngle4f(0, 0, 1, 0), // Left rotation
+                    new Vector3f(1.2f, 1.2f, 1.2f), // Scale x1.2
+                    new AxisAngle4f(0, 0, 1, 0) // Right rotation
+            ));
 
-            stand.setPersistent(false);
-            stand.setVisibleByDefault(false);
+            // Billboard CENTER pour que le papier tourne vers le joueur
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Glow effect jaune/or pour visibilité
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 220, 100)); // Jaune doré
+
+            // Distance de vue
+            display.setViewRange(48f);
+
+            // INVISIBLE PAR DÉFAUT - visible uniquement à proximité
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_clue_visual");
+            display.addScoreboardTag("clue_visual_" + index);
         });
 
-        // TextDisplay au-dessus
-        createClueDisplay(world, loc, clueIndex);
-    }
+        // 2. Créer l'entité INTERACTION (invisible mais cliquable)
+        clueHitboxes[clueIndex] = world.spawn(loc.clone().add(0, 0.5, 0), Interaction.class, interaction -> {
+            // Taille de la hitbox (largeur et hauteur)
+            interaction.setInteractionWidth(1.0f);
+            interaction.setInteractionHeight(1.0f);
 
-    /**
-     * Crée le TextDisplay pour un indice
-     */
-    private void createClueDisplay(World world, Location loc, int clueIndex) {
-        Location displayLoc = loc.clone().add(0, 1.5, 0);
+            // Marquer comme indice d'investigation
+            interaction.getPersistentDataContainer().set(INVESTIGATION_CLUE_KEY, PersistentDataType.INTEGER, index);
 
-        clueDisplays[clueIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("❓ ", NamedTextColor.GOLD))
-                    .append(Component.text("Indice", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                    .append(Component.text(" ❓", NamedTextColor.GOLD))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
+            // Tags pour identification
+            interaction.addScoreboardTag("chapter3_investigation_clue");
+            interaction.addScoreboardTag("clue_index_" + index);
+            interaction.addScoreboardTag("zombiez_npc");
 
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.3f, 1.3f, 1.3f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.3f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter3_clue_display");
-            display.addScoreboardTag("clue_display_" + clueIndex);
-
-            display.setVisibleByDefault(false);
+            // INVISIBLE PAR DÉFAUT - visible uniquement à proximité
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
         });
     }
 
@@ -875,19 +866,19 @@ public class Chapter3Systems implements Listener {
         for (int i = 0; i < 4; i++) {
             boolean hasFoundThis = (found & (1 << i)) != 0;
 
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
                 if (hasFoundThis) {
-                    player.hideEntity(plugin, clueEntities[i]);
+                    player.hideEntity(plugin, clueHitboxes[i]);
                 } else {
-                    player.showEntity(plugin, clueEntities[i]);
+                    player.showEntity(plugin, clueHitboxes[i]);
                 }
             }
 
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
                 if (hasFoundThis) {
-                    player.hideEntity(plugin, clueDisplays[i]);
+                    player.hideEntity(plugin, clueVisuals[i]);
                 } else {
-                    player.showEntity(plugin, clueDisplays[i]);
+                    player.showEntity(plugin, clueVisuals[i]);
                 }
             }
         }
@@ -898,11 +889,11 @@ public class Chapter3Systems implements Listener {
      */
     private void hideAllCluesForPlayer(Player player) {
         for (int i = 0; i < 4; i++) {
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
-                player.hideEntity(plugin, clueEntities[i]);
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
+                player.hideEntity(plugin, clueHitboxes[i]);
             }
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
-                player.hideEntity(plugin, clueDisplays[i]);
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
+                player.hideEntity(plugin, clueVisuals[i]);
             }
         }
     }
@@ -1078,8 +1069,8 @@ public class Chapter3Systems implements Listener {
             // Ne pas persister
             villager.setPersistent(false);
 
-            // Orientation
-            villager.setRotation(180, 0);
+            // Orientation (-90 = regarde vers l'Est)
+            villager.setRotation(-90, 0);
 
             // Invisible par défaut (visibilité per-player)
             villager.setVisibleByDefault(false);
@@ -1097,13 +1088,13 @@ public class Chapter3Systems implements Listener {
 
         villageSurvivorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                    .append(Component.text("🛡️ ", NamedTextColor.GOLD))
+                    .append(Component.text("\u2694 ", NamedTextColor.GOLD)) // Crossed swords
                     .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
-                    .append(Component.text(" 🛡️", NamedTextColor.GOLD))
+                    .append(Component.text(" \u2694", NamedTextColor.GOLD))
                     .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501", NamedTextColor.DARK_GRAY)) // Box drawing line
                     .append(Component.newline())
-                    .append(Component.text("▶ Clic droit pour aider", NamedTextColor.WHITE))
+                    .append(Component.text("\u25B6 Clic droit pour aider", NamedTextColor.WHITE))
                     .build());
 
             display.setBillboard(Display.Billboard.CENTER);
@@ -1134,7 +1125,13 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
+                // Respawn automatique si l'entité est invalide
                 if (villageSurvivorEntity == null || !villageSurvivorEntity.isValid()) {
+                    World world = Bukkit.getWorld("world");
+                    if (world != null) {
+                        spawnVillageSurvivor(world);
+                        plugin.log(Level.INFO, "Survivant du village respawn automatiquement");
+                    }
                     return;
                 }
 
@@ -1430,8 +1427,8 @@ public class Chapter3Systems implements Listener {
 
                     // Orienter le zombie vers le survivant
                     if (entity instanceof org.bukkit.entity.Mob mob) {
-                        if (villageSurvivorEntity != null && villageSurvivorEntity.isValid()) {
-                            mob.setTarget(null); // Le zombie va vers le survivant, pas le joueur
+                        if (villageSurvivorEntity instanceof LivingEntity target) {
+                            mob.setTarget(target);
                         }
                     }
                 }
@@ -1445,10 +1442,13 @@ public class Chapter3Systems implements Listener {
         Zombie zombie = world.spawn(loc, Zombie.class, z -> {
             z.addScoreboardTag("chapter3_defense_zombie");
             z.addScoreboardTag("defense_owner_" + player.getUniqueId());
-            z.setTarget(null); // Pas de cible initiale
             z.customName(Component.text("Zombie", NamedTextColor.RED));
             z.setCustomNameVisible(false);
         });
+        // Cibler le survivant pour le pathfinding
+        if (villageSurvivorEntity instanceof LivingEntity target) {
+            zombie.setTarget(target);
+        }
         defenseEvent.spawnedZombies.add(zombie.getUniqueId());
     }
 
@@ -1535,13 +1535,13 @@ public class Chapter3Systems implements Listener {
         }
 
         player.sendTitle(
-                "§a§l🛡️ VILLAGE SAUVÉ!",
-                "§7" + defenseEvent.zombiesKilled + " zombies tués",
+                "§a§lVILLAGE SAUVE!",
+                "§7" + defenseEvent.zombiesKilled + " zombies tues",
                 10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
-        player.sendMessage("  §a§l🛡️ DÉFENSE RÉUSSIE!");
+        player.sendMessage("  §a§l\u2694 DEFENSE REUSSIE!");
         player.sendMessage("");
         player.sendMessage("  §7Zombies tués: §c" + defenseEvent.zombiesKilled);
         player.sendMessage("  §7Santé d'Henri: §a" + healthPercent + "%");
@@ -1569,13 +1569,13 @@ public class Chapter3Systems implements Listener {
      */
     private void handleDefenseFailure(Player player, VillageDefenseEvent defenseEvent) {
         player.sendTitle(
-                "§c§l💀 ÉCHEC!",
+                "§c§lECHEC!",
                 "§7Henri est mort...",
                 10, 80, 20);
 
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
-        player.sendMessage("  §c§l💀 DÉFENSE ÉCHOUÉE!");
+        player.sendMessage("  §c§l\u2620 DEFENSE ECHOUEE!");
         player.sendMessage("");
         player.sendMessage("  §7Henri a été tué par les zombies...");
         player.sendMessage("  §7Zombies tués: §c" + defenseEvent.zombiesKilled);
@@ -1645,47 +1645,61 @@ public class Chapter3Systems implements Listener {
     // ==================== RÉPARATION DU ZEPPELIN (STEP 8) ====================
 
     /**
-     * Spawn le panneau de contrôle du Zeppelin (ArmorStand avec bloc de commande
-     * glowing)
+     * Spawn le panneau de contrôle du Zeppelin (ItemDisplay + Interaction)
      */
     private void spawnZeppelinControl(World world) {
         Location loc = ZEPPELIN_CONTROL_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            zeppelinControlEntity.remove();
+        // Supprimer les anciens si existants
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            zeppelinControlVisual.remove();
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            zeppelinControlHitbox.remove();
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             zeppelinControlDisplay.remove();
         }
 
-        // Spawn l'ArmorStand avec un bloc de commande
-        zeppelinControlEntity = world.spawn(loc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setGravity(false);
-            stand.setInvulnerable(true);
-            stand.setMarker(false); // Pas marker pour pouvoir interagir
-            stand.setSmall(false);
-            stand.setCollidable(false);
-            stand.setArms(false);
-            stand.setBasePlate(false);
+        // 1. Créer le VISUEL (ItemDisplay avec Command Block glowing)
+        zeppelinControlVisual = world.spawn(loc, ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.COMMAND_BLOCK));
 
-            // Placer un bloc de commande sur la tête
-            stand.getEquipment().setHelmet(new ItemStack(Material.COMMAND_BLOCK));
+            // Taille x2 pour visibilité
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0.8f, 0), // Translation (au-dessus du sol)
+                    new AxisAngle4f(0, 0, 1, 0),
+                    new Vector3f(2.0f, 2.0f, 2.0f), // Scale x2
+                    new AxisAngle4f(0, 0, 1, 0)
+            ));
 
-            // Effet glowing
-            stand.setGlowing(true);
+            display.setBillboard(Display.Billboard.FIXED);
+
+            // Glow effect jaune
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(255, 200, 50));
+
+            display.setViewRange(64f);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter3_zeppelin_visual");
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox cliquable)
+        zeppelinControlHitbox = world.spawn(loc.clone().add(0, 0.8, 0), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.5f);
+            interaction.setInteractionHeight(1.5f);
 
             // Tags
-            stand.addScoreboardTag("chapter3_zeppelin_control");
-            stand.addScoreboardTag("zombiez_npc");
+            interaction.addScoreboardTag("chapter3_zeppelin_control");
+            interaction.addScoreboardTag("zombiez_npc");
 
             // PDC
-            stand.getPersistentDataContainer().set(ZEPPELIN_CONTROL_KEY, PersistentDataType.BYTE, (byte) 1);
+            interaction.getPersistentDataContainer().set(ZEPPELIN_CONTROL_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            stand.setPersistent(false);
-            stand.setVisibleByDefault(false);
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
         });
 
         // Créer le TextDisplay au-dessus
@@ -1737,11 +1751,11 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid()) {
+                if (zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid()) {
                     return;
                 }
 
-                Location controlLoc = zeppelinControlEntity.getLocation();
+                Location controlLoc = zeppelinControlHitbox.getLocation();
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(controlLoc.getWorld())) {
@@ -1767,18 +1781,21 @@ public class Chapter3Systems implements Listener {
      * Met à jour la visibilité du panneau de contrôle pour un joueur
      */
     private void updateZeppelinControlVisibilityForPlayer(Player player, boolean hasRepaired) {
-        if (zeppelinControlEntity == null || !zeppelinControlEntity.isValid() ||
+        if (zeppelinControlVisual == null || !zeppelinControlVisual.isValid() ||
+                zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid() ||
                 zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid()) {
             return;
         }
 
         if (hasRepaired) {
             // Le joueur a déjà réparé le Zeppelin
-            player.hideEntity(plugin, zeppelinControlEntity);
+            player.hideEntity(plugin, zeppelinControlVisual);
+            player.hideEntity(plugin, zeppelinControlHitbox);
             player.hideEntity(plugin, zeppelinControlDisplay);
         } else {
             // Montrer le panneau de contrôle
-            player.showEntity(plugin, zeppelinControlEntity);
+            player.showEntity(plugin, zeppelinControlVisual);
+            player.showEntity(plugin, zeppelinControlHitbox);
             player.showEntity(plugin, zeppelinControlDisplay);
         }
     }
@@ -1787,8 +1804,11 @@ public class Chapter3Systems implements Listener {
      * Cache le panneau de contrôle pour un joueur
      */
     private void hideZeppelinControlForPlayer(Player player) {
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            player.hideEntity(plugin, zeppelinControlEntity);
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            player.hideEntity(plugin, zeppelinControlVisual);
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            player.hideEntity(plugin, zeppelinControlHitbox);
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             player.hideEntity(plugin, zeppelinControlDisplay);
@@ -2544,11 +2564,11 @@ public class Chapter3Systems implements Listener {
 
         // Nettoyer les indices de l'investigation
         for (int i = 0; i < 4; i++) {
-            if (clueEntities[i] != null && clueEntities[i].isValid()) {
-                clueEntities[i].remove();
+            if (clueHitboxes[i] != null && clueHitboxes[i].isValid()) {
+                clueHitboxes[i].remove();
             }
-            if (clueDisplays[i] != null && clueDisplays[i].isValid()) {
-                clueDisplays[i].remove();
+            if (clueVisuals[i] != null && clueVisuals[i].isValid()) {
+                clueVisuals[i].remove();
             }
         }
 
@@ -2561,8 +2581,11 @@ public class Chapter3Systems implements Listener {
         }
 
         // Nettoyer le panneau de contrôle du Zeppelin
-        if (zeppelinControlEntity != null && zeppelinControlEntity.isValid()) {
-            zeppelinControlEntity.remove();
+        if (zeppelinControlVisual != null && zeppelinControlVisual.isValid()) {
+            zeppelinControlVisual.remove();
+        }
+        if (zeppelinControlHitbox != null && zeppelinControlHitbox.isValid()) {
+            zeppelinControlHitbox.remove();
         }
         if (zeppelinControlDisplay != null && zeppelinControlDisplay.isValid()) {
             zeppelinControlDisplay.remove();

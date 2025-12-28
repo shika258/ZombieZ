@@ -5,7 +5,9 @@ import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.managers.EconomyManager;
 import com.rinaorc.zombiez.utils.MessageUtils;
 import com.rinaorc.zombiez.zones.Zone;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -43,7 +45,7 @@ public class SpawnCommand implements CommandExecutor {
 
         if (remaining > 0) {
             long seconds = remaining / 1000;
-            MessageUtils.send(player, "§cTu dois attendre encore §e" + 
+            MessageUtils.send(player, "§cTu dois attendre encore §e" +
                 MessageUtils.formatTime(seconds) + " §cavant de te téléporter!");
             return true;
         }
@@ -53,20 +55,26 @@ public class SpawnCommand implements CommandExecutor {
 
         // Téléporter au spawn
         Zone spawnZone = plugin.getZoneManager().getSpawnZone();
-        Location spawnLoc;
-        
-        if (spawnZone != null && spawnZone.getRefugeLocation() != null) {
-            spawnLoc = spawnZone.getRefugeLocation();
-        } else {
-            spawnLoc = player.getWorld().getSpawnLocation();
-        }
+        Location spawnLoc = getSpawnLocation(spawnZone, player.getWorld());
 
         player.teleport(spawnLoc);
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis());
-        
+
         MessageUtils.sendTitle(player, "§a§lSPAWN", "§7Téléporté au village de départ", 10, 30, 10);
         MessageUtils.send(player, "§aTéléporté au spawn! §7(Cooldown: 5 minutes)");
 
         return true;
+    }
+
+    /**
+     * Obtient la location de spawn appropriée
+     * Location fixe du village de départ ZombieZ
+     */
+    private Location getSpawnLocation(Zone spawnZone, World world) {
+        World targetWorld = Bukkit.getWorld("world");
+        if (targetWorld == null) targetWorld = world;
+
+        // Location fixe du spawn ZombieZ
+        return new Location(targetWorld, 728.5, 95, 9979.5);
     }
 }

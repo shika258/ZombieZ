@@ -73,7 +73,7 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zzjourneyadmin unlockall <joueur> §8- §7Tout débloquer");
         sender.sendMessage("§e/zzjourneyadmin reset <joueur> §8- §7Réinitialiser le journal");
         sender.sendMessage("§e/zzjourneyadmin setchapter <joueur> <1-12> §8- §7Définir le chapitre");
-        sender.sendMessage("§e/zzjourneyadmin setstep <joueur> <1-5> §8- §7Définir l'étape");
+        sender.sendMessage("§e/zzjourneyadmin setstep <joueur> <1-10> §8- §7Définir l'étape");
         sender.sendMessage("§8§m                                        ");
     }
 
@@ -219,7 +219,7 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
 
     private void handleSetStep(CommandSender sender, String[] args) {
         if (args.length < 3) {
-            sender.sendMessage("§cUsage: /zzjourneyadmin setstep <joueur> <1-5>");
+            sender.sendMessage("§cUsage: /zzjourneyadmin setstep <joueur> <1-10>");
             return;
         }
 
@@ -232,8 +232,8 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
         int stepNum;
         try {
             stepNum = Integer.parseInt(args[2]);
-            if (stepNum < 1 || stepNum > 5) {
-                sender.sendMessage("§cL'étape doit être entre 1 et 5!");
+            if (stepNum < 1 || stepNum > 10) {
+                sender.sendMessage("§cL'étape doit être entre 1 et 10!");
                 return;
             }
         } catch (NumberFormatException e) {
@@ -415,7 +415,7 @@ public class JourneyAdminCommand implements CommandExecutor, TabCompleter {
                     completions.add(String.valueOf(i));
                 }
             } else if (args[0].equalsIgnoreCase("setstep")) {
-                for (int i = 1; i <= 5; i++) {
+                for (int i = 1; i <= 10; i++) {
                     completions.add(String.valueOf(i));
                 }
             }

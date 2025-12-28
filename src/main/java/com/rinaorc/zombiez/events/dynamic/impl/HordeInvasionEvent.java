@@ -42,16 +42,17 @@ public class HordeInvasionEvent extends DynamicEvent {
     private int totalWaves;
     @Getter
     private int currentWave = 0;
-    private int waveIntervalSeconds = 3;  // Temps entre chaque vague (réduit à 3s pour dynamisme)
+    private int waveIntervalSeconds = 5;  // Temps entre chaque vague
     private int secondsUntilNextWave;
 
-    // Zombies - Plafonné à 150 max pour vraie horde MASSIVE
-    private static final int MAX_TOTAL_ZOMBIES = 150;
-    private int baseZombiesPerWave = 30;  // BEAUCOUP de zombies pour effet de horde réel
+    // Zombies - Plafonné à 70 max
+    private static final int MAX_TOTAL_ZOMBIES = 70;
+    private static final int MIN_ZOMBIES_PER_WAVE = 8;
+    private static final int MAX_ZOMBIES_PER_WAVE = 16;
     private int zombiesThisWave = 0;
     private int zombiesKilledThisWave = 0;
     private int totalZombiesKilled = 0;
-    private int totalZombiesToKill;  // Objectif total de kills (max 80)
+    private int totalZombiesToKill;  // Objectif total de kills (max 70)
 
     // Défense
     private int defendersInArea = 0;
@@ -80,21 +81,15 @@ public class HordeInvasionEvent extends DynamicEvent {
     public HordeInvasionEvent(ZombieZPlugin plugin, Location location, Zone zone) {
         super(plugin, DynamicEventType.HORDE_INVASION, location, zone);
 
-        // Configuration basée sur la zone - HORDE MASSIVE
-        this.totalWaves = 3 + Math.min(zone.getId() / 5, 2);  // 3-5 vagues max
-        this.baseZombiesPerWave = 30 + zone.getId();  // 30-70 zombies par vague de base
+        // Configuration basée sur la zone - 5 vagues de 8-16 zombies
+        this.totalWaves = 5;
         this.secondsUntilNextWave = waveIntervalSeconds;
 
-        // Calculer l'objectif total de kills avec plafond à 150
-        this.totalZombiesToKill = 0;
-        for (int w = 1; w <= totalWaves; w++) {
-            totalZombiesToKill += baseZombiesPerWave + (w * 5);  // +5 zombies par vague
-        }
-        // Plafonner à 150 zombies max
-        this.totalZombiesToKill = Math.min(this.totalZombiesToKill, MAX_TOTAL_ZOMBIES);
+        // Total plafonné à 70 zombies
+        this.totalZombiesToKill = MAX_TOTAL_ZOMBIES;
 
-        // Durée courte pour garder l'intensité
-        this.maxDuration = 20 * 60 * (totalWaves + 1); // 4-6 minutes max
+        // Durée: 5 minutes max
+        this.maxDuration = 20 * 60 * 5;
     }
 
     @Override
@@ -318,14 +313,19 @@ public class HordeInvasionEvent extends DynamicEvent {
         waveClear = false;
         zombiesKilledThisWave = 0;
 
-        // Calcul dynamique: HORDE MASSIVE avec scaling agressif
-        // +5 zombies par vague, +3 par défenseur supplémentaire
-        int defenderBonus = Math.max(0, defendersInArea - 1) * 3;
-        zombiesThisWave = baseZombiesPerWave + (currentWave * 5) + defenderBonus;
+        // Calcul: 8-16 zombies par vague, avec léger bonus par défenseur
+        int defenderBonus = Math.max(0, defendersInArea - 1) * 2;
+        int baseCount = MIN_ZOMBIES_PER_WAVE + (currentWave * 2) + defenderBonus;
+        zombiesThisWave = Math.min(baseCount, MAX_ZOMBIES_PER_WAVE);
 
-        // Plafonner pour éviter de dépasser le max total
+        // Plafonner pour éviter de dépasser le max total de 70
         int remainingQuota = MAX_TOTAL_ZOMBIES - totalZombiesKilled;
         zombiesThisWave = Math.min(zombiesThisWave, remainingQuota);
+
+        // Minimum 1 zombie si quota restant
+        if (remainingQuota > 0 && zombiesThisWave < 1) {
+            zombiesThisWave = 1;
+        }
 
         World world = location.getWorld();
         if (world == null) return;
@@ -363,8 +363,7 @@ public class HordeInvasionEvent extends DynamicEvent {
     }
 
     /**
-     * Spawn les zombies de la vague - BURST MASSIF pour vraie sensation de horde
-     * Spawn direct comme TemporalRiftEvent (sans passer par SpawnSystem)
+     * Spawn les zombies de la vague - BURST de 8-16 zombies d'un coup
      */
     private void spawnWaveZombies() {
         World world = location.getWorld();
@@ -378,92 +377,66 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Calculer les HP selon la zone et la vague
         double zombieHealth = BASE_ZOMBIE_HEALTH + (zone.getId() * HEALTH_PER_ZONE) + (currentWave * 5);
 
-        // Pré-calculer les positions de spawn pour un burst instantané - ENCERCLEMENT TOTAL
+        // Pré-calculer les positions de spawn en cercle autour du centre
         List<Location> spawnLocations = new ArrayList<>();
         for (int i = 0; i < zombiesThisWave; i++) {
-            // Distribution en PLUSIEURS cercles concentriques pour effet de horde massive
-            int ring = i % 3; // 3 anneaux de zombies
-            double baseAngle = (Math.PI * 2 * i / zombiesThisWave);
-            double angleOffset = (ring * 0.3) + (Math.random() * 0.4 - 0.2);
-            double angle = baseAngle + angleOffset;
-
-            // Distance variable selon l'anneau: 15-20, 25-30, 35-40 blocs
-            double distance = (15 + ring * 10) + Math.random() * 5;
+            double angle = (Math.PI * 2 * i / zombiesThisWave) + (Math.random() * 0.3 - 0.15);
+            // Distance: 20-30 blocs du centre
+            double distance = 20 + Math.random() * 10;
             double x = location.getX() + Math.cos(angle) * distance;
             double z = location.getZ() + Math.sin(angle) * distance;
             int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
             spawnLocations.add(new Location(world, x, y, z));
         }
 
-        // BURST SPAWN INSTANTANÉ: Spawn massif en 1-2 ticks pour effet de horde ÉCRASANTE
+        // Effet visuel et sonore au début de la vague
+        world.spawnParticle(Particle.EXPLOSION, location.clone().add(0, 2, 0), 2, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SOUL, location.clone().add(0, 1, 0), 30, 10, 2, 10, 0.05);
+        world.playSound(location, Sound.ENTITY_WITHER_SPAWN, 0.6f, 0.8f);
+
+        // SPAWN TOUS LES ZOMBIES D'UN COUP (synchrone pour garantir le spawn)
         final double finalZombieHealth = zombieHealth;
-        waveSpawnTask = new BukkitRunnable() {
-            int tick = 0;
-            int spawnIndex = 0;
-            final int zombiesPerTick = Math.max(zombiesThisWave / 2, 20); // Moitié par tick, min 20
-
-            @Override
-            public void run() {
-                if (!active) {
-                    cancel();
-                    return;
-                }
-
-                // Spawn un gros paquet de zombies
-                int toSpawn = Math.min(zombiesPerTick, spawnLocations.size() - spawnIndex);
-                for (int i = 0; i < toSpawn; i++) {
-                    Location spawnLoc = spawnLocations.get(spawnIndex + i);
-                    spawnHordeZombie(spawnLoc, finalZombieHealth);
-                }
-
-                // Effet visuel et sonore MASSIF pour le burst
-                if (tick == 0) {
-                    // Premier burst - effet dramatique au centre
-                    world.spawnParticle(Particle.EXPLOSION, location.clone().add(0, 2, 0), 3, 2, 1, 2, 0);
-                    world.spawnParticle(Particle.SOUL, location.clone().add(0, 1, 0), 50, 15, 2, 15, 0.05);
-                    world.playSound(location, Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.5f);
-                    world.playSound(location, Sound.ENTITY_ZOMBIE_AMBIENT, 2f, 0.5f);
-                }
-
-                // Particules autour des points de spawn
-                for (int i = 0; i < Math.min(10, toSpawn); i++) {
-                    Location spawnLoc = spawnLocations.get(spawnIndex + i);
-                    world.spawnParticle(Particle.SMOKE, spawnLoc.clone().add(0, 1, 0), 8, 0.5, 0.5, 0.5, 0.02);
-                    world.spawnParticle(Particle.FLAME, spawnLoc, 3, 0.3, 0.3, 0.3, 0.01);
-                }
-
-                spawnIndex += toSpawn;
-                tick++;
-
-                // Terminer après avoir spawné tous les zombies
-                if (spawnIndex >= spawnLocations.size()) {
-                    cancel();
-                }
+        int spawned = 0;
+        for (Location spawnLoc : spawnLocations) {
+            if (spawnHordeZombie(spawnLoc, finalZombieHealth)) {
+                spawned++;
+                // Particules de spawn
+                world.spawnParticle(Particle.SMOKE, spawnLoc.clone().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.02);
             }
-        }.runTaskTimer(plugin, 0L, 1L); // Tick CHAQUE tick = burst INSTANTANÉ
+        }
+
+        plugin.log(java.util.logging.Level.INFO, "[HordeInvasion] Spawned " + spawned + "/" + zombiesThisWave + " zombies for wave " + currentWave);
     }
 
     /**
      * Spawn un zombie de horde via ZombieManager pour bénéficier du système de dégâts ZombieZ
      * Le niveau est calculé à partir de la zone et de la vague courante
+     * @return true si le spawn a réussi
      */
-    private void spawnHordeZombie(Location spawnLoc, double zombieHealth) {
+    private boolean spawnHordeZombie(Location spawnLoc, double zombieHealth) {
         // Calculer le niveau du zombie basé sur la zone et la vague
         int zombieLevel = zone.getId() + currentWave;
 
         // Spawn via ZombieManager pour bénéficier du système ZombieZ complet
         ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] ZombieManager is null!");
+            return false;
+        }
+
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.HORDE_ZOMBIE, spawnLoc, zombieLevel);
 
         // Si le spawn a échoué (limite atteinte, etc.), ne pas continuer
         if (activeZombie == null) {
-            return;
+            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] Failed to spawn zombie via ZombieManager");
+            return false;
         }
 
         // Récupérer l'entité spawnée
         Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
         if (entity == null || !(entity instanceof LivingEntity living)) {
-            return;
+            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] Entity not found after spawn");
+            return false;
         }
 
         // Ajouter au tracking de la horde
@@ -487,6 +460,8 @@ public class HordeInvasionEvent extends DynamicEvent {
 
         // Ne pas persister au reboot (évite les entités orphelines)
         entity.setPersistent(false);
+
+        return true;
     }
 
     /**
