@@ -37,6 +37,9 @@ import java.util.logging.Level;
  *   - Phase 1: Parler au prêtre
  *   - Phase 2: Creuser 5 tombes (ArmorStands à frapper)
  *   - Phase 3: Tuer le boss "Le Premier Mort"
+ * - Étape 3: La Récolte Maudite
+ *   - Collecter 12 champignons rouges dans la zone
+ *   - Les livrer au collecteur
  */
 public class Chapter4Systems implements Listener {
 
@@ -44,10 +47,14 @@ public class Chapter4Systems implements Listener {
     private final JourneyManager journeyManager;
 
     // === CLÉS PDC ===
+    // Fossoyeur
     private final NamespacedKey PRIEST_NPC_KEY;
     private final NamespacedKey GRAVE_VISUAL_KEY;
     private final NamespacedKey GRAVE_HITBOX_KEY;
     private final NamespacedKey GRAVEDIGGER_BOSS_KEY;
+    // Champignons
+    private final NamespacedKey MUSHROOM_COLLECTOR_KEY;
+    private final NamespacedKey MUSHROOM_HITBOX_KEY;
 
     // === POSITIONS ===
     // Prêtre du cimetière
@@ -62,11 +69,27 @@ public class Chapter4Systems implements Listener {
             new Location(null, 663, 89, 8740, 0, 0)    // Tombe 5
     };
 
+    // Collecteur de champignons
+    private static final Location MUSHROOM_COLLECTOR_LOCATION = new Location(null, 434.5, 113, 8680.5, -90, 0);
+
+    // Zone des champignons (corners)
+    private static final int MUSHROOM_ZONE_MIN_X = 453;
+    private static final int MUSHROOM_ZONE_MAX_X = 495;
+    private static final int MUSHROOM_ZONE_Y = 92;
+    private static final int MUSHROOM_ZONE_MIN_Z = 8661;
+    private static final int MUSHROOM_ZONE_MAX_Z = 8713;
+
     // === CONFIGURATION ===
     private static final int HITS_TO_DIG = 10; // Nombre de coups pour creuser une tombe
     private static final double GRAVE_VIEW_DISTANCE = 48;
     private static final double PRIEST_DISPLAY_HEIGHT = 2.5;
     private static final double GRAVE_DISPLAY_HEIGHT = 1.8;
+
+    // Configuration champignons
+    private static final int MUSHROOM_COUNT = 20; // Nombre de champignons à spawner
+    private static final int MUSHROOMS_TO_COLLECT = 12; // Nombre à collecter
+    private static final int HITS_TO_COLLECT_MUSHROOM = 2; // 1-3 coups pour collecter
+    private static final double MUSHROOM_VIEW_DISTANCE = 32;
 
     // === TRACKING ENTITÉS ===
     private Entity priestEntity;
@@ -76,6 +99,14 @@ public class Chapter4Systems implements Listener {
     private final ItemDisplay[] graveVisuals = new ItemDisplay[5];
     private final Interaction[] graveHitboxes = new Interaction[5];
     private final TextDisplay[] graveDisplays = new TextDisplay[5];
+
+    // Champignons (ArmorStand invisible + ItemDisplay RED_MUSHROOM glowing)
+    private final List<ArmorStand> mushroomEntities = new ArrayList<>();
+    private final List<Location> mushroomLocations = new ArrayList<>();
+
+    // Collecteur de champignons
+    private Entity mushroomCollectorEntity;
+    private TextDisplay mushroomCollectorDisplay;
 
     // === TRACKING JOUEURS ===
     // Joueurs ayant parlé au prêtre (Phase 1 complétée)
@@ -99,6 +130,16 @@ public class Chapter4Systems implements Listener {
     // Joueurs ayant un boss actif (pour éviter le double spawn)
     private final Set<UUID> playersWithActiveBoss = ConcurrentHashMap.newKeySet();
 
+    // === TRACKING CHAMPIGNONS ===
+    // Champignons collectés par joueur (compteur virtuel)
+    private final Map<UUID, Integer> playerMushroomsCollected = new ConcurrentHashMap<>();
+
+    // Hits sur chaque champignon par joueur: mushroomIndex -> hits
+    private final Map<UUID, int[]> playerMushroomHits = new ConcurrentHashMap<>();
+
+    // Joueurs ayant complété la quête champignons
+    private final Set<UUID> playersWhoCompletedMushrooms = ConcurrentHashMap.newKeySet();
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -108,6 +149,8 @@ public class Chapter4Systems implements Listener {
         this.GRAVE_VISUAL_KEY = new NamespacedKey(plugin, "grave_visual");
         this.GRAVE_HITBOX_KEY = new NamespacedKey(plugin, "grave_hitbox");
         this.GRAVEDIGGER_BOSS_KEY = new NamespacedKey(plugin, "gravedigger_boss");
+        this.MUSHROOM_COLLECTOR_KEY = new NamespacedKey(plugin, "mushroom_collector");
+        this.MUSHROOM_HITBOX_KEY = new NamespacedKey(plugin, "mushroom_hitbox");
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -134,10 +177,11 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les anciennes entités
         cleanupOldEntities(world);
 
+        // === ÉTAPE 2: LE FOSSOYEUR ===
         // Spawn le prêtre
         spawnPriest(world);
 
-        // Spawn les tombes (ArmorStands)
+        // Spawn les tombes
         spawnGraves(world);
 
         // Démarrer les systèmes de mise à jour
@@ -145,7 +189,22 @@ public class Chapter4Systems implements Listener {
         startGraveVisibilityUpdater();
         startGraveRespawnChecker();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Prêtre, Tombes du Fossoyeur)");
+        // === ÉTAPE 3: LA RÉCOLTE MAUDITE ===
+        // Spawn le collecteur de champignons
+        spawnMushroomCollector(world);
+
+        // Générer les positions des champignons
+        generateMushroomLocations(world);
+
+        // Spawn les champignons
+        spawnMushrooms(world);
+
+        // Démarrer les systèmes de mise à jour
+        startMushroomCollectorRespawnChecker();
+        startMushroomVisibilityUpdater();
+        startMushroomRespawnChecker();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte Maudite)");
     }
 
     /**
@@ -183,6 +242,26 @@ public class Chapter4Systems implements Listener {
         // Nettoyer les boss du fossoyeur
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_gravedigger_boss")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer le collecteur de champignons
+        Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
+        collectorLoc.setWorld(world);
+
+        for (Entity entity : world.getNearbyEntities(collectorLoc, 10, 10, 10)) {
+            if (entity.getScoreboardTags().contains("chapter4_mushroom_collector")) {
+                entity.remove();
+            }
+            if (entity instanceof TextDisplay && entity.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
+                entity.remove();
+            }
+        }
+
+        // Nettoyer les champignons
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_mushroom")) {
                 entity.remove();
             }
         }
@@ -1058,6 +1137,537 @@ public class Chapter4Systems implements Listener {
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1, 0.3);
     }
 
+    // ==================== ÉTAPE 3: LA RÉCOLTE MAUDITE ====================
+
+    /**
+     * Spawn le PNJ collecteur de champignons
+     */
+    private void spawnMushroomCollector(World world) {
+        Location loc = MUSHROOM_COLLECTOR_LOCATION.clone();
+        loc.setWorld(world);
+
+        // Supprimer l'ancien si existant
+        if (mushroomCollectorEntity != null && mushroomCollectorEntity.isValid()) {
+            mushroomCollectorEntity.remove();
+        }
+        if (mushroomCollectorDisplay != null && mushroomCollectorDisplay.isValid()) {
+            mushroomCollectorDisplay.remove();
+        }
+
+        // Spawn le Villager collecteur
+        mushroomCollectorEntity = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("Mère Cueillette", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
+            villager.setCustomNameVisible(true);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setCollidable(false);
+            villager.setProfession(Villager.Profession.FARMER);
+            villager.setVillagerType(Villager.Type.SWAMP);
+
+            // Tags
+            villager.addScoreboardTag("chapter4_mushroom_collector");
+            villager.addScoreboardTag("no_trading");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Ne pas persister
+            villager.setPersistent(false);
+
+            // Orientation
+            villager.setRotation(-90, 0);
+        });
+
+        // Créer le TextDisplay au-dessus
+        createMushroomCollectorDisplay(world, loc);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus du collecteur
+     */
+    private void createMushroomCollectorDisplay(World world, Location loc) {
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+
+        mushroomCollectorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("🍄 ", NamedTextColor.RED))
+                    .append(Component.text("LA CUEILLEUSE", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" 🍄", NamedTextColor.RED))
+                    .append(Component.newline())
+                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.5f);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter4_mushroom_collector_display");
+        });
+    }
+
+    /**
+     * Démarre le vérificateur de respawn du collecteur
+     */
+    private void startMushroomCollectorRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid() || mushroomCollectorEntity.isDead()) {
+                    spawnMushroomCollector(world);
+                    plugin.log(Level.FINE, "Collecteur de champignons respawné");
+                }
+
+                if (mushroomCollectorDisplay == null || !mushroomCollectorDisplay.isValid()) {
+                    Location loc = MUSHROOM_COLLECTOR_LOCATION.clone();
+                    loc.setWorld(world);
+                    createMushroomCollectorDisplay(world, loc);
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 100L);
+    }
+
+    /**
+     * Génère les positions aléatoires des champignons dans la zone
+     */
+    private void generateMushroomLocations(World world) {
+        mushroomLocations.clear();
+        Random random = new Random();
+
+        for (int i = 0; i < MUSHROOM_COUNT; i++) {
+            int x = MUSHROOM_ZONE_MIN_X + random.nextInt(MUSHROOM_ZONE_MAX_X - MUSHROOM_ZONE_MIN_X + 1);
+            int z = MUSHROOM_ZONE_MIN_Z + random.nextInt(MUSHROOM_ZONE_MAX_Z - MUSHROOM_ZONE_MIN_Z + 1);
+
+            // Trouver le bloc solide le plus haut
+            Location loc = new Location(world, x + 0.5, MUSHROOM_ZONE_Y, z + 0.5);
+            loc = world.getHighestBlockAt(loc).getLocation().add(0.5, 1, 0.5);
+
+            mushroomLocations.add(loc);
+        }
+    }
+
+    /**
+     * Spawn tous les champignons
+     */
+    private void spawnMushrooms(World world) {
+        // Nettoyer les anciens
+        for (ArmorStand mushroom : mushroomEntities) {
+            if (mushroom != null && mushroom.isValid()) {
+                mushroom.remove();
+            }
+        }
+        mushroomEntities.clear();
+
+        // Spawner les nouveaux
+        for (int i = 0; i < mushroomLocations.size(); i++) {
+            spawnMushroom(world, i);
+        }
+    }
+
+    /**
+     * Spawn un champignon à l'index donné
+     */
+    private void spawnMushroom(World world, int index) {
+        if (index >= mushroomLocations.size()) return;
+
+        Location loc = mushroomLocations.get(index);
+
+        // ArmorStand invisible avec champignon rouge glowing
+        ArmorStand mushroom = world.spawn(loc, ArmorStand.class, armorStand -> {
+            armorStand.setInvisible(true);
+            armorStand.setInvulnerable(false); // Peut être "détruit" (hit)
+            armorStand.setGravity(false);
+            armorStand.setCanPickupItems(false);
+            armorStand.setSmall(true);
+
+            // Équipement: champignon rouge sur la tête
+            armorStand.getEquipment().setHelmet(new ItemStack(Material.RED_MUSHROOM));
+
+            // Glow rouge
+            armorStand.setGlowing(true);
+            armorStand.setGlowColorOverride(Color.fromRGB(255, 50, 50));
+
+            // Tags
+            armorStand.addScoreboardTag("chapter4_mushroom");
+            armorStand.addScoreboardTag("mushroom_" + index);
+            armorStand.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            armorStand.getPersistentDataContainer().set(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER, index);
+
+            // Invisible par défaut (visibilité per-player)
+            armorStand.setVisibleByDefault(false);
+            armorStand.setPersistent(false);
+        });
+
+        // Ajouter à la liste
+        while (mushroomEntities.size() <= index) {
+            mushroomEntities.add(null);
+        }
+        mushroomEntities.set(index, mushroom);
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les champignons
+     */
+    private void startMushroomVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllMushroomsForPlayer(player);
+                        continue;
+                    }
+
+                    // Le joueur voit les champignons s'il est à l'étape 4_3 et n'a pas fini
+                    JourneyStep currentStep = journeyManager.getCurrentStep(player);
+                    boolean shouldSeeMushrooms = currentStep == JourneyStep.STEP_4_3 &&
+                            !hasPlayerCompletedMushroomQuest(player);
+
+                    if (shouldSeeMushrooms) {
+                        updateMushroomVisibilityForPlayer(player);
+                    } else {
+                        hideAllMushroomsForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des champignons pour un joueur
+     */
+    private void updateMushroomVisibilityForPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        int[] hits = playerMushroomHits.get(uuid);
+
+        for (int i = 0; i < mushroomEntities.size(); i++) {
+            ArmorStand mushroom = mushroomEntities.get(i);
+            if (mushroom == null || !mushroom.isValid()) continue;
+
+            // Vérifier si ce champignon a été collecté par ce joueur
+            boolean collected = hits != null && hits.length > i && hits[i] >= getHitsForMushroom(i);
+
+            // Distance check
+            double distSq = player.getLocation().distanceSquared(mushroom.getLocation());
+            boolean inRange = distSq <= MUSHROOM_VIEW_DISTANCE * MUSHROOM_VIEW_DISTANCE;
+
+            if (collected || !inRange) {
+                player.hideEntity(plugin, mushroom);
+            } else {
+                player.showEntity(plugin, mushroom);
+            }
+        }
+    }
+
+    /**
+     * Cache tous les champignons pour un joueur
+     */
+    private void hideAllMushroomsForPlayer(Player player) {
+        for (ArmorStand mushroom : mushroomEntities) {
+            if (mushroom != null && mushroom.isValid()) {
+                player.hideEntity(plugin, mushroom);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des champignons
+     */
+    private void startMushroomRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < mushroomLocations.size(); i++) {
+                    if (i >= mushroomEntities.size() || mushroomEntities.get(i) == null ||
+                            !mushroomEntities.get(i).isValid()) {
+                        spawnMushroom(world, i);
+                        plugin.log(Level.FINE, "Champignon " + i + " respawné");
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Retourne le nombre de hits requis pour collecter un champignon (1-3)
+     */
+    private int getHitsForMushroom(int index) {
+        // Pseudo-random basé sur l'index
+        return 1 + (index % 3);
+    }
+
+    /**
+     * Gère l'interaction avec le collecteur de champignons
+     */
+    private void handleMushroomCollectorInteraction(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si la quête est déjà complète
+        if (hasPlayerCompletedMushroomQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMère Cueillette: §f\"Merci encore pour ton aide, survivant.\"");
+            player.sendMessage("§5§lMère Cueillette: §f\"Les champignons nous ont beaucoup appris...\"");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_4_3) {
+            player.sendMessage("");
+            player.sendMessage("§5§lMère Cueillette: §f\"Bonjour, étranger...\"");
+            player.sendMessage("§5§lMère Cueillette: §f\"Ces champignons renferment des secrets étranges.\"");
+            player.sendMessage("§7(Progresse dans ton Journal pour débloquer cette quête)");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1f, 1f);
+            player.sendMessage("");
+            return;
+        }
+
+        int mushroomsCollected = playerMushroomsCollected.getOrDefault(player.getUniqueId(), 0);
+
+        // Si le joueur n'a pas encore 12 champignons
+        if (mushroomsCollected < MUSHROOMS_TO_COLLECT) {
+            if (mushroomsCollected == 0) {
+                // Premier dialogue - démarrer la quête
+                player.sendMessage("");
+                player.sendMessage("§8§m                                        ");
+                player.sendMessage("");
+                player.sendMessage("  §5§lMère Cueillette: §f\"Ah, un courageux!\"");
+                player.sendMessage("");
+                player.sendMessage("  §5§lMère Cueillette: §f\"Ces §cchampignons rouges§f qui");
+                player.sendMessage("  §fpoussent dans la forêt sont §ccontaminés§f.\"");
+                player.sendMessage("");
+                player.sendMessage("  §5§lMère Cueillette: §f\"J'ai besoin de §c12 échantillons§f");
+                player.sendMessage("  §fpour mes recherches sur le virus.\"");
+                player.sendMessage("");
+                player.sendMessage("  §e➤ §fCollecte §e12 champignons rouges§f dans la forêt!");
+                player.sendMessage("  §7(Frappe-les pour les cueillir)");
+                player.sendMessage("");
+                player.sendMessage("§8§m                                        ");
+                player.sendMessage("");
+
+                // Effets
+                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+
+                // Afficher le titre
+                player.sendTitle("§c🍄 LA RÉCOLTE MAUDITE", "§7Collecte 12 champignons rouges", 10, 60, 20);
+
+                // GPS vers la zone des champignons
+                activateGPSToMushroomZone(player);
+            } else {
+                // Rappel
+                player.sendMessage("");
+                player.sendMessage("§5§lMère Cueillette: §f\"Tu n'as que §e" + mushroomsCollected + " champignons§f.\"");
+                player.sendMessage("§5§lMère Cueillette: §f\"Il m'en faut §c12§f au total!\"");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+                player.sendMessage("");
+
+                // GPS vers la zone des champignons
+                activateGPSToMushroomZone(player);
+            }
+            return;
+        }
+
+        // Le joueur a 12 champignons - livraison!
+        onMushroomQuestComplete(player);
+    }
+
+    /**
+     * Active le GPS vers la zone des champignons
+     */
+    private void activateGPSToMushroomZone(Player player) {
+        int centerX = (MUSHROOM_ZONE_MIN_X + MUSHROOM_ZONE_MAX_X) / 2;
+        int centerZ = (MUSHROOM_ZONE_MIN_Z + MUSHROOM_ZONE_MAX_Z) / 2;
+
+        player.sendMessage("");
+        player.sendMessage("§e§l➤ §7Zone des champignons: §e" + centerX + ", " + MUSHROOM_ZONE_Y + ", " + centerZ);
+        player.sendMessage("§7Cherche les §cchampignons lumineux §7dans la forêt!");
+        player.sendMessage("");
+    }
+
+    /**
+     * Active le GPS vers le collecteur
+     */
+    private void activateGPSToCollector(Player player) {
+        Location loc = MUSHROOM_COLLECTOR_LOCATION;
+        player.sendMessage("");
+        player.sendMessage("§e§l➤ §7Retourne voir §5Mère Cueillette§7: §e" +
+                (int) loc.getX() + ", " + (int) loc.getY() + ", " + (int) loc.getZ());
+        player.sendMessage("§7Tu as §c12 champignons§7, livre-les!");
+        player.sendMessage("");
+    }
+
+    /**
+     * Gère le hit sur un champignon
+     */
+    private void handleMushroomHit(Player player, int mushroomIndex) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+
+        // Vérifier si à la bonne étape
+        if (currentStep != JourneyStep.STEP_4_3) {
+            player.sendMessage("§7Un champignon rouge étrange... Peut-être que quelqu'un en a besoin?");
+            player.playSound(player.getLocation(), Sound.BLOCK_FUNGUS_HIT, 0.5f, 1f);
+            return;
+        }
+
+        // Vérifier si la quête est finie
+        if (hasPlayerCompletedMushroomQuest(player)) {
+            return;
+        }
+
+        // Vérifier si le joueur a déjà 12 champignons
+        int collected = playerMushroomsCollected.getOrDefault(player.getUniqueId(), 0);
+        if (collected >= MUSHROOMS_TO_COLLECT) {
+            player.sendMessage("§7Tu as déjà §c12 champignons§7! Retourne voir §5Mère Cueillette§7.");
+            return;
+        }
+
+        UUID uuid = player.getUniqueId();
+        int[] hits = playerMushroomHits.get(uuid);
+        if (hits == null) {
+            hits = new int[MUSHROOM_COUNT];
+            playerMushroomHits.put(uuid, hits);
+        }
+
+        // Vérifier si ce champignon est déjà collecté
+        int requiredHits = getHitsForMushroom(mushroomIndex);
+        if (hits[mushroomIndex] >= requiredHits) {
+            return;
+        }
+
+        // Incrémenter les hits
+        hits[mushroomIndex]++;
+        int currentHits = hits[mushroomIndex];
+
+        // Effets de cueillette
+        ArmorStand mushroom = mushroomIndex < mushroomEntities.size() ? mushroomEntities.get(mushroomIndex) : null;
+        if (mushroom != null) {
+            Location loc = mushroom.getLocation();
+            player.playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 0.8f, 1f + (float) currentHits / requiredHits * 0.5f);
+            player.getWorld().spawnParticle(Particle.ITEM, loc.add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.05,
+                    new ItemStack(Material.RED_MUSHROOM));
+        }
+
+        // Champignon collecté!
+        if (currentHits >= requiredHits) {
+            onMushroomCollected(player, mushroomIndex);
+        }
+    }
+
+    /**
+     * Appelé quand un champignon est collecté
+     */
+    private void onMushroomCollected(Player player, int mushroomIndex) {
+        UUID uuid = player.getUniqueId();
+        int collected = playerMushroomsCollected.getOrDefault(uuid, 0) + 1;
+        playerMushroomsCollected.put(uuid, collected);
+
+        // Incrémenter la progression Journey (+1 par champignon)
+        journeyManager.incrementProgress(player, JourneyStep.StepType.MUSHROOM_COLLECTION, 1);
+
+        // Cacher ce champignon pour le joueur
+        updateMushroomVisibilityForPlayer(player);
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.5f);
+
+        // Message
+        if (collected < MUSHROOMS_TO_COLLECT) {
+            player.sendMessage("§c🍄 §7Champignon collecté! §e" + collected + "/" + MUSHROOMS_TO_COLLECT);
+        } else {
+            // 12 champignons collectés!
+            player.sendMessage("");
+            player.sendMessage("§a§l✦ §7Tu as collecté §c12 champignons§7!");
+            player.sendMessage("§e➤ §7Retourne voir §5Mère Cueillette§7!");
+            player.sendMessage("");
+
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+            player.sendTitle("§c🍄 §a12/12", "§7Retourne voir Mère Cueillette!", 10, 40, 20);
+
+            // GPS vers le collecteur
+            activateGPSToCollector(player);
+        }
+    }
+
+    /**
+     * Appelé quand la quête champignons est complétée
+     */
+    private void onMushroomQuestComplete(Player player) {
+        playersWhoCompletedMushrooms.add(player.getUniqueId());
+
+        // Incrémenter la progression pour compléter l'étape (13 = 12 champignons + 1 livraison)
+        journeyManager.incrementProgress(player, JourneyStep.StepType.MUSHROOM_COLLECTION, 1);
+
+        // Message avec lore sur Patient Zéro
+        player.sendMessage("");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("");
+        player.sendMessage("  §a§l✦ QUÊTE COMPLÉTÉE!");
+        player.sendMessage("");
+        player.sendMessage("  §5§lMère Cueillette: §f\"Magnifique travail!\"");
+        player.sendMessage("");
+        player.sendMessage("  §7Elle examine attentivement les champignons...");
+        player.sendMessage("");
+        player.sendMessage("  §5§lMère Cueillette: §f\"Ces spores... Je les reconnais.\"");
+        player.sendMessage("");
+        player.sendMessage("  §5§lMère Cueillette: §f\"Elles proviennent d'expériences");
+        player.sendMessage("  §fmenées au §4Laboratoire Helix§f, à l'est.\"");
+        player.sendMessage("");
+        player.sendMessage("  §5§lMère Cueillette: §f\"Le §4Patient Zéro§f... Il travaillait");
+        player.sendMessage("  §flà-bas avant que tout ne dégénère.\"");
+        player.sendMessage("");
+        player.sendMessage("  §5§lMère Cueillette: §f\"Ces champignons absorbent le virus");
+        player.sendMessage("  §fet le transforment. Ils pourraient être la §aclé§f");
+        player.sendMessage("  §fpour comprendre l'origine de l'épidémie.\"");
+        player.sendMessage("");
+        player.sendMessage("  §e+400 Points §7| §a+12 Gems");
+        player.sendMessage("");
+        player.sendMessage("  §8§oIndice: Le Laboratoire Helix cache des secrets...");
+        player.sendMessage("");
+        player.sendMessage("§8§m                                        ");
+        player.sendMessage("");
+
+        player.sendTitle("§a§l✦ QUÊTE COMPLÉTÉE!", "§7Les champignons révèlent leurs secrets...", 10, 60, 20);
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1, 0.3);
+    }
+
+    /**
+     * Vérifie si le joueur a complété la quête champignons
+     */
+    public boolean hasPlayerCompletedMushroomQuest(Player player) {
+        if (playersWhoCompletedMushrooms.contains(player.getUniqueId())) {
+            return true;
+        }
+        int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_3);
+        return progress >= 13; // 12 champignons + 1 livraison
+    }
+
     // ==================== HELPERS ====================
 
     public boolean hasPlayerTalkedToPriest(Player player) {
@@ -1090,6 +1700,13 @@ public class Chapter4Systems implements Listener {
         if (entity.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
             event.setCancelled(true);
             handlePriestInteraction(player);
+            return;
+        }
+
+        // Interaction avec le collecteur de champignons
+        if (entity.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleMushroomCollectorInteraction(player);
         }
     }
 
@@ -1112,6 +1729,26 @@ public class Chapter4Systems implements Listener {
                 Integer graveIndex = damaged.getPersistentDataContainer().get(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER);
                 if (graveIndex != null) {
                     handleGraveHit(attacker, graveIndex);
+                }
+            }
+            return;
+        }
+
+        // Hit sur un champignon (ArmorStand)
+        if (damaged instanceof ArmorStand && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true); // Ne pas détruire l'ArmorStand
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer mushroomIndex = damaged.getPersistentDataContainer().get(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER);
+                if (mushroomIndex != null) {
+                    handleMushroomHit(attacker, mushroomIndex);
                 }
             }
         }
@@ -1162,6 +1799,23 @@ public class Chapter4Systems implements Listener {
                 if (progress >= 7) {
                     playersWhoKilledBoss.add(player.getUniqueId());
                 }
+
+                // Recharger la progression champignons
+                int mushroomProgress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_3);
+                if (mushroomProgress >= 13) {
+                    playersWhoCompletedMushrooms.add(player.getUniqueId());
+                } else if (mushroomProgress > 0) {
+                    // Reconstruire le compteur de champignons collectés
+                    int estimatedMushrooms = Math.min(12, mushroomProgress);
+                    playerMushroomsCollected.put(player.getUniqueId(), estimatedMushrooms);
+
+                    // Initialiser les hits (marquer les premiers comme collectés)
+                    int[] hits = new int[MUSHROOM_COUNT];
+                    for (int i = 0; i < estimatedMushrooms && i < MUSHROOM_COUNT; i++) {
+                        hits[i] = getHitsForMushroom(i);
+                    }
+                    playerMushroomHits.put(player.getUniqueId(), hits);
+                }
             }
         }.runTaskLater(plugin, 20L);
     }
@@ -1170,7 +1824,7 @@ public class Chapter4Systems implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
 
-        // Nettoyer les données temporaires
+        // Nettoyer les données temporaires - Fossoyeur
         playerGraveHits.remove(uuid);
         playerGraveOrder.remove(uuid);
         playerGravesDug.remove(uuid);
@@ -1184,5 +1838,9 @@ public class Chapter4Systems implements Listener {
                 boss.remove();
             }
         }
+
+        // Nettoyer les données temporaires - Champignons
+        playerMushroomsCollected.remove(uuid);
+        playerMushroomHits.remove(uuid);
     }
 }

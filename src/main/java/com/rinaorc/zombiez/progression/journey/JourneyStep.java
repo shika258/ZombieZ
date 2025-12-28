@@ -143,9 +143,9 @@ public enum JourneyStep {
         "Cimetière: §b656, 91, 8682", StepType.GRAVEDIGGER_QUEST, 7,
         300, 10, Material.IRON_SHOVEL),
 
-    STEP_4_3(JourneyChapter.CHAPTER_4, 3, "Tue 25 zombies en 1 vie",
-        "Série de kills!", StepType.KILL_STREAK, 25,
-        400, 12, Material.GOLDEN_SWORD),
+    STEP_4_3(JourneyChapter.CHAPTER_4, 3, "La Récolte Maudite",
+        "Cueille 12 champignons - Zone: §b474, 92, 8687", StepType.MUSHROOM_COLLECTION, 13,
+        400, 12, Material.RED_MUSHROOM),
 
     STEP_4_4(JourneyChapter.CHAPTER_4, 4, "Atteins niveau de classe 15",
         "Expert de ta classe", StepType.CLASS_LEVEL, 15,
@@ -442,6 +442,11 @@ public enum JourneyStep {
                 else if (current >= 1) yield (current - 1) + "/5 tombes creusées";
                 else yield "Parle au prêtre";
             }
+            case MUSHROOM_COLLECTION -> {
+                if (current >= 13) yield "✓ Champignons livrés!";
+                else if (current >= 12) yield "Livre au collecteur!";
+                else yield current + "/12 champignons";
+            }
         };
     }
 
@@ -616,7 +621,10 @@ public enum JourneyStep {
         CLASS_MASTERY("Maîtrise ta classe"),
 
         // Quête du Fossoyeur (Chapitre 4)
-        GRAVEDIGGER_QUEST("Creuse les tombes et vaincs le boss");
+        GRAVEDIGGER_QUEST("Creuse les tombes et vaincs le boss"),
+
+        // Collecte de champignons (Chapitre 4)
+        MUSHROOM_COLLECTION("Collecte les champignons maudits");
 
         private final String description;
 
