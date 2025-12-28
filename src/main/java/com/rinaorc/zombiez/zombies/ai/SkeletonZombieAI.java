@@ -55,7 +55,7 @@ public class SkeletonZombieAI extends ZombieAI {
             retreat(target);
         } else if (distance > PREFERRED_DISTANCE * 1.3) {
             // Trop loin, se rapprocher
-            zombie.setTarget(target);
+            setZombieTarget(target);
         } else {
             // Distance idéale, strafer et tirer
             strafe(target);

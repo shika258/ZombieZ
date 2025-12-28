@@ -68,7 +68,7 @@ public class ExplosiveZombieAI extends ZombieAI {
 
         // Se rapprocher furtivement
         if (!isFuseActive) {
-            zombie.setTarget(target);
+            setZombieTarget(target);
 
             // Vitesse normale, pas de bruit
             if (distance > 10) {
@@ -88,7 +88,7 @@ public class ExplosiveZombieAI extends ZombieAI {
             updateCreeperFuseEffects();
 
             // Le creeper s'arrête pendant l'explosion
-            zombie.setTarget(null);
+            setZombieTarget(null);
 
             // Annuler si le joueur s'éloigne
             if (distance > 5 && fuseTime < CREEPER_FUSE_TICKS / 2) {
@@ -233,7 +233,7 @@ public class ExplosiveZombieAI extends ZombieAI {
 
         // Courir vers la cible
         if (!isFuseActive) {
-            zombie.setTarget(target);
+            setZombieTarget(target);
             zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 1, false, false));
         }
 
@@ -250,7 +250,7 @@ public class ExplosiveZombieAI extends ZombieAI {
             updateFuseEffects();
 
             // Se bloquer sur place pendant l'explosion
-            zombie.setTarget(null);
+            setZombieTarget(null);
             zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 10, false, false));
 
             if (fuseTime >= EXPLOSIVE_FUSE_TICKS) {

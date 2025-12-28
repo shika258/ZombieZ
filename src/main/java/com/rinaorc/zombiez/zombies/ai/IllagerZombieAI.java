@@ -101,7 +101,7 @@ public class IllagerZombieAI extends ZombieAI {
         if (distance < 7) {
             retreatTactically(target);
         } else if (distance > preferredDistance * 1.3) {
-            zombie.setTarget(target);
+            setZombieTarget(target);
         } else {
             // Distance idéale pour tirer
             strafeSideway(target);
@@ -208,7 +208,7 @@ public class IllagerZombieAI extends ZombieAI {
             return;
 
         double distance = zombie.getLocation().distance(target.getLocation());
-        zombie.setTarget(target);
+        setZombieTarget(target);
 
         // Charge si distance moyenne
         if (distance > 6 && distance < 15 && canUseAbility() && !isCharging) {

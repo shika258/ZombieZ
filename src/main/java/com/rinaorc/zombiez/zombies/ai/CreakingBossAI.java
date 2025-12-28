@@ -524,7 +524,7 @@ public class CreakingBossAI extends ZombieAI {
 
         if (zombie.getLocation().distanceSquared(spawnLocation) > LEASH_RANGE_SQUARED) {
             zombie.teleport(spawnLocation);
-            zombie.setTarget(null);
+            setZombieTarget(null);
             playSound(Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 0.5f);
             playParticles(Particle.BLOCK, spawnLocation.clone().add(0, 1, 0), 30, 0.5, 1, 0.5,
                 Material.PALE_OAK_LOG.createBlockData());

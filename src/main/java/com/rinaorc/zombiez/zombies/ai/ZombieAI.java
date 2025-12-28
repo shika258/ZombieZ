@@ -67,6 +67,16 @@ public abstract class ZombieAI {
     }
 
     /**
+     * Définit la cible du zombie de manière sécurisée
+     * Cast vers Mob car setTarget() n'est pas disponible sur LivingEntity
+     */
+    protected void setZombieTarget(LivingEntity target) {
+        if (zombie instanceof Mob mob) {
+            mob.setTarget(target);
+        }
+    }
+
+    /**
      * Vérifie si l'ability est prête
      */
     protected boolean canUseAbility() {
