@@ -229,6 +229,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems chapter3Systems;
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.chapter4.Chapter4Systems chapter4Systems;
 
     private com.rinaorc.zombiez.navigation.GPSManager gpsManager;
 
@@ -570,6 +572,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Chapter 3 Systems - NPC Forain et puzzle Memory Game
         chapter3Systems = new com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems(this);
+
+        // Chapter 4 Systems - Le Fossoyeur (Cimetière)
+        chapter4Systems = new com.rinaorc.zombiez.progression.journey.chapter4.Chapter4Systems(this);
 
         // GPS Manager - Navigation vers les objectifs du Journey
         gpsManager = new com.rinaorc.zombiez.navigation.GPSManager(this);

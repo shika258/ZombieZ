@@ -74,12 +74,22 @@ public class ZombieAIManager {
             case ELEMENTAL -> new ElementalZombieAI(plugin, zombie, type, level);
             case SPECIAL, ELITE -> new EliteZombieAI(plugin, zombie, type, level);
             case MINIBOSS, ZONE_BOSS, FINAL_BOSS -> new BossZombieAI(plugin, zombie, type, level);
-            case JOURNEY_BOSS -> new JourneyBossAI(plugin, zombie, type, level);
+            case JOURNEY_BOSS -> createJourneyBossAI(zombie, type, level);
             case SKELETON -> new SkeletonZombieAI(plugin, zombie, type, level);
             case PACK -> new PackZombieAI(plugin, zombie, type, level);
             case ILLAGER -> new IllagerZombieAI(plugin, zombie, type, level);
             case EVENT -> new BasicZombieAI(plugin, zombie, type, level); // Zombies d'événements (Horde, etc.)
             case EVENT_BOSS -> new WanderingBossAI(plugin, zombie, type, level); // Boss d'événements (Wandering Boss)
+        };
+    }
+
+    /**
+     * Crée l'IA appropriée pour les boss Journey selon leur type spécifique
+     */
+    private ZombieAI createJourneyBossAI(Zombie zombie, ZombieType type, int level) {
+        return switch (type) {
+            case GRAVEDIGGER_BOSS -> new GravediggerBossAI(plugin, zombie, type, level);
+            default -> new JourneyBossAI(plugin, zombie, type, level);
         };
     }
 
