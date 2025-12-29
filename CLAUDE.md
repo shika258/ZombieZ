@@ -164,3 +164,69 @@ if (minion != null) {
 7. ☐ Cleanup sur `PlayerQuit` (nettoyer Maps/Sets)
 8. ☐ **Vérifier : AUCUN sendActionBar()**
 
+---
+
+## 🔁 NPCs & Boss - Règles Anti-Boucle de Respawn (CRITIQUE)
+
+> **Problème :** Les NPCs/Boss avec `setPersistent(false)` disparaissent quand le chunk se décharge, causant des respawns en boucle infinie.
+
+### ✅ Règles OBLIGATOIRES pour tout NPC/Boss :
+
+#### 1. **Persistance des entités**
+```java
+entity.setPersistent(true); // OBLIGATOIRE pour survivre au chunk unload
+entity.getPersistentDataContainer().set(MY_KEY, PersistentDataType.BYTE, (byte) 1);
+```
+
+#### 2. **Vérification de joueur à proximité** (dans le checker/updater)
+```java
+// IMPORTANT: Ne rien faire si aucun joueur n'est à proximité
+boolean playerNearby = world.getPlayers().stream()
+        .anyMatch(p -> p.getLocation().distanceSquared(npcLoc) < 10000); // 100 blocs
+if (!playerNearby) {
+    return; // Skip tout le traitement
+}
+```
+
+#### 3. **Réutiliser les entités existantes** (dans la fonction spawn)
+```java
+private void spawnMyNPC(World world) {
+    // 1. Si entité en mémoire valide → ne rien faire
+    if (myEntity != null && myEntity.isValid() && !myEntity.isDead()) {
+        return;
+    }
+    
+    // 2. Chercher entité existante dans le monde (persistée après reboot)
+    for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+        if (entity instanceof Villager v && v.getPersistentDataContainer().has(MY_KEY, ...)) {
+            myEntity = v;
+            return; // Réutiliser l'existant
+        }
+    }
+    
+    // 3. Sinon créer nouveau (UNE SEULE FOIS)
+    myEntity = world.spawn(loc, Villager.class, npc -> {
+        npc.setPersistent(true); // ← CRITIQUE
+        npc.getPersistentDataContainer().set(MY_KEY, ...);
+    });
+}
+```
+
+#### 4. **JAMAIS forcer le chargement de chunk**
+```java
+// ❌ INTERDIT
+loc.getChunk().load();
+
+// ✅ À la place, vérifier et skip
+if (!loc.getChunk().isLoaded()) {
+    return;
+}
+```
+
+### ⚠️ Résumé des pièges à éviter :
+| Piège | Conséquence | Solution |
+|-------|-------------|----------|
+| `setPersistent(false)` | Entité disparaît au chunk unload | `setPersistent(true)` |
+| `chunk.load()` dans un checker | Force load → spawn → unload → repeat | Vérifier `isLoaded()` et skip |
+| Pas de joueur check | Spawner tourne même sans joueurs | `playerNearby` check |
+| Pas de réutilisation | Entités dupliquées ou loop | Chercher existant avec PDC tag |

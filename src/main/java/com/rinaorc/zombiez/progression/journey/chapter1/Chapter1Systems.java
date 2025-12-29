@@ -50,7 +50,7 @@ public class Chapter1Systems implements Listener {
     // === CONFIGURATION MINI-JEU ===
     private static final String FIRE_GUI_TITLE = "§c§l🔥 ÉTEINS L'INCENDIE! 🔥";
     private static final int FIRE_COUNT = 9; // Nombre de flammes à éteindre
-    private static final int[] FIRE_SLOTS = {10, 11, 12, 13, 14, 15, 16, 19, 25}; // Slots des flammes
+    private static final int[] FIRE_SLOTS = { 10, 11, 12, 13, 14, 15, 16, 19, 25 }; // Slots des flammes
 
     // === ENTITÉS ===
     private Entity farmerEntity;
@@ -133,7 +133,8 @@ public class Chapter1Systems implements Listener {
         }
 
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter1: " + removed + " entité(s) fermier orpheline(s) supprimée(s)");
+            plugin.log(Level.INFO,
+                    "§e⚠ Nettoyage global Chapter1: " + removed + " entité(s) fermier orpheline(s) supprimée(s)");
         }
     }
 
@@ -220,45 +221,45 @@ public class Chapter1Systems implements Listener {
 
     /**
      * Démarre le vérificateur de respawn du fermier.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement le fermier avec nettoyage préalable.
+     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement le fermier avec nettoyage
+     * préalable.
      */
     private void startFarmerRespawnChecker() {
         new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
+
+                Location farmerLoc = FARMER_LOCATION.clone();
+                farmerLoc.setWorld(world);
 
                 // === SÉCURITÉ FERMIER (maxmobs=1) ===
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (farmerEntity == null || !farmerEntity.isValid() || farmerEntity.isDead()) {
-                    // Forcer le chargement du chunk avant le respawn
-                    Location farmerLoc = FARMER_LOCATION.clone();
-                    farmerLoc.setWorld(world);
-                    if (!farmerLoc.getChunk().isLoaded()) {
-                        farmerLoc.getChunk().load();
+                    if (farmerLoc.getChunk().isLoaded()) {
+                        // Nettoyage global avant respawn pour garantir maxmobs=1
+                        cleanupOldEntities(world);
+                        spawnFarmer(world);
                     }
-
-                    // Nettoyage global avant respawn pour garantir maxmobs=1
-                    cleanupOldEntities(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter1] Fermier invalide, respawn automatique...");
-                    spawnFarmer(world);
                 }
 
-                if (farmerDisplay == null || !farmerDisplay.isValid()) {
-                    Location loc = FARMER_LOCATION.clone();
-                    loc.setWorld(world);
-                    createFarmerDisplay(world, loc);
+                // TextDisplay: même logique
+                if ((farmerDisplay == null || !farmerDisplay.isValid()) && farmerLoc.getChunk().isLoaded()) {
+                    createFarmerDisplay(world, farmerLoc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L);
+        }.runTaskTimer(plugin, 100L, 200L); // Intervalle augmenté pour réduire le spam
     }
 
     // ==================== EVENT HANDLERS ====================
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
 
         Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
@@ -272,11 +273,13 @@ public class Chapter1Systems implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!(event.getWhoClicked() instanceof Player player))
+            return;
 
         // Vérifier le titre du GUI avec getOriginalTitle()
         String title = event.getView().getOriginalTitle();
-        if (!title.equals(FIRE_GUI_TITLE)) return;
+        if (!title.equals(FIRE_GUI_TITLE))
+            return;
 
         // IMPORTANT: Annuler l'événement EN PREMIER pour empêcher le vol d'items
         event.setCancelled(true);
@@ -284,7 +287,8 @@ public class Chapter1Systems implements Listener {
         int slot = event.getRawSlot();
         ItemStack clicked = event.getCurrentItem();
 
-        if (clicked == null || clicked.getType() == Material.AIR) return;
+        if (clicked == null || clicked.getType() == Material.AIR)
+            return;
 
         // Vérifier si c'est une flamme
         if (clicked.getType() == Material.CAMPFIRE) {
@@ -294,7 +298,8 @@ public class Chapter1Systems implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) return;
+        if (!(event.getPlayer() instanceof Player player))
+            return;
 
         String title = event.getView().getOriginalTitle();
         if (title.equals(FIRE_GUI_TITLE)) {
@@ -313,7 +318,8 @@ public class Chapter1Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline()) return;
+                if (!player.isOnline())
+                    return;
 
                 // Recharger la progression
                 int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_1_7);
@@ -336,7 +342,8 @@ public class Chapter1Systems implements Listener {
 
     /**
      * Protège le fermier contre TOUS les types de dégâts.
-     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent
+     * bypass.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onFarmerDamage(EntityDamageEvent event) {
@@ -491,7 +498,8 @@ public class Chapter1Systems implements Listener {
         Set<Integer> extinguished = playerExtinguishedFires.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
 
         // Vérifier si déjà éteinte
-        if (extinguished.contains(slot)) return;
+        if (extinguished.contains(slot))
+            return;
 
         // Vérifier si c'est un slot valide
         boolean isFireSlot = false;
@@ -501,7 +509,8 @@ public class Chapter1Systems implements Listener {
                 break;
             }
         }
-        if (!isFireSlot) return;
+        if (!isFireSlot)
+            return;
 
         // Éteindre la flamme
         extinguished.add(slot);

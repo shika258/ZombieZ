@@ -177,23 +177,26 @@ public class Chapter2Systems implements Listener {
         displayLoc.setWorld(world);
         displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
 
-        // Forcer le chargement du chunk pour garantir le spawn
+        // Ne créer le display que si le chunk est chargé
         if (!displayLoc.getChunk().isLoaded()) {
-            displayLoc.getChunk().load();
+            return;
         }
 
-        // Supprimer l'ancien display si existant (variable en mémoire)
+        // Si on a déjà un display valide, ne rien faire
         if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
-            bossSpawnDisplay.remove();
+            return;
         }
 
-        // IMPORTANT: Nettoyer tous les anciens TextDisplays du boss qui auraient
-        // persisté après un reboot
-        // Cela évite la duplication des displays
-        cleanupOrphanedBossDisplays(world);
+        // Chercher un display existant (persisté après reboot)
+        for (Entity entity : world.getNearbyEntities(displayLoc, 20, 20, 20)) {
+            if (entity instanceof TextDisplay td && entity.getScoreboardTags().contains("manor_boss_display")) {
+                bossSpawnDisplay = td;
+                return; // Réutiliser l'existant
+            }
+        }
 
+        // Aucun display trouvé, créer un nouveau
         bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            // Configuration de base
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
             display.setShadowed(true);
@@ -201,22 +204,16 @@ public class Chapter2Systems implements Listener {
             display.setDefaultBackground(false);
             display.setBackgroundColor(Color.fromARGB(180, 0, 0, 0));
 
-            // Scale x3
             display.setTransformation(new org.bukkit.util.Transformation(
-                    new org.joml.Vector3f(0, 0, 0), // Translation
-                    new org.joml.AxisAngle4f(0, 0, 0, 1), // Left rotation
-                    new org.joml.Vector3f(3f, 3f, 3f), // Scale x3
-                    new org.joml.AxisAngle4f(0, 0, 0, 1) // Right rotation
-            ));
+                    new org.joml.Vector3f(0, 0, 0),
+                    new org.joml.AxisAngle4f(0, 0, 0, 1),
+                    new org.joml.Vector3f(3f, 3f, 3f),
+                    new org.joml.AxisAngle4f(0, 0, 0, 1)));
 
-            // Distance de vue
             display.setViewRange(100f);
-
-            // Tag pour cleanup au redémarrage + ne pas persister
             display.addScoreboardTag("manor_boss_display");
-            display.setPersistent(false);
+            display.setPersistent(true);
 
-            // Texte initial
             updateBossDisplayText(display, true, 0);
         });
     }
@@ -303,9 +300,18 @@ public class Chapter2Systems implements Listener {
                 if (world == null)
                     return;
 
+                Location bossLoc = MANOR_BOSS_LOCATION.clone();
+                bossLoc.setWorld(world);
+
+                // IMPORTANT: Ne rien faire si aucun joueur n'est à proximité (100 blocs)
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(p -> p.getLocation().distanceSquared(bossLoc) < 10000); // 100^2
+                if (!playerNearby) {
+                    return;
+                }
+
                 // Recréer le display s'il est invalide
                 if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
-                    plugin.log(Level.INFO, "TextDisplay du boss invalide, recréation...");
                     initializeBossDisplay(world);
                 }
 
@@ -314,12 +320,9 @@ public class Chapter2Systems implements Listener {
                 int respawnSeconds = 0;
 
                 if (bossAlive) {
-                    // Boss vivant - vérifier le leash range
                     checkBossLeashRange(world);
                 } else {
-                    // Si pas de respawn programmé et pas de boss, spawn immédiatement
                     if (!bossRespawnScheduled && bossRespawnTime == 0) {
-                        plugin.log(Level.INFO, "Boss du Manoir absent, spawn automatique...");
                         spawnManorBoss(world);
                         bossAlive = manorBossEntity != null && manorBossEntity.isValid();
                     } else if (bossRespawnTime > 0) {
@@ -333,7 +336,7 @@ public class Chapter2Systems implements Listener {
                     updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
+        }.runTaskTimer(plugin, 20L, 40L);
     }
 
     /**
@@ -456,7 +459,7 @@ public class Chapter2Systems implements Listener {
             if (entity instanceof Villager villager) {
                 PersistentDataContainer pdc = villager.getPersistentDataContainer();
                 if (pdc.has(INJURED_MINER_KEY, PersistentDataType.BYTE) ||
-                    pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                        pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
                     villager.remove();
                     totalRemoved++;
                 }
@@ -464,21 +467,23 @@ public class Chapter2Systems implements Listener {
         }
 
         if (totalRemoved > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter2: " + totalRemoved + " entité(s) orpheline(s) supprimée(s)");
+            plugin.log(Level.INFO,
+                    "§e⚠ Nettoyage global Chapter2: " + totalRemoved + " entité(s) orpheline(s) supprimée(s)");
         }
     }
 
     /**
      * Fait spawn le mineur blessé
-     * IMPORTANT: Nettoie tous les villageois orphelins avec la clé PDC avant de spawner
+     * IMPORTANT: Nettoie tous les villageois orphelins avec la clé PDC avant de
+     * spawner
      */
     private void spawnInjuredMiner(World world) {
         Location loc = MINER_LOCATION.clone();
         loc.setWorld(world);
 
-        // Forcer le chargement du chunk pour garantir le spawn
+        // Ne spawner que si le chunk est chargé
         if (!loc.getChunk().isLoaded()) {
-            loc.getChunk().load();
+            return;
         }
 
         // Supprimer l'ancien si existant
@@ -487,7 +492,8 @@ public class Chapter2Systems implements Listener {
         }
 
         // CLEANUP CRITIQUE: Supprimer TOUS les villageois orphelins avec la clé PDC
-        // Cela évite la duplication en cas de bug, explosion AOE, ou rechargement de chunk
+        // Cela évite la duplication en cas de bug, explosion AOE, ou rechargement de
+        // chunk
         cleanupOrphanedInjuredMiners(world);
 
         // Créer un villageois comme NPC
@@ -533,7 +539,8 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Nettoie TOUS les villageois orphelins avec la clé PDC du mineur blessé dans le MONDE ENTIER.
+     * Nettoie TOUS les villageois orphelins avec la clé PDC du mineur blessé dans
+     * le MONDE ENTIER.
      * Appelé avant chaque spawn pour garantir MAXMOBS=1 (une seule instance).
      * Recherche globale, pas seulement à proximité.
      */
@@ -565,9 +572,7 @@ public class Chapter2Systems implements Listener {
             }
         }
 
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " mineur(s) blessé(s) orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -727,9 +732,7 @@ public class Chapter2Systems implements Listener {
                 }
             }
         }
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " Igor orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -800,7 +803,8 @@ public class Chapter2Systems implements Listener {
 
     /**
      * Protège les NPCs du Chapitre 2 contre TOUS les types de dégâts.
-     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent
+     * bypass.
      * Ce listener est une protection supplémentaire.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
@@ -809,7 +813,7 @@ public class Chapter2Systems implements Listener {
 
         // Vérifier par tag scoreboard (plus rapide que PDC)
         if (entity.getScoreboardTags().contains("zombiez_injured_miner") ||
-            entity.getScoreboardTags().contains("zombiez_igor_npc")) {
+                entity.getScoreboardTags().contains("zombiez_igor_npc")) {
             event.setCancelled(true);
             return;
         }
@@ -818,7 +822,7 @@ public class Chapter2Systems implements Listener {
         if (entity instanceof Villager villager) {
             PersistentDataContainer pdc = villager.getPersistentDataContainer();
             if (pdc.has(INJURED_MINER_KEY, PersistentDataType.BYTE) ||
-                pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
+                    pdc.has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
                 event.setCancelled(true);
             }
         }
@@ -1316,24 +1320,26 @@ public class Chapter2Systems implements Listener {
      * Utilise ZombieType.MANOR_LORD avec IA JourneyBossAI
      */
     private void spawnManorBoss(World world) {
-        // Protection anti-spawn multiple: si le boss existe déjà et est valide, ne pas
-        // en créer un nouveau
+        // Protection anti-spawn multiple: si le boss existe déjà et est valide
         if (manorBossEntity != null && manorBossEntity.isValid() && !manorBossEntity.isDead()) {
-            plugin.log(Level.FINE, "Boss du Manoir déjà présent, spawn ignoré");
             return;
         }
 
         Location loc = MANOR_BOSS_LOCATION.clone();
         loc.setWorld(world);
 
-        // Forcer le chargement du chunk pour garantir le spawn
+        // Ne spawn que si le chunk est chargé
         if (!loc.getChunk().isLoaded()) {
-            loc.getChunk().load();
+            return;
         }
 
-        // Nettoyer l'ancien boss s'il existe mais est invalide
-        if (manorBossEntity != null) {
-            manorBossEntity.remove();
+        // Chercher un boss existant dans le monde (persisté après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Zombie z
+                    && z.getPersistentDataContainer().has(MANOR_BOSS_KEY, PersistentDataType.BYTE)) {
+                manorBossEntity = z;
+                return; // Réutiliser l'existant
+            }
         }
 
         // Nettoyer les contributeurs
@@ -1370,6 +1376,7 @@ public class Chapter2Systems implements Listener {
 
         // Marquer comme boss du manoir pour le tracking Journey
         boss.getPersistentDataContainer().set(MANOR_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
+        boss.setPersistent(true); // IMPORTANT: survit au déchargement de chunk
 
         // Annoncer le spawn
         for (Player player : world.getPlayers()) {
@@ -1537,7 +1544,8 @@ public class Chapter2Systems implements Listener {
     // visibilité per-player
 
     /**
-     * Démarre le système de TextDisplay per-player et le respawn automatique des NPCs.
+     * Démarre le système de TextDisplay per-player et le respawn automatique des
+     * NPCs.
      * Utilise deux TextDisplays fixes (Blessé / Soigné) et gère la visibilité
      * per-player via l'API Paper showEntity/hideEntity.
      *
@@ -1549,41 +1557,32 @@ public class Chapter2Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
+
+                Location minerLoc = MINER_LOCATION.clone();
+                minerLoc.setWorld(world);
+                Location igorLoc = IGOR_LOCATION.clone();
+                igorLoc.setWorld(world);
 
                 // === SÉCURITÉ MINEUR BLESSÉ (maxmobs=1) ===
-                // Respawn TOUJOURS si l'entité est invalide, pas besoin de joueurs à proximité
-                // Car le chunk peut être chargé par d'autres moyens (téléportation, etc.)
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
-                    // Forcer le chargement du chunk avant le respawn
-                    Location minerLoc = MINER_LOCATION.clone();
-                    minerLoc.setWorld(world);
-                    if (!minerLoc.getChunk().isLoaded()) {
-                        minerLoc.getChunk().load();
+                    if (minerLoc.getChunk().isLoaded()) {
+                        cleanupOrphanedInjuredMiners(world);
+                        spawnInjuredMiner(world);
                     }
-
-                    // Nettoyage global avant respawn pour garantir maxmobs=1
-                    cleanupOrphanedInjuredMiners(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter2] Mineur blessé invalide, respawn automatique...");
-                    spawnInjuredMiner(world);
                 }
 
                 // === SÉCURITÉ IGOR (maxmobs=1) ===
-                // Respawn TOUJOURS si l'entité est invalide
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (igorEntity == null || !igorEntity.isValid()) {
-                    // Forcer le chargement du chunk avant le respawn
-                    Location igorLoc = IGOR_LOCATION.clone();
-                    igorLoc.setWorld(world);
-                    if (!igorLoc.getChunk().isLoaded()) {
-                        igorLoc.getChunk().load();
+                    if (igorLoc.getChunk().isLoaded()) {
+                        cleanupOrphanedIgor(world);
+                        spawnIgor(world);
                     }
-
-                    // Nettoyage global avant respawn pour garantir maxmobs=1
-                    cleanupOrphanedIgor(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter2] Igor invalide, respawn automatique...");
-                    spawnIgor(world);
                 }
 
                 // Si le mineur n'est toujours pas valide, on arrête ici
@@ -1591,9 +1590,10 @@ public class Chapter2Systems implements Listener {
                     return;
                 }
 
-                // Vérifier et recréer les displays si nécessaire
-                if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-                        minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
+                // Vérifier et recréer les displays si nécessaire (seulement si chunk chargé)
+                if ((minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
+                        minerDisplayHealed == null || !minerDisplayHealed.isValid()) &&
+                        minerLoc.getChunk().isLoaded()) {
                     spawnMinerTextDisplays(world, injuredMinerEntity.getLocation());
                 }
 
@@ -1606,25 +1606,21 @@ public class Chapter2Systems implements Listener {
                     minerDisplayHealed.teleport(displayLoc);
                 }
 
-                Location minerLoc = injuredMinerEntity.getLocation();
+                Location entityMinerLoc = injuredMinerEntity.getLocation();
 
                 // Mettre à jour la visibilité pour chaque joueur à portée
-                // Note: Minecraft gère automatiquement le culling par distance, pas besoin de
-                // cacher manuellement
                 for (Player player : Bukkit.getOnlinePlayers()) {
-                    boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
-                            player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
+                    boolean inRange = player.getWorld().equals(entityMinerLoc.getWorld()) &&
+                            player.getLocation().distanceSquared(entityMinerLoc) <= MINER_VIEW_DISTANCE
+                                    * MINER_VIEW_DISTANCE;
 
                     if (inRange) {
-                        // Joueur à portée: basculer entre "Blessé" et "Soigné" selon son état
                         boolean hasHealed = hasPlayerHealedMiner(player);
                         updateMinerDisplayVisibilityForPlayer(player, hasHealed);
                     }
-                    // Pas besoin de cacher quand hors de portée - le distance culling de Minecraft
-                    // s'en charge
                 }
             }
-        }.runTaskTimer(plugin, 20L, 10L); // Toutes les 10 ticks (0.5 sec)
+        }.runTaskTimer(plugin, 20L, 20L); // Augmenté à toutes les 20 ticks (1 sec) pour réduire le spam
     }
 
     /**

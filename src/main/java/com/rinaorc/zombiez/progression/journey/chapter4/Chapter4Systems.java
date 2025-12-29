@@ -44,16 +44,16 @@ import java.util.logging.Level;
 /**
  * Gère les systèmes spécifiques au Chapitre 4:
  * - Étape 2: Le Fossoyeur
- *   - Phase 1: Parler au prêtre
- *   - Phase 2: Creuser 5 tombes (ArmorStands à frapper)
- *   - Phase 3: Tuer le boss "Le Premier Mort"
+ * - Phase 1: Parler au prêtre
+ * - Phase 2: Creuser 5 tombes (ArmorStands à frapper)
+ * - Phase 3: Tuer le boss "Le Premier Mort"
  * - Étape 3: La Récolte Maudite
- *   - Collecter 12 champignons rouges dans la zone
- *   - Les livrer au collecteur
+ * - Collecter 12 champignons rouges dans la zone
+ * - Les livrer au collecteur
  * - Étape 6: Purification des Âmes
- *   - Tuer des Âmes Damnées dans le cimetière (33% drop Purificateur)
- *   - Utiliser le Purificateur sur les Âmes Damnées pour les libérer
- *   - Purifier 5 âmes -> transformation en villageois + nuage de fumée
+ * - Tuer des Âmes Damnées dans le cimetière (33% drop Purificateur)
+ * - Utiliser le Purificateur sur les Âmes Damnées pour les libérer
+ * - Purifier 5 âmes -> transformation en villageois + nuage de fumée
  */
 public class Chapter4Systems implements Listener {
 
@@ -87,11 +87,11 @@ public class Chapter4Systems implements Listener {
 
     // Tombes à creuser (5 positions)
     private static final Location[] GRAVE_LOCATIONS = {
-            new Location(null, 665, 90, 8730, 0, 0),   // Tombe 1
-            new Location(null, 669, 90, 8717, 0, 0),   // Tombe 2
-            new Location(null, 685, 89, 8728, 0, 0),   // Tombe 3
-            new Location(null, 676, 89, 8740, 0, 0),   // Tombe 4
-            new Location(null, 663, 89, 8740, 0, 0)    // Tombe 5
+            new Location(null, 665, 90, 8730, 0, 0), // Tombe 1
+            new Location(null, 669, 90, 8717, 0, 0), // Tombe 2
+            new Location(null, 685, 89, 8728, 0, 0), // Tombe 3
+            new Location(null, 676, 89, 8740, 0, 0), // Tombe 4
+            new Location(null, 663, 89, 8740, 0, 0) // Tombe 5
     };
 
     // Collecteur de champignons
@@ -140,10 +140,10 @@ public class Chapter4Systems implements Listener {
 
     // Positions des 4 sources de corruption
     private static final Location[] CORRUPTION_SOURCE_LOCATIONS = {
-            new Location(null, 770, 85, 8430, 0, 0),   // Source 1 (Sud-Ouest)
-            new Location(null, 840, 85, 8420, 0, 0),   // Source 2 (Sud-Est)
-            new Location(null, 780, 86, 8480, 0, 0),   // Source 3 (Nord-Ouest)
-            new Location(null, 830, 85, 8470, 0, 0)    // Source 4 (Nord-Est) - Mini-boss
+            new Location(null, 770, 85, 8430, 0, 0), // Source 1 (Sud-Ouest)
+            new Location(null, 840, 85, 8420, 0, 0), // Source 2 (Sud-Est)
+            new Location(null, 780, 86, 8480, 0, 0), // Source 3 (Nord-Ouest)
+            new Location(null, 830, 85, 8470, 0, 0) // Source 4 (Nord-Est) - Mini-boss
     };
 
     // Configuration Brume Toxique
@@ -156,14 +156,14 @@ public class Chapter4Systems implements Listener {
     // === ARBRE MAUDIT - CREAKING BOSS (ÉTAPE 8) ===
     // Positions des 8 orbes autour de l'arbre
     private static final Location[] ORB_LOCATIONS = {
-            new Location(null, 462.5, 91, 8523.5, 0, 0),   // Orbe 1
-            new Location(null, 453.5, 98, 8519.5, 0, 0),   // Orbe 2 (en hauteur)
-            new Location(null, 442.5, 92, 8525.5, 0, 0),   // Orbe 3
-            new Location(null, 442.5, 91, 8510.5, 0, 0),   // Orbe 4
-            new Location(null, 453.5, 96, 8506.5, 0, 0),   // Orbe 5 (en hauteur)
-            new Location(null, 460.5, 91, 8505.5, 0, 0),   // Orbe 6
-            new Location(null, 469.5, 95, 8510.5, 0, 0),   // Orbe 7 (en hauteur)
-            new Location(null, 460.5, 91, 8519.5, 0, 0)    // Orbe 8
+            new Location(null, 462.5, 91, 8523.5, 0, 0), // Orbe 1
+            new Location(null, 453.5, 98, 8519.5, 0, 0), // Orbe 2 (en hauteur)
+            new Location(null, 442.5, 92, 8525.5, 0, 0), // Orbe 3
+            new Location(null, 442.5, 91, 8510.5, 0, 0), // Orbe 4
+            new Location(null, 453.5, 96, 8506.5, 0, 0), // Orbe 5 (en hauteur)
+            new Location(null, 460.5, 91, 8505.5, 0, 0), // Orbe 6
+            new Location(null, 469.5, 95, 8510.5, 0, 0), // Orbe 7 (en hauteur)
+            new Location(null, 460.5, 91, 8519.5, 0, 0) // Orbe 8
     };
 
     // Position de spawn du boss Creaking
@@ -414,7 +414,8 @@ public class Chapter4Systems implements Listener {
         startCrystalRegenSystem();
         startCrystalVisibilityUpdater();
 
-        plugin.log(Level.INFO, "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste, Cristal)");
+        plugin.log(Level.INFO,
+                "§a✓ Chapter4Systems initialisé (Fossoyeur, Récolte, Purification, Brume Toxique, Arbre Maudit, Alchimiste, Cristal)");
     }
 
     /**
@@ -496,8 +497,8 @@ public class Chapter4Systems implements Listener {
             if (entity instanceof Villager villager) {
                 var pdc = villager.getPersistentDataContainer();
                 if (pdc.has(PRIEST_NPC_KEY, PersistentDataType.BYTE) ||
-                    pdc.has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE) ||
-                    pdc.has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+                        pdc.has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE) ||
+                        pdc.has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
                     villager.remove();
                     removed++;
                 }
@@ -505,7 +506,8 @@ public class Chapter4Systems implements Listener {
         }
 
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter4: " + removed + " entité(s) orpheline(s) supprimée(s)");
+            plugin.log(Level.INFO,
+                    "§e⚠ Nettoyage global Chapter4: " + removed + " entité(s) orpheline(s) supprimée(s)");
         }
     }
 
@@ -601,31 +603,28 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
+
+                Location priestLoc = PRIEST_LOCATION.clone();
+                priestLoc.setWorld(world);
 
                 // === SÉCURITÉ PRÊTRE (maxmobs=1) ===
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (priestEntity == null || !priestEntity.isValid() || priestEntity.isDead()) {
-                    // Forcer le chargement du chunk
-                    Location priestLoc = PRIEST_LOCATION.clone();
-                    priestLoc.setWorld(world);
-                    if (!priestLoc.getChunk().isLoaded()) {
-                        priestLoc.getChunk().load();
+                    if (priestLoc.getChunk().isLoaded()) {
+                        cleanupPriestEntities(world);
+                        spawnPriest(world);
                     }
-
-                    // Nettoyage avant respawn
-                    cleanupPriestEntities(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter4] Prêtre invalide, respawn automatique...");
-                    spawnPriest(world);
                 }
 
-                if (priestDisplay == null || !priestDisplay.isValid()) {
-                    Location loc = PRIEST_LOCATION.clone();
-                    loc.setWorld(world);
-                    createPriestDisplay(world, loc);
+                // TextDisplay: même logique
+                if ((priestDisplay == null || !priestDisplay.isValid()) && priestLoc.getChunk().isLoaded()) {
+                    createPriestDisplay(world, priestLoc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L);
+        }.runTaskTimer(plugin, 100L, 200L);
     }
 
     /**
@@ -635,10 +634,11 @@ public class Chapter4Systems implements Listener {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_priest") ||
-                entity.getScoreboardTags().contains("chapter4_priest_display")) {
+                    entity.getScoreboardTags().contains("chapter4_priest_display")) {
                 entity.remove();
                 removed++;
-            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
+            } else if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
                 v.remove();
                 removed++;
             }
@@ -685,7 +685,8 @@ public class Chapter4Systems implements Listener {
             } else {
                 player.sendMessage("");
                 player.sendMessage("§6§lPère Augustin: §f\"Continue de creuser les tombes, mon enfant.\"");
-                player.sendMessage("§6§lPère Augustin: §f\"Il te reste §e" + (5 - gravesDug) + " tombes§f à examiner.\"");
+                player.sendMessage(
+                        "§6§lPère Augustin: §f\"Il te reste §e" + (5 - gravesDug) + " tombes§f à examiner.\"");
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1f, 1f);
                 player.sendMessage("");
             }
@@ -794,7 +795,7 @@ public class Chapter4Systems implements Listener {
         playerGraveHits.put(uuid, new int[5]);
 
         // Créer un ordre aléatoire pour les tombes (la dernière creusée = boss)
-        int[] order = {0, 1, 2, 3, 4};
+        int[] order = { 0, 1, 2, 3, 4 };
         shuffleArray(order);
         playerGraveOrder.put(uuid, order);
 
@@ -853,8 +854,7 @@ public class Chapter4Systems implements Listener {
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 1, 0),
                     new Vector3f(1.5f, 1.5f, 1.5f),
-                    new AxisAngle4f(0, 0, 1, 0)
-            ));
+                    new AxisAngle4f(0, 0, 1, 0)));
 
             display.setBillboard(Display.Billboard.FIXED);
 
@@ -903,7 +903,8 @@ public class Chapter4Systems implements Listener {
         graveDisplays[graveIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
                     .append(Component.text("⚰ ", NamedTextColor.DARK_PURPLE))
-                    .append(Component.text("TOMBE " + (graveIndex + 1), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text("TOMBE " + (graveIndex + 1), NamedTextColor.LIGHT_PURPLE,
+                            TextDecoration.BOLD))
                     .append(Component.text(" ⚰", NamedTextColor.DARK_PURPLE))
                     .append(Component.newline())
                     .append(Component.text("▶ Frappe pour creuser", NamedTextColor.GRAY))
@@ -940,7 +941,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(world)) {
@@ -1030,7 +1032,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (int i = 0; i < 5; i++) {
                     boolean needsRespawn = (graveVisuals[i] == null || !graveVisuals[i].isValid()) ||
@@ -1051,7 +1054,8 @@ public class Chapter4Systems implements Listener {
      */
     private boolean hasPlayerDugGrave(Player player, int graveIndex) {
         int[] hits = playerGraveHits.get(player.getUniqueId());
-        if (hits == null) return false;
+        if (hits == null)
+            return false;
         return hits[graveIndex] >= HITS_TO_DIG;
     }
 
@@ -1110,7 +1114,8 @@ public class Chapter4Systems implements Listener {
      */
     private void updateGraveDisplayProgress(int graveIndex, int currentHits, int maxHits) {
         TextDisplay display = graveDisplays[graveIndex];
-        if (display == null || !display.isValid()) return;
+        if (display == null || !display.isValid())
+            return;
 
         String progressBar = createProgressBar((double) currentHits / maxHits);
 
@@ -1219,7 +1224,8 @@ public class Chapter4Systems implements Listener {
 
         // Spawn des zombies via ZombieManager
         ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) return;
+        if (zombieManager == null)
+            return;
 
         int count = 2 + gravesDug; // Plus de zombies au fur et à mesure
         int zombieLevel = 15 + (gravesDug * 2);
@@ -1228,8 +1234,7 @@ public class Chapter4Systems implements Listener {
             Location spawnLoc = loc.clone().add(
                     (Math.random() - 0.5) * 3,
                     1,
-                    (Math.random() - 0.5) * 3
-            );
+                    (Math.random() - 0.5) * 3);
 
             ZombieType type = Math.random() < 0.3 ? ZombieType.SKELETON : ZombieType.WALKER;
             zombieManager.spawnZombie(type, spawnLoc, zombieLevel);
@@ -1268,7 +1273,8 @@ public class Chapter4Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline()) return;
+                if (!player.isOnline())
+                    return;
                 spawnGravediggerBoss(player, graveLoc);
             }
         }.runTaskLater(plugin, 40L);
@@ -1284,7 +1290,8 @@ public class Chapter4Systems implements Listener {
      */
     private void spawnGravediggerBoss(Player player, Location loc) {
         World world = player.getWorld();
-        if (world == null) return;
+        if (world == null)
+            return;
 
         ZombieManager zombieManager = plugin.getZombieManager();
         if (zombieManager == null) {
@@ -1384,7 +1391,8 @@ public class Chapter4Systems implements Listener {
     private void handleBossKilled(Player killer, Zombie boss) {
         // Vérifier le propriétaire du boss
         String ownerUUID = boss.getPersistentDataContainer().get(GRAVEDIGGER_BOSS_KEY, PersistentDataType.STRING);
-        if (ownerUUID == null) return;
+        if (ownerUUID == null)
+            return;
 
         UUID ownerUuid = UUID.fromString(ownerUUID);
 
@@ -1436,7 +1444,8 @@ public class Chapter4Systems implements Listener {
         player.sendMessage("");
 
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1, 0.3);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1,
+                0.3);
     }
 
     // ==================== ÉTAPE 3: LA RÉCOLTE MAUDITE ====================
@@ -1531,31 +1540,30 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
+
+                Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
+                collectorLoc.setWorld(world);
 
                 // === SÉCURITÉ COLLECTEUR (maxmobs=1) ===
-                if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid() || mushroomCollectorEntity.isDead()) {
-                    // Forcer le chargement du chunk
-                    Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
-                    collectorLoc.setWorld(world);
-                    if (!collectorLoc.getChunk().isLoaded()) {
-                        collectorLoc.getChunk().load();
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
+                if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid()
+                        || mushroomCollectorEntity.isDead()) {
+                    if (collectorLoc.getChunk().isLoaded()) {
+                        cleanupMushroomCollectorEntities(world);
+                        spawnMushroomCollector(world);
                     }
-
-                    // Nettoyage avant respawn
-                    cleanupMushroomCollectorEntities(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter4] Collecteur de champignons invalide, respawn automatique...");
-                    spawnMushroomCollector(world);
                 }
 
-                if (mushroomCollectorDisplay == null || !mushroomCollectorDisplay.isValid()) {
-                    Location loc = MUSHROOM_COLLECTOR_LOCATION.clone();
-                    loc.setWorld(world);
-                    createMushroomCollectorDisplay(world, loc);
+                // TextDisplay: même logique
+                if ((mushroomCollectorDisplay == null || !mushroomCollectorDisplay.isValid())
+                        && collectorLoc.getChunk().isLoaded()) {
+                    createMushroomCollectorDisplay(world, collectorLoc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L);
+        }.runTaskTimer(plugin, 100L, 200L);
     }
 
     /**
@@ -1565,10 +1573,11 @@ public class Chapter4Systems implements Listener {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
-                entity.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
+                    entity.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
                 entity.remove();
                 removed++;
-            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
+            } else if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
                 v.remove();
                 removed++;
             }
@@ -1627,7 +1636,8 @@ public class Chapter4Systems implements Listener {
      * Spawn un champignon à l'index donné (ItemDisplay + Interaction)
      */
     private void spawnMushroom(World world, int index) {
-        if (index >= mushroomLocations.size()) return;
+        if (index >= mushroomLocations.size())
+            return;
 
         Location loc = mushroomLocations.get(index);
 
@@ -1640,8 +1650,7 @@ public class Chapter4Systems implements Listener {
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 1, 0),
                     new Vector3f(3.0f, 3.0f, 3.0f),
-                    new AxisAngle4f(0, 0, 1, 0)
-            ));
+                    new AxisAngle4f(0, 0, 1, 0)));
 
             display.setBillboard(Display.Billboard.FIXED);
 
@@ -1696,7 +1705,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(world)) {
@@ -1730,7 +1740,8 @@ public class Chapter4Systems implements Listener {
             ItemDisplay visual = mushroomVisuals.get(i);
             Interaction hitbox = i < mushroomHitboxes.size() ? mushroomHitboxes.get(i) : null;
 
-            if (visual == null || !visual.isValid()) continue;
+            if (visual == null || !visual.isValid())
+                continue;
 
             // Vérifier si ce champignon a été collecté par ce joueur
             boolean collected = hits != null && hits.length > i && hits[i] >= getHitsForMushroom(i);
@@ -1777,7 +1788,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (int i = 0; i < mushroomLocations.size(); i++) {
                     // Vérifier si le visuel ou la hitbox sont invalides
@@ -1866,7 +1878,8 @@ public class Chapter4Systems implements Listener {
             } else {
                 // Rappel
                 player.sendMessage("");
-                player.sendMessage("§5§lMère Cueillette: §f\"Tu n'as que §e" + mushroomsCollected + " champignons§f.\"");
+                player.sendMessage(
+                        "§5§lMère Cueillette: §f\"Tu n'as que §e" + mushroomsCollected + " champignons§f.\"");
                 player.sendMessage("§5§lMère Cueillette: §f\"Il m'en faut §c12§f au total!\"");
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
                 player.sendMessage("");
@@ -2004,7 +2017,8 @@ public class Chapter4Systems implements Listener {
     private void onMushroomQuestComplete(Player player) {
         playersWhoCompletedMushrooms.add(player.getUniqueId());
 
-        // Incrémenter la progression pour compléter l'étape (13 = 12 champignons + 1 livraison)
+        // Incrémenter la progression pour compléter l'étape (13 = 12 champignons + 1
+        // livraison)
         journeyManager.incrementProgress(player, JourneyStep.StepType.MUSHROOM_COLLECTION, 1);
 
         // Message avec lore sur Patient Zéro
@@ -2038,7 +2052,8 @@ public class Chapter4Systems implements Listener {
 
         player.sendTitle("§a§l✦ QUÊTE COMPLÉTÉE!", "§7Les champignons révèlent leurs secrets...", 10, 60, 20);
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1, 0.3);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 100, 1, 1, 1,
+                0.3);
     }
 
     /**
@@ -2075,7 +2090,8 @@ public class Chapter4Systems implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
 
         Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
@@ -2106,7 +2122,8 @@ public class Chapter4Systems implements Listener {
         Entity damaged = event.getEntity();
 
         // Hit sur une tombe (Interaction hitbox)
-        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER)) {
+        if (damaged instanceof Interaction
+                && damaged.getPersistentDataContainer().has(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
@@ -2117,7 +2134,8 @@ public class Chapter4Systems implements Listener {
             }
 
             if (attacker != null) {
-                Integer graveIndex = damaged.getPersistentDataContainer().get(GRAVE_HITBOX_KEY, PersistentDataType.INTEGER);
+                Integer graveIndex = damaged.getPersistentDataContainer().get(GRAVE_HITBOX_KEY,
+                        PersistentDataType.INTEGER);
                 if (graveIndex != null) {
                     handleGraveHit(attacker, graveIndex);
                 }
@@ -2126,7 +2144,8 @@ public class Chapter4Systems implements Listener {
         }
 
         // Hit sur un champignon (Interaction hitbox)
-        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
+        if (damaged instanceof Interaction
+                && damaged.getPersistentDataContainer().has(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
@@ -2137,7 +2156,8 @@ public class Chapter4Systems implements Listener {
             }
 
             if (attacker != null) {
-                Integer mushroomIndex = damaged.getPersistentDataContainer().get(MUSHROOM_HITBOX_KEY, PersistentDataType.INTEGER);
+                Integer mushroomIndex = damaged.getPersistentDataContainer().get(MUSHROOM_HITBOX_KEY,
+                        PersistentDataType.INTEGER);
                 if (mushroomIndex != null) {
                     handleMushroomHit(attacker, mushroomIndex);
                 }
@@ -2146,7 +2166,8 @@ public class Chapter4Systems implements Listener {
         }
 
         // Hit sur une source de corruption (Interaction hitbox)
-        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER)) {
+        if (damaged instanceof Interaction
+                && damaged.getPersistentDataContainer().has(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
@@ -2157,7 +2178,8 @@ public class Chapter4Systems implements Listener {
             }
 
             if (attacker != null) {
-                Integer sourceIndex = damaged.getPersistentDataContainer().get(CORRUPTION_SOURCE_KEY, PersistentDataType.INTEGER);
+                Integer sourceIndex = damaged.getPersistentDataContainer().get(CORRUPTION_SOURCE_KEY,
+                        PersistentDataType.INTEGER);
                 if (sourceIndex != null) {
                     handleCorruptionSourceHit(attacker, sourceIndex);
                 }
@@ -2166,7 +2188,8 @@ public class Chapter4Systems implements Listener {
         }
 
         // Hit sur une orbe (Interaction hitbox)
-        if (damaged instanceof Interaction && damaged.getPersistentDataContainer().has(ORB_HITBOX_KEY, PersistentDataType.INTEGER)) {
+        if (damaged instanceof Interaction
+                && damaged.getPersistentDataContainer().has(ORB_HITBOX_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true); // Annuler l'événement
 
             Player attacker = null;
@@ -2186,7 +2209,8 @@ public class Chapter4Systems implements Listener {
         }
 
         // Hit sur le Cristal de Corruption (EnderCrystal)
-        if (damaged instanceof EnderCrystal crystal && crystal.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
+        if (damaged instanceof EnderCrystal crystal
+                && crystal.getPersistentDataContainer().has(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE)) {
             event.setCancelled(true); // Empêcher l'explosion par défaut
 
             Player attacker = null;
@@ -2211,7 +2235,8 @@ public class Chapter4Systems implements Listener {
 
     /**
      * Protège les NPCs du Chapitre 4 contre TOUS les types de dégâts.
-     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent bypass.
+     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent
+     * bypass.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onChapter4NPCDamage(EntityDamageEvent event) {
@@ -2219,8 +2244,8 @@ public class Chapter4Systems implements Listener {
 
         // Vérifier par tag scoreboard (plus rapide que PDC)
         if (entity.getScoreboardTags().contains("chapter4_priest") ||
-            entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
-            entity.getScoreboardTags().contains("chapter4_alchemist")) {
+                entity.getScoreboardTags().contains("chapter4_mushroom_collector") ||
+                entity.getScoreboardTags().contains("chapter4_alchemist")) {
             event.setCancelled(true);
         }
     }
@@ -2286,7 +2311,8 @@ public class Chapter4Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline()) return;
+                if (!player.isOnline())
+                    return;
 
                 int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_2);
 
@@ -2329,7 +2355,8 @@ public class Chapter4Systems implements Listener {
                     }
                     playerMushroomHits.put(player.getUniqueId(), hits);
 
-                    // Si le joueur a 12 champignons mais n'a pas encore livré, activer GPS vers le NPC
+                    // Si le joueur a 12 champignons mais n'a pas encore livré, activer GPS vers le
+                    // NPC
                     if (estimatedMushrooms >= 12) {
                         activateGPSToCollector(player);
                     }
@@ -2478,10 +2505,12 @@ public class Chapter4Systems implements Listener {
                 // Vérifier si des joueurs sont proches ET à l'étape 4_6
                 boolean playersNearby = false;
                 for (Player player : world.getPlayers()) {
-                    if (!isNearSoulZone(player.getLocation())) continue;
+                    if (!isNearSoulZone(player.getLocation()))
+                        continue;
 
                     JourneyStep currentStep = journeyManager.getCurrentStep(player);
-                    if (currentStep == JourneyStep.STEP_4_6 && !playersWhoCompletedSouls.contains(player.getUniqueId())) {
+                    if (currentStep == JourneyStep.STEP_4_6
+                            && !playersWhoCompletedSouls.contains(player.getUniqueId())) {
                         playersNearby = true;
 
                         // Introduction de la quête si première fois
@@ -2493,7 +2522,8 @@ public class Chapter4Systems implements Listener {
                     }
                 }
 
-                if (!playersNearby) return;
+                if (!playersNearby)
+                    return;
 
                 // Compter les âmes damnées existantes
                 long soulCount = world.getEntitiesByClass(Zombie.class).stream()
@@ -2501,7 +2531,8 @@ public class Chapter4Systems implements Listener {
                         .count();
 
                 // Limiter à MAX_DAMNED_SOULS
-                if (soulCount >= MAX_DAMNED_SOULS) return;
+                if (soulCount >= MAX_DAMNED_SOULS)
+                    return;
 
                 // Spawn 1-2 âmes
                 int toSpawn = java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 3);
@@ -2517,7 +2548,8 @@ public class Chapter4Systems implements Listener {
      */
     private void spawnDamnedSoul(World world) {
         ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) return;
+        if (zombieManager == null)
+            return;
 
         // Position aléatoire dans la zone
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
@@ -2596,8 +2628,7 @@ public class Chapter4Systems implements Listener {
                             .append(Component.text(" pour la libérer.", NamedTextColor.GRAY)),
                     Component.empty(),
                     Component.text("▸ Clic droit sur l'Âme Damnée", NamedTextColor.YELLOW)
-                            .decoration(TextDecoration.ITALIC, false)
-            ));
+                            .decoration(TextDecoration.ITALIC, false)));
             meta.setEnchantmentGlintOverride(true);
             meta.getPersistentDataContainer().set(PURIFIER_ITEM_KEY, PersistentDataType.BYTE, (byte) 1);
             purifier.setItemMeta(meta);
@@ -2610,15 +2641,19 @@ public class Chapter4Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamnedSoulDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie zombie)) return;
-        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE)) return;
+        if (!(event.getEntity() instanceof Zombie zombie))
+            return;
+        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE))
+            return;
 
         Player killer = zombie.getKiller();
-        if (killer == null) return;
+        if (killer == null)
+            return;
 
         // Vérifier si le joueur est à l'étape 4_6
         JourneyStep currentStep = journeyManager.getCurrentStep(killer);
-        if (currentStep != JourneyStep.STEP_4_6) return;
+        if (currentStep != JourneyStep.STEP_4_6)
+            return;
 
         // 33% de chance de drop
         if (Math.random() < PURIFIER_DROP_CHANCE) {
@@ -2639,17 +2674,23 @@ public class Chapter4Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPurifierUse(PlayerInteractEntityEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) return;
-        if (!(event.getRightClicked() instanceof Zombie zombie)) return;
-        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE)) return;
+        if (event.getHand() != EquipmentSlot.HAND)
+            return;
+        if (!(event.getRightClicked() instanceof Zombie zombie))
+            return;
+        if (!zombie.getPersistentDataContainer().has(DAMNED_SOUL_KEY, PersistentDataType.BYTE))
+            return;
 
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
         // Vérifier si c'est un purificateur
-        if (item.getType() != Material.HEART_OF_THE_SEA) return;
-        if (!item.hasItemMeta()) return;
-        if (!item.getItemMeta().getPersistentDataContainer().has(PURIFIER_ITEM_KEY, PersistentDataType.BYTE)) return;
+        if (item.getType() != Material.HEART_OF_THE_SEA)
+            return;
+        if (!item.hasItemMeta())
+            return;
+        if (!item.getItemMeta().getPersistentDataContainer().has(PURIFIER_ITEM_KEY, PersistentDataType.BYTE))
+            return;
 
         // Vérifier si le joueur est à l'étape 4_6
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
@@ -2659,7 +2700,8 @@ public class Chapter4Systems implements Listener {
         }
 
         // Vérifier si déjà complété
-        if (playersWhoCompletedSouls.contains(player.getUniqueId())) return;
+        if (playersWhoCompletedSouls.contains(player.getUniqueId()))
+            return;
 
         event.setCancelled(true);
 
@@ -2740,7 +2782,8 @@ public class Chapter4Systems implements Listener {
                 // Disparition à 2 secondes
                 if (ticks >= 40) {
                     // Grand nuage de fumée
-                    world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, villager.getLocation().add(0, 1, 0), 25, 0.3, 0.5, 0.3, 0.02);
+                    world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, villager.getLocation().add(0, 1, 0), 25, 0.3, 0.5,
+                            0.3, 0.02);
                     world.spawnParticle(Particle.SOUL, villager.getLocation().add(0, 1.5, 0), 20, 0.2, 0.4, 0.2, 0.03);
                     world.playSound(villager.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.6f, 1.8f);
 
@@ -2838,7 +2881,8 @@ public class Chapter4Systems implements Listener {
      * Spawn une source de corruption (ItemDisplay + Interaction + TextDisplay)
      */
     private void spawnCorruptionSource(World world, int index) {
-        if (index >= CORRUPTION_SOURCE_LOCATIONS.length) return;
+        if (index >= CORRUPTION_SOURCE_LOCATIONS.length)
+            return;
 
         Location loc = CORRUPTION_SOURCE_LOCATIONS[index].clone();
         loc.setWorld(world);
@@ -2863,8 +2907,7 @@ public class Chapter4Systems implements Listener {
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 1, 0),
                     new Vector3f(2.5f, 2.5f, 2.5f),
-                    new AxisAngle4f(0, 0, 1, 0)
-            ));
+                    new AxisAngle4f(0, 0, 1, 0)));
 
             display.setBillboard(Display.Billboard.CENTER);
 
@@ -2905,7 +2948,8 @@ public class Chapter4Systems implements Listener {
 
             display.text(Component.text()
                     .append(Component.text("☣ ", NamedTextColor.GREEN))
-                    .append(Component.text(title.substring(2), isLastSource ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
+                    .append(Component.text(title.substring(2),
+                            isLastSource ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
                     .append(Component.text(" ☣", NamedTextColor.GREEN))
                     .append(Component.newline())
                     .append(Component.text("━━━━━━━━━", NamedTextColor.DARK_GRAY))
@@ -2946,7 +2990,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(world)) {
@@ -2985,18 +3030,25 @@ public class Chapter4Systems implements Listener {
             Interaction hitbox = corruptionSourceHitboxes[i];
             TextDisplay display = corruptionSourceDisplays[i];
 
-            if (visual == null || !visual.isValid()) continue;
+            if (visual == null || !visual.isValid())
+                continue;
 
             // Si cette source est détruite par le joueur, la cacher
             if (destroyed.contains(i)) {
-                if (visual != null) player.hideEntity(plugin, visual);
-                if (hitbox != null && hitbox.isValid()) player.hideEntity(plugin, hitbox);
-                if (display != null && display.isValid()) player.hideEntity(plugin, display);
+                if (visual != null)
+                    player.hideEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid())
+                    player.hideEntity(plugin, hitbox);
+                if (display != null && display.isValid())
+                    player.hideEntity(plugin, display);
             } else {
                 // Sinon, la montrer
-                if (visual != null) player.showEntity(plugin, visual);
-                if (hitbox != null && hitbox.isValid()) player.showEntity(plugin, hitbox);
-                if (display != null && display.isValid()) player.showEntity(plugin, display);
+                if (visual != null)
+                    player.showEntity(plugin, visual);
+                if (hitbox != null && hitbox.isValid())
+                    player.showEntity(plugin, hitbox);
+                if (display != null && display.isValid())
+                    player.showEntity(plugin, display);
             }
         }
     }
@@ -3026,7 +3078,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (int i = 0; i < CORRUPTION_SOURCE_LOCATIONS.length; i++) {
                     boolean needsRespawn = corruptionSourceVisuals[i] == null ||
@@ -3059,7 +3112,8 @@ public class Chapter4Systems implements Listener {
 
                     // Vérifier si le joueur est à l'étape de la brume toxique
                     JourneyStep currentStep = journeyManager.getCurrentStep(player);
-                    if (currentStep != JourneyStep.STEP_4_7) continue;
+                    if (currentStep != JourneyStep.STEP_4_7)
+                        continue;
 
                     // Vérifier si dans la zone
                     if (isInSwampZone(player.getLocation())) {
@@ -3094,8 +3148,8 @@ public class Chapter4Systems implements Listener {
      */
     private boolean isInSwampZone(Location loc) {
         return loc.getX() >= SWAMP_ZONE_MIN_X && loc.getX() <= SWAMP_ZONE_MAX_X &&
-               loc.getY() >= SWAMP_ZONE_MIN_Y && loc.getY() <= SWAMP_ZONE_MAX_Y &&
-               loc.getZ() >= SWAMP_ZONE_MIN_Z && loc.getZ() <= SWAMP_ZONE_MAX_Z;
+                loc.getY() >= SWAMP_ZONE_MIN_Y && loc.getY() <= SWAMP_ZONE_MAX_Y &&
+                loc.getZ() >= SWAMP_ZONE_MIN_Z && loc.getZ() <= SWAMP_ZONE_MAX_Z;
     }
 
     /**
@@ -3139,13 +3193,14 @@ public class Chapter4Systems implements Listener {
         ItemDisplay visual = corruptionSourceVisuals[sourceIndex];
         if (visual != null && visual.isValid()) {
             Location loc = visual.getLocation();
-            player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 0.5f + (float) currentHits / HITS_TO_DESTROY_SOURCE);
+            player.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f,
+                    0.5f + (float) currentHits / HITS_TO_DESTROY_SOURCE);
             player.getWorld().spawnParticle(Particle.DRAGON_BREATH, loc, 10, 0.5, 0.5, 0.5, 0.02);
         }
 
         // Progression visuelle
         float progress = (float) currentHits / HITS_TO_DESTROY_SOURCE;
-        player.sendMessage("§2☣ §7Source endommagée: §e" + (int)(progress * 100) + "%");
+        player.sendMessage("§2☣ §7Source endommagée: §e" + (int) (progress * 100) + "%");
 
         // Source détruite!
         if (currentHits >= HITS_TO_DESTROY_SOURCE) {
@@ -3184,7 +3239,8 @@ public class Chapter4Systems implements Listener {
 
         // Message et effets
         if (remainingSources > 0) {
-            player.sendTitle("§a✓ SOURCE DÉTRUITE!", "§7" + destroyed.size() + "/4 - " + remainingSources + " restante(s)", 10, 40, 10);
+            player.sendTitle("§a✓ SOURCE DÉTRUITE!",
+                    "§7" + destroyed.size() + "/4 - " + remainingSources + " restante(s)", 10, 40, 10);
             player.sendMessage("");
             player.sendMessage("§a§l✦ §7Source de corruption détruite! §e" + destroyed.size() + "/4");
 
@@ -3193,8 +3249,8 @@ public class Chapter4Systems implements Listener {
                 if (!destroyed.contains(i)) {
                     Location nextLoc = CORRUPTION_SOURCE_LOCATIONS[i];
                     String warning = (i == 3) ? " §c(Gardien!)" : "";
-                    player.sendMessage("§e§l➤ §7Prochaine source: §e" + (int)nextLoc.getX() + ", " +
-                            (int)nextLoc.getY() + ", " + (int)nextLoc.getZ() + warning);
+                    player.sendMessage("§e§l➤ §7Prochaine source: §e" + (int) nextLoc.getX() + ", " +
+                            (int) nextLoc.getY() + ", " + (int) nextLoc.getZ() + warning);
                     break;
                 }
             }
@@ -3278,8 +3334,8 @@ public class Chapter4Systems implements Listener {
 
                         // GPS vers la première source
                         Location firstLoc = CORRUPTION_SOURCE_LOCATIONS[0];
-                        player.sendMessage("§e§l➤ §7Première source: §e" + (int)firstLoc.getX() + ", " +
-                                (int)firstLoc.getY() + ", " + (int)firstLoc.getZ());
+                        player.sendMessage("§e§l➤ §7Première source: §e" + (int) firstLoc.getX() + ", " +
+                                (int) firstLoc.getY() + ", " + (int) firstLoc.getZ());
                         player.sendMessage("");
                     }
                 }.runTaskLater(plugin, 40L);
@@ -3295,7 +3351,8 @@ public class Chapter4Systems implements Listener {
         return progress >= 4;
     }
 
-    // ==================== ÉTAPE 8: L'ARBRE MAUDIT - CREAKING BOSS ====================
+    // ==================== ÉTAPE 8: L'ARBRE MAUDIT - CREAKING BOSS
+    // ====================
 
     /**
      * Spawn les orbes autour de l'arbre maudit
@@ -3325,8 +3382,7 @@ public class Chapter4Systems implements Listener {
                     new Vector3f(0, 0.3f, 0),
                     new AxisAngle4f(0, 0, 1, 0),
                     new Vector3f(0.8f, 0.8f, 0.8f),
-                    new AxisAngle4f(0, 0, 1, 0)
-            );
+                    new AxisAngle4f(0, 0, 1, 0));
             d.setTransformation(transformation);
 
             d.addScoreboardTag("chapter4_orb");
@@ -3373,7 +3429,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (Player player : world.getPlayers()) {
                     updateOrbVisibilityForPlayer(player);
@@ -3458,11 +3515,12 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (int i = 0; i < ORB_COUNT; i++) {
                     if (orbVisuals[i] == null || !orbVisuals[i].isValid() ||
-                        orbHitboxes[i] == null || !orbHitboxes[i].isValid()) {
+                            orbHitboxes[i] == null || !orbHitboxes[i].isValid()) {
 
                         // Nettoyer
                         if (orbVisuals[i] != null && orbVisuals[i].isValid()) {
@@ -3485,13 +3543,17 @@ public class Chapter4Systems implements Listener {
      */
     private void handleOrbCollected(Player player, int orbIndex) {
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep != JourneyStep.STEP_4_8) return;
+        if (currentStep != JourneyStep.STEP_4_8)
+            return;
 
-        if (playersWhoCompletedCreakingQuest.contains(player.getUniqueId())) return;
+        if (playersWhoCompletedCreakingQuest.contains(player.getUniqueId()))
+            return;
 
         // Vérifier si l'orbe n'est pas déjà collectée
-        Set<Integer> collected = playerCollectedOrbs.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
-        if (collected.contains(orbIndex)) return;
+        Set<Integer> collected = playerCollectedOrbs.computeIfAbsent(player.getUniqueId(),
+                k -> ConcurrentHashMap.newKeySet());
+        if (collected.contains(orbIndex))
+            return;
 
         // Marquer comme collectée
         collected.add(orbIndex);
@@ -3510,7 +3572,8 @@ public class Chapter4Systems implements Listener {
         journeyManager.setStepProgress(player, JourneyStep.STEP_4_8, totalCollected);
 
         // Feedback au joueur
-        player.sendTitle("§b✦ ORBE " + totalCollected + "/" + ORB_COUNT + " ✦", "§7Une énergie ancienne vous traverse...", 5, 30, 10);
+        player.sendTitle("§b✦ ORBE " + totalCollected + "/" + ORB_COUNT + " ✦",
+                "§7Une énergie ancienne vous traverse...", 5, 30, 10);
 
         // Vérifier si toutes les orbes sont collectées
         if (totalCollected >= ORB_COUNT) {
@@ -3522,7 +3585,8 @@ public class Chapter4Systems implements Listener {
      * Appelé quand le joueur a collecté toutes les orbes
      */
     private void onAllOrbsCollected(Player player) {
-        if (playersWithActiveCreakingBoss.contains(player.getUniqueId())) return;
+        if (playersWithActiveCreakingBoss.contains(player.getUniqueId()))
+            return;
 
         playersWithActiveCreakingBoss.add(player.getUniqueId());
 
@@ -3558,8 +3622,7 @@ public class Chapter4Systems implements Listener {
         Location playerLoc = player.getLocation();
         float yaw = (float) Math.toDegrees(Math.atan2(
                 playerLoc.getZ() - spawnLoc.getZ(),
-                playerLoc.getX() - spawnLoc.getX()
-        )) - 90;
+                playerLoc.getX() - spawnLoc.getX())) - 90;
 
         spawnLoc.setYaw(yaw);
 
@@ -3637,14 +3700,17 @@ public class Chapter4Systems implements Listener {
                 try {
                     ownerUuid = UUID.fromString(uuidStr);
                     break;
-                } catch (IllegalArgumentException ignored) {}
+                } catch (IllegalArgumentException ignored) {
+                }
             }
         }
 
         // Si le killer est le propriétaire ou qu'on a trouvé le propriétaire
         Player owner = ownerUuid != null ? plugin.getServer().getPlayer(ownerUuid) : killer;
-        if (owner == null) owner = killer;
-        if (owner == null) return;
+        if (owner == null)
+            owner = killer;
+        if (owner == null)
+            return;
 
         UUID ownerId = owner.getUniqueId();
 
@@ -3695,7 +3761,8 @@ public class Chapter4Systems implements Listener {
 
                 switch (step) {
                     case 0 -> {
-                        player.sendTitle("§4§lL'ARBRE MAUDIT", "§7Une énergie sombre émane de cet arbre...", 10, 50, 10);
+                        player.sendTitle("§4§lL'ARBRE MAUDIT", "§7Une énergie sombre émane de cet arbre...", 10, 50,
+                                10);
                         player.playSound(player.getLocation(), Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD, 1f, 0.5f);
                     }
                     case 1 -> {
@@ -3819,31 +3886,29 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
+
+                Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
+                alchemistLoc.setWorld(world);
 
                 // === SÉCURITÉ ALCHIMISTE (maxmobs=1) ===
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid() || alchemistNpcEntity.isDead()) {
-                    // Forcer le chargement du chunk
-                    Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
-                    alchemistLoc.setWorld(world);
-                    if (!alchemistLoc.getChunk().isLoaded()) {
-                        alchemistLoc.getChunk().load();
+                    if (alchemistLoc.getChunk().isLoaded()) {
+                        cleanupAlchemistEntities(world);
+                        spawnAlchemistNpc(world);
                     }
-
-                    // Nettoyage avant respawn
-                    cleanupAlchemistEntities(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter4] Alchimiste invalide, respawn automatique...");
-                    spawnAlchemistNpc(world);
                 }
 
-                if (alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid()) {
-                    Location loc = ALCHEMIST_NPC_LOCATION.clone();
-                    loc.setWorld(world);
-                    createAlchemistDisplay(world, loc);
+                // TextDisplay: même logique
+                if ((alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid())
+                        && alchemistLoc.getChunk().isLoaded()) {
+                    createAlchemistDisplay(world, alchemistLoc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L);
+        }.runTaskTimer(plugin, 100L, 200L);
     }
 
     /**
@@ -3853,10 +3918,11 @@ public class Chapter4Systems implements Listener {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter4_alchemist") ||
-                entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
+                    entity.getScoreboardTags().contains("chapter4_alchemist_display")) {
                 entity.remove();
                 removed++;
-            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+            } else if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
                 v.remove();
                 removed++;
             }
@@ -3919,8 +3985,10 @@ public class Chapter4Systems implements Listener {
             // Effets visuels et sonores
             player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
-            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
-            player.getWorld().spawnParticle(Particle.EFFECT, alchemistNpcEntity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.5);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1,
+                    0.2);
+            player.getWorld().spawnParticle(Particle.EFFECT, alchemistNpcEntity.getLocation().add(0, 1, 0), 30, 0.5,
+                    0.5, 0.5, 0.5);
 
             // Message de victoire
             player.sendTitle("§a§l✓ ANTIDOTE LIVRÉ!", "§7L'alchimiste te remercie!", 10, 60, 20);
@@ -4023,7 +4091,8 @@ public class Chapter4Systems implements Listener {
      */
     private void spawnCorruptionCrystal(World world) {
         // Sécurité : éviter le spawn concurrent
-        if (isSpawningCrystal) return;
+        if (isSpawningCrystal)
+            return;
         isSpawningCrystal = true;
 
         try {
@@ -4047,49 +4116,50 @@ public class Chapter4Systems implements Listener {
             }
 
             // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
-        crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
-            crystal.setShowingBottom(false); // Pas de socle pour un look plus clean
-            crystal.setInvulnerable(false); // Doit pouvoir être endommagé
+            crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
+                crystal.setShowingBottom(false); // Pas de socle pour un look plus clean
+                crystal.setInvulnerable(false); // Doit pouvoir être endommagé
 
-            crystal.addScoreboardTag("chapter4_crystal");
-            crystal.addScoreboardTag("zombiez_npc"); // Pour empêcher certains systèmes de le cibler
-            crystal.setPersistent(false);
+                crystal.addScoreboardTag("chapter4_crystal");
+                crystal.addScoreboardTag("zombiez_npc"); // Pour empêcher certains systèmes de le cibler
+                crystal.setPersistent(false);
 
-            // PDC pour identifier le cristal
-            crystal.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
-        });
+                // PDC pour identifier le cristal
+                crystal.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
+            });
 
-        // Appliquer le glow violet
-        applyCrystalGlow(crystalEntity);
+            // Appliquer le glow violet
+            applyCrystalGlow(crystalEntity);
 
-        // Créer le TextDisplay unique au-dessus (fusion des 2 anciens displays)
-        crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
-                    .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
-                    .build());
+            // Créer le TextDisplay unique au-dessus (fusion des 2 anciens displays)
+            crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
+                display.text(Component.text()
+                        .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
+                        .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE,
+                                TextDecoration.BOLD))
+                        .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
+                        .append(Component.newline())
+                        .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
+                        .build());
 
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+                display.setBillboard(Display.Billboard.CENTER);
+                display.setAlignment(TextDisplay.TextAlignment.CENTER);
+                display.setShadowed(true);
+                display.setSeeThrough(false);
+                display.setDefaultBackground(false);
+                display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
 
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.3f, 1.3f, 1.3f),
-                    new AxisAngle4f(0, 0, 0, 1)));
+                display.setTransformation(new Transformation(
+                        new Vector3f(0, 0, 0),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1.3f, 1.3f, 1.3f),
+                        new AxisAngle4f(0, 0, 0, 1)));
 
-            display.setViewRange(0.4f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter4_crystal");
-            display.addScoreboardTag("chapter4_crystal_display");
-        });
+                display.setViewRange(0.4f);
+                display.setPersistent(false);
+                display.addScoreboardTag("chapter4_crystal");
+                display.addScoreboardTag("chapter4_crystal_display");
+            });
         } finally {
             isSpawningCrystal = false;
         }
@@ -4117,7 +4187,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 boolean needsRespawn = crystalEntity == null || !crystalEntity.isValid();
 
@@ -4133,7 +4204,8 @@ public class Chapter4Systems implements Listener {
                     crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
                         display.text(Component.text()
                                 .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
-                                .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                                .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE,
+                                        TextDecoration.BOLD))
                                 .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
                                 .append(Component.newline())
                                 .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
@@ -4161,13 +4233,16 @@ public class Chapter4Systems implements Listener {
                 // Pour chaque joueur qui attaque le cristal
                 for (UUID uuid : playersAttackingCrystal) {
                     Player player = plugin.getServer().getPlayer(uuid);
-                    if (player == null || !player.isOnline()) continue;
+                    if (player == null || !player.isOnline())
+                        continue;
 
                     // Vérifier si le joueur a déjà détruit le cristal
-                    if (playersWhoDestroyedCrystal.contains(uuid)) continue;
+                    if (playersWhoDestroyedCrystal.contains(uuid))
+                        continue;
 
                     Double currentHealth = playerCrystalHealth.get(uuid);
-                    if (currentHealth == null) continue;
+                    if (currentHealth == null)
+                        continue;
 
                     // Régénérer la vie
                     double newHealth = Math.min(CRYSTAL_MAX_HEALTH, currentHealth + regenPerTick);
@@ -4194,7 +4269,8 @@ public class Chapter4Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
                 for (Player player : world.getPlayers()) {
                     updateCrystalVisibilityForPlayer(player);
@@ -4283,7 +4359,8 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
-        if (playersWhoDestroyedCrystal.contains(player.getUniqueId())) return;
+        if (playersWhoDestroyedCrystal.contains(player.getUniqueId()))
+            return;
 
         UUID uuid = player.getUniqueId();
 
@@ -4294,10 +4371,10 @@ public class Chapter4Systems implements Listener {
 
             // Créer la BossBar
             BossBar bossBar = Bukkit.createBossBar(
-                    "§d§lCristal de Corruption §7- §c" + (int)CRYSTAL_MAX_HEALTH + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤",
+                    "§d§lCristal de Corruption §7- §c" + (int) CRYSTAL_MAX_HEALTH + "§7/§c" + (int) CRYSTAL_MAX_HEALTH
+                            + " §c❤",
                     BarColor.PURPLE,
-                    BarStyle.SOLID
-            );
+                    BarStyle.SOLID);
             bossBar.setProgress(1.0);
             bossBar.addPlayer(player);
             playerCrystalBossBar.put(uuid, bossBar);
@@ -4314,7 +4391,8 @@ public class Chapter4Systems implements Listener {
         // Effets visuels et sonores
         if (crystalEntity != null && crystalEntity.isValid()) {
             Location loc = crystalEntity.getLocation();
-            player.playSound(loc, Sound.BLOCK_END_PORTAL_FRAME_FILL, 0.8f, 0.5f + (float)(1.0 - newHealth / CRYSTAL_MAX_HEALTH));
+            player.playSound(loc, Sound.BLOCK_END_PORTAL_FRAME_FILL, 0.8f,
+                    0.5f + (float) (1.0 - newHealth / CRYSTAL_MAX_HEALTH));
             player.spawnParticle(Particle.DUST, loc, 10, 0.5, 0.5, 0.5, 0,
                     new Particle.DustOptions(org.bukkit.Color.fromRGB(148, 0, 211), 1.5f));
         }
@@ -4330,7 +4408,8 @@ public class Chapter4Systems implements Listener {
      */
     private void updateCrystalBossBar(Player player, double currentHealth) {
         BossBar bossBar = playerCrystalBossBar.get(player.getUniqueId());
-        if (bossBar == null) return;
+        if (bossBar == null)
+            return;
 
         double progress = currentHealth / CRYSTAL_MAX_HEALTH;
         bossBar.setProgress(Math.max(0, Math.min(1, progress)));
@@ -4348,7 +4427,8 @@ public class Chapter4Systems implements Listener {
             bossBar.setColor(BarColor.RED);
         }
 
-        bossBar.setTitle("§d§lCristal de Corruption §7- " + healthColor + (int)currentHealth + "§7/§c" + (int)CRYSTAL_MAX_HEALTH + " §c❤");
+        bossBar.setTitle("§d§lCristal de Corruption §7- " + healthColor + (int) currentHealth + "§7/§c"
+                + (int) CRYSTAL_MAX_HEALTH + " §c❤");
     }
 
     /**
@@ -4429,7 +4509,8 @@ public class Chapter4Systems implements Listener {
 
                 switch (step) {
                     case 0 -> {
-                        player.sendTitle("§d§lL'ÉPREUVE DU CRISTAL", "§7Montre que tu es prêt pour la suite...", 10, 50, 10);
+                        player.sendTitle("§d§lL'ÉPREUVE DU CRISTAL", "§7Montre que tu es prêt pour la suite...", 10, 50,
+                                10);
                         player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 0.8f);
                     }
                     case 1 -> {

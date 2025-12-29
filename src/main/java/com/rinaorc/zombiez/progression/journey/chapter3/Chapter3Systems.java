@@ -74,10 +74,10 @@ public class Chapter3Systems implements Listener {
 
     // === POSITIONS DES INDICES (autour de la maison) ===
     private static final Location[] CLUE_LOCATIONS = {
-            new Location(null, 876.5, 88, 8936.5, 0, 0),  // Indice 1: Journal
-            new Location(null, 878.5, 87, 8947.5, 0, 0),  // Indice 2: Fiole
-            new Location(null, 872.5, 94, 8943.5, 0, 0),  // Indice 3: Photo
-            new Location(null, 876.5, 92, 8938.5, 0, 0)   // Indice 4: Lettre
+            new Location(null, 876.5, 88, 8936.5, 0, 0), // Indice 1: Journal
+            new Location(null, 878.5, 87, 8947.5, 0, 0), // Indice 2: Fiole
+            new Location(null, 872.5, 94, 8943.5, 0, 0), // Indice 3: Photo
+            new Location(null, 876.5, 92, 8938.5, 0, 0) // Indice 4: Lettre
     };
 
     // Village à défendre (NPC survivant)
@@ -128,7 +128,8 @@ public class Chapter3Systems implements Listener {
     private Entity lostCatEntity;
     private TextDisplay lostCatDisplay;
 
-    // Indices du Patient Zéro (per-player visibility) - ItemDisplay + Interaction comme supply crates
+    // Indices du Patient Zéro (per-player visibility) - ItemDisplay + Interaction
+    // comme supply crates
     private final Interaction[] clueHitboxes = new Interaction[4];
     private final ItemDisplay[] clueVisuals = new ItemDisplay[4];
 
@@ -312,7 +313,7 @@ public class Chapter3Systems implements Listener {
             if (entity instanceof Villager villager) {
                 var pdc = villager.getPersistentDataContainer();
                 if (pdc.has(FORAIN_NPC_KEY, PersistentDataType.BYTE) ||
-                    pdc.has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
+                        pdc.has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
                     villager.remove();
                     removed++;
                 }
@@ -325,7 +326,8 @@ public class Chapter3Systems implements Listener {
         }
 
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global Chapter3: " + removed + " entité(s) orpheline(s) supprimée(s)");
+            plugin.log(Level.INFO,
+                    "§e⚠ Nettoyage global Chapter3: " + removed + " entité(s) orpheline(s) supprimée(s)");
         }
     }
 
@@ -422,30 +424,25 @@ public class Chapter3Systems implements Listener {
                 if (world == null)
                     return;
 
+                Location forainLoc = FORAIN_LOCATION.clone();
+                forainLoc.setWorld(world);
+
                 // === SÉCURITÉ FORAIN (maxmobs=1) ===
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
-                    // Forcer le chargement du chunk avant le respawn
-                    Location forainLoc = FORAIN_LOCATION.clone();
-                    forainLoc.setWorld(world);
-                    if (!forainLoc.getChunk().isLoaded()) {
-                        forainLoc.getChunk().load();
+                    if (forainLoc.getChunk().isLoaded()) {
+                        cleanupForainEntities(world);
+                        spawnForain(world);
                     }
-
-                    // Nettoyage des forains orphelins avant respawn
-                    cleanupForainEntities(world);
-
-                    plugin.log(Level.INFO, "§e[Chapter3] Forain invalide, respawn automatique...");
-                    spawnForain(world);
                 }
 
-                // Vérifier le TextDisplay
-                if (forainDisplay == null || !forainDisplay.isValid()) {
-                    Location loc = FORAIN_LOCATION.clone();
-                    loc.setWorld(world);
-                    createForainDisplay(world, loc);
+                // TextDisplay: même logique
+                if ((forainDisplay == null || !forainDisplay.isValid()) && forainLoc.getChunk().isLoaded()) {
+                    createForainDisplay(world, forainLoc);
                 }
             }
-        }.runTaskTimer(plugin, 100L, 100L);
+        }.runTaskTimer(plugin, 100L, 200L);
     }
 
     /**
@@ -455,10 +452,11 @@ public class Chapter3Systems implements Listener {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter3_forain") ||
-                entity.getScoreboardTags().contains("chapter3_forain_display")) {
+                    entity.getScoreboardTags().contains("chapter3_forain_display")) {
                 entity.remove();
                 removed++;
-            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
+            } else if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
                 v.remove();
                 removed++;
             }
@@ -775,7 +773,8 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Spawn les indices de l'investigation autour de la maison
-     * Utilise ItemDisplay + Interaction comme les caisses de ravitaillement (Chapitre 2)
+     * Utilise ItemDisplay + Interaction comme les caisses de ravitaillement
+     * (Chapitre 2)
      */
     private void spawnInvestigationClues(World world) {
         for (int i = 0; i < 4; i++) {
@@ -784,7 +783,8 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Spawn un indice spécifique avec ItemDisplay (Paper glowing) + Interaction (hitbox)
+     * Spawn un indice spécifique avec ItemDisplay (Paper glowing) + Interaction
+     * (hitbox)
      */
     private void spawnClue(World world, int clueIndex) {
         Location loc = CLUE_LOCATIONS[clueIndex].clone();
@@ -863,7 +863,8 @@ public class Chapter3Systems implements Listener {
                     return;
                 houseLoc.setWorld(world);
 
-                // Respawn les indices si les entités sont devenues invalides (chunk unload, etc.)
+                // Respawn les indices si les entités sont devenues invalides (chunk unload,
+                // etc.)
                 for (int i = 0; i < 4; i++) {
                     boolean visualInvalid = clueVisuals[i] == null || !clueVisuals[i].isValid();
                     boolean hitboxInvalid = clueHitboxes[i] == null || !clueHitboxes[i].isValid();
@@ -1126,7 +1127,8 @@ public class Chapter3Systems implements Listener {
                     .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
                     .append(Component.text(" \u2694", NamedTextColor.GOLD))
                     .append(Component.newline())
-                    .append(Component.text("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501", NamedTextColor.DARK_GRAY)) // Box drawing line
+                    .append(Component.text("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+                            NamedTextColor.DARK_GRAY)) // Box drawing line
                     .append(Component.newline())
                     .append(Component.text("\u25B6 Clic droit pour aider", NamedTextColor.WHITE))
                     .build());
@@ -1160,27 +1162,25 @@ public class Chapter3Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null)
+                    return;
+
+                Location survivorLoc = VILLAGE_SURVIVOR_LOCATION.clone();
+                survivorLoc.setWorld(world);
+
                 // === SÉCURITÉ SURVIVANT (maxmobs=1) ===
+                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
+                // infinie)
                 if (villageSurvivorEntity == null || !villageSurvivorEntity.isValid()) {
-                    World world = Bukkit.getWorld("world");
-                    if (world != null) {
-                        // Forcer le chargement du chunk
-                        Location survivorLoc = VILLAGE_SURVIVOR_LOCATION.clone();
-                        survivorLoc.setWorld(world);
-                        if (!survivorLoc.getChunk().isLoaded()) {
-                            survivorLoc.getChunk().load();
-                        }
-
-                        // Nettoyage avant respawn
+                    if (survivorLoc.getChunk().isLoaded()) {
                         cleanupSurvivorEntities(world);
-
-                        plugin.log(Level.INFO, "§e[Chapter3] Survivant invalide, respawn automatique...");
                         spawnVillageSurvivor(world);
                     }
                     return;
                 }
 
-                Location survivorLoc = villageSurvivorEntity.getLocation();
+                survivorLoc = villageSurvivorEntity.getLocation();
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     if (!player.getWorld().equals(survivorLoc.getWorld())) {
@@ -1242,17 +1242,16 @@ public class Chapter3Systems implements Listener {
         int removed = 0;
         for (Entity entity : world.getEntities()) {
             if (entity.getScoreboardTags().contains("chapter3_village_survivor") ||
-                entity.getScoreboardTags().contains("chapter3_survivor_display")) {
+                    entity.getScoreboardTags().contains("chapter3_survivor_display")) {
                 entity.remove();
                 removed++;
-            } else if (entity instanceof Villager v && v.getPersistentDataContainer().has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
+            } else if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
                 v.remove();
                 removed++;
             }
         }
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " survivant(s) orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -1456,7 +1455,8 @@ public class Chapter3Systems implements Listener {
                                 .clone();
                         spawnPoint.setWorld(world);
 
-                        // Ajuster Y pour le terrain (limite Y max = Henri.Y + 5 pour éviter spawn dans les arbres)
+                        // Ajuster Y pour le terrain (limite Y max = Henri.Y + 5 pour éviter spawn dans
+                        // les arbres)
                         int maxY = (int) VILLAGE_SURVIVOR_LOCATION.getY() + 5; // 90 + 5 = 95
                         int terrainY = world.getHighestBlockYAt(spawnPoint) + 1;
                         spawnPoint.setY(Math.min(terrainY, maxY));
@@ -1576,7 +1576,8 @@ public class Chapter3Systems implements Listener {
         // Retirer l'événement
         activeDefenseEvents.remove(player.getUniqueId());
 
-        // Désactiver le mode boss bar personnalisée et restaurer la BossBar normale du Journey
+        // Désactiver le mode boss bar personnalisée et restaurer la BossBar normale du
+        // Journey
         journeyManager.exitCustomBossBarMode(player);
         journeyManager.createOrUpdateBossBar(player);
 
@@ -1760,8 +1761,7 @@ public class Chapter3Systems implements Listener {
                     new Vector3f(0, 0.5f, 0), // Translation (au-dessus du sol)
                     new AxisAngle4f(0, 0, 1, 0),
                     new Vector3f(1.2f, 1.2f, 1.2f), // Scale x1.2
-                    new AxisAngle4f(0, 0, 1, 0)
-            ));
+                    new AxisAngle4f(0, 0, 1, 0)));
 
             display.setBillboard(Display.Billboard.FIXED);
 
@@ -1841,9 +1841,11 @@ public class Chapter3Systems implements Listener {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
-                if (world == null) return;
+                if (world == null)
+                    return;
 
-                // Respawn le panneau de contrôle si les entités sont devenues invalides (chunk unload, etc.)
+                // Respawn le panneau de contrôle si les entités sont devenues invalides (chunk
+                // unload, etc.)
                 boolean visualInvalid = zeppelinControlVisual == null || !zeppelinControlVisual.isValid();
                 boolean hitboxInvalid = zeppelinControlHitbox == null || !zeppelinControlHitbox.isValid();
                 boolean displayInvalid = zeppelinControlDisplay == null || !zeppelinControlDisplay.isValid();
@@ -2003,16 +2005,25 @@ public class Chapter3Systems implements Listener {
         displayLoc.setWorld(world);
         displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
 
-        // Forcer le chargement du chunk
+        // Ne créer le display que si le chunk est chargé
         if (!displayLoc.getChunk().isLoaded()) {
-            displayLoc.getChunk().load();
+            return;
         }
 
-        // Supprimer l'ancien display si existant
+        // Si on a déjà un display valide, ne rien faire
         if (bossSpawnDisplay != null && bossSpawnDisplay.isValid()) {
-            bossSpawnDisplay.remove();
+            return;
         }
 
+        // Chercher un display existant (persisté après reboot)
+        for (Entity entity : world.getNearbyEntities(displayLoc, 20, 20, 20)) {
+            if (entity instanceof TextDisplay td && entity.getScoreboardTags().contains("chapter3_boss_display")) {
+                bossSpawnDisplay = td;
+                return; // Réutiliser l'existant
+            }
+        }
+
+        // Aucun display trouvé, créer un nouveau
         bossSpawnDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.setBillboard(Display.Billboard.CENTER);
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
@@ -2028,7 +2039,7 @@ public class Chapter3Systems implements Listener {
                     new AxisAngle4f(0, 0, 0, 1)));
 
             display.setViewRange(1f);
-            display.setPersistent(false);
+            display.setPersistent(true);
             display.addScoreboardTag("chapter3_boss_display");
 
             display.text(Component.text("§4§l☠ " + MINE_BOSS_NAME + " §4§l☠\n§7En attente de spawn..."));
@@ -2092,6 +2103,16 @@ public class Chapter3Systems implements Listener {
                 if (world == null)
                     return;
 
+                Location bossLoc = MINE_BOSS_LOCATION.clone();
+                bossLoc.setWorld(world);
+
+                // IMPORTANT: Ne rien faire si aucun joueur n'est à proximité (100 blocs)
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(p -> p.getLocation().distanceSquared(bossLoc) < 10000); // 100^2
+                if (!playerNearby) {
+                    return;
+                }
+
                 // Recréer le display s'il est invalide
                 if (bossSpawnDisplay == null || !bossSpawnDisplay.isValid()) {
                     initializeBossDisplay(world);
@@ -2102,10 +2123,8 @@ public class Chapter3Systems implements Listener {
                 int respawnSeconds = 0;
 
                 if (bossAlive) {
-                    // Boss vivant - vérifier le leash range
                     checkBossLeashRange(world);
                 } else {
-                    // Si pas de respawn programmé et pas de boss, spawn immédiatement
                     if (!bossRespawnScheduled && bossRespawnTime == 0) {
                         spawnMineBoss(world);
                         bossAlive = mineBossEntity != null && mineBossEntity.isValid();
@@ -2120,7 +2139,7 @@ public class Chapter3Systems implements Listener {
                     updateBossDisplayText(bossSpawnDisplay, bossAlive, respawnSeconds);
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L);
+        }.runTaskTimer(plugin, 20L, 40L);
     }
 
     /**
@@ -2204,14 +2223,18 @@ public class Chapter3Systems implements Listener {
         Location loc = MINE_BOSS_LOCATION.clone();
         loc.setWorld(world);
 
-        // Forcer le chargement du chunk
+        // Ne spawn que si le chunk est chargé
         if (!loc.getChunk().isLoaded()) {
-            loc.getChunk().load();
+            return;
         }
 
-        // Nettoyer l'ancien boss s'il existe mais est invalide
-        if (mineBossEntity != null) {
-            mineBossEntity.remove();
+        // Chercher un boss existant dans le monde (persisté après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Zombie z
+                    && z.getPersistentDataContainer().has(MINE_BOSS_KEY, PersistentDataType.BYTE)) {
+                mineBossEntity = z;
+                return; // Réutiliser l'existant
+            }
         }
 
         // Nettoyer les contributeurs
@@ -2248,6 +2271,7 @@ public class Chapter3Systems implements Listener {
         // Marquer comme boss de la mine pour le tracking Journey
         boss.getPersistentDataContainer().set(MINE_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
         boss.addScoreboardTag("chapter3_mine_boss");
+        boss.setPersistent(true); // IMPORTANT: survit au déchargement de chunk
 
         // Annoncer le spawn
         for (Player player : world.getPlayers()) {
