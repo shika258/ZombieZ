@@ -951,6 +951,24 @@ public class BeastManager {
             Entity targetEntity = Bukkit.getEntity(currentTargetUuid);
 
             if (targetEntity instanceof LivingEntity target && !target.isDead()) {
+                // Vérifier si la cible est trop loin du joueur - si oui, annuler l'infestation
+                double distanceTargetToPlayer = target.getLocation().distance(owner.getLocation());
+                if (distanceTargetToPlayer > BEAST_LEASH_RANGE) {
+                    // Annuler l'infestation et retourner près du joueur
+                    endermiteCurrentTarget.remove(ownerUuid);
+                    endermiteInfestationStart.remove(ownerUuid);
+
+                    // Téléporter l'endermite près du joueur
+                    Location returnLoc = owner.getLocation().clone().add(
+                        Math.cos(Math.toRadians(BeastType.ENDERMITE.getOffsetAngle())) * 2,
+                        0.5,
+                        Math.sin(Math.toRadians(BeastType.ENDERMITE.getOffsetAngle())) * 2
+                    );
+                    endermite.teleport(returnLoc);
+                    endermite.getWorld().playSound(returnLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.5f);
+                    return;
+                }
+
                 long elapsed = now - infestationStart;
                 long duration = (long) (ENDERMITE_INFESTATION_DURATION / frenzyMultiplier);
 
@@ -1002,9 +1020,13 @@ public class BeastManager {
         LivingEntity bestTarget = null;
         double bestScore = 0;
 
-        // Portée de 32 blocs
-        for (Entity nearby : owner.getNearbyEntities(32, 16, 32)) {
+        // Portée limitée au BEAST_LEASH_RANGE pour éviter de cibler trop loin
+        for (Entity nearby : owner.getNearbyEntities(BEAST_LEASH_RANGE, 16, BEAST_LEASH_RANGE)) {
             if (!(nearby instanceof Monster monster) || isBeast(nearby) || monster.isDead()) continue;
+
+            // Vérifier la distance exacte (getNearbyEntities utilise une boîte, pas un rayon)
+            double distToOwner = nearby.getLocation().distance(owner.getLocation());
+            if (distToOwner > BEAST_LEASH_RANGE) continue;
 
             double score = 1.0;
 
