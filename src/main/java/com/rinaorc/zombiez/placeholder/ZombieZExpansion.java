@@ -20,7 +20,6 @@ import com.rinaorc.zombiez.pets.PetType;
 import com.rinaorc.zombiez.pets.PlayerPetData;
 import com.rinaorc.zombiez.progression.BattlePassManager;
 import com.rinaorc.zombiez.progression.MissionManager;
-import com.rinaorc.zombiez.recycling.RecycleMilestone;
 import com.rinaorc.zombiez.recycling.RecycleSettings;
 import com.rinaorc.zombiez.zones.Zone;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
@@ -911,12 +910,10 @@ public class ZombieZExpansion extends PlaceholderExpansion {
                 yield formatNumber(settings.getTotalItemsRecycled().get());
             }
             case "milestones" -> {
-                if (parts.length > 2 && parts[2].equals("total")) {
-                    yield String.valueOf(RecycleMilestone.values().length);
-                }
-                yield String.valueOf(settings.getUnlockedMilestones().size());
+                // Système de milestones supprimé - retourne 0 par compatibilité
+                yield "0";
             }
-            case "best" -> formatNumber(settings.getBestSingleRecycle());
+            case "best" -> "0"; // Champ supprimé - retourne 0 par compatibilité
             case "rarities" -> String.valueOf(settings.getEnabledRaritiesCount());
             default -> "0";
         };
