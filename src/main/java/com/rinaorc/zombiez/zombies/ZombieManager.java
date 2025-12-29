@@ -323,6 +323,17 @@ public class ZombieManager {
             aiManager.createAI(zombieEntity, type, level);
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // CONVERSION EN ÉLITE - 1-3% de chance (sauf boss)
+        // ═══════════════════════════════════════════════════════════════════
+        if (!isBoss && plugin.getEliteManager() != null) {
+            var eliteManager = plugin.getEliteManager();
+            if (eliteManager.shouldBecomeElite(zoneId)) {
+                eliteManager.convertToElite(entity, type.getDisplayName(), level, zoneId);
+                zombie.setElite(true);
+            }
+        }
+
         // Enregistrer
         activeZombies.put(entity.getUniqueId(), zombie);
         zombieCountByZone.merge(zoneId, 1, Integer::sum);
@@ -1048,32 +1059,51 @@ public class ZombieManager {
     private void giveRewards(Player killer, ActiveZombie zombie) {
         ZombieType type = zombie.getType();
         int level = zombie.getLevel();
-        
+
         // Points de base
         int basePoints = type.getBasePoints();
         int baseXP = type.getBaseXP();
-        
+
         // Bonus de niveau
         double levelMultiplier = 1 + (level * 0.1);
-        
+
         // Bonus d'affix
         double affixMultiplier = zombie.hasAffix() ? zombie.getAffix().getRewardMultiplier() : 1.0;
-        
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BONUS ÉLITE - x3 XP et Points
+        // ═══════════════════════════════════════════════════════════════════
+        double eliteMultiplier = 1.0;
+        if (zombie.isElite()) {
+            eliteMultiplier = com.rinaorc.zombiez.zombies.elite.EliteManager.XP_MULTIPLIER; // 3.0
+        }
+
         // Calculer les récompenses finales
-        int finalPoints = (int) (basePoints * levelMultiplier * affixMultiplier);
-        int finalXP = (int) (baseXP * levelMultiplier * affixMultiplier);
-        
+        int finalPoints = (int) (basePoints * levelMultiplier * affixMultiplier * eliteMultiplier);
+        int finalXP = (int) (baseXP * levelMultiplier * affixMultiplier * eliteMultiplier);
+
         // Donner via EconomyManager
         plugin.getEconomyManager().addPoints(killer, finalPoints);
         plugin.getEconomyManager().addXP(killer, finalXP);
-        
+
         // Traiter le loot
         processLoot(killer, zombie);
-        
+
         // Statistiques
         var playerData = plugin.getPlayerDataManager().getPlayer(killer.getUniqueId());
         if (playerData != null) {
             playerData.incrementKills();
+            playerData.addZombieKill();
+
+            // Statistique élite
+            if (zombie.isElite()) {
+                playerData.addEliteKill();
+            }
+
+            // Statistique boss
+            if (type.isBoss()) {
+                playerData.addBossKill();
+            }
         }
     }
 
@@ -1121,6 +1151,12 @@ public class ZombieManager {
         // Bonus d'affix du zombie
         if (zombie.hasAffix()) {
             luckBonus += zombie.getAffix().getLootBonus();
+        }
+
+        // === BONUS ÉLITE (+100% drop rate, +15% rare chance) ===
+        if (zombie.isElite()) {
+            luckBonus += com.rinaorc.zombiez.zombies.elite.EliteManager.DROP_RATE_MULTIPLIER - 1.0; // +100%
+            luckBonus += com.rinaorc.zombiez.zombies.elite.EliteManager.RARE_CHANCE_BONUS; // +15%
         }
 
         // === BONUS MOMENTUM ===
@@ -1631,9 +1667,12 @@ public class ZombieManager {
         private final int level;
         private final int zoneId;
         private final long spawnTime;
-        
+
         @lombok.Setter
         private ZombieAffix affix;
+
+        @lombok.Setter
+        private boolean elite;
 
         public ActiveZombie(UUID entityId, ZombieType type, int level, int zoneId) {
             this.entityId = entityId;
@@ -1641,6 +1680,7 @@ public class ZombieManager {
             this.level = level;
             this.zoneId = zoneId;
             this.spawnTime = System.currentTimeMillis();
+            this.elite = false;
         }
 
         public boolean hasAffix() {

@@ -68,6 +68,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private ZombieManager zombieManager;
     @Getter
+    private com.rinaorc.zombiez.zombies.elite.EliteManager eliteManager;
+    @Getter
     private SpawnSystem spawnSystem;
     @Getter
     private EventManager eventManager;
@@ -507,6 +509,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Zombie Manager - Gestion des zombies
         zombieManager = new ZombieManager(this);
+
+        // Elite Manager - Gestion des mobs élites
+        eliteManager = new com.rinaorc.zombiez.zombies.elite.EliteManager(this);
 
         // Performance Manager - Clearlag intelligent et optimisations
         performanceManager = new com.rinaorc.zombiez.managers.PerformanceManager(this);
