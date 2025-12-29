@@ -114,12 +114,14 @@ public class PetAbilityRegistry {
                 "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs", 30, 40, 8)
         );
 
-        // Feu Follet
+        // Feu Follet - Boules de Feu
+        // Passif: Chaque 3ème attaque tire une boule de feu (30% dégâts joueur)
+        // Ultimate: Tire 5 boules de feu en éventail (50% dégâts chacune)
         registerAbilities(PetType.FEU_FOLLET,
-            new IgnitePassive("wisp_ignite", "Toucher Enflammé",
-                "10% de chance d'enflammer", 0.10),
-            new IgniteAreaActive("wisp_burst", "Embrasement",
-                "Enflamme tous les zombies dans 5 blocs", 25, 5)
+            new WispFireballPassive("wisp_fireball", "Tir Enflammé",
+                "Chaque 3ème attaque tire une boule de feu (30% dégâts joueur)", 3, 0.30),
+            new InfernalBarrageActive("wisp_barrage", "Barrage Infernal",
+                "Tire 5 boules de feu en éventail (50% dégâts chacune)", 5, 0.50)
         );
 
         // Araignée Tisseuse

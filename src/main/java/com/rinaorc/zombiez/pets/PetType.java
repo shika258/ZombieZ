@@ -183,14 +183,14 @@ public enum PetType {
         Material.BLAZE_POWDER,
         EntityType.BLAZE,
         "wisp",
-        "Dégâts / Brûlure",
+        "Dégâts / Projectiles",
         "Flamme verte flottante",
-        "Les attaques du joueur ont 10% de chance d'enflammer",
-        "Embrasement",
-        "Enflamme tous les zombies dans 5 blocs",
-        25,
-        "Chance +5%",
-        "Les ennemis en feu prennent +25% dégâts"
+        "Chaque 3ème attaque tire une boule de feu (30% dégâts joueur)",
+        "Barrage Infernal",
+        "Tire 5 boules de feu en éventail (50% dégâts chacune)",
+        20,
+        "Boule de feu tous les 2 coups, +10% dégâts",
+        "Les boules de feu explosent en AoE (3 blocs)"
     ),
 
     ARAIGNEE_TISSEUSE(

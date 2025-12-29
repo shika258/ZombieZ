@@ -1694,3 +1694,246 @@ class SeismicSlamActive implements PetAbility {
         return true;
     }
 }
+
+// ==================== FEU FOLLET (Boules de Feu) ====================
+
+@Getter
+class WispFireballPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int attacksForTrigger;     // 3 attaques de base
+    private final double damagePercent;       // 30% des dégâts du joueur
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+
+    public WispFireballPassive(String id, String name, String desc, int attacksNeeded, double damagePercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.attacksForTrigger = attacksNeeded;
+        this.damagePercent = damagePercent;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+
+        // Nombre d'attaques ajusté selon le niveau (min 2)
+        int adjustedTrigger = (int) Math.max(2, attacksForTrigger - (petData.getStatMultiplier() - 1));
+
+        if (count >= adjustedTrigger) {
+            attackCounters.put(uuid, 0);
+            shootFireball(player, petData, target);
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur visuel de charge
+            if (count >= adjustedTrigger - 1) {
+                player.getWorld().spawnParticle(Particle.FLAME,
+                    player.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.02);
+            }
+        }
+
+        return damage;
+    }
+
+    private void shootFireball(Player player, PetData petData, LivingEntity target) {
+        Location origin = player.getLocation().add(0, 1.5, 0);
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+        World world = origin.getWorld();
+
+        // Calculer la direction
+        Vector direction = targetLoc.toVector().subtract(origin.toVector()).normalize();
+
+        // Dégâts de la boule de feu
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double fireballDamage = playerDamage * adjustedDamagePercent;
+
+        // Son de lancement
+        world.playSound(origin, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.2f);
+
+        // Animation de la boule de feu (projectile visuel)
+        new BukkitRunnable() {
+            Location currentLoc = origin.clone();
+            int ticks = 0;
+            final int maxTicks = 40; // 2 secondes max
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Avancer la boule de feu
+                currentLoc.add(direction.clone().multiply(1.0));
+
+                // Particules de la boule de feu
+                world.spawnParticle(Particle.FLAME, currentLoc, 10, 0.2, 0.2, 0.2, 0.02);
+                world.spawnParticle(Particle.SMOKE, currentLoc, 3, 0.1, 0.1, 0.1, 0.01);
+
+                // Vérifier collision avec les mobs
+                for (Entity entity : world.getNearbyEntities(currentLoc, 1, 1, 1)) {
+                    if (entity instanceof Monster monster) {
+                        // Impact!
+                        monster.damage(fireballDamage, player);
+                        monster.setFireTicks(60); // Brûle pendant 3s
+                        petData.addDamage((long) fireballDamage);
+
+                        // Effets d'impact
+                        world.spawnParticle(Particle.LAVA, currentLoc, 15, 0.3, 0.3, 0.3, 0);
+                        world.spawnParticle(Particle.FLAME, currentLoc, 20, 0.5, 0.5, 0.5, 0.1);
+                        world.playSound(currentLoc, Sound.ENTITY_GENERIC_BURN, 1.0f, 1.0f);
+
+                        player.sendMessage("§a[Pet] §6🔥 Boule de feu! §c" + (int)fireballDamage + " §7dégâts + brûlure");
+
+                        cancel();
+                        return;
+                    }
+                }
+
+                // Vérifier si on a dépassé la cible ou touché un bloc
+                if (currentLoc.getBlock().getType().isSolid() ||
+                    currentLoc.distance(origin) > 20) {
+                    cancel();
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}
+
+@Getter
+class InfernalBarrageActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int fireballCount;          // 5 boules de feu
+    private final double damagePercent;       // 50% des dégâts du joueur
+
+    public InfernalBarrageActive(String id, String name, String desc, int count, double damagePercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.fireballCount = count;
+        this.damagePercent = damagePercent;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location origin = player.getLocation().add(0, 1.5, 0);
+        World world = origin.getWorld();
+        Vector baseDirection = player.getLocation().getDirection().normalize();
+
+        // Dégâts par boule de feu
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double fireballDamage = playerDamage * adjustedDamagePercent;
+
+        // Nombre de boules ajusté
+        int adjustedCount = (int) (fireballCount + (petData.getStatMultiplier() - 1) * 2);
+
+        player.sendMessage("§a[Pet] §c§l🔥 BARRAGE INFERNAL!");
+        world.playSound(origin, Sound.ENTITY_BLAZE_SHOOT, 1.5f, 0.8f);
+
+        // Tirer les boules de feu en éventail
+        double spreadAngle = 60.0; // 60 degrés d'éventail total
+        double angleStep = spreadAngle / (adjustedCount - 1);
+        double startAngle = -spreadAngle / 2;
+
+        for (int i = 0; i < adjustedCount; i++) {
+            final int index = i;
+            final double angle = startAngle + (angleStep * i);
+
+            // Délai entre chaque boule de feu
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> launchFireball(player, petData, origin.clone(), baseDirection.clone(), angle, fireballDamage),
+                i * 3L
+            );
+        }
+
+        return true;
+    }
+
+    private void launchFireball(Player player, PetData petData, Location origin, Vector baseDir, double angle, double damage) {
+        World world = origin.getWorld();
+
+        // Rotation du vecteur pour l'éventail
+        double rad = Math.toRadians(angle);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        Vector direction = new Vector(
+            baseDir.getX() * cos - baseDir.getZ() * sin,
+            baseDir.getY(),
+            baseDir.getX() * sin + baseDir.getZ() * cos
+        ).normalize();
+
+        // Son de lancement
+        world.playSound(origin, Sound.ENTITY_BLAZE_SHOOT, 0.8f, 1.0f + (float)(Math.random() * 0.4));
+
+        // Animation de la boule de feu
+        new BukkitRunnable() {
+            Location currentLoc = origin.clone();
+            int ticks = 0;
+            final int maxTicks = 60;
+            final Set<UUID> hitEntities = new HashSet<>();
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Avancer la boule de feu
+                currentLoc.add(direction.clone().multiply(0.8));
+
+                // Particules plus grosses pour le barrage
+                world.spawnParticle(Particle.FLAME, currentLoc, 15, 0.25, 0.25, 0.25, 0.03);
+                world.spawnParticle(Particle.LAVA, currentLoc, 2, 0.1, 0.1, 0.1, 0);
+
+                // Vérifier collision avec les mobs
+                for (Entity entity : world.getNearbyEntities(currentLoc, 1.2, 1.2, 1.2)) {
+                    if (entity instanceof Monster monster && !hitEntities.contains(entity.getUniqueId())) {
+                        hitEntities.add(entity.getUniqueId());
+
+                        // Impact!
+                        monster.damage(damage, player);
+                        monster.setFireTicks(80); // Brûle pendant 4s
+                        petData.addDamage((long) damage);
+
+                        // Effets d'impact
+                        world.spawnParticle(Particle.EXPLOSION, currentLoc, 1, 0, 0, 0, 0);
+                        world.spawnParticle(Particle.FLAME, currentLoc, 30, 0.5, 0.5, 0.5, 0.15);
+                        world.playSound(currentLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.5f);
+                    }
+                }
+
+                // Vérifier si on a touché un bloc solide
+                if (currentLoc.getBlock().getType().isSolid()) {
+                    // Explosion à l'impact
+                    world.spawnParticle(Particle.FLAME, currentLoc, 20, 0.3, 0.3, 0.3, 0.1);
+                    world.playSound(currentLoc, Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}
