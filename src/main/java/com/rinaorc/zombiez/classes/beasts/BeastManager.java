@@ -491,7 +491,7 @@ public class BeastManager {
 
     // Constantes pour le comportement des bêtes
     private static final double BEAST_COMBAT_RANGE = 20.0;      // Rayon max de combat autour du joueur
-    private static final double BEAST_LEASH_RANGE = 25.0;       // Distance max avant téléportation
+    private static final double BEAST_LEASH_RANGE = 40.0;       // Distance max avant téléportation (augmenté de 25)
     private static final double BEAST_FOLLOW_RANGE = 8.0;       // Distance pour commencer à suivre (pas de combat)
 
     /**
