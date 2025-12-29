@@ -308,15 +308,18 @@ public class TimeLimitedBonusManager implements Listener {
     private void completeChallenge(Player player, ActiveChallenge challenge) {
         activeChallenges.remove(player.getUniqueId());
         cleanup(player, challenge);
-        long bonusXp = 0;
-        long bonusPoints = 0;
+
         // Calculer les récompenses
+        long bonusXp = (long) (100 * challenge.type.xpMultiplier);
+        long bonusPoints = (long) (50 * challenge.type.pointsMultiplier);
+
+        // Donner les récompenses via EconomyManager pour inclure l'XP de classe
+        plugin.getEconomyManager().addXp(player, (int) bonusXp);
+        plugin.getEconomyManager().addPoints(player, (int) bonusPoints);
+
+        // Tracker les stats
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data != null) {
-            bonusXp = (long) (100 * challenge.type.xpMultiplier);
-            bonusPoints = (long) (50 * challenge.type.pointsMultiplier);
-            data.addXp(bonusXp);
-            data.addPoints(bonusPoints);
             data.setStat("last_challenge_time", System.currentTimeMillis());
         }
 

@@ -52,8 +52,8 @@ public class EliteManager implements Listener {
     private final Map<UUID, EliteData> activeElites = new ConcurrentHashMap<>();
 
     // Configuration
-    private static final double ELITE_CHANCE_MIN = 0.01; // 1%
-    private static final double ELITE_CHANCE_MAX = 0.01; // 1% (fixe)
+    private static final double ELITE_CHANCE_MIN = 0.015; // 1.5%
+    private static final double ELITE_CHANCE_MAX = 0.015; // 1.5% (fixe)
 
     // Multiplicateurs de stats
     private static final double HEALTH_MULTIPLIER = 2.5;
@@ -108,7 +108,7 @@ public class EliteManager implements Listener {
      * @return true si le mob doit être converti en élite
      */
     public boolean shouldBecomeElite(int zoneId) {
-        // Chance aléatoire entre 1% et 3%
+        // Chance fixe de 1.5%
         double chance = ELITE_CHANCE_MIN + ThreadLocalRandom.current().nextDouble() * (ELITE_CHANCE_MAX - ELITE_CHANCE_MIN);
         return ThreadLocalRandom.current().nextDouble() < chance;
     }

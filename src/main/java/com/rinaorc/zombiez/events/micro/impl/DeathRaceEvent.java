@@ -304,15 +304,12 @@ public class DeathRaceEvent extends MicroEvent {
             player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
         }
 
-        // Distribuer
+        // Distribuer via EconomyManager pour inclure l'XP de classe (30%)
         int totalPoints = (int) ((basePoints + bonusPoints) * (1.0 + zone.getId() * 0.05));
         int xp = (int) (type.getBaseXpReward() * (1.0 + zone.getId() * 0.05));
 
         plugin.getEconomyManager().addPoints(player, totalPoints);
-        var playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
-        if (playerData != null) {
-            playerData.addXp(xp);
-        }
+        plugin.getEconomyManager().addXp(player, xp);
 
         // Message
         player.sendMessage("");

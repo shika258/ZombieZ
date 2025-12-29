@@ -404,7 +404,7 @@ public class DailyRewardManager {
         }
         if (reward.getGems() > 0) {
             int gems = (int) (reward.getGems() * multiplier);
-            MessageUtils.sendRaw(player, "  §d+ " + gems + " Gems");
+            MessageUtils.sendRaw(player, "  §d+ " + gems + " Gemmes");
         }
         if (reward.getFragments() > 0) {
             int fragments = (int) (reward.getFragments() * multiplier);

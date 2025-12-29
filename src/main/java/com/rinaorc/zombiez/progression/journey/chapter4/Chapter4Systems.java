@@ -1439,7 +1439,7 @@ public class Chapter4Systems implements Listener {
         player.sendMessage("  §7Tu as libéré les âmes du cimetière");
         player.sendMessage("  §7et mis fin à la malédiction!");
         player.sendMessage("");
-        player.sendMessage("  §e+300 Points §7| §a+10 Gems");
+        player.sendMessage("  §e+300 Points §7| §d+10 Gemmes");
         player.sendMessage("");
         player.sendMessage("§8§m                                        ");
         player.sendMessage("");
@@ -2044,7 +2044,7 @@ public class Chapter4Systems implements Listener {
         player.sendMessage("  §fet le transforment. Ils pourraient être la §aclé§f");
         player.sendMessage("  §fpour comprendre l'origine de l'épidémie.\"");
         player.sendMessage("");
-        player.sendMessage("  §e+400 Points §7| §a+12 Gems");
+        player.sendMessage("  §e+400 Points §7| §d+12 Gemmes");
         player.sendMessage("");
         player.sendMessage("  §8§oIndice: Le Laboratoire Helix cache des secrets...");
         player.sendMessage("");

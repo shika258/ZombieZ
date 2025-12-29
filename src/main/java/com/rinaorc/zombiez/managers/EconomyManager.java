@@ -145,7 +145,7 @@ public class EconomyManager {
         if (data == null) return;
 
         data.addGems(amount);
-        MessageUtils.send(player, "§d+" + amount + " 💎 Gems §7(" + reason + ")");
+        MessageUtils.send(player, "§d+" + amount + " 💎 Gemmes §7(" + reason + ")");
         
         // Son de récompense premium
         player.playSound(player.getLocation(), "entity.player.levelup", 1f, 1.5f);
@@ -160,11 +160,11 @@ public class EconomyManager {
         if (data == null) return false;
 
         if (data.removeGems(amount)) {
-            MessageUtils.send(player, "§d-" + amount + " 💎 Gems §7(" + reason + ")");
+            MessageUtils.send(player, "§d-" + amount + " 💎 Gemmes §7(" + reason + ")");
             return true;
         }
-        
-        MessageUtils.send(player, "§cGems insuffisantes! §7(Requis: " + amount + " 💎)");
+
+        MessageUtils.send(player, "§cGemmes insuffisantes! §7(Requis: " + amount + " 💎)");
         return false;
     }
 
@@ -350,12 +350,9 @@ public class EconomyManager {
         long bonusPoints = Math.round(basePoints * multiplier);
         long bonusXp = Math.round(baseXp * multiplier);
 
-        // Ajouter directement les récompenses (bypass multiplicateurs pour éviter doublon)
-        PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
-        if (data != null) {
-            data.addPoints(bonusPoints);
-            data.addXp(bonusXp);
-        }
+        // Ajouter les récompenses via les méthodes standard pour inclure l'XP de classe
+        addPoints(player, (int) bonusPoints);
+        addXp(player, (int) bonusXp, "First Blood");
 
         // ====== EFFETS VISUELS ET SONORES ======
 

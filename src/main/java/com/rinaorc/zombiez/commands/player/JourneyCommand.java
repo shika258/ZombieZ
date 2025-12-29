@@ -106,7 +106,7 @@ public class JourneyCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("  §7Objectif: §e" + step.getDescription());
         player.sendMessage("  §7Progression: §a" + String.format("%.1f", percent) + "% §7(" + step.getProgressText(progress) + ")");
         player.sendMessage("");
-        player.sendMessage("  §7Récompenses: §e+" + step.getPointReward() + " Points §8| §d+" + step.getGemReward() + " Gems");
+        player.sendMessage("  §7Récompenses: §e+" + step.getPointReward() + " Points §8| §d+" + step.getGemReward() + " Gemmes");
         player.sendMessage("§8§m                                        ");
         player.sendMessage("");
     }

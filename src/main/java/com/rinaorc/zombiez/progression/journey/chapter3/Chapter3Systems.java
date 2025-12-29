@@ -379,23 +379,50 @@ public class Chapter3Systems implements Listener {
         Location loc = FORAIN_LOCATION.clone();
         loc.setWorld(world);
 
+        plugin.log(Level.INFO, "§e[Forain Debug] spawnForain() appelé - Position: " +
+            loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ());
+
         // 1. Si entité en mémoire valide → ne rien faire
         if (forainEntity != null && forainEntity.isValid() && !forainEntity.isDead()) {
+            plugin.log(Level.INFO, "§a[Forain Debug] Forain déjà en mémoire et valide - UUID: " + forainEntity.getUniqueId());
             return;
         }
 
-        // 2. Chercher entité existante dans le monde (persistée après reboot)
-        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+        // 2. S'assurer que le chunk est chargé avant la recherche
+        if (!loc.getChunk().isLoaded()) {
+            plugin.log(Level.INFO, "§e[Forain Debug] Chunk non chargé, chargement en cours...");
+            loc.getChunk().load();
+        }
+
+        // 3. Chercher entité existante dans le monde (persistée après reboot)
+        // Utiliser un rayon plus large pour trouver le Forain même s'il a été déplacé
+        int foundCount = 0;
+        for (Entity entity : world.getNearbyEntities(loc, 100, 50, 100)) {
             if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
-                forainEntity = v;
-                // S'assurer qu'il est bien configuré
-                v.teleport(loc);
-                v.setRotation(0, 0);
-                return;
+                foundCount++;
+                if (forainEntity == null) {
+                    forainEntity = v;
+                    // S'assurer qu'il est bien configuré et à la bonne position
+                    v.teleport(loc);
+                    v.setRotation(0, 0);
+                    v.setPersistent(true); // Re-confirmer la persistance
+                    plugin.log(Level.INFO, "§a[Forain Debug] Forain existant trouvé et téléporté - UUID: " + v.getUniqueId());
+                } else {
+                    // Doublon trouvé, supprimer
+                    plugin.log(Level.WARNING, "§c[Forain Debug] Doublon Forain supprimé - UUID: " + v.getUniqueId());
+                    v.remove();
+                }
             }
         }
 
-        // 3. Sinon créer nouveau (UNE SEULE FOIS)
+        if (forainEntity != null) {
+            plugin.log(Level.INFO, "§a[Forain Debug] Utilisation du Forain existant (total trouvés: " + foundCount + ")");
+            return;
+        }
+
+        // 4. Aucun Forain trouvé → Créer nouveau (UNE SEULE FOIS)
+        plugin.log(Level.INFO, "§e[Forain Debug] Aucun Forain existant trouvé, création d'un nouveau...");
+
         forainEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text(FORAIN_NAME, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -420,6 +447,10 @@ public class Chapter3Systems implements Listener {
             // Orientation
             villager.setRotation(0, 0);
         });
+
+        plugin.log(Level.INFO, "§a[Forain Debug] Nouveau Forain créé - UUID: " + forainEntity.getUniqueId() +
+            " - Position: " + forainEntity.getLocation().getBlockX() + ", " +
+            forainEntity.getLocation().getBlockY() + ", " + forainEntity.getLocation().getBlockZ());
 
         // Créer le TextDisplay au-dessus
         createForainDisplay(world, loc);
@@ -468,6 +499,8 @@ public class Chapter3Systems implements Listener {
      */
     private void startForainRespawnChecker() {
         new BukkitRunnable() {
+            private int checkCount = 0;
+
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -484,8 +517,13 @@ public class Chapter3Systems implements Listener {
                     return;
                 }
 
-                // Skip si chunk non chargé
+                checkCount++;
+
+                // Skip si chunk non chargé (mais logger l'info toutes les 5 checks)
                 if (!forainLoc.getChunk().isLoaded()) {
+                    if (checkCount % 5 == 0) {
+                        plugin.log(Level.INFO, "§e[Forain Checker] Chunk non chargé, skip (check #" + checkCount + ")");
+                    }
                     return;
                 }
 
@@ -494,6 +532,7 @@ public class Chapter3Systems implements Listener {
 
                 // Si le Villager n'est pas physiquement présent, reset la référence et respawn
                 if (!villagerPhysicallyPresent) {
+                    plugin.log(Level.WARNING, "§c[Forain Checker] Forain NON trouvé physiquement! Respawn en cours...");
                     forainEntity = null;
                     forainDisplay = null; // Reset aussi le display pour les recréer ensemble
                     spawnForain(world);
@@ -502,6 +541,7 @@ public class Chapter3Systems implements Listener {
 
                 // TextDisplay uniquement si le Villager existe mais pas le display
                 if (forainDisplay == null || !forainDisplay.isValid()) {
+                    plugin.log(Level.INFO, "§e[Forain Checker] TextDisplay manquant, création...");
                     createForainDisplay(world, forainLoc);
                 }
             }
@@ -511,15 +551,25 @@ public class Chapter3Systems implements Listener {
     /**
      * Vérifie si le Forain (Villager) est physiquement présent près de sa location.
      * Cette méthode scanne les entités proches au lieu de se fier à la référence Java.
+     * FIX: Rayon augmenté à 50 blocs et téléportation si trouvé loin
      */
     private boolean isForainPhysicallyPresent(World world, Location expectedLoc) {
-        // Chercher un Villager avec notre tag/PDC dans un rayon de 5 blocs
-        for (Entity entity : world.getNearbyEntities(expectedLoc, 5, 5, 5)) {
+        // Chercher un Villager avec notre tag/PDC dans un rayon élargi de 50 blocs
+        for (Entity entity : world.getNearbyEntities(expectedLoc, 50, 30, 50)) {
             if (entity instanceof Villager villager) {
                 if (villager.getScoreboardTags().contains("chapter3_forain") ||
                         villager.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
                     // Mettre à jour la référence si trouvé
                     forainEntity = villager;
+
+                    // Si le Forain est trop loin de sa position, le téléporter
+                    double distSq = villager.getLocation().distanceSquared(expectedLoc);
+                    if (distSq > 4) { // Plus de 2 blocs
+                        villager.teleport(expectedLoc);
+                        villager.setRotation(0, 0);
+                        plugin.log(Level.INFO, "§e[Forain Checker] Forain trouvé à " +
+                            String.format("%.1f", Math.sqrt(distSq)) + " blocs, téléporté à la position correcte");
+                    }
                     return true;
                 }
             }

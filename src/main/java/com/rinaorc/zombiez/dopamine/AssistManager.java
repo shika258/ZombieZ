@@ -137,15 +137,14 @@ public class AssistManager implements Listener {
         assistXp = Math.max(1, assistXp);
         assistPoints = Math.max(1, assistPoints);
 
-        // Donner les récompenses
-        PlayerData data = plugin.getPlayerDataManager().getPlayer(assistant);
-        long totalXp = 0;
+        // Donner les récompenses via EconomyManager pour inclure l'XP de classe
+        plugin.getEconomyManager().addXp(assistant, assistXp);
+        plugin.getEconomyManager().addPoints(assistant, assistPoints);
 
+        // Tracker les stats
+        PlayerData data = plugin.getPlayerDataManager().getPlayer(assistant);
         if (data != null) {
-            data.addXp(assistXp);
-            data.addPoints(assistPoints);
             data.incrementStat("total_assists");
-            totalXp = data.getTotalXp().get();
         }
 
         // Notification
@@ -166,11 +165,9 @@ public class AssistManager implements Listener {
         int bonusXp = 10 * assistCount;
         int bonusPoints = 5 * assistCount;
 
-        PlayerData data = plugin.getPlayerDataManager().getPlayer(killer);
-        if (data != null) {
-            data.addXp(bonusXp);
-            data.addPoints(bonusPoints);
-        }
+        // Via EconomyManager pour inclure l'XP de classe
+        plugin.getEconomyManager().addXp(killer, bonusXp);
+        plugin.getEconomyManager().addPoints(killer, bonusPoints);
 
         killer.sendMessage("§d✦ TEAMWORK BONUS §7(" + assistCount + " assists) §8- §a+" + bonusXp + " XP §7& §e+" + bonusPoints + " Points");
         killer.playSound(killer.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.5f);

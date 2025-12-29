@@ -280,16 +280,15 @@ public abstract class MicroEvent {
         int bonusPoints = getBonusPoints();
         points += bonusPoints;
 
-        // Distribuer
+        // Distribuer les points
         plugin.getEconomyManager().addPoints(player, points);
-        var playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
-        if (playerData != null) {
-            playerData.addXp(xp);
 
-            // ============ TRACKER MISSIONS: MICRO-ÉVÉNEMENTS ============
-            plugin.getMissionManager().updateProgress(player,
-                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.MICRO_EVENTS_COMPLETED, 1);
-        }
+        // Distribuer l'XP via EconomyManager pour inclure l'XP de classe (30%)
+        plugin.getEconomyManager().addXp(player, xp);
+
+        // ============ TRACKER MISSIONS: MICRO-ÉVÉNEMENTS ============
+        plugin.getMissionManager().updateProgress(player,
+            com.rinaorc.zombiez.progression.MissionManager.MissionTracker.MICRO_EVENTS_COMPLETED, 1);
 
         // Message
         player.sendMessage("");

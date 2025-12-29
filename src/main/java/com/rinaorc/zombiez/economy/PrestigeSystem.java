@@ -130,7 +130,7 @@ public class PrestigeSystem {
         player.sendMessage("§7  Tu as été récompensé:");
         if (rewards != null) {
             player.sendMessage("§6    ➤ §e" + rewards.points() + " Points");
-            player.sendMessage("§d    ➤ §e" + rewards.gems() + " Gems");
+            player.sendMessage("§d    ➤ §d" + rewards.gems() + " Gemmes");
             player.sendMessage("§a    ➤ §e+" + rewards.bonusSkillPoints() + " Points de Skill bonus");
             player.sendMessage("§b    ➤ §eMultiplicateur x" + rewards.multiplier());
             player.sendMessage("§c    ➤ §eZone de départ: " + rewards.startingZone());
