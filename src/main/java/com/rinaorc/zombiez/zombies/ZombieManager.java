@@ -326,10 +326,9 @@ public class ZombieManager {
         // ═══════════════════════════════════════════════════════════════════
         addToNoCollisionTeam(entity);
 
-        // Créer l'IA pour ce zombie (seulement si c'est un Zombie)
-        if (entity instanceof Zombie zombieEntity) {
-            aiManager.createAI(zombieEntity, type, level);
-        }
+        // Créer l'IA pour cette entité (tous les types, pas seulement Zombie)
+        // FIX: Les entités non-Zombie comme Creaking ont aussi besoin d'une IA
+        aiManager.createAI(entity, type, level);
 
         // Enregistrer AVANT la conversion élite (pour que updateZombieHealthDisplay fonctionne)
         activeZombies.put(entity.getUniqueId(), zombie);
