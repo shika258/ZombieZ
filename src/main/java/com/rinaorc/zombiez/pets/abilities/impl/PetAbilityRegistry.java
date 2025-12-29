@@ -54,8 +54,8 @@ public class PetAbilityRegistry {
         registerAbilities(PetType.RAT_CATACOMBES,
             new LootBonusPassive("rat_loot", "Fouineur",
                 "+5% de chance de loot supplémentaire", 0.05),
-            new SearchActive("rat_search", "Fouille",
-                "Cherche des ressources au sol", 60)
+            new ScavengeActive("rat_scavenge", "Fouille",
+                "Trouve 1 nourriture ou consommable (rareté selon niveau)")
         );
 
         // Luciole Errante

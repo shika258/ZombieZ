@@ -32,14 +32,14 @@ public enum PetType {
     RAT_CATACOMBES(
         "Rat des Catacombes",
         PetRarity.COMMON,
-        Material.RABBIT_SPAWN_EGG,
-        EntityType.RABBIT,
+        Material.SILVERFISH_SPAWN_EGG,
+        EntityType.SILVERFISH,
         "rat",
         "Loot / Économie",
         "Rat gris avec yeux brillants",
         "+5% de chance de loot supplémentaire",
         "Fouille",
-        "Cherche des ressources au sol, trouve 1-3 items",
+        "Trouve 1 nourriture ou consommable (rareté selon niveau)",
         60,
         "+10% Points des zombies",
         "Peut trouver des oeufs de pet (très rare)"
