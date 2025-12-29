@@ -249,40 +249,88 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Nettoie TOUTES les anciennes entités du chapitre 3 dans le MONDE ENTIER.
+     * Récupère ou nettoie les entités du chapitre 3 dans le MONDE ENTIER.
+     * RÉUTILISE les entités persistantes existantes au lieu de les supprimer.
      * Garantit MAXMOBS=1 (une seule instance de chaque NPC).
-     * Recherche globale, pas seulement à proximité.
      */
     private void cleanupOldEntities(World world) {
         int removed = 0;
+        boolean foundForain = false;
+        boolean foundForainDisplay = false;
+        boolean foundCat = false;
+        boolean foundSurvivor = false;
 
         // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
         for (Entity entity : world.getEntities()) {
             Set<String> tags = entity.getScoreboardTags();
 
-            // Nettoyer le Forain et son display
-            if (tags.contains("chapter3_forain") || tags.contains("chapter3_forain_display")) {
+            // === FORAIN: Réutiliser le premier, supprimer les doublons ===
+            if (tags.contains("chapter3_forain") ||
+                    (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE))) {
+                if (!foundForain) {
+                    forainEntity = entity;
+                    foundForain = true;
+                } else {
+                    entity.remove();
+                    removed++;
+                }
+                continue;
+            }
+
+            // Forain display: réutiliser le premier
+            if (tags.contains("chapter3_forain_display")) {
+                if (!foundForainDisplay && entity instanceof TextDisplay td) {
+                    forainDisplay = td;
+                    foundForainDisplay = true;
+                } else {
+                    entity.remove();
+                    removed++;
+                }
+                continue;
+            }
+
+            // === CHAT PERDU: Réutiliser le premier ===
+            if (tags.contains("chapter3_lost_cat") ||
+                    (entity instanceof Cat cat && cat.getPersistentDataContainer().has(LOST_CAT_KEY, PersistentDataType.BYTE))) {
+                if (!foundCat) {
+                    lostCatEntity = entity;
+                    foundCat = true;
+                } else {
+                    entity.remove();
+                    removed++;
+                }
+                continue;
+            }
+
+            // Chat display: nettoyer (recréé dynamiquement per-player)
+            if (tags.contains("chapter3_cat_display")) {
                 entity.remove();
                 removed++;
                 continue;
             }
 
-            // Nettoyer le chat perdu et son display
-            if (tags.contains("chapter3_lost_cat") || tags.contains("chapter3_cat_display")) {
-                entity.remove();
-                removed++;
-                continue;
-            }
-
-            // Nettoyer les indices de l'investigation
+            // Nettoyer les indices de l'investigation (recréés dynamiquement)
             if (tags.contains("chapter3_investigation_clue") || tags.contains("chapter3_clue_display")) {
                 entity.remove();
                 removed++;
                 continue;
             }
 
-            // Nettoyer le survivant du village et son display
-            if (tags.contains("chapter3_village_survivor") || tags.contains("chapter3_survivor_display")) {
+            // === SURVIVANT: Réutiliser le premier ===
+            if (tags.contains("chapter3_village_survivor") ||
+                    (entity instanceof Villager v && v.getPersistentDataContainer().has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE))) {
+                if (!foundSurvivor) {
+                    villageSurvivor = entity;
+                    foundSurvivor = true;
+                } else {
+                    entity.remove();
+                    removed++;
+                }
+                continue;
+            }
+
+            // Survivor display: nettoyer (recréé dynamiquement)
+            if (tags.contains("chapter3_survivor_display")) {
                 entity.remove();
                 removed++;
                 continue;
@@ -308,21 +356,6 @@ public class Chapter3Systems implements Listener {
                 removed++;
                 continue;
             }
-
-            // Fallback: vérifier par PDC pour les anciennes entités sans tags
-            if (entity instanceof Villager villager) {
-                var pdc = villager.getPersistentDataContainer();
-                if (pdc.has(FORAIN_NPC_KEY, PersistentDataType.BYTE) ||
-                        pdc.has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE)) {
-                    villager.remove();
-                    removed++;
-                }
-            } else if (entity instanceof Cat cat) {
-                if (cat.getPersistentDataContainer().has(LOST_CAT_KEY, PersistentDataType.BYTE)) {
-                    cat.remove();
-                    removed++;
-                }
-            }
         }
 
         if (removed > 0) {
@@ -333,20 +366,29 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Spawn le PNJ Forain Marcel
+     * SÉCURITÉ: Utilise setPersistent(true) et recherche d'entité existante
      */
     private void spawnForain(World world) {
         Location loc = FORAIN_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (forainEntity != null && forainEntity.isValid()) {
-            forainEntity.remove();
-        }
-        if (forainDisplay != null && forainDisplay.isValid()) {
-            forainDisplay.remove();
+        // 1. Si entité en mémoire valide → ne rien faire
+        if (forainEntity != null && forainEntity.isValid() && !forainEntity.isDead()) {
+            return;
         }
 
-        // Spawn le Villager
+        // 2. Chercher entité existante dans le monde (persistée après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
+                forainEntity = v;
+                // S'assurer qu'il est bien configuré
+                v.teleport(loc);
+                v.setRotation(0, 0);
+                return;
+            }
+        }
+
+        // 3. Sinon créer nouveau (UNE SEULE FOIS)
         forainEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text(FORAIN_NAME, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -365,8 +407,8 @@ public class Chapter3Systems implements Listener {
             // PDC
             villager.getPersistentDataContainer().set(FORAIN_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            // Ne pas persister (évite les doublons au reboot)
-            villager.setPersistent(false);
+            // CRITIQUE: Persister pour survivre au chunk unload
+            villager.setPersistent(true);
 
             // Orientation
             villager.setRotation(0, 0);
@@ -414,7 +456,7 @@ public class Chapter3Systems implements Listener {
 
     /**
      * Démarre le vérificateur de respawn du Forain.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
+     * SÉCURITÉ: Vérifie uniquement si le chunk est chargé par un joueur.
      */
     private void startForainRespawnChecker() {
         new BukkitRunnable() {
@@ -427,12 +469,16 @@ public class Chapter3Systems implements Listener {
                 Location forainLoc = FORAIN_LOCATION.clone();
                 forainLoc.setWorld(world);
 
-                // === SÉCURITÉ FORAIN (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
+                // Ne rien faire si aucun joueur n'est à proximité
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(p -> p.getLocation().distanceSquared(forainLoc) < 10000); // 100 blocs
+                if (!playerNearby) {
+                    return;
+                }
+
+                // Vérifier/spawner le Forain (la méthode gère la recherche d'existant)
                 if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
                     if (forainLoc.getChunk().isLoaded()) {
-                        cleanupForainEntities(world);
                         spawnForain(world);
                     }
                 }
@@ -446,23 +492,39 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Nettoie TOUS les forains orphelins dans le monde entier (maxmobs=1)
+     * Nettoie les forains en DOUBLON (garde une seule entité, maxmobs=1)
      */
     private void cleanupForainEntities(World world) {
         int removed = 0;
+        boolean foundFirst = false;
+
         for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter3_forain") ||
-                    entity.getScoreboardTags().contains("chapter3_forain_display")) {
-                entity.remove();
-                removed++;
-            } else if (entity instanceof Villager v
-                    && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
-                v.remove();
-                removed++;
+            boolean isForain = entity.getScoreboardTags().contains("chapter3_forain") ||
+                    (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE));
+
+            if (isForain) {
+                if (foundFirst) {
+                    // Doublon - supprimer
+                    entity.remove();
+                    removed++;
+                } else {
+                    // Premier trouvé - garder
+                    foundFirst = true;
+                    forainEntity = entity;
+                }
+            }
+
+            // Nettoyer les TextDisplays orphelins (doublons seulement)
+            if (entity.getScoreboardTags().contains("chapter3_forain_display") && entity != forainDisplay) {
+                if (forainDisplay != null && forainDisplay.isValid()) {
+                    entity.remove();
+                    removed++;
+                }
             }
         }
+
         if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " forain(s) orphelin(s) supprimé(s)");
+            plugin.log(Level.INFO, "§e⚠ Nettoyage doublons: " + removed + " forain(s) en doublon supprimé(s)");
         }
     }
 
