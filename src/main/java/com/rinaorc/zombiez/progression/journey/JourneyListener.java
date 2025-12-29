@@ -687,10 +687,18 @@ public class JourneyListener implements Listener {
 
     // ==================== TRACKING DES BEACONS DE REFUGE ====================
 
-    // Positions des beacons de refuge (x, y, z)
-    private static final int[][] REFUGE_BEACONS = {
-        {675, 90, 9174}  // Fort Havegris
-    };
+    // Map des beacons de refuge: clé "x,y,z" -> nom du refuge
+    private static final java.util.Map<String, String> REFUGE_BEACONS = java.util.Map.of(
+        "675,90,9174", "Fort Havegris",     // Chapitre 3 Étape 2
+        "704,91,8219", "Maraisville"        // Chapitre 5 Étape 1
+    );
+
+    /**
+     * Génère la clé pour un beacon à partir des coordonnées
+     */
+    private String getBeaconKey(int x, int y, int z) {
+        return x + "," + y + "," + z;
+    }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onBeaconInteract(PlayerInteractEvent event) {
@@ -708,18 +716,10 @@ public class JourneyListener implements Listener {
 
         // Vérifier si c'est un beacon de refuge reconnu
         Location beaconLoc = block.getLocation();
-        boolean isRefugeBeacon = false;
+        String beaconKey = getBeaconKey(beaconLoc.getBlockX(), beaconLoc.getBlockY(), beaconLoc.getBlockZ());
+        String refugeName = REFUGE_BEACONS.get(beaconKey);
 
-        for (int[] coords : REFUGE_BEACONS) {
-            if (beaconLoc.getBlockX() == coords[0] &&
-                beaconLoc.getBlockY() == coords[1] &&
-                beaconLoc.getBlockZ() == coords[2]) {
-                isRefugeBeacon = true;
-                break;
-            }
-        }
-
-        if (!isRefugeBeacon) return;
+        if (refugeName == null) return; // Pas un beacon de refuge Journey
 
         // Annuler l'ouverture du GUI du beacon
         event.setCancelled(true);
@@ -731,8 +731,8 @@ public class JourneyListener implements Listener {
             return;
         }
 
-        // Activer le refuge
-        activateRefuge(player, beaconLoc, "Fort Havegris");
+        // Activer le refuge avec le bon nom
+        activateRefuge(player, beaconLoc, refugeName);
         journeyManager.updateProgress(player, JourneyStep.StepType.ACTIVATE_REFUGE_BEACON, 1);
     }
 
