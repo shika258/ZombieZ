@@ -181,9 +181,9 @@ public enum JourneyStep {
 
     // ==================== CHAPITRE 5: TERRITOIRE HOSTILE ====================
 
-    STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Entre dans la Zone 4",
-        "Le danger s'intensifie", StepType.REACH_ZONE, 4,
-        300, 10, Material.IRON_CHESTPLATE),
+    STEP_5_1(JourneyChapter.CHAPTER_5, 1, "Débloque Maraisville",
+        "Active le beacon - Coords: §b704, 91, 8219", StepType.ACTIVATE_REFUGE_BEACON, 1,
+        300, 10, Material.BEACON),
 
     STEP_5_2(JourneyChapter.CHAPTER_5, 2, "Recycle 25 items",
         "Le recyclage, c'est la vie!", StepType.RECYCLE_ITEMS, 25,

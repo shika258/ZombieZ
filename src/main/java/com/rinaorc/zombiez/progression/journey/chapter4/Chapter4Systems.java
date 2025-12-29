@@ -21,6 +21,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -2303,6 +2304,70 @@ public class Chapter4Systems implements Listener {
         }
     }
 
+    /**
+     * Gère la mort du joueur pendant l'étape 8 (Arbre Maudit).
+     * Si le joueur meurt pendant l'épreuve, il perd sa progression et doit recommencer.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        UUID uuid = player.getUniqueId();
+
+        // Vérifier si le joueur est à l'étape 4_8 (Arbre Maudit)
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep != JourneyStep.STEP_4_8) {
+            return;
+        }
+
+        // Vérifier si le joueur a une progression en cours (orbes collectées ou boss actif)
+        boolean hasProgress = playerCollectedOrbs.containsKey(uuid) && !playerCollectedOrbs.get(uuid).isEmpty();
+        boolean hasBoss = playersWithActiveCreakingBoss.contains(uuid);
+
+        if (!hasProgress && !hasBoss) {
+            return; // Rien à reset
+        }
+
+        // Reset de la progression
+        playerCollectedOrbs.remove(uuid);
+        journeyManager.setStepProgress(player, JourneyStep.STEP_4_8, 0);
+        playersWithActiveCreakingBoss.remove(uuid);
+
+        // Despawn le boss si présent
+        UUID bossUuid = playerCreakingBossMap.remove(uuid);
+        if (bossUuid != null) {
+            Entity boss = plugin.getServer().getEntity(bossUuid);
+            if (boss != null && boss.isValid()) {
+                boss.remove();
+            }
+        }
+
+        // Message au joueur (affiché après respawn)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                player.sendTitle(
+                        "§c✖ ÉCHEC DE L'ÉPREUVE",
+                        "§7Vous devez recommencer depuis le début",
+                        10, 60, 20
+                );
+
+                player.sendMessage("");
+                player.sendMessage("§c§l⚠ ÉPREUVE ÉCHOUÉE §c⚠");
+                player.sendMessage("§7Vous êtes mort pendant l'épreuve de l'Arbre Maudit.");
+                player.sendMessage("§7Vous devez §crecollecter les 8 orbes §7pour réinvoquer le Gardien.");
+                player.sendMessage("");
+
+                // Réactiver le GPS vers l'arbre maudit
+                activateGPSToCreakingTree(player);
+
+                // Son d'échec
+                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_DEATH, 0.5f, 0.5f);
+            }
+        }.runTaskLater(plugin, 20L); // Attendre 1 seconde après respawn
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -3794,6 +3859,14 @@ public class Chapter4Systems implements Listener {
         return progress >= ORB_COUNT + 1;
     }
 
+    /**
+     * Active le GPS vers l'Arbre Maudit pour un joueur
+     */
+    private void activateGPSToCreakingTree(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §e453, 91, 8515 §7(Arbre Maudit - Centre)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+    }
+
     // ==================== ÉTAPE 9: LIVRAISON ANTIDOTE ====================
 
     /**
@@ -4099,21 +4172,9 @@ public class Chapter4Systems implements Listener {
             Location loc = CRYSTAL_LOCATION.clone();
             loc.setWorld(world);
 
-            // Supprimer les anciens (référence trackée)
-            if (crystalEntity != null && crystalEntity.isValid()) {
-                crystalEntity.remove();
-            }
-            if (crystalDisplay != null && crystalDisplay.isValid()) {
-                crystalDisplay.remove();
-            }
-
-            // SÉCURITÉ : Nettoyer TOUS les cristaux existants dans la zone
-            // (évite les duplications si la référence crystalEntity était perdue)
-            for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
-                if (entity.getScoreboardTags().contains("chapter4_crystal")) {
-                    entity.remove();
-                }
-            }
+            // SÉCURITÉ ABSOLUE : Nettoyer TOUS les cristaux dans TOUT LE MONDE
+            // Évite toute duplication même si les références sont perdues
+            cleanupAllCrystals(world);
 
             // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
             crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
@@ -4122,7 +4183,7 @@ public class Chapter4Systems implements Listener {
 
                 crystal.addScoreboardTag("chapter4_crystal");
                 crystal.addScoreboardTag("zombiez_npc"); // Pour empêcher certains systèmes de le cibler
-                crystal.setPersistent(false);
+                crystal.setPersistent(true); // Persistant pour éviter les respawns inutiles
 
                 // PDC pour identifier le cristal
                 crystal.getPersistentDataContainer().set(CRYSTAL_HITBOX_KEY, PersistentDataType.BYTE, (byte) 1);
@@ -4156,12 +4217,36 @@ public class Chapter4Systems implements Listener {
                         new AxisAngle4f(0, 0, 0, 1)));
 
                 display.setViewRange(0.4f);
-                display.setPersistent(false);
+                display.setPersistent(true); // Persistant pour éviter les respawns inutiles
                 display.addScoreboardTag("chapter4_crystal");
                 display.addScoreboardTag("chapter4_crystal_display");
             });
         } finally {
             isSpawningCrystal = false;
+        }
+    }
+
+    /**
+     * Nettoie TOUS les cristaux existants dans le monde entier.
+     * Garantit qu'il n'y aura qu'un seul cristal.
+     */
+    private void cleanupAllCrystals(World world) {
+        // Reset des références
+        crystalEntity = null;
+        crystalDisplay = null;
+
+        int removed = 0;
+
+        // Recherche GLOBALE dans tout le monde
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_crystal")) {
+                entity.remove();
+                removed++;
+            }
+        }
+
+        if (removed > 0) {
+            plugin.log(Level.INFO, "§e[Crystal Cleanup] Supprimé " + removed + " cristaux/displays dupliqués");
         }
     }
 
@@ -4180,7 +4265,7 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du cristal
+     * Démarre le vérificateur de respawn du cristal (avec sécurité anti-duplication)
      */
     private void startCrystalRespawnChecker() {
         new BukkitRunnable() {
@@ -4190,32 +4275,53 @@ public class Chapter4Systems implements Listener {
                 if (world == null)
                     return;
 
-                boolean needsRespawn = crystalEntity == null || !crystalEntity.isValid();
+                Location crystalLoc = CRYSTAL_LOCATION.clone();
+                crystalLoc.setWorld(world);
 
-                if (needsRespawn) {
-                    spawnCorruptionCrystal(world);
-                    plugin.log(Level.FINE, "Cristal de Corruption respawné");
+                // SÉCURITÉ : Ne rien faire si aucun joueur n'est proche (100 blocs)
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(p -> p.getLocation().distanceSquared(crystalLoc) < 10000);
+                if (!playerNearby) {
+                    return;
                 }
 
-                if (crystalDisplay == null || !crystalDisplay.isValid()) {
-                    Location loc = CRYSTAL_LOCATION.clone();
-                    loc.setWorld(world);
-                    // Recréer le display (fusion des 2 anciens displays)
-                    crystalDisplay = world.spawn(loc.clone().add(0, 3.5, 0), TextDisplay.class, display -> {
-                        display.text(Component.text()
-                                .append(Component.text("💎 ", NamedTextColor.DARK_PURPLE))
-                                .append(Component.text("CRISTAL DE CORRUPTION", NamedTextColor.LIGHT_PURPLE,
-                                        TextDecoration.BOLD))
-                                .append(Component.text(" 💎", NamedTextColor.DARK_PURPLE))
-                                .append(Component.newline())
-                                .append(Component.text("▶ Attaque pour infliger des dégâts", NamedTextColor.GRAY))
-                                .build());
-                        display.setBillboard(Display.Billboard.CENTER);
-                        display.setAlignment(TextDisplay.TextAlignment.CENTER);
-                        display.setShadowed(true);
-                        display.setPersistent(false);
-                        display.addScoreboardTag("chapter4_crystal");
-                    });
+                // Vérifier si le cristal est valide
+                boolean crystalValid = crystalEntity != null && crystalEntity.isValid() && !crystalEntity.isDead();
+                boolean displayValid = crystalDisplay != null && crystalDisplay.isValid() && !crystalDisplay.isDead();
+
+                // Si les deux sont valides, rien à faire
+                if (crystalValid && displayValid) {
+                    return;
+                }
+
+                // SÉCURITÉ : Chercher les entités existantes avant de créer de nouvelles
+                if (!crystalValid || !displayValid) {
+                    for (Entity entity : world.getNearbyEntities(crystalLoc, 10, 10, 10)) {
+                        if (!entity.getScoreboardTags().contains("chapter4_crystal")) {
+                            continue;
+                        }
+
+                        // Récupérer le cristal existant
+                        if (!crystalValid && entity instanceof EnderCrystal ec) {
+                            crystalEntity = ec;
+                            crystalValid = true;
+                            plugin.log(Level.FINE, "Cristal existant récupéré");
+                        }
+
+                        // Récupérer le display existant
+                        if (!displayValid && entity instanceof TextDisplay td
+                                && entity.getScoreboardTags().contains("chapter4_crystal_display")) {
+                            crystalDisplay = td;
+                            displayValid = true;
+                            plugin.log(Level.FINE, "Display cristal existant récupéré");
+                        }
+                    }
+                }
+
+                // Si après récupération il manque toujours quelque chose, respawn complet
+                if (!crystalValid || !displayValid) {
+                    spawnCorruptionCrystal(world);
+                    plugin.log(Level.INFO, "Cristal de Corruption respawné (joueur à proximité)");
                 }
             }
         }.runTaskTimer(plugin, 200L, 200L);

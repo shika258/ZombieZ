@@ -131,7 +131,7 @@ public class ChasseurTalentListener implements Listener {
         if (!(event.getEntity() instanceof LivingEntity target)) return;
 
         // Ignorer les NPCs Citizens et ZombieZ
-        if (EntityUtils.isAnyNPC(target)) return;
+        if (EntityUtils.isProtectedEntity(target)) return;
 
         ClassData data = plugin.getClassManager().getClassData(player);
         if (!data.hasClass() || data.getSelectedClass() != ClassType.CHASSEUR) return;
@@ -162,7 +162,7 @@ public class ChasseurTalentListener implements Listener {
                 if (predatorEye != null && Math.random() < predatorEye.getValue(0)) {
                     lastDodgeTime.remove(uuid);
                     if (shouldSendTalentMessage(player)) {
-                        player.sendMessage("§b! Esquive prete!");
+                        player.sendMessage("§b§l⚡ [Œil du Prédateur] §7: §aEsquive réinitialisée!");
                     }
                 }
             }
@@ -328,7 +328,7 @@ public class ChasseurTalentListener implements Listener {
                 gatlingModeEnd.put(uuid, System.currentTimeMillis() + (long) gatling.getValue(1));
                 consecutiveShots.put(uuid, 0);
                 if (shouldSendTalentMessage(player)) {
-                    player.sendMessage("§c§l+ MODE GATLING ACTIVE!");
+                    player.sendMessage("§c§l🔫 [Gatling] §7: Mode activé pendant §e§l" + (int)(gatling.getValue(1)/1000) + "s §f- Tir automatique!");
                 }
                 player.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 1.0f, 2.0f);
             }
@@ -435,7 +435,7 @@ public class ChasseurTalentListener implements Listener {
             // Damage buff
             bountyBuffEnd.put(uuid, System.currentTimeMillis() + (long) bountyHunter.getValue(2));
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§6+ Prime collectee! +20% degats!");
+                player.sendMessage("§6§l💰 [Chasseur de Primes] §7: Prime! §a§l+" + (int)heal + " §fPV + §c§l+20% §fdégâts §7(" + (int)(bountyHunter.getValue(2)/1000) + "s)");
             }
             removeMark(player, target);
         }
@@ -514,7 +514,7 @@ public class ChasseurTalentListener implements Listener {
                     if (stillTime >= sharpshooter.getValue(0) && !guaranteedCrit.getOrDefault(uuid, false)) {
                         guaranteedCrit.put(uuid, true);
                         if (shouldSendTalentMessage(player)) {
-                            player.sendMessage("§e! Critique garanti!");
+                            player.sendMessage("§e§l🎯 [Tireur d'Élite] §7: §aCritique garanti §fau prochain tir!");
                         }
                         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.5f, 2.0f);
                     }
@@ -618,7 +618,7 @@ public class ChasseurTalentListener implements Listener {
                 deathNoteTargets.entrySet().removeIf(entry -> {
                     if (now >= entry.getValue()) {
                         Entity entity = Bukkit.getEntity(entry.getKey());
-                        if (entity instanceof LivingEntity target && target.isValid() && !EntityUtils.isAnyNPC(target)) {
+                        if (entity instanceof LivingEntity target && target.isValid() && !EntityUtils.isProtectedEntity(target)) {
                             double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
                             boolean isBossOrElite = target.getScoreboardTags().contains("boss") ||
                                                     target.getScoreboardTags().contains("elite") ||
@@ -643,7 +643,7 @@ public class ChasseurTalentListener implements Listener {
 
                     targets.forEach((targetUuid, stacks) -> {
                         Entity entity = Bukkit.getEntity(targetUuid);
-                        if (entity instanceof LivingEntity target && target.isValid() && !EntityUtils.isAnyNPC(target)) {
+                        if (entity instanceof LivingEntity target && target.isValid() && !EntityUtils.isProtectedEntity(target)) {
                             double baseDamage = 2.0 * Math.min(stacks, 10); // Cap stacks a 10
 
                             Talent deadlyToxins = getActiveTalentIfHas(player, Talent.TalentEffectType.DEADLY_TOXINS);
@@ -812,7 +812,7 @@ public class ChasseurTalentListener implements Listener {
         Location behind = target.getLocation().add(dir.multiply(2));
 
         for (Entity entity : target.getWorld().getNearbyEntities(behind, 2, 2, 2)) {
-            if (entity instanceof LivingEntity nearby && entity != player && entity != target && !EntityUtils.isAnyNPC(nearby)) {
+            if (entity instanceof LivingEntity nearby && entity != player && entity != target && !EntityUtils.isProtectedEntity(nearby)) {
                 nearby.damage(damage, player);
                 nearby.getWorld().spawnParticle(Particle.CRIT, nearby.getLocation(), 5, 0.2, 0.2, 0.2, 0);
                 break;
@@ -822,7 +822,7 @@ public class ChasseurTalentListener implements Listener {
 
     private void procRicochet(Player player, LivingEntity target, double damage, double range) {
         for (Entity entity : target.getNearbyEntities(range, range, range)) {
-            if (entity instanceof LivingEntity nearby && entity != player && entity != target && !EntityUtils.isAnyNPC(nearby)) {
+            if (entity instanceof LivingEntity nearby && entity != player && entity != target && !EntityUtils.isProtectedEntity(nearby)) {
                 nearby.damage(damage, player);
                 nearby.getWorld().playSound(nearby.getLocation(), Sound.BLOCK_CHAIN_HIT, 1.0f, 1.5f);
                 nearby.getWorld().spawnParticle(Particle.ENCHANTED_HIT, nearby.getLocation(), 10, 0.3, 0.3, 0.3, 0);
@@ -852,7 +852,7 @@ public class ChasseurTalentListener implements Listener {
                 barrageFuryCharges.put(uuid, 0); // Reset charges
 
                 // Message et effets épiques
-                player.sendMessage("§6§l✦ SUPER PLUIE DÉCLENCHÉE! ✦");
+                player.sendMessage("§6§l🌧 [Super Pluie] §7: §e§lx" + (int)barrageFury.getValue(1) + " §fflèches + §e§lx" + barrageFury.getValue(2) + " §frayon!");
                 player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.2f);
                 player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.5f);
 
@@ -860,7 +860,7 @@ public class ChasseurTalentListener implements Listener {
                 center.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, center.clone().add(0, 5, 0), 100, 3, 2, 3, 0.5);
                 center.getWorld().spawnParticle(Particle.FLAME, center.clone().add(0, 10, 0), 50, radius/2, 1, radius/2, 0.1);
             } else if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§7Charges Barrage: §e" + charges + "§7/§e" + chargesNeeded);
+                player.sendMessage("§7⚡ [Barrage] §7: Charges §e" + charges + "§7/§e" + chargesNeeded);
             }
         }
 
@@ -873,7 +873,7 @@ public class ChasseurTalentListener implements Listener {
             waves += extraWaves;
             arrows = (int) (arrows * arrowMult);
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§b✦ Déluge! +" + extraWaves + " vagues, +" + (int)((arrowMult - 1) * 100) + "% flèches!");
+                player.sendMessage("§b§l🌊 [Déluge] §7: §a+" + extraWaves + " §fvagues + §a+" + (int)((arrowMult - 1) * 100) + "% §fflèches");
             }
         }
 
@@ -888,7 +888,7 @@ public class ChasseurTalentListener implements Listener {
             double radiusMult = devastatingSwarm.getValue(0); // x2
             radius *= radiusMult;
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§6✦ Nuée Dévastatrice! Zone x" + (int)radiusMult + "!");
+                player.sendMessage("§6§l💨 [Nuée Dévast.] §7: Zone §c§lx" + (int)radiusMult + " §f+ fragmentation");
             }
             // Son épique
             center.getWorld().playSound(center, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.5f, 0.8f);
@@ -928,7 +928,7 @@ public class ChasseurTalentListener implements Listener {
 
             // Message d'activation
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§b✦ Œil du Cyclone activé!");
+                player.sendMessage("§b§l🌀 [Œil du Cyclone] §7: Vortex §c§l+" + (int)(cycloneDmgBonus*100) + "% §fdégâts + explosion finale");
             }
 
             // Son du vortex
@@ -955,7 +955,7 @@ public class ChasseurTalentListener implements Listener {
                         // Dégâts d'explosion à tous les ennemis dans le rayon
                         double explosionDamage = finalDamageBase * explosionDmgMult * (finalIsSuperRain ? 2.0 : 1.0);
                         for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, explosionRadius, explosionRadius, explosionRadius)) {
-                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isAnyNPC(target)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(target)) {
                                 target.damage(explosionDamage, player);
 
                                 // Knockback depuis le centre
@@ -1005,7 +1005,7 @@ public class ChasseurTalentListener implements Listener {
                     // Attirer les ennemis vers le centre (force équilibrée)
                     if (ticks % 3 == 0) {
                         for (Entity entity : vortexCenter.getWorld().getNearbyEntities(vortexCenter, finalRadius * 1.5, 3, finalRadius * 1.5)) {
-                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isAnyNPC(target)) {
+                            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(target)) {
                                 // Calculer la direction vers le centre
                                 Vector toCenter = vortexCenter.toVector().subtract(target.getLocation().toVector());
                                 double distance = toCenter.length();
@@ -1104,7 +1104,7 @@ public class ChasseurTalentListener implements Listener {
 
                                     // Appliquer les dégâts aux entités proches
                                     for (Entity entity : loc.getWorld().getNearbyEntities(loc, hitRadius, hitRadius, hitRadius)) {
-                                        if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isAnyNPC(target)) {
+                                        if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(target)) {
                                             double finalDamage = finalDamageBase;
 
                                             // Cyclone Eye - bonus de dégâts pour les ennemis dans le vortex
@@ -1151,7 +1151,7 @@ public class ChasseurTalentListener implements Listener {
 
                                                     // Dégâts de l'éclat
                                                     for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
-                                                        if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand) && !EntityUtils.isAnyNPC(fragTarget)) {
+                                                        if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(fragTarget)) {
                                                             fragTarget.damage(fragmentDamage, player);
 
                                                             // Check kill for Barrage Fury
@@ -1209,13 +1209,13 @@ public class ChasseurTalentListener implements Listener {
                     // Feedback satisfaisant
                     if (newCharges > 0) {
                         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f + (totalCharges * 0.1f));
-                        player.sendMessage("§6+" + newCharges + " charge" + (newCharges > 1 ? "s" : "") +
-                            " Barrage! §7(§e" + totalCharges + "§7/§e" + chargesNeeded + "§7)");
+                        player.sendMessage("§6§l⚡ [Barrage] §7: §a+" + newCharges + " §fcharge" + (newCharges > 1 ? "s" : "") +
+                            " §7(§e" + totalCharges + "§7/§e" + chargesNeeded + "§7)");
 
                         // Effet visuel quand proche du max
                         if (totalCharges >= chargesNeeded - 1) {
                             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 2.0f);
-                            player.sendMessage("§6§l⚡ SUPER PLUIE PRÊTE!");
+                            player.sendMessage("§6§l🌧 [Super Pluie] §7: §a§lPRÊTE! §fDéclenchez avec Pluie de Flèches!");
                         }
                     }
                 }
@@ -1291,7 +1291,7 @@ public class ChasseurTalentListener implements Listener {
 
                             // Appliquer les dégâts + DOT de feu aux entités proches
                             for (Entity entity : loc.getWorld().getNearbyEntities(loc, 1.5, 1.5, 1.5)) {
-                                if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isAnyNPC(target)) {
+                                if (entity instanceof LivingEntity target && entity != player && !(entity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(target)) {
                                     // Dégâts initiaux
                                     target.damage(finalDamage, player);
 
@@ -1320,7 +1320,7 @@ public class ChasseurTalentListener implements Listener {
                                                 new Particle.DustOptions(Color.fromRGB(255, 150, 50), 0.8f));
 
                                             for (Entity fragEntity : fragLoc.getWorld().getNearbyEntities(fragLoc, fragmentRadius, fragmentRadius, fragmentRadius)) {
-                                                if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand) && !EntityUtils.isAnyNPC(fragTarget)) {
+                                                if (fragEntity instanceof LivingEntity fragTarget && fragEntity != player && fragEntity != target && !(fragEntity instanceof ArmorStand) && !EntityUtils.isProtectedEntity(fragTarget)) {
                                                     fragTarget.damage(fragmentDamage, player);
                                                     fragTarget.setFireTicks(40); // Éclats enflammés
                                                 }
@@ -1395,7 +1395,7 @@ public class ChasseurTalentListener implements Listener {
         Vector direction = player.getLocation().getDirection().setY(0).normalize();
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l✈ FRAPPE ORBITALE!");
+            player.sendMessage("§c§l✈ [Frappe Orbitale] §7: §c§l" + bombCount + " §fbombes - §c§l" + (int)baseDamage + " §fdégâts chacune");
         }
 
         // Son d'avion qui passe
@@ -1451,7 +1451,7 @@ public class ChasseurTalentListener implements Listener {
 
                 // Dégâts aux entités dans le rayon
                 for (Entity entity : loc.getWorld().getNearbyEntities(loc, explosionRadius, explosionRadius, explosionRadius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                         // Dégâts réduisent avec la distance
                         double distance = target.getLocation().distance(loc);
                         double damageMultiplier = 1.0 - (distance / (explosionRadius * 1.5));
@@ -1519,7 +1519,7 @@ public class ChasseurTalentListener implements Listener {
         player.getWorld().spawnParticle(Particle.ITEM_SLIME, center, 20, radius/2, 1, radius/2, 0);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 target.damage(damagePerSecond, player);
 
                 // Apply poison effects from other talents
@@ -1539,7 +1539,7 @@ public class ChasseurTalentListener implements Listener {
         double closestDist = range;
 
         for (Entity entity : player.getNearbyEntities(range, range, range)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 double dist = player.getLocation().distance(target.getLocation());
                 if (dist < closestDist) {
                     closestDist = dist;
@@ -1568,7 +1568,7 @@ public class ChasseurTalentListener implements Listener {
 
             for (Entity entity : infected.getNearbyEntities(range, range, range)) {
                 if (entity instanceof LivingEntity target && entity != player &&
-                    !EntityUtils.isAnyNPC(target) && !playerPoisons.containsKey(target.getUniqueId())) {
+                    !EntityUtils.isProtectedEntity(target) && !playerPoisons.containsKey(target.getUniqueId())) {
                     newInfections.add(target.getUniqueId());
                     playerPoisons.put(target.getUniqueId(), 1);
                     target.getWorld().spawnParticle(Particle.ITEM_SLIME, target.getLocation(), 10, 0.3, 0.3, 0.3, 0);
@@ -1578,12 +1578,11 @@ public class ChasseurTalentListener implements Listener {
     }
 
     private void procBulletTime(Player player, Talent talent) {
+        long duration = (long) talent.getValue(0);
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§b§l+ BULLET TIME!");
+            player.sendMessage("§b§l⏱ [Bullet Time] §7: §e§lRalentissement §fdes ennemis pendant §e§l" + (int)(duration/1000) + "s");
         }
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
-
-        long duration = (long) talent.getValue(0);
         double slowFactor = talent.getValue(1);
 
         // Slow all nearby mobs
@@ -1603,7 +1602,7 @@ public class ChasseurTalentListener implements Listener {
         center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 target.damage(damage, player);
             }
         }
@@ -1636,7 +1635,7 @@ public class ChasseurTalentListener implements Listener {
             deathNoteTargets.put(targetUuid, System.currentTimeMillis() + (long) deathNote.getValue(0));
             setCooldown(uuid, "death_note", (long) deathNote.getValue(2));
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§0§l+ DEATH NOTE: §7Cible marquee pour la mort!");
+                player.sendMessage("§0§l📓 [Death Note] §7: Cible §c§lmarquée §fpour la mort §7(" + (int)(deathNote.getValue(0)/1000) + "s)");
             }
             target.getWorld().playSound(target.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.5f, 0.5f);
         }
@@ -1686,7 +1685,7 @@ public class ChasseurTalentListener implements Listener {
 
     private void spreadPoison(Player player, Location center, int stacks, double range) {
         for (Entity entity : center.getWorld().getNearbyEntities(center, range, range, range)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 Map<UUID, Integer> playerPoisons = poisonStacks.computeIfAbsent(player.getUniqueId(),
                     k -> new ConcurrentHashMap<>());
                 playerPoisons.put(target.getUniqueId(), stacks);
@@ -1779,7 +1778,7 @@ public class ChasseurTalentListener implements Listener {
             // Charges pleines - prêt à tirer!
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 2.0f);
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§c§l✦ RAFALE PRÊTE! §7Tirez pour déclencher la salve!");
+                player.sendMessage("§c§l🏹 [Rafale] §7: §a§lPrêt! §fTirez pour déclencher §c§l3 §fsalves!");
             }
         } else if (newCharges % 2 == 0) {
             // Feedback de progression tous les 2 charges
@@ -1808,7 +1807,7 @@ public class ChasseurTalentListener implements Listener {
 
         // Message de confirmation
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c✦ RAFALE! §e3x" + bonusArrows + " flèches!");
+            player.sendMessage("§c§l🏹 [Rafale] §7: Salve! §c§l3x" + bonusArrows + " §fflèches à §c§l" + (int)(damagePercent*100) + "% §fdégâts");
         }
 
         // Tirer 3 salves avec 0.4s (8 ticks) d'intervalle

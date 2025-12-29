@@ -78,11 +78,14 @@ public class ZombieListener implements Listener {
             double levelMultiplier = 1 + (level * 0.1);
             double affixMultiplier = activeZombie.hasAffix() ? activeZombie.getAffix().getRewardMultiplier() : 1.0;
 
-            int finalPoints = (int) (basePoints * levelMultiplier * affixMultiplier);
-            long finalXP = (long) (baseXP * levelMultiplier * affixMultiplier);
+            // Bonus élite x3
+            double eliteMultiplier = activeZombie.isElite() ? 3.0 : 1.0;
 
-            // Déterminer si c'est un élite (catégorie ELITE)
-            boolean isElite = type.getCategory() == ZombieType.ZombieCategory.ELITE;
+            int finalPoints = (int) (basePoints * levelMultiplier * affixMultiplier * eliteMultiplier);
+            long finalXP = (long) (baseXP * levelMultiplier * affixMultiplier * eliteMultiplier);
+
+            // Déterminer si c'est un élite (nouveau système EliteManager)
+            boolean isElite = activeZombie.isElite();
 
             // Créer et fire l'événement
             ZombieDeathEvent zombieDeathEvent = new ZombieDeathEvent(

@@ -403,12 +403,12 @@ public class PassiveMobManager implements Listener {
         // Toujours dropper au moins 1 item commun
         FoodItem guaranteedDrop = foodRegistry.getGuaranteedDrop(mobType);
         if (guaranteedDrop != null) {
-            int amount = 1 + random.nextInt(3); // 1-3 items
+            int amount = 1 + random.nextInt(2); // 1-2 items (réduit de 1-3)
             loot.add(new FoodDropInfo(guaranteedDrop, amount));
         }
 
-        // Chance de drop rare (8% base + bonus zone)
-        double rareChance = 0.08 + qualityBonus;
+        // Chance de drop rare (5% base + bonus zone) - réduit de 8%
+        double rareChance = 0.05 + qualityBonus;
         if (random.nextDouble() < rareChance) {
             FoodItem rareDrop = foodRegistry.getRareDrop(mobType);
             if (rareDrop != null) {
@@ -416,8 +416,8 @@ public class PassiveMobManager implements Listener {
             }
         }
 
-        // Chance de drop épique (4% base + bonus zone × 0.7)
-        double epicChance = 0.04 + (qualityBonus * 0.7);
+        // Chance de drop épique (2% base + bonus zone × 0.5) - réduit de 4%
+        double epicChance = 0.02 + (qualityBonus * 0.5);
         if (random.nextDouble() < epicChance) {
             FoodItem epicDrop = foodRegistry.getEpicDrop(mobType);
             if (epicDrop != null) {
@@ -425,8 +425,8 @@ public class PassiveMobManager implements Listener {
             }
         }
 
-        // Chance de drop légendaire (2% base + bonus zone × 0.5)
-        double legendaryChance = 0.02 + (qualityBonus * 0.5);
+        // Chance de drop légendaire (1% base + bonus zone × 0.3) - réduit de 2%
+        double legendaryChance = 0.01 + (qualityBonus * 0.3);
         if (random.nextDouble() < legendaryChance) {
             FoodItem legendaryDrop = foodRegistry.getLegendaryDrop(mobType);
             if (legendaryDrop != null) {

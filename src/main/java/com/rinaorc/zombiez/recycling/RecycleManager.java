@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.consumables.ConsumableRarity;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
+import com.rinaorc.zombiez.mobs.food.FoodItem;
+import com.rinaorc.zombiez.mobs.food.FoodItemRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -15,6 +17,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -165,9 +169,6 @@ public class RecycleManager implements Listener {
             RecycleSettings settings = getSettings(player.getUniqueId());
             settings.addRecycledItem(points);
 
-            // Vérifier les milestones
-            checkAndAwardMilestones(player, settings, points);
-
             // Tracker pour le parcours (Journey)
             notifyJourneyProgress(player, settings);
 
@@ -214,9 +215,6 @@ public class RecycleManager implements Listener {
             RecycleSettings settings = getSettings(player.getUniqueId());
             settings.addRecycledItem(points);
 
-            // Vérifier les milestones
-            checkAndAwardMilestones(player, settings, points);
-
             // Tracker pour le parcours (Journey)
             notifyJourneyProgress(player, settings);
         }
@@ -225,66 +223,80 @@ public class RecycleManager implements Listener {
     }
 
     /**
-     * Vérifie et attribue les milestones après un recyclage
+     * Vérifie si un ItemStack est une nourriture ZombieZ
      */
-    private void checkAndAwardMilestones(Player player, RecycleSettings settings, int pointsFromRecycle) {
-        List<RecycleMilestone> newlyUnlocked = new ArrayList<>();
-
-        // Mettre à jour le meilleur recyclage unique
-        settings.updateBestSingleRecycle(pointsFromRecycle);
-
-        for (RecycleMilestone milestone : RecycleMilestone.values()) {
-            // Déjà débloqué ?
-            if (settings.isMilestoneUnlocked(milestone)) {
-                continue;
-            }
-
-            boolean shouldUnlock = switch (milestone.getType()) {
-                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get() >= milestone.getRequiredValue();
-                case POINTS_EARNED -> settings.getTotalPointsEarned().get() >= milestone.getRequiredValue();
-                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get() >= milestone.getRequiredValue();
-                case SINGLE_RECYCLE -> pointsFromRecycle >= milestone.getRequiredValue();
-            };
-
-            if (shouldUnlock && settings.unlockMilestone(milestone)) {
-                newlyUnlocked.add(milestone);
-            }
-        }
-
-        // Notifier le joueur pour chaque nouveau milestone
-        for (RecycleMilestone milestone : newlyUnlocked) {
-            awardMilestone(player, milestone);
-        }
+    public boolean isFoodItem(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getPersistentDataContainer().has(FoodItem.FOOD_KEY, PersistentDataType.STRING);
     }
 
     /**
-     * Attribue un milestone au joueur avec notification et bonus
+     * Obtient l'ID de nourriture depuis un ItemStack
      */
-    private void awardMilestone(Player player, RecycleMilestone milestone) {
-        // Donner les points bonus
-        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
-        if (playerData != null) {
-            playerData.addPoints(milestone.getBonusPoints());
-            playerData.addTotalPointsEarned(milestone.getBonusPoints());
+    public String getFoodId(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        return meta.getPersistentDataContainer().get(FoodItem.FOOD_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * Recycle une nourriture et donne les points au joueur
+     *
+     * @param player Le joueur qui recycle
+     * @param item L'ItemStack nourriture à recycler
+     * @return Les points gagnés, ou 0 si non recyclable
+     */
+    public int recycleFood(Player player, ItemStack item) {
+        String foodId = getFoodId(item);
+        if (foodId == null) return 0;
+
+        // Obtenir le FoodItemRegistry
+        var passiveMobManager = plugin.getPassiveMobManager();
+        if (passiveMobManager == null) return 0;
+
+        FoodItemRegistry registry = passiveMobManager.getFoodRegistry();
+        if (registry == null) return 0;
+
+        FoodItem foodItem = registry.getItem(foodId);
+        if (foodItem == null) return 0;
+
+        // Convertir FoodRarity en index pour les points (même échelle que ConsumableRarity)
+        int rarityIndex = foodItem.getRarity().ordinal();
+        if (rarityIndex >= CONSUMABLE_POINTS_BY_RARITY.length) {
+            rarityIndex = CONSUMABLE_POINTS_BY_RARITY.length - 1;
         }
 
-        // Notification visuelle
-        player.sendMessage("");
-        player.sendMessage("§6§l✦ MILESTONE DÉBLOQUÉ! ✦");
-        player.sendMessage(milestone.getIcon() + " " + milestone.getColoredName());
-        player.sendMessage("§7" + milestone.getDescription());
-        player.sendMessage("§6Bonus: §e+" + formatPoints(milestone.getBonusPoints()) + " points!");
-        player.sendMessage("");
+        // Utiliser les mêmes points que les consommables
+        int basePoints = CONSUMABLE_POINTS_BY_RARITY[rarityIndex];
 
-        // Notification sonore spéciale
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.2f);
+        // Pas de zone level pour la nourriture, utiliser zone 1 comme base
+        int points = basePoints;
 
-        // Effet de titre
-        player.sendTitle(
-            "§6✦ " + milestone.getColoredName() + " §6✦",
-            "§e+" + formatPoints(milestone.getBonusPoints()) + " points bonus!",
-            10, 40, 20
-        );
+        // Appliquer le multiplicateur VIP si applicable
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        if (playerData != null) {
+            double vipMultiplier = playerData.getPointsMultiplier();
+            points = (int) Math.round(points * vipMultiplier);
+
+            // Ajouter les points au joueur
+            playerData.addPoints(points);
+            playerData.addTotalPointsEarned(points);
+
+            // Mettre à jour les stats de recyclage
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            settings.addRecycledItem(points);
+
+            // Tracker pour le parcours (Journey)
+            notifyJourneyProgress(player, settings);
+
+            // Tracker pour la mission ITEMS_RECYCLED
+            plugin.getMissionManager().updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ITEMS_RECYCLED, 1);
+        }
+
+        return points;
     }
 
     /**
@@ -335,6 +347,23 @@ public class RecycleManager implements Listener {
             RecycleSettings settings = getSettings(player.getUniqueId());
             if (settings.shouldRecycleConsumables()) {
                 int points = recycleConsumable(player, item);
+                if (points > 0) {
+                    event.setCancelled(true);
+                    event.getItem().remove();
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
+                    return;
+                }
+            }
+            // Pas recyclé, vérifier l'inventaire
+            checkInventoryFullReminder(player);
+            return;
+        }
+
+        // Vérifier si c'est une nourriture ZombieZ (recyclée avec le même toggle que les consommables)
+        if (isFoodItem(item)) {
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            if (settings.shouldRecycleConsumables()) {
+                int points = recycleFood(player, item);
                 if (points > 0) {
                     event.setCancelled(true);
                     event.getItem().remove();
@@ -571,6 +600,30 @@ public class RecycleManager implements Listener {
                     pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
                 }
             }
+            // Vérifier si c'est une nourriture ZombieZ (recyclée avec le toggle consommables)
+            else if (isFoodItem(item)) {
+                if (!settings.shouldRecycleConsumables()) {
+                    continue;
+                }
+                String foodId = getFoodId(item);
+                if (foodId != null) {
+                    var passiveMobManager = plugin.getPassiveMobManager();
+                    if (passiveMobManager != null) {
+                        FoodItemRegistry registry = passiveMobManager.getFoodRegistry();
+                        if (registry != null) {
+                            FoodItem foodItem = registry.getItem(foodId);
+                            if (foodItem != null) {
+                                int rarityIndex = foodItem.getRarity().ordinal();
+                                if (rarityIndex >= CONSUMABLE_POINTS_BY_RARITY.length) {
+                                    rarityIndex = CONSUMABLE_POINTS_BY_RARITY.length - 1;
+                                }
+                                pointsPerItem = CONSUMABLE_POINTS_BY_RARITY[rarityIndex];
+                                pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+                            }
+                        }
+                    }
+                }
+            }
             // Sinon, vérifier si c'est un item ZombieZ recyclable
             else if (ZombieZItem.isZombieZItem(item)) {
                 Rarity rarity = ZombieZItem.getItemRarity(item);
@@ -610,45 +663,12 @@ public class RecycleManager implements Listener {
 
             // Mettre à jour les stats de recyclage en batch
             settings.addRecycledItemsBatch(totalRecycled, totalPoints);
-            settings.updateBestSingleRecycle(bestSingleRecycle);
-
-            // Vérifier les milestones UNE SEULE FOIS à la fin
-            checkMilestonesAfterBatch(player, settings, bestSingleRecycle);
 
             // Tracker pour le parcours (Journey)
             notifyJourneyProgress(player, settings);
 
             // Feedback sonore
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
-        }
-    }
-
-    /**
-     * Vérifie les milestones après un recyclage batch (optimisé)
-     */
-    private void checkMilestonesAfterBatch(Player player, RecycleSettings settings, int bestSingleRecycle) {
-        List<RecycleMilestone> newlyUnlocked = new ArrayList<>();
-
-        for (RecycleMilestone milestone : RecycleMilestone.values()) {
-            if (settings.isMilestoneUnlocked(milestone)) {
-                continue;
-            }
-
-            boolean shouldUnlock = switch (milestone.getType()) {
-                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get() >= milestone.getRequiredValue();
-                case POINTS_EARNED -> settings.getTotalPointsEarned().get() >= milestone.getRequiredValue();
-                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get() >= milestone.getRequiredValue();
-                case SINGLE_RECYCLE -> bestSingleRecycle >= milestone.getRequiredValue();
-            };
-
-            if (shouldUnlock && settings.unlockMilestone(milestone)) {
-                newlyUnlocked.add(milestone);
-            }
-        }
-
-        // Notifier le joueur pour chaque nouveau milestone
-        for (RecycleMilestone milestone : newlyUnlocked) {
-            awardMilestone(player, milestone);
         }
     }
 
@@ -719,118 +739,9 @@ public class RecycleManager implements Listener {
             "  §fPoints gagnés: §6" + formatPoints(settings.getTotalPointsEarned().get()),
             "",
             "§7Raretés recyclées: §f" + settings.getEnabledRaritiesCount() + "/7",
-            "§6Milestones: §f" + settings.getUnlockedMilestonesCount() + "/" + settings.getTotalMilestonesCount(),
             "",
-            "§7Utilisez §e/recycle milestones §7pour voir les détails."
+            "§7Utilisez §e/recycle §7pour ouvrir le menu."
         };
-    }
-
-    /**
-     * Obtient la liste des milestones pour un joueur
-     */
-    public List<String> getMilestonesList(UUID playerId) {
-        RecycleSettings settings = getSettings(playerId);
-        List<String> lines = new ArrayList<>();
-
-        lines.add("§6§l✦ Milestones de Recyclage ✦");
-        lines.add("§7Progression: §f" + settings.getUnlockedMilestonesCount() + "/" + settings.getTotalMilestonesCount());
-        lines.add("");
-
-        // Grouper par type
-        lines.add("§a♻ Items Recyclés:");
-        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.ITEMS_RECYCLED, settings.getTotalItemsRecycled().get());
-
-        lines.add("");
-        lines.add("§6⭐ Points Gagnés:");
-        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.POINTS_EARNED, settings.getTotalPointsEarned().get());
-
-        lines.add("");
-        lines.add("§b⚡ Session:");
-        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.SESSION_ITEMS, settings.getSessionItemsRecycled().get());
-
-        lines.add("");
-        lines.add("§d✦ Recyclage Unique:");
-        addMilestonesByType(lines, settings, RecycleMilestone.MilestoneType.SINGLE_RECYCLE, settings.getBestSingleRecycle());
-
-        return lines;
-    }
-
-    /**
-     * Ajoute les milestones d'un type à la liste
-     */
-    private void addMilestonesByType(List<String> lines, RecycleSettings settings,
-                                      RecycleMilestone.MilestoneType type, long currentValue) {
-        for (RecycleMilestone milestone : RecycleMilestone.values()) {
-            if (milestone.getType() != type) continue;
-
-            boolean unlocked = settings.isMilestoneUnlocked(milestone);
-            String status;
-
-            if (unlocked) {
-                status = "§a✓ " + milestone.getColoredName();
-            } else {
-                long progress = Math.min(currentValue, milestone.getRequiredValue());
-                int percent = (int) ((progress * 100) / milestone.getRequiredValue());
-                String progressBar = createProgressBar(percent);
-                status = "§7☐ §8" + milestone.getDisplayName() + " " + progressBar + " §7" + milestone.getFormattedRequirement();
-            }
-
-            lines.add("  " + status + " §8- §e+" + formatPoints(milestone.getBonusPoints()) + " pts");
-        }
-    }
-
-    /**
-     * Crée une barre de progression visuelle
-     */
-    private String createProgressBar(int percent) {
-        int filled = percent / 10; // 10 caractères pour 100%
-        int empty = 10 - filled;
-        return "§a" + "▮".repeat(filled) + "§8" + "▯".repeat(empty);
-    }
-
-    /**
-     * Obtient le prochain milestone à débloquer (le plus proche)
-     * @return le milestone le plus proche de déblocage, ou null si tous sont débloqués
-     */
-    public RecycleMilestone getNextMilestone(UUID playerId) {
-        RecycleSettings settings = getSettings(playerId);
-        RecycleMilestone closest = null;
-        double highestProgress = -1;
-
-        for (RecycleMilestone milestone : RecycleMilestone.values()) {
-            if (settings.isMilestoneUnlocked(milestone)) continue;
-
-            long currentValue = switch (milestone.getType()) {
-                case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get();
-                case POINTS_EARNED -> settings.getTotalPointsEarned().get();
-                case SESSION_ITEMS -> settings.getSessionItemsRecycled().get();
-                case SINGLE_RECYCLE -> settings.getBestSingleRecycle();
-            };
-
-            double progress = (double) currentValue / milestone.getRequiredValue();
-            if (progress > highestProgress) {
-                highestProgress = progress;
-                closest = milestone;
-            }
-        }
-
-        return closest;
-    }
-
-    /**
-     * Obtient la progression vers un milestone en pourcentage
-     */
-    public int getMilestoneProgress(UUID playerId, RecycleMilestone milestone) {
-        RecycleSettings settings = getSettings(playerId);
-
-        long currentValue = switch (milestone.getType()) {
-            case ITEMS_RECYCLED -> settings.getTotalItemsRecycled().get();
-            case POINTS_EARNED -> settings.getTotalPointsEarned().get();
-            case SESSION_ITEMS -> settings.getSessionItemsRecycled().get();
-            case SINGLE_RECYCLE -> settings.getBestSingleRecycle();
-        };
-
-        return (int) Math.min(100, (currentValue * 100) / milestone.getRequiredValue());
     }
 
     /**

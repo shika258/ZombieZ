@@ -720,7 +720,7 @@ public class TalentListener implements Listener {
                 Location center = target.getLocation();
                 int enemiesHit = 0;
                 for (Entity nearby : center.getWorld().getNearbyEntities(center, aoeRadius, aoeRadius, aoeRadius)) {
-                    if (nearby instanceof LivingEntity livingNearby && nearby != target && nearby != player && !nearby.isDead() && !EntityUtils.isAnyNPC(livingNearby)) {
+                    if (nearby instanceof LivingEntity livingNearby && nearby != target && nearby != player && !nearby.isDead() && !EntityUtils.isProtectedEntity(livingNearby)) {
                         if (livingNearby instanceof Monster || livingNearby.getScoreboardTags().contains("zombiez_enemy")) {
                             livingNearby.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                             livingNearby.damage(aoeDamage, player);
@@ -1021,7 +1021,7 @@ public class TalentListener implements Listener {
             // AoE: touche tous les ennemis autour du joueur (dégâts réduits)
             double baseDamage = damage;
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof LivingEntity nearbyTarget && entity != target && entity != player && !EntityUtils.isAnyNPC(nearbyTarget)) {
+                if (entity instanceof LivingEntity nearbyTarget && entity != target && entity != player && !EntityUtils.isProtectedEntity(nearbyTarget)) {
                     double aoeDamage = baseDamage * 0.35; // 35% aux autres cibles
                     nearbyTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                     nearbyTarget.damage(aoeDamage, player);
@@ -1115,7 +1115,7 @@ public class TalentListener implements Listener {
 
                     // Explosion sanglante
                     for (Entity entity : player.getNearbyEntities(explosionRadius, explosionRadius, explosionRadius)) {
-                        if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+                        if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                             double explosionDamage = totalHeal * 0.5;
                             target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                             target.damage(explosionDamage, player);
@@ -1247,7 +1247,7 @@ public class TalentListener implements Listener {
                     player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
                     player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation(), 50, 1, 1, 1, 0.1);
                     if (shouldSendTalentMessage(player)) {
-                        player.sendMessage("§6§l+ IMMORTEL! §7Vous avez triomphe de la mort!");
+                        player.sendMessage("§a§l💀 [Immortel] §7: §aRésurrection! §fVous revenez avec §a§l" + (int)(immortal.getValue(1) / 50) + " §7ticks d'invulnérabilité");
                     }
                     return;
                 }
@@ -1418,7 +1418,7 @@ public class TalentListener implements Listener {
 
         // Récupérer toutes les entités dans le rayon (sauf joueurs)
         for (Entity nearby : world.getNearbyEntities(explosionLoc, aoeRadius, aoeRadius, aoeRadius)) {
-            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead() && !EntityUtils.isAnyNPC(target)) {
+            if (nearby instanceof LivingEntity target && !(nearby instanceof Player) && !target.isDead() && !EntityUtils.isProtectedEntity(target)) {
                 // Vérifier la distance réelle (sphère)
                 if (explosionLoc.distanceSquared(target.getLocation()) <= aoeRadius * aoeRadius) {
                     // Calculer les dégâts réels (avant mort)
@@ -1769,7 +1769,7 @@ public class TalentListener implements Listener {
                 if (System.currentTimeMillis() - sprintStart >= charge.getValue(0)) {
                     chargeReady.put(uuid, true);
                     if (shouldSendTalentMessage(player)) {
-                        player.sendMessage("§6§l+ CHARGE PRETE! §7Votre prochaine attaque sera devastatrice!");
+                        player.sendMessage("§6§l⚡ [Charge Dévast.] §7: §aPrêt! §fProchaine attaque §c§l+300% §fdégâts");
                     }
                 }
             }
@@ -2080,7 +2080,7 @@ public class TalentListener implements Listener {
                         double chance = deathAngel.getValue(2);
 
                         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                                 double maxHp = target.getAttribute(Attribute.MAX_HEALTH).getValue();
                                 // Seulement instakill les mobs < 50 HP max
                                 if (target.getHealth() / maxHp < threshold && Math.random() < chance && maxHp <= 50) {
@@ -2196,7 +2196,7 @@ public class TalentListener implements Listener {
                     if (defianceAura != null) {
                         double radius = defianceAura.getValue(0);
                         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                                 // Appliquer Glowing pour visibilité
                                 target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false));
                                 // Appliquer Weakness pour -20% dégâts (approximation)
@@ -2272,7 +2272,7 @@ public class TalentListener implements Listener {
 
                         // Infliger des dégâts aux ennemis dans la zone
                         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                            if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                                 // Marquer comme dégâts secondaires pour éviter les cascades
                                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                                 target.damage(auraDamage, player);
@@ -2374,7 +2374,7 @@ public class TalentListener implements Listener {
 
         // Degats a TOUS les ennemis dans la zone (cible principale incluse)
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -2389,7 +2389,7 @@ public class TalentListener implements Listener {
 
     private void procSeismicStrikeNoEcho(Player player, Location center, double damage, double radius) {
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -2521,7 +2521,7 @@ public class TalentListener implements Listener {
         double damage = baseDamage * damageMultiplier;
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
@@ -2529,7 +2529,7 @@ public class TalentListener implements Listener {
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ DECHAINEMENT! §7Explosion devastatrice!");
+            player.sendMessage("§c§l💥 [Déchaînement] §7: Explosion §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2544,13 +2544,13 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 0.8f);
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ CATACLYSME! §7Une explosion massive ravage tout!");
+            player.sendMessage("§c§l🔥 [Cataclysme] §7: Impact massif §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2562,7 +2562,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.ENTITY_WITHER_HURT, 1.0f, 0.5f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
@@ -2573,7 +2573,7 @@ public class TalentListener implements Listener {
         applyLifesteal(player, heal);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§4§l+ AVATAR DE SANG! §7Le sang explose autour de vous!");
+            player.sendMessage("§4§l🩸 [Avatar de Sang] §7: §c§l" + (int)damage + " §fdégâts + §a§l" + (int)heal + " §fPV volés §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2601,7 +2601,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 0.5f);
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
                 if (target instanceof Mob mob) {
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, (int)(stunMs / 50), 10, false, false));
@@ -2610,7 +2610,7 @@ public class TalentListener implements Listener {
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ APOCALYPSE! §7La terre tremble sous votre puissance!");
+            player.sendMessage("§5§l🌍 [Apocalypse] §7: Séisme §c§l" + (int)damage + " §fdégâts + §e§lStun " + (int)(stunMs/1000) + "s §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2630,7 +2630,7 @@ public class TalentListener implements Listener {
         double damage = baseDamage * damageMultiplier;
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -2689,7 +2689,7 @@ public class TalentListener implements Listener {
 
         // === IMPACT INITIAL - Degats + Stun + Knockback ===
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 double distSq = Math.pow(target.getLocation().getX() - center.getX(), 2) +
                                Math.pow(target.getLocation().getZ() - center.getZ(), 2);
                 if (distSq <= radius * radius) {
@@ -2710,7 +2710,7 @@ public class TalentListener implements Listener {
         createSeismicZone(player, center, radius, zoneDamagePerTick, 100, 20); // 100 ticks = 5s, 20 ticks = 1s interval
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis! §8(Zone 5s)");
+            player.sendMessage("§6§l⚔ [Ragnarök] §7: Impact §c§l" + (int)initialDamage + " §f+ Zone §c§l" + (int)zoneDamagePerTick + "§f/s §7pendant §e5s §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2742,7 +2742,7 @@ public class TalentListener implements Listener {
 
         // Message
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l🌪 MEGA TORNADE! §7Vous devenez une force de destruction!");
+            player.sendMessage("§c§l🌪 [Méga Tornade] §7: Transformation §e" + (int)(duration/1000) + "s §f- §c§l" + (int)(damagePercent * 100) + "% §fdégâts/tick §7(rayon §e" + (int)radius + "§7)");
         }
 
         // Marquer en combat
@@ -2834,7 +2834,7 @@ public class TalentListener implements Listener {
                 // === ASPIRATION ET DEGATS (seulement si le joueur court) ===
                 if (player.isSprinting()) {
                     for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-                        if (entity instanceof LivingEntity target && entity != player && !entity.isDead() && !EntityUtils.isAnyNPC(target)) {
+                        if (entity instanceof LivingEntity target && entity != player && !entity.isDead() && !EntityUtils.isProtectedEntity(target)) {
                             if (target instanceof Monster || target.getScoreboardTags().contains("zombiez_enemy")) {
                                 // Aspiration vers le joueur
                                 Vector direction = center.toVector().subtract(target.getLocation().toVector());
@@ -2914,7 +2914,7 @@ public class TalentListener implements Listener {
 
         player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation(), 50, 1, 1, 1, 0.5);
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§b§l+ CITADELLE! §7Vous etes invulnerable pendant 3 secondes!");
+            player.sendMessage("§b§l🛡 [Citadelle] §7: §a§lInvulnérable §fpendant §e§l" + (int)(talent.getValue(0)/1000) + "s §7(explosion à la fin)");
         }
 
         new BukkitRunnable() {
@@ -2934,7 +2934,7 @@ public class TalentListener implements Listener {
                 player.getWorld().playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.0f);
 
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                         // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                         target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                         target.damage(damage, player);
@@ -2942,7 +2942,7 @@ public class TalentListener implements Listener {
                 }
 
                 if (shouldSendTalentMessage(player)) {
-                    player.sendMessage("§b§l+ EXPLOSION! §7La citadelle libere sa puissance!");
+                    player.sendMessage("§c§l💥 [Citadelle] §7: Explosion finale §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
                 }
             }
         }.runTaskLater(plugin, (long)(talent.getValue(0) / 50));
@@ -2956,7 +2956,7 @@ public class TalentListener implements Listener {
         player.getWorld().playSound(center, Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
 
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                 // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
                 target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                 target.damage(damage, player);
@@ -3036,7 +3036,7 @@ public class TalentListener implements Listener {
                 // === DÉGÂTS ET EFFETS SUR ENNEMIS ===
                 int enemiesHit = 0;
                 for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && entity != player && !EntityUtils.isProtectedEntity(target)) {
                         // Calculer les dégâts finaux
                         double finalDamage = damage * intensity;
 
@@ -3240,7 +3240,7 @@ public class TalentListener implements Listener {
 
                 // === DÉGÂTS AUX ENNEMIS PROCHES ===
                 for (Entity entity : currentLocation.getWorld().getNearbyEntities(currentLocation, radius, radius, radius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                         // Dégâts (marquer comme secondaires pour éviter double processing)
                         target.setMetadata("zombiez_secondary_damage",
                             new org.bukkit.metadata.FixedMetadataValue(plugin, true));
@@ -3273,7 +3273,7 @@ public class TalentListener implements Listener {
         double nearestDist = Double.MAX_VALUE;
 
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity living && entity != exclude && !(entity instanceof Player) && !EntityUtils.isAnyNPC(living)) {
+            if (entity instanceof LivingEntity living && entity != exclude && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(living)) {
                 double dist = entity.getLocation().distance(center);
                 if (dist < nearestDist) {
                     nearestDist = dist;
@@ -3560,7 +3560,7 @@ public class TalentListener implements Listener {
 
                 // Degats aux entites dans la zone
                 for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                         // Verifier la distance horizontale (zone circulaire)
                         double distSq = Math.pow(target.getLocation().getX() - center.getX(), 2) +
                                        Math.pow(target.getLocation().getZ() - center.getZ(), 2);
@@ -3713,8 +3713,8 @@ public class TalentListener implements Listener {
         player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, (int)(duration / 50), 0, false, false));
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l✦ AVATAR DU REMPART! §7Transformation " + (duration/1000) + "s!");
-            player.sendMessage("§7- §e100% blocage §7| §c+50% dégâts §7| §6Disques x2 §7| §eImmunité CC");
+            player.sendMessage("§6§l✦ [Avatar du Rempart] §7: Transformation §e§l" + (duration/1000) + "s");
+            player.sendMessage("  §7→ §e100% blocage §7| §c+50% dégâts §7| §6Disques x2 §7| §aImmunité CC");
         }
 
         // Aura visuelle pendant la durée + maintien immunité CC
@@ -3907,7 +3907,7 @@ public class TalentListener implements Listener {
         int enemiesHit = 0;
 
         for (Entity entity : impactLoc.getWorld().getNearbyEntities(impactLoc, radius, radius, radius)) {
-            if (entity instanceof LivingEntity aoTarget && entity != mainTarget && !(entity instanceof Player) && !EntityUtils.isAnyNPC(aoTarget)) {
+            if (entity instanceof LivingEntity aoTarget && entity != mainTarget && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(aoTarget)) {
                 if (plugin.getZombieManager().isZombieZMob(aoTarget)) {
                     aoTarget.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                     aoTarget.damage(aoeDamage, player);
@@ -3992,7 +3992,7 @@ public class TalentListener implements Listener {
 
         // Dégâts aux ennemis
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -4010,7 +4010,7 @@ public class TalentListener implements Listener {
 
         // Dégâts aux ennemis
         for (Entity entity : center.getWorld().getNearbyEntities(center, radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && entity != player && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 dealAoeDamage(player, target, damage, true);
             }
         }
@@ -4061,7 +4061,7 @@ public class TalentListener implements Listener {
 
                 // Dégâts aux ennemis sur le chemin (rayon plus large pour 12 blocs)
                 for (Entity entity : player.getNearbyEntities(2.5, 2.5, 2.5)) {
-                    if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+                    if (entity instanceof LivingEntity target && !(entity instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                         if (!hitEntities.contains(target.getUniqueId())) {
                             hitEntities.add(target.getUniqueId());
                             enemiesHit++;
@@ -4206,7 +4206,7 @@ public class TalentListener implements Listener {
         // === DÉGÂTS AoE ===
         double totalDamageDealt = 0;
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof LivingEntity target && !(target instanceof Player) && !EntityUtils.isAnyNPC(target)) {
+            if (entity instanceof LivingEntity target && !(target instanceof Player) && !EntityUtils.isProtectedEntity(target)) {
                 if (plugin.getZombieManager().isZombieZMob(target)) {
                     target.setMetadata("zombiez_secondary_damage", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
                     target.damage(storedDamage, player);
@@ -5533,7 +5533,7 @@ public class TalentListener implements Listener {
                                 !(nearby instanceof Player) &&
                                 !target.isDead() &&
                                 !target.getScoreboardTags().contains("zombiez_blood_larvae") &&
-                                !EntityUtils.isAnyNPC(target)) {
+                                !EntityUtils.isProtectedEntity(target)) {
 
                                 double distSq = larvae.getLocation().distanceSquared(target.getLocation());
                                 if (distSq < closestDistSq) {

@@ -1,7 +1,9 @@
 package com.rinaorc.zombiez.recycling;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
@@ -16,7 +18,10 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Interface graphique pour configurer le recyclage automatique
@@ -25,19 +30,35 @@ import java.util.List;
 public class RecycleGUI implements Listener {
 
     private static final String GUI_TITLE = "§6§l♻ Recyclage Automatique";
+    private static final String MANUAL_GUI_TITLE = "§6§l♻ Recyclage Manuel";
     private static final int GUI_SIZE = 45; // 5 lignes
+    private static final int MANUAL_GUI_SIZE = 54; // 6 lignes
 
     private final ZombieZPlugin plugin;
     private final RecycleManager recycleManager;
 
-    // Slots pour chaque élément
+    // Slots pour chaque élément (menu principal)
     private static final int SLOT_TOGGLE_MAIN = 4;        // Toggle principal
     private static final int SLOT_TOGGLE_CONSUMABLES = 39; // Toggle consommables
     private static final int SLOT_STATS = 40;             // Statistiques
     private static final int SLOT_PROTECT_HOTBAR = 41;    // Protection hotbar
+    private static final int SLOT_MANUAL_RECYCLE = 42;    // Recyclage manuel (ex-milestones)
 
     // Slots pour les raretés (ligne du milieu)
     private static final int[] RARITY_SLOTS = {10, 12, 14, 16, 28, 30, 32};
+
+    // Slots pour le menu de recyclage manuel
+    private static final int SLOT_MANUAL_RECYCLE_BTN = 49;  // Bouton recycler (vert)
+    private static final int SLOT_MANUAL_BACK = 45;         // Bouton retour
+    // Slots où les joueurs peuvent déposer des items (3 lignes centrales)
+    private static final int[] MANUAL_ITEM_SLOTS = {
+        10, 11, 12, 13, 14, 15, 16,  // Ligne 2
+        19, 20, 21, 22, 23, 24, 25,  // Ligne 3
+        28, 29, 30, 31, 32, 33, 34   // Ligne 4
+    };
+
+    // Tracker pour les joueurs avec le menu manuel ouvert
+    private final Map<UUID, Inventory> manualRecycleInventories = new HashMap<>();
 
     // Matériaux pour représenter chaque rareté
     private static final Material[] RARITY_MATERIALS = {
@@ -147,15 +168,16 @@ public class RecycleGUI implements Listener {
                 .build());
         }
 
-        // Toggle consommables (slot 39)
+        // Toggle consommables & nourriture (slot 39)
         boolean consumablesEnabled = settings.isRecycleConsumablesEnabled();
         inv.setItem(SLOT_TOGGLE_CONSUMABLES, new ItemBuilder(consumablesEnabled ? Material.BREWING_STAND : Material.GLASS_BOTTLE)
-            .name(consumablesEnabled ? "§a§l✓ CONSOMMABLES ACTIVÉS" : "§c§l✗ CONSOMMABLES DÉSACTIVÉS")
+            .name(consumablesEnabled ? "§a§l✓ CONSOMMABLES & NOURRITURE ACTIVÉS" : "§c§l✗ CONSOMMABLES & NOURRITURE DÉSACTIVÉS")
             .lore(
                 "",
                 "§7Recycle automatiquement les",
                 "§7consommables (grenades, soins,",
-                "§7jetpacks, etc.) en points.",
+                "§7jetpacks, etc.) §eet la nourriture",
+                "§7en points.",
                 "",
                 "§6⚡ Points par rareté:",
                 "  §f• Commun: §e3 pts §7(base)",
@@ -186,7 +208,7 @@ public class RecycleGUI implements Listener {
                 "  §fPoints gagnés: §6" + formatPoints(settings.getTotalPointsEarned().get()),
                 "",
                 "§7Raretés activées: §f" + settings.getEnabledRaritiesCount() + "/7",
-                "§7Consommables: " + (consumablesEnabled ? "§aActivé" : "§cDésactivé")
+                "§7Consommables & Nourriture: " + (consumablesEnabled ? "§aActivé" : "§cDésactivé")
             )
             .build());
 
@@ -233,34 +255,20 @@ public class RecycleGUI implements Listener {
             )
             .build());
 
-        // Bouton "Milestones" (slot 42)
-        int unlockedCount = settings.getUnlockedMilestonesCount();
-        int totalCount = settings.getTotalMilestonesCount();
-        RecycleMilestone nextMilestone = recycleManager.getNextMilestone(player.getUniqueId());
-
-        List<String> milestoneLore = new ArrayList<>();
-        milestoneLore.add("");
-        milestoneLore.add("§7Progression: §f" + unlockedCount + "/" + totalCount);
-
-        if (nextMilestone != null) {
-            int progress = recycleManager.getMilestoneProgress(player.getUniqueId(), nextMilestone);
-            milestoneLore.add("");
-            milestoneLore.add("§7Prochain:");
-            milestoneLore.add("  " + nextMilestone.getIcon() + " " + nextMilestone.getColoredName());
-            milestoneLore.add("  §7Progression: §e" + progress + "%");
-            milestoneLore.add("  §7Récompense: §6+" + formatPoints(nextMilestone.getBonusPoints()) + " pts");
-        } else {
-            milestoneLore.add("");
-            milestoneLore.add("§a✓ Tous les milestones débloqués!");
-        }
-
-        milestoneLore.add("");
-        milestoneLore.add("§eClic pour voir les détails");
-
-        inv.setItem(42, new ItemBuilder(Material.NETHER_STAR)
-            .name("§6§l✦ Milestones")
-            .lore(milestoneLore)
-            .glow(unlockedCount > 0)
+        // Bouton "Recyclage Manuel" (slot 42)
+        inv.setItem(SLOT_MANUAL_RECYCLE, new ItemBuilder(Material.HOPPER)
+            .name("§e§l⚙ Recyclage Manuel")
+            .lore(
+                "",
+                "§7Ouvrez un menu pour déposer",
+                "§7des items à recycler manuellement.",
+                "",
+                "§7Parfait pour recycler des items",
+                "§7spécifiques sans activer le",
+                "§7recyclage automatique.",
+                "",
+                "§eClic pour ouvrir"
+            )
             .build());
 
         // Bouton "Seulement Common/Uncommon" (slot 43)
@@ -329,10 +337,10 @@ public class RecycleGUI implements Listener {
                 0.5f, newState ? 1.3f : 0.9f);
 
             if (newState) {
-                player.sendMessage("§a§l♻ §aRecyclage des consommables §lactivé§a!");
-                player.sendMessage("§7Les grenades, soins, jetpacks seront recyclés au ramassage.");
+                player.sendMessage("§a§l♻ §aRecyclage consommables & nourriture §lactivé§a!");
+                player.sendMessage("§7Les grenades, soins, jetpacks et nourriture seront recyclés au ramassage.");
             } else {
-                player.sendMessage("§c§l♻ §cRecyclage des consommables §ldésactivé§c.");
+                player.sendMessage("§c§l♻ §cRecyclage consommables & nourriture §ldésactivé§c.");
             }
 
             // Rafraîchir le menu
@@ -416,14 +424,10 @@ public class RecycleGUI implements Listener {
             return;
         }
 
-        // Milestones
-        if (slot == 42) {
-            player.closeInventory();
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.5f);
-            List<String> milestones = recycleManager.getMilestonesList(player.getUniqueId());
-            for (String line : milestones) {
-                player.sendMessage(line);
-            }
+        // Recyclage Manuel
+        if (slot == SLOT_MANUAL_RECYCLE) {
+            player.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 0.5f, 1.2f);
+            openManualRecycleMenu(player);
             return;
         }
 
@@ -442,11 +446,258 @@ public class RecycleGUI implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (!event.getView().getTitle().equals(GUI_TITLE)) return;
+        if (!(event.getPlayer() instanceof Player player)) return;
 
-        // Jouer un son de fermeture
-        if (event.getPlayer() instanceof Player player) {
+        String title = event.getView().getTitle();
+
+        // Fermeture du menu principal
+        if (title.equals(GUI_TITLE)) {
             player.playSound(player.getLocation(), Sound.BLOCK_CHEST_CLOSE, 0.3f, 1.2f);
+            return;
+        }
+
+        // Fermeture du menu de recyclage manuel - rendre les items au joueur
+        if (title.equals(MANUAL_GUI_TITLE)) {
+            manualRecycleInventories.remove(player.getUniqueId());
+
+            // Rendre les items non recyclés au joueur
+            Inventory inv = event.getInventory();
+            for (int slot : MANUAL_ITEM_SLOTS) {
+                ItemStack item = inv.getItem(slot);
+                if (item != null && item.getType() != Material.AIR) {
+                    // Essayer de donner au joueur, sinon drop au sol
+                    HashMap<Integer, ItemStack> overflow = player.getInventory().addItem(item);
+                    for (ItemStack leftover : overflow.values()) {
+                        player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                    }
+                }
+            }
+
+            player.playSound(player.getLocation(), Sound.BLOCK_CHEST_CLOSE, 0.3f, 1.2f);
+        }
+    }
+
+    // ==================== MENU RECYCLAGE MANUEL ====================
+
+    /**
+     * Ouvre le menu de recyclage manuel
+     */
+    public void openManualRecycleMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, MANUAL_GUI_SIZE, MANUAL_GUI_TITLE);
+
+        // Bordure décorative
+        ItemStack border = new ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).name(" ").build();
+        for (int i = 0; i < MANUAL_GUI_SIZE; i++) {
+            inv.setItem(i, border);
+        }
+
+        // Libérer les slots pour les items
+        for (int slot : MANUAL_ITEM_SLOTS) {
+            inv.setItem(slot, null);
+        }
+
+        // Titre/Info (slot 4)
+        inv.setItem(4, new ItemBuilder(Material.HOPPER)
+            .name("§e§l⚙ Recyclage Manuel")
+            .lore(
+                "",
+                "§7Glissez les items ZombieZ",
+                "§7dans les emplacements vides",
+                "§7puis cliquez sur §aRecycler§7.",
+                "",
+                "§c⚠ Les items seront détruits",
+                "§c   et convertis en points!"
+            )
+            .build());
+
+        // Bouton Retour (slot 45)
+        inv.setItem(SLOT_MANUAL_BACK, new ItemBuilder(Material.ARROW)
+            .name("§c§l← Retour")
+            .lore(
+                "",
+                "§7Retourner au menu principal",
+                "§7du recyclage.",
+                "",
+                "§7Les items non recyclés vous",
+                "§7seront rendus."
+            )
+            .build());
+
+        // Bouton Recycler (slot 49)
+        inv.setItem(SLOT_MANUAL_RECYCLE_BTN, new ItemBuilder(Material.LIME_CONCRETE)
+            .name("§a§l♻ RECYCLER")
+            .lore(
+                "",
+                "§7Recycle tous les items",
+                "§7placés dans le menu.",
+                "",
+                "§eClic pour recycler!"
+            )
+            .glow(true)
+            .build());
+
+        // Info sur les points (slot 53)
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        int currentZone = playerData != null ? playerData.getCurrentZone().get() : 1;
+        inv.setItem(53, new ItemBuilder(Material.GOLD_INGOT)
+            .name("§6§l💰 Points de Recyclage")
+            .lore(
+                "",
+                "§7Zone actuelle: §e" + currentZone,
+                "",
+                "§6Points par rareté (zone " + currentZone + "):",
+                "  §f• Commun: §e" + recycleManager.calculateRecyclePoints(Rarity.COMMON, currentZone) + " pts",
+                "  §a• Peu Commun: §e" + recycleManager.calculateRecyclePoints(Rarity.UNCOMMON, currentZone) + " pts",
+                "  §9• Rare: §e" + recycleManager.calculateRecyclePoints(Rarity.RARE, currentZone) + " pts",
+                "  §5• Épique: §e" + recycleManager.calculateRecyclePoints(Rarity.EPIC, currentZone) + " pts",
+                "  §6• Légendaire: §e" + recycleManager.calculateRecyclePoints(Rarity.LEGENDARY, currentZone) + " pts",
+                "  §d• Mythique: §e" + recycleManager.calculateRecyclePoints(Rarity.MYTHIC, currentZone) + " pts",
+                "  §c• Exalté: §e" + recycleManager.calculateRecyclePoints(Rarity.EXALTED, currentZone) + " pts"
+            )
+            .build());
+
+        manualRecycleInventories.put(player.getUniqueId(), inv);
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.BLOCK_CHEST_OPEN, 0.5f, 1.2f);
+    }
+
+    /**
+     * Gère les clics dans le menu de recyclage manuel
+     */
+    @EventHandler
+    public void onManualRecycleClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().equals(MANUAL_GUI_TITLE)) return;
+
+        int slot = event.getRawSlot();
+
+        // Permettre le déplacement d'items dans les slots autorisés
+        if (slot >= 0 && slot < MANUAL_GUI_SIZE) {
+            boolean isItemSlot = false;
+            for (int itemSlot : MANUAL_ITEM_SLOTS) {
+                if (slot == itemSlot) {
+                    isItemSlot = true;
+                    break;
+                }
+            }
+
+            // Si ce n'est pas un slot d'item, bloquer sauf pour les boutons
+            if (!isItemSlot) {
+                event.setCancelled(true);
+
+                // Bouton Retour
+                if (slot == SLOT_MANUAL_BACK) {
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+
+                    // Rendre les items avant de retourner
+                    Inventory inv = event.getInventory();
+                    for (int itemSlot : MANUAL_ITEM_SLOTS) {
+                        ItemStack item = inv.getItem(itemSlot);
+                        if (item != null && item.getType() != Material.AIR) {
+                            HashMap<Integer, ItemStack> overflow = player.getInventory().addItem(item);
+                            for (ItemStack leftover : overflow.values()) {
+                                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                            }
+                            inv.setItem(itemSlot, null);
+                        }
+                    }
+
+                    manualRecycleInventories.remove(player.getUniqueId());
+                    open(player);
+                    return;
+                }
+
+                // Bouton Recycler
+                if (slot == SLOT_MANUAL_RECYCLE_BTN) {
+                    processManualRecycle(player, event.getInventory());
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Traite le recyclage manuel des items dans l'inventaire
+     */
+    private void processManualRecycle(Player player, Inventory inv) {
+        int totalPoints = 0;
+        int itemsRecycled = 0;
+
+        for (int slot : MANUAL_ITEM_SLOTS) {
+            ItemStack item = inv.getItem(slot);
+            if (item == null || item.getType() == Material.AIR) continue;
+
+            int stackSize = item.getAmount();
+            int pointsForOne = 0;
+
+            // Vérifier si c'est un consommable ZombieZ
+            if (Consumable.isConsumable(item)) {
+                pointsForOne = recycleManager.recycleConsumable(player, item.asOne());
+            }
+            // Vérifier si c'est une nourriture ZombieZ
+            else if (recycleManager.isFoodItem(item)) {
+                pointsForOne = recycleManager.recycleFood(player, item.asOne());
+            }
+            // Vérifier si c'est un item ZombieZ
+            else if (ZombieZItem.isZombieZItem(item)) {
+                pointsForOne = recycleManager.recycleItem(player, item.asOne());
+            } else {
+                continue; // Ignorer les items non-ZombieZ
+            }
+
+            if (pointsForOne > 0) {
+                // Recycler tout le stack
+                int stackPoints = pointsForOne * stackSize;
+
+                // Ajouter les points (recycleItem/recycleConsumable/recycleFood ne les a ajoutés que pour 1)
+                // On doit ajouter le reste
+                if (stackSize > 1) {
+                    PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+                    if (playerData != null) {
+                        playerData.addPoints(pointsForOne * (stackSize - 1));
+                    }
+
+                    RecycleSettings settings = recycleManager.getSettings(player.getUniqueId());
+                    settings.addRecycledItemsBatch(stackSize - 1, pointsForOne * (stackSize - 1));
+                }
+
+                totalPoints += stackPoints;
+                itemsRecycled += stackSize;
+                inv.setItem(slot, null);
+            }
+        }
+
+        if (itemsRecycled > 0) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.5f);
+            player.sendMessage("");
+            player.sendMessage("§a§l♻ RECYCLAGE EFFECTUÉ!");
+            player.sendMessage("§7Items recyclés: §e" + itemsRecycled);
+            player.sendMessage("§7Points gagnés: §6+" + formatPoints(totalPoints) + " pts");
+            player.sendMessage("");
+
+            // Rafraîchir le bouton avec les nouveaux stats
+            PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+            int currentZone = playerData != null ? playerData.getCurrentZone().get() : 1;
+            inv.setItem(53, new ItemBuilder(Material.GOLD_INGOT)
+                .name("§6§l💰 Points de Recyclage")
+                .lore(
+                    "",
+                    "§7Zone actuelle: §e" + currentZone,
+                    "",
+                    "§a✓ Dernier recyclage:",
+                    "  §7Items: §e" + itemsRecycled,
+                    "  §7Points: §6+" + formatPoints(totalPoints),
+                    "",
+                    "§6Points par rareté (zone " + currentZone + "):",
+                    "  §f• Commun: §e" + recycleManager.calculateRecyclePoints(Rarity.COMMON, currentZone) + " pts",
+                    "  §a• Peu Commun: §e" + recycleManager.calculateRecyclePoints(Rarity.UNCOMMON, currentZone) + " pts",
+                    "  §9• Rare: §e" + recycleManager.calculateRecyclePoints(Rarity.RARE, currentZone) + " pts"
+                )
+                .build());
+        } else {
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7f, 0.5f);
+            player.sendMessage("§c§l♻ §cAucun item recyclable trouvé!");
+            player.sendMessage("§7Placez des items §eZombieZ §7(équipements, consommables, nourriture) dans les emplacements.");
         }
     }
 
