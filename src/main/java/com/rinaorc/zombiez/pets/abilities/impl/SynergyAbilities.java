@@ -308,19 +308,21 @@ class RageStackPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double damagePerStack;
-    private final double maxStacks;
+    private final double damagePerStack;      // +2% par stack (0.02)
+    private final double maxBonus;            // Max +30% (0.30)
     private final Map<UUID, Integer> rageStacks = new HashMap<>();
     private final Map<UUID, Long> lastHitTime = new HashMap<>();
+    private final Map<UUID, Long> unleashEnd = new HashMap<>();  // Pour le mode Déchaînement
 
     public RageStackPassive(String id, String name, String desc, double perStack, double max) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.damagePerStack = perStack;
-        this.maxStacks = max;
+        this.maxBonus = max;
         PassiveAbilityCleanup.registerForCleanup(rageStacks);
         PassiveAbilityCleanup.registerForCleanup(lastHitTime);
+        PassiveAbilityCleanup.registerForCleanup(unleashEnd);
     }
 
     @Override
@@ -334,20 +336,44 @@ class RageStackPassive implements PetAbility {
 
         // Reset si plus de 5 secondes sans attaque
         if (now - last > 5000) {
-            rageStacks.put(uuid, 0);
+            int oldStacks = rageStacks.getOrDefault(uuid, 0);
+            if (oldStacks > 0) {
+                rageStacks.put(uuid, 0);
+                player.sendMessage("§c[Pet] §7Rage perdue...");
+            }
         }
 
+        // Calculer le max de stacks (30% / 2% = 15 stacks)
         int currentStacks = rageStacks.getOrDefault(uuid, 0);
-        int maxS = (int) (maxStacks / damagePerStack);
-        if (currentStacks < maxS) {
+        int maxStacks = (int) (maxBonus / damagePerStack);
+
+        // Ajouter un stack si pas au max
+        if (currentStacks < maxStacks) {
             rageStacks.put(uuid, currentStacks + 1);
+            currentStacks = currentStacks + 1;
+
+            // Notification tous les 5 stacks
+            if (currentStacks % 5 == 0 || currentStacks == maxStacks) {
+                double currentBonus = currentStacks * damagePerStack * 100;
+                player.sendMessage("§a[Pet] §c🔥 Rage x" + currentStacks + " §7(§e+" +
+                    String.format("%.0f", currentBonus) + "% §7dégâts)");
+            }
         }
         lastHitTime.put(uuid, now);
 
-        double bonus = currentStacks * damagePerStack * petData.getStatMultiplier();
+        // Calculer le bonus de dégâts
+        double bonus = currentStacks * damagePerStack;
 
-        // Effet visuel de rage
-        if (currentStacks > 5) {
+        // DÉCHAÎNEMENT: doubler le bonus si actif!
+        if (isUnleashed(uuid)) {
+            bonus *= 2;
+
+            // Effet visuel intense
+            player.spawnParticle(Particle.FLAME, player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0.05);
+        }
+
+        // Effet visuel de rage (à partir de 5 stacks)
+        if (currentStacks >= 5) {
             player.spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 2, 0), 1);
         }
 
@@ -357,6 +383,21 @@ class RageStackPassive implements PetAbility {
     public int getRageStacks(UUID uuid) {
         return rageStacks.getOrDefault(uuid, 0);
     }
+
+    /**
+     * Active le mode Déchaînement (stacks doublés)
+     */
+    public void activateUnleash(UUID uuid, int durationMs) {
+        unleashEnd.put(uuid, System.currentTimeMillis() + durationMs);
+    }
+
+    /**
+     * Vérifie si le joueur est en mode Déchaînement
+     */
+    public boolean isUnleashed(UUID uuid) {
+        Long end = unleashEnd.get(uuid);
+        return end != null && System.currentTimeMillis() < end;
+    }
 }
 
 @Getter
@@ -365,14 +406,13 @@ class UnleashActive implements PetAbility {
     private final String displayName;
     private final String description;
     private final RageStackPassive ragePassive;
-    private final Map<UUID, Long> unleashEnd = new HashMap<>();
+    private final int unleashDurationMs = 5000;  // 5 secondes
 
     public UnleashActive(String id, String name, String desc, RageStackPassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.ragePassive = passive;
-        PassiveAbilityCleanup.registerForCleanup(unleashEnd);
     }
 
     @Override
@@ -383,20 +423,34 @@ class UnleashActive implements PetAbility {
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        int stacks = ragePassive.getRageStacks(player.getUniqueId());
-        unleashEnd.put(player.getUniqueId(), System.currentTimeMillis() + 5000);
+        UUID uuid = player.getUniqueId();
+        int stacks = ragePassive.getRageStacks(uuid);
 
-        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 100, stacks / 5, false, true));
-        player.getWorld().spawnParticle(Particle.LAVA, player.getLocation(), 30, 1, 1, 1, 0);
-        player.playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 0.5f, 1.0f);
-        player.sendMessage("§a[Pet] §c§lDÉCHAÎNEMENT! §7Stacks doublés pendant 5s! (§e" + stacks + " §7stacks)");
+        if (stacks < 1) {
+            player.sendMessage("§c[Pet] §7Aucun stack de rage!");
+            return false;
+        }
+
+        // Activer le mode Déchaînement (double les stacks dans le passif)
+        ragePassive.activateUnleash(uuid, unleashDurationMs);
+
+        // Calculer le bonus actuel et doublé
+        double currentBonus = stacks * 2; // 2% par stack
+        double doubledBonus = currentBonus * 2;
+
+        // Effet visuel explosif
+        player.getWorld().spawnParticle(Particle.LAVA, player.getLocation(), 50, 1.5, 1, 1.5, 0.1);
+        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 40, 1, 0.5, 1, 0.1);
+        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 2, 0), 10, 0.5, 0.5, 0.5, 0);
+
+        // Son de rugissement
+        player.playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.0f);
+        player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_SHOOT, 0.5f, 0.5f);
+
+        player.sendMessage("§a[Pet] §c§l🔥 DÉCHAÎNEMENT! §7Bonus §e+" + (int)currentBonus +
+            "% §7→ §c+" + (int)doubledBonus + "% §7pendant 5s!");
 
         return true;
-    }
-
-    public boolean isUnleashed(UUID uuid) {
-        Long end = unleashEnd.get(uuid);
-        return end != null && System.currentTimeMillis() < end;
     }
 }
 
