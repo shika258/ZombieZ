@@ -408,12 +408,12 @@ public abstract class DynamicEvent {
                 // Points
                 plugin.getEconomyManager().addPoints(player, totalPoints);
 
-                // XP
+                // XP via EconomyManager pour inclure l'XP de classe (30%)
+                plugin.getEconomyManager().addXp(player, totalXp);
+
+                // ============ ACHIEVEMENTS D'ÉVÉNEMENTS ============
                 var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
                 if (playerData != null) {
-                    playerData.addXp(totalXp);
-
-                    // ============ ACHIEVEMENTS D'ÉVÉNEMENTS ============
                     // Incrémenter le compteur de participations aux événements
                     playerData.incrementStat("events_completed");
                     int eventsCompleted = (int) playerData.getStat("events_completed");
