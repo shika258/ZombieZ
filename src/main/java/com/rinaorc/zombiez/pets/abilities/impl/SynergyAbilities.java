@@ -2234,3 +2234,256 @@ class SpiderAmbushActive implements PetAbility {
             String.format("%.1f", markDuration / 20.0) + "s");
     }
 }
+
+// ==================== SPECTRE TRAQUEUR (Chasse / Exécution) ====================
+
+@Getter
+class PredatorInstinctPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double healthThreshold;       // 50% = 0.50
+    private final double bonusDamageOnMarked;   // +20% = 0.20
+    private final Set<UUID> markedEntities = new HashSet<>();
+
+    public PredatorInstinctPassive(String id, String name, String desc, double threshold, double bonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.healthThreshold = threshold;
+        this.bonusDamageOnMarked = bonus;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        World world = player.getWorld();
+
+        // Seuil de HP ajusté par niveau (50% base, jusqu'à 60% au niveau max)
+        double adjustedThreshold = healthThreshold + (petData.getStatMultiplier() - 1) * 0.10;
+
+        // Vérifier si la cible doit être marquée automatiquement
+        double healthPercent = target.getHealth() / target.getMaxHealth();
+
+        if (healthPercent <= adjustedThreshold && !markedEntities.contains(target.getUniqueId())) {
+            // Marquer automatiquement la proie affaiblie
+            markedEntities.add(target.getUniqueId());
+            target.setGlowing(true);
+
+            // Effet visuel de marquage
+            world.spawnParticle(Particle.WITCH, target.getLocation().add(0, 1.5, 0),
+                15, 0.3, 0.3, 0.3, 0.05);
+            world.playSound(target.getLocation(), Sound.ENTITY_PHANTOM_AMBIENT, 0.8f, 1.5f);
+
+            player.sendMessage("§a[Pet] §c\uD83D\uDC41 Proie repérée! §7Cible marquée (§e<" +
+                (int)(adjustedThreshold * 100) + "% HP§7)");
+
+            // Expire si la cible meurt ou après 15 secondes
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    markedEntities.remove(target.getUniqueId());
+                    if (target.isValid()) target.setGlowing(false);
+                },
+                300L  // 15 secondes
+            );
+        }
+
+        // Bonus de dégâts sur cibles marquées
+        if (markedEntities.contains(target.getUniqueId())) {
+            double adjustedBonus = bonusDamageOnMarked + (petData.getStatMultiplier() - 1) * 0.10;
+
+            // Effet visuel de prédateur
+            world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                5, 0.2, 0.2, 0.2, 0.1);
+
+            return damage * (1 + adjustedBonus);
+        }
+
+        return damage;
+    }
+
+    /**
+     * Trouve l'ennemi marqué avec le moins de HP
+     */
+    public Monster findWeakestMarkedTarget(Player player, double range) {
+        Monster weakest = null;
+        double lowestHealth = Double.MAX_VALUE;
+
+        for (Entity entity : player.getNearbyEntities(range, range, range)) {
+            if (entity instanceof Monster monster && markedEntities.contains(monster.getUniqueId())) {
+                if (monster.getHealth() < lowestHealth) {
+                    lowestHealth = monster.getHealth();
+                    weakest = monster;
+                }
+            }
+        }
+
+        return weakest;
+    }
+
+    /**
+     * Trouve l'ennemi avec le moins de HP (même non marqué)
+     */
+    public Monster findWeakestTarget(Player player, double range) {
+        Monster weakest = null;
+        double lowestHealthPercent = Double.MAX_VALUE;
+
+        for (Entity entity : player.getNearbyEntities(range, range, range)) {
+            if (entity instanceof Monster monster) {
+                double healthPercent = monster.getHealth() / monster.getMaxHealth();
+                if (healthPercent < lowestHealthPercent) {
+                    lowestHealthPercent = healthPercent;
+                    weakest = monster;
+                }
+            }
+        }
+
+        return weakest;
+    }
+
+    public boolean isMarked(UUID uuid) {
+        return markedEntities.contains(uuid);
+    }
+
+    public void unmark(UUID uuid) {
+        markedEntities.remove(uuid);
+    }
+}
+
+@Getter
+class DeadlyDiveActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damageMultiplier;      // 200% = 2.0
+    private final double executeThreshold;       // 20% = 0.20
+    private final PredatorInstinctPassive instinctPassive;
+
+    public DeadlyDiveActive(String id, String name, String desc, double damage,
+                            double execute, PredatorInstinctPassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damageMultiplier = damage;
+        this.executeThreshold = execute;
+        this.instinctPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        // Priorité: cible marquée la plus faible, sinon cible la plus faible
+        Monster target = instinctPassive.findWeakestMarkedTarget(player, 15);
+        if (target == null) {
+            target = instinctPassive.findWeakestTarget(player, 15);
+        }
+
+        if (target == null) {
+            player.sendMessage("§c[Pet] §7Aucune proie à proximité!");
+            return false;
+        }
+
+        final Monster finalTarget = target;
+        final Location targetLoc = target.getLocation();
+        final double targetHealthPercent = target.getHealth() / target.getMaxHealth();
+
+        // Seuil d'exécution ajusté par niveau
+        double adjustedExecuteThreshold = executeThreshold + (petData.getStatMultiplier() - 1) * 0.05;
+
+        // Animation du plongeon du phantom
+        player.sendMessage("§a[Pet] §5§l\uD83E\uDD87 PLONGEON MORTEL!");
+        world.playSound(playerLoc, Sound.ENTITY_PHANTOM_BITE, 1.0f, 0.5f);
+
+        // Départ depuis le ciel (au-dessus du joueur)
+        Location diveStart = playerLoc.clone().add(0, 10, 0);
+        Vector direction = targetLoc.toVector().subtract(diveStart.toVector()).normalize();
+
+        new BukkitRunnable() {
+            Location currentLoc = diveStart.clone();
+            int ticks = 0;
+            final int maxTicks = 20; // 1 seconde de plongeon
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || !finalTarget.isValid()) {
+                    // Impact!
+                    executeImpact(player, petData, finalTarget, adjustedExecuteThreshold);
+                    cancel();
+                    return;
+                }
+
+                // Avancer le phantom en plongeon
+                currentLoc.add(direction.clone().multiply(0.8));
+
+                // Particules de phantom en mouvement
+                world.spawnParticle(Particle.WITCH, currentLoc, 10, 0.3, 0.3, 0.3, 0.02);
+                world.spawnParticle(Particle.SMOKE, currentLoc, 5, 0.2, 0.2, 0.2, 0.01);
+
+                // Son de plongeon
+                if (ticks % 5 == 0) {
+                    world.playSound(currentLoc, Sound.ENTITY_PHANTOM_FLAP, 0.5f, 1.2f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private void executeImpact(Player player, PetData petData, Monster target, double executeThreshold) {
+        Location impactLoc = target.getLocation();
+        World world = impactLoc.getWorld();
+
+        // Calculer les dégâts (200% des dégâts du joueur)
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double damage = playerDamage * damageMultiplier * petData.getStatMultiplier();
+
+        // Vérifier si c'est une exécution
+        double healthPercent = target.getHealth() / target.getMaxHealth();
+        boolean isExecute = healthPercent <= executeThreshold;
+
+        if (isExecute) {
+            // EXÉCUTION! Dégâts massifs pour tuer instantanément
+            damage = target.getHealth() + 100; // Assure la mort
+
+            // Effets visuels d'exécution
+            world.spawnParticle(Particle.SOUL, impactLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.CRIT_MAGIC, impactLoc, 20, 0.3, 0.3, 0.3, 0.2);
+            world.playSound(impactLoc, Sound.ENTITY_PHANTOM_DEATH, 1.0f, 0.5f);
+            world.playSound(impactLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.5f);
+
+            player.sendMessage("§a[Pet] §c§l💀 EXÉCUTION! §7La proie a été achevée!");
+        } else {
+            // Dégâts normaux
+            world.spawnParticle(Particle.CRIT, impactLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.WITCH, impactLoc, 15, 0.3, 0.3, 0.3, 0.05);
+            world.playSound(impactLoc, Sound.ENTITY_PHANTOM_BITE, 1.0f, 1.0f);
+            world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+
+            player.sendMessage("§a[Pet] §c\uD83E\uDD87 " + (int)damage + " §7dégâts! §8(Execute si <" +
+                (int)(executeThreshold * 100) + "% HP)");
+        }
+
+        // Appliquer les dégâts
+        target.damage(damage, player);
+        petData.addDamage((long) damage);
+
+        // Retirer la marque
+        instinctPassive.unmark(target.getUniqueId());
+        if (target.isValid()) {
+            target.setGlowing(false);
+        }
+    }
+}

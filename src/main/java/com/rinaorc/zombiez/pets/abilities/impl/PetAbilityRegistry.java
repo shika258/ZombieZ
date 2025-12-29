@@ -332,13 +332,15 @@ public class PetAbilityRegistry {
                 "Double les stacks pendant 5s", ragePassive)
         );
 
-        // Faucon Chasseur (Chasseur Synergy)
-        MarkPassive markPassive = new MarkPassive("mark_passive", "Œil du Prédateur",
-            "Marque les cibles (+15% dégâts sur marqués)", 0.15);
+        // Spectre Traqueur (anciennement Faucon Chasseur)
+        // Passif: Marque auto les ennemis <50% HP, +20% dégâts sur marqués
+        // Ultimate: Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)
+        PredatorInstinctPassive instinctPassive = new PredatorInstinctPassive("phantom_instinct", "Instinct du Prédateur",
+            "Marque auto les ennemis <50% HP, +20% dégâts sur marqués", 0.50, 0.20);
         registerAbilities(PetType.FAUCON_CHASSEUR,
-            markPassive,
-            new PredatorStrikeActive("predator_strike", "Frappe Prédatrice",
-                "Attaque une cible marquée pour 3x dégâts", markPassive)
+            instinctPassive,
+            new DeadlyDiveActive("phantom_dive", "Plongeon Mortel",
+                "Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)", 2.0, 0.20, instinctPassive)
         );
 
         // Orbe d'Âmes (Occultiste Synergy)

@@ -228,19 +228,19 @@ public enum PetType {
     ),
 
     FAUCON_CHASSEUR(
-        "Faucon Chasseur",
+        "Spectre Traqueur",
         PetRarity.UNCOMMON,
-        Material.FEATHER,
-        EntityType.PARROT,
-        "hunter_falcon",
-        "Chasseur / Marks",
-        "Faucon argenté aux yeux perçants",
-        "Les attaques marquent les cibles (15% dégâts bonus sur cibles marquées)",
-        "Frappe Prédatrice",
-        "Attaque une cible marquée pour 3x dégâts",
+        Material.PHANTOM_MEMBRANE,
+        EntityType.PHANTOM,
+        "stalker_specter",
+        "Chasse / Exécution",
+        "Phantom noir aux yeux rouges qui traque les proies affaiblies",
+        "Marque auto les ennemis <50% HP, +20% dégâts sur marqués",
+        "Plongeon Mortel",
+        "Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)",
         20,
-        "Marques durent +3s",
-        "Synergie: Les marques explosent avec les talents Chasseur"
+        "Seuil de marque 60% HP, dégâts +10%",
+        "L'exécution soigne 20% HP max"
     ),
 
     // --- NOUVEAUX PETS PEU COMMUNS (Visuels) ---
