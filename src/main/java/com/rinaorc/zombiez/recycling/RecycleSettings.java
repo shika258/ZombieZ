@@ -5,9 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -43,13 +41,6 @@ public class RecycleSettings {
     // Points gagnés dans la dernière minute (pour le résumé)
     private final AtomicLong lastMinutePoints = new AtomicLong(0);
     private final AtomicLong lastMinuteItems = new AtomicLong(0);
-
-    // Milestones débloqués
-    private final Set<RecycleMilestone> unlockedMilestones = EnumSet.noneOf(RecycleMilestone.class);
-
-    // Meilleur recyclage unique (pour milestone SINGLE_RECYCLE)
-    @Setter
-    private int bestSingleRecycle = 0;
 
     public RecycleSettings() {
         this.recycleByRarity = new EnumMap<>(Rarity.class);
@@ -143,64 +134,12 @@ public class RecycleSettings {
         return (int) recycleByRarity.values().stream().filter(Boolean::booleanValue).count();
     }
 
-    // ==================== MILESTONES ====================
-
-    /**
-     * Vérifie si un milestone est débloqué
-     */
-    public boolean isMilestoneUnlocked(RecycleMilestone milestone) {
-        return unlockedMilestones.contains(milestone);
-    }
-
-    /**
-     * Débloque un milestone
-     * @return true si le milestone vient d'être débloqué (était verrouillé avant)
-     */
-    public boolean unlockMilestone(RecycleMilestone milestone) {
-        return unlockedMilestones.add(milestone);
-    }
-
-    /**
-     * Obtient le nombre de milestones débloqués
-     */
-    public int getUnlockedMilestonesCount() {
-        return unlockedMilestones.size();
-    }
-
-    /**
-     * Obtient le nombre total de milestones
-     */
-    public int getTotalMilestonesCount() {
-        return RecycleMilestone.values().length;
-    }
-
-    /**
-     * Obtient tous les milestones débloqués
-     */
-    public Set<RecycleMilestone> getUnlockedMilestones() {
-        if (unlockedMilestones.isEmpty()) {
-            return EnumSet.noneOf(RecycleMilestone.class);
-        }
-        return EnumSet.copyOf(unlockedMilestones);
-    }
-
-    /**
-     * Met à jour le meilleur recyclage unique si nécessaire
-     * @return true si c'est un nouveau record
-     */
-    public boolean updateBestSingleRecycle(int points) {
-        if (points > bestSingleRecycle) {
-            bestSingleRecycle = points;
-            return true;
-        }
-        return false;
-    }
-
     // ==================== SÉRIALISATION ====================
 
     /**
      * Sérialise les paramètres en chaîne pour stockage BDD
-     * Format: "enabled;totalPoints;totalItems;rarities;milestones;bestSingle;consumablesEnabled;protectHotbar"
+     * Format: "enabled;totalPoints;totalItems;rarities;;0;consumablesEnabled;protectHotbar"
+     * Note: Les champs milestones et bestSingle sont gardés vides pour compatibilité
      */
     public String serialize() {
         StringBuilder sb = new StringBuilder();
@@ -217,14 +156,11 @@ public class RecycleSettings {
         }
         sb.append(";");
 
-        // Milestones débloqués
-        for (RecycleMilestone milestone : unlockedMilestones) {
-            sb.append(milestone.getId()).append(",");
-        }
+        // Champ vide (ancien milestones - gardé pour compatibilité)
         sb.append(";");
 
-        // Meilleur recyclage unique
-        sb.append(bestSingleRecycle);
+        // Champ vide (ancien bestSingle - gardé pour compatibilité)
+        sb.append("0");
         sb.append(";");
 
         // Recyclage des consommables
@@ -276,22 +212,7 @@ public class RecycleSettings {
                 }
             }
 
-            // Charger les milestones débloqués
-            if (parts.length >= 5 && !parts[4].isEmpty()) {
-                String[] milestoneParts = parts[4].split(",");
-                for (String milestoneId : milestoneParts) {
-                    if (milestoneId.isEmpty()) continue;
-                    RecycleMilestone milestone = RecycleMilestone.fromId(milestoneId);
-                    if (milestone != null) {
-                        settings.unlockedMilestones.add(milestone);
-                    }
-                }
-            }
-
-            // Charger le meilleur recyclage unique
-            if (parts.length >= 6 && !parts[5].isEmpty()) {
-                settings.bestSingleRecycle = Integer.parseInt(parts[5]);
-            }
+            // parts[4] et parts[5] étaient les milestones - ignorés maintenant
 
             // Charger le recyclage des consommables
             if (parts.length >= 7 && !parts[6].isEmpty()) {
