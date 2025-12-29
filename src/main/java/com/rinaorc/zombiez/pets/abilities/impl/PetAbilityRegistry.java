@@ -44,8 +44,8 @@ public class PetAbilityRegistry {
 
         // Chauve-Souris Fantôme
         registerAbilities(PetType.CHAUVE_SOURIS_FANTOME,
-            new DetectionPassive("bat_detect", "Détection",
-                "Détecte les zombies dans un rayon de 15 blocs", 15),
+            new CritChancePassive("bat_crit", "Vision Nocturne",
+                "+1% de chance de critique", 0.01),
             new EchoScanActive("bat_echo", "Écho-Scan",
                 "Révèle tous les ennemis dans 30 blocs pendant 5s", 30, 5)
         );

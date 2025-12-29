@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.pets.listeners;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.*;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.impl.CritChancePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.CritDamagePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.DamageMultiplierPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.DamageReductionPassive;
@@ -180,6 +181,15 @@ public class PetCombatListener implements Listener {
         if (passive instanceof MeleeDamagePassive mdp) {
             if (event.getDamager() instanceof Player) { // Attaque directe
                 modifiedDamage *= (1 + mdp.getMeleeBonus() * petData.getStatMultiplier());
+            }
+        }
+
+        // Chance de critique supplémentaire (Chauve-Souris Fantôme)
+        if (passive instanceof CritChancePassive ccp) {
+            double critChance = ccp.getCritChanceBonus() * petData.getStatMultiplier();
+            if (!isCriticalHit(event) && random.nextDouble() < critChance) {
+                // Forcer un coup critique avec le multiplicateur vanilla (1.5x)
+                modifiedDamage *= 1.5;
             }
         }
 

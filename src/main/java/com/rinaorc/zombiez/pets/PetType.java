@@ -19,13 +19,13 @@ public enum PetType {
         Material.BAT_SPAWN_EGG,
         EntityType.BAT,
         "bat_ghost",
-        "Détection / Vision",
+        "Critique / Vision",
         "Petite chauve-souris spectrale grise",
-        "Détecte les zombies dans un rayon de 15 blocs",
+        "+1% de chance de critique",
         "Écho-Scan",
         "Révèle tous les ennemis dans 30 blocs pendant 5s",
         30,
-        "Détection des coffres cachés",
+        "+2% de chance de critique",
         "L'écho-scan marque les ennemis, +10% dégâts sur eux"
     ),
 
