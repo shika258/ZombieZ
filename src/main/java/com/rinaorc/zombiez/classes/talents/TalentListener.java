@@ -1247,7 +1247,7 @@ public class TalentListener implements Listener {
                     player.getWorld().playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
                     player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation(), 50, 1, 1, 1, 0.1);
                     if (shouldSendTalentMessage(player)) {
-                        player.sendMessage("§6§l+ IMMORTEL! §7Vous avez triomphe de la mort!");
+                        player.sendMessage("§a§l💀 [Immortel] §7: §aRésurrection! §fVous revenez avec §a§l" + (int)(immortal.getValue(1) / 50) + " §7ticks d'invulnérabilité");
                     }
                     return;
                 }
@@ -1769,7 +1769,7 @@ public class TalentListener implements Listener {
                 if (System.currentTimeMillis() - sprintStart >= charge.getValue(0)) {
                     chargeReady.put(uuid, true);
                     if (shouldSendTalentMessage(player)) {
-                        player.sendMessage("§6§l+ CHARGE PRETE! §7Votre prochaine attaque sera devastatrice!");
+                        player.sendMessage("§6§l⚡ [Charge Dévast.] §7: §aPrêt! §fProchaine attaque §c§l+300% §fdégâts");
                     }
                 }
             }
@@ -2529,7 +2529,7 @@ public class TalentListener implements Listener {
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ DECHAINEMENT! §7Explosion devastatrice!");
+            player.sendMessage("§c§l💥 [Déchaînement] §7: Explosion §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2550,7 +2550,7 @@ public class TalentListener implements Listener {
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l+ CATACLYSME! §7Une explosion massive ravage tout!");
+            player.sendMessage("§c§l🔥 [Cataclysme] §7: Impact massif §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2573,7 +2573,7 @@ public class TalentListener implements Listener {
         applyLifesteal(player, heal);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§4§l+ AVATAR DE SANG! §7Le sang explose autour de vous!");
+            player.sendMessage("§4§l🩸 [Avatar de Sang] §7: §c§l" + (int)damage + " §fdégâts + §a§l" + (int)heal + " §fPV volés §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2610,7 +2610,7 @@ public class TalentListener implements Listener {
         }
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§5§l+ APOCALYPSE! §7La terre tremble sous votre puissance!");
+            player.sendMessage("§5§l🌍 [Apocalypse] §7: Séisme §c§l" + (int)damage + " §fdégâts + §e§lStun " + (int)(stunMs/1000) + "s §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2710,7 +2710,7 @@ public class TalentListener implements Listener {
         createSeismicZone(player, center, radius, zoneDamagePerTick, 100, 20); // 100 ticks = 5s, 20 ticks = 1s interval
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l+ RAGNAROK! §7L'apocalypse s'abat sur vos ennemis! §8(Zone 5s)");
+            player.sendMessage("§6§l⚔ [Ragnarök] §7: Impact §c§l" + (int)initialDamage + " §f+ Zone §c§l" + (int)zoneDamagePerTick + "§f/s §7pendant §e5s §7(rayon §e" + (int)radius + "§7)");
         }
     }
 
@@ -2742,7 +2742,7 @@ public class TalentListener implements Listener {
 
         // Message
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§c§l🌪 MEGA TORNADE! §7Vous devenez une force de destruction!");
+            player.sendMessage("§c§l🌪 [Méga Tornade] §7: Transformation §e" + (int)(duration/1000) + "s §f- §c§l" + (int)(damagePercent * 100) + "% §fdégâts/tick §7(rayon §e" + (int)radius + "§7)");
         }
 
         // Marquer en combat
@@ -2914,7 +2914,7 @@ public class TalentListener implements Listener {
 
         player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation(), 50, 1, 1, 1, 0.5);
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§b§l+ CITADELLE! §7Vous etes invulnerable pendant 3 secondes!");
+            player.sendMessage("§b§l🛡 [Citadelle] §7: §a§lInvulnérable §fpendant §e§l" + (int)(talent.getValue(0)/1000) + "s §7(explosion à la fin)");
         }
 
         new BukkitRunnable() {
@@ -2942,7 +2942,7 @@ public class TalentListener implements Listener {
                 }
 
                 if (shouldSendTalentMessage(player)) {
-                    player.sendMessage("§b§l+ EXPLOSION! §7La citadelle libere sa puissance!");
+                    player.sendMessage("§c§l💥 [Citadelle] §7: Explosion finale §c§l" + (int)damage + " §fdégâts §7(rayon §e" + (int)radius + "§7)");
                 }
             }
         }.runTaskLater(plugin, (long)(talent.getValue(0) / 50));
@@ -3713,8 +3713,8 @@ public class TalentListener implements Listener {
         player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, (int)(duration / 50), 0, false, false));
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§6§l✦ AVATAR DU REMPART! §7Transformation " + (duration/1000) + "s!");
-            player.sendMessage("§7- §e100% blocage §7| §c+50% dégâts §7| §6Disques x2 §7| §eImmunité CC");
+            player.sendMessage("§6§l✦ [Avatar du Rempart] §7: Transformation §e§l" + (duration/1000) + "s");
+            player.sendMessage("  §7→ §e100% blocage §7| §c+50% dégâts §7| §6Disques x2 §7| §aImmunité CC");
         }
 
         // Aura visuelle pendant la durée + maintien immunité CC

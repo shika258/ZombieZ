@@ -1129,8 +1129,8 @@ public class OccultisteTalentListener implements Listener {
         // Message au joueur
         if (shouldSendTalentMessage(player)) {
             int damagePercentDisplay = (int) (damagePercent * 100);
-            player.sendMessage("§c🔥 §6Embrasement Critique! §7" + damagePercentDisplay +
-                    "% PV max = §c" + String.format("%.1f", totalDamage) + " §7degats!");
+            player.sendMessage("§c§l🔥 [Embrasement Crit.] §7: §c§l" + damagePercentDisplay +
+                    "% §fPV max = §c§l" + String.format("%.0f", totalDamage) + " §fdégâts!");
         }
     }
 
@@ -1282,8 +1282,8 @@ public class OccultisteTalentListener implements Listener {
 
         // Message au joueur
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§b❄ §3Brisure Glaciale! §7" + stacks + " stacks = §c" +
-                    String.format("%.1f", totalDamage) + " §7degats!");
+            player.sendMessage("§b§l❄ [Brisure Glaciale] §7: §b§l" + stacks + " §fstacks = §c§l" +
+                    String.format("%.0f", totalDamage) + " §fdégâts!");
         }
     }
 
@@ -2090,9 +2090,8 @@ public class OccultisteTalentListener implements Listener {
         player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 0.5f);
 
         if (shouldSendTalentMessage(player)) {
-            player.sendMessage("§b§l+ STASE TEMPORELLE +");
-            player.sendMessage("§7Le temps est fige pendant §b" + (duration / 1000) + "s§7! §3" + stacksToApply
-                    + " stacks§7 appliques.");
+            player.sendMessage("§b§l⏸ [Stase Temporelle] §7: §e§lGel total §fpendant §e§l" + (duration / 1000) + "s §7- §b§l" + stacksToApply
+                    + " §fstacks appliqués");
         }
 
         // Schedule AI restore and ice shatter at the end
@@ -2562,8 +2561,7 @@ public class OccultisteTalentListener implements Listener {
             blackSunActive.put(player.getUniqueId(), System.currentTimeMillis() + duration);
 
             if (shouldSendTalentMessage(player)) {
-                player.sendMessage("§c§l+ SOLEIL NOIR +");
-                player.sendMessage("§7Un soleil ardent brule vos ennemis!");
+                player.sendMessage("§c§l☀ [Soleil Noir] §7: Invocation pendant §e§l" + (duration/1000) + "s §f- Brûlure AoE constante");
             }
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
         }
