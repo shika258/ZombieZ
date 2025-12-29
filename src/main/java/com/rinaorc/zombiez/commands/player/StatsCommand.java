@@ -55,7 +55,7 @@ public class StatsCommand implements CommandExecutor {
         
         // Économie
         player.sendMessage("  §6💰 Points: §f" + EconomyManager.formatPoints(data.getPoints().get()));
-        player.sendMessage("  §d💎 Gems: §f" + data.getGems().get());
+        player.sendMessage("  §d💎 Gemmes: §f" + data.getGems().get());
         player.sendMessage("");
         
         // Combat

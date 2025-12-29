@@ -86,7 +86,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/zombiez setspawn §7- Définir le spawn à votre position");
         sender.sendMessage("§e/zombiez givexp <joueur> <montant> §7- Donner XP");
         sender.sendMessage("§e/zombiez givepoints <joueur> <montant> §7- Donner Points");
-        sender.sendMessage("§e/zombiez givegems <joueur> <montant> §7- Donner Gems");
+        sender.sendMessage("§e/zombiez givegems <joueur> <montant> §7- Donner §dGemmes");
         sender.sendMessage("§e/zombiez setlevel <joueur> <niveau> §7- Définir niveau");
         sender.sendMessage("§e/zombiez tp <zone> §7- TP vers une zone");
         sender.sendMessage("§e/zombiez debug §7- Activer/désactiver debug");
@@ -149,7 +149,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§7Niveau: §e" + data.getLevel().get() + " §7(XP: " + data.getXp().get() + ")");
         sender.sendMessage("§7Prestige: §e" + data.getPrestige().get());
         sender.sendMessage("§7Points: §6" + EconomyManager.formatPoints(data.getPoints().get()));
-        sender.sendMessage("§7Gems: §d" + data.getGems().get());
+        sender.sendMessage("§7Gemmes: §d" + data.getGems().get());
         sender.sendMessage("§7Kills: §c" + data.getKills().get() + " §7| Deaths: §4" + data.getDeaths().get());
         sender.sendMessage("§7K/D: §e" + String.format("%.2f", data.getKDRatio()));
         sender.sendMessage("§7Zone actuelle: §b" + data.getCurrentZone().get() + 
@@ -266,7 +266,7 @@ public class ZombieZAdminCommand implements CommandExecutor, TabCompleter {
         try {
             int amount = Integer.parseInt(args[2]);
             plugin.getEconomyManager().addGems(target, amount, "Admin");
-            sender.sendMessage("§a✓ " + amount + " Gems données à " + target.getName());
+            sender.sendMessage("§a✓ §d" + amount + " Gemmes §adonnées à " + target.getName());
         } catch (NumberFormatException e) {
             sender.sendMessage("§cMontant invalide!");
         }

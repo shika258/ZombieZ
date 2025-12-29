@@ -343,7 +343,7 @@ public class AchievementGUI implements Listener {
             lore.add(progressBar(percent, 15, "§a", "§8") + " §f" + String.format("%.1f%%", percent));
             lore.add("§e" + formatNumber(progress) + "§7/§e" + formatNumber(requirement));
             lore.add("");
-            lore.add("§7Récompenses: §e" + formatNumber(ach.pointReward()) + " pts §8| §d" + ach.gemReward() + " gems");
+            lore.add("§7Récompenses: §e" + formatNumber(ach.pointReward()) + " pts §8| §d" + ach.gemReward() + " Gemmes");
             if (ach.title() != null && !ach.title().isEmpty()) {
                 lore.add("§7Titre: " + ach.title());
             }

@@ -356,7 +356,7 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text(""));
         lore.add(Component.text("§7Récompenses:"));
         lore.add(Component.text("§e  ⬧ " + formatNumber(step.getPointReward()) + " Points"));
-        lore.add(Component.text("§d  ⬧ " + step.getGemReward() + " Gems"));
+        lore.add(Component.text("§d  ⬧ " + step.getGemReward() + " Gemmes"));
         lore.add(Component.text(""));
 
         meta.lore(lore);
@@ -464,7 +464,7 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text("§8▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"));
         lore.add(Component.text("§7Récompenses:"));
         lore.add(Component.text("§e  +" + formatNumber(step.getPointReward()) + " Points"));
-        lore.add(Component.text("§d  +" + step.getGemReward() + " Gems"));
+        lore.add(Component.text("§d  +" + step.getGemReward() + " Gemmes"));
 
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -483,7 +483,7 @@ public class JourneyGUI implements Listener {
         lore.add(Component.text("§7En terminant ce chapitre:"));
         lore.add(Component.text(""));
         lore.add(Component.text("§e  ⬧ " + formatNumber(chapter.getBonusPoints()) + " Points bonus"));
-        lore.add(Component.text("§d  ⬧ " + chapter.getBonusGems() + " Gems bonus"));
+        lore.add(Component.text("§d  ⬧ " + chapter.getBonusGems() + " Gemmes bonus"));
         lore.add(Component.text(""));
 
         String bonus = chapter.getBonusReward();

@@ -963,7 +963,7 @@ public class JourneyManager {
         player.sendMessage("  §a§l✓ ÉTAPE COMPLÉTÉE!");
         player.sendMessage("  §7" + step.getName());
         player.sendMessage("");
-        player.sendMessage("  §e+" + step.getPointReward() + " Points §8| §d+" + step.getGemReward() + " Gems");
+        player.sendMessage("  §e+" + step.getPointReward() + " Points §8| §d+" + step.getGemReward() + " Gemmes");
         player.sendMessage("§8§m                                        ");
         player.sendMessage("");
 
@@ -998,7 +998,7 @@ public class JourneyManager {
         player.sendMessage("    " + chapter.getColoredName());
         player.sendMessage("");
         player.sendMessage("    §e§l+" + formatNumber(chapter.getBonusPoints()) + " Points");
-        player.sendMessage("    §d§l+" + chapter.getBonusGems() + " Gems");
+        player.sendMessage("    §d§l+" + chapter.getBonusGems() + " Gemmes");
         player.sendMessage("    " + chapter.getBonusReward());
         player.sendMessage("");
 
