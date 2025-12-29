@@ -398,12 +398,9 @@ public class JackpotZombieEvent extends MicroEvent {
         points = (int) (points * (1.0 + zone.getId() * 0.03));
         int xp = (int) (type.getBaseXpReward() * (1.0 + zone.getId() * 0.05));
 
-        // Distribuer
+        // Distribuer via EconomyManager pour inclure l'XP de classe (30%)
         plugin.getEconomyManager().addPoints(player, points);
-        var playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
-        if (playerData != null) {
-            playerData.addXp(xp);
-        }
+        plugin.getEconomyManager().addXp(player, xp);
 
         // Effets
         player.sendTitle(

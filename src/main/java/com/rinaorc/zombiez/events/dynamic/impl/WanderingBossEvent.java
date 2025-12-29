@@ -510,12 +510,12 @@ public class WanderingBossEvent extends DynamicEvent {
             Player player = plugin.getServer().getPlayer(uuid);
             if (player != null && player.isOnline()) {
                 plugin.getEconomyManager().addPoints(player, totalPoints);
+                // XP via EconomyManager pour inclure l'XP de classe (30%)
+                plugin.getEconomyManager().addXp(player, totalXp);
 
+                // ============ TRACKER ÉVÉNEMENTS ============
                 var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
                 if (playerData != null) {
-                    playerData.addXp(totalXp);
-
-                    // ============ TRACKER ÉVÉNEMENTS (manquait!) ============
                     playerData.incrementStat("events_completed");
                     int eventsCompleted = (int) playerData.getStat("events_completed");
 

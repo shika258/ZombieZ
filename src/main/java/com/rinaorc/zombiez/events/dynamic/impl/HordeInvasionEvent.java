@@ -591,11 +591,8 @@ public class HordeInvasionEvent extends DynamicEvent {
             Player player = plugin.getServer().getPlayer(uuid);
             if (player != null && player.isOnline()) {
                 plugin.getEconomyManager().addPoints(player, totalPoints);
-
-                var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
-                if (playerData != null) {
-                    playerData.addXp(totalXp);
-                }
+                // XP via EconomyManager pour inclure l'XP de classe (30%)
+                plugin.getEconomyManager().addXp(player, totalXp);
 
                 player.sendMessage("");
                 player.sendMessage("§a§l✓ INVASION REPOUSSÉE!");

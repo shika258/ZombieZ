@@ -123,9 +123,9 @@ public class DailyLoginStreakManager implements Listener {
         int finalPoints = (int) (basePoints * streakMultiplier);
         int finalXp = (int) (baseXp * streakMultiplier);
 
-        // Appliquer les récompenses
-        data.addPoints(finalPoints);
-        data.addXp(finalXp);
+        // Appliquer les récompenses via EconomyManager pour inclure l'XP de classe
+        plugin.getEconomyManager().addPoints(player, finalPoints);
+        plugin.getEconomyManager().addXp(player, finalXp);
         if (gems > 0) {
             data.addGems(gems);
         }
