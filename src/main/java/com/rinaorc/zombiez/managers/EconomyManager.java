@@ -209,6 +209,19 @@ public class EconomyManager {
         // Tracker le total d'XP gagné
         data.addTotalXp(finalAmount);
 
+        // ============ XP DE CLASSE (30% de l'XP gagnée) ============
+        // Tous les bonus d'XP (events, élites, assists, etc.) comptent aussi pour les classes
+        var classManager = plugin.getClassManager();
+        if (classManager != null) {
+            var classData = classManager.getClassData(player);
+            if (classData != null && classData.hasClass()) {
+                long classXp = Math.round(finalAmount * 0.3); // 30% de l'XP standard
+                if (classXp > 0 && classData.addClassXp(classXp)) {
+                    classManager.handleClassLevelUp(player);
+                }
+            }
+        }
+
         // ============ ACHIEVEMENTS D'XP ============
         var achievementManager = plugin.getAchievementManager();
         long totalXp = data.getTotalXp().get();
