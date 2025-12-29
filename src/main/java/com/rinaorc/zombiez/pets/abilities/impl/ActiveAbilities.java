@@ -178,53 +178,6 @@ class FlashActive implements PetAbility {
     }
 }
 
-// ==================== SHIELD ====================
-
-@Getter
-class ShieldActive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double shieldAmount;
-    private final Map<UUID, Double> activeShields = new HashMap<>();
-
-    ShieldActive(String id, String name, String desc, int cooldown, double shield) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.shieldAmount = shield;
-    }
-
-    @Override
-    public boolean isPassive() { return false; }
-
-    @Override
-    public int getCooldown() { return 45; }
-
-    @Override
-    public boolean activate(Player player, PetData petData) {
-        double adjustedShield = shieldAmount * petData.getStatMultiplier();
-        activeShields.put(player.getUniqueId(), adjustedShield);
-
-        // Effet visuel
-        player.addPotionEffect(new PotionEffect(
-            PotionEffectType.RESISTANCE, 100, 1, false, true));
-        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1.0f, 1.0f);
-        player.sendMessage("§a[Pet] §7Bouclier activé: §e" + (int) adjustedShield + " §7dégâts absorbés!");
-
-        return true;
-    }
-
-    public double getShieldRemaining(UUID uuid) {
-        return activeShields.getOrDefault(uuid, 0.0);
-    }
-
-    public void absorbDamage(UUID uuid, double damage) {
-        double current = activeShields.getOrDefault(uuid, 0.0);
-        activeShields.put(uuid, Math.max(0, current - damage));
-    }
-}
-
 // ==================== SCOUT ====================
 
 @Getter
