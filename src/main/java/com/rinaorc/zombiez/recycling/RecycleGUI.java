@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.recycling;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.consumables.Consumable;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
@@ -167,15 +168,16 @@ public class RecycleGUI implements Listener {
                 .build());
         }
 
-        // Toggle consommables (slot 39)
+        // Toggle consommables & nourriture (slot 39)
         boolean consumablesEnabled = settings.isRecycleConsumablesEnabled();
         inv.setItem(SLOT_TOGGLE_CONSUMABLES, new ItemBuilder(consumablesEnabled ? Material.BREWING_STAND : Material.GLASS_BOTTLE)
-            .name(consumablesEnabled ? "§a§l✓ CONSOMMABLES ACTIVÉS" : "§c§l✗ CONSOMMABLES DÉSACTIVÉS")
+            .name(consumablesEnabled ? "§a§l✓ CONSOMMABLES & NOURRITURE ACTIVÉS" : "§c§l✗ CONSOMMABLES & NOURRITURE DÉSACTIVÉS")
             .lore(
                 "",
                 "§7Recycle automatiquement les",
                 "§7consommables (grenades, soins,",
-                "§7jetpacks, etc.) en points.",
+                "§7jetpacks, etc.) §eet la nourriture",
+                "§7en points.",
                 "",
                 "§6⚡ Points par rareté:",
                 "  §f• Commun: §e3 pts §7(base)",
@@ -206,7 +208,7 @@ public class RecycleGUI implements Listener {
                 "  §fPoints gagnés: §6" + formatPoints(settings.getTotalPointsEarned().get()),
                 "",
                 "§7Raretés activées: §f" + settings.getEnabledRaritiesCount() + "/7",
-                "§7Consommables: " + (consumablesEnabled ? "§aActivé" : "§cDésactivé")
+                "§7Consommables & Nourriture: " + (consumablesEnabled ? "§aActivé" : "§cDésactivé")
             )
             .build());
 
@@ -335,10 +337,10 @@ public class RecycleGUI implements Listener {
                 0.5f, newState ? 1.3f : 0.9f);
 
             if (newState) {
-                player.sendMessage("§a§l♻ §aRecyclage des consommables §lactivé§a!");
-                player.sendMessage("§7Les grenades, soins, jetpacks seront recyclés au ramassage.");
+                player.sendMessage("§a§l♻ §aRecyclage consommables & nourriture §lactivé§a!");
+                player.sendMessage("§7Les grenades, soins, jetpacks et nourriture seront recyclés au ramassage.");
             } else {
-                player.sendMessage("§c§l♻ §cRecyclage des consommables §ldésactivé§c.");
+                player.sendMessage("§c§l♻ §cRecyclage consommables & nourriture §ldésactivé§c.");
             }
 
             // Rafraîchir le menu
@@ -625,20 +627,29 @@ public class RecycleGUI implements Listener {
             ItemStack item = inv.getItem(slot);
             if (item == null || item.getType() == Material.AIR) continue;
 
+            int stackSize = item.getAmount();
+            int pointsForOne = 0;
+
+            // Vérifier si c'est un consommable ZombieZ
+            if (Consumable.isConsumable(item)) {
+                pointsForOne = recycleManager.recycleConsumable(player, item.asOne());
+            }
+            // Vérifier si c'est une nourriture ZombieZ
+            else if (recycleManager.isFoodItem(item)) {
+                pointsForOne = recycleManager.recycleFood(player, item.asOne());
+            }
             // Vérifier si c'est un item ZombieZ
-            if (!ZombieZItem.isZombieZItem(item)) {
+            else if (ZombieZItem.isZombieZItem(item)) {
+                pointsForOne = recycleManager.recycleItem(player, item.asOne());
+            } else {
                 continue; // Ignorer les items non-ZombieZ
             }
-
-            // Calculer les points pour chaque item du stack
-            int stackSize = item.getAmount();
-            int pointsForOne = recycleManager.recycleItem(player, item.asOne());
 
             if (pointsForOne > 0) {
                 // Recycler tout le stack
                 int stackPoints = pointsForOne * stackSize;
 
-                // Ajouter les points (recycleItem ne les a ajoutés que pour 1)
+                // Ajouter les points (recycleItem/recycleConsumable/recycleFood ne les a ajoutés que pour 1)
                 // On doit ajouter le reste
                 if (stackSize > 1) {
                     PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
@@ -647,7 +658,7 @@ public class RecycleGUI implements Listener {
                     }
 
                     RecycleSettings settings = recycleManager.getSettings(player.getUniqueId());
-                    settings.addRecycledItem(pointsForOne * (stackSize - 1), stackSize - 1);
+                    settings.addRecycledItemsBatch(stackSize - 1, pointsForOne * (stackSize - 1));
                 }
 
                 totalPoints += stackPoints;
@@ -686,7 +697,7 @@ public class RecycleGUI implements Listener {
         } else {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.7f, 0.5f);
             player.sendMessage("§c§l♻ §cAucun item recyclable trouvé!");
-            player.sendMessage("§7Placez des items §eZombieZ §7dans les emplacements vides.");
+            player.sendMessage("§7Placez des items §eZombieZ §7(équipements, consommables, nourriture) dans les emplacements.");
         }
     }
 

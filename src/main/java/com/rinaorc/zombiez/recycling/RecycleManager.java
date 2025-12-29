@@ -6,6 +6,8 @@ import com.rinaorc.zombiez.consumables.ConsumableRarity;
 import com.rinaorc.zombiez.data.PlayerData;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
+import com.rinaorc.zombiez.mobs.food.FoodItem;
+import com.rinaorc.zombiez.mobs.food.FoodItemRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -15,6 +17,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -219,6 +223,83 @@ public class RecycleManager implements Listener {
     }
 
     /**
+     * Vérifie si un ItemStack est une nourriture ZombieZ
+     */
+    public boolean isFoodItem(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        return meta != null && meta.getPersistentDataContainer().has(FoodItem.FOOD_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * Obtient l'ID de nourriture depuis un ItemStack
+     */
+    public String getFoodId(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        return meta.getPersistentDataContainer().get(FoodItem.FOOD_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * Recycle une nourriture et donne les points au joueur
+     *
+     * @param player Le joueur qui recycle
+     * @param item L'ItemStack nourriture à recycler
+     * @return Les points gagnés, ou 0 si non recyclable
+     */
+    public int recycleFood(Player player, ItemStack item) {
+        String foodId = getFoodId(item);
+        if (foodId == null) return 0;
+
+        // Obtenir le FoodItemRegistry
+        var passiveMobManager = plugin.getPassiveMobManager();
+        if (passiveMobManager == null) return 0;
+
+        FoodItemRegistry registry = passiveMobManager.getFoodRegistry();
+        if (registry == null) return 0;
+
+        FoodItem foodItem = registry.getItem(foodId);
+        if (foodItem == null) return 0;
+
+        // Convertir FoodRarity en index pour les points (même échelle que ConsumableRarity)
+        int rarityIndex = foodItem.getRarity().ordinal();
+        if (rarityIndex >= CONSUMABLE_POINTS_BY_RARITY.length) {
+            rarityIndex = CONSUMABLE_POINTS_BY_RARITY.length - 1;
+        }
+
+        // Utiliser les mêmes points que les consommables
+        int basePoints = CONSUMABLE_POINTS_BY_RARITY[rarityIndex];
+
+        // Pas de zone level pour la nourriture, utiliser zone 1 comme base
+        int points = basePoints;
+
+        // Appliquer le multiplicateur VIP si applicable
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayer(player.getUniqueId());
+        if (playerData != null) {
+            double vipMultiplier = playerData.getPointsMultiplier();
+            points = (int) Math.round(points * vipMultiplier);
+
+            // Ajouter les points au joueur
+            playerData.addPoints(points);
+            playerData.addTotalPointsEarned(points);
+
+            // Mettre à jour les stats de recyclage
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            settings.addRecycledItem(points);
+
+            // Tracker pour le parcours (Journey)
+            notifyJourneyProgress(player, settings);
+
+            // Tracker pour la mission ITEMS_RECYCLED
+            plugin.getMissionManager().updateProgress(player,
+                com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ITEMS_RECYCLED, 1);
+        }
+
+        return points;
+    }
+
+    /**
      * Recycle automatiquement un item si les conditions sont remplies
      *
      * @return true si l'item a été recyclé
@@ -266,6 +347,23 @@ public class RecycleManager implements Listener {
             RecycleSettings settings = getSettings(player.getUniqueId());
             if (settings.shouldRecycleConsumables()) {
                 int points = recycleConsumable(player, item);
+                if (points > 0) {
+                    event.setCancelled(true);
+                    event.getItem().remove();
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 1.5f);
+                    return;
+                }
+            }
+            // Pas recyclé, vérifier l'inventaire
+            checkInventoryFullReminder(player);
+            return;
+        }
+
+        // Vérifier si c'est une nourriture ZombieZ (recyclée avec le même toggle que les consommables)
+        if (isFoodItem(item)) {
+            RecycleSettings settings = getSettings(player.getUniqueId());
+            if (settings.shouldRecycleConsumables()) {
+                int points = recycleFood(player, item);
                 if (points > 0) {
                     event.setCancelled(true);
                     event.getItem().remove();
@@ -500,6 +598,30 @@ public class RecycleManager implements Listener {
                 if (consumable != null) {
                     pointsPerItem = calculateConsumableRecyclePoints(consumable.getRarity(), consumable.getZoneId());
                     pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+                }
+            }
+            // Vérifier si c'est une nourriture ZombieZ (recyclée avec le toggle consommables)
+            else if (isFoodItem(item)) {
+                if (!settings.shouldRecycleConsumables()) {
+                    continue;
+                }
+                String foodId = getFoodId(item);
+                if (foodId != null) {
+                    var passiveMobManager = plugin.getPassiveMobManager();
+                    if (passiveMobManager != null) {
+                        FoodItemRegistry registry = passiveMobManager.getFoodRegistry();
+                        if (registry != null) {
+                            FoodItem foodItem = registry.getItem(foodId);
+                            if (foodItem != null) {
+                                int rarityIndex = foodItem.getRarity().ordinal();
+                                if (rarityIndex >= CONSUMABLE_POINTS_BY_RARITY.length) {
+                                    rarityIndex = CONSUMABLE_POINTS_BY_RARITY.length - 1;
+                                }
+                                pointsPerItem = CONSUMABLE_POINTS_BY_RARITY[rarityIndex];
+                                pointsPerItem = (int) Math.round(pointsPerItem * vipMultiplier);
+                            }
+                        }
+                    }
                 }
             }
             // Sinon, vérifier si c'est un item ZombieZ recyclable
