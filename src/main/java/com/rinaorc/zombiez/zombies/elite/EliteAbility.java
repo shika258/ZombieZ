@@ -183,7 +183,7 @@ public enum EliteAbility {
 
             // Effets visuels
             entity.getWorld().spawnParticle(
-                Particle.CRIT_MAGIC,
+                Particle.ENCHANTED_HIT,
                 entity.getLocation().add(0, 1, 0),
                 10, 0.3, 0.3, 0.3, 0.1
             );

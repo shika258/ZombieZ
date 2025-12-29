@@ -320,7 +320,7 @@ public class Chapter3Systems implements Listener {
             if (tags.contains("chapter3_village_survivor") ||
                     (entity instanceof Villager v && v.getPersistentDataContainer().has(VILLAGE_SURVIVOR_KEY, PersistentDataType.BYTE))) {
                 if (!foundSurvivor) {
-                    villageSurvivor = entity;
+                    villageSurvivorEntity = entity;
                     foundSurvivor = true;
                 } else {
                     entity.remove();
