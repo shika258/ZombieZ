@@ -95,20 +95,20 @@ public enum PetType {
 
     // --- NOUVEAUX PETS COMMUNS (Synergies) ---
 
-    SCARABEE_COMBO(
-        "Scarabée de Combo",
+    ARMADILLO_COMBO(
+        "Armadillo Combo",
         PetRarity.COMMON,
-        Material.GOLD_NUGGET,
-        EntityType.ENDERMITE,
-        "combo_beetle",
+        Material.ARMADILLO_SCUTE,
+        EntityType.ARMADILLO,
+        "combo_armadillo",
         "Combo / Momentum",
-        "Scarabée doré qui brille plus fort avec chaque kill",
-        "+0.5% dégâts par kill consécutif (max +15%)",
+        "Armadillo doré qui se renforce avec chaque kill",
+        "+0.5% dégâts par kill (max +5%, 15s) - Niv.Max: +15%, 30s",
         "Explosion de Combo",
-        "Consomme le combo pour infliger dégâts = combo × 5",
+        "Consomme le combo pour exploser en AoE (8 blocs, 5 dégâts/stack)",
         20,
-        "Max combo bonus +5%",
-        "Le combo ne reset pas pendant 3s après un kill"
+        "Max +10% dégâts, durée 20s",
+        "Max +15% dégâts, durée 30s, explosion +50% dégâts"
     ),
 
     LARVE_PARASITAIRE(

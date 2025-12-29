@@ -17,24 +17,26 @@ import java.util.*;
  * Ces abilities interagissent avec les systèmes de classe, talents, et mécaniques de jeu
  */
 
-// ==================== COMBO SYSTEM (Scarabée de Combo) ====================
+// ==================== COMBO SYSTEM (Armadillo Combo) ====================
 
 @Getter
 class ComboPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double damagePerKill;
-    private final double maxBonus;
+    private final double damagePerKill;      // Bonus par kill (0.5% = 0.005)
+    private final double baseMaxBonus;       // Max bonus de base (5% = 0.05)
+    private final int baseTimeoutSeconds;    // Timeout de base (15s)
     private final Map<UUID, Integer> comboStacks = new HashMap<>();
     private final Map<UUID, Long> lastKillTime = new HashMap<>();
 
-    public ComboPassive(String id, String name, String desc, double perKill, double max) {
+    public ComboPassive(String id, String name, String desc, double perKill, double baseMax, int baseTimeout) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.damagePerKill = perKill;
-        this.maxBonus = max;
+        this.baseMaxBonus = baseMax;
+        this.baseTimeoutSeconds = baseTimeout;
         PassiveAbilityCleanup.registerForCleanup(comboStacks);
         PassiveAbilityCleanup.registerForCleanup(lastKillTime);
     }
@@ -42,35 +44,82 @@ class ComboPassive implements PetAbility {
     @Override
     public boolean isPassive() { return true; }
 
+    /**
+     * Calcule le timeout effectif basé sur le niveau du pet
+     * Base: 15s, Niveau max: 30s
+     */
+    private long getEffectiveTimeout(PetData petData) {
+        // Le stat multiplier va de 1.0 (niveau 1) à ~2.0 (niveau max)
+        double multiplier = petData.getStatMultiplier();
+        return (long) (baseTimeoutSeconds * 1000 * multiplier);
+    }
+
+    /**
+     * Calcule le max bonus effectif basé sur le niveau du pet
+     * Base: 5%, Niveau max: 15%
+     */
+    private double getEffectiveMaxBonus(PetData petData) {
+        // Base: 5%, avec stat multiplier max (~2.0) → 10%,
+        // mais on veut atteindre 15% donc on triple le base
+        return baseMaxBonus * petData.getStatMultiplier() * 1.5;
+    }
+
     @Override
     public void onKill(Player player, PetData petData, LivingEntity killed) {
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
         long last = lastKillTime.getOrDefault(uuid, 0L);
+        long timeout = getEffectiveTimeout(petData);
 
-        // Reset si plus de 5 secondes sans kill
-        if (now - last > 5000) {
+        // Reset si timeout dépassé
+        if (now - last > timeout) {
             comboStacks.put(uuid, 0);
         }
 
+        double effectiveMax = getEffectiveMaxBonus(petData);
         int currentStacks = comboStacks.getOrDefault(uuid, 0);
-        int maxStacks = (int) (maxBonus / damagePerKill);
+        int maxStacks = (int) (effectiveMax / damagePerKill);
+
         if (currentStacks < maxStacks) {
             comboStacks.put(uuid, currentStacks + 1);
+            int newStacks = currentStacks + 1;
+            double currentBonus = newStacks * damagePerKill * 100;
+
+            // Notification tous les 5 stacks
+            if (newStacks % 5 == 0 || newStacks == maxStacks) {
+                player.sendMessage("§a[Pet] §6Combo x" + newStacks + " §7(§e+" + String.format("%.1f", currentBonus) + "% §7dégâts)");
+            }
         }
 
         lastKillTime.put(uuid, now);
 
         // Effet visuel selon le niveau de combo
-        if (currentStacks > 10) {
-            player.spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0.02);
+        int stacks = comboStacks.get(uuid);
+        if (stacks >= 5) {
+            player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1.5, 0),
+                3 + stacks / 5, 0.3, 0.3, 0.3, 0);
         }
     }
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        int stacks = comboStacks.getOrDefault(player.getUniqueId(), 0);
-        double bonus = stacks * damagePerKill * petData.getStatMultiplier();
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long last = lastKillTime.getOrDefault(uuid, 0L);
+        long timeout = getEffectiveTimeout(petData);
+
+        // Vérifier si le combo a expiré
+        if (now - last > timeout) {
+            int oldStacks = comboStacks.getOrDefault(uuid, 0);
+            if (oldStacks > 0) {
+                comboStacks.put(uuid, 0);
+                player.sendMessage("§c[Pet] §7Combo perdu...");
+            }
+            return damage;
+        }
+
+        int stacks = comboStacks.getOrDefault(uuid, 0);
+        double bonus = stacks * damagePerKill;
         return damage * (1 + bonus);
     }
 
@@ -81,6 +130,10 @@ class ComboPassive implements PetAbility {
     public void consumeCombo(UUID uuid) {
         comboStacks.put(uuid, 0);
     }
+
+    public double getCurrentBonus(UUID uuid) {
+        return comboStacks.getOrDefault(uuid, 0) * damagePerKill;
+    }
 }
 
 @Getter
@@ -89,12 +142,16 @@ class ComboExplosionActive implements PetAbility {
     private final String displayName;
     private final String description;
     private final ComboPassive comboPassive;
+    private final double damagePerStack;  // Dégâts par stack (5 par défaut)
+    private final int explosionRadius;    // Rayon de l'explosion (8 blocs)
 
-    public ComboExplosionActive(String id, String name, String desc, ComboPassive passive) {
+    public ComboExplosionActive(String id, String name, String desc, ComboPassive passive, double damagePerStack, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.comboPassive = passive;
+        this.damagePerStack = damagePerStack;
+        this.explosionRadius = radius;
     }
 
     @Override
@@ -106,26 +163,56 @@ class ComboExplosionActive implements PetAbility {
     @Override
     public boolean activate(Player player, PetData petData) {
         int stacks = comboPassive.getComboStacks(player.getUniqueId());
-        if (stacks < 5) {
-            player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/5 minimum)");
+        if (stacks < 3) {
+            player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/3 minimum)");
             return false;
         }
 
-        double damage = stacks * 5 * petData.getStatMultiplier();
+        // Consommer le combo et calculer les dégâts
+        double bonusPercent = comboPassive.getCurrentBonus(player.getUniqueId()) * 100;
+        double damage = stacks * damagePerStack * petData.getStatMultiplier();
         comboPassive.consumeCombo(player.getUniqueId());
 
-        Collection<Entity> nearby = player.getNearbyEntities(8, 8, 8);
+        // Compter les ennemis touchés
+        int enemiesHit = 0;
+        Collection<Entity> nearby = player.getNearbyEntities(explosionRadius, explosionRadius, explosionRadius);
         for (Entity entity : nearby) {
             if (entity instanceof Monster monster) {
                 monster.damage(damage, player);
                 petData.addDamage((long) damage);
+                enemiesHit++;
+
+                // Effet visuel sur chaque cible
+                monster.getWorld().spawnParticle(Particle.CRIT, monster.getLocation().add(0, 1, 0),
+                    10, 0.3, 0.3, 0.3, 0.1);
             }
         }
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 5, 3, 1, 3, 0);
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 50, 4, 1, 4, 0.1);
-        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.5f);
-        player.sendMessage("§a[Pet] §6Explosion de Combo! §c" + (int)damage + " §7dégâts! (§e" + stacks + " §7stacks)");
+        // Animation d'explosion concentrique
+        for (int ring = 1; ring <= explosionRadius; ring++) {
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    Location center = player.getLocation();
+                    for (int angle = 0; angle < 360; angle += 15) {
+                        double rad = Math.toRadians(angle);
+                        Location loc = center.clone().add(Math.cos(rad) * r, 0.5, Math.sin(rad) * r);
+                        player.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0, 0, 0, 0);
+                    }
+                },
+                ring * 2L
+            );
+        }
+
+        // Effets sonores et visuels centraux
+        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 3, 1, 0.5, 1, 0);
+        player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation(), 30, 3, 1, 3, 0);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
+        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.5f);
+
+        player.sendMessage("§a[Pet] §6§lEXPLOSION DE COMBO! §c" + (int)damage + " §7dégâts × §e" + enemiesHit +
+            " §7ennemis (§6" + stacks + " §7stacks, §e+" + String.format("%.1f", bonusPercent) + "%§7)");
 
         return true;
     }

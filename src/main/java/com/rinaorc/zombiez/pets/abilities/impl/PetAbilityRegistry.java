@@ -294,13 +294,15 @@ public class PetAbilityRegistry {
 
         // ==================== NOUVEAUX PETS SYNERGIES ====================
 
-        // Scarabée de Combo (Combo/Momentum)
+        // Armadillo Combo (Combo/Momentum)
+        // Base: +0.5% par kill, max +5%, reset après 15s
+        // Niveau max: +15% max, reset après 30s
         ComboPassive comboPassive = new ComboPassive("combo_stack", "Momentum",
-            "+0.5% dégâts par kill consécutif (max +15%)", 0.005, 0.15);
-        registerAbilities(PetType.SCARABEE_COMBO,
+            "+0.5% dégâts par kill (max +5%, 15s) - Niv.Max: +15%, 30s", 0.005, 0.05, 15);
+        registerAbilities(PetType.ARMADILLO_COMBO,
             comboPassive,
             new ComboExplosionActive("combo_explode", "Explosion de Combo",
-                "Consomme le combo pour infliger dégâts = combo × 5", comboPassive)
+                "Consomme le combo pour exploser en AoE (8 blocs, 5 dégâts/stack)", comboPassive, 5.0, 8)
         );
 
         // Larve Parasitaire (Lifesteal)
