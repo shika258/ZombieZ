@@ -67,14 +67,14 @@ public enum PetType {
         Material.ENDERMITE_SPAWN_EGG,
         EntityType.ENDERMITE,
         "beetle",
-        "Défense",
+        "Défense / Tank",
         "Scarabée avec carapace métallique",
-        "+5% de réduction de dégâts",
-        "Carapace",
-        "Bouclier absorbant 20 dégâts",
+        "+5% réduction de dégâts (cumule avec armure)",
+        "Carapace Blindée",
+        "Applique Résistance II pendant 5s (-40% dégâts)",
         45,
-        "Réduction +3%",
-        "Carapace reflète 30% des dégâts"
+        "Réduction +3% (total 8%)",
+        "Durée Résistance II augmentée à 8s"
     ),
 
     CORBEAU_MESSAGER(

@@ -69,9 +69,9 @@ public class PetAbilityRegistry {
         // Scarabée Blindé
         registerAbilities(PetType.SCARABEE_BLINDE,
             new DamageReductionPassive("beetle_armor", "Carapace Passive",
-                "+5% de réduction de dégâts", 0.05),
-            new ShieldActive("beetle_shield", "Carapace",
-                "Bouclier absorbant 20 dégâts", 45, 20)
+                "+5% réduction de dégâts (cumule avec armure)", 0.05),
+            new ResistanceActive("beetle_resistance", "Carapace Blindée",
+                "Applique Résistance II pendant 5s (-40% dégâts)", 5)
         );
 
         // Corbeau Messager
