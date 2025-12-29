@@ -51,14 +51,14 @@ public enum PetType {
         Material.GLOW_BERRIES,
         EntityType.ALLAY,
         "firefly",
-        "Lumière / Support",
-        "Luciole lumineuse",
-        "Éclaire un rayon de 5 blocs autour du joueur",
-        "Flash Aveuglant",
-        "Aveugle les zombies proches 3s",
-        25,
-        "Rayon lumineux +5 blocs",
-        "Le flash inflige des dégâts aux morts-vivants"
+        "Soin / Combat",
+        "Luciole lumineuse aux reflets dorés",
+        "Régénère 0.25❤/s pendant 5s après chaque kill",
+        "Pulse de Vie",
+        "Soigne 3❤ et donne Régénération I pendant 8s",
+        30,
+        "Régénération post-kill +0.25❤/s",
+        "Pulse de Vie soigne aussi les alliés proches (5 blocs)"
     ),
 
     SCARABEE_BLINDE(

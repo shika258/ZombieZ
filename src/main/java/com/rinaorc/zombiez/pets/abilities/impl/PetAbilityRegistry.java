@@ -58,12 +58,12 @@ public class PetAbilityRegistry {
                 "Trouve 1 nourriture ou consommable (rareté selon niveau)")
         );
 
-        // Luciole Errante
+        // Luciole Errante - Guérisseuse de Combat
         registerAbilities(PetType.LUCIOLE_ERRANTE,
-            new LightPassive("firefly_light", "Lumière",
-                "Éclaire un rayon de 5 blocs", 5),
-            new FlashActive("firefly_flash", "Flash Aveuglant",
-                "Aveugle les zombies proches 3s", 25, 3)
+            new CombatRegenPassive("firefly_regen", "Aura Curative",
+                "Régénère 0.25❤/s pendant 5s après chaque kill", 0.5, 5),
+            new LifePulseActive("firefly_pulse", "Pulse de Vie",
+                "Soigne 3❤ et donne Régénération I pendant 8s", 3.0, 8)
         );
 
         // Scarabée Blindé
