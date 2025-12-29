@@ -162,19 +162,19 @@ public enum PetType {
     ),
 
     GOLEM_POCHE(
-        "Golem de Poche",
+        "Golem Sismique",
         PetRarity.UNCOMMON,
         Material.IRON_BLOCK,
-        EntityType.ARMOR_STAND,
-        "pocket_golem",
-        "Tank / Protection",
-        "Mini golem de pierre",
-        "Intercepte 10% des dégâts subis par le joueur",
-        "Mur de Pierre",
-        "Crée un mur temporaire 3x2 (5s)",
+        EntityType.IRON_GOLEM,
+        "seismic_golem",
+        "Contrôle / Stun",
+        "Mini golem de fer aux pas lourds",
+        "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)",
+        "Séisme",
+        "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs",
         30,
-        "Interception +5%",
-        "Le mur repousse les zombies"
+        "Secousse tous les 4 coups, stun +0.5s",
+        "Le Séisme fissure le sol (zone de slow 5s)"
     ),
 
     FEU_FOLLET(

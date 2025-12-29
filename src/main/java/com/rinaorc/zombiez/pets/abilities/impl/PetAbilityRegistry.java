@@ -104,12 +104,14 @@ public class PetAbilityRegistry {
                 "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)", 1.5, 6, 30)
         );
 
-        // Golem de Poche
+        // Golem Sismique (anciennement Golem de Poche)
+        // Passif: Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)
+        // Ultimate: Séisme - stun 2s + 30 dégâts dans 8 blocs
         registerAbilities(PetType.GOLEM_POCHE,
-            new InterceptPassive("golem_intercept", "Protection",
-                "Intercepte 10% des dégâts", 0.10),
-            new WallActive("golem_wall", "Mur de Pierre",
-                "Crée un mur temporaire 3x2", 30, 5)
+            new HeavyStepsPassive("golem_steps", "Pas Lourds",
+                "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)", 5, 20, 3),
+            new SeismicSlamActive("golem_seism", "Séisme",
+                "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs", 30, 40, 8)
         );
 
         // Feu Follet

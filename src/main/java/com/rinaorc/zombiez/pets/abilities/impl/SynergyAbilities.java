@@ -1477,3 +1477,220 @@ class DimensionalConvergenceActive implements PetAbility {
         return true;
     }
 }
+
+// ==================== GOLEM SISMIQUE (Pas Lourds / Séisme) ====================
+
+@Getter
+class HeavyStepsPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int attacksForTrigger;    // 5 attaques
+    private final int stunDurationTicks;    // 1s = 20 ticks
+    private final int stunRadius;           // 3 blocs
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+
+    public HeavyStepsPassive(String id, String name, String desc, int attacksNeeded, int stunTicks, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.attacksForTrigger = attacksNeeded;
+        this.stunDurationTicks = stunTicks;
+        this.stunRadius = radius;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+
+        // Calculer le nombre d'attaques nécessaires selon le niveau
+        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
+
+        if (count >= adjustedTrigger) {
+            attackCounters.put(uuid, 0);
+            triggerQuake(player, petData);
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur de progression (particules sous les pieds)
+            if (count >= adjustedTrigger - 2) {
+                player.getWorld().spawnParticle(Particle.BLOCK,
+                    player.getLocation().add(0, 0.1, 0),
+                    5, 0.3, 0, 0.3, 0,
+                    org.bukkit.Material.STONE.createBlockData());
+            }
+        }
+
+        return damage;
+    }
+
+    private void triggerQuake(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Durée de stun ajustée par niveau
+        int adjustedStunDuration = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 10);
+
+        // Stun tous les mobs dans le rayon
+        int enemiesStunned = 0;
+        for (Entity entity : world.getNearbyEntities(center, stunRadius, stunRadius, stunRadius)) {
+            if (entity instanceof Monster monster) {
+                // Appliquer le stun via Slowness + Weakness
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, adjustedStunDuration, 127, false, false));
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.WEAKNESS, adjustedStunDuration, 127, false, false));
+
+                // Petit knockback vertical (effet de secousse)
+                monster.setVelocity(monster.getVelocity().setY(0.3));
+
+                enemiesStunned++;
+            }
+        }
+
+        // Effets visuels de secousse
+        for (int ring = 1; ring <= stunRadius; ring++) {
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    for (int angle = 0; angle < 360; angle += 30) {
+                        double rad = Math.toRadians(angle);
+                        Location loc = center.clone().add(Math.cos(rad) * r, 0.1, Math.sin(rad) * r);
+                        world.spawnParticle(Particle.BLOCK, loc, 8, 0.2, 0.1, 0.2, 0,
+                            org.bukkit.Material.STONE.createBlockData());
+                    }
+                },
+                ring
+            );
+        }
+
+        // Particules centrales
+        world.spawnParticle(Particle.EXPLOSION, center.add(0, 0.5, 0), 1, 0, 0, 0, 0);
+
+        // Son de secousse
+        world.playSound(center, Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.5f);
+        world.playSound(center, Sound.BLOCK_ANVIL_LAND, 0.5f, 0.5f);
+
+        // Message
+        if (enemiesStunned > 0) {
+            player.sendMessage("§a[Pet] §6Pas Lourds! §e" + enemiesStunned +
+                " §7ennemi" + (enemiesStunned > 1 ? "s" : "") + " §cstun §7" +
+                String.format("%.1f", adjustedStunDuration / 20.0) + "s");
+        }
+    }
+}
+
+@Getter
+class SeismicSlamActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseDamage;        // 30 dégâts de base
+    private final int stunDurationTicks;    // 2s = 40 ticks
+    private final int slamRadius;           // 8 blocs
+
+    public SeismicSlamActive(String id, String name, String desc, double damage, int stunTicks, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseDamage = damage;
+        this.stunDurationTicks = stunTicks;
+        this.slamRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Calcul des valeurs
+        double damage = baseDamage * petData.getStatMultiplier();
+        int adjustedStun = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+        int adjustedRadius = (int) (slamRadius + (petData.getStatMultiplier() - 1) * 2);
+
+        // Animation de préparation (le golem lève les bras)
+        player.sendMessage("§a[Pet] §6§l⚡ SÉISME!");
+        world.playSound(center, Sound.ENTITY_IRON_GOLEM_HURT, 1.0f, 0.3f);
+
+        // Appliquer dégâts et stun
+        int enemiesHit = 0;
+        for (Entity entity : world.getNearbyEntities(center, adjustedRadius, adjustedRadius, adjustedRadius)) {
+            if (entity instanceof Monster monster) {
+                // Dégâts
+                monster.damage(damage, player);
+                petData.addDamage((long) damage);
+
+                // Stun puissant
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, adjustedStun, 127, false, false));
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.WEAKNESS, adjustedStun, 127, false, false));
+
+                // Knockback vers le haut + écartement
+                Vector knockback = monster.getLocation().toVector()
+                    .subtract(center.toVector())
+                    .normalize()
+                    .multiply(0.8)
+                    .setY(0.6);
+                monster.setVelocity(knockback);
+
+                enemiesHit++;
+            }
+        }
+
+        // Animation d'onde de choc progressive
+        for (int ring = 1; ring <= adjustedRadius; ring++) {
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Cercle de particules
+                    for (int angle = 0; angle < 360; angle += 15) {
+                        double rad = Math.toRadians(angle);
+                        Location loc = center.clone().add(Math.cos(rad) * r, 0.2, Math.sin(rad) * r);
+
+                        // Blocs qui sautent
+                        world.spawnParticle(Particle.BLOCK, loc, 15, 0.3, 0.3, 0.3, 0.1,
+                            org.bukkit.Material.COBBLESTONE.createBlockData());
+
+                        // Fissures
+                        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 2, 0.1, 0.1, 0.1, 0.02);
+                    }
+
+                    // Son progressif
+                    world.playSound(center.clone().add(0, 0, r), Sound.BLOCK_STONE_BREAK, 0.8f, 0.5f + r * 0.05f);
+                },
+                ring * 2L
+            );
+        }
+
+        // Explosion centrale
+        world.spawnParticle(Particle.EXPLOSION, center.clone().add(0, 1, 0), 3, 1, 0.5, 1, 0);
+        world.spawnParticle(Particle.BLOCK, center, 100, 2, 0.5, 2, 0.5,
+            org.bukkit.Material.STONE.createBlockData());
+
+        // Sons principaux
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.6f);
+        world.playSound(center, Sound.ENTITY_IRON_GOLEM_ATTACK, 1.5f, 0.3f);
+        world.playSound(center, Sound.BLOCK_ANVIL_LAND, 1.0f, 0.3f);
+
+        // Message final
+        player.sendMessage("§a[Pet] §c§l💥 " + (int)damage + " §7dégâts + §cstun " +
+            String.format("%.1f", adjustedStun / 20.0) + "s §7→ §e" + enemiesHit +
+            " §7ennemi" + (enemiesHit > 1 ? "s" : "") + " §7(rayon §6" + adjustedRadius + "§7)");
+
+        return true;
+    }
+}
