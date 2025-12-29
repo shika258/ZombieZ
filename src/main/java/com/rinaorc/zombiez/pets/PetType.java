@@ -146,19 +146,19 @@ public enum PetType {
     ),
 
     CHAMPIGNON_AMBULANT(
-        "Champignon Ambulant",
+        "Champignon Explosif",
         PetRarity.UNCOMMON,
         Material.RED_MUSHROOM,
-        EntityType.CHICKEN,
+        EntityType.MOOSHROOM,
         "mushroom",
-        "Soin / Régénération",
-        "Petit champignon avec pattes",
-        "Régénère 0.5 coeur/5s au joueur",
-        "Spore Curative",
-        "Soigne 6 coeurs instantanément",
-        40,
-        "Régénération +0.25 coeur/5s",
-        "Spores laissent une zone de soin (3s)"
+        "Explosion / AoE",
+        "Champignon rouge pulsant d'énergie volatile",
+        "Les kills explosent en spores (20% dégâts AoE, 3 blocs)",
+        "Détonation Fongique",
+        "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)",
+        35,
+        "Explosion +10% dégâts, rayon 4 blocs",
+        "La détonation laisse des spores persistantes (3s de DoT)"
     ),
 
     GOLEM_POCHE(

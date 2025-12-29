@@ -94,12 +94,14 @@ public class PetAbilityRegistry {
                 "Pendant 8s, chaque kill donne +5% dégâts/vitesse (max +25%)", 8, 0.05, 0.25)
         );
 
-        // Champignon Ambulant
+        // Champignon Explosif (anciennement Champignon Ambulant)
+        // Passif: Les kills explosent en spores (20% dégâts, 3 blocs)
+        // Ultimate: Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)
         registerAbilities(PetType.CHAMPIGNON_AMBULANT,
-            new RegenPassive("shroom_regen", "Spores Curatives",
-                "Régénère 0.5 coeur/5s", 0.5, 100),
-            new HealActive("shroom_heal", "Spore Curative",
-                "Soigne 6 coeurs instantanément", 40, 6)
+            new VolatileSporesPassive("shroom_volatile", "Spores Volatiles",
+                "Les kills explosent en spores (20% dégâts AoE, 3 blocs)", 0.20, 3),
+            new FungalDetonationActive("shroom_detonate", "Détonation Fongique",
+                "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)", 1.5, 6, 30)
         );
 
         // Golem de Poche

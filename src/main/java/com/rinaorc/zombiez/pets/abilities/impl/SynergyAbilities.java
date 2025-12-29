@@ -1154,6 +1154,218 @@ class SymbioticFusionActive implements PetAbility {
     }
 }
 
+// ==================== CHAMPIGNON EXPLOSIF (Spores Volatiles) ====================
+
+@Getter
+class VolatileSporesPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double explosionDamagePercent;  // % des dégâts du kill (0.20 = 20%)
+    private final int explosionRadius;             // Rayon de l'explosion (3 blocs)
+
+    public VolatileSporesPassive(String id, String name, String desc, double damagePercent, int radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.explosionDamagePercent = damagePercent;
+        this.explosionRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void onKill(Player player, PetData petData, LivingEntity killed) {
+        Location deathLocation = killed.getLocation();
+        World world = deathLocation.getWorld();
+
+        // Calculer les dégâts de l'explosion basés sur la santé max du mob tué
+        double killDamage = killed.getMaxHealth();
+        double explosionDamage = killDamage * explosionDamagePercent * petData.getStatMultiplier();
+
+        // Rayon ajusté par niveau
+        int adjustedRadius = (int) (explosionRadius + (petData.getStatMultiplier() - 1) * 2);
+
+        // Infliger des dégâts aux mobs proches
+        int enemiesHit = 0;
+        for (Entity entity : world.getNearbyEntities(deathLocation, adjustedRadius, adjustedRadius, adjustedRadius)) {
+            if (entity instanceof Monster monster && entity != killed) {
+                monster.damage(explosionDamage, player);
+                petData.addDamage((long) explosionDamage);
+                enemiesHit++;
+
+                // Effet visuel sur chaque cible
+                monster.getWorld().spawnParticle(Particle.SPORE_BLOSSOM_AIR,
+                    monster.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
+            }
+        }
+
+        // Effets visuels de l'explosion de spores
+        world.spawnParticle(Particle.SPORE_BLOSSOM_AIR, deathLocation.add(0, 0.5, 0),
+            40, 1.5, 0.5, 1.5, 0.1);
+        world.spawnParticle(Particle.CRIMSON_SPORE, deathLocation,
+            30, 1, 0.5, 1, 0.02);
+        world.spawnParticle(Particle.POOF, deathLocation,
+            15, 0.5, 0.3, 0.5, 0.05);
+
+        // Son d'explosion de spores
+        world.playSound(deathLocation, Sound.BLOCK_FUNGUS_BREAK, 1.0f, 0.5f);
+        world.playSound(deathLocation, Sound.ENTITY_PUFFER_FISH_BLOW_OUT, 0.8f, 1.2f);
+
+        // Message si des ennemis sont touchés
+        if (enemiesHit > 0) {
+            player.sendMessage("§a[Pet] §6Spores Volatiles! §c" + (int)explosionDamage +
+                " §7dégâts → §e" + enemiesHit + " §7ennemi" + (enemiesHit > 1 ? "s" : ""));
+        }
+    }
+}
+
+@Getter
+class FungalDetonationActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damageMultiplier;     // 150% = 1.5
+    private final int explosionRadius;          // 6 blocs
+    private final int chargeTimeTicks;          // 1.5s = 30 ticks
+
+    public FungalDetonationActive(String id, String name, String desc, double damageMultiplier, int radius, int chargeTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damageMultiplier = damageMultiplier;
+        this.explosionRadius = radius;
+        this.chargeTimeTicks = chargeTicks;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Annonce de la charge
+        player.sendMessage("§a[Pet] §c§l⚠ DÉTONATION EN COURS...");
+        world.playSound(center, Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+
+        // Phase de charge avec effets visuels progressifs
+        new BukkitRunnable() {
+            int tick = 0;
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                Location playerLoc = player.getLocation();
+
+                // Particules de charge croissantes
+                double progress = (double) tick / chargeTimeTicks;
+                int particleCount = (int) (10 + progress * 30);
+                double radius = 0.5 + progress * 2;
+
+                // Cercle de spores qui se concentre
+                for (int angle = 0; angle < 360; angle += 20) {
+                    double rad = Math.toRadians(angle + tick * 10);
+                    double x = Math.cos(rad) * radius * (1 - progress * 0.5);
+                    double z = Math.sin(rad) * radius * (1 - progress * 0.5);
+                    Location particleLoc = playerLoc.clone().add(x, 0.5 + progress, z);
+                    world.spawnParticle(Particle.CRIMSON_SPORE, particleLoc, 2, 0.1, 0.1, 0.1, 0);
+                }
+
+                // Son de charge
+                if (tick % 5 == 0) {
+                    world.playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f + (float)progress);
+                }
+
+                tick++;
+
+                // Détonation finale
+                if (tick >= chargeTimeTicks) {
+                    cancel();
+                    executeDetonation(player, petData);
+                }
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private void executeDetonation(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Calculer les dégâts (basé sur l'attribut d'attaque du joueur)
+        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double damage = baseDamage * damageMultiplier * petData.getStatMultiplier();
+
+        // Rayon ajusté par niveau
+        int adjustedRadius = (int) (explosionRadius + (petData.getStatMultiplier() - 1) * 3);
+
+        // Infliger dégâts et knockback
+        int enemiesHit = 0;
+        for (Entity entity : world.getNearbyEntities(center, adjustedRadius, adjustedRadius, adjustedRadius)) {
+            if (entity instanceof Monster monster) {
+                // Dégâts
+                monster.damage(damage, player);
+                petData.addDamage((long) damage);
+                enemiesHit++;
+
+                // Knockback depuis le joueur
+                Vector knockback = monster.getLocation().toVector()
+                    .subtract(center.toVector())
+                    .normalize()
+                    .multiply(1.5)
+                    .setY(0.5);
+                monster.setVelocity(knockback);
+
+                // Effet sur la cible
+                monster.getWorld().spawnParticle(Particle.CRIT,
+                    monster.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+            }
+        }
+
+        // Explosion visuelle massive
+        world.spawnParticle(Particle.EXPLOSION, center.clone().add(0, 1, 0), 5, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SPORE_BLOSSOM_AIR, center, 200, adjustedRadius, 2, adjustedRadius, 0.2);
+        world.spawnParticle(Particle.CRIMSON_SPORE, center, 150, adjustedRadius, 3, adjustedRadius, 0.1);
+        world.spawnParticle(Particle.POOF, center, 50, adjustedRadius * 0.7, 1, adjustedRadius * 0.7, 0.1);
+
+        // Onde de choc visuelle (anneaux concentriques)
+        for (int ring = 1; ring <= adjustedRadius; ring++) {
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    for (int angle = 0; angle < 360; angle += 10) {
+                        double rad = Math.toRadians(angle);
+                        Location loc = center.clone().add(Math.cos(rad) * r, 0.3, Math.sin(rad) * r);
+                        world.spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0, 0, 0, 0);
+                    }
+                },
+                ring * 2L
+            );
+        }
+
+        // Sons d'explosion
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        world.playSound(center, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 0.8f, 0.8f);
+        world.playSound(center, Sound.BLOCK_FUNGUS_BREAK, 2.0f, 0.3f);
+
+        // Message final
+        player.sendMessage("§a[Pet] §c§l💥 DÉTONATION FONGIQUE! §7" + (int)damage +
+            " dégâts → §e" + enemiesHit + " §7ennemi" + (enemiesHit > 1 ? "s" : "") +
+            " §7(rayon §6" + adjustedRadius + "§7 blocs)");
+    }
+}
+
 // ==================== NEXUS (Nexus Dimensionnel - Support) ====================
 
 @Getter
