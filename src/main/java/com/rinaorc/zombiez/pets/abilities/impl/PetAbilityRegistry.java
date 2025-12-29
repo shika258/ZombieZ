@@ -78,8 +78,8 @@ public class PetAbilityRegistry {
         registerAbilities(PetType.CORBEAU_MESSAGER,
             new SpeedPassive("raven_speed", "Ailes Rapides",
                 "+5% vitesse de déplacement", 0.05),
-            new ScoutActive("raven_scout", "Vol Éclaireur",
-                "Révèle une zone éloignée", 40)
+            new RavenStrikeActive("raven_strike", "Frappe du Corbeau",
+                "Le corbeau se rue vers un ennemi et inflige 50% de vos dégâts", 0.50)
         );
 
         // ==================== PEU COMMUNS ====================

@@ -83,14 +83,14 @@ public enum PetType {
         Material.PARROT_SPAWN_EGG,
         EntityType.PARROT,
         "raven",
-        "Mobilité / Communication",
+        "Mobilité / Attaque",
         "Petit corbeau noir",
         "+5% vitesse de déplacement",
-        "Vol Éclaireur",
-        "Le corbeau part en éclaireur et révèle une zone",
-        40,
-        "Vitesse +3%",
-        "Peut transporter un petit objet vers un autre joueur"
+        "Frappe du Corbeau",
+        "Le corbeau se rue vers un ennemi et inflige 50% de vos dégâts",
+        25,
+        "Vitesse +3% (total 8%)",
+        "La frappe inflige 75% de vos dégâts et ralentit l'ennemi"
     ),
 
     // --- NOUVEAUX PETS COMMUNS (Synergies) ---
