@@ -35,7 +35,8 @@ public class ZoneLockDisplayManager {
     private final ZombieZPlugin plugin;
     private final ProtocolManager protocolManager;
 
-    // Entity ID counter pour les entités virtuelles (négatif pour éviter conflit avec vraies entités)
+    // Entity ID counter pour les entités virtuelles (négatif pour éviter conflit
+    // avec vraies entités)
     private static final AtomicInteger ENTITY_ID_COUNTER = new AtomicInteger(-1000000);
 
     // Cache des displays actifs par joueur (pour pouvoir les supprimer)
@@ -193,7 +194,8 @@ public class ZoneLockDisplayManager {
             activeDisplays.put(uuid, new ActiveLockDisplay(entityId, displayLoc, nextZoneId));
 
         } catch (Exception e) {
-            plugin.log(Level.WARNING, "§cErreur création display lock pour " + player.getName() + ": " + e.getMessage());
+            plugin.log(Level.WARNING,
+                    "§cErreur création display lock pour " + player.getName() + ": " + e.getMessage());
         }
     }
 
@@ -232,8 +234,8 @@ public class ZoneLockDisplayManager {
         // Déterminer les zones verrouillées (souvent 2-3 zones par chapitre)
         int endZone = getChapterEndZone(nextZoneId);
         String zoneRange = endZone > nextZoneId
-            ? "Zone " + nextZoneId + "-" + endZone
-            : "Zone " + nextZoneId;
+                ? "Zone " + nextZoneId + "-" + endZone
+                : "Zone " + nextZoneId;
 
         // Construire le texte multi-lignes
         StringBuilder text = new StringBuilder();
@@ -253,7 +255,8 @@ public class ZoneLockDisplayManager {
      */
     private int getChapterEndZone(int startZone) {
         JourneyGate startGate = JourneyGate.getZoneGate(startZone);
-        if (startGate == null) return startZone;
+        if (startGate == null)
+            return startZone;
 
         // Trouver le chapitre qui débloque cette zone
         JourneyChapter targetChapter = null;
@@ -264,10 +267,12 @@ public class ZoneLockDisplayManager {
                     break;
                 }
             }
-            if (targetChapter != null) break;
+            if (targetChapter != null)
+                break;
         }
 
-        if (targetChapter == null) return startZone;
+        if (targetChapter == null)
+            return startZone;
 
         // Trouver la zone max débloquée par ce chapitre
         int maxZone = startZone;
@@ -332,7 +337,8 @@ public class ZoneLockDisplayManager {
      *
      * Index des métadonnées en 1.21.4:
      * Display: 8-22 (11=translation, 12=scale, 15=billboard, 17=view_range)
-     * TextDisplay: 23-27 (23=text, 24=line_width, 25=bg_color, 26=opacity, 27=flags)
+     * TextDisplay: 23-27 (23=text, 24=line_width, 25=bg_color, 26=opacity,
+     * 27=flags)
      */
     private void sendMetadataPacket(Player player, int entityId, String text) throws Exception {
         PacketContainer metadataPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
@@ -356,7 +362,8 @@ public class ZoneLockDisplayManager {
         Component textComponent = Component.text(text);
         String jsonText = GsonComponentSerializer.gson().serialize(textComponent);
         WrappedChatComponent wrappedText = WrappedChatComponent.fromJson(jsonText);
-        dataValues.add(new WrappedDataValue(23, WrappedDataWatcher.Registry.getChatComponentSerializer(false), wrappedText.getHandle()));
+        dataValues.add(new WrappedDataValue(23, WrappedDataWatcher.Registry.getChatComponentSerializer(false),
+                wrappedText.getHandle()));
 
         // Index 24: Line width (largeur max avant retour à la ligne)
         dataValues.add(new WrappedDataValue(24, WrappedDataWatcher.Registry.get(Integer.class), 400));
@@ -367,8 +374,10 @@ public class ZoneLockDisplayManager {
         // Index 26: Text opacity (255 = opaque, -1 en byte signé = 255)
         dataValues.add(new WrappedDataValue(26, WrappedDataWatcher.Registry.get(Byte.class), (byte) -1));
 
-        // Index 27: Flags (combiné: bit 0=shadow, bit 1=see-through, bit 2=default_background, bits 3-4=alignment)
-        // Valeur: 0x01 (shadow) - PAS de default_background pour utiliser notre couleur custom
+        // Index 27: Flags (combiné: bit 0=shadow, bit 1=see-through, bit
+        // 2=default_background, bits 3-4=alignment)
+        // Valeur: 0x01 (shadow) - PAS de default_background pour utiliser notre couleur
+        // custom
         byte textFlags = (byte) 0x01; // Shadow ON uniquement
         dataValues.add(new WrappedDataValue(27, WrappedDataWatcher.Registry.get(Byte.class), textFlags));
 
@@ -377,7 +386,8 @@ public class ZoneLockDisplayManager {
         if (dataValueModifier.size() > 0) {
             dataValueModifier.write(0, dataValues);
         } else {
-            // Fallback: essayer d'utiliser le watchable collection modifier (versions antérieures)
+            // Fallback: essayer d'utiliser le watchable collection modifier (versions
+            // antérieures)
             plugin.log(Level.WARNING, "§eDataValueCollectionModifier non disponible, metadata non envoyées");
         }
         protocolManager.sendServerPacket(player, metadataPacket);
@@ -470,7 +480,7 @@ public class ZoneLockDisplayManager {
             display.location = newLoc;
 
         } catch (Exception e) {
-            plugin.log(Level.WARNING, "§cErreur téléportation display: " + e.getMessage());
+            // Log supprimé pour éviter le spam (erreur de compatibilité ProtocolLib 1.21.4)
         }
     }
 
@@ -490,7 +500,8 @@ public class ZoneLockDisplayManager {
         UUID uuid = player.getUniqueId();
         ActiveLockDisplay display = activeDisplays.remove(uuid);
 
-        if (display == null) return;
+        if (display == null)
+            return;
 
         try {
             // Envoyer le paquet de destruction

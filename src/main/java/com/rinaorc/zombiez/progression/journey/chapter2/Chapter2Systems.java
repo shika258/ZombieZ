@@ -524,7 +524,8 @@ public class Chapter2Systems implements Listener {
         // Créer les deux TextDisplays pour la visibilité per-player
         spawnMinerTextDisplays(world, loc);
 
-        // Particules de blessure périodiques
+        // Particules de blessure périodiques (visibles uniquement pour les joueurs qui
+        // n'ont pas soigné)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -533,9 +534,14 @@ public class Chapter2Systems implements Listener {
                     return;
                 }
                 Location particleLoc = injuredMinerEntity.getLocation().add(0, 1, 0);
-                world.spawnParticle(Particle.DAMAGE_INDICATOR, particleLoc, 3, 0.3, 0.3, 0.3, 0);
+                // Afficher les particules uniquement aux joueurs qui n'ont pas soigné le mineur
+                for (Player nearbyPlayer : world.getNearbyPlayers(particleLoc, 30)) {
+                    if (!hasPlayerHealedMiner(nearbyPlayer)) {
+                        nearbyPlayer.spawnParticle(Particle.DAMAGE_INDICATOR, particleLoc, 1, 0.2, 0.2, 0.2, 0);
+                    }
+                }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 60L);
     }
 
     /**

@@ -132,10 +132,7 @@ public class Chapter1Systems implements Listener {
             }
         }
 
-        if (removed > 0) {
-            plugin.log(Level.INFO,
-                    "§e⚠ Nettoyage global Chapter1: " + removed + " entité(s) fermier orpheline(s) supprimée(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -145,15 +142,28 @@ public class Chapter1Systems implements Listener {
         Location loc = FARMER_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (farmerEntity != null && farmerEntity.isValid()) {
-            farmerEntity.remove();
-        }
-        if (farmerDisplay != null && farmerDisplay.isValid()) {
-            farmerDisplay.remove();
+        // 1. Si entité en mémoire valide → ne rien faire
+        if (farmerEntity != null && farmerEntity.isValid() && !farmerEntity.isDead()) {
+            return;
         }
 
-        // Spawn le Villager fermier
+        // 2. Chercher entité existante dans le monde (persistée après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
+                farmerEntity = v;
+                // Chercher aussi le display associé
+                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
+                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter1_farmer_display")) {
+                        farmerDisplay = td;
+                        break;
+                    }
+                }
+                return; // Réutiliser l'existant
+            }
+        }
+
+        // 3. Sinon créer nouveau (UNE SEULE FOIS)
         farmerEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text("Gérard le Fermier", NamedTextColor.GOLD, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -172,8 +182,8 @@ public class Chapter1Systems implements Listener {
             // PDC
             villager.getPersistentDataContainer().set(FARMER_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            // Ne pas persister
-            villager.setPersistent(false);
+            // OBLIGATOIRE pour survivre au chunk unload
+            villager.setPersistent(true);
 
             // Orientation
             villager.setRotation(loc.getYaw(), 0);

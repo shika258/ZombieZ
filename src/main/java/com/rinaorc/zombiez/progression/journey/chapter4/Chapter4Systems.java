@@ -181,7 +181,8 @@ public class Chapter4Systems implements Listener {
     // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
     private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
     private static final double CRYSTAL_MAX_HEALTH = 1500.0; // HP du cristal (réduit de 3000 à 1500)
-    private static final double CRYSTAL_REGEN_PER_SECOND = 40.0; // Régénération par seconde (réduit de 80 à 40 - DPS requis: >40)
+    private static final double CRYSTAL_REGEN_PER_SECOND = 40.0; // Régénération par seconde (réduit de 80 à 40 - DPS
+                                                                 // requis: >40)
     private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
     private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
 
@@ -521,15 +522,28 @@ public class Chapter4Systems implements Listener {
         Location loc = PRIEST_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (priestEntity != null && priestEntity.isValid()) {
-            priestEntity.remove();
-        }
-        if (priestDisplay != null && priestDisplay.isValid()) {
-            priestDisplay.remove();
+        // 1. Si entité en mémoire valide → ne rien faire
+        if (priestEntity != null && priestEntity.isValid() && !priestEntity.isDead()) {
+            return;
         }
 
-        // Spawn le Villager prêtre
+        // 2. Chercher entité existante dans le monde (persistée après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
+                priestEntity = v;
+                // Chercher aussi le display associé
+                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
+                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter4_priest_display")) {
+                        priestDisplay = td;
+                        break;
+                    }
+                }
+                return; // Réutiliser l'existant
+            }
+        }
+
+        // 3. Sinon créer nouveau (UNE SEULE FOIS)
         priestEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text("Père Augustin", NamedTextColor.GOLD, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -548,8 +562,8 @@ public class Chapter4Systems implements Listener {
             // PDC
             villager.getPersistentDataContainer().set(PRIEST_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            // Ne pas persister
-            villager.setPersistent(false);
+            // OBLIGATOIRE pour survivre au chunk unload
+            villager.setPersistent(true);
 
             // Orientation
             villager.setRotation(-90, 0);
@@ -644,9 +658,7 @@ public class Chapter4Systems implements Listener {
                 removed++;
             }
         }
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " prêtre(s) orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -1458,15 +1470,29 @@ public class Chapter4Systems implements Listener {
         Location loc = MUSHROOM_COLLECTOR_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (mushroomCollectorEntity != null && mushroomCollectorEntity.isValid()) {
-            mushroomCollectorEntity.remove();
-        }
-        if (mushroomCollectorDisplay != null && mushroomCollectorDisplay.isValid()) {
-            mushroomCollectorDisplay.remove();
+        // 1. Si entité en mémoire valide → ne rien faire
+        if (mushroomCollectorEntity != null && mushroomCollectorEntity.isValid() && !mushroomCollectorEntity.isDead()) {
+            return;
         }
 
-        // Spawn le Villager collecteur
+        // 2. Chercher entité existante dans le monde (persistée après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
+                mushroomCollectorEntity = v;
+                // Chercher aussi le display associé
+                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
+                    if (e instanceof TextDisplay td
+                            && e.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
+                        mushroomCollectorDisplay = td;
+                        break;
+                    }
+                }
+                return; // Réutiliser l'existant
+            }
+        }
+
+        // 3. Sinon créer nouveau (UNE SEULE FOIS)
         mushroomCollectorEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text("Mère Cueillette", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -1485,8 +1511,8 @@ public class Chapter4Systems implements Listener {
             // PDC
             villager.getPersistentDataContainer().set(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            // Ne pas persister
-            villager.setPersistent(false);
+            // OBLIGATOIRE pour survivre au chunk unload
+            villager.setPersistent(true);
 
             // Orientation
             villager.setRotation(-90, 0);
@@ -1583,9 +1609,7 @@ public class Chapter4Systems implements Listener {
                 removed++;
             }
         }
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " collecteur(s) orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -2306,7 +2330,8 @@ public class Chapter4Systems implements Listener {
 
     /**
      * Gère la mort du joueur pendant l'étape 8 (Arbre Maudit).
-     * Si le joueur meurt pendant l'épreuve, il perd sa progression et doit recommencer.
+     * Si le joueur meurt pendant l'épreuve, il perd sa progression et doit
+     * recommencer.
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerDeath(PlayerDeathEvent event) {
@@ -2319,7 +2344,8 @@ public class Chapter4Systems implements Listener {
             return;
         }
 
-        // Vérifier si le joueur a une progression en cours (orbes collectées ou boss actif)
+        // Vérifier si le joueur a une progression en cours (orbes collectées ou boss
+        // actif)
         boolean hasProgress = playerCollectedOrbs.containsKey(uuid) && !playerCollectedOrbs.get(uuid).isEmpty();
         boolean hasBoss = playersWithActiveCreakingBoss.contains(uuid);
 
@@ -2345,13 +2371,13 @@ public class Chapter4Systems implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline()) return;
+                if (!player.isOnline())
+                    return;
 
                 player.sendTitle(
                         "§c✖ ÉCHEC DE L'ÉPREUVE",
                         "§7Vous devez recommencer depuis le début",
-                        10, 60, 20
-                );
+                        10, 60, 20);
 
                 player.sendMessage("");
                 player.sendMessage("§c§l⚠ ÉPREUVE ÉCHOUÉE §c⚠");
@@ -3876,15 +3902,28 @@ public class Chapter4Systems implements Listener {
         Location loc = ALCHEMIST_NPC_LOCATION.clone();
         loc.setWorld(world);
 
-        // Supprimer l'ancien si existant
-        if (alchemistNpcEntity != null && alchemistNpcEntity.isValid()) {
-            alchemistNpcEntity.remove();
-        }
-        if (alchemistNpcDisplay != null && alchemistNpcDisplay.isValid()) {
-            alchemistNpcDisplay.remove();
+        // 1. Si entité en mémoire valide → ne rien faire
+        if (alchemistNpcEntity != null && alchemistNpcEntity.isValid() && !alchemistNpcEntity.isDead()) {
+            return;
         }
 
-        // Spawn le Villager alchimiste
+        // 2. Chercher entité existante dans le monde (persistée après reboot)
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Villager v
+                    && v.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
+                alchemistNpcEntity = v;
+                // Chercher aussi le display associé
+                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
+                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter4_alchemist_display")) {
+                        alchemistNpcDisplay = td;
+                        break;
+                    }
+                }
+                return; // Réutiliser l'existant
+            }
+        }
+
+        // 3. Sinon créer nouveau (UNE SEULE FOIS)
         alchemistNpcEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text("Maître Elric", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
             villager.setCustomNameVisible(true);
@@ -3903,8 +3942,8 @@ public class Chapter4Systems implements Listener {
             // PDC
             villager.getPersistentDataContainer().set(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
 
-            // Ne pas persister
-            villager.setPersistent(false);
+            // OBLIGATOIRE pour survivre au chunk unload
+            villager.setPersistent(true);
 
             // Orientation
             villager.setRotation(loc.getYaw(), 0);
@@ -4000,9 +4039,7 @@ public class Chapter4Systems implements Listener {
                 removed++;
             }
         }
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage global: " + removed + " alchimiste(s) orphelin(s) supprimé(s)");
-        }
+        // Log supprimé pour éviter le spam
     }
 
     /**
@@ -4265,7 +4302,8 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du cristal (avec sécurité anti-duplication)
+     * Démarre le vérificateur de respawn du cristal (avec sécurité
+     * anti-duplication)
      */
     private void startCrystalRespawnChecker() {
         new BukkitRunnable() {

@@ -56,7 +56,8 @@ public class PetCombatListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityTargetPet(EntityTargetLivingEntityEvent event) {
-        if (event.getTarget() == null) return;
+        if (event.getTarget() == null)
+            return;
 
         // Vérifier si la cible est un pet
         if (isPetEntity(event.getTarget())) {
@@ -88,11 +89,13 @@ public class PetCombatListener implements Listener {
 
     /**
      * Récupère la cible actuelle du joueur (le dernier mob attaqué)
+     * 
      * @return L'entité ciblée ou null si aucune cible valide
      */
     public static LivingEntity getPlayerTarget(Player player) {
         UUID targetId = playerTargets.get(player.getUniqueId());
-        if (targetId == null) return null;
+        if (targetId == null)
+            return null;
 
         // Vérifier si la cible n'a pas expiré
         Long timestamp = targetTimestamps.get(player.getUniqueId());
@@ -370,8 +373,9 @@ public class PetCombatListener implements Listener {
             }
         }
 
-        // Bonus VIP
-        double vipBonus = plugin.getPlayerDataManager().getPlayer(player).getLootLuckBonus();
+        // Bonus VIP (vérifier que le joueur est bien enregistré dans le système)
+        var playerGameData = plugin.getPlayerDataManager().getPlayer(player);
+        double vipBonus = playerGameData != null ? playerGameData.getLootLuckBonus() : 0.0;
         baseChance *= (1 + vipBonus);
 
         // Roll!
