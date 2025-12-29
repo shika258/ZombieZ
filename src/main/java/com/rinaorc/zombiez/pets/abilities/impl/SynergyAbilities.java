@@ -1723,8 +1723,8 @@ class WispFireballPassive implements PetAbility {
         UUID uuid = player.getUniqueId();
         int count = attackCounters.getOrDefault(uuid, 0) + 1;
 
-        // Nombre d'attaques ajusté selon le niveau (min 2)
-        int adjustedTrigger = (int) Math.max(2, attacksForTrigger - (petData.getStatMultiplier() - 1));
+        // Nombre d'attaques ajusté selon le niveau (min 3)
+        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
 
         if (count >= adjustedTrigger) {
             attackCounters.put(uuid, 0);

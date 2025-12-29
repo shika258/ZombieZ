@@ -185,11 +185,11 @@ public enum PetType {
         "wisp",
         "Dégâts / Projectiles",
         "Flamme verte flottante",
-        "Chaque 3ème attaque tire une boule de feu (30% dégâts joueur)",
+        "Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)",
         "Barrage Infernal",
         "Tire 5 boules de feu en éventail (50% dégâts chacune)",
         20,
-        "Boule de feu tous les 2 coups, +10% dégâts",
+        "Boule de feu tous les 3 coups, +10% dégâts",
         "Les boules de feu explosent en AoE (3 blocs)"
     ),
 
