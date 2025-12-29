@@ -85,11 +85,13 @@ public class PetAbilityRegistry {
         // ==================== PEU COMMUNS ====================
 
         // Loup Spectral
+        // Passif: +3% dégâts par ennemi proche (max +15%)
+        // Ultimate: Frénésie 8s, chaque kill = +5% dégâts/vitesse (max +25%)
         registerAbilities(PetType.LOUP_SPECTRAL,
-            new AttackPassive("wolf_attack", "Morsure Spectrale",
-                "Attaque les zombies proches (5 dégâts/2s)", 5, 40),
-            new HowlActive("wolf_howl", "Hurlement",
-                "Boost de 20% dégâts pendant 8s", 35, 0.20, 8)
+            new PackHunterPassive("wolf_pack", "Instinct de Meute",
+                "+3% dégâts par ennemi proche (max +15%, rayon 8 blocs)", 0.03, 0.15, 8),
+            new BloodFrenzyActive("wolf_frenzy", "Frénésie Sanguinaire",
+                "Pendant 8s, chaque kill donne +5% dégâts/vitesse (max +25%)", 8, 0.05, 0.25)
         );
 
         // Champignon Ambulant

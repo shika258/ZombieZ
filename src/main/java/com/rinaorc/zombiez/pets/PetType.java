@@ -136,13 +136,13 @@ public enum PetType {
         EntityType.WOLF,
         "spectral_wolf",
         "Combat / Meute",
-        "Loup fantomatique vert translucide",
-        "Attaque les zombies proches (5 dégâts/2s)",
-        "Hurlement",
-        "Boost de 20% dégâts pendant 8s",
-        35,
-        "Attaque +3 dégâts",
-        "Invoque 2 loups spectraux temporaires (10s)"
+        "Loup fantomatique bleu translucide",
+        "+3% dégâts par ennemi proche (max +15%, rayon 8 blocs)",
+        "Frénésie Sanguinaire",
+        "Pendant 8s, chaque kill donne +5% dégâts/vitesse (max +25%)",
+        30,
+        "Bonus par ennemi +2% (total 5%), max +20%",
+        "Frénésie dure 12s, bonus par kill +7%, max +35%"
     ),
 
     CHAMPIGNON_AMBULANT(

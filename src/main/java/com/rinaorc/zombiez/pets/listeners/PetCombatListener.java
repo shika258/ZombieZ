@@ -216,16 +216,22 @@ public class PetCombatListener implements Listener {
             }
         }
 
+        // Appliquer les bonus génériques via onDamageDealt (PackHunterPassive, etc.)
+        if (passive != null) {
+            modifiedDamage = passive.onDamageDealt(player, petData, modifiedDamage, target);
+        }
+
+        // Appliquer les bonus de l'ultimate si applicable (BloodFrenzyActive, etc.)
+        PetAbility ultimate = plugin.getPetManager().getAbilityRegistry().getUltimate(petType);
+        if (ultimate != null) {
+            modifiedDamage = ultimate.onDamageDealt(player, petData, modifiedDamage, target);
+        }
+
         // Appliquer les dégâts modifiés
         event.setDamage(modifiedDamage);
 
         // Enregistrer les dégâts pour les stats
         petData.addDamage((long) modifiedDamage);
-
-        // Trigger les effets onDamageDealt
-        if (passive != null) {
-            passive.onDamageDealt(player, petData, target, modifiedDamage);
-        }
     }
 
     /**
@@ -308,9 +314,16 @@ public class PetCombatListener implements Listener {
             if (petData != null) {
                 petData.addKill();
 
+                // Trigger onKill sur le passif
                 PetAbility passive = plugin.getPetManager().getAbilityRegistry().getPassive(petType);
                 if (passive != null) {
                     passive.onKill(player, petData, killed);
+                }
+
+                // Trigger onKill sur l'ultimate (pour les abilities qui trackent les kills)
+                PetAbility ultimate = plugin.getPetManager().getAbilityRegistry().getUltimate(petType);
+                if (ultimate != null) {
+                    ultimate.onKill(player, petData, killed);
                 }
             }
         }
