@@ -264,13 +264,20 @@ public class Chapter3Systems implements Listener {
         for (Entity entity : world.getEntities()) {
             Set<String> tags = entity.getScoreboardTags();
 
-            // === FORAIN: Réutiliser le premier, supprimer les doublons ===
+            // === FORAIN: Réutiliser le premier VILLAGER valide, supprimer les doublons ===
             if (tags.contains("chapter3_forain") ||
                     (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE))) {
-                if (!foundForain) {
-                    forainEntity = entity;
-                    foundForain = true;
+                // FIX: Vérifier que c'est bien un Villager avant d'assigner
+                if (entity instanceof Villager villager) {
+                    if (!foundForain) {
+                        forainEntity = villager;
+                        foundForain = true;
+                    } else {
+                        entity.remove();
+                        removed++;
+                    }
                 } else {
+                    // Entité avec le tag mais pas un Villager = corruption, supprimer
                     entity.remove();
                     removed++;
                 }
@@ -457,6 +464,7 @@ public class Chapter3Systems implements Listener {
     /**
      * Démarre le vérificateur de respawn du Forain.
      * SÉCURITÉ: Vérifie uniquement si le chunk est chargé par un joueur.
+     * FIX: Vérifie la présence PHYSIQUE du Villager, pas seulement la référence Java.
      */
     private void startForainRespawnChecker() {
         new BukkitRunnable() {
@@ -476,19 +484,47 @@ public class Chapter3Systems implements Listener {
                     return;
                 }
 
-                // Vérifier/spawner le Forain (la méthode gère la recherche d'existant)
-                if (forainEntity == null || !forainEntity.isValid() || forainEntity.isDead()) {
-                    if (forainLoc.getChunk().isLoaded()) {
-                        spawnForain(world);
-                    }
+                // Skip si chunk non chargé
+                if (!forainLoc.getChunk().isLoaded()) {
+                    return;
                 }
 
-                // TextDisplay: même logique
-                if ((forainDisplay == null || !forainDisplay.isValid()) && forainLoc.getChunk().isLoaded()) {
+                // Vérifier la présence PHYSIQUE du Villager (pas seulement la référence)
+                boolean villagerPhysicallyPresent = isForainPhysicallyPresent(world, forainLoc);
+
+                // Si le Villager n'est pas physiquement présent, reset la référence et respawn
+                if (!villagerPhysicallyPresent) {
+                    forainEntity = null;
+                    forainDisplay = null; // Reset aussi le display pour les recréer ensemble
+                    spawnForain(world);
+                    return;
+                }
+
+                // TextDisplay uniquement si le Villager existe mais pas le display
+                if (forainDisplay == null || !forainDisplay.isValid()) {
                     createForainDisplay(world, forainLoc);
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);
+    }
+
+    /**
+     * Vérifie si le Forain (Villager) est physiquement présent près de sa location.
+     * Cette méthode scanne les entités proches au lieu de se fier à la référence Java.
+     */
+    private boolean isForainPhysicallyPresent(World world, Location expectedLoc) {
+        // Chercher un Villager avec notre tag/PDC dans un rayon de 5 blocs
+        for (Entity entity : world.getNearbyEntities(expectedLoc, 5, 5, 5)) {
+            if (entity instanceof Villager villager) {
+                if (villager.getScoreboardTags().contains("chapter3_forain") ||
+                        villager.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
+                    // Mettre à jour la référence si trouvé
+                    forainEntity = villager;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -499,18 +535,25 @@ public class Chapter3Systems implements Listener {
         boolean foundFirst = false;
 
         for (Entity entity : world.getEntities()) {
-            boolean isForain = entity.getScoreboardTags().contains("chapter3_forain") ||
+            boolean hasForainTag = entity.getScoreboardTags().contains("chapter3_forain") ||
                     (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE));
 
-            if (isForain) {
-                if (foundFirst) {
-                    // Doublon - supprimer
+            if (hasForainTag) {
+                // FIX: Vérifier que c'est bien un Villager
+                if (entity instanceof Villager villager) {
+                    if (foundFirst) {
+                        // Doublon - supprimer
+                        entity.remove();
+                        removed++;
+                    } else {
+                        // Premier Villager trouvé - garder
+                        foundFirst = true;
+                        forainEntity = villager;
+                    }
+                } else {
+                    // Entité avec le tag mais pas un Villager = corruption, supprimer
                     entity.remove();
                     removed++;
-                } else {
-                    // Premier trouvé - garder
-                    foundFirst = true;
-                    forainEntity = entity;
                 }
             }
 

@@ -204,8 +204,6 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.dopamine.DailyLoginStreakManager dailyLoginStreakManager;
     @Getter
-    private com.rinaorc.zombiez.dopamine.LiveLeaderboardManager liveLeaderboardManager;
-    @Getter
     private com.rinaorc.zombiez.dopamine.AssistManager assistManager;
 
     // Système ActionBar centralisé
@@ -720,9 +718,6 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Daily Login Streak - Récompenses de connexion quotidienne
         dailyLoginStreakManager = new com.rinaorc.zombiez.dopamine.DailyLoginStreakManager(this);
-
-        // Live Leaderboard - Mises à jour en temps réel du classement
-        liveLeaderboardManager = new com.rinaorc.zombiez.dopamine.LiveLeaderboardManager(this);
 
         // Assist System - Système d'assists pour les kills en équipe
         assistManager = new com.rinaorc.zombiez.dopamine.AssistManager(this);

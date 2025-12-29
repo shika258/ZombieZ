@@ -180,8 +180,8 @@ public class Chapter4Systems implements Listener {
 
     // === CRISTAL DE CORRUPTION (ÉTAPE 10) ===
     private static final Location CRYSTAL_LOCATION = new Location(null, 529.5, 102, 8473.5, 0, 0);
-    private static final double CRYSTAL_MAX_HEALTH = 3000.0; // HP du cristal
-    private static final double CRYSTAL_REGEN_PER_SECOND = 80.0; // Régénération par seconde
+    private static final double CRYSTAL_MAX_HEALTH = 1500.0; // HP du cristal (réduit de 3000 à 1500)
+    private static final double CRYSTAL_REGEN_PER_SECOND = 40.0; // Régénération par seconde (réduit de 80 à 40 - DPS requis: >40)
     private static final double CRYSTAL_VIEW_DISTANCE = 40.0; // Distance pour voir le cristal
     private static final long CRYSTAL_REGEN_INTERVAL = 5L; // Tick interval pour la regen (5 ticks = 0.25s)
 

@@ -127,7 +127,9 @@ public class ClassListener implements Listener {
     }
 
     /**
-     * Gere l'XP de classe et les rewards sur kill
+     * Gère les stats de kill pour les classes
+     * NOTE: L'XP de classe est maintenant donnée via EconomyManager.addXp() (30% de l'XP standard)
+     * pour que TOUS les bonus d'XP (events, élites, assists, etc.) comptent pour les classes
      */
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -139,31 +141,7 @@ public class ClassListener implements Listener {
         ClassData data = classManager.getClassData(player);
         if (!data.hasClass()) return;
 
-        // XP de classe base sur l'XP normal
-        int baseXp = event.getDroppedExp();
-        long classXp = (long) (baseXp * 0.5); // 50% de l'XP normal
-
-        // Bonus pour elites/boss (verifier via les metadonnees ou le nom)
-        String zombieName = mob.getCustomName();
-        if (zombieName != null) {
-            if (zombieName.contains("Elite") || zombieName.contains("Elite")) {
-                classXp *= 2;
-            } else if (zombieName.contains("Boss") || zombieName.contains("BOSS")) {
-                classXp *= 4;
-            }
-        }
-
-        // Mutation XP bonus
-        double xpMult = classManager.getMutationManager()
-            .getMultiplier(DailyMutation.MutationEffect.XP_GAIN);
-        classXp = (long) (classXp * xpMult);
-
-        // Ajouter l'XP et verifier level up
-        if (data.addClassXp(classXp)) {
-            classManager.handleClassLevelUp(player);
-        }
-
-        // Stats
+        // Stats de kill uniquement (l'XP est gérée par EconomyManager)
         data.addClassKill();
     }
 

@@ -326,10 +326,15 @@ public class ZombieManager {
         // ═══════════════════════════════════════════════════════════════════
         addToNoCollisionTeam(entity);
 
-        // Créer l'IA pour ce zombie (seulement si c'est un Zombie)
-        if (entity instanceof Zombie zombieEntity) {
-            aiManager.createAI(zombieEntity, type, level);
-        }
+        // Créer l'IA pour cette entité (tous les types, pas seulement Zombie)
+        // FIX: Les entités non-Zombie comme Creaking ont aussi besoin d'une IA
+        aiManager.createAI(entity, type, level);
+
+        // Enregistrer AVANT la conversion élite (pour que updateZombieHealthDisplay fonctionne)
+        activeZombies.put(entity.getUniqueId(), zombie);
+        zombieCountByZone.merge(zoneId, 1, Integer::sum);
+        lastSpawnByZone.put(zoneId, System.currentTimeMillis());
+        totalSpawned++;
 
         // ═══════════════════════════════════════════════════════════════════
         // CONVERSION EN ÉLITE - 1-3% de chance (sauf boss et spawns récursifs)
@@ -339,14 +344,10 @@ public class ZombieManager {
             if (eliteManager.shouldBecomeElite(zoneId)) {
                 eliteManager.convertToElite(entity, type.getDisplayName(), level, zoneId);
                 zombie.setElite(true);
+                // FIX: Mettre à jour le display name immédiatement après conversion
+                updateZombieHealthDisplay(entity);
             }
         }
-
-        // Enregistrer
-        activeZombies.put(entity.getUniqueId(), zombie);
-        zombieCountByZone.merge(zoneId, 1, Integer::sum);
-        lastSpawnByZone.put(zoneId, System.currentTimeMillis());
-        totalSpawned++;
 
         return zombie;
     }

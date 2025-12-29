@@ -157,12 +157,6 @@ public class AssistManager implements Listener {
 
         // Son subtil
         assistant.playSound(assistant.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.3f);
-
-        // Mise à jour du leaderboard (seulement si data existe)
-        if (data != null && plugin.getLiveLeaderboardManager() != null) {
-            plugin.getLiveLeaderboardManager().notifyStatChange(assistant,
-                LiveLeaderboardManager.LeaderboardType.XP, totalXp);
-        }
     }
 
     /**

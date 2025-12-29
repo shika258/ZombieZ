@@ -53,7 +53,7 @@ public class EliteManager implements Listener {
 
     // Configuration
     private static final double ELITE_CHANCE_MIN = 0.01; // 1%
-    private static final double ELITE_CHANCE_MAX = 0.03; // 3%
+    private static final double ELITE_CHANCE_MAX = 0.01; // 1% (fixe)
 
     // Multiplicateurs de stats
     private static final double HEALTH_MULTIPLIER = 2.5;
