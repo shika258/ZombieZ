@@ -1937,3 +1937,246 @@ class InfernalBarrageActive implements PetAbility {
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
+
+// ==================== ARAIGNÉE CHASSEUSE (Prédateur / Embuscade) ====================
+
+@Getter
+class PredatorPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double bonusDamageOnSlowed;    // +25% de dégâts sur ralentis
+    private final int slowDurationTicks;          // 1.5s = 30 ticks
+    private final Set<UUID> markedTargets = new HashSet<>();  // Cibles marquées par l'embuscade
+
+    public PredatorPassive(String id, String name, String desc, double bonusDamage, int slowTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.bonusDamageOnSlowed = bonusDamage;
+        this.slowDurationTicks = slowTicks;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        World world = player.getWorld();
+
+        // Vérifier si la cible est ralentie, immobilisée ou marquée
+        boolean isVulnerable = false;
+
+        // Vérifier effets de ralentissement/immobilisation
+        if (target.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+            isVulnerable = true;
+        }
+        // Vérifier si stun (Slowness 127 = notre mécanisme de stun)
+        PotionEffect slowEffect = target.getPotionEffect(PotionEffectType.SLOWNESS);
+        if (slowEffect != null && slowEffect.getAmplifier() >= 100) {
+            isVulnerable = true;
+        }
+
+        // Vérifier si marqué par l'embuscade
+        if (markedTargets.contains(target.getUniqueId())) {
+            isVulnerable = true;
+        }
+
+        // Appliquer le ralentissement à chaque attaque
+        int adjustedSlowDuration = (int) (slowDurationTicks + (petData.getStatMultiplier() - 1) * 10);
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, adjustedSlowDuration, 1, false, false));
+
+        // Effet visuel de toile
+        world.spawnParticle(Particle.BLOCK, target.getLocation().add(0, 0.5, 0),
+            5, 0.2, 0.2, 0.2, 0, org.bukkit.Material.COBWEB.createBlockData());
+
+        // Calculer les dégâts bonus si la cible est vulnérable
+        if (isVulnerable) {
+            double adjustedBonus = bonusDamageOnSlowed + (petData.getStatMultiplier() - 1) * 0.10;
+            double bonusDamage = damage * adjustedBonus;
+
+            // Effet visuel de prédateur
+            world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                8, 0.3, 0.3, 0.3, 0.1);
+            world.playSound(target.getLocation(), Sound.ENTITY_SPIDER_HURT, 0.5f, 1.5f);
+
+            return damage + bonusDamage;
+        }
+
+        return damage;
+    }
+
+    /**
+     * Marque une cible (appelé par SpiderAmbushActive)
+     */
+    public void markTarget(LivingEntity target, int durationTicks) {
+        UUID uuid = target.getUniqueId();
+        markedTargets.add(uuid);
+
+        // Retirer la marque après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> markedTargets.remove(uuid),
+            durationTicks
+        );
+    }
+
+    /**
+     * Vérifie si une cible est marquée
+     */
+    public boolean isMarked(UUID uuid) {
+        return markedTargets.contains(uuid);
+    }
+}
+
+@Getter
+class SpiderAmbushActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int immobilizeDurationTicks;    // 3s = 60 ticks
+    private final double markDamageBonus;          // +50% dégâts reçus
+    private final int markDurationTicks;           // 5s = 100 ticks
+    private final PredatorPassive predatorPassive;
+
+    public SpiderAmbushActive(String id, String name, String desc, int immobilizeTicks,
+                              double markBonus, int markTicks, PredatorPassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.immobilizeDurationTicks = immobilizeTicks;
+        this.markDamageBonus = markBonus;
+        this.markDurationTicks = markTicks;
+        this.predatorPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 25; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        // Trouver l'ennemi le plus proche
+        Monster target = null;
+        double minDist = 15; // Portée max de 15 blocs
+
+        for (Entity entity : player.getNearbyEntities(15, 15, 15)) {
+            if (entity instanceof Monster monster) {
+                double dist = entity.getLocation().distance(playerLoc);
+                if (dist < minDist) {
+                    minDist = dist;
+                    target = monster;
+                }
+            }
+        }
+
+        if (target == null) {
+            player.sendMessage("§c[Pet] §7Aucune cible à proximité!");
+            return false;
+        }
+
+        final Monster finalTarget = target;
+        final Location targetLoc = target.getLocation();
+
+        // Calcul des durées ajustées par niveau
+        int adjustedImmobilize = (int) (immobilizeDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+        int adjustedMarkDuration = (int) (markDurationTicks + (petData.getStatMultiplier() - 1) * 40);
+
+        // Son de préparation
+        world.playSound(playerLoc, Sound.ENTITY_SPIDER_AMBIENT, 1.0f, 0.5f);
+        player.sendMessage("§a[Pet] §c§l\uD83D\uDD77 EMBUSCADE!");
+
+        // Animation du bond de l'araignée (de la position du joueur vers la cible)
+        Location spiderStart = playerLoc.clone().add(0, 1, 0);
+        Vector direction = targetLoc.toVector().subtract(spiderStart.toVector()).normalize();
+
+        new BukkitRunnable() {
+            Location currentLoc = spiderStart.clone();
+            int ticks = 0;
+            final int maxTicks = (int) (minDist * 2); // Durée basée sur la distance
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || !finalTarget.isValid()) {
+                    // Arrivée sur la cible - Impact!
+                    executeImpact(player, petData, finalTarget, adjustedImmobilize, adjustedMarkDuration);
+                    cancel();
+                    return;
+                }
+
+                // Avancer l'araignée
+                currentLoc.add(direction.clone().multiply(0.5));
+
+                // Particules de l'araignée en mouvement
+                world.spawnParticle(Particle.BLOCK, currentLoc, 8, 0.2, 0.2, 0.2, 0,
+                    org.bukkit.Material.COBWEB.createBlockData());
+                world.spawnParticle(Particle.SMOKE, currentLoc, 3, 0.1, 0.1, 0.1, 0.02);
+
+                // Son de mouvement rapide
+                if (ticks % 4 == 0) {
+                    world.playSound(currentLoc, Sound.ENTITY_SPIDER_STEP, 0.5f, 1.5f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private void executeImpact(Player player, PetData petData, Monster target,
+                               int immobilizeDuration, int markDuration) {
+        Location impactLoc = target.getLocation();
+        World world = impactLoc.getWorld();
+
+        // Immobiliser la cible (stun via Slowness 127 + Weakness 127)
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, immobilizeDuration, 127, false, false));
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.WEAKNESS, immobilizeDuration, 127, false, false));
+
+        // Marquer la cible pour les dégâts bonus
+        predatorPassive.markTarget(target, markDuration);
+        target.setGlowing(true);
+
+        // Retirer le glow après la durée de la marque
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                if (target.isValid()) {
+                    target.setGlowing(false);
+                }
+            },
+            markDuration
+        );
+
+        // Effet visuel de toile d'immobilisation
+        world.spawnParticle(Particle.BLOCK, impactLoc.add(0, 0.5, 0), 50, 1, 0.5, 1, 0,
+            org.bukkit.Material.COBWEB.createBlockData());
+        world.spawnParticle(Particle.CRIT, impactLoc, 20, 0.5, 0.5, 0.5, 0.1);
+
+        // Toiles visuelles au sol (cercle)
+        for (int angle = 0; angle < 360; angle += 45) {
+            double rad = Math.toRadians(angle);
+            Location webLoc = impactLoc.clone().add(Math.cos(rad) * 1.5, 0.1, Math.sin(rad) * 1.5);
+            world.spawnParticle(Particle.BLOCK, webLoc, 5, 0.2, 0, 0.2, 0,
+                org.bukkit.Material.COBWEB.createBlockData());
+        }
+
+        // Sons d'impact
+        world.playSound(impactLoc, Sound.ENTITY_SPIDER_DEATH, 1.0f, 0.8f);
+        world.playSound(impactLoc, Sound.BLOCK_WOOL_PLACE, 1.0f, 0.5f);
+        world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.0f);
+
+        // Message
+        player.sendMessage("§a[Pet] §7Cible immobilisée §c" + String.format("%.1f", immobilizeDuration / 20.0) +
+            "s §7+ marquée §e+" + (int)(markDamageBonus * 100) + "% §7dégâts pendant §e" +
+            String.format("%.1f", markDuration / 20.0) + "s");
+    }
+}

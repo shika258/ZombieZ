@@ -124,12 +124,15 @@ public class PetAbilityRegistry {
                 "Tire 5 boules de feu en éventail (50% dégâts chacune)", 5, 0.50)
         );
 
-        // Araignée Tisseuse
+        // Araignée Chasseuse (anciennement Araignée Tisseuse)
+        // Passif: +25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s
+        // Ultimate: Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts 5s)
+        PredatorPassive predatorPassive = new PredatorPassive("spider_predator", "Prédateur Patient",
+            "+25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s", 0.25, 30);
         registerAbilities(PetType.ARAIGNEE_TISSEUSE,
-            new SlowPassive("spider_slow", "Toile Collante",
-                "Ralentit les zombies touchés 1s", 20),
-            new WebActive("spider_web", "Toile Géante",
-                "Piège les zombies dans une zone 5x5", 30, 4)
+            predatorPassive,
+            new SpiderAmbushActive("spider_ambush", "Embuscade",
+                "Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts 5s)", 60, 0.50, 100, predatorPassive)
         );
 
         // ==================== RARES ====================

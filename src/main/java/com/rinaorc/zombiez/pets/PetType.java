@@ -194,19 +194,19 @@ public enum PetType {
     ),
 
     ARAIGNEE_TISSEUSE(
-        "Araignée Tisseuse",
+        "Araignée Chasseuse",
         PetRarity.UNCOMMON,
         Material.SPIDER_SPAWN_EGG,
         EntityType.SPIDER,
-        "weaver_spider",
-        "Contrôle / Ralentissement",
-        "Araignée cyan luminescente",
-        "Les zombies touchés sont ralentis 1s",
-        "Toile Géante",
-        "Piège les zombies dans une zone 5x5 (4s)",
-        30,
-        "Ralentissement +0.5s",
-        "La toile inflige des dégâts de poison"
+        "hunter_spider",
+        "Prédateur / Embuscade",
+        "Araignée noire aux yeux rouges luisants",
+        "+25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s",
+        "Embuscade",
+        "Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts reçus 5s)",
+        25,
+        "Bonus dégâts +10% (total 35%), slow 2s",
+        "L'embuscade rend invisible 2s avant le bond"
     ),
 
     // --- NOUVEAUX PETS PEU COMMUNS (Synergies Classes) ---
