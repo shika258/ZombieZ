@@ -247,6 +247,14 @@ public class ZombieManager {
      * Spawn un zombie avec IA personnalisée
      */
     public ActiveZombie spawnZombie(ZombieType type, Location location, int level) {
+        return spawnZombie(type, location, level, false);
+    }
+
+    /**
+     * Spawn un zombie avec IA personnalisée
+     * @param skipEliteConversion true pour empêcher la conversion en élite (utilisé par SUMMONER)
+     */
+    public ActiveZombie spawnZombie(ZombieType type, Location location, int level, boolean skipEliteConversion) {
         int zoneId = plugin.getZoneManager().getZoneAt(location).getId();
 
         // Les boss bypass toutes les limites (JOURNEY_BOSS, ZONE_BOSS, etc.)
@@ -324,9 +332,9 @@ public class ZombieManager {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CONVERSION EN ÉLITE - 1-3% de chance (sauf boss)
+        // CONVERSION EN ÉLITE - 1-3% de chance (sauf boss et spawns récursifs)
         // ═══════════════════════════════════════════════════════════════════
-        if (!isBoss && plugin.getEliteManager() != null) {
+        if (!isBoss && !skipEliteConversion && plugin.getEliteManager() != null) {
             var eliteManager = plugin.getEliteManager();
             if (eliteManager.shouldBecomeElite(zoneId)) {
                 eliteManager.convertToElite(entity, type.getDisplayName(), level, zoneId);
@@ -927,6 +935,15 @@ public class ZombieManager {
         int currentHealth = (int) Math.ceil(zombie.getHealth());
         int maxHealth = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : 20;
 
+        // Si c'est un élite, utiliser le display name spécial doré
+        if (activeZombie.isElite() && plugin.getEliteManager() != null) {
+            var eliteDisplayName = plugin.getEliteManager().generateEliteDisplayName(
+                displayName, level, currentHealth, maxHealth
+            );
+            zombie.customName(eliteDisplayName);
+            return;
+        }
+
         // Construire le nouveau nom
         String healthDisplay = formatHealthDisplay(currentHealth, maxHealth);
         String baseName = "§c" + displayName + " §7[Lv." + level + "] " + healthDisplay;
@@ -958,6 +975,15 @@ public class ZombieManager {
         // Récupérer la vie max (vie actuelle = 0 car mort)
         var maxHealthAttr = zombie.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
         int maxHealth = maxHealthAttr != null ? (int) Math.ceil(maxHealthAttr.getValue()) : 20;
+
+        // Si c'est un élite, utiliser le display name spécial doré (0 HP)
+        if (activeZombie.isElite() && plugin.getEliteManager() != null) {
+            var eliteDisplayName = plugin.getEliteManager().generateEliteDisplayName(
+                displayName, level, 0, maxHealth
+            );
+            zombie.customName(eliteDisplayName);
+            return;
+        }
 
         // Construire le nouveau nom avec 0 HP
         String healthDisplay = formatHealthDisplay(0, maxHealth);

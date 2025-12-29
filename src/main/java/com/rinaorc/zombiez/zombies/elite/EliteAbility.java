@@ -34,8 +34,8 @@ public enum EliteAbility {
             long now = System.currentTimeMillis();
             if (now - data.getLastRegenTick() < 3000) return; // 3 secondes
 
-            // Mettre à jour le timestamp via reflection ou autre méthode
-            // Pour simplifier, on utilise le check de temps directement
+            // Mettre à jour le timestamp
+            data.setLastRegenTick(now);
 
             var maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
             if (maxHealthAttr == null) return;
@@ -66,6 +66,9 @@ public enum EliteAbility {
         public void onTick(LivingEntity entity, EliteManager.EliteData data, ZombieZPlugin plugin) {
             long now = System.currentTimeMillis();
             if (now - data.getLastDashTick() < 8000) return; // 8 secondes
+
+            // Mettre à jour le timestamp
+            data.setLastDashTick(now);
 
             // Appliquer le boost de vitesse
             entity.addPotionEffect(new PotionEffect(
@@ -261,12 +264,11 @@ public enum EliteAbility {
             var zombieManager = plugin.getZombieManager();
             if (zombieManager == null) return;
 
-            int zoneId = plugin.getZoneManager().getZoneAt(loc).getId();
             int level = Math.max(1, (int) (entity.getPersistentDataContainer()
                 .getOrDefault(plugin.getZombieManager().getPdcLevelKey(),
                     org.bukkit.persistence.PersistentDataType.INTEGER, 1) * 0.7));
 
-            // Spawn 2-3 walkers
+            // Spawn 2-3 walkers (avec skipEliteConversion = true pour éviter la récursion infinie)
             int count = ThreadLocalRandom.current().nextInt(2, 4);
             for (int i = 0; i < count; i++) {
                 Location spawnLoc = loc.clone().add(
@@ -274,7 +276,7 @@ public enum EliteAbility {
                     0,
                     ThreadLocalRandom.current().nextDouble(-2, 2)
                 );
-                zombieManager.spawnZombie(ZombieType.WALKER, spawnLoc, level);
+                zombieManager.spawnZombie(ZombieType.WALKER, spawnLoc, level, true);
             }
 
             // Effets visuels

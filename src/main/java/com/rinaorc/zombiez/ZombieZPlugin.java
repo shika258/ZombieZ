@@ -393,6 +393,12 @@ public class ZombieZPlugin extends JavaPlugin {
             }
         }
 
+        // Cleanup du système d'élites
+        if (eliteManager != null) {
+            log(Level.INFO, "§7Arrêt du système d'élites...");
+            eliteManager.shutdown();
+        }
+
         // Cleanup du système de pets
         if (petManager != null) {
             log(Level.INFO, "§7Sauvegarde des données de pets...");

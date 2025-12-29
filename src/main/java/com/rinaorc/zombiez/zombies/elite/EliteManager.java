@@ -245,9 +245,12 @@ public class EliteManager implements Listener {
      */
     private void notifyNearbyPlayers(LivingEntity entity, String baseName, int level, Set<EliteAbility> abilities) {
         Location loc = entity.getLocation();
+        World world = loc.getWorld();
+        if (world == null) return;
 
-        for (Player player : loc.getWorld().getPlayers()) {
-            if (player.getLocation().distance(loc) <= NOTIFICATION_RADIUS) {
+        for (Player player : world.getPlayers()) {
+            // Pas besoin de vérifier le world car on itère déjà sur les joueurs du même world
+            if (player.getLocation().distanceSquared(loc) <= NOTIFICATION_RADIUS * NOTIFICATION_RADIUS) {
                 // Message
                 player.sendMessage("");
                 player.sendMessage(Component.text("⚔ ", NamedTextColor.GOLD, TextDecoration.BOLD)
@@ -321,10 +324,13 @@ public class EliteManager implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (Map.Entry<UUID, EliteData> entry : activeElites.entrySet()) {
+                // Utiliser un iterator pour éviter ConcurrentModificationException
+                var iterator = activeElites.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    var entry = iterator.next();
                     LivingEntity entity = (LivingEntity) plugin.getServer().getEntity(entry.getKey());
                     if (entity == null || !entity.isValid() || entity.isDead()) {
-                        activeElites.remove(entry.getKey());
+                        iterator.remove();
                         continue;
                     }
 
@@ -453,6 +459,21 @@ public class EliteManager implements Listener {
         });
     }
 
+    /**
+     * Arrête proprement le système d'élites (appelé au shutdown du plugin)
+     */
+    public void shutdown() {
+        // Retirer tous les élites du glow team
+        for (UUID entityId : activeElites.keySet()) {
+            eliteGlowTeam.removeEntry(entityId.toString());
+        }
+
+        // Vider la map
+        activeElites.clear();
+
+        plugin.log(Level.INFO, "§a✓ EliteManager arrêté proprement");
+    }
+
     // ==================== DATA CLASS ====================
 
     /**
@@ -481,6 +502,14 @@ public class EliteManager implements Listener {
 
         public void addDamageDealt(double damage) {
             this.damageDealtSinceSpawn += (int) damage;
+        }
+
+        public void setLastRegenTick(long lastRegenTick) {
+            this.lastRegenTick = lastRegenTick;
+        }
+
+        public void setLastDashTick(long lastDashTick) {
+            this.lastDashTick = lastDashTick;
         }
     }
 }
