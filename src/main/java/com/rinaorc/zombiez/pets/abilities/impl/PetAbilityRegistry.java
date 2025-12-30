@@ -178,11 +178,11 @@ public class PetAbilityRegistry {
         );
 
         // Renifleur Archéologue (anciennement Spectre Gardien)
-        // Passif: Toutes les 8 attaques, déterre un bonus aléatoire (dégâts, vitesse, heal, bouclier) 5s
+        // Passif: Toutes les 8 attaques, déterre un bonus aléatoire (dégâts, vitesse, heal, bouclier) 5s, CD 5s
         // Ultimate: Déterre une relique qui donne TOUS les bonus 8s + aura slow 40%
         registerAbilities(PetType.SPECTRE_GARDIEN,
             new ArchaeologyDigPassive("sniffer_dig", "Fouille Antique",
-                "Toutes les 8 attaques, déterre un bonus aléatoire (5s)", 8, 100),
+                "Toutes les 8 attaques, déterre un bonus aléatoire (5s, CD 5s)", 8, 100, 5000),
             new AncientRelicActive("sniffer_relic", "Relique Ancestrale",
                 "Déterre une relique: TOUS les bonus 8s + aura slow 40%", 40, 160, 0.40, 6.0)
         );

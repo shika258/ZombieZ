@@ -3604,9 +3604,11 @@ class ArchaeologyDigPassive implements PetAbility {
     private final String description;
     private final int attacksForDig;              // 8 attaques
     private final int bonusDurationTicks;         // 5s = 100 ticks
+    private final long procCooldownMs;            // 5000ms = 5s cooldown entre procs
     private final Map<UUID, Integer> attackCounters = new HashMap<>();
     private final Map<UUID, Long> activeBonusEnd = new HashMap<>();
     private final Map<UUID, DigBonus> activeBonus = new HashMap<>();
+    private final Map<UUID, Long> lastProcTime = new HashMap<>();
 
     // Types de bonus possibles
     public enum DigBonus {
@@ -3628,15 +3630,17 @@ class ArchaeologyDigPassive implements PetAbility {
         }
     }
 
-    public ArchaeologyDigPassive(String id, String name, String desc, int attacksNeeded, int durationTicks) {
+    public ArchaeologyDigPassive(String id, String name, String desc, int attacksNeeded, int durationTicks, long cooldownMs) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.attacksForDig = attacksNeeded;
         this.bonusDurationTicks = durationTicks;
+        this.procCooldownMs = cooldownMs;
         PassiveAbilityCleanup.registerForCleanup(attackCounters);
         PassiveAbilityCleanup.registerForCleanup(activeBonusEnd);
         PassiveAbilityCleanup.registerForCleanup(activeBonus);
+        PassiveAbilityCleanup.registerForCleanup(lastProcTime);
     }
 
     @Override
@@ -3663,9 +3667,21 @@ class ArchaeologyDigPassive implements PetAbility {
         }
 
         if (count >= adjustedAttacks) {
-            // Fouille!
-            attackCounters.put(uuid, 0);
-            performDig(player, petData);
+            // Vérifier le cooldown entre procs (5s)
+            long now = System.currentTimeMillis();
+            long lastProc = lastProcTime.getOrDefault(uuid, 0L);
+
+            if (now - lastProc >= procCooldownMs) {
+                // Fouille!
+                attackCounters.put(uuid, 0);
+                lastProcTime.put(uuid, now);
+                performDig(player, petData);
+            } else {
+                // Cooldown actif - reset le compteur mais pas de proc
+                attackCounters.put(uuid, 0);
+                long remainingCd = (procCooldownMs - (now - lastProc)) / 1000;
+                player.sendMessage("§a[Pet] §7Fouille en cooldown... §e" + remainingCd + "s");
+            }
         } else {
             attackCounters.put(uuid, count);
 
