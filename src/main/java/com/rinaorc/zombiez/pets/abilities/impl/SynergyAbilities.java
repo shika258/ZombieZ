@@ -8518,3 +8518,360 @@ class MeteorStrikeActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== ENRAGED ZOGLIN SYSTEM (Zoglin Enragé) ====================
+
+/**
+ * Instinct de Tueur - Dégâts bonus contre les ennemis à faible vie
+ * +40% (base), +50% (niveau 5+) sous 30% HP (35% niveau 5+)
+ */
+@Getter
+class ExecuteDamagePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseDamageBonus;       // 40% = 0.40
+    private final double baseThreshold;          // 30% = 0.30
+
+    public ExecuteDamagePassive(String id, String name, String desc, double damageBonus, double threshold) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseDamageBonus = damageBonus;
+        this.baseThreshold = threshold;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Récupère le bonus de dégâts selon le niveau
+     * Base: 40%, Niveau 5+: 50%
+     */
+    public double getEffectiveDamageBonus(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.50; // 50%
+        }
+        return baseDamageBonus; // 40%
+    }
+
+    /**
+     * Récupère le seuil de HP selon le niveau
+     * Base: 30%, Niveau 5+: 35%
+     */
+    public double getEffectiveThreshold(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.35; // 35%
+        }
+        return baseThreshold; // 30%
+    }
+
+    /**
+     * Vérifie si la cible est sous le seuil et retourne le bonus
+     */
+    public double getBonusForTarget(LivingEntity target, PetData petData) {
+        double healthPercent = target.getHealth() / target.getMaxHealth();
+        if (healthPercent <= getEffectiveThreshold(petData)) {
+            return getEffectiveDamageBonus(petData);
+        }
+        return 0.0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        double healthPercent = target.getHealth() / target.getMaxHealth();
+        double threshold = getEffectiveThreshold(petData);
+
+        if (healthPercent <= threshold) {
+            World world = target.getWorld();
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+
+            // Effet visuel d'exécution
+            world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc, 8, 0.3, 0.4, 0.3, 0.1);
+            world.spawnParticle(Particle.ANGRY_VILLAGER, targetLoc, 3, 0.2, 0.3, 0.2, 0);
+
+            // Son de rage
+            if (Math.random() < 0.25) {
+                world.playSound(targetLoc, Sound.ENTITY_ZOGLIN_ANGRY, 0.5f, 1.2f);
+            }
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        // Effet de kill satisfaisant
+        World world = victim.getWorld();
+        Location loc = victim.getLocation().add(0, 1, 0);
+
+        world.spawnParticle(Particle.ANGRY_VILLAGER, loc, 10, 0.5, 0.5, 0.5, 0);
+        world.playSound(loc, Sound.ENTITY_ZOGLIN_DEATH, 0.6f, 1.0f);
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Charge Dévastatrice - Le Zoglin se précipite et repousse les ennemis
+ * 220% dégâts, knockback, cooldown 10s
+ */
+@Getter
+class ZoglinChargeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final ExecuteDamagePassive linkedPassive;
+    private final double damagePercent;         // 220% = 2.20
+    private final double chargeDistance;        // Distance de charge
+    private final double chargeWidth;           // Largeur de la charge
+
+    public ZoglinChargeActive(String id, String name, String desc, ExecuteDamagePassive passive,
+                               double dmgPercent, double distance, double width) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damagePercent = dmgPercent;
+        this.chargeDistance = distance;
+        this.chargeWidth = width;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 10; } // 10 secondes pour proc fréquent
+
+    /**
+     * Vérifie si la charge laisse une traînée de feu (étoiles max)
+     */
+    private boolean hasFireTrail(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location startLoc = player.getLocation();
+        org.bukkit.util.Vector direction = startLoc.getDirection().setY(0).normalize();
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
+        double chargeDamage = baseDamage * damagePercent * petData.getStatMultiplier();
+
+        boolean leaveFireTrail = hasFireTrail(petData);
+        double fireTrailDamage = baseDamage * 0.50 * petData.getStatMultiplier(); // 50% par seconde
+
+        // Son d'activation
+        world.playSound(startLoc, Sound.ENTITY_ZOGLIN_ANGRY, 2.0f, 0.6f);
+        world.playSound(startLoc, Sound.ENTITY_RAVAGER_ROAR, 1.0f, 1.2f);
+
+        // Message
+        player.sendMessage("§4[Pet] §c🐗 §7Charge Dévastatrice! §c" +
+            String.format("%.0f", chargeDamage) + " §7dégâts!");
+
+        // Lancer la charge
+        performCharge(player, startLoc, direction, chargeDamage, leaveFireTrail, fireTrailDamage, plugin);
+    }
+
+    /**
+     * Effectue la charge du Zoglin
+     */
+    private void performCharge(Player player, Location start, org.bukkit.util.Vector direction,
+                                double damage, boolean leaveFireTrail, double fireTrailDamage,
+                                com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = start.getWorld();
+        if (world == null) return;
+
+        Set<UUID> hitEntities = new HashSet<>();
+        List<Location> trailLocations = new ArrayList<>();
+        var zombieManager = plugin.getZombieManager();
+
+        new BukkitRunnable() {
+            double traveled = 0;
+            Location current = start.clone();
+            final double speed = 1.5; // Blocs par tick
+
+            @Override
+            public void run() {
+                if (traveled >= chargeDistance) {
+                    // Fin de la charge - explosion finale
+                    performImpact(current, world);
+
+                    // Démarrer la traînée de feu si étoiles max
+                    if (leaveFireTrail && !trailLocations.isEmpty()) {
+                        startFireTrail(player, trailLocations, fireTrailDamage, plugin);
+                    }
+
+                    cancel();
+                    return;
+                }
+
+                // Déplacer
+                current.add(direction.clone().multiply(speed));
+                traveled += speed;
+
+                // Sauvegarder pour la traînée
+                if (leaveFireTrail) {
+                    trailLocations.add(current.clone());
+                }
+
+                // Particules de charge
+                world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, current, 8, 0.3, 0.2, 0.3, 0.02);
+                world.spawnParticle(Particle.CRIT, current, 5, 0.2, 0.1, 0.2, 0.1);
+
+                // Son de course
+                if (traveled % 3 < speed) {
+                    world.playSound(current, Sound.ENTITY_ZOGLIN_STEP, 1.0f, 0.8f);
+                }
+
+                // Détecter les collisions
+                for (Entity entity : world.getNearbyEntities(current, chargeWidth, 2, chargeWidth)) {
+                    if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                        && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                        UUID entityId = entity.getUniqueId();
+                        if (hitEntities.contains(entityId)) continue;
+
+                        hitEntities.add(entityId);
+
+                        // Dégâts
+                        dealDamage(player, living, damage, zombieManager);
+
+                        // Knockback puissant
+                        org.bukkit.util.Vector knockback = direction.clone().multiply(2.0);
+                        knockback.setY(0.6);
+                        living.setVelocity(knockback);
+
+                        // Effet visuel
+                        Location targetLoc = living.getLocation().add(0, 1, 0);
+                        world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc, 10, 0.3, 0.4, 0.3, 0.1);
+                        world.spawnParticle(Particle.ANGRY_VILLAGER, targetLoc, 5, 0.2, 0.3, 0.2, 0);
+                        world.playSound(targetLoc, Sound.ENTITY_ZOGLIN_ATTACK, 1.0f, 0.9f);
+                    }
+                }
+
+                // Particules de traînée de feu si étoiles max
+                if (leaveFireTrail) {
+                    world.spawnParticle(Particle.FLAME, current, 5, 0.2, 0.1, 0.2, 0.03);
+                    world.spawnParticle(Particle.LAVA, current, 2, 0.1, 0.05, 0.1, 0);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Impact final de la charge
+     */
+    private void performImpact(Location loc, World world) {
+        world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.2f);
+        world.playSound(loc, Sound.ENTITY_ZOGLIN_ANGRY, 1.5f, 0.5f);
+
+        world.spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
+        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 30, 1, 0.5, 1, 0.05);
+        world.spawnParticle(Particle.CRIT, loc, 20, 0.8, 0.3, 0.8, 0.2);
+    }
+
+    /**
+     * Traînée de feu (étoiles max) - 5 secondes, 50% dégâts/s
+     */
+    private void startFireTrail(Player player, List<Location> trailLocations, double damagePerSecond,
+                                 com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = trailLocations.get(0).getWorld();
+        if (world == null) return;
+
+        var zombieManager = plugin.getZombieManager();
+        Set<UUID> hitThisTick = new HashSet<>();
+
+        new BukkitRunnable() {
+            int ticksRemaining = 100; // 5 secondes
+
+            @Override
+            public void run() {
+                if (ticksRemaining <= 0) {
+                    cancel();
+                    return;
+                }
+
+                // Particules de feu sur la traînée
+                if (ticksRemaining % 3 == 0) {
+                    for (Location loc : trailLocations) {
+                        if (Math.random() < 0.3) {
+                            world.spawnParticle(Particle.FLAME, loc.clone().add(0, 0.2, 0),
+                                2, 0.2, 0.1, 0.2, 0.02);
+                        }
+                    }
+                }
+
+                // Dégâts toutes les 20 ticks (1s)
+                if (ticksRemaining % 20 == 0) {
+                    hitThisTick.clear();
+
+                    for (Location loc : trailLocations) {
+                        for (Entity entity : world.getNearbyEntities(loc, 1.5, 2, 1.5)) {
+                            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                                UUID entityId = entity.getUniqueId();
+                                if (hitThisTick.contains(entityId)) continue;
+                                hitThisTick.add(entityId);
+
+                                // Enflammer
+                                living.setFireTicks(40);
+
+                                // Dégâts
+                                dealDamage(player, living, damagePerSecond, zombieManager);
+
+                                // Effet
+                                world.spawnParticle(Particle.FLAME, living.getLocation().add(0, 0.5, 0),
+                                    5, 0.2, 0.3, 0.2, 0.03);
+                            }
+                        }
+                    }
+                }
+
+                // Son de feu
+                if (ticksRemaining % 30 == 0 && !trailLocations.isEmpty()) {
+                    Location midPoint = trailLocations.get(trailLocations.size() / 2);
+                    world.playSound(midPoint, Sound.BLOCK_FIRE_AMBIENT, 0.6f, 1.0f);
+                }
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                             com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

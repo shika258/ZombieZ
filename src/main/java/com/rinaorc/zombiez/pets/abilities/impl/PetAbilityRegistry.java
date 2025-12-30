@@ -481,12 +481,13 @@ public class PetAbilityRegistry {
                 "5 TP enchaînés (40% dégâts) + échos explosifs (20% AoE)", voidScreamPassive, 0.40, 0.20, 5, 8.0)
         );
 
-        // Hydre de Givre (Glace / Blizzard)
-        registerAbilities(PetType.HYDRE_GIVRE,
-            new IceShardPassive("ice_shard", "Éclat de Glace",
-                "30% de lancer un éclat de glace", 0.30, 2),
-            new BlizzardActive("blizzard", "Blizzard",
-                "8s de tempête, 10 dégâts/s", 10, 8, 8)
+        // Zoglin Enragé (Exécution / Charge)
+        ExecuteDamagePassive executeDamagePassive = new ExecuteDamagePassive("execute_damage", "Instinct de Tueur",
+            "+40% dégâts sur ennemis <30% HP", 0.40, 0.30);
+        registerAbilities(PetType.ZOGLIN_ENRAGE,
+            executeDamagePassive,
+            new ZoglinChargeActive("zoglin_charge", "Charge Dévastatrice",
+                "Charge (220% dégâts, knockback)", executeDamagePassive, 2.20, 12.0, 2.5)
         );
 
         // Esprit Prismatique (Lumière / Arc-en-ciel)

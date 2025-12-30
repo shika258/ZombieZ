@@ -679,20 +679,20 @@ public enum PetType {
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Visuels) ---
 
-    HYDRE_GIVRE(
-        "Hydre de Givre",
+    ZOGLIN_ENRAGE(
+        "Zoglin Enragé",
         PetRarity.LEGENDARY,
-        Material.BLUE_ICE,
-        EntityType.ENDER_DRAGON,
-        "frost_hydra",
-        "Glace / Blizzard",
-        "Hydre à trois têtes faite de glace cristalline",
-        "30% chance de lancer un éclat de glace (ralentit 2s, +10% dégâts)",
-        "Blizzard",
-        "Déchaîne un blizzard (8s, 10 dégâts/s, gèle les ennemis)",
-        45,
-        "Ralentissement +1s",
-        "Le blizzard peut congeler complètement les ennemis (immobilise 3s)"
+        Material.CRIMSON_FUNGUS,
+        EntityType.ZOGLIN,
+        "enraged_zoglin",
+        "Exécution / Charge",
+        "Zoglin aux yeux rouges flamboyants avec aura de rage",
+        "Inflige +40% de dégâts aux ennemis ayant moins de 30% de vie",
+        "Charge Dévastatrice",
+        "Le Zoglin se précipite en avant, repoussant et infligeant 220% dégâts",
+        10,
+        "+50% dégâts sous 30% HP, seuil augmenté à 35%",
+        "La charge laisse une traînée de feu infernal infligeant 50% dégâts/s"
     ),
 
     ESPRIT_PRISMATIQUE(
