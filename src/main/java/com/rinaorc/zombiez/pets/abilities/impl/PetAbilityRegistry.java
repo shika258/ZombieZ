@@ -239,12 +239,13 @@ public class PetAbilityRegistry {
                 "Invincibilité 3s + full heal", 120, 3)
         );
 
-        // Wyrm du Néant
-        registerAbilities(PetType.WYRM_NEANT,
-            new TeleportOnDamagePassive("wyrm_blink", "Distorsion",
-                "Téléportation 5 blocs en prenant des dégâts", 5, 10),
-            new PortalActive("wyrm_portal", "Portail du Néant",
-                "Crée un portail vers un point visible", 30, 50)
+        // Piglin Berserker (Saut Dévastateur / Cri Féroce)
+        WarLeapPassive warLeapPassive = new WarLeapPassive("war_leap", "Saut Dévastateur",
+            "1% chance de saut AoE (180% dégâts, 8 blocs, Slow 60% 3s)", 0.01, 1.80, 8.0, 60);
+        registerAbilities(PetType.PIGLIN_BERSERKER,
+            warLeapPassive,
+            new FerociousCryActive("ferocious_cry", "Cri Féroce",
+                "Ennemis 25 blocs: -20% dégâts pendant 15s", warLeapPassive, 0.20, 25.0, 300)
         );
 
         // Titan Miniature

@@ -579,20 +579,20 @@ public enum PetType {
         "La bénédiction affecte aussi les alliés dans 10 blocs"
     ),
 
-    WYRM_NEANT(
-        "Wyrm du Néant",
+    PIGLIN_BERSERKER(
+        "Piglin Berserker",
         PetRarity.LEGENDARY,
-        Material.ENDER_EYE,
-        EntityType.SILVERFISH,
-        "void_wyrm",
-        "Espace / Téléportation",
-        "Serpent cosmique avec étoiles dans le corps",
-        "Téléportation courte (5 blocs) en prenant des dégâts (CD: 10s)",
-        "Portail du Néant",
-        "Crée un portail vers un point visible",
-        30,
-        "Téléportation +3 blocs, CD -3s",
-        "Peut emmener les alliés dans le portail"
+        Material.GOLDEN_AXE,
+        EntityType.PIGLIN,
+        "piglin_berserker",
+        "Guerre / Intimidation",
+        "Piglin guerrier avec armure dorée et hache massive",
+        "1% chance de déclencher un saut dévastateur (180% dégâts AoE 8 blocs + Slow 60% 3s)",
+        "Cri Féroce",
+        "Réduit les dégâts des ennemis de 20% dans 25 blocs pendant 15s",
+        45,
+        "2% chance de saut, 200% dégâts",
+        "Le cri applique aussi Weakness aux ennemis"
     ),
 
     TITAN_MINIATURE(

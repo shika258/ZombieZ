@@ -5938,3 +5938,395 @@ class PhantomStrikeActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== PIGLIN BERSERKER SYSTEM ====================
+
+/**
+ * Saut Dévastateur - Le Piglin saute sur les ennemis et inflige des dégâts AoE
+ * 1% chance par attaque, 180% des dégâts du joueur, ralentit de 60%
+ */
+@Getter
+class WarLeapPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseChance;           // 1% = 0.01
+    private final double baseDamagePercent;    // 180% = 1.80
+    private final double impactRadius;         // 8 blocs
+    private final int slowDurationTicks;       // 3s = 60 ticks
+    private final double slowStrength;         // 60% = niveau 2-3 de slowness
+    private static final Random random = new Random();
+
+    public WarLeapPassive(String id, String name, String desc, double chance,
+                           double damagePercent, double radius, int slowDuration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseChance = chance;
+        this.baseDamagePercent = damagePercent;
+        this.impactRadius = radius;
+        this.slowDurationTicks = slowDuration;
+        this.slowStrength = 0.60; // 60% slow
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Calcule la chance de déclencher selon le niveau
+     * Base: 1%, Niveau 5+: 2%
+     */
+    private double getEffectiveChance(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return baseChance * 2; // 2%
+        }
+        return baseChance; // 1%
+    }
+
+    /**
+     * Calcule le % de dégâts selon le niveau
+     * Base: 180%, Niveau 5+: 200%
+     */
+    private double getEffectiveDamagePercent(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 2.00; // 200%
+        }
+        return baseDamagePercent; // 180%
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        double chance = getEffectiveChance(petData);
+
+        if (random.nextDouble() < chance) {
+            triggerWarLeap(player, target.getLocation(), petData);
+        }
+    }
+
+    /**
+     * Déclenche le saut de guerre du Piglin
+     */
+    private void triggerWarLeap(Player player, Location targetLoc, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts du joueur
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        double leapDamage = baseDamage * getEffectiveDamagePercent(petData) * petData.getStatMultiplier();
+
+        // Son de saut
+        world.playSound(playerLoc, Sound.ENTITY_PIGLIN_BRUTE_ANGRY, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_RAVAGER_ATTACK, 0.8f, 1.2f);
+
+        // Animation de saut (particules arc)
+        animateLeapTrail(playerLoc, targetLoc, world);
+
+        // Impact après un court délai
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                executeLeapImpact(player, targetLoc, leapDamage, plugin);
+            }
+        }.runTaskLater(plugin, 8L); // 0.4s de délai pour l'animation
+    }
+
+    /**
+     * Anime la trajectoire du saut
+     */
+    private void animateLeapTrail(Location start, Location end, World world) {
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = 8;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                double progress = (double) ticks / maxTicks;
+                double x = start.getX() + (end.getX() - start.getX()) * progress;
+                double z = start.getZ() + (end.getZ() - start.getZ()) * progress;
+                // Arc parabolique
+                double height = Math.sin(progress * Math.PI) * 4;
+                double y = start.getY() + (end.getY() - start.getY()) * progress + height;
+
+                Location trailLoc = new Location(world, x, y, z);
+                world.spawnParticle(Particle.FLAME, trailLoc, 5, 0.2, 0.2, 0.2, 0.02);
+                world.spawnParticle(Particle.SMOKE, trailLoc, 3, 0.1, 0.1, 0.1, 0.01);
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Exécute l'impact du saut
+     */
+    private void executeLeapImpact(Player player, Location impactLoc, double damage,
+                                    com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = impactLoc.getWorld();
+        if (world == null) return;
+
+        // Effet d'impact
+        world.playSound(impactLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.7f);
+        world.playSound(impactLoc, Sound.ENTITY_PIGLIN_BRUTE_HURT, 1.0f, 0.6f);
+        world.playSound(impactLoc, Sound.BLOCK_ANVIL_LAND, 0.8f, 0.5f);
+
+        // Particules d'impact au sol
+        world.spawnParticle(Particle.EXPLOSION, impactLoc, 3, 0.5, 0.2, 0.5, 0);
+        world.spawnParticle(Particle.FLAME, impactLoc, 40, 2, 0.5, 2, 0.1);
+        world.spawnParticle(Particle.SMOKE, impactLoc, 30, 1.5, 0.3, 1.5, 0.05);
+
+        // Onde de choc circulaire
+        for (double angle = 0; angle < 360; angle += 20) {
+            double rad = Math.toRadians(angle);
+            for (double r = 1; r <= impactRadius; r += 1.5) {
+                double x = impactLoc.getX() + r * Math.cos(rad);
+                double z = impactLoc.getZ() + r * Math.sin(rad);
+                Location particleLoc = new Location(world, x, impactLoc.getY() + 0.1, z);
+                world.spawnParticle(Particle.CRIT, particleLoc, 2, 0.1, 0.1, 0.1, 0.1);
+            }
+        }
+
+        // Dégâts et slow aux ennemis
+        int hits = 0;
+        var zombieManager = plugin.getZombieManager();
+
+        for (Entity entity : world.getNearbyEntities(impactLoc, impactRadius, impactRadius, impactRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(impactLoc);
+                if (distSq > impactRadius * impactRadius) continue;
+
+                hits++;
+
+                // Dégâts
+                if (zombieManager != null) {
+                    var activeZombie = zombieManager.getActiveZombie(entity.getUniqueId());
+                    if (activeZombie != null) {
+                        zombieManager.damageZombie(player, activeZombie, damage,
+                            com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                    } else {
+                        living.damage(damage, player);
+                    }
+                } else {
+                    living.damage(damage, player);
+                }
+
+                // Slowness (60% = environ niveau 3)
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, slowDurationTicks, 2));
+
+                // Petit knockback vers l'extérieur
+                Vector knockback = living.getLocation().toVector().subtract(impactLoc.toVector());
+                if (knockback.lengthSquared() > 0) {
+                    knockback.normalize().multiply(0.5).setY(0.3);
+                    living.setVelocity(living.getVelocity().add(knockback));
+                }
+            }
+        }
+
+        // Message
+        if (hits > 0) {
+            player.sendMessage("§6[Pet] §c⚔ §7Saut Dévastateur! §c" +
+                String.format("%.0f", damage) + " §7dégâts sur §e" + hits + " §7ennemis!");
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Cri Féroce - Réduit les dégâts des ennemis proches pendant une durée
+ * 20% réduction de dégâts dans 25 blocs pendant 15s
+ */
+@Getter
+class FerociousCryActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final WarLeapPassive linkedPassive;
+    private final double damageReduction;      // 20% = 0.20
+    private final double cryRadius;            // 25 blocs
+    private final int durationTicks;           // 15s = 300 ticks
+
+    // Tracking des ennemis affectés pour le système de réduction
+    private static final Map<UUID, Long> affectedEnemies = new HashMap<>();
+    private static final Map<UUID, Double> reductionAmount = new HashMap<>();
+
+    public FerociousCryActive(String id, String name, String desc, WarLeapPassive passive,
+                               double reduction, double radius, int duration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damageReduction = reduction;
+        this.cryRadius = radius;
+        this.durationTicks = duration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    /**
+     * Vérifie si on applique Weakness en plus (étoiles max)
+     */
+    private boolean shouldApplyWeakness(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        Location center = player.getLocation();
+        World world = player.getWorld();
+        boolean applyWeakness = shouldApplyWeakness(petData);
+
+        // Cri de guerre
+        world.playSound(center, Sound.ENTITY_PIGLIN_BRUTE_ANGRY, 2.0f, 0.5f);
+        world.playSound(center, Sound.ENTITY_RAVAGER_ROAR, 1.5f, 0.8f);
+        world.playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 1.2f);
+
+        // Onde de choc visuelle
+        spawnCryShockwave(center, world);
+
+        // Affecter les ennemis
+        int affected = 0;
+        long expirationTime = System.currentTimeMillis() + (durationTicks * 50L);
+
+        for (Entity entity : world.getNearbyEntities(center, cryRadius, cryRadius, cryRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(center);
+                if (distSq > cryRadius * cryRadius) continue;
+
+                affected++;
+                UUID entityId = entity.getUniqueId();
+
+                // Enregistrer la réduction de dégâts (sera utilisée par le système de combat)
+                affectedEnemies.put(entityId, expirationTime);
+                reductionAmount.put(entityId, damageReduction);
+
+                // Appliquer Weakness si étoiles max (cumulatif avec la réduction)
+                if (applyWeakness) {
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, durationTicks, 0));
+                }
+
+                // Effet visuel sur chaque ennemi
+                world.spawnParticle(Particle.ANGRY_VILLAGER, living.getLocation().add(0, 1.5, 0),
+                    5, 0.3, 0.3, 0.3, 0);
+                world.spawnParticle(Particle.SMOKE, living.getLocation().add(0, 1, 0),
+                    10, 0.3, 0.5, 0.3, 0.02);
+            }
+        }
+
+        // Effet de réduction de dégâts via un marker visuel
+        spawnIntimidationAura(player, plugin, durationTicks);
+
+        // Message
+        String weaknessMsg = applyWeakness ? " §8+ Weakness" : "";
+        player.sendMessage("§6[Pet] §c🔊 §7Cri Féroce! §e" + affected +
+            " §7ennemis intimidés (-" + (int)(damageReduction * 100) + "% dégâts, " +
+            (durationTicks / 20) + "s)" + weaknessMsg);
+    }
+
+    /**
+     * Vérifie si un ennemi est affecté par le cri et retourne la réduction
+     * Méthode statique pour être appelée par le système de combat
+     */
+    public static double getDamageReduction(UUID entityId) {
+        Long expiration = affectedEnemies.get(entityId);
+        if (expiration != null && System.currentTimeMillis() < expiration) {
+            return reductionAmount.getOrDefault(entityId, 0.0);
+        }
+        // Nettoyer si expiré
+        affectedEnemies.remove(entityId);
+        reductionAmount.remove(entityId);
+        return 0.0;
+    }
+
+    /**
+     * Crée l'onde de choc du cri
+     */
+    private void spawnCryShockwave(Location center, World world) {
+        new BukkitRunnable() {
+            double radius = 0;
+
+            @Override
+            public void run() {
+                if (radius >= cryRadius) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules qui s'expand
+                for (double angle = 0; angle < 360; angle += 15) {
+                    double rad = Math.toRadians(angle);
+                    double x = center.getX() + radius * Math.cos(rad);
+                    double z = center.getZ() + radius * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+                }
+
+                radius += 3;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 2L);
+    }
+
+    /**
+     * Affiche une aura d'intimidation autour du joueur
+     */
+    private void spawnIntimidationAura(Player player, com.rinaorc.zombiez.ZombieZPlugin plugin, int duration) {
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= duration || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Aura toutes les 20 ticks (1s)
+                if (ticks % 20 == 0) {
+                    Location loc = player.getLocation();
+                    player.getWorld().spawnParticle(Particle.FLAME, loc.add(0, 0.5, 0),
+                        8, 0.5, 0.3, 0.5, 0.01);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
