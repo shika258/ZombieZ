@@ -511,20 +511,20 @@ public enum PetType {
         "L'éternuement a 30% de chance de drop un consommable ou nourriture"
     ),
 
-    DJINN_JACKPOT(
-        "Djinn du Jackpot",
+    CHEVRE_FLIPPER(
+        "Chèvre Flipper",
         PetRarity.EPIC,
-        Material.EMERALD,
-        EntityType.VEX,
-        "jackpot_djinn",
-        "Chance / Jackpot",
-        "Génie doré avec pièces flottantes autour de lui",
-        "+30% chance de déclencher le Jackpot, +50% récompenses Jackpot",
-        "Super Jackpot",
-        "Déclenche un Jackpot garanti avec récompenses x3",
-        90,
-        "Récompenses Jackpot +25%",
-        "Les Jackpots peuvent drop des oeufs de pet (rare)"
+        Material.SLIME_BALL,
+        EntityType.GOAT,
+        "flipper_goat",
+        "Ricochets / Réactions en chaîne",
+        "Chèvre bondissante avec traînée de particules rebondissantes",
+        "Les ennemis tués sont projetés et rebondissent sur d'autres (30% dégâts, +10%/rebond, max 5)",
+        "Boule de Flipper",
+        "Rebondit entre 8 ennemis avec dégâts croissants (50% × n° rebond)",
+        25,
+        "7 rebonds max, +15%/rebond",
+        "Les ennemis tués par ricochet explosent en dégâts de zone"
     ),
 
     // --- NOUVEAUX PETS ÉPIQUES (Visuels) ---

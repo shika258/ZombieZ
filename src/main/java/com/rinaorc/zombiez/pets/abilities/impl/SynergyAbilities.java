@@ -1645,71 +1645,366 @@ class SneezingExplosiveActive implements PetAbility {
     }
 }
 
-// ==================== JACKPOT SYSTEM (Djinn du Jackpot) ====================
+// ==================== FLIPPER SYSTEM (Chèvre Flipper) ====================
 
 @Getter
-class JackpotPassive implements PetAbility {
+class FlipperPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double jackpotChanceBonus;
-    private final double jackpotRewardBonus;
+    private final double baseDamagePercent;      // % des dégâts du joueur par rebond
+    private final double damageIncreasePerBounce; // Bonus par rebond
+    private final int baseMaxBounces;             // Nombre max de rebonds
+    private static final Random random = new Random();
 
-    public JackpotPassive(String id, String name, String desc, double chanceBonus, double rewardBonus) {
+    public FlipperPassive(String id, String name, String desc, double baseDamage, double increasePerBounce, int maxBounces) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.jackpotChanceBonus = chanceBonus;
-        this.jackpotRewardBonus = rewardBonus;
+        this.baseDamagePercent = baseDamage;
+        this.damageIncreasePerBounce = increasePerBounce;
+        this.baseMaxBounces = maxBounces;
     }
 
     @Override
     public boolean isPassive() { return true; }
 
-    public double getJackpotChanceBonus(PetData petData) {
-        return jackpotChanceBonus * petData.getStatMultiplier();
+    /**
+     * Max rebonds selon le niveau
+     */
+    public int getMaxBounces(PetData petData) {
+        return petData.getStatMultiplier() >= 1.5 ? baseMaxBounces + 2 : baseMaxBounces;
     }
 
-    public double getJackpotRewardBonus(PetData petData) {
-        return jackpotRewardBonus * petData.getStatMultiplier();
+    /**
+     * Bonus de dégâts par rebond selon le niveau
+     */
+    public double getDamagePerBounce(PetData petData) {
+        return petData.getStatMultiplier() >= 1.5 ? damageIncreasePerBounce + 0.05 : damageIncreasePerBounce;
+    }
+
+    /**
+     * Vérifie si l'explosion au kill est active (max étoiles)
+     */
+    public boolean hasExplosionOnKill(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void onKill(Player player, PetData petData, LivingEntity killed) {
+        // Récupérer les dégâts du joueur
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        // Démarrer la chaîne de rebonds
+        startBounceChain(player, petData, killed.getLocation(), playerBaseDamage, 1, new HashSet<>());
+    }
+
+    /**
+     * Chaîne de rebonds récursive
+     */
+    private void startBounceChain(Player player, PetData petData, Location fromLocation,
+                                   double playerDamage, int bounceNumber, Set<UUID> alreadyHit) {
+        int maxBounces = getMaxBounces(petData);
+        if (bounceNumber > maxBounces) return;
+
+        // Trouver l'ennemi le plus proche non encore touché
+        Monster target = findNearestEnemy(fromLocation, 8.0, alreadyHit);
+        if (target == null) return;
+
+        alreadyHit.add(target.getUniqueId());
+
+        // Calculer les dégâts avec bonus croissant
+        double damageMultiplier = baseDamagePercent + (getDamagePerBounce(petData) * (bounceNumber - 1));
+        double bounceDamage = playerDamage * damageMultiplier * petData.getStatMultiplier();
+
+        // Animation de projectile rebondissant
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+        spawnBounceTrail(fromLocation.clone().add(0, 1, 0), targetLoc, bounceNumber);
+
+        // Infliger les dégâts avec délai pour l'effet visuel
+        int finalBounceNumber = bounceNumber;
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!target.isValid() || target.isDead()) return;
+
+                target.damage(bounceDamage, player);
+                petData.addDamage((long) bounceDamage);
+
+                // Effet d'impact
+                target.getWorld().spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.3, 0.3, 0.1);
+                target.getWorld().playSound(targetLoc, Sound.ENTITY_SLIME_SQUISH, 1.0f, 1.2f + (finalBounceNumber * 0.1f));
+
+                // Notification avec numéro de rebond
+                String bounceText = "§a[Pet] §e⚡ Rebond #" + finalBounceNumber + " §7→ §c" +
+                    String.format("%.0f", bounceDamage) + " §7dégâts!";
+                player.sendMessage(bounceText);
+
+                // Vérifier si la cible est morte pour continuer la chaîne
+                if (target.isDead() || target.getHealth() <= 0) {
+                    // Explosion si max étoiles
+                    if (hasExplosionOnKill(petData)) {
+                        explodeOnKill(player, petData, target.getLocation(), playerDamage * 0.4);
+                    }
+                    // Continuer la chaîne
+                    startBounceChain(player, petData, target.getLocation(), playerDamage, finalBounceNumber + 1, alreadyHit);
+                }
+            }
+        }.runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), 3L * bounceNumber);
+    }
+
+    /**
+     * Explosion lors d'un kill par ricochet (bonus max étoiles)
+     */
+    private void explodeOnKill(Player player, PetData petData, Location loc, double damage) {
+        loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
+        loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.5f);
+
+        for (Entity entity : loc.getWorld().getNearbyEntities(loc, 3, 3, 3)) {
+            if (entity instanceof Monster monster && !entity.equals(player)) {
+                monster.damage(damage, player);
+                petData.addDamage((long) damage);
+            }
+        }
+    }
+
+    /**
+     * Effet visuel de traînée de rebond
+     */
+    private void spawnBounceTrail(Location from, Location to, int bounceNumber) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Couleur selon le numéro de rebond (vert → jaune → orange → rouge)
+        Particle.DustOptions dust = switch (bounceNumber) {
+            case 1 -> new Particle.DustOptions(org.bukkit.Color.LIME, 1.2f);
+            case 2 -> new Particle.DustOptions(org.bukkit.Color.YELLOW, 1.3f);
+            case 3 -> new Particle.DustOptions(org.bukkit.Color.ORANGE, 1.4f);
+            case 4 -> new Particle.DustOptions(org.bukkit.Color.RED, 1.5f);
+            default -> new Particle.DustOptions(org.bukkit.Color.PURPLE, 1.6f);
+        };
+
+        new BukkitRunnable() {
+            double traveled = 0;
+            final Location current = from.clone();
+
+            @Override
+            public void run() {
+                if (traveled >= distance) {
+                    cancel();
+                    return;
+                }
+
+                current.add(direction.clone().multiply(0.8));
+                current.getWorld().spawnParticle(Particle.DUST, current, 3, 0.1, 0.1, 0.1, 0, dust);
+                current.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, current, 1, 0.1, 0.1, 0.1, 0);
+                traveled += 0.8;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche
+     */
+    private Monster findNearestEnemy(Location loc, double radius, Set<UUID> exclude) {
+        Monster nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : loc.getWorld().getNearbyEntities(loc, radius, radius, radius)) {
+            if (entity instanceof Monster monster && !exclude.contains(entity.getUniqueId())) {
+                double dist = monster.getLocation().distanceSquared(loc);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = monster;
+                }
+            }
+        }
+        return nearest;
     }
 }
 
 @Getter
-class SuperJackpotActive implements PetAbility {
+class FlipperBallActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
+    private final FlipperPassive flipperPassive;
+    private final double baseDamagePercent;
+    private final int maxTargets;
+    private static final Random random = new Random();
 
-    public SuperJackpotActive(String id, String name, String desc) {
+    public FlipperBallActive(String id, String name, String desc, FlipperPassive passive,
+                              double damagePercent, int targets) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
+        this.flipperPassive = passive;
+        this.baseDamagePercent = damagePercent;
+        this.maxTargets = targets;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 90; }
+    public int getCooldown() { return 25; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        // Déclenche un jackpot garanti - les récompenses sont gérées par le système de jackpot
-        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation(), 100, 2, 2, 2, 0.5);
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        // Récupérer les dégâts du joueur
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return false;
 
-        // Donner des récompenses directement
-        int emeralds = (int) (10 + Math.random() * 20 * petData.getStatMultiplier());
-        int gold = (int) (20 + Math.random() * 40 * petData.getStatMultiplier());
+        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+            plugin.getItemManager().calculatePlayerStats(player);
 
-        player.getInventory().addItem(new org.bukkit.inventory.ItemStack(Material.EMERALD, emeralds));
-        player.getInventory().addItem(new org.bukkit.inventory.ItemStack(Material.GOLD_INGOT, gold));
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
-        player.sendMessage("§a[Pet] §6§l★ SUPER JACKPOT! §7Récompenses x3!");
-        player.sendMessage("§7   §a+" + emeralds + " Émeraudes, §6+" + gold + " Or");
+        // Trouver tous les ennemis dans le rayon
+        List<Monster> targets = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(10, 10, 10)) {
+            if (entity instanceof Monster monster) {
+                targets.add(monster);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à portée!");
+            return false;
+        }
+
+        // Limiter au nombre max et mélanger
+        Collections.shuffle(targets);
+        List<Monster> finalTargets = targets.subList(0, Math.min(targets.size(), maxTargets));
+
+        // Son de départ
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_GOAT_SCREAMING_LONG_JUMP, 1.5f, 0.8f);
+        player.sendMessage("§a[Pet] §e§l🎱 BOULE DE FLIPPER! §7Rebondissement sur " + finalTargets.size() + " ennemis!");
+
+        // Lancer la séquence de rebonds
+        executeFlipperBall(player, petData, player.getLocation(), finalTargets, 0, playerBaseDamage);
 
         return true;
+    }
+
+    /**
+     * Exécute la séquence de rebonds de la boule de flipper
+     */
+    private void executeFlipperBall(Player player, PetData petData, Location fromLoc,
+                                     List<Monster> targets, int index, double playerDamage) {
+        if (index >= targets.size()) {
+            // Fin de la séquence
+            player.sendMessage("§a[Pet] §6§l★ COMBO PARFAIT! §7Tous les rebonds effectués!");
+            player.getWorld().playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.5f);
+            return;
+        }
+
+        Monster target = targets.get(index);
+        if (!target.isValid() || target.isDead()) {
+            // Passer au suivant si la cible n'est plus valide
+            executeFlipperBall(player, petData, fromLoc, targets, index + 1, playerDamage);
+            return;
+        }
+
+        int bounceNumber = index + 1;
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+
+        // Dégâts croissants: 50% × numéro du rebond
+        double damageMultiplier = baseDamagePercent * bounceNumber * petData.getStatMultiplier();
+        double bounceDamage = playerDamage * damageMultiplier;
+
+        // Animation de la boule
+        spawnFlipperBallTrail(fromLoc.clone().add(0, 1, 0), targetLoc, bounceNumber);
+
+        // Délai pour synchroniser avec l'animation
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!target.isValid() || target.isDead()) {
+                    executeFlipperBall(player, petData, targetLoc, targets, index + 1, playerDamage);
+                    return;
+                }
+
+                // Infliger les dégâts
+                target.damage(bounceDamage, player);
+                petData.addDamage((long) bounceDamage);
+
+                // Knockback puissant
+                Vector knockback = target.getLocation().toVector()
+                    .subtract(fromLoc.toVector())
+                    .normalize().multiply(1.2).setY(0.5);
+                target.setVelocity(knockback);
+
+                // Effets visuels d'impact
+                target.getWorld().spawnParticle(Particle.CRIT_MAGIC, targetLoc, 25, 0.5, 0.5, 0.5, 0.2);
+                target.getWorld().spawnParticle(Particle.EXPLOSION, targetLoc, 1, 0, 0, 0, 0);
+
+                // Son d'impact crescendo
+                float pitch = 0.5f + (bounceNumber * 0.15f);
+                target.getWorld().playSound(targetLoc, Sound.ENTITY_GOAT_RAM_IMPACT, 1.2f, pitch);
+                target.getWorld().playSound(targetLoc, Sound.BLOCK_SLIME_BLOCK_HIT, 1.0f, pitch);
+
+                // Message avec dégâts croissants
+                String damageColor = bounceNumber <= 3 ? "§e" : (bounceNumber <= 6 ? "§6" : "§c");
+                player.sendMessage("§a[Pet] §e⚡ Rebond #" + bounceNumber + " §7→ " +
+                    damageColor + String.format("%.0f", bounceDamage) + " §7dégâts! " +
+                    (bounceNumber >= 6 ? "§c§l(×" + bounceNumber + "!)" : ""));
+
+                // Continuer vers le prochain
+                executeFlipperBall(player, petData, target.getLocation(), targets, index + 1, playerDamage);
+            }
+        }.runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), 5L + (index * 4L));
+    }
+
+    /**
+     * Effet visuel de la boule de flipper
+     */
+    private void spawnFlipperBallTrail(Location from, Location to, int bounceNumber) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Couleur arc-en-ciel selon le rebond
+        org.bukkit.Color color = switch (bounceNumber % 7) {
+            case 1 -> org.bukkit.Color.RED;
+            case 2 -> org.bukkit.Color.ORANGE;
+            case 3 -> org.bukkit.Color.YELLOW;
+            case 4 -> org.bukkit.Color.LIME;
+            case 5 -> org.bukkit.Color.AQUA;
+            case 6 -> org.bukkit.Color.PURPLE;
+            default -> org.bukkit.Color.WHITE;
+        };
+        Particle.DustOptions dust = new Particle.DustOptions(color, 1.5f + (bounceNumber * 0.2f));
+
+        new BukkitRunnable() {
+            double traveled = 0;
+            final Location current = from.clone();
+
+            @Override
+            public void run() {
+                if (traveled >= distance) {
+                    cancel();
+                    return;
+                }
+
+                current.add(direction.clone().multiply(1.2));
+                current.getWorld().spawnParticle(Particle.DUST, current, 5, 0.15, 0.15, 0.15, 0, dust);
+                current.getWorld().spawnParticle(Particle.END_ROD, current, 2, 0.1, 0.1, 0.1, 0.02);
+                current.getWorld().spawnParticle(Particle.FIREWORK, current, 1, 0.05, 0.05, 0.05, 0);
+                traveled += 1.2;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
 

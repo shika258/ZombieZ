@@ -384,12 +384,13 @@ public class PetAbilityRegistry {
                 "Onde de choc 80% dégâts, tous buffs 5s", gourmandPassive, 0.80, 0.30)
         );
 
-        // Djinn du Jackpot (Jackpot System)
-        registerAbilities(PetType.DJINN_JACKPOT,
-            new JackpotPassive("jackpot_passive", "Fortune du Djinn",
-                "+30% chance Jackpot, +50% récompenses", 0.30, 0.50),
-            new SuperJackpotActive("super_jackpot", "Super Jackpot",
-                "Déclenche un Jackpot garanti x3")
+        // Chèvre Flipper (Ricochet System)
+        FlipperPassive flipperPassive = new FlipperPassive("flipper_bounce", "Rebond Dévastateur",
+            "Kill = projectile rebondissant (30% dégâts, +10%/rebond, max 5)", 0.30, 0.10, 5);
+        registerAbilities(PetType.CHEVRE_FLIPPER,
+            flipperPassive,
+            new FlipperBallActive("flipper_ball", "Boule de Flipper",
+                "Rebondit entre 8 ennemis (50% dégâts × n° rebond)", flipperPassive, 0.50, 8)
         );
 
         // Dragon Chromatique (Class Adaptive)
