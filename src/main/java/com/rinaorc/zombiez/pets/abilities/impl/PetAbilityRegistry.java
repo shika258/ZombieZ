@@ -266,12 +266,13 @@ public class PetAbilityRegistry {
                 "Explosion 12 blocs (root 4s + 100% dégâts) + éruptions 6s", rootGraspPassive, 1.00, 12.0, 80, 120)
         );
 
-        // Phénix Ancestral
-        registerAbilities(PetType.PHENIX_ANCESTRAL,
-            new AdvancedRebornPassive("phoenix_immortal", "Immortalité",
-                "Renaissance automatique une fois par vie", 1.0),
-            new ApocalypseActive("phoenix_apocalypse", "Apocalypse de Feu",
-                "Pluie de feu (zone 10x10, 100 dégâts)", 45, 100, 10)
+        // Sorcière Nécromancienne (Drain de Vie / Zombie Suicidaire)
+        LifeDrainPassive lifeDrainPassive = new LifeDrainPassive("life_drain", "Drain de Vie",
+            "5s: draine 5 ennemis (18 blocs), +5% dégâts/ennemi, -5% HP mob", 0.05, 0.05, 18.0, 5);
+        registerAbilities(PetType.SORCIERE_NECRO,
+            lifeDrainPassive,
+            new SuicidalZombieActive("suicidal_zombie", "Nécromancie",
+                "Zombie suicidaire (560% dégâts poison sur son chemin)", lifeDrainPassive, 5.60, 4.0, 200)
         );
 
         // ==================== MYTHIQUES ====================

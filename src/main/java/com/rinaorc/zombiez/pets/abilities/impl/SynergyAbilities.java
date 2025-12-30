@@ -7079,3 +7079,546 @@ class AwakenedForestActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== NECROMANCER WITCH SYSTEM (Sorcière Nécromancienne) ====================
+
+/**
+ * Drain de Vie - Toutes les 5s, draine jusqu'à 5 ennemis
+ * +5% dégâts par ennemi drainé, -5% HP des mobs drainés
+ */
+@Getter
+class LifeDrainPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double drainDamagePercent;     // 5% = 0.05 HP retiré aux mobs
+    private final double damageBuffPerEnemy;     // 5% = 0.05 par ennemi
+    private final double drainRadius;            // 18 blocs
+    private final int maxEnemies;                // Max 5 ennemis
+
+    // Tracking des buffs actifs et timing
+    private static final Map<UUID, Long> lastDrainTime = new ConcurrentHashMap<>();
+    private static final Map<UUID, Double> activeDamageBuffs = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> buffExpireTime = new ConcurrentHashMap<>();
+
+    public LifeDrainPassive(String id, String name, String desc, double drainDmgPercent,
+                             double dmgBuffPerEnemy, double radius, int maxTargets) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.drainDamagePercent = drainDmgPercent;
+        this.damageBuffPerEnemy = dmgBuffPerEnemy;
+        this.drainRadius = radius;
+        this.maxEnemies = maxTargets;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Récupère l'intervalle de drain selon le niveau
+     * Base: 5s, Niveau 5+: 4s
+     */
+    private long getDrainInterval(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 4000; // 4 secondes
+        }
+        return 5000; // 5 secondes
+    }
+
+    /**
+     * Récupère le buff de dégâts par ennemi selon le niveau
+     * Base: 5%, Niveau 5+: 7%
+     */
+    private double getEffectiveBuffPerEnemy(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.07; // 7%
+        }
+        return damageBuffPerEnemy; // 5%
+    }
+
+    /**
+     * Récupère le buff de dégâts actif pour un joueur
+     */
+    public double getActiveDamageBuff(UUID playerId) {
+        Long expireTime = buffExpireTime.get(playerId);
+        if (expireTime == null || System.currentTimeMillis() > expireTime) {
+            activeDamageBuffs.remove(playerId);
+            buffExpireTime.remove(playerId);
+            return 0.0;
+        }
+        return activeDamageBuffs.getOrDefault(playerId, 0.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Tick toutes les secondes environ
+        long currentTime = System.currentTimeMillis();
+        long interval = getDrainInterval(petData);
+
+        Long lastDrain = lastDrainTime.get(player.getUniqueId());
+        if (lastDrain != null && currentTime - lastDrain < interval) {
+            return; // Pas encore le moment
+        }
+
+        // Effectuer le drain
+        performLifeDrain(player, petData, currentTime);
+    }
+
+    /**
+     * Effectue le drain de vie
+     */
+    private void performLifeDrain(Player player, PetData petData, long currentTime) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Trouver les ennemis à drainer
+        List<LivingEntity> targets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, drainRadius, drainRadius, drainRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(playerLoc);
+                if (distSq <= drainRadius * drainRadius) {
+                    targets.add(living);
+                    if (targets.size() >= maxEnemies) break;
+                }
+            }
+        }
+
+        if (targets.isEmpty()) return;
+
+        // Marquer le temps de drain
+        lastDrainTime.put(player.getUniqueId(), currentTime);
+
+        // Calculer le buff de dégâts
+        double buffPerEnemy = getEffectiveBuffPerEnemy(petData);
+        double totalBuff = buffPerEnemy * targets.size();
+
+        // Appliquer le buff (dure jusqu'au prochain drain)
+        long buffDuration = getDrainInterval(petData) + 1000; // Dure légèrement plus que l'intervalle
+        activeDamageBuffs.put(player.getUniqueId(), totalBuff);
+        buffExpireTime.put(player.getUniqueId(), currentTime + buffDuration);
+
+        // Effet visuel et sonore de la Witch
+        world.playSound(playerLoc, Sound.ENTITY_WITCH_CELEBRATE, 1.0f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_WITCH_AMBIENT, 0.8f, 1.2f);
+
+        // Drainer chaque cible
+        var zombieManager = plugin.getZombieManager();
+        for (LivingEntity target : targets) {
+            drainTarget(player, target, zombieManager, world);
+        }
+
+        // Message au joueur
+        int buffPercent = (int) (totalBuff * 100);
+        player.sendMessage("§5[Pet] §d🔮 §7Drain! §e" + targets.size() +
+            " §7ennemis → §c+" + buffPercent + "% §7dégâts");
+
+        // Bonus étoiles max: Régénération du joueur
+        if (petData.getStarPower() > 0) {
+            double healAmount = 0.02 * targets.size() * player.getMaxHealth(); // 2% HP par ennemi
+            double newHealth = Math.min(player.getMaxHealth(), player.getHealth() + healAmount);
+            player.setHealth(newHealth);
+
+            world.spawnParticle(Particle.HEART, playerLoc.add(0, 2, 0),
+                targets.size(), 0.3, 0.2, 0.3, 0);
+        }
+    }
+
+    /**
+     * Drain une cible spécifique
+     */
+    private void drainTarget(Player player, LivingEntity target,
+                              com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        Location targetLoc = target.getLocation();
+
+        // Calculer et infliger les dégâts (5% des HP max du mob)
+        double maxHealth = target.getMaxHealth();
+        double drainDamage = maxHealth * drainDamagePercent;
+
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, drainDamage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+            } else {
+                target.damage(drainDamage, player);
+            }
+        } else {
+            target.damage(drainDamage, player);
+        }
+
+        // Effet visuel: ligne de drain vers le joueur
+        spawnDrainBeam(targetLoc.add(0, 1, 0), player.getLocation().add(0, 1.5, 0), world);
+
+        // Particules sur la cible
+        world.spawnParticle(Particle.WITCH, targetLoc.add(0, 0.5, 0),
+            10, 0.3, 0.5, 0.3, 0.02);
+        world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc.add(0, 1, 0),
+            3, 0.2, 0.2, 0.2, 0.1);
+    }
+
+    /**
+     * Crée un faisceau visuel de drain
+     */
+    private void spawnDrainBeam(Location from, Location to, World world) {
+        org.bukkit.util.Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int steps = (int) (distance * 3);
+        for (int i = 0; i < steps; i++) {
+            Location particleLoc = from.clone().add(direction.clone().multiply(i / 3.0));
+            world.spawnParticle(Particle.WITCH, particleLoc, 1, 0, 0, 0, 0);
+            if (i % 2 == 0) {
+                world.spawnParticle(Particle.SOUL, particleLoc, 1, 0.05, 0.05, 0.05, 0.01);
+            }
+        }
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Le buff de dégâts est appliqué via getActiveDamageBuff()
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    /**
+     * Nettoyer les données d'un joueur
+     */
+    public static void cleanup(UUID playerId) {
+        lastDrainTime.remove(playerId);
+        activeDamageBuffs.remove(playerId);
+        buffExpireTime.remove(playerId);
+    }
+}
+
+/**
+ * Zombie Suicidaire - Invoque un zombie qui explose en poison sur son chemin
+ * 560% des dégâts de l'arme
+ */
+@Getter
+class SuicidalZombieActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final LifeDrainPassive linkedPassive;
+    private final double damagePercent;         // 560% = 5.60
+    private final double explosionRadius;       // Rayon de l'explosion de poison
+    private final int zombieLifetimeTicks;      // Durée de vie du zombie
+
+    public SuicidalZombieActive(String id, String name, String desc, LifeDrainPassive passive,
+                                 double dmgPercent, double radius, int lifetime) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damagePercent = dmgPercent;
+        this.explosionRadius = radius;
+        this.zombieLifetimeTicks = lifetime;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location spawnLoc = player.getLocation().add(player.getLocation().getDirection().multiply(2));
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
+        double poisonDamage = baseDamage * damagePercent * petData.getStatMultiplier();
+
+        boolean leaveTrail = petData.getStarPower() > 0; // Traînée de poison si étoiles max
+
+        // Sons d'invocation
+        world.playSound(spawnLoc, Sound.ENTITY_WITCH_CELEBRATE, 1.5f, 0.6f);
+        world.playSound(spawnLoc, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 1.0f, 0.5f);
+        world.playSound(spawnLoc, Sound.BLOCK_BREWING_STAND_BREW, 1.0f, 0.8f);
+
+        // Particules d'invocation
+        world.spawnParticle(Particle.WITCH, spawnLoc, 30, 0.5, 1, 0.5, 0.1);
+        world.spawnParticle(Particle.SOUL, spawnLoc, 15, 0.3, 0.5, 0.3, 0.05);
+
+        // Créer le zombie suicidaire (visuel uniquement, pas via ZombieManager car c'est un allié)
+        Zombie suicidalZombie = world.spawn(spawnLoc, Zombie.class, zombie -> {
+            zombie.setBaby(true);
+            zombie.setCustomName("§5Serviteur Nécromantique");
+            zombie.setCustomNameVisible(true);
+            zombie.setPersistent(false);
+            zombie.setRemoveWhenFarAway(true);
+            zombie.setSilent(true);
+            zombie.setAI(false); // On gère le mouvement manuellement
+
+            // Apparence de zombie empoisonné
+            zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 999999, 1, false, false));
+            zombie.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 999999, 0, false, false));
+
+            // Tag pour identification
+            zombie.getPersistentDataContainer().set(
+                new org.bukkit.NamespacedKey(plugin, "necro_zombie"),
+                org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1
+            );
+        });
+
+        // Message
+        player.sendMessage("§5[Pet] §d💀 §7Zombie Suicidaire invoqué! §8(560% dégâts poison)");
+
+        // Contrôler le zombie
+        controlZombie(player, suicidalZombie, poisonDamage, leaveTrail, plugin);
+    }
+
+    /**
+     * Contrôle le mouvement et les explosions du zombie
+     */
+    private void controlZombie(Player player, Zombie zombie, double poisonDamage,
+                                boolean leaveTrail, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = zombie.getWorld();
+        Set<UUID> hitEntities = new HashSet<>();
+        List<Location> trailLocations = new ArrayList<>();
+
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            LivingEntity currentTarget = null;
+            int explosionCount = 0;
+            final int maxExplosions = 3; // Explose 3 fois avant de mourir
+
+            @Override
+            public void run() {
+                // Vérifier si le zombie est toujours vivant
+                if (!zombie.isValid() || zombie.isDead() || ticksAlive >= zombieLifetimeTicks) {
+                    // Explosion finale de décomposition
+                    finalExplosion(zombie.getLocation(), world, player, poisonDamage * 0.5, plugin);
+                    zombie.remove();
+
+                    // Nettoyer la traînée de poison si pas étoiles max
+                    if (!leaveTrail && !trailLocations.isEmpty()) {
+                        // La traînée disparaît automatiquement
+                    }
+
+                    cancel();
+                    return;
+                }
+
+                ticksAlive++;
+                Location zombieLoc = zombie.getLocation();
+
+                // Traînée de poison
+                if (ticksAlive % 5 == 0) { // Toutes les 0.25s
+                    spawnPoisonCloud(zombieLoc, world);
+                    if (leaveTrail) {
+                        trailLocations.add(zombieLoc.clone());
+                        // Dégâts de traînée persistante
+                        damageNearbyEnemies(player, zombieLoc, poisonDamage * 0.1, 2.0, hitEntities, plugin, true);
+                    }
+                }
+
+                // Particules constantes
+                if (ticksAlive % 2 == 0) {
+                    world.spawnParticle(Particle.WITCH, zombieLoc.add(0, 0.5, 0),
+                        3, 0.2, 0.3, 0.2, 0.02);
+                    world.spawnParticle(Particle.ITEM_SLIME, zombieLoc,
+                        2, 0.1, 0.1, 0.1, 0.05);
+                }
+
+                // Trouver une cible
+                if (currentTarget == null || !currentTarget.isValid() || currentTarget.isDead()
+                    || currentTarget.getLocation().distanceSquared(zombieLoc) > 400) { // 20 blocs
+                    currentTarget = findNearestEnemy(zombieLoc, world, 15);
+                }
+
+                // Se déplacer vers la cible
+                if (currentTarget != null) {
+                    moveTowardsTarget(zombie, currentTarget.getLocation(), 0.25);
+
+                    // Vérifier collision pour explosion
+                    if (zombieLoc.distanceSquared(currentTarget.getLocation()) < 4) { // 2 blocs
+                        // Explosion de poison!
+                        explodePoison(zombieLoc, world, player, poisonDamage, hitEntities, plugin);
+                        explosionCount++;
+
+                        if (explosionCount >= maxExplosions) {
+                            // Décomposition finale
+                            world.playSound(zombieLoc, Sound.ENTITY_ZOMBIE_DEATH, 1.0f, 0.5f);
+                            finalExplosion(zombieLoc, world, player, poisonDamage * 0.5, plugin);
+                            zombie.remove();
+                            cancel();
+                            return;
+                        }
+
+                        // Téléporter le zombie plus loin pour chercher une nouvelle cible
+                        currentTarget = null;
+                        hitEntities.clear(); // Reset pour la prochaine explosion
+                    }
+                } else {
+                    // Pas de cible, errer autour du joueur
+                    if (player.isOnline() && player.getWorld().equals(world)) {
+                        Location playerLoc = player.getLocation();
+                        if (zombieLoc.distanceSquared(playerLoc) > 100) { // Plus de 10 blocs
+                            moveTowardsTarget(zombie, playerLoc, 0.2);
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Déplace le zombie vers une cible
+     */
+    private void moveTowardsTarget(Zombie zombie, Location target, double speed) {
+        Location from = zombie.getLocation();
+        org.bukkit.util.Vector direction = target.toVector().subtract(from.toVector()).normalize();
+
+        Location newLoc = from.add(direction.multiply(speed));
+        newLoc.setY(from.getWorld().getHighestBlockYAt(newLoc) + 1);
+
+        // Orienter le zombie vers la cible
+        newLoc.setDirection(direction);
+        zombie.teleport(newLoc);
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche
+     */
+    private LivingEntity findNearestEnemy(Location center, World world, double radius) {
+        LivingEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double dist = entity.getLocation().distanceSquared(center);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = living;
+                }
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Explosion de poison
+     */
+    private void explodePoison(Location center, World world, Player player, double damage,
+                                Set<UUID> hitEntities, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        // Sons
+        world.playSound(center, Sound.ENTITY_SPLASH_POTION_BREAK, 1.5f, 0.8f);
+        world.playSound(center, Sound.ENTITY_SLIME_SQUISH, 1.0f, 0.5f);
+        world.playSound(center, Sound.BLOCK_BREWING_STAND_BREW, 1.0f, 1.2f);
+
+        // Particules d'explosion
+        world.spawnParticle(Particle.WITCH, center, 50, 1.5, 1, 1.5, 0.1);
+        world.spawnParticle(Particle.ITEM_SLIME, center, 30, 1, 0.5, 1, 0.2);
+        world.spawnParticle(Particle.EFFECT, center, 40, 1.5, 1, 1.5, 0);
+
+        // Dégâts
+        damageNearbyEnemies(player, center, damage, explosionRadius, hitEntities, plugin, false);
+
+        player.sendMessage("§5[Pet] §d💥 §7Explosion poison! §c" + String.format("%.0f", damage) + " §7dégâts!");
+    }
+
+    /**
+     * Explosion finale de décomposition
+     */
+    private void finalExplosion(Location center, World world, Player player, double damage,
+                                 com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        // Sons dramatiques
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.6f);
+        world.playSound(center, Sound.ENTITY_ZOMBIE_DEATH, 1.5f, 0.3f);
+
+        // Particules de décomposition
+        world.spawnParticle(Particle.WITCH, center, 80, 2, 1.5, 2, 0.1);
+        world.spawnParticle(Particle.EFFECT, center, 60, 2.5, 1.5, 2.5, 0);
+        world.spawnParticle(Particle.SOUL, center, 20, 1, 1, 1, 0.05);
+        world.spawnParticle(Particle.EXPLOSION, center, 1, 0, 0, 0, 0);
+
+        // Dégâts finaux dans un rayon plus large
+        Set<UUID> hitEntities = new HashSet<>();
+        damageNearbyEnemies(player, center, damage, explosionRadius * 1.5, hitEntities, plugin, false);
+    }
+
+    /**
+     * Inflige des dégâts aux ennemis proches
+     */
+    private void damageNearbyEnemies(Player player, Location center, double damage, double radius,
+                                      Set<UUID> hitEntities, com.rinaorc.zombiez.ZombieZPlugin plugin,
+                                      boolean allowRepeatedHits) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        var zombieManager = plugin.getZombieManager();
+
+        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                UUID entityId = entity.getUniqueId();
+                if (!allowRepeatedHits && hitEntities.contains(entityId)) continue;
+
+                hitEntities.add(entityId);
+
+                // Infliger les dégâts de poison
+                if (zombieManager != null) {
+                    var activeZombie = zombieManager.getActiveZombie(entityId);
+                    if (activeZombie != null) {
+                        zombieManager.damageZombie(player, activeZombie, damage,
+                            com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                    } else {
+                        living.damage(damage, player);
+                    }
+                } else {
+                    living.damage(damage, player);
+                }
+
+                // Effet de poison visuel
+                living.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 1)); // Poison II 3s
+
+                // Particules sur la cible
+                world.spawnParticle(Particle.WITCH, living.getLocation().add(0, 1, 0),
+                    10, 0.3, 0.5, 0.3, 0.05);
+            }
+        }
+    }
+
+    /**
+     * Spawn un nuage de poison
+     */
+    private void spawnPoisonCloud(Location loc, World world) {
+        world.spawnParticle(Particle.WITCH, loc, 5, 0.3, 0.2, 0.3, 0.01);
+        world.spawnParticle(Particle.EFFECT, loc, 3, 0.2, 0.1, 0.2, 0);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

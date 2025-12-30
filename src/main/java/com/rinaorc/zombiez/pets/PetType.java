@@ -627,20 +627,20 @@ public enum PetType {
         "Les racines appliquent aussi Wither II"
     ),
 
-    PHENIX_ANCESTRAL(
-        "Phénix Ancestral",
+    SORCIERE_NECRO(
+        "Sorcière Nécromancienne",
         PetRarity.LEGENDARY,
-        Material.NETHER_STAR,
-        EntityType.CHICKEN,
-        "ancestral_phoenix",
-        "Renaissance / Puissance de Feu",
-        "Grand phénix doré majestueux",
-        "Renaissance automatique une fois par vie (full HP)",
-        "Apocalypse de Feu",
-        "Pluie de feu (zone 10x10, 100 dégâts total)",
-        45,
-        "Renaissance donne 5s d'invincibilité",
-        "La renaissance déclenche automatiquement l'apocalypse"
+        Material.POISONOUS_POTATO,
+        EntityType.WITCH,
+        "necro_witch",
+        "Drain de Vie / Nécromancie",
+        "Witch aux yeux verts lumineux avec aura sombre",
+        "Toutes les 5s, draine 5 ennemis (18 blocs) : +5% dégâts/ennemi, -5% HP mob",
+        "Zombie Suicidaire",
+        "Invoque un zombie qui explose en poison (560% dégâts arme) sur son chemin",
+        35,
+        "Drain toutes les 4s, +7% dégâts/ennemi",
+        "Le zombie laisse une traînée de poison permanente"
     ),
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Synergies de Classe) ---
