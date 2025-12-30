@@ -270,13 +270,13 @@ public enum PetType {
         EntityType.CHICKEN,
         "minor_phoenix",
         "Résurrection / Feu",
-        "Petit oiseau de feu",
+        "Petit oiseau de feu aux plumes flamboyantes",
         "À la mort, renaissance avec 30% HP (CD: 5min)",
         "Nova de Feu",
-        "Explosion de feu (15 dégâts, 5 blocs)",
+        "Explosion de feu (150% dégâts joueur, 5 blocs, enflamme)",
         35,
-        "Renaissance avec 40% HP",
-        "La renaissance crée une explosion de feu"
+        "Renaissance avec 40% HP, +1 bloc rayon",
+        "La renaissance déclenche automatiquement Nova de Feu"
     ),
 
     SERPENT_GIVRE(

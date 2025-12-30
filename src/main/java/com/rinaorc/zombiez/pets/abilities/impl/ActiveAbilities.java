@@ -465,14 +465,16 @@ class FireNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double damage;
+    private final double damagePercent;  // Pourcentage des dégâts du joueur (ex: 1.5 = 150%)
     private final int radius;
+    private final int cooldown;
 
-    FireNovaActive(String id, String name, String desc, int cooldown, double damage, int radius) {
+    FireNovaActive(String id, String name, String desc, int cooldown, double damagePercent, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.damage = damage;
+        this.cooldown = cooldown;
+        this.damagePercent = damagePercent;
         this.radius = radius;
     }
 
@@ -480,25 +482,63 @@ class FireNovaActive implements PetAbility {
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 35; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        double adjustedDamage = damage * petData.getStatMultiplier();
-        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+        World world = player.getWorld();
+        Location loc = player.getLocation();
+
+        // Calculer les dégâts basés sur les dégâts du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDamage = playerDamage * damagePercent * petData.getStatMultiplier();
+        int adjustedRadius = (int) (radius + (petData.getStatMultiplier() - 1) * 2);
+
+        int hitCount = 0;
+        double totalDamage = 0;
 
         Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
         for (Entity entity : nearby) {
             if (entity instanceof Monster monster) {
                 monster.damage(adjustedDamage, player);
-                monster.setFireTicks(60);
+                monster.setFireTicks(100); // 5 secondes de feu
                 petData.addDamage((long) adjustedDamage);
+                hitCount++;
+                totalDamage += adjustedDamage;
+
+                // Particules sur chaque cible touchée
+                world.spawnParticle(Particle.FLAME, monster.getLocation().add(0, 1, 0),
+                    15, 0.3, 0.3, 0.3, 0.1);
             }
         }
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 5, 2, 1, 2, 0);
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 100, radius, 1, radius, 0.1);
-        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+        // Effet visuel de nova de feu expansive
+        world.spawnParticle(Particle.EXPLOSION, loc, 3, 1, 0.5, 1, 0);
+        world.spawnParticle(Particle.FLAME, loc, 150, adjustedRadius, 1, adjustedRadius, 0.15);
+        world.spawnParticle(Particle.LAVA, loc, 30, adjustedRadius * 0.5, 0.5, adjustedRadius * 0.5, 0);
+
+        // Cercle de feu au sol
+        for (int angle = 0; angle < 360; angle += 15) {
+            double rad = Math.toRadians(angle);
+            Location fireLoc = loc.clone().add(
+                Math.cos(rad) * adjustedRadius,
+                0.1,
+                Math.sin(rad) * adjustedRadius
+            );
+            world.spawnParticle(Particle.FLAME, fireLoc, 5, 0.1, 0.1, 0.1, 0.02);
+        }
+
+        // Sons
+        world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        world.playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.8f);
+
+        // Message
+        if (hitCount > 0) {
+            player.sendMessage("§a[Pet] §6§l🔥 NOVA DE FEU! §7" + hitCount + " cibles, §c" +
+                (int) totalDamage + " §7dégâts totaux!");
+        } else {
+            player.sendMessage("§a[Pet] §6🔥 Nova de Feu! §7Aucun ennemi touché.");
+        }
 
         return true;
     }

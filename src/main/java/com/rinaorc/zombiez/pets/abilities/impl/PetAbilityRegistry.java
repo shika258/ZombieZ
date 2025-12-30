@@ -138,11 +138,13 @@ public class PetAbilityRegistry {
         // ==================== RARES ====================
 
         // Phénix Mineur
+        // Passif: Renaissance avec 30% HP (CD: 5min)
+        // Ultimate: Nova de Feu (150% dégâts joueur, 5 blocs, enflamme)
         registerAbilities(PetType.PHENIX_MINEUR,
             new RebornPassive("phoenix_reborn", "Renaissance",
-                "Renaissance avec 30% HP (CD: 5min)", 0.30, 300),
+                "À la mort, renaissance avec 30% HP (CD: 5min)", 0.30, 300),
             new FireNovaActive("phoenix_nova", "Nova de Feu",
-                "Explosion de feu (15 dégâts, 5 blocs)", 35, 15, 5)
+                "Explosion de feu (150% dégâts joueur, 5 blocs, enflamme)", 35, 1.5, 5)
         );
 
         // Serpent de Givre

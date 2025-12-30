@@ -12,6 +12,7 @@ import com.rinaorc.zombiez.pets.abilities.impl.MeleeDamagePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.MultiAttackPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.ParryPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PowerSlowPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.RebornPassive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -274,6 +275,18 @@ public class PetCombatListener implements Listener {
                 event.setCancelled(true);
                 player.sendMessage("§a[Pet] §7Parade automatique!");
                 return;
+            }
+        }
+
+        // Vérifier si le joueur va mourir et si la renaissance peut le sauver
+        if (player.getHealth() - modifiedDamage <= 0) {
+            if (passive instanceof RebornPassive rebornPassive) {
+                if (rebornPassive.canTriggerReborn(player.getUniqueId())) {
+                    // Annuler l'événement et déclencher la renaissance
+                    event.setCancelled(true);
+                    rebornPassive.triggerReborn(player, petData);
+                    return;
+                }
             }
         }
 
