@@ -167,12 +167,14 @@ public class PetAbilityRegistry {
                 "Nuage d'encre (8 blocs), zombies confus s'attaquent 4s", 25, 8.0, 80, 0.30)
         );
 
-        // Essaim de Scarabées
+        // Essaim Furieux (anciennement Essaim de Scarabées)
+        // Passif: Contre-attaque automatique quand le joueur subit des dégâts (15% dégâts, CD 2s)
+        // Ultimate: 3 mini-abeilles (scale 0.4) attaquent tous les ennemis pendant 6s (10% dégâts/0.5s)
         registerAbilities(PetType.ESSAIM_SCARABEES,
-            new AuraPassive("swarm_aura", "Nuée",
-                "3 dégâts/s aux zombies proches", 3, 2),
-            new SwarmActive("swarm_attack", "Nuée",
-                "L'essaim attaque une cible (50 dégâts sur 5s)", 25, 50, 5)
+            new SwarmRetaliationPassive("swarm_retaliate", "Représailles de la Ruche",
+                "Contre-attaque auto quand touché (15% dégâts, CD 2s)", 0.15, 2000),
+            new SwarmFuryActive("swarm_fury", "Fureur de l'Essaim",
+                "3 mini-abeilles attaquent tous les ennemis 6s (10% dégâts/0.5s)", 30, 0.10, 120, 10, 8.0)
         );
 
         // Spectre Gardien

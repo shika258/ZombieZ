@@ -3234,3 +3234,363 @@ class DarknessCloudActive implements PetAbility {
         return true;
     }
 }
+
+// ==================== ESSAIM FURIEUX (Contre-attaque / Vengeance) ====================
+
+@Getter
+class SwarmRetaliationPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damagePercent;          // 15% des dégâts du joueur
+    private final long baseCooldownMs;           // 2000ms = 2s
+    private final Map<UUID, Long> lastRetaliation = new HashMap<>();
+
+    public SwarmRetaliationPassive(String id, String name, String desc, double dmgPercent, long cooldownMs) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damagePercent = dmgPercent;
+        this.baseCooldownMs = cooldownMs;
+        PassiveAbilityCleanup.registerForCleanup(lastRetaliation);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Ajuster le cooldown par niveau (base 2s, min 1s)
+        long adjustedCooldown = (long) (baseCooldownMs - (petData.getStatMultiplier() - 1) * 500);
+        adjustedCooldown = Math.max(adjustedCooldown, 1000);
+
+        // Vérifier le cooldown
+        long lastTime = lastRetaliation.getOrDefault(uuid, 0L);
+        if (now - lastTime < adjustedCooldown) {
+            return;
+        }
+
+        lastRetaliation.put(uuid, now);
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts de contre-attaque
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
+        double retaliationDamage = playerDamage * adjustedPercent;
+
+        // Trouver l'attaquant le plus proche et contre-attaquer
+        Monster target = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
+            if (entity instanceof Monster monster) {
+                double dist = entity.getLocation().distanceSquared(playerLoc);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    target = monster;
+                }
+            }
+        }
+
+        if (target != null) {
+            // Animation des 3 mini-abeilles qui attaquent
+            final Monster finalTarget = target;
+            final Location targetLoc = target.getLocation();
+
+            // Créer 3 trajectoires d'abeilles animées
+            for (int i = 0; i < 3; i++) {
+                final int beeIndex = i;
+                final double angleOffset = (2 * Math.PI / 3) * i;
+
+                Bukkit.getScheduler().runTaskLater(
+                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    () -> animateBeeAttack(player, petData, playerLoc.clone(), finalTarget, retaliationDamage / 3, angleOffset),
+                    i * 2L
+                );
+            }
+
+            // Son de l'essaim
+            world.playSound(playerLoc, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 1.0f, 1.2f);
+
+            player.sendMessage("§a[Pet] §e🐝 REPRÉSAILLES! §7L'essaim contre-attaque!");
+        }
+    }
+
+    private void animateBeeAttack(Player player, PetData petData, Location start, Monster target, double damage, double angleOffset) {
+        World world = start.getWorld();
+
+        new BukkitRunnable() {
+            Location currentLoc = start.clone().add(0, 1, 0);
+            int ticks = 0;
+            final int maxTicks = 15;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || !target.isValid() || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+                Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+
+                if (direction.lengthSquared() < 1) {
+                    // Impact!
+                    target.damage(damage, player);
+                    petData.addDamage((long) damage);
+
+                    // Effet d'impact
+                    world.spawnParticle(Particle.CRIT, targetLoc, 5, 0.2, 0.2, 0.2, 0.1);
+                    world.playSound(targetLoc, Sound.ENTITY_BEE_STING, 0.8f, 1.5f);
+                    cancel();
+                    return;
+                }
+
+                direction.normalize().multiply(1.5);
+
+                // Mouvement en spirale
+                double spiralOffset = Math.sin(ticks * 0.5 + angleOffset) * 0.3;
+                currentLoc.add(direction);
+                currentLoc.add(
+                    Math.cos(ticks * 0.8 + angleOffset) * spiralOffset,
+                    Math.sin(ticks * 0.5) * 0.2,
+                    Math.sin(ticks * 0.8 + angleOffset) * spiralOffset
+                );
+
+                // Particules d'abeille
+                world.spawnParticle(Particle.WAX_ON, currentLoc, 2, 0.1, 0.1, 0.1, 0);
+                world.spawnParticle(Particle.FALLING_HONEY, currentLoc, 1, 0, 0, 0, 0);
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}
+
+@Getter
+class SwarmFuryActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double damagePerStingPercent;  // 10% des dégâts du joueur par piqûre
+    private final int furyDurationTicks;         // 6s = 120 ticks
+    private final int stingIntervalTicks;        // 0.5s = 10 ticks
+    private final double attackRadius;           // 8 blocs
+
+    public SwarmFuryActive(String id, String name, String desc, int cd,
+                           double dmgPercent, int duration, int interval, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.damagePerStingPercent = dmgPercent;
+        this.furyDurationTicks = duration;
+        this.stingIntervalTicks = interval;
+        this.attackRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Vérifier qu'il y a des ennemis
+        boolean hasEnemies = player.getNearbyEntities(attackRadius, attackRadius, attackRadius).stream()
+            .anyMatch(e -> e instanceof Monster);
+
+        if (!hasEnemies) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
+        }
+
+        // Ajuster les valeurs par niveau
+        double adjustedRadius = attackRadius + (petData.getStatMultiplier() - 1) * 2;
+        int adjustedDuration = (int) (furyDurationTicks + (petData.getStatMultiplier() - 1) * 40);
+        double adjustedDmgPercent = damagePerStingPercent + (petData.getStatMultiplier() - 1) * 0.03;
+
+        // Calculer les dégâts par piqûre
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double damagePerSting = playerDamage * adjustedDmgPercent;
+
+        player.sendMessage("§a[Pet] §e§l🐝 FUREUR DE L'ESSAIM! §73 abeilles déchaînées pendant " +
+            (adjustedDuration / 20) + "s!");
+
+        // Son initial de rage
+        world.playSound(playerLoc, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 2.0f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_EVOKER_PREPARE_ATTACK, 0.8f, 1.5f);
+
+        // Spawner les 3 mini-abeilles
+        List<Bee> miniBees = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            double angle = (2 * Math.PI / 3) * i;
+            Location spawnLoc = playerLoc.clone().add(
+                Math.cos(angle) * 2, 1.5, Math.sin(angle) * 2
+            );
+
+            Bee bee = world.spawn(spawnLoc, Bee.class, b -> {
+                // Réduire la taille par 2.5
+                b.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.4);
+
+                // Configuration
+                b.setCustomName("§e§l🐝 §6Abeille Furieuse");
+                b.setCustomNameVisible(true);
+                b.setPersistent(false);
+                b.setRemoveWhenFarAway(true);
+                b.setAnger(Integer.MAX_VALUE);
+                b.setHasStung(false);
+                b.setCannotEnterHiveTicks(Integer.MAX_VALUE);
+
+                // Invincible (c'est une invocation temporaire)
+                b.setInvulnerable(true);
+                b.setAI(false); // On gère le mouvement manuellement
+
+                // Tag pour identification
+                b.addScoreboardTag("zombiez_fury_bee");
+                b.addScoreboardTag("owner_" + player.getUniqueId());
+            });
+
+            miniBees.add(bee);
+
+            // Effet de spawn
+            world.spawnParticle(Particle.WAX_ON, spawnLoc, 20, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        // Animation et attaques des abeilles
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            int nextStingTick = stingIntervalTicks;
+            final double[] beeAngles = {0, 2 * Math.PI / 3, 4 * Math.PI / 3};
+            double rotationSpeed = 0.15;
+
+            @Override
+            public void run() {
+                if (ticksAlive >= adjustedDuration || !player.isOnline()) {
+                    // Supprimer les abeilles
+                    for (Bee bee : miniBees) {
+                        if (bee.isValid()) {
+                            world.spawnParticle(Particle.WAX_OFF, bee.getLocation(), 15, 0.3, 0.3, 0.3, 0.1);
+                            bee.remove();
+                        }
+                    }
+                    world.playSound(player.getLocation(), Sound.ENTITY_BEE_LOOP, 0.5f, 0.5f);
+                    player.sendMessage("§a[Pet] §7L'essaim se calme...");
+                    cancel();
+                    return;
+                }
+
+                Location center = player.getLocation().add(0, 1.5, 0);
+
+                // Faire tourner les abeilles autour du joueur
+                for (int i = 0; i < miniBees.size(); i++) {
+                    Bee bee = miniBees.get(i);
+                    if (!bee.isValid()) continue;
+
+                    beeAngles[i] += rotationSpeed;
+                    double orbitRadius = 2.5 + Math.sin(ticksAlive * 0.1) * 0.5;
+
+                    Location newLoc = center.clone().add(
+                        Math.cos(beeAngles[i]) * orbitRadius,
+                        Math.sin(ticksAlive * 0.2 + i) * 0.5,
+                        Math.sin(beeAngles[i]) * orbitRadius
+                    );
+
+                    // Orienter l'abeille
+                    newLoc.setDirection(center.toVector().subtract(newLoc.toVector()));
+                    bee.teleport(newLoc);
+
+                    // Particules de traînée
+                    if (ticksAlive % 2 == 0) {
+                        world.spawnParticle(Particle.WAX_ON, newLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Son de bourdonnement
+                if (ticksAlive % 20 == 0) {
+                    world.playSound(center, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 0.6f, 1.0f);
+                }
+
+                // Attaquer tous les ennemis à intervalle régulier
+                if (ticksAlive >= nextStingTick) {
+                    nextStingTick += stingIntervalTicks;
+
+                    List<Monster> targets = new ArrayList<>();
+                    for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
+                        if (entity instanceof Monster monster) {
+                            targets.add(monster);
+                        }
+                    }
+
+                    if (!targets.isEmpty()) {
+                        // Chaque abeille attaque une cible différente si possible
+                        for (int i = 0; i < miniBees.size(); i++) {
+                            Bee bee = miniBees.get(i);
+                            if (!bee.isValid()) continue;
+
+                            Monster target = targets.get(i % targets.size());
+                            if (target.isValid() && !target.isDead()) {
+                                // Animation de piqûre
+                                animateStingAttack(bee.getLocation(), target, damagePerSting, player, petData, world);
+                            }
+                        }
+                    }
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private void animateStingAttack(Location from, Monster target, double damage, Player player, PetData petData, World world) {
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+        Vector direction = targetLoc.toVector().subtract(from.toVector()).normalize();
+
+        new BukkitRunnable() {
+            Location currentLoc = from.clone();
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 8 || !target.isValid() || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                currentLoc.add(direction.clone().multiply(1.5));
+
+                // Particules de trajectoire
+                world.spawnParticle(Particle.CRIT_MAGIC, currentLoc, 2, 0.05, 0.05, 0.05, 0);
+
+                // Vérifier si on a atteint la cible
+                if (currentLoc.distanceSquared(targetLoc) < 2) {
+                    // Impact!
+                    target.damage(damage, player);
+                    petData.addDamage((long) damage);
+
+                    // Effet de piqûre
+                    world.spawnParticle(Particle.CRIT, targetLoc, 8, 0.3, 0.3, 0.3, 0.1);
+                    world.spawnParticle(Particle.FALLING_HONEY, targetLoc, 3, 0.2, 0.2, 0.2, 0);
+                    world.playSound(targetLoc, Sound.ENTITY_BEE_STING, 0.6f, 1.2f);
+
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}

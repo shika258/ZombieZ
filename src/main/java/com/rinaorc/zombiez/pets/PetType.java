@@ -312,19 +312,19 @@ public enum PetType {
     ),
 
     ESSAIM_SCARABEES(
-        "Essaim de Scarabées",
+        "Essaim Furieux",
         PetRarity.RARE,
-        Material.GOLD_NUGGET,
+        Material.HONEYCOMB,
         EntityType.BEE,
-        "beetle_swarm",
-        "DPS / Essaim",
-        "Nuage de scarabées dorés",
-        "Inflige 3 dégâts/s aux zombies proches (2 blocs)",
-        "Nuée",
-        "L'essaim attaque une cible (50 dégâts sur 5s)",
-        25,
-        "Dégâts passifs +2/s",
-        "La nuée se propage aux ennemis proches"
+        "fury_swarm",
+        "Contre-attaque / Vengeance",
+        "Trio d'abeilles miniatures aux dards venimeux",
+        "Quand le joueur subit des dégâts, l'essaim contre-attaque (15% dégâts)",
+        "Fureur de l'Essaim",
+        "3 mini-abeilles attaquent tous les ennemis pendant 6s (10% dégâts/0.5s)",
+        30,
+        "Contre-attaque +5%, CD -0.5s",
+        "La fureur applique aussi un poison (3% dégâts/s pendant 3s)"
     ),
 
     SPECTRE_GARDIEN(
