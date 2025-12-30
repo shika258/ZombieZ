@@ -470,11 +470,11 @@ public enum PetType {
         "Assassinat / Critique",
         "Chat noir avec yeux dorés, semi-transparent",
         "+20% dégâts critiques",
-        "Embuscade",
-        "Prochaine attaque = critique garanti x3",
-        20,
-        "Critique +10%",
-        "L'embuscade rend invisible 3s avant l'attaque"
+        "Marque du Prédateur",
+        "Marque un ennemi 8s : +50% dégâts, 100% crit",
+        25,
+        "Critique +10%, marque +10% dégâts",
+        "La marque dure 2s de plus, le chat laisse une traînée d'ombre"
     ),
 
     ELEMENTAIRE_INSTABLE(

@@ -14,6 +14,7 @@ import com.rinaorc.zombiez.pets.abilities.impl.ParryPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PowerSlowPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.RebornPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.FrostFurPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.PredatorMarkActive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -227,6 +228,26 @@ public class PetCombatListener implements Listener {
         PetAbility ultimate = plugin.getPetManager().getAbilityRegistry().getUltimate(petType);
         if (ultimate != null) {
             modifiedDamage = ultimate.onDamageDealt(player, petData, modifiedDamage, target);
+        }
+
+        // Bonus de la Marque du Prédateur (Félin de l'Ombre)
+        if (ultimate instanceof PredatorMarkActive pma) {
+            UUID playerUUID = player.getUniqueId();
+            UUID targetUUID = target.getUniqueId();
+
+            if (pma.isMarked(playerUUID, targetUUID)) {
+                // Bonus de dégâts sur cible marquée (+50% base, +10% par niveau au-dessus de 1)
+                double markBonus = pma.getDamageBonus() + (petData.getStatMultiplier() - 1) * 0.10;
+                modifiedDamage *= (1 + markBonus);
+
+                // Forcer le crit si pas déjà crit (100% crit sur cible marquée)
+                if (!isCriticalHit(event)) {
+                    // Appliquer le multiplicateur de crit vanilla (1.5x)
+                    modifiedDamage *= 1.5;
+                    // Particules de crit
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+                }
+            }
         }
 
         // Appliquer les dégâts modifiés

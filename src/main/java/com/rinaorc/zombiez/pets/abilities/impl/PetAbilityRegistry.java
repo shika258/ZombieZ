@@ -217,8 +217,8 @@ public class PetAbilityRegistry {
         registerAbilities(PetType.FELIN_OMBRE,
             new CritDamagePassive("cat_crit", "Griffes Assassines",
                 "+20% dégâts critiques", 0.20),
-            new AmbushActive("cat_ambush", "Embuscade",
-                "Prochaine attaque = critique garanti x3", 20, 3.0)
+            new PredatorMarkActive("cat_predator_mark", "Marque du Prédateur",
+                "Marque un ennemi 8s : +50% dégâts, 100% crit", 25, 8, 0.50)
         );
 
         // Élémentaire Instable
