@@ -881,24 +881,35 @@ class WarNestActive implements PetAbility {
     }
 }
 
-// ==================== ELEMENTAL ROTATION (Salamandre Élémentaire) ====================
+// ==================== AXOLOTL PRISMATIQUE (Réactions Élémentaires) ====================
 
 @Getter
-class ElementalRotationPassive implements PetAbility {
+class ElementalCatalystPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double elementBonus;
-    private final Map<UUID, Integer> currentElement = new HashMap<>(); // 0=Fire, 1=Ice, 2=Lightning
-    private final Map<UUID, Long> lastRotation = new HashMap<>();
+    private final double reactionDamagePercent;      // 50% dégâts joueur pour les réactions
+    private final int elementCycleTicks;              // 5s = 100 ticks entre rotations
+    private final int reactionCooldownMs;             // Cooldown entre réactions sur même cible
 
-    public ElementalRotationPassive(String id, String name, String desc, double bonus) {
+    // 0=Fire (LUCY), 1=Ice (CYAN), 2=Lightning (GOLD)
+    private final Map<UUID, Integer> currentElement = new HashMap<>();
+    private final Map<UUID, Long> lastRotation = new HashMap<>();
+    // Marques élémentaires sur les mobs: EntityUUID -> Set d'éléments (0,1,2)
+    private final Map<UUID, Set<Integer>> elementalMarks = new HashMap<>();
+    private final Map<UUID, Long> lastReactionTime = new HashMap<>();
+
+    public ElementalCatalystPassive(String id, String name, String desc, double reactionDmg,
+                                     int cycleTicks, int reactionCooldown) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.elementBonus = bonus;
+        this.reactionDamagePercent = reactionDmg;
+        this.elementCycleTicks = cycleTicks;
+        this.reactionCooldownMs = reactionCooldown;
         PassiveAbilityCleanup.registerForCleanup(currentElement);
         PassiveAbilityCleanup.registerForCleanup(lastRotation);
+        PassiveAbilityCleanup.registerForCleanup(lastReactionTime);
     }
 
     @Override
@@ -910,102 +921,438 @@ class ElementalRotationPassive implements PetAbility {
         long now = System.currentTimeMillis();
         long last = lastRotation.getOrDefault(uuid, 0L);
 
-        // Rotation toutes les 10 secondes
-        if (now - last > 10000) {
+        // Ajuster le cycle par niveau (plus rapide à haut niveau)
+        int adjustedCycle = (int) (elementCycleTicks * 50 - (petData.getStatMultiplier() - 1) * 500);
+        adjustedCycle = Math.max(adjustedCycle, 3000); // Minimum 3s
+
+        // Rotation automatique des éléments
+        if (now - last > adjustedCycle) {
             int current = currentElement.getOrDefault(uuid, 0);
-            currentElement.put(uuid, (current + 1) % 3);
+            int newElement = (current + 1) % 3;
+            currentElement.put(uuid, newElement);
             lastRotation.put(uuid, now);
 
-            String element = switch (currentElement.get(uuid)) {
-                case 0 -> "§c🔥 Feu";
-                case 1 -> "§b❄ Glace";
-                case 2 -> "§e⚡ Foudre";
-                default -> "§7?";
-            };
-            player.sendMessage("§a[Pet] §7Élément: " + element);
+            // Changer la couleur de l'axolotl
+            updateAxolotlColor(player, newElement);
+
+            String element = getElementName(newElement);
+            player.sendMessage("§a[Pet] §7Élément actif: " + element);
+        }
+    }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID playerUuid = player.getUniqueId();
+        UUID targetUuid = target.getUniqueId();
+        int currentEl = currentElement.getOrDefault(playerUuid, 0);
+        World world = target.getWorld();
+
+        // Récupérer les marques existantes sur la cible
+        Set<Integer> marks = elementalMarks.computeIfAbsent(targetUuid, k -> new HashSet<>());
+
+        // Vérifier si on peut déclencher une réaction
+        boolean reactionTriggered = false;
+        double bonusDamage = 0;
+
+        if (!marks.isEmpty() && !marks.contains(currentEl)) {
+            // Vérifier le cooldown de réaction
+            long now = System.currentTimeMillis();
+            long lastReaction = lastReactionTime.getOrDefault(targetUuid, 0L);
+
+            int adjustedCooldown = (int) (reactionCooldownMs - (petData.getStatMultiplier() - 1) * 200);
+            adjustedCooldown = Math.max(adjustedCooldown, 1500); // Min 1.5s
+
+            if (now - lastReaction >= adjustedCooldown) {
+                // Déclencher la réaction!
+                for (int existingMark : marks) {
+                    bonusDamage += triggerReaction(player, petData, target, existingMark, currentEl);
+                    reactionTriggered = true;
+                }
+
+                if (reactionTriggered) {
+                    lastReactionTime.put(targetUuid, now);
+                    // Nettoyer les marques après réaction
+                    marks.clear();
+                }
+            }
         }
 
-        // Particules selon l'élément
-        Particle particle = switch (currentElement.getOrDefault(uuid, 0)) {
+        // Ajouter la nouvelle marque
+        marks.add(currentEl);
+
+        // Effet visuel de marquage
+        Particle markParticle = getElementParticle(currentEl);
+        world.spawnParticle(markParticle, target.getLocation().add(0, 1.5, 0), 8, 0.2, 0.2, 0.2, 0.02);
+
+        // Appliquer l'effet élémentaire de base
+        applyElementEffect(target, currentEl);
+
+        // Nettoyer les marques des mobs morts
+        cleanupDeadMarks();
+
+        return damage + bonusDamage;
+    }
+
+    private double triggerReaction(Player player, PetData petData, LivingEntity target,
+                                    int element1, int element2) {
+        World world = target.getWorld();
+        Location loc = target.getLocation();
+
+        // Calculer les dégâts de réaction
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = reactionDamagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double reactionDamage = playerDamage * adjustedPercent;
+
+        // Déterminer le type de réaction (utiliser les plus petits indices pour cohérence)
+        int min = Math.min(element1, element2);
+        int max = Math.max(element1, element2);
+
+        if (min == 0 && max == 1) {
+            // VAPORISATION (Feu + Glace) - Burst de dégâts
+            target.damage(reactionDamage, player);
+            petData.addDamage((long) reactionDamage);
+
+            // Effet visuel de vapeur
+            world.spawnParticle(Particle.CLOUD, loc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.FLAME, loc, 15, 0.3, 0.3, 0.3, 0.05);
+            world.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 1.2f, 1.0f);
+            world.playSound(loc, Sound.ENTITY_GENERIC_EXTINGUISH_FIRE, 1.0f, 0.8f);
+
+            player.sendMessage("§a[Pet] §6§l⚗ VAPORISATION! §c+" + (int)reactionDamage + " §7dégâts!");
+
+            return reactionDamage;
+
+        } else if (min == 0 && max == 2) {
+            // SURCHARGE (Feu + Foudre) - Explosion AoE + knockback
+            double aoeDamage = reactionDamage * 0.6;
+
+            for (Entity entity : target.getNearbyEntities(4, 3, 4)) {
+                if (entity instanceof Monster monster) {
+                    monster.damage(aoeDamage, player);
+                    petData.addDamage((long) aoeDamage);
+
+                    // Knockback
+                    Vector knockback = monster.getLocation().toVector()
+                        .subtract(loc.toVector()).normalize().multiply(1.2);
+                    knockback.setY(0.5);
+                    monster.setVelocity(knockback);
+
+                    // Particules sur chaque cible
+                    world.spawnParticle(Particle.EXPLOSION, monster.getLocation(), 1);
+                }
+            }
+
+            // Effet central
+            world.spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1);
+            world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 1, 1, 1, 0.3);
+            world.spawnParticle(Particle.FLAME, loc, 20, 0.8, 0.5, 0.8, 0.1);
+            world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+            world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.8f, 1.5f);
+
+            player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7Explosion AoE + knockback!");
+
+            return aoeDamage;
+
+        } else if (min == 1 && max == 2) {
+            // SUPRACONDUCTION (Glace + Foudre) - Réduction de défense
+            target.damage(reactionDamage * 0.5, player);
+            petData.addDamage((long) (reactionDamage * 0.5));
+
+            // Appliquer la réduction de défense (via Weakness)
+            int weaknessDuration = (int) (100 + (petData.getStatMultiplier() - 1) * 40); // 5s+
+            target.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, weaknessDuration, 1, false, true));
+
+            // Appliquer aussi un slow renforcé
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, weaknessDuration, 2, false, false));
+
+            // Effet visuel électrique + givré
+            world.spawnParticle(Particle.ELECTRIC_SPARK, loc.add(0, 1, 0), 25, 0.4, 0.6, 0.4, 0.1);
+            world.spawnParticle(Particle.SNOWFLAKE, loc, 20, 0.5, 0.5, 0.5, 0.05);
+            world.spawnParticle(Particle.BLOCK, loc, 10, 0.3, 0.3, 0.3, 0,
+                org.bukkit.Material.BLUE_ICE.createBlockData());
+            world.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.0f, 1.5f);
+            world.playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.8f);
+
+            player.sendMessage("§a[Pet] §b§l❄ SUPRACONDUCTION! §7-20% défense pendant 5s!");
+
+            return reactionDamage * 0.5;
+        }
+
+        return 0;
+    }
+
+    private void applyElementEffect(LivingEntity target, int element) {
+        switch (element) {
+            case 0 -> target.setFireTicks(40); // Feu léger
+            case 1 -> target.addPotionEffect(new PotionEffect(
+                PotionEffectType.SLOWNESS, 30, 0, false, false)); // Slow léger
+            case 2 -> {} // Foudre n'a pas d'effet passif
+        }
+    }
+
+    private void updateAxolotlColor(Player player, int element) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+            if (entity instanceof org.bukkit.entity.Axolotl axolotl
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                org.bukkit.entity.Axolotl.Variant variant = switch (element) {
+                    case 0 -> org.bukkit.entity.Axolotl.Variant.LUCY;      // Rose/Rouge = Feu
+                    case 1 -> org.bukkit.entity.Axolotl.Variant.CYAN;      // Cyan = Glace
+                    case 2 -> org.bukkit.entity.Axolotl.Variant.GOLD;      // Or = Foudre
+                    default -> org.bukkit.entity.Axolotl.Variant.WILD;
+                };
+
+                axolotl.setVariant(variant);
+
+                // Particules de transition
+                Particle particle = getElementParticle(element);
+                axolotl.getWorld().spawnParticle(particle, axolotl.getLocation().add(0, 0.3, 0),
+                    15, 0.3, 0.2, 0.3, 0.05);
+
+                break;
+            }
+        }
+    }
+
+    private String getElementName(int element) {
+        return switch (element) {
+            case 0 -> "§c🔥 Feu";
+            case 1 -> "§b❄ Glace";
+            case 2 -> "§e⚡ Foudre";
+            default -> "§7?";
+        };
+    }
+
+    private Particle getElementParticle(int element) {
+        return switch (element) {
             case 0 -> Particle.FLAME;
             case 1 -> Particle.SNOWFLAKE;
             case 2 -> Particle.ELECTRIC_SPARK;
             default -> Particle.CRIT;
         };
-        player.spawnParticle(particle, player.getLocation().add(0, 0.5, 0), 2, 0.3, 0.2, 0.3, 0.01);
     }
 
-    @Override
-    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        int element = currentElement.getOrDefault(player.getUniqueId(), 0);
-        double bonus = 1 + (elementBonus * petData.getStatMultiplier());
-
-        // Appliquer l'effet élémentaire
-        switch (element) {
-            case 0 -> target.setFireTicks(60); // Feu
-            case 1 -> target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false)); // Glace
-            case 2 -> { // Foudre - chain damage
-                for (Entity e : target.getNearbyEntities(3, 3, 3)) {
-                    if (e instanceof Monster m && e != target) {
-                        m.damage(damage * 0.3, player);
-                        target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, m.getLocation(), 10);
-                    }
-                }
-            }
-        }
-
-        return damage * bonus;
+    private void cleanupDeadMarks() {
+        elementalMarks.entrySet().removeIf(entry -> {
+            Entity entity = Bukkit.getEntity(entry.getKey());
+            return entity == null || entity.isDead();
+        });
     }
 
     public int getCurrentElement(UUID uuid) {
         return currentElement.getOrDefault(uuid, 0);
     }
+
+    public void setElement(UUID uuid, int element) {
+        currentElement.put(uuid, element % 3);
+        lastRotation.put(uuid, System.currentTimeMillis());
+    }
+
+    public void applyAllMarks(LivingEntity target) {
+        Set<Integer> marks = elementalMarks.computeIfAbsent(target.getUniqueId(), k -> new HashSet<>());
+        marks.add(0);
+        marks.add(1);
+        marks.add(2);
+    }
 }
 
 @Getter
-class ElementalFusionActive implements PetAbility {
+class ChainReactionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
+    private final int cooldown;
+    private final double reactionDamagePercent;
+    private final ElementalCatalystPassive catalystPassive;
 
-    public ElementalFusionActive(String id, String name, String desc) {
+    public ChainReactionActive(String id, String name, String desc, int cd,
+                                double reactionDmg, ElementalCatalystPassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
+        this.cooldown = cd;
+        this.reactionDamagePercent = reactionDmg;
+        this.catalystPassive = passive;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 30; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        double damage = 30 * petData.getStatMultiplier();
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID uuid = player.getUniqueId();
 
-        Collection<Entity> nearby = player.getNearbyEntities(8, 8, 8);
-        for (Entity entity : nearby) {
-            if (entity instanceof Monster monster) {
-                // Triple effet
-                monster.damage(damage, player);
-                monster.setFireTicks(100);
-                monster.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2, false, false));
-                monster.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 80, 1, false, false));
-                petData.addDamage((long) damage);
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(10, 6, 10).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
 
-                // Particules fusionnées
-                monster.getWorld().spawnParticle(Particle.FLAME, monster.getLocation(), 10, 0.5, 0.5, 0.5, 0.05);
-                monster.getWorld().spawnParticle(Particle.SNOWFLAKE, monster.getLocation(), 10, 0.5, 0.5, 0.5, 0.05);
-                monster.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, monster.getLocation(), 10, 0.5, 0.5, 0.5, 0.05);
-            }
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
         }
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 3, 2, 1, 2, 0);
-        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.0f, 1.0f);
-        player.sendMessage("§a[Pet] §6§lFusion Élémentaire! §7Brûle, gèle et électrocute!");
+        // Calculer les dégâts
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = reactionDamagePercent + (petData.getStatMultiplier() - 1) * 0.20;
+
+        // Changer l'axolotl en variante BLUE (rare) temporairement
+        setAxolotlBlue(player);
+
+        // Effet de préparation
+        world.playSound(playerLoc, Sound.ENTITY_AXOLOTL_ATTACK, 1.5f, 0.6f);
+        world.playSound(playerLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 2.0f);
+
+        player.sendMessage("§a[Pet] §d§l⚗ RÉACTION EN CHAÎNE! §7Toutes les réactions déclenchées!");
+
+        // Appliquer les 3 éléments et déclencher les réactions sur chaque cible
+        int hitCount = 0;
+        for (Monster target : targets) {
+            // Appliquer toutes les marques
+            catalystPassive.applyAllMarks(target);
+
+            Location targetLoc = target.getLocation();
+
+            // Déclencher les 3 réactions avec délai pour l'effet visuel
+            final int targetIndex = hitCount;
+
+            // Vaporisation (Feu + Glace)
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    if (target.isValid() && !target.isDead()) {
+                        double vapDamage = playerDamage * adjustedPercent * 0.4;
+                        target.damage(vapDamage, player);
+                        petData.addDamage((long) vapDamage);
+
+                        world.spawnParticle(Particle.CLOUD, targetLoc.add(0, 1, 0), 20, 0.4, 0.4, 0.4, 0.08);
+                        world.spawnParticle(Particle.FLAME, targetLoc, 10, 0.2, 0.2, 0.2, 0.03);
+                        world.playSound(targetLoc, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 1.2f);
+                    }
+                },
+                targetIndex * 2L + 5L
+            );
+
+            // Surcharge (Feu + Foudre)
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    if (target.isValid() && !target.isDead()) {
+                        double surgeDamage = playerDamage * adjustedPercent * 0.3;
+                        target.damage(surgeDamage, player);
+                        petData.addDamage((long) surgeDamage);
+
+                        // Mini knockback
+                        Vector kb = target.getLocation().toVector()
+                            .subtract(playerLoc.toVector()).normalize().multiply(0.6);
+                        kb.setY(0.3);
+                        target.setVelocity(kb);
+
+                        world.spawnParticle(Particle.EXPLOSION, targetLoc, 1);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 15, 0.5, 0.5, 0.5, 0.1);
+                        world.playSound(targetLoc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.8f, 1.0f);
+                    }
+                },
+                targetIndex * 2L + 10L
+            );
+
+            // Supraconduction (Glace + Foudre)
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    if (target.isValid() && !target.isDead()) {
+                        double supDamage = playerDamage * adjustedPercent * 0.3;
+                        target.damage(supDamage, player);
+                        petData.addDamage((long) supDamage);
+
+                        target.addPotionEffect(new PotionEffect(
+                            PotionEffectType.WEAKNESS, 100, 1, false, true));
+                        target.addPotionEffect(new PotionEffect(
+                            PotionEffectType.SLOWNESS, 80, 2, false, false));
+
+                        world.spawnParticle(Particle.SNOWFLAKE, targetLoc, 15, 0.4, 0.4, 0.4, 0.05);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
+                        world.playSound(targetLoc, Sound.BLOCK_GLASS_BREAK, 0.6f, 1.8f);
+                    }
+                },
+                targetIndex * 2L + 15L
+            );
+
+            // Effets élémentaires de base
+            target.setFireTicks(60);
+
+            hitCount++;
+        }
+
+        // Effet central multicolore
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 30) {
+                    // Restaurer la couleur normale de l'axolotl
+                    catalystPassive.updateAxolotlColor(player, catalystPassive.getCurrentElement(uuid));
+                    cancel();
+                    return;
+                }
+
+                // Particules arc-en-ciel autour du joueur
+                double angle = ticks * 0.5;
+                for (int i = 0; i < 3; i++) {
+                    double offset = (2 * Math.PI / 3) * i;
+                    Location particleLoc = playerLoc.clone().add(
+                        Math.cos(angle + offset) * 2,
+                        0.5 + Math.sin(ticks * 0.2) * 0.5,
+                        Math.sin(angle + offset) * 2
+                    );
+
+                    Particle particle = switch (i) {
+                        case 0 -> Particle.FLAME;
+                        case 1 -> Particle.SNOWFLAKE;
+                        case 2 -> Particle.ELECTRIC_SPARK;
+                        default -> Particle.CRIT;
+                    };
+
+                    world.spawnParticle(particle, particleLoc, 3, 0.1, 0.1, 0.1, 0.01);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
 
         return true;
+    }
+
+    private void setAxolotlBlue(Player player) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+            if (entity instanceof org.bukkit.entity.Axolotl axolotl
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                // Variante BLUE (rare) pour l'ultimate
+                axolotl.setVariant(org.bukkit.entity.Axolotl.Variant.BLUE);
+
+                // Effet de transformation
+                axolotl.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, axolotl.getLocation(),
+                    30, 0.5, 0.5, 0.5, 0.3);
+                axolotl.getWorld().playSound(axolotl.getLocation(),
+                    Sound.ENTITY_AXOLOTL_SPLASH, 1.0f, 0.8f);
+
+                break;
+            }
+        }
     }
 }
 

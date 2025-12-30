@@ -364,12 +364,15 @@ public class PetAbilityRegistry {
                 "Pond 4 œufs → tortues enragées (8s, 15% dégâts, slow)", 30, 4, 0.15, 160, turtlePassive)
         );
 
-        // Salamandre Élémentaire (Multi-Element)
+        // Axolotl Prismatique (Réactions Élémentaires style Genshin)
+        // Passif: Marque élémentaire (Feu/Glace/Foudre), combiner = RÉACTION
+        // Ultimate: Applique les 3 éléments et déclenche toutes les réactions
+        ElementalCatalystPassive catalystPassive = new ElementalCatalystPassive("elemental_catalyst", "Catalyseur Élémentaire",
+            "Marque élémentaire, 2 éléments différents = RÉACTION (50% dégâts)", 0.50, 100, 3000);
         registerAbilities(PetType.SALAMANDRE_ELEMENTAIRE,
-            new ElementalRotationPassive("elemental_rotate", "Rotation Élémentaire",
-                "Alterne Feu/Glace/Foudre (+10% dégâts élément actif)", 0.10),
-            new ElementalFusionActive("elemental_fusion", "Fusion Élémentaire",
-                "Attaque combinant les 3 éléments")
+            catalystPassive,
+            new ChainReactionActive("chain_reaction", "Réaction en Chaîne",
+                "Applique les 3 éléments, déclenche toutes les réactions (100% dégâts)", 35, 1.0, catalystPassive)
         );
 
         // Spectre de Vengeance (Damage Taken)

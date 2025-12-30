@@ -362,19 +362,19 @@ public enum PetType {
     ),
 
     SALAMANDRE_ELEMENTAIRE(
-        "Salamandre Élémentaire",
+        "Axolotl Prismatique",
         PetRarity.RARE,
-        Material.MAGMA_CREAM,
+        Material.AXOLOTL_BUCKET,
         EntityType.AXOLOTL,
-        "elemental_salamander",
-        "Multi-Éléments / Adaptation",
-        "Salamandre qui change de couleur (rouge/bleu/jaune)",
-        "Alterne entre Feu/Glace/Foudre toutes les 10s (+10% dégâts de l'élément actif)",
-        "Fusion Élémentaire",
-        "Attaque combinant les 3 éléments (brûle, gèle et électrocute)",
-        30,
-        "Bonus élément +5%",
-        "Synergie: +100% efficacité avec talents élémentaires (Ignite, Frost, Lightning)"
+        "prismatic_axolotl",
+        "Réactions / Combos",
+        "Axolotl qui change de couleur selon l'élément actif",
+        "Marque élémentaire (Feu/Glace/Foudre), combiner 2 éléments = RÉACTION",
+        "Réaction en Chaîne",
+        "Applique les 3 éléments et déclenche toutes les réactions",
+        35,
+        "Réactions +30% dégâts, CD réactions -1s",
+        "Vaporisation (Feu+Glace), Surcharge (Feu+Foudre), Supraconduction (Glace+Foudre)"
     ),
 
     // --- NOUVEAUX PETS RARES (Visuels) ---
