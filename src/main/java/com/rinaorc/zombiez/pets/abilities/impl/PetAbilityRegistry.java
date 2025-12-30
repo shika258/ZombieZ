@@ -288,12 +288,15 @@ public class PetAbilityRegistry {
                 "Frappe dévastatrice (200% + bonus HP manquants)", 2.00, 1.00, 1.50, 6.0)
         );
 
-        // Entité du Vide
+        // Sentinelle des Abysses (anciennement Entité du Vide)
+        // Passif: Regen stackable 3% HP/s (max 3 stacks), reset 5s après dégâts
+        // Ultimate: Volée de tridents basée sur % de l'arme
+        AbyssalRegenPassive abyssalRegenPassive = new AbyssalRegenPassive("abyssal_regen", "Régénération Abyssale",
+            "3% HP/s par stack (max 3), reset 5s après dégâts", 0.03, 3, 5);
         registerAbilities(PetType.ENTITE_VIDE,
-            new TrueDamagePassive("void_damage", "Néant",
-                "5% des dégâts ignorent les résistances", 0.05),
-            new BlackHoleActive("void_hole", "Dévoration",
-                "Crée un trou noir aspirant les ennemis", 60, 5)
+            abyssalRegenPassive,
+            new TridentStormActive("trident_storm", "Tempête de Tridents",
+                "Lance une volée de tridents (150% dégâts arme)", 1.50, 8, 15.0, abyssalRegenPassive)
         );
 
         // Chroniqueur Temporel

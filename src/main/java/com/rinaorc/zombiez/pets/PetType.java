@@ -730,19 +730,19 @@ public enum PetType {
     ),
 
     ENTITE_VIDE(
-        "Entité du Vide",
+        "Sentinelle des Abysses",
         PetRarity.MYTHIC,
-        Material.OBSIDIAN,
-        EntityType.VEX,
-        "void_entity",
-        "Annihilation / Néant",
-        "Silhouette noire avec yeux blancs, distorsion visuelle",
-        "5% des dégâts infligés ignorent toute résistance",
-        "Dévoration",
-        "Crée un trou noir aspirant les ennemis (5s)",
-        60,
-        "Dégâts purs +3%",
-        "Le trou noir désintègre les ennemis à faible HP"
+        Material.TRIDENT,
+        EntityType.DROWNED,
+        "abyss_sentinel",
+        "Régénération / Tridents",
+        "Drowned ancien aux yeux luminescents, trident spectral en main",
+        "Régénère 3% HP/s (max 3 stacks). Reset 5s après avoir subi des dégâts",
+        "Tempête de Tridents",
+        "Lance une volée de tridents infligeant des dégâts basés sur votre arme",
+        45,
+        "4% regen/stack, 4 stacks max",
+        "Tridents percent les ennemis et touchent ceux derrière"
     ),
 
     CHRONIQUEUR_TEMPOREL(

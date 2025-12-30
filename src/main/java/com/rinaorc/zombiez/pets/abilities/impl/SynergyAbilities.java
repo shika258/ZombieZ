@@ -9398,3 +9398,362 @@ class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== SENTINELLE DES ABYSSES (Régénération / Tridents) ====================
+
+/**
+ * Passif: Régénération stackable
+ * - 3% HP/s par stack (max 3 stacks = 9% HP/s)
+ * - Accumule 1 stack toutes les secondes sans prendre de dégâts
+ * - Reset complet 5s après avoir subi des dégâts
+ */
+@Getter
+class AbyssalRegenPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double regenPerStack;    // 3% = 0.03
+    private final int maxStacks;           // 3 stacks max
+    private final int resetDelaySeconds;   // 5s après dégâts
+
+    private final Map<UUID, Long> lastDamageTime = new HashMap<>();
+    private final Map<UUID, Integer> regenStacks = new HashMap<>();
+    private final Map<UUID, Long> lastStackGainTime = new HashMap<>();
+
+    public AbyssalRegenPassive(String id, String name, String desc, double regenPerStack, int maxStacks, int resetDelay) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.regenPerStack = regenPerStack;
+        this.maxStacks = maxStacks;
+        this.resetDelaySeconds = resetDelay;
+        PassiveAbilityCleanup.registerForCleanup(lastDamageTime);
+        PassiveAbilityCleanup.registerForCleanup(regenStacks);
+        PassiveAbilityCleanup.registerForCleanup(lastStackGainTime);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastDamage = lastDamageTime.getOrDefault(uuid, 0L);
+        long timeSinceDamage = now - lastDamage;
+
+        // Ajuster le max stacks et regen par niveau
+        int adjustedMaxStacks = maxStacks + (petData.getStarPower() >= 1 ? 1 : 0);
+        double adjustedRegen = regenPerStack + (petData.getStatMultiplier() - 1) * 0.01;
+
+        // Si on a pris des dégâts dans les 5 dernières secondes, pas de regen
+        if (timeSinceDamage < (resetDelaySeconds * 1000L)) {
+            // Reset les stacks si on vient de prendre des dégâts
+            if (regenStacks.getOrDefault(uuid, 0) > 0) {
+                regenStacks.put(uuid, 0);
+                World world = player.getWorld();
+                world.playSound(player.getLocation(), Sound.BLOCK_CONDUIT_DEACTIVATE, 0.5f, 1.2f);
+            }
+            return;
+        }
+
+        // Accumuler les stacks (1 par seconde sans dégâts)
+        int currentStacks = regenStacks.getOrDefault(uuid, 0);
+        long lastGain = lastStackGainTime.getOrDefault(uuid, 0L);
+
+        if (now - lastGain >= 1000L && currentStacks < adjustedMaxStacks) {
+            currentStacks++;
+            regenStacks.put(uuid, currentStacks);
+            lastStackGainTime.put(uuid, now);
+
+            // Feedback visuel pour gain de stack
+            World world = player.getWorld();
+            Location loc = player.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.BUBBLE_POP, loc, 8, 0.3, 0.5, 0.3, 0.02);
+            world.playSound(loc, Sound.ENTITY_DROWNED_AMBIENT_WATER, 0.3f, 1.5f + (currentStacks * 0.2f));
+
+            // Message de stack
+            String stackBar = "§b" + "▮".repeat(currentStacks) + "§7" + "▯".repeat(adjustedMaxStacks - currentStacks);
+            player.sendMessage("§a[Pet] §3⚓ Régénération Abyssale: " + stackBar + " §8(" +
+                String.format("%.0f", currentStacks * adjustedRegen * 100) + "% HP/s)");
+        }
+
+        // Appliquer la régénération
+        if (currentStacks > 0) {
+            double maxHealth = player.getMaxHealth();
+            double currentHealth = player.getHealth();
+            double healAmount = maxHealth * adjustedRegen * currentStacks;
+
+            if (currentHealth < maxHealth) {
+                double newHealth = Math.min(maxHealth, currentHealth + healAmount);
+                player.setHealth(newHealth);
+
+                // Particules de heal
+                World world = player.getWorld();
+                Location loc = player.getLocation().add(0, 1, 0);
+                world.spawnParticle(Particle.HEART, loc, 1, 0.3, 0.3, 0.3, 0);
+                world.spawnParticle(Particle.DRIPPING_WATER, loc, 5, 0.4, 0.5, 0.4, 0);
+            }
+        }
+    }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        UUID uuid = player.getUniqueId();
+        lastDamageTime.put(uuid, System.currentTimeMillis());
+
+        // Reset les stacks immédiatement
+        int previousStacks = regenStacks.getOrDefault(uuid, 0);
+        if (previousStacks > 0) {
+            regenStacks.put(uuid, 0);
+
+            World world = player.getWorld();
+            world.playSound(player.getLocation(), Sound.ENTITY_DROWNED_HURT, 0.6f, 0.8f);
+            world.spawnParticle(Particle.FALLING_WATER, player.getLocation().add(0, 1, 0), 15, 0.4, 0.5, 0.4, 0);
+            player.sendMessage("§a[Pet] §c⚓ Régénération interrompue! §7(5s de récupération)");
+        }
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        player.sendMessage("§a[Pet] §3⚓ Sentinelle des Abysses équipée!");
+        player.sendMessage("§7Régénère §b" + String.format("%.0f", regenPerStack * 100) + "% HP/s §7par stack (max " + maxStacks + ")");
+        player.sendMessage("§7Les dégâts réinitialisent la régénération pendant §c" + resetDelaySeconds + "s");
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        regenStacks.remove(uuid);
+        lastDamageTime.remove(uuid);
+        lastStackGainTime.remove(uuid);
+    }
+
+    public int getCurrentStacks(UUID uuid) {
+        return regenStacks.getOrDefault(uuid, 0);
+    }
+}
+
+/**
+ * Ultimate: Tempête de Tridents
+ * - Lance une volée de tridents sur les ennemis proches
+ * - Dégâts basés sur % de l'arme du joueur
+ * - Star Power: Les tridents percent et touchent les ennemis derrière
+ */
+@Getter
+class TridentStormActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damagePercent;     // % des dégâts de l'arme
+    private final int tridentCount;         // Nombre de tridents
+    private final double radius;            // Rayon de ciblage
+    private final AbyssalRegenPassive linkedPassive;
+
+    public TridentStormActive(String id, String name, String desc, double dmgPercent, int count, double radius, AbyssalRegenPassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damagePercent = dmgPercent;
+        this.tridentCount = count;
+        this.radius = radius;
+        this.linkedPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Ajuster les valeurs par niveau
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.20;
+        int adjustedCount = tridentCount + (int)((petData.getStatMultiplier() - 1) * 3);
+        boolean piercing = petData.getStarPower() >= 3; // Star 3: les tridents percent
+
+        // Calculer les dégâts basés sur l'arme du joueur
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double tridentDamage = weaponDamage * adjustedDamagePercent;
+
+        // Bonus si le passif a des stacks
+        int regenStacks = linkedPassive != null ? linkedPassive.getCurrentStacks(player.getUniqueId()) : 0;
+        if (regenStacks > 0) {
+            tridentDamage *= (1 + regenStacks * 0.15); // +15% par stack
+            player.sendMessage("§a[Pet] §3⚡ Bonus de stack: §b+" + (regenStacks * 15) + "% §7dégâts!");
+        }
+
+        // Trouver les cibles
+        List<LivingEntity> targets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+                targets.add(living);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§a[Pet] §c⚓ Aucune cible à portée!");
+            return false;
+        }
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.ITEM_TRIDENT_RIPTIDE_3, 1.2f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_DROWNED_SHOOT, 1.0f, 1.2f);
+
+        player.sendMessage("§a[Pet] §3§l⚓ TEMPÊTE DE TRIDENTS! §7" + adjustedCount + " tridents lancés!");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Lancer les tridents avec un délai entre chaque
+        final double finalTridentDamage = tridentDamage;
+        new BukkitRunnable() {
+            int launched = 0;
+            int targetIndex = 0;
+            Set<UUID> hitByPiercing = new HashSet<>();
+
+            @Override
+            public void run() {
+                if (launched >= adjustedCount || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Cibler en rotation
+                if (targets.isEmpty()) {
+                    cancel();
+                    return;
+                }
+                LivingEntity target = targets.get(targetIndex % targets.size());
+                if (target.isDead()) {
+                    targets.remove(target);
+                    if (targets.isEmpty()) {
+                        cancel();
+                        return;
+                    }
+                    target = targets.get(targetIndex % targets.size());
+                }
+
+                // Position de départ (au-dessus du joueur)
+                Location startLoc = playerLoc.clone().add(
+                    (Math.random() - 0.5) * 2,
+                    2.5 + Math.random(),
+                    (Math.random() - 0.5) * 2
+                );
+
+                // Direction vers la cible
+                Vector direction = target.getLocation().add(0, 1, 0).toVector()
+                    .subtract(startLoc.toVector()).normalize();
+
+                // Créer le trident visuel
+                spawnTridentProjectile(world, startLoc, direction, target, finalTridentDamage,
+                    player, zombieManager, piercing, hitByPiercing);
+
+                // Son de lancer
+                world.playSound(startLoc, Sound.ITEM_TRIDENT_THROW, 0.8f, 1.0f + (float)(Math.random() * 0.4));
+
+                launched++;
+                targetIndex++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L); // Un trident toutes les 2 ticks (0.1s)
+
+        return true;
+    }
+
+    private void spawnTridentProjectile(World world, Location start, Vector direction,
+            LivingEntity primaryTarget, double damage, Player player,
+            com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+            boolean piercing, Set<UUID> alreadyHit) {
+
+        new BukkitRunnable() {
+            Location currentLoc = start.clone();
+            int ticks = 0;
+            final int maxTicks = 40; // 2 secondes max
+            boolean hasHitPrimary = false;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le trident
+                currentLoc.add(direction.clone().multiply(1.5));
+
+                // Particules de traînée
+                world.spawnParticle(Particle.BUBBLE_POP, currentLoc, 3, 0.1, 0.1, 0.1, 0);
+                world.spawnParticle(Particle.DRIPPING_WATER, currentLoc, 2, 0.1, 0.1, 0.1, 0);
+
+                // Vérifier les collisions
+                for (Entity entity : world.getNearbyEntities(currentLoc, 1, 1, 1)) {
+                    if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                        && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                        // Si piercing, ne pas toucher deux fois la même cible
+                        if (piercing && alreadyHit.contains(entity.getUniqueId())) {
+                            continue;
+                        }
+
+                        // Impact!
+                        world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.3, 0.2, 0.1);
+                        world.playSound(living.getLocation(), Sound.ITEM_TRIDENT_HIT, 1.0f, 1.0f);
+
+                        // Infliger les dégâts
+                        dealDamage(player, living, damage, zombieManager);
+
+                        if (piercing) {
+                            alreadyHit.add(entity.getUniqueId());
+                            // Continuer le trajet pour le piercing
+                            if (entity.equals(primaryTarget)) {
+                                hasHitPrimary = true;
+                            }
+                        } else {
+                            cancel();
+                            return;
+                        }
+                    }
+                }
+
+                // Vérifier si on a atteint la cible principale ou si on est hors de portée
+                if (!piercing && currentLoc.distanceSquared(primaryTarget.getLocation()) < 1) {
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 1L);
+    }
+
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
