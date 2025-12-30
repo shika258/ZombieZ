@@ -396,19 +396,19 @@ public enum PetType {
     ),
 
     GOLEM_LAVE(
-        "Golem de Lave",
+        "Renard des Neiges",
         PetRarity.RARE,
-        Material.MAGMA_BLOCK,
-        EntityType.ARMOR_STAND,
-        "lava_golem",
-        "Lave / Traînée",
-        "Golem de roche incandescente dégoulinant de lave",
-        "Laisse une traînée de lave brûlant les ennemis (5 dégâts/s)",
-        "Éruption Volcanique",
-        "Crée une colonne de feu et projette 10 boules de lave",
-        40,
-        "Traînée inflige +3 dégâts/s",
-        "L'éruption laisse des flaques de lave persistantes"
+        Material.POWDER_SNOW_BUCKET,
+        EntityType.FOX,
+        "snow_fox",
+        "Contrôle / Gel",
+        "Renard arctique aux pouvoirs de glace",
+        "Les attaques appliquent des stacks de Givre (5 stacks = gel 1.5s, +30% dégâts)",
+        "Tempête Arctique",
+        "Blizzard (8 blocs, 6s) : Slow III + 10% dégâts/s",
+        35,
+        "Gel dure 2s, +40% dégâts pendant gel",
+        "Le renard devient blanc pendant l'ultimate"
     ),
 
     // ==================== ÉPIQUES (§d) ====================

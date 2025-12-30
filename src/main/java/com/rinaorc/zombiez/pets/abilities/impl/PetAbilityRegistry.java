@@ -447,12 +447,13 @@ public class PetAbilityRegistry {
                 "Explosion arc-en-ciel, tous les bonus pendant 6s (50% dégâts)", 35, 0.50, 120, spectrumPassive)
         );
 
-        // Golem de Lave (Lave / Traînée)
+        // Renard des Neiges (Givre / Gel)
+        FrostBitePassive frostBitePassive = new FrostBitePassive("frost_bite", "Morsure Glaciale",
+            "5 attaques = gel 1.5s, +30% dégâts sur gelé", 5, 1.5, 0.30);
         registerAbilities(PetType.GOLEM_LAVE,
-            new LavaTrailPassive("lava_trail", "Traînée de Lave",
-                "Laisse une traînée brûlant 5 dégâts/s", 5),
-            new VolcanicEruptionActive("volcanic_eruption", "Éruption Volcanique",
-                "Colonne de feu + 10 boules de lave", 15, 10)
+            frostBitePassive,
+            new ArcticStormActive("arctic_storm", "Tempête Arctique",
+                "Blizzard (8 blocs, 6s) : Slow III + 10% dégâts joueur/s", 35, 8, 6, 0.10, frostBitePassive)
         );
 
         // Phénix Solaire (Feu / Météores)

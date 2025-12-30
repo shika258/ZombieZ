@@ -792,190 +792,427 @@ class PrismaticNovaActive implements PetAbility {
     }
 }
 
-// ==================== GOLEM DE LAVE - Éruption Volcanique ====================
+// ==================== RENARD DES NEIGES - Morsure Glaciale ====================
 
 @Getter
-class LavaTrailPassive implements PetAbility {
+class FrostBitePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double burnDamage;
-    private final Map<UUID, Long> lastTrail = new HashMap<>();
+    private final int maxStacks;                           // 5 stacks pour geler
+    private final double freezeDuration;                   // 1.5s de gel
+    private final double frozenDamageBonus;                // +30% dégâts sur gelé
 
-    public LavaTrailPassive(String id, String name, String desc, double damage) {
+    // Tracking des stacks par ennemi (entityUUID -> stacks)
+    private final Map<UUID, Map<UUID, Integer>> frostStacks = new HashMap<>();
+    // Tracking des ennemis gelés (entityUUID -> temps de fin du gel)
+    private final Map<UUID, Map<UUID, Long>> frozenEnemies = new HashMap<>();
+
+    public FrostBitePassive(String id, String name, String desc, int maxStacks,
+                            double freezeDuration, double frozenBonus) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.burnDamage = damage;
-        PassiveAbilityCleanup.registerForCleanup(lastTrail);
+        this.maxStacks = maxStacks;
+        this.freezeDuration = freezeDuration;
+        this.frozenDamageBonus = frozenBonus;
+        PassiveAbilityCleanup.registerForCleanup(frostStacks);
+        PassiveAbilityCleanup.registerForCleanup(frozenEnemies);
     }
 
     @Override
     public boolean isPassive() { return true; }
 
     @Override
-    public void applyPassive(Player player, PetData petData) {
-        // Laisser une traînée de lave toutes les secondes
-        UUID uuid = player.getUniqueId();
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID playerUUID = player.getUniqueId();
+        UUID targetUUID = target.getUniqueId();
+        World world = target.getWorld();
+        Location targetLoc = target.getLocation().add(0, 1, 0);
         long now = System.currentTimeMillis();
 
-        if (now - lastTrail.getOrDefault(uuid, 0L) < 1000) return;
-        lastTrail.put(uuid, now);
+        // Initialiser les maps si nécessaire
+        frostStacks.computeIfAbsent(playerUUID, k -> new HashMap<>());
+        frozenEnemies.computeIfAbsent(playerUUID, k -> new HashMap<>());
 
-        Location loc = player.getLocation();
-        double damage = burnDamage * petData.getStatMultiplier();
+        Map<UUID, Integer> playerFrostStacks = frostStacks.get(playerUUID);
+        Map<UUID, Long> playerFrozenEnemies = frozenEnemies.get(playerUUID);
 
-        // Créer une zone de lave temporaire
-        loc.getWorld().spawnParticle(Particle.LAVA, loc, 10, 0.5, 0.1, 0.5, 0);
-        loc.getWorld().spawnParticle(Particle.FLAME, loc, 5, 0.3, 0.1, 0.3, 0.02);
-        loc.getWorld().spawnParticle(Particle.SMOKE, loc, 3, 0.2, 0.1, 0.2, 0.01);
+        // Vérifier si la cible est gelée
+        boolean isFrozen = playerFrozenEnemies.containsKey(targetUUID) &&
+                           playerFrozenEnemies.get(targetUUID) > now;
 
-        // Zone de dégâts pendant 3 secondes
+        if (isFrozen) {
+            // Bonus de dégâts sur cible gelée
+            double adjustedBonus = frozenDamageBonus + (petData.getStatMultiplier() - 1) * 0.10;
+            double bonusDamage = damage * adjustedBonus;
+
+            // Effet visuel de dégâts de glace
+            world.spawnParticle(Particle.BLOCK, targetLoc, 15, 0.3, 0.3, 0.3, Material.BLUE_ICE.createBlockData());
+            world.spawnParticle(Particle.SNOWFLAKE, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
+            world.playSound(targetLoc, Sound.BLOCK_GLASS_BREAK, 0.8f, 1.5f);
+
+            return damage + bonusDamage;
+        }
+
+        // Ajouter un stack de givre
+        int currentStacks = playerFrostStacks.getOrDefault(targetUUID, 0) + 1;
+        playerFrostStacks.put(targetUUID, currentStacks);
+
+        // Particules de givre (intensité selon stacks)
+        world.spawnParticle(Particle.SNOWFLAKE, targetLoc, currentStacks * 3, 0.2, 0.3, 0.2, 0.02);
+
+        // Afficher les stacks
+        if (currentStacks < maxStacks) {
+            // Cristaux de glace progressifs autour de l'ennemi
+            for (int i = 0; i < currentStacks; i++) {
+                double angle = i * (2 * Math.PI / maxStacks);
+                Location crystalLoc = target.getLocation().add(
+                    Math.cos(angle) * 0.5,
+                    0.3 + i * 0.2,
+                    Math.sin(angle) * 0.5
+                );
+                world.spawnParticle(Particle.END_ROD, crystalLoc, 1, 0, 0, 0, 0);
+            }
+
+            // Slow progressif selon les stacks
+            int slowLevel = Math.min(currentStacks - 1, 2); // Slow I à III
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, false));
+
+            world.playSound(targetLoc, Sound.BLOCK_POWDER_SNOW_STEP, 0.6f, 1.2f + currentStacks * 0.1f);
+        }
+
+        // À 5 stacks: GELER l'ennemi
+        if (currentStacks >= maxStacks) {
+            // Reset les stacks
+            playerFrostStacks.put(targetUUID, 0);
+
+            // Calculer la durée de gel (ajustée par niveau)
+            double adjustedFreezeDuration = freezeDuration + (petData.getStatMultiplier() - 1) * 0.5;
+            long freezeEndTime = now + (long)(adjustedFreezeDuration * 1000);
+            playerFrozenEnemies.put(targetUUID, freezeEndTime);
+
+            // Message
+            player.sendMessage("§a[Pet] §b❄ Cible §lGELÉE §r§bpendant " + String.format("%.1f", adjustedFreezeDuration) + "s!");
+
+            // Effet de gel spectaculaire
+            world.playSound(targetLoc, Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
+            world.playSound(targetLoc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.8f);
+
+            // Animation de gel
+            freezeEnemy(target, player, petData, (int)(adjustedFreezeDuration * 20));
+        }
+
+        return damage;
+    }
+
+    private void freezeEnemy(LivingEntity target, Player player, PetData petData, int freezeTicks) {
+        Location baseLoc = target.getLocation();
+        World world = target.getWorld();
+
+        // Explosion de cristaux de glace initiale
+        for (int i = 0; i < 20; i++) {
+            double angle = i * (2 * Math.PI / 20);
+            double radius = 0.6;
+            Location crystalLoc = baseLoc.clone().add(
+                Math.cos(angle) * radius,
+                Math.random() * 2,
+                Math.sin(angle) * radius
+            );
+            world.spawnParticle(Particle.BLOCK, crystalLoc, 3, 0.1, 0.1, 0.1, Material.ICE.createBlockData());
+        }
+
+        // Maintenir l'ennemi gelé
         new BukkitRunnable() {
             int ticks = 0;
-            Location trailLoc = loc.clone();
 
             @Override
             public void run() {
-                if (ticks >= 60) {
+                if (ticks >= freezeTicks || !target.isValid() || target.isDead()) {
+                    // Fin du gel - explosion de glace
+                    if (target.isValid()) {
+                        Location endLoc = target.getLocation().add(0, 1, 0);
+                        world.spawnParticle(Particle.BLOCK, endLoc, 30, 0.5, 0.5, 0.5, Material.BLUE_ICE.createBlockData());
+                        world.spawnParticle(Particle.SNOWFLAKE, endLoc, 20, 0.5, 0.5, 0.5, 0.1);
+                        world.playSound(endLoc, Sound.BLOCK_GLASS_BREAK, 1.0f, 1.2f);
+                    }
                     cancel();
                     return;
                 }
 
-                if (ticks % 20 == 0) {
-                    trailLoc.getWorld().spawnParticle(Particle.LAVA, trailLoc, 5, 0.3, 0.1, 0.3, 0);
-                    for (Entity e : trailLoc.getWorld().getNearbyEntities(trailLoc, 1.5, 1, 1.5)) {
-                        if (e instanceof Monster m) {
-                            m.damage(damage, player);
-                            m.setFireTicks(40);
-                            petData.addDamage((long) damage);
-                        }
+                // Maintenir immobile
+                target.setVelocity(new Vector(0, -0.1, 0)); // Légère gravité pour rester au sol
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 5, 255, false, false));
+                target.setFreezeTicks(target.getMaxFreezeTicks());
+
+                // Particules de gel continues
+                if (ticks % 5 == 0) {
+                    Location loc = target.getLocation().add(0, 1, 0);
+
+                    // Aura glacée
+                    for (int i = 0; i < 8; i++) {
+                        double angle = ticks * 0.3 + i * (Math.PI / 4);
+                        double radius = 0.4;
+                        Location iceLoc = loc.clone().add(
+                            Math.cos(angle) * radius,
+                            Math.sin(ticks * 0.2) * 0.3,
+                            Math.sin(angle) * radius
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, iceLoc, 1, 0, 0, 0, 0);
                     }
+
+                    // Cristaux statiques
+                    if (ticks % 10 == 0) {
+                        world.spawnParticle(Particle.BLOCK, loc, 5, 0.3, 0.5, 0.3, Material.PACKED_ICE.createBlockData());
+                    }
+                }
+
+                // Son de craquement de glace
+                if (ticks % 20 == 0) {
+                    world.playSound(target.getLocation(), Sound.BLOCK_POWDER_SNOW_STEP, 0.5f, 0.8f);
                 }
 
                 ticks++;
             }
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
+
+    /**
+     * Nettoyer les données d'un ennemi mort
+     */
+    public void cleanupEnemy(UUID playerUUID, UUID enemyUUID) {
+        Map<UUID, Integer> stacks = frostStacks.get(playerUUID);
+        if (stacks != null) stacks.remove(enemyUUID);
+
+        Map<UUID, Long> frozen = frozenEnemies.get(playerUUID);
+        if (frozen != null) frozen.remove(enemyUUID);
+    }
+
+    /**
+     * Vérifier si une cible est actuellement gelée
+     */
+    public boolean isTargetFrozen(UUID playerUUID, UUID targetUUID) {
+        Map<UUID, Long> frozen = frozenEnemies.get(playerUUID);
+        if (frozen == null) return false;
+        Long endTime = frozen.get(targetUUID);
+        return endTime != null && endTime > System.currentTimeMillis();
+    }
 }
 
 @Getter
-class VolcanicEruptionActive implements PetAbility {
+class ArcticStormActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double eruptionDamage;
-    private final int projectileCount;
+    private final int cooldown;
+    private final int radius;                              // 8 blocs
+    private final int durationSeconds;                     // 6 secondes
+    private final double damagePercentPerSecond;           // 10% dégâts joueur/s
+    private final FrostBitePassive frostPassive;           // Pour appliquer des stacks de givre
 
-    public VolcanicEruptionActive(String id, String name, String desc, double damage, int count) {
+    public ArcticStormActive(String id, String name, String desc, int cd, int radius,
+                              int duration, double dpsPercent, FrostBitePassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.eruptionDamage = damage;
-        this.projectileCount = count;
+        this.cooldown = cd;
+        this.radius = radius;
+        this.durationSeconds = duration;
+        this.damagePercentPerSecond = dpsPercent;
+        this.frostPassive = passive;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 40; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
         Location center = player.getLocation();
-        double damage = eruptionDamage * petData.getStatMultiplier();
-        int count = (int) (projectileCount * petData.getStatMultiplier());
+        World world = center.getWorld();
+        UUID playerUUID = player.getUniqueId();
 
-        player.sendMessage("§a[Pet] §c§l🌋 ÉRUPTION VOLCANIQUE!");
+        // Calculer les dégâts basés sur les stats du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercentPerSecond + (petData.getStatMultiplier() - 1) * 0.03;
+        double dps = playerDamage * adjustedPercent;
 
-        // Effet d'éruption initial
-        center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
-        center.getWorld().spawnParticle(Particle.EXPLOSION, center, 5, 1, 0.5, 1, 0);
-        center.getWorld().spawnParticle(Particle.LAVA, center, 100, 2, 3, 2, 0.5);
-        center.getWorld().spawnParticle(Particle.FLAME, center, 150, 3, 4, 3, 0.2);
-        center.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 50, 2, 3, 2, 0.1);
+        int adjustedRadius = (int) (radius + (petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
 
-        // Colonne de feu
-        new BukkitRunnable() {
-            int height = 0;
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(adjustedRadius, 6, adjustedRadius).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
 
-            @Override
-            public void run() {
-                if (height > 15) {
-                    cancel();
-                    return;
-                }
-
-                Location columnLoc = center.clone().add(0, height, 0);
-                columnLoc.getWorld().spawnParticle(Particle.FLAME, columnLoc, 30, 1, 0.5, 1, 0.1);
-                columnLoc.getWorld().spawnParticle(Particle.LAVA, columnLoc, 10, 0.5, 0.3, 0.5, 0);
-
-                height += 2;
-            }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 2L);
-
-        // Projectiles de lave
-        Random random = new Random();
-        for (int i = 0; i < count; i++) {
-            final int delay = i * 3;
-
-            Bukkit.getScheduler().runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), () -> {
-                // Direction aléatoire vers l'extérieur
-                double angle = random.nextDouble() * Math.PI * 2;
-                double speed = 0.5 + random.nextDouble() * 0.5;
-                Vector velocity = new Vector(
-                    Math.cos(angle) * speed,
-                    0.8 + random.nextDouble() * 0.4,
-                    Math.sin(angle) * speed
-                );
-
-                Location start = center.clone().add(0, 2, 0);
-                spawnLavaProjectile(start, velocity, player, damage, petData);
-            }, delay);
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi dans la zone!");
+            return false;
         }
 
-        return true;
-    }
+        // Message et son de début
+        player.sendMessage("§a[Pet] §b§l❄ TEMPÊTE ARCTIQUE! §r§b(rayon " + adjustedRadius + " blocs, " + adjustedDuration + "s)");
+        world.playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
+        world.playSound(center, Sound.ENTITY_WITHER_SPAWN, 0.5f, 2.0f);
 
-    private void spawnLavaProjectile(Location start, Vector velocity, Player player, double damage, PetData petData) {
+        // Changer le renard en variante SNOW
+        setFoxToSnowVariant(player, true);
+
+        // Animation de tempête arctique
         new BukkitRunnable() {
-            Location current = start.clone();
-            Vector vel = velocity.clone();
             int ticks = 0;
+            Random random = new Random();
+            Location stormCenter = center.clone();
 
             @Override
             public void run() {
-                if (ticks > 60 || current.getY() < start.getY() - 5) {
-                    // Impact au sol
-                    current.getWorld().spawnParticle(Particle.LAVA, current, 20, 0.5, 0.2, 0.5, 0);
-                    current.getWorld().spawnParticle(Particle.FLAME, current, 15, 0.3, 0.1, 0.3, 0.05);
-                    current.getWorld().playSound(current, Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 1.0f);
+                if (ticks >= adjustedDuration * 20) {
+                    // Fin de la tempête - Explosion de gel finale
+                    world.playSound(stormCenter, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.5f);
 
-                    for (Entity e : current.getWorld().getNearbyEntities(current, 2, 2, 2)) {
-                        if (e instanceof Monster m) {
-                            m.damage(damage, player);
-                            m.setFireTicks(100);
-                            petData.addDamage((long) damage);
-                        }
+                    for (int i = 0; i < 100; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius;
+                        Location explosionLoc = stormCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            random.nextDouble() * 4,
+                            Math.sin(angle) * dist
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, explosionLoc, 3, 0.2, 0.2, 0.2, 0.1);
+                        world.spawnParticle(Particle.BLOCK, explosionLoc, 2, 0.1, 0.1, 0.1, Material.SNOW_BLOCK.createBlockData());
                     }
 
+                    // Remettre le renard normal
+                    setFoxToSnowVariant(player, false);
+
+                    player.sendMessage("§a[Pet] §7La tempête se dissipe...");
                     cancel();
                     return;
                 }
 
-                // Gravité
-                vel.setY(vel.getY() - 0.08);
-                current.add(vel);
+                // Particules de blizzard - flocons de neige tombants
+                for (int i = 0; i < 40; i++) {
+                    double angle = random.nextDouble() * Math.PI * 2;
+                    double dist = random.nextDouble() * adjustedRadius;
+                    double height = random.nextDouble() * 8;
 
-                // Particules
-                current.getWorld().spawnParticle(Particle.LAVA, current, 3, 0.1, 0.1, 0.1, 0);
-                current.getWorld().spawnParticle(Particle.FLAME, current, 5, 0.1, 0.1, 0.1, 0.02);
-                current.getWorld().spawnParticle(Particle.SMOKE, current, 2, 0.1, 0.1, 0.1, 0.01);
+                    Location particleLoc = stormCenter.clone().add(
+                        Math.cos(angle) * dist,
+                        height,
+                        Math.sin(angle) * dist
+                    );
+
+                    world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 2, 0.3, 0.3, 0.3, 0.02);
+
+                    // Neige tombante occasionnelle
+                    if (random.nextDouble() < 0.2) {
+                        world.spawnParticle(Particle.BLOCK, particleLoc, 1, 0, 0, 0, Material.SNOW.createBlockData());
+                    }
+                }
+
+                // Anneaux tourbillonnants de glace
+                double spiralAngle = ticks * 0.15;
+                for (int ring = 0; ring < 3; ring++) {
+                    double ringRadius = (adjustedRadius * 0.3) + ring * (adjustedRadius * 0.25);
+                    for (int j = 0; j < 12; j++) {
+                        double a = spiralAngle + j * (Math.PI / 6) + ring * (Math.PI / 4);
+                        Location ringLoc = stormCenter.clone().add(
+                            Math.cos(a) * ringRadius,
+                            0.5 + ring * 0.8 + Math.sin(ticks * 0.1) * 0.3,
+                            Math.sin(a) * ringRadius
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, ringLoc, 2, 0.1, 0.1, 0.1, 0.01);
+                        world.spawnParticle(Particle.END_ROD, ringLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Colonnes de glace aléatoires
+                if (ticks % 15 == 0) {
+                    double pillarAngle = random.nextDouble() * Math.PI * 2;
+                    double pillarDist = random.nextDouble() * adjustedRadius * 0.8;
+                    Location pillarBase = stormCenter.clone().add(
+                        Math.cos(pillarAngle) * pillarDist,
+                        0,
+                        Math.sin(pillarAngle) * pillarDist
+                    );
+
+                    for (double y = 0; y < 4; y += 0.3) {
+                        Location pillarLoc = pillarBase.clone().add(0, y, 0);
+                        world.spawnParticle(Particle.BLOCK, pillarLoc, 3, 0.15, 0.1, 0.15, Material.BLUE_ICE.createBlockData());
+                        world.spawnParticle(Particle.SNOWFLAKE, pillarLoc, 2, 0.1, 0.1, 0.1, 0.01);
+                    }
+                    world.playSound(pillarBase, Sound.BLOCK_GLASS_PLACE, 0.5f, 1.5f);
+                }
+
+                // Dégâts et slow toutes les 20 ticks (1 seconde)
+                if (ticks % 20 == 0) {
+                    world.playSound(stormCenter, Sound.ENTITY_SNOW_GOLEM_AMBIENT, 0.8f, 0.5f);
+
+                    for (Entity e : stormCenter.getWorld().getNearbyEntities(stormCenter, adjustedRadius, 6, adjustedRadius)) {
+                        if (e instanceof Monster m) {
+                            // Dégâts
+                            m.damage(dps, player);
+                            petData.addDamage((long) dps);
+
+                            // Slow III
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 2, false, false));
+
+                            // Augmenter le freeze ticks
+                            m.setFreezeTicks(Math.min(m.getFreezeTicks() + 40, m.getMaxFreezeTicks()));
+
+                            // Particules sur la cible
+                            Location mLoc = m.getLocation().add(0, 1, 0);
+                            world.spawnParticle(Particle.SNOWFLAKE, mLoc, 10, 0.3, 0.4, 0.3, 0.05);
+                            world.spawnParticle(Particle.BLOCK, mLoc, 5, 0.2, 0.3, 0.2, Material.ICE.createBlockData());
+                        }
+                    }
+                }
+
+                // Son ambiant de vent glacial
+                if (ticks % 10 == 0) {
+                    world.playSound(stormCenter, Sound.WEATHER_RAIN, 0.6f, 0.3f);
+                    world.playSound(stormCenter, Sound.ENTITY_PLAYER_HURT_FREEZE, 0.3f, 1.5f);
+                }
 
                 ticks++;
             }
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    /**
+     * Change le renard en variante SNOW pendant l'ultimate
+     */
+    private void setFoxToSnowVariant(Player player, boolean snow) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Fox fox
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                org.bukkit.entity.Fox.Type type = snow ?
+                    org.bukkit.entity.Fox.Type.SNOW :
+                    org.bukkit.entity.Fox.Type.RED;
+                fox.setFoxType(type);
+
+                // Particules de transformation
+                Location foxLoc = fox.getLocation().add(0, 0.5, 0);
+                if (snow) {
+                    fox.getWorld().spawnParticle(Particle.SNOWFLAKE, foxLoc, 30, 0.3, 0.4, 0.3, 0.1);
+                    fox.getWorld().spawnParticle(Particle.END_ROD, foxLoc, 10, 0.2, 0.3, 0.2, 0.05);
+                    fox.getWorld().playSound(foxLoc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 1.0f);
+                } else {
+                    fox.getWorld().spawnParticle(Particle.FLAME, foxLoc, 15, 0.3, 0.3, 0.3, 0.05);
+                }
+
+                break;
+            }
+        }
     }
 }
 
