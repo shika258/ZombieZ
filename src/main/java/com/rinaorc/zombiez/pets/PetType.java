@@ -545,20 +545,20 @@ public enum PetType {
         "10% chance d'œuf doré (dégâts x2 + stun 1s)"
     ),
 
-    OMBRE_DECHIRANTE(
-        "Ombre Déchirante",
+    HURLEUR_DU_VIDE(
+        "Hurleur du Vide",
         PetRarity.EPIC,
-        Material.BLACK_DYE,
-        EntityType.VEX,
-        "tearing_shadow",
-        "Ombre / Tentacules",
-        "Masse d'ombre pure avec des tentacules ondulants",
-        "20% chance de faire surgir un tentacule d'ombre (+8 dégâts, aveugle)",
-        "Vortex du Néant",
-        "Crée un vortex aspirant les ennemis pendant 4s puis explose",
-        50,
-        "Tentacules infligent +5 dégâts",
-        "Le vortex génère des tentacules supplémentaires"
+        Material.ENDER_EYE,
+        EntityType.ENDERMAN,
+        "void_screamer",
+        "Cris du Vide / Téléportation",
+        "Mini Enderman spectral aux yeux violets incandescents (scale 0.5)",
+        "Toutes les 4 attaques, cri strident : Slow II + DoT 8%/s (3s) dans 6 blocs",
+        "Frappe Fantôme",
+        "Se TP sur 5 ennemis enchaînés, 40% dégâts + écho d'ombre explosif (20% AoE)",
+        25,
+        "3 attaques pour cri, 10% dégâts/s",
+        "Blindness sur le cri, vortex attractif sur l'écho final"
     ),
 
     // ==================== LÉGENDAIRES (§6) ====================

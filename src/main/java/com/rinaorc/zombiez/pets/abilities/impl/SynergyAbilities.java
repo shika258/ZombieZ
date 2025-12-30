@@ -5445,3 +5445,496 @@ class VoidEruptionActive implements PetAbility {
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
+
+// ==================== VOID SCREAMER SYSTEM (Hurleur du Vide) ====================
+
+@Getter
+class VoidScreamPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int baseAttacksNeeded;       // Nombre d'attaques pour déclencher (4)
+    private final double baseDotPercent;       // % dégâts joueur par seconde (0.08 = 8%)
+    private final int dotDurationTicks;        // Durée du DoT en ticks (60 = 3s)
+    private final double screamRadius;         // Rayon du cri (6 blocs)
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private static final Random random = new Random();
+
+    public VoidScreamPassive(String id, String name, String desc, int attacksNeeded,
+                              double dotPercent, int dotDuration, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseAttacksNeeded = attacksNeeded;
+        this.baseDotPercent = dotPercent;
+        this.dotDurationTicks = dotDuration;
+        this.screamRadius = radius;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Calcule le nombre d'attaques nécessaires selon le niveau
+     * Base: 4 attaques, Niveau 5+: 3 attaques
+     */
+    private int getEffectiveAttacksNeeded(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return baseAttacksNeeded - 1; // 3 attaques
+        }
+        return baseAttacksNeeded; // 4 attaques
+    }
+
+    /**
+     * Calcule le % de dégâts par tick selon le niveau
+     * Base: 8%/s, Niveau 5+: 10%/s
+     */
+    private double getEffectiveDotPercent(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.10; // 10%/s
+        }
+        return baseDotPercent; // 8%/s
+    }
+
+    /**
+     * Vérifie si on applique Blindness (étoiles max uniquement)
+     */
+    private boolean shouldApplyBlindness(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        int count = attackCounters.getOrDefault(playerId, 0) + 1;
+        int needed = getEffectiveAttacksNeeded(petData);
+
+        if (count >= needed) {
+            attackCounters.put(playerId, 0);
+            triggerVoidScream(player, petData);
+        } else {
+            attackCounters.put(playerId, count);
+        }
+    }
+
+    /**
+     * Déclenche le cri du vide - ralentit et applique un DoT aux ennemis
+     */
+    private void triggerVoidScream(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = player.getWorld();
+
+        // Récupérer les stats du joueur pour calculer les dégâts
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        double dotPercentPerSecond = getEffectiveDotPercent(petData);
+        double damagePerTick = baseDamage * dotPercentPerSecond / 20.0; // Dégâts par tick
+        boolean applyBlindness = shouldApplyBlindness(petData);
+
+        // Effet visuel du cri
+        world.playSound(center, Sound.ENTITY_ENDERMAN_SCREAM, 1.5f, 0.5f);
+        world.playSound(center, Sound.ENTITY_ENDERMAN_STARE, 1.0f, 0.7f);
+
+        // Particules d'onde de choc violette
+        for (double angle = 0; angle < 360; angle += 15) {
+            double rad = Math.toRadians(angle);
+            for (double r = 1; r <= screamRadius; r += 1) {
+                double x = center.getX() + r * Math.cos(rad);
+                double z = center.getZ() + r * Math.sin(rad);
+                Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                world.spawnParticle(Particle.PORTAL, particleLoc, 2, 0.1, 0.3, 0.1, 0);
+                world.spawnParticle(Particle.WITCH, particleLoc, 1, 0.1, 0.2, 0.1, 0);
+            }
+        }
+
+        // Collecter les ennemis affectés
+        int affected = 0;
+        for (Entity entity : world.getNearbyEntities(center, screamRadius, screamRadius, screamRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && entity.getLocation().distanceSquared(center) <= screamRadius * screamRadius) {
+
+                affected++;
+
+                // Slowness II pendant 3 secondes
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, dotDurationTicks, 1));
+
+                // Blindness si étoiles max
+                if (applyBlindness) {
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20, 0)); // 1s
+                }
+
+                // Appliquer le DoT
+                applyVoidDoT(player, living, damagePerTick, dotDurationTicks, plugin);
+
+                // Particules sur chaque cible
+                world.spawnParticle(Particle.REVERSE_PORTAL, living.getLocation().add(0, 1, 0),
+                    15, 0.3, 0.5, 0.3, 0.05);
+            }
+        }
+
+        // Feedback
+        if (affected > 0) {
+            String blindMsg = applyBlindness ? " §8+ Blindness" : "";
+            player.sendMessage("§5[Pet] §d⚡ §7Cri du Vide → §e" + affected +
+                " §7ennemis (Slow II + " + String.format("%.0f", dotPercentPerSecond * 100) + "%/s DoT)" + blindMsg);
+        }
+    }
+
+    /**
+     * Applique un Damage over Time aux ennemis
+     */
+    private void applyVoidDoT(Player player, LivingEntity target, double damagePerTick,
+                               int totalTicks, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        new BukkitRunnable() {
+            int ticksRemaining = totalTicks;
+
+            @Override
+            public void run() {
+                if (ticksRemaining <= 0 || target.isDead() || !target.isValid()) {
+                    cancel();
+                    return;
+                }
+
+                // Dégâts toutes les 10 ticks (0.5s) pour éviter le spam
+                if (ticksRemaining % 10 == 0) {
+                    double dotDamage = damagePerTick * 10; // Dégâts accumulés sur 10 ticks
+
+                    // Vérifier si c'est un zombie ZombieZ
+                    var zombieManager = plugin.getZombieManager();
+                    if (zombieManager != null) {
+                        var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                        if (activeZombie != null) {
+                            zombieManager.damageZombie(player, activeZombie, dotDamage,
+                                com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        } else {
+                            target.damage(dotDamage, player);
+                        }
+                    } else {
+                        target.damage(dotDamage, player);
+                    }
+
+                    // Petites particules de dégâts
+                    target.getWorld().spawnParticle(Particle.WITCH,
+                        target.getLocation().add(0, 1, 0), 5, 0.2, 0.3, 0.2, 0);
+                }
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Frappe Fantôme - L'Enderman se téléporte en chaîne sur plusieurs ennemis
+ * Chaque TP inflige des dégâts et laisse une écho d'ombre explosive
+ */
+@Getter
+class PhantomStrikeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final VoidScreamPassive linkedPassive;
+    private final double damagePercent;        // % dégâts joueur par frappe (0.40 = 40%)
+    private final double echoDamagePercent;    // % dégâts de l'écho (0.20 = 20%)
+    private final int baseChainCount;          // Nombre de TP de base (5)
+    private final double chainRadius;          // Rayon pour trouver la prochaine cible (8 blocs)
+
+    public PhantomStrikeActive(String id, String name, String desc, VoidScreamPassive passive,
+                                double dmgPercent, double echoPercent, int chains, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damagePercent = dmgPercent;
+        this.echoDamagePercent = echoPercent;
+        this.baseChainCount = chains;
+        this.chainRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    /**
+     * Calcule le nombre de TP selon le niveau
+     * Base: 5, Niveau 5+: 7
+     */
+    private int getEffectiveChainCount(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return baseChainCount + 2; // 7 TP
+        }
+        return baseChainCount; // 5 TP
+    }
+
+    /**
+     * Vérifie si on crée un vortex attractif sur l'écho final (étoiles max)
+     */
+    private boolean shouldCreateFinalVortex(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Calculer les dégâts du joueur
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent) * petData.getStatMultiplier();
+
+        double strikeDamage = baseDamage * this.damagePercent;
+        double echoDamage = baseDamage * echoDamagePercent;
+        int maxChains = getEffectiveChainCount(petData);
+        boolean finalVortex = shouldCreateFinalVortex(petData);
+
+        // Trouver la première cible
+        Location start = player.getLocation();
+        World world = player.getWorld();
+        LivingEntity firstTarget = findNearestEnemy(start, world, null, chainRadius * 2);
+
+        if (firstTarget == null) {
+            player.sendMessage("§5[Pet] §7Aucun ennemi à portée pour la Frappe Fantôme!");
+            return;
+        }
+
+        // Lancer la chaîne de téléportation
+        player.sendMessage("§5[Pet] §d⚡ §5Frappe Fantôme activée! §7(" + maxChains + " cibles)");
+        world.playSound(start, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
+
+        executePhantomChain(player, firstTarget, strikeDamage, echoDamage, maxChains, finalVortex, plugin);
+    }
+
+    /**
+     * Exécute la chaîne de téléportation fantôme
+     */
+    private void executePhantomChain(Player player, LivingEntity firstTarget, double strikeDamage,
+                                      double echoDamage, int maxChains, boolean finalVortex,
+                                      com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = player.getWorld();
+        Set<UUID> hitTargets = new HashSet<>();
+        List<Location> echoLocations = new ArrayList<>();
+
+        new BukkitRunnable() {
+            int chainsRemaining = maxChains;
+            LivingEntity currentTarget = firstTarget;
+            Location phantomLoc = player.getLocation().clone();
+
+            @Override
+            public void run() {
+                if (chainsRemaining <= 0 || currentTarget == null || currentTarget.isDead()) {
+                    // Fin de la chaîne - explosions des échos
+                    triggerEchoExplosions(player, echoLocations, echoDamage, finalVortex, plugin);
+                    cancel();
+                    return;
+                }
+
+                hitTargets.add(currentTarget.getUniqueId());
+                Location targetLoc = currentTarget.getLocation();
+
+                // Téléporter le "fantôme" sur la cible
+                phantomLoc = targetLoc.clone();
+
+                // Effet visuel de téléportation
+                world.playSound(targetLoc, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.5f);
+                world.spawnParticle(Particle.PORTAL, targetLoc.add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+                world.spawnParticle(Particle.REVERSE_PORTAL, targetLoc, 20, 0.3, 0.8, 0.3, 0.05);
+
+                // Infliger les dégâts
+                dealPhantomDamage(player, currentTarget, strikeDamage, plugin);
+
+                // Laisser une écho d'ombre
+                echoLocations.add(targetLoc.clone());
+                spawnEchoMarker(targetLoc, world);
+
+                chainsRemaining--;
+
+                // Chercher la prochaine cible
+                currentTarget = findNearestEnemy(phantomLoc, world, hitTargets, chainRadius);
+            }
+        }.runTaskTimer(plugin, 0L, 6L); // 6 ticks = 0.3s entre chaque TP
+    }
+
+    /**
+     * Cherche l'ennemi le plus proche non encore touché
+     */
+    private LivingEntity findNearestEnemy(Location center, World world, Set<UUID> exclude, double radius) {
+        LivingEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (exclude != null && exclude.contains(entity.getUniqueId())) continue;
+
+                double dist = entity.getLocation().distanceSquared(center);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = living;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * Inflige les dégâts de frappe fantôme
+     */
+    private void dealPhantomDamage(Player player, LivingEntity target, double damage,
+                                    com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        var zombieManager = plugin.getZombieManager();
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    /**
+     * Spawn un marqueur visuel d'écho d'ombre
+     */
+    private void spawnEchoMarker(Location loc, World world) {
+        // Particules sombres indiquant où l'écho va exploser
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 10) { // 0.5s d'attente avant explosion
+                    cancel();
+                    return;
+                }
+                world.spawnParticle(Particle.WITCH, loc, 5, 0.3, 0.3, 0.3, 0);
+                world.spawnParticle(Particle.SMOKE, loc, 3, 0.2, 0.2, 0.2, 0.01);
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Déclenche les explosions de tous les échos d'ombre
+     */
+    private void triggerEchoExplosions(Player player, List<Location> echoLocations, double echoDamage,
+                                        boolean finalVortex, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        if (echoLocations.isEmpty()) return;
+
+        World world = player.getWorld();
+        double echoRadius = 3.0;
+        int totalHits = 0;
+        double totalDamage = 0;
+
+        for (int i = 0; i < echoLocations.size(); i++) {
+            Location echoLoc = echoLocations.get(i);
+            boolean isLast = (i == echoLocations.size() - 1);
+
+            // Effet d'explosion
+            world.playSound(echoLoc, Sound.ENTITY_ENDERMAN_HURT, 0.8f, 0.6f);
+            world.playSound(echoLoc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.5f);
+            world.spawnParticle(Particle.EXPLOSION, echoLoc, 1, 0, 0, 0, 0);
+            world.spawnParticle(Particle.PORTAL, echoLoc, 50, 1, 1, 1, 0.5);
+            world.spawnParticle(Particle.REVERSE_PORTAL, echoLoc, 30, 0.5, 0.5, 0.5, 0.2);
+
+            // Dégâts AoE
+            for (Entity entity : world.getNearbyEntities(echoLoc, echoRadius, echoRadius, echoRadius)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                    dealPhantomDamage(player, living, echoDamage, plugin);
+                    totalHits++;
+                    totalDamage += echoDamage;
+                }
+            }
+
+            // Vortex attractif sur le dernier écho si étoiles max
+            if (isLast && finalVortex) {
+                createFinalVortex(echoLoc, world, plugin);
+            }
+        }
+
+        // Message récapitulatif
+        String vortexMsg = finalVortex ? " §8+ Vortex!" : "";
+        player.sendMessage("§5[Pet] §d💥 §7Échos d'ombre → §c" +
+            String.format("%.0f", totalDamage) + " §7total sur §e" + totalHits + " §7impacts" + vortexMsg);
+    }
+
+    /**
+     * Crée un vortex attractif sur l'écho final (bonus étoiles max)
+     */
+    private void createFinalVortex(Location center, World world, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        double vortexRadius = 5.0;
+        int vortexDuration = 40; // 2 secondes
+
+        world.playSound(center, Sound.ENTITY_ENDERMAN_STARE, 1.5f, 0.3f);
+        world.playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 1.0f, 0.5f);
+
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= vortexDuration) {
+                    // Explosion finale
+                    world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.8f);
+                    world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 1, 0, 0, 0, 0);
+                    cancel();
+                    return;
+                }
+
+                // Effet visuel du vortex
+                for (double angle = 0; angle < 360; angle += 30) {
+                    double rad = Math.toRadians(angle + ticks * 18);
+                    double r = vortexRadius * (1.0 - (double) ticks / vortexDuration);
+                    double x = center.getX() + r * Math.cos(rad);
+                    double z = center.getZ() + r * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.PORTAL, particleLoc, 3, 0.1, 0.2, 0.1, 0);
+                }
+
+                // Attirer les ennemis vers le centre
+                for (Entity entity : world.getNearbyEntities(center, vortexRadius, vortexRadius, vortexRadius)) {
+                    if (entity instanceof LivingEntity && !(entity instanceof Player)
+                        && !(entity instanceof ArmorStand)) {
+
+                        Vector direction = center.toVector().subtract(entity.getLocation().toVector());
+                        if (direction.lengthSquared() > 0.5) {
+                            direction.normalize().multiply(0.3);
+                            entity.setVelocity(entity.getVelocity().add(direction));
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

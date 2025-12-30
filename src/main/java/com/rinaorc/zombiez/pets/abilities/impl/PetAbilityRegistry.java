@@ -466,12 +466,13 @@ public class PetAbilityRegistry {
                 "10 œufs explosifs depuis le ciel (50% dégâts chacun)", eggBomberPassive, 0.50, 10)
         );
 
-        // Ombre Déchirante (Ombre / Tentacules)
-        registerAbilities(PetType.OMBRE_DECHIRANTE,
-            new ShadowTentaclePassive("shadow_tentacle", "Tentacule d'Ombre",
-                "20% de faire surgir un tentacule", 0.20, 8),
-            new VoidVortexActive("void_vortex", "Vortex du Néant",
-                "Aspire les ennemis puis explose", 20, 4)
+        // Hurleur du Vide (Cris / Téléportation)
+        VoidScreamPassive voidScreamPassive = new VoidScreamPassive("void_scream", "Cri du Vide",
+            "4 attaques = cri (Slow II + 8%/s DoT, 3s)", 4, 0.08, 60, 6.0);
+        registerAbilities(PetType.HURLEUR_DU_VIDE,
+            voidScreamPassive,
+            new PhantomStrikeActive("phantom_strike", "Frappe Fantôme",
+                "5 TP enchaînés (40% dégâts) + échos explosifs (20% AoE)", voidScreamPassive, 0.40, 0.20, 5, 8.0)
         );
 
         // Hydre de Givre (Glace / Blizzard)
