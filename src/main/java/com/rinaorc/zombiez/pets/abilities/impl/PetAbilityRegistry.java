@@ -178,11 +178,11 @@ public class PetAbilityRegistry {
         );
 
         // Tentacule du Vide (Style Gur'thalak WoW)
-        // Passif: 15% chance d'invoquer des tentacules du vide (% dégâts joueur + slow), CD 2s
+        // Passif: 15% chance d'invoquer des tentacules du vide (% dégâts joueur + slow), CD 3s, max 4 actifs
         // Ultimate: Invoque 5 tentacules géants qui ravagent la zone pendant 6s
         registerAbilities(PetType.SPECTRE_GARDIEN,
             new VoidTentaclePassive("void_tentacle", "Appel du Vide",
-                "15% chance d'invoquer des tentacules (20% dégâts, slow, rayon 4 blocs)", 0.15, 0.20, 60, 4.0, 2),
+                "15% chance d'invoquer des tentacules (20% dégâts, slow, max 4 actifs)", 0.15, 0.20, 60, 4.0, 2, 4),
             new VoidEruptionActive("void_eruption", "Éruption du Vide",
                 "Invoque 5 tentacules géants (30% dégâts, slow 2, 6s)", 35, 5, 0.30, 120, 5.0, false)
         );

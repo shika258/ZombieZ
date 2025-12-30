@@ -3607,10 +3607,12 @@ class VoidTentaclePassive implements PetAbility {
     private final int tentacleDurationTicks;      // Durée des tentacules
     private final double tentacleRadius;          // Rayon d'attaque des tentacules
     private final int tentacleCount;              // Nombre de tentacules invoqués
+    private final int maxActiveTentacles;         // Cap de tentacules actifs (passif uniquement)
     private final Map<UUID, Long> lastProcTime = new HashMap<>();
+    private final Map<UUID, Integer> activeTentacleCount = new HashMap<>();
 
     public VoidTentaclePassive(String id, String name, String desc, double chance, double dmgPercent,
-                                int duration, double radius, int count) {
+                                int duration, double radius, int count, int maxActive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
@@ -3619,7 +3621,9 @@ class VoidTentaclePassive implements PetAbility {
         this.tentacleDurationTicks = duration;
         this.tentacleRadius = radius;
         this.tentacleCount = count;
+        this.maxActiveTentacles = maxActive;
         PassiveAbilityCleanup.registerForCleanup(lastProcTime);
+        PassiveAbilityCleanup.registerForCleanup(activeTentacleCount);
     }
 
     @Override
@@ -3629,13 +3633,19 @@ class VoidTentaclePassive implements PetAbility {
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
         UUID uuid = player.getUniqueId();
 
+        // Vérifier le cap de tentacules actifs (passif uniquement)
+        int currentActive = activeTentacleCount.getOrDefault(uuid, 0);
+        if (currentActive >= maxActiveTentacles) {
+            return damage; // Cap atteint, pas de nouveau proc
+        }
+
         // Ajuster la chance par niveau
         double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.05;
 
-        // Cooldown interne de 2s pour éviter le spam
+        // Cooldown interne de 3s pour éviter le spam (augmenté de 2s à 3s)
         long now = System.currentTimeMillis();
         long lastProc = lastProcTime.getOrDefault(uuid, 0L);
-        if (now - lastProc < 2000) {
+        if (now - lastProc < 3000) {
             return damage;
         }
 
@@ -3650,12 +3660,24 @@ class VoidTentaclePassive implements PetAbility {
 
     public void spawnVoidTentacles(Player player, PetData petData, Location center, boolean isUltimate) {
         World world = center.getWorld();
+        UUID uuid = player.getUniqueId();
 
         // Ajuster les valeurs par niveau
         double adjustedRadius = tentacleRadius + (petData.getStatMultiplier() - 1) * 1.5;
         int adjustedDuration = (int) (tentacleDurationTicks + (petData.getStatMultiplier() - 1) * 20);
         double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
         int adjustedCount = isUltimate ? 5 : tentacleCount + (int)((petData.getStatMultiplier() - 1) * 0.5);
+
+        // Pour le passif, limiter au nombre restant disponible
+        if (!isUltimate) {
+            int currentActive = activeTentacleCount.getOrDefault(uuid, 0);
+            int remainingSlots = maxActiveTentacles - currentActive;
+            adjustedCount = Math.min(adjustedCount, remainingSlots);
+
+            if (adjustedCount <= 0) {
+                return; // Pas de slot disponible
+            }
+        }
 
         // Calculer les dégâts des tentacules
         double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
@@ -3666,7 +3688,9 @@ class VoidTentaclePassive implements PetAbility {
         world.playSound(center, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.5f, 0.5f);
 
         if (!isUltimate) {
-            player.sendMessage("§a[Pet] §5🦑 TENTACULES DU VIDE! §7" + adjustedCount + " tentacule(s) invoqué(s)!");
+            int currentActive = activeTentacleCount.getOrDefault(uuid, 0);
+            player.sendMessage("§a[Pet] §5🦑 TENTACULES DU VIDE! §7+" + adjustedCount +
+                " §8(" + (currentActive + adjustedCount) + "/" + maxActiveTentacles + " actifs)");
         }
 
         // Spawner les tentacules en cercle autour du point d'impact
@@ -3679,6 +3703,11 @@ class VoidTentaclePassive implements PetAbility {
                 Math.sin(angle) * spawnRadius
             );
 
+            // Incrémenter le compteur pour le passif
+            if (!isUltimate) {
+                activeTentacleCount.merge(uuid, 1, Integer::sum);
+            }
+
             // Délai entre chaque spawn de tentacule
             final int tentacleIndex = i;
             Bukkit.getScheduler().runTaskLater(
@@ -3690,9 +3719,14 @@ class VoidTentaclePassive implements PetAbility {
         }
     }
 
+    private void decrementTentacleCount(UUID uuid) {
+        activeTentacleCount.merge(uuid, -1, (old, dec) -> Math.max(0, old + dec));
+    }
+
     private void spawnSingleTentacle(Player player, PetData petData, Location spawnLoc,
                                       double damage, double radius, int duration, boolean isUltimate) {
         World world = spawnLoc.getWorld();
+        UUID uuid = player.getUniqueId();
 
         // Effet d'émergence
         world.spawnParticle(Particle.PORTAL, spawnLoc, 30, 0.3, 0.5, 0.3, 0.5);
@@ -3710,6 +3744,11 @@ class VoidTentaclePassive implements PetAbility {
             @Override
             public void run() {
                 if (ticksAlive >= duration || !player.isOnline()) {
+                    // Décrémenter le compteur pour le passif
+                    if (!isUltimate) {
+                        decrementTentacleCount(uuid);
+                    }
+
                     // Disparition du tentacule
                     world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, tentacleHeight / 2, 0),
                         20, 0.3, tentacleHeight / 2, 0.3, 0.3);
