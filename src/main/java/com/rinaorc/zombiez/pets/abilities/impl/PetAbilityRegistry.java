@@ -157,12 +157,14 @@ public class PetAbilityRegistry {
                 "Repousse (8 blocs), gèle 2s, +30% armure 5s", 30, 8, 40, 0.30, 100)
         );
 
-        // Hibou Arcanique
+        // Calamar des Abysses (anciennement Hibou Arcanique)
+        // Passif: Toutes les 10 attaques, crée une flaque d'encre (3s, slow 30%, 15% dégâts/s)
+        // Ultimate: Nuage d'encre géant (8 blocs), zombies confus s'attaquent entre eux 4s
         registerAbilities(PetType.HIBOU_ARCANIQUE,
-            new CooldownReductionPassive("owl_cdr", "Sagesse Arcanique",
-                "-10% cooldown des capacités", 0.10),
-            new ResetCooldownActive("owl_reset", "Reset Arcanique",
-                "Reset le cooldown d'une capacité", 90)
+            new InkPuddlePassive("squid_ink", "Encre Toxique",
+                "Toutes les 10 attaques, flaque d'encre (slow + dégâts/s)", 10, 0.30, 0.15, 60, 3.0),
+            new DarknessCloudActive("squid_cloud", "Nuage d'Obscurité",
+                "Nuage d'encre (8 blocs), zombies confus s'attaquent 4s", 25, 8.0, 80, 0.30)
         );
 
         // Essaim de Scarabées

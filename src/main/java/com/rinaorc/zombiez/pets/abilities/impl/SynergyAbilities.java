@@ -2917,3 +2917,320 @@ class ArcticRoarActive implements PetAbility {
         }
     }
 }
+
+// ==================== CALAMAR DES ABYSSES (Anti-Horde / Contrôle) ====================
+
+@Getter
+class InkPuddlePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int attacksForTrigger;         // 10 attaques
+    private final double slowPercent;            // 30% slow
+    private final double damagePerSecondPercent; // % des dégâts du joueur par seconde
+    private final int puddleDurationTicks;       // 3s = 60 ticks
+    private final double puddleRadius;           // Rayon de la flaque
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private final List<InkPuddle> activePuddles = new ArrayList<>();
+
+    public InkPuddlePassive(String id, String name, String desc, int attacksNeeded,
+                            double slowPct, double dmgPct, int duration, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.attacksForTrigger = attacksNeeded;
+        this.slowPercent = slowPct;
+        this.damagePerSecondPercent = dmgPct;
+        this.puddleDurationTicks = duration;
+        this.puddleRadius = radius;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+
+        // Ajuster le nombre d'attaques nécessaires par niveau
+        int adjustedAttacks = attacksForTrigger - (int)((petData.getStatMultiplier() - 1) * 2);
+        adjustedAttacks = Math.max(adjustedAttacks, 6); // Minimum 6 attaques
+
+        if (count >= adjustedAttacks) {
+            // Créer la flaque d'encre!
+            attackCounters.put(uuid, 0);
+            createInkPuddle(player, petData, target.getLocation());
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur de progression
+            if (count == adjustedAttacks - 1) {
+                player.getWorld().spawnParticle(Particle.SQUID_INK, player.getLocation().add(0, 1.5, 0),
+                    5, 0.2, 0.2, 0.2, 0.01);
+            }
+        }
+
+        return damage;
+    }
+
+    private void createInkPuddle(Player player, PetData petData, Location center) {
+        World world = center.getWorld();
+
+        // Calculer les dégâts par tick (20 ticks = 1 seconde)
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDmgPercent = damagePerSecondPercent + (petData.getStatMultiplier() - 1) * 0.05;
+        double damagePerTick = (playerDamage * adjustedDmgPercent) / 20.0;
+
+        // Ajuster le rayon par niveau
+        double adjustedRadius = puddleRadius + (petData.getStatMultiplier() - 1) * 1.0;
+
+        // Ajuster la durée par niveau
+        int adjustedDuration = (int) (puddleDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+
+        // Effet de création
+        world.playSound(center, Sound.ENTITY_GLOW_SQUID_SQUIRT, 1.2f, 0.8f);
+        world.playSound(center, Sound.BLOCK_SLIME_BLOCK_PLACE, 1.0f, 0.6f);
+
+        player.sendMessage("§a[Pet] §8§l🦑 ENCRE TOXIQUE! §7Flaque créée (" + (adjustedDuration / 20) + "s)");
+
+        // Animation de la flaque
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            final Set<UUID> damagedThisTick = new HashSet<>();
+
+            @Override
+            public void run() {
+                if (ticksAlive >= adjustedDuration) {
+                    // Effet de dissipation
+                    world.spawnParticle(Particle.SMOKE, center.clone().add(0, 0.3, 0),
+                        20, adjustedRadius * 0.5, 0.1, adjustedRadius * 0.5, 0.02);
+                    cancel();
+                    return;
+                }
+
+                // Particules de la flaque (toutes les 5 ticks pour les perfs)
+                if (ticksAlive % 5 == 0) {
+                    for (int i = 0; i < 8; i++) {
+                        double angle = Math.random() * 2 * Math.PI;
+                        double r = Math.random() * adjustedRadius;
+                        Location particleLoc = center.clone().add(
+                            Math.cos(angle) * r, 0.1, Math.sin(angle) * r);
+                        world.spawnParticle(Particle.SQUID_INK, particleLoc, 1, 0, 0, 0, 0);
+                    }
+                    // Quelques bulles
+                    world.spawnParticle(Particle.BUBBLE_POP, center.clone().add(0, 0.2, 0),
+                        3, adjustedRadius * 0.3, 0, adjustedRadius * 0.3, 0);
+                }
+
+                // Appliquer les effets toutes les 20 ticks (1 seconde)
+                if (ticksAlive % 20 == 0) {
+                    damagedThisTick.clear();
+
+                    for (Entity entity : world.getNearbyEntities(center, adjustedRadius, 2, adjustedRadius)) {
+                        if (entity instanceof Monster monster && !damagedThisTick.contains(entity.getUniqueId())) {
+                            // Vérifier si vraiment dans le rayon (pas un cube)
+                            double distSq = entity.getLocation().distanceSquared(center);
+                            if (distSq <= adjustedRadius * adjustedRadius) {
+                                damagedThisTick.add(entity.getUniqueId());
+
+                                // Appliquer le slow (30%)
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.SLOWNESS, 25, 1, false, false));
+
+                                // Appliquer les dégâts par seconde
+                                double secDamage = playerDamage * adjustedDmgPercent;
+                                monster.damage(secDamage, player);
+                                petData.addDamage((long) secDamage);
+
+                                // Effet visuel sur le monstre
+                                world.spawnParticle(Particle.SQUID_INK, monster.getLocation().add(0, 0.5, 0),
+                                    5, 0.2, 0.2, 0.2, 0.02);
+                            }
+                        }
+                    }
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    public int getAttackCount(UUID uuid) {
+        return attackCounters.getOrDefault(uuid, 0);
+    }
+
+    // Classe interne pour tracker les flaques actives
+    private static class InkPuddle {
+        final Location center;
+        final long endTime;
+
+        InkPuddle(Location center, long endTime) {
+            this.center = center;
+            this.endTime = endTime;
+        }
+    }
+}
+
+@Getter
+class DarknessCloudActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double cloudRadius;            // 8 blocs
+    private final int confusionDurationTicks;    // 4s = 80 ticks
+    private final double damagePercent;          // Dégâts additionnels (upgrade)
+
+    public DarknessCloudActive(String id, String name, String desc, int cd,
+                               double radius, int confusionTicks, double dmgPct) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.cloudRadius = radius;
+        this.confusionDurationTicks = confusionTicks;
+        this.damagePercent = dmgPct;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Ajuster les valeurs par niveau
+        double adjustedRadius = cloudRadius + (petData.getStatMultiplier() - 1) * 2;
+        int adjustedConfusion = (int) (confusionDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+
+        // Collecter tous les monstres dans le rayon
+        List<Monster> affectedMonsters = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
+            if (entity instanceof Monster monster) {
+                double distSq = entity.getLocation().distanceSquared(center);
+                if (distSq <= adjustedRadius * adjustedRadius) {
+                    affectedMonsters.add(monster);
+                }
+            }
+        }
+
+        if (affectedMonsters.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi dans le rayon!");
+            return false;
+        }
+
+        // Effet sonore de création du nuage
+        world.playSound(center, Sound.ENTITY_GLOW_SQUID_SQUIRT, 2.0f, 0.5f);
+        world.playSound(center, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.5f, 2.0f);
+        world.playSound(center, Sound.AMBIENT_UNDERWATER_ENTER, 1.0f, 0.5f);
+
+        player.sendMessage("§a[Pet] §8§l🦑 NUAGE D'OBSCURITÉ! §7" + affectedMonsters.size() +
+            " zombies confus s'attaquent entre eux!");
+
+        // Appliquer la confusion à tous les monstres
+        for (Monster monster : affectedMonsters) {
+            // Aveuglement pour l'effet visuel
+            monster.addPotionEffect(new PotionEffect(
+                PotionEffectType.BLINDNESS, adjustedConfusion, 0, false, false));
+            // Lenteur légère
+            monster.addPotionEffect(new PotionEffect(
+                PotionEffectType.SLOWNESS, adjustedConfusion, 0, false, false));
+        }
+
+        // Animation du nuage d'encre et combat entre monstres
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            final int cloudDuration = adjustedConfusion;
+            int nextInfightTick = 20; // Premier infight après 1 seconde
+
+            @Override
+            public void run() {
+                if (ticksAlive >= cloudDuration) {
+                    // Dissipation du nuage
+                    world.spawnParticle(Particle.SMOKE, center.clone().add(0, 1, 0),
+                        50, adjustedRadius * 0.5, 1, adjustedRadius * 0.5, 0.05);
+                    world.playSound(center, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.5f);
+                    cancel();
+                    return;
+                }
+
+                // Particules du nuage d'encre (toutes les 3 ticks)
+                if (ticksAlive % 3 == 0) {
+                    // Nuage sombre
+                    for (int i = 0; i < 15; i++) {
+                        double angle = Math.random() * 2 * Math.PI;
+                        double r = Math.random() * adjustedRadius;
+                        double height = Math.random() * 3;
+                        Location particleLoc = center.clone().add(
+                            Math.cos(angle) * r, height, Math.sin(angle) * r);
+                        world.spawnParticle(Particle.SQUID_INK, particleLoc, 1, 0.1, 0.1, 0.1, 0);
+                    }
+                    // Quelques particules de glow
+                    world.spawnParticle(Particle.GLOW, center.clone().add(0, 1.5, 0),
+                        3, adjustedRadius * 0.3, 1, adjustedRadius * 0.3, 0.01);
+                }
+
+                // Faire s'attaquer les monstres entre eux (toutes les secondes)
+                if (ticksAlive >= nextInfightTick) {
+                    nextInfightTick += 20; // Prochaine attaque dans 1 seconde
+
+                    // Nettoyer les monstres morts
+                    affectedMonsters.removeIf(m -> !m.isValid() || m.isDead());
+
+                    if (affectedMonsters.size() >= 2) {
+                        // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
+                        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                        double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
+
+                        // Chaque monstre attaque un voisin aléatoire
+                        for (Monster attacker : new ArrayList<>(affectedMonsters)) {
+                            if (!attacker.isValid() || attacker.isDead()) continue;
+
+                            // Trouver une cible proche
+                            Monster target = null;
+                            double minDist = Double.MAX_VALUE;
+                            for (Monster potential : affectedMonsters) {
+                                if (potential != attacker && potential.isValid() && !potential.isDead()) {
+                                    double dist = attacker.getLocation().distanceSquared(potential.getLocation());
+                                    if (dist < minDist) {
+                                        minDist = dist;
+                                        target = potential;
+                                    }
+                                }
+                            }
+
+                            if (target != null && minDist < 25) { // 5 blocs max
+                                // Attaquer!
+                                target.damage(infightDamage, attacker);
+                                petData.addDamage((long) infightDamage);
+
+                                // Effet visuel de l'attaque
+                                Location midPoint = attacker.getLocation().add(
+                                    target.getLocation()).multiply(0.5).add(0, 1, 0);
+                                world.spawnParticle(Particle.SWEEP_ATTACK, midPoint, 1, 0, 0, 0, 0);
+                                world.spawnParticle(Particle.SQUID_INK, target.getLocation().add(0, 1, 0),
+                                    5, 0.2, 0.2, 0.2, 0.05);
+                            }
+                        }
+                    }
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        // Effet visuel initial (explosion d'encre)
+        world.spawnParticle(Particle.SQUID_INK, center.clone().add(0, 1, 0),
+            100, adjustedRadius * 0.5, 1.5, adjustedRadius * 0.5, 0.1);
+        world.spawnParticle(Particle.GLOW, center.clone().add(0, 1.5, 0),
+            30, adjustedRadius * 0.3, 1, adjustedRadius * 0.3, 0.05);
+
+        return true;
+    }
+}

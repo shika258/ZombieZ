@@ -296,19 +296,19 @@ public enum PetType {
     ),
 
     HIBOU_ARCANIQUE(
-        "Hibou Arcanique",
+        "Calamar des Abysses",
         PetRarity.RARE,
-        Material.FEATHER,
-        EntityType.PARROT,
-        "arcane_owl",
-        "Magie / Cooldowns",
-        "Hibou avec runes brillantes",
-        "-10% cooldown des capacités de classe",
-        "Reset Arcanique",
-        "Reset le cooldown d'une capacité",
-        90,
-        "Cooldown -5% supplémentaire",
-        "Réduit aussi les cooldowns des items actifs"
+        Material.GLOW_INK_SAC,
+        EntityType.GLOW_SQUID,
+        "abyss_squid",
+        "Anti-Horde / Contrôle",
+        "Calamar luminescent aux tentacules d'encre noire",
+        "Toutes les 10 attaques, crée une flaque d'encre (slow 30%, dégâts/s)",
+        "Nuage d'Obscurité",
+        "Nuage d'encre géant : zombies confus s'attaquent entre eux 4s",
+        25,
+        "Flaque toutes les 8 attaques, dégâts +5%",
+        "Le nuage inflige aussi 50% dégâts joueur aux zombies"
     ),
 
     ESSAIM_SCARABEES(
