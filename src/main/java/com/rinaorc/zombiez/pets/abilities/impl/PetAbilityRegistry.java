@@ -147,12 +147,14 @@ public class PetAbilityRegistry {
                 "Explosion de feu (150% dégâts joueur, 5 blocs, enflamme)", 35, 1.5, 5)
         );
 
-        // Serpent de Givre
+        // Ours Polaire Gardien (anciennement Serpent de Givre)
+        // Passif: -20% dégâts reçus, attaquants ralentis 1s + 5% dégâts retournés
+        // Ultimate: Repousse les ennemis (8 blocs), gèle 2s, +30% armure 5s
         registerAbilities(PetType.SERPENT_GIVRE,
-            new ElementalDamagePassive("frost_damage", "Froid Mordant",
-                "+15% dégâts de glace", 0.15, "ICE"),
-            new FreezeActive("frost_freeze", "Souffle Glacial",
-                "Gèle les ennemis devant (3s)", 30, 3)
+            new FrostFurPassive("polar_fur", "Fourrure Glaciale",
+                "-20% dégâts reçus, attaquants ralentis 1s + 5% dégâts retournés", 0.20, 0.05, 20),
+            new ArcticRoarActive("polar_roar", "Rugissement Arctique",
+                "Repousse (8 blocs), gèle 2s, +30% armure 5s", 30, 8, 40, 0.30, 100)
         );
 
         // Hibou Arcanique

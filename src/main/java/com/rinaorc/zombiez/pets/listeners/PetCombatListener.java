@@ -13,6 +13,7 @@ import com.rinaorc.zombiez.pets.abilities.impl.MultiAttackPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.ParryPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PowerSlowPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.RebornPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.FrostFurPassive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -276,6 +277,11 @@ public class PetCombatListener implements Listener {
                 player.sendMessage("§a[Pet] §7Parade automatique!");
                 return;
             }
+        }
+
+        // Fourrure Glaciale (Ours Polaire Gardien)
+        if (passive instanceof FrostFurPassive ffp) {
+            modifiedDamage *= (1 - ffp.getDamageReduction(petData));
         }
 
         // Vérifier si le joueur va mourir et si la renaissance peut le sauver

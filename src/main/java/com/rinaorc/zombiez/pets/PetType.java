@@ -280,19 +280,19 @@ public enum PetType {
     ),
 
     SERPENT_GIVRE(
-        "Serpent de Givre",
+        "Ours Polaire Gardien",
         PetRarity.RARE,
         Material.PACKED_ICE,
-        EntityType.SILVERFISH,
-        "frost_serpent",
-        "Glace / Contrôle",
-        "Serpent de glace",
-        "+15% dégâts de glace",
-        "Souffle Glacial",
-        "Gèle les ennemis devant (3s)",
+        EntityType.POLAR_BEAR,
+        "polar_guardian",
+        "Tank / Protection",
+        "Imposant ours blanc aux yeux glacés, protecteur féroce",
+        "-20% dégâts reçus, attaquants ralentis 1s + 5% dégâts retournés",
+        "Rugissement Arctique",
+        "Repousse les ennemis (8 blocs), gèle 2s, +30% armure 5s",
         30,
-        "Dégâts de glace +10%",
-        "Les ennemis gelés explosent en mourant"
+        "Réduction +5%, retour dégâts +3%",
+        "Le rugissement inflige 50% dégâts joueur aux gelés"
     ),
 
     HIBOU_ARCANIQUE(

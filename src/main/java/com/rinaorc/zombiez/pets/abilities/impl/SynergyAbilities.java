@@ -2729,3 +2729,191 @@ class BouncingAssaultActive implements PetAbility {
         world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
     }
 }
+
+// ==================== OURS POLAIRE GARDIEN (Tank / Protection) ====================
+
+@Getter
+class FrostFurPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damageReduction;         // -20% = 0.20
+    private final double reflectPercent;          // 5% des dégâts retournés = 0.05
+    private final int slowDurationTicks;          // 1s = 20 ticks
+
+    public FrostFurPassive(String id, String name, String desc, double reduction, double reflect, int slowTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damageReduction = reduction;
+        this.reflectPercent = reflect;
+        this.slowDurationTicks = slowTicks;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Retourne le pourcentage de réduction de dégâts pour le listener
+     */
+    public double getDamageReduction(PetData petData) {
+        return damageReduction + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    /**
+     * Appelé quand le joueur reçoit des dégâts - applique le retour de gel
+     */
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Trouver l'attaquant le plus proche (dans un rayon de 5 blocs)
+        for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
+            if (entity instanceof Monster monster) {
+                // Calculer les dégâts de retour
+                double adjustedReflect = reflectPercent + (petData.getStatMultiplier() - 1) * 0.03;
+                double reflectDamage = damage * adjustedReflect;
+
+                // Appliquer le ralentissement glacial
+                int adjustedSlow = (int) (slowDurationTicks + (petData.getStatMultiplier() - 1) * 10);
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, adjustedSlow, 1, false, false));
+
+                // Appliquer les dégâts de retour (gel)
+                if (reflectDamage > 0) {
+                    monster.damage(reflectDamage, player);
+
+                    // Effet visuel de gel
+                    world.spawnParticle(Particle.SNOWFLAKE, monster.getLocation().add(0, 1, 0),
+                        10, 0.3, 0.3, 0.3, 0.05);
+                    world.spawnParticle(Particle.BLOCK, monster.getLocation().add(0, 0.5, 0),
+                        5, 0.2, 0.2, 0.2, 0, org.bukkit.Material.PACKED_ICE.createBlockData());
+                }
+
+                // On ne traite que le premier attaquant trouvé
+                break;
+            }
+        }
+
+        // Effet visuel de protection sur le joueur
+        world.spawnParticle(Particle.SNOWFLAKE, playerLoc.add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.02);
+        world.playSound(playerLoc, Sound.BLOCK_GLASS_BREAK, 0.3f, 1.5f);
+    }
+}
+
+@Getter
+class ArcticRoarActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double knockbackDistance;       // 8 blocs
+    private final int freezeDurationTicks;        // 2s = 40 ticks
+    private final double armorBonus;              // +30% = 0.30
+    private final int armorDurationTicks;         // 5s = 100 ticks
+
+    public ArcticRoarActive(String id, String name, String desc, int cooldown,
+                            double knockback, int freezeTicks, double armor, int armorTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cooldown;
+        this.knockbackDistance = knockback;
+        this.freezeDurationTicks = freezeTicks;
+        this.armorBonus = armor;
+        this.armorDurationTicks = armorTicks;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        // Ajuster les valeurs par niveau
+        double adjustedKnockback = knockbackDistance + (petData.getStatMultiplier() - 1) * 2;
+        int adjustedFreeze = (int) (freezeDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+        double adjustedArmor = armorBonus + (petData.getStatMultiplier() - 1) * 0.10;
+
+        int hitCount = 0;
+
+        // Trouver tous les ennemis proches et les repousser
+        for (Entity entity : player.getNearbyEntities(adjustedKnockback, adjustedKnockback, adjustedKnockback)) {
+            if (entity instanceof Monster monster) {
+                // Calculer la direction de knockback (depuis le joueur vers le monstre)
+                Vector knockbackDir = monster.getLocation().toVector()
+                    .subtract(playerLoc.toVector()).normalize();
+
+                // Appliquer le knockback
+                knockbackDir.setY(0.4); // Légère élévation
+                knockbackDir.multiply(2.0); // Force du knockback
+                monster.setVelocity(knockbackDir);
+
+                // Appliquer le gel (stun via Slowness 127 + Weakness 127)
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SLOWNESS, adjustedFreeze, 127, false, false));
+                monster.addPotionEffect(new PotionEffect(
+                    PotionEffectType.WEAKNESS, adjustedFreeze, 127, false, false));
+
+                // Effet visuel de gel sur chaque ennemi
+                world.spawnParticle(Particle.SNOWFLAKE, monster.getLocation().add(0, 1, 0),
+                    20, 0.5, 0.5, 0.5, 0.1);
+                world.spawnParticle(Particle.BLOCK, monster.getLocation(),
+                    10, 0.3, 0.3, 0.3, 0, org.bukkit.Material.BLUE_ICE.createBlockData());
+
+                hitCount++;
+            }
+        }
+
+        // Appliquer le buff d'armure au joueur (via Resistance)
+        int resistanceLevel = (int) (adjustedArmor * 5); // 30% = niveau 1-2
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, armorDurationTicks, Math.min(resistanceLevel, 2), false, true));
+
+        // Effet visuel du rugissement (cercle expansif de glace)
+        for (int ring = 1; ring <= 3; ring++) {
+            final int currentRing = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnIceRing(world, playerLoc, currentRing * 3),
+                ring * 3L
+            );
+        }
+
+        // Effet central
+        world.spawnParticle(Particle.EXPLOSION, playerLoc, 1, 0, 0, 0, 0);
+        world.spawnParticle(Particle.SNOWFLAKE, playerLoc, 100, 3, 1, 3, 0.2);
+        world.spawnParticle(Particle.CLOUD, playerLoc, 50, 2, 0.5, 2, 0.1);
+
+        // Son de rugissement d'ours
+        world.playSound(playerLoc, Sound.ENTITY_POLAR_BEAR_WARNING, 1.5f, 0.6f);
+        world.playSound(playerLoc, Sound.ENTITY_POLAR_BEAR_HURT, 1.0f, 0.5f);
+        world.playSound(playerLoc, Sound.BLOCK_GLASS_BREAK, 1.0f, 0.8f);
+
+        // Message
+        player.sendMessage("§a[Pet] §b§l❄ RUGISSEMENT ARCTIQUE! §7" + hitCount +
+            " ennemis repoussés et gelés! §e+" + (int)(adjustedArmor * 100) + "% §7armure pendant 5s!");
+
+        return true;
+    }
+
+    private void spawnIceRing(World world, Location center, double radius) {
+        for (int angle = 0; angle < 360; angle += 15) {
+            double rad = Math.toRadians(angle);
+            Location ringLoc = center.clone().add(
+                Math.cos(rad) * radius,
+                0.1,
+                Math.sin(rad) * radius
+            );
+            world.spawnParticle(Particle.SNOWFLAKE, ringLoc, 3, 0.1, 0.1, 0.1, 0.01);
+            world.spawnParticle(Particle.BLOCK, ringLoc, 2, 0.1, 0, 0.1, 0,
+                org.bukkit.Material.PACKED_ICE.createBlockData());
+        }
+    }
+}
