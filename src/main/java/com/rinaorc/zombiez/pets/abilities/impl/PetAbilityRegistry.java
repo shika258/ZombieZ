@@ -411,12 +411,14 @@ public class PetAbilityRegistry {
 
         // ==================== NOUVEAUX PETS VISUELS ====================
 
-        // Étoile Filante (Stellaire / Traînée)
+        // Grenouille Bondissante (anciennement Étoile Filante)
+        // Passif: Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
+        // Ultimate: Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)
         registerAbilities(PetType.ETOILE_FILANTE,
-            new StardustTrailPassive("stardust_trail", "Traînée Stellaire",
-                "Laisse une traînée infligeant 3 dégâts", 3),
-            new ShootingStarActive("shooting_stars", "Pluie d'Étoiles",
-                "8 étoiles filantes sur la zone", 12, 8)
+            new FrogBouncePassive("frog_bounce", "Rebond",
+                "Chaque 4ème attaque = bond (+30% dégâts, stun 0.5s)", 4, 0.30, 10),
+            new BouncingAssaultActive("frog_assault", "Assaut Bondissant",
+                "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun)", 5, 0.50, 15)
         );
 
         // Serpent Foudroyant (Foudre / Chaîne)

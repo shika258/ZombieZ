@@ -2487,3 +2487,245 @@ class DeadlyDiveActive implements PetAbility {
         }
     }
 }
+
+// ==================== GRENOUILLE BONDISSANTE (Mobilité / Combos) ====================
+
+@Getter
+class FrogBouncePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int attacksForBounce;          // 4 attaques
+    private final double bounceDamageBonus;       // +30%
+    private final int stunDurationTicks;          // 0.5s = 10 ticks
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+
+    public FrogBouncePassive(String id, String name, String desc, int attacks, double bonus, int stunTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.attacksForBounce = attacks;
+        this.bounceDamageBonus = bonus;
+        this.stunDurationTicks = stunTicks;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+
+        // Incrémenter le compteur
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+
+        // Ajuster le nombre d'attaques requis par niveau (4 base, 3 au max)
+        int adjustedAttacks = Math.max(3, attacksForBounce - (int)((petData.getStatMultiplier() - 1) * 2));
+
+        if (count >= adjustedAttacks) {
+            // BOND! Reset le compteur
+            attackCounters.put(uuid, 0);
+
+            // Calculer le bonus de dégâts
+            double adjustedBonus = bounceDamageBonus + (petData.getStatMultiplier() - 1) * 0.10;
+            double bonusDamage = damage * adjustedBonus;
+
+            // Appliquer le stun
+            int adjustedStun = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 5);
+            target.addPotionEffect(new PotionEffect(
+                PotionEffectType.SLOWNESS, adjustedStun, 127, false, false));
+            target.addPotionEffect(new PotionEffect(
+                PotionEffectType.WEAKNESS, adjustedStun, 127, false, false));
+
+            // Animation du bond
+            Location targetLoc = target.getLocation();
+
+            // Particules de bond (splash d'eau + slime)
+            world.spawnParticle(Particle.SPLASH, targetLoc.add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
+            world.spawnParticle(Particle.SLIME, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
+
+            // Sons de grenouille
+            world.playSound(targetLoc, Sound.ENTITY_FROG_LONG_JUMP, 1.0f, 1.2f);
+            world.playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.0f);
+
+            player.sendMessage("§a[Pet] §2🐸 BOND! §7+" + (int)(adjustedBonus * 100) + "% dégâts + stun!");
+
+            return damage + bonusDamage;
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur visuel de progression
+            if (count == adjustedAttacks - 1) {
+                world.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1.5, 0),
+                    3, 0.2, 0.2, 0.2, 0);
+            }
+        }
+
+        return damage;
+    }
+
+    public int getAttackCount(UUID uuid) {
+        return attackCounters.getOrDefault(uuid, 0);
+    }
+}
+
+@Getter
+class BouncingAssaultActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int bounceCount;                // 5 bonds
+    private final double bounceDamagePercent;     // 50% des dégâts du joueur
+    private final int stunPerBounce;              // Stun par bond en ticks
+
+    public BouncingAssaultActive(String id, String name, String desc, int bounces, double damage, int stun) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.bounceCount = bounces;
+        this.bounceDamagePercent = damage;
+        this.stunPerBounce = stun;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        // Collecter tous les ennemis proches
+        List<Monster> targets = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(12, 12, 12)) {
+            if (entity instanceof Monster monster) {
+                targets.add(monster);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
+        }
+
+        // Calculer les dégâts par bond
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double damagePerBounce = playerDamage * bounceDamagePercent * petData.getStatMultiplier();
+
+        // Ajuster le nombre de bonds par niveau
+        int adjustedBounces = bounceCount + (int)((petData.getStatMultiplier() - 1) * 2);
+        adjustedBounces = Math.min(adjustedBounces, Math.max(targets.size(), bounceCount));
+
+        player.sendMessage("§a[Pet] §2§l🐸 ASSAUT BONDISSANT! §7(" + adjustedBounces + " bonds)");
+        world.playSound(playerLoc, Sound.ENTITY_FROG_LONG_JUMP, 1.0f, 0.8f);
+
+        // Lancer la séquence de bonds
+        executeBounceSequence(player, petData, targets, damagePerBounce, adjustedBounces, 0, playerLoc);
+
+        return true;
+    }
+
+    private void executeBounceSequence(Player player, PetData petData, List<Monster> targets,
+                                       double damage, int remainingBounces, int targetIndex, Location lastLoc) {
+        if (remainingBounces <= 0 || targets.isEmpty()) {
+            player.sendMessage("§a[Pet] §7Assaut terminé!");
+            return;
+        }
+
+        // Sélectionner la cible (cycle à travers les cibles disponibles)
+        Monster target = null;
+        int attempts = 0;
+        while (target == null && attempts < targets.size()) {
+            Monster candidate = targets.get(targetIndex % targets.size());
+            if (candidate.isValid() && !candidate.isDead()) {
+                target = candidate;
+            } else {
+                targets.remove(candidate);
+                if (targets.isEmpty()) break;
+            }
+            targetIndex++;
+            attempts++;
+        }
+
+        if (target == null) {
+            player.sendMessage("§a[Pet] §7Plus de cibles!");
+            return;
+        }
+
+        final Monster finalTarget = target;
+        final Location targetLoc = target.getLocation();
+        final int nextIndex = targetIndex;
+        World world = player.getWorld();
+
+        // Animation du bond (arc de cercle)
+        Vector direction = targetLoc.toVector().subtract(lastLoc.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        new BukkitRunnable() {
+            Location currentLoc = lastLoc.clone().add(0, 0.5, 0);
+            int ticks = 0;
+            final int maxTicks = 8; // Bond rapide
+            double progress = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    // Impact!
+                    executeImpact(player, petData, finalTarget, damage, world);
+
+                    // Continuer la séquence
+                    Bukkit.getScheduler().runTaskLater(
+                        Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                        () -> executeBounceSequence(player, petData, targets, damage,
+                            remainingBounces - 1, nextIndex, finalTarget.getLocation()),
+                        3L
+                    );
+                    cancel();
+                    return;
+                }
+
+                // Calculer la position avec une courbe parabolique
+                progress = (double) ticks / maxTicks;
+                double heightOffset = Math.sin(progress * Math.PI) * 2; // Arc
+
+                currentLoc = lastLoc.clone().add(
+                    direction.clone().multiply(distance * progress)
+                ).add(0, heightOffset, 0);
+
+                // Particules de bond
+                world.spawnParticle(Particle.SPLASH, currentLoc, 5, 0.1, 0.1, 0.1, 0.02);
+                world.spawnParticle(Particle.SLIME, currentLoc, 3, 0.1, 0.1, 0.1, 0.01);
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    private void executeImpact(Player player, PetData petData, Monster target, double damage, World world) {
+        Location impactLoc = target.getLocation();
+
+        // Appliquer le stun
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.SLOWNESS, stunPerBounce, 127, false, false));
+        target.addPotionEffect(new PotionEffect(
+            PotionEffectType.WEAKNESS, stunPerBounce, 127, false, false));
+
+        // Appliquer les dégâts
+        target.damage(damage, player);
+        petData.addDamage((long) damage);
+
+        // Effets visuels d'impact
+        world.spawnParticle(Particle.SPLASH, impactLoc.add(0, 0.3, 0), 30, 0.5, 0.2, 0.5, 0.1);
+        world.spawnParticle(Particle.CRIT, impactLoc, 10, 0.3, 0.3, 0.3, 0.1);
+
+        // Son d'impact
+        world.playSound(impactLoc, Sound.ENTITY_FROG_STEP, 1.0f, 0.8f);
+        world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
+    }
+}

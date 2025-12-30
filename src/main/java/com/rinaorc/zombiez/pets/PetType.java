@@ -246,19 +246,19 @@ public enum PetType {
     // --- NOUVEAUX PETS PEU COMMUNS (Visuels) ---
 
     ETOILE_FILANTE(
-        "Étoile Filante",
+        "Grenouille Bondissante",
         PetRarity.UNCOMMON,
-        Material.NETHER_STAR,
-        EntityType.ALLAY,
-        "shooting_star",
-        "Stellaire / Traînée",
-        "Petite étoile scintillante laissant une traînée dorée",
-        "Laisse une traînée stellaire qui inflige 3 dégâts aux ennemis",
-        "Pluie d'Étoiles",
-        "Fait pleuvoir 8 étoiles filantes sur la zone",
-        25,
-        "Traînée inflige +2 dégâts",
-        "Les étoiles ciblent automatiquement les ennemis proches"
+        Material.LILY_PAD,
+        EntityType.FROG,
+        "bouncing_frog",
+        "Mobilité / Combos",
+        "Grenouille agile aux pattes puissantes",
+        "Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)",
+        "Assaut Bondissant",
+        "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)",
+        20,
+        "Bond toutes les 3 attaques, +10% dégâts",
+        "Les bonds laissent des flaques ralentissantes"
     ),
 
     // ==================== RARES (§b) ====================
