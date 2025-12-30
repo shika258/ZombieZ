@@ -177,12 +177,14 @@ public class PetAbilityRegistry {
                 "3 mini-abeilles attaquent tous les ennemis 6s (10% dégâts/0.5s)", 30, 0.10, 120, 10, 8.0)
         );
 
-        // Spectre Gardien
+        // Renifleur Archéologue (anciennement Spectre Gardien)
+        // Passif: Toutes les 8 attaques, déterre un bonus aléatoire (dégâts, vitesse, heal, bouclier) 5s
+        // Ultimate: Déterre une relique qui donne TOUS les bonus 8s + aura slow 40%
         registerAbilities(PetType.SPECTRE_GARDIEN,
-            new ParryPassive("specter_parry", "Parade Spectrale",
-                "Pare automatiquement 1 attaque/30s", 30),
-            new RiposteActive("specter_riposte", "Riposte Spectrale",
-                "Prochaine attaque = contre-attaque x2", 20, 2.0)
+            new ArchaeologyDigPassive("sniffer_dig", "Fouille Antique",
+                "Toutes les 8 attaques, déterre un bonus aléatoire (5s)", 8, 100),
+            new AncientRelicActive("sniffer_relic", "Relique Ancestrale",
+                "Déterre une relique: TOUS les bonus 8s + aura slow 40%", 40, 160, 0.40, 6.0)
         );
 
         // ==================== ÉPIQUES ====================

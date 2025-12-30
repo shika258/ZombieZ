@@ -3594,3 +3594,360 @@ class SwarmFuryActive implements PetAbility {
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
+
+// ==================== RENIFLEUR ARCHÉOLOGUE (Découverte / RNG positif) ====================
+
+@Getter
+class ArchaeologyDigPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int attacksForDig;              // 8 attaques
+    private final int bonusDurationTicks;         // 5s = 100 ticks
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private final Map<UUID, Long> activeBonusEnd = new HashMap<>();
+    private final Map<UUID, DigBonus> activeBonus = new HashMap<>();
+
+    // Types de bonus possibles
+    public enum DigBonus {
+        DAMAGE("§c⚔ Force Antique", 0.20, Particle.CRIT, Sound.ENTITY_PLAYER_ATTACK_STRONG),
+        SPEED("§b⚡ Célérité", 0.30, Particle.CLOUD, Sound.ENTITY_PLAYER_LEVELUP),
+        HEAL("§a❤ Régénération", 0.10, Particle.HEART, Sound.ENTITY_PLAYER_LEVELUP),
+        SHIELD("§e🛡 Bouclier Doré", 10.0, Particle.WAX_ON, Sound.ITEM_ARMOR_EQUIP_GOLD);
+
+        public final String displayName;
+        public final double value;
+        public final Particle particle;
+        public final Sound sound;
+
+        DigBonus(String name, double val, Particle p, Sound s) {
+            this.displayName = name;
+            this.value = val;
+            this.particle = p;
+            this.sound = s;
+        }
+    }
+
+    public ArchaeologyDigPassive(String id, String name, String desc, int attacksNeeded, int durationTicks) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.attacksForDig = attacksNeeded;
+        this.bonusDurationTicks = durationTicks;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+        PassiveAbilityCleanup.registerForCleanup(activeBonusEnd);
+        PassiveAbilityCleanup.registerForCleanup(activeBonus);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+
+        // Ajuster le nombre d'attaques par niveau
+        int adjustedAttacks = attacksForDig - (int)((petData.getStatMultiplier() - 1) * 2);
+        adjustedAttacks = Math.max(adjustedAttacks, 4); // Minimum 4 attaques
+
+        // Vérifier si un bonus est actif
+        double bonusDamage = damage;
+        if (hasActiveBonus(uuid) && activeBonus.get(uuid) == DigBonus.DAMAGE) {
+            double damageBoost = DigBonus.DAMAGE.value + (petData.getStatMultiplier() - 1) * 0.10;
+            bonusDamage = damage * (1 + damageBoost);
+
+            // Effet visuel du bonus de dégâts
+            player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                5, 0.3, 0.3, 0.3, 0.1);
+        }
+
+        if (count >= adjustedAttacks) {
+            // Fouille!
+            attackCounters.put(uuid, 0);
+            performDig(player, petData);
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur de progression (animation de fouille)
+            if (count >= adjustedAttacks - 2) {
+                player.getWorld().spawnParticle(Particle.DUST_PLUME, player.getLocation().add(0, 0.5, 0),
+                    3, 0.3, 0.1, 0.3, 0.02);
+            }
+        }
+
+        return bonusDamage;
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+
+        // Appliquer les effets des bonus actifs
+        if (hasActiveBonus(uuid)) {
+            DigBonus bonus = activeBonus.get(uuid);
+
+            // Particules du bonus actif
+            player.spawnParticle(bonus.particle, player.getLocation().add(0, 1.5, 0),
+                2, 0.3, 0.3, 0.3, 0.01);
+
+            // Effet de vitesse
+            if (bonus == DigBonus.SPEED) {
+                double speedBoost = DigBonus.SPEED.value + (petData.getStatMultiplier() - 1) * 0.10;
+                int speedLevel = (int) (speedBoost * 3); // 30% ≈ niveau 1
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SPEED, 25, speedLevel, false, false));
+            }
+
+            // Effet de régénération
+            if (bonus == DigBonus.HEAL) {
+                // Régénération légère
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.REGENERATION, 25, 0, false, false));
+            }
+        }
+    }
+
+    private void performDig(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Choisir un bonus aléatoire
+        DigBonus[] bonuses = DigBonus.values();
+        DigBonus chosenBonus = bonuses[(int)(Math.random() * bonuses.length)];
+
+        // Ajuster la durée par niveau
+        int adjustedDuration = (int) (bonusDurationTicks + (petData.getStatMultiplier() - 1) * 60);
+
+        // Activer le bonus
+        activeBonus.put(uuid, chosenBonus);
+        activeBonusEnd.put(uuid, System.currentTimeMillis() + adjustedDuration * 50L);
+
+        // Animation de fouille
+        Location digLoc = playerLoc.clone().add(playerLoc.getDirection().multiply(1.5));
+        digLoc.setY(playerLoc.getY());
+
+        // Effet de creusement
+        world.spawnParticle(Particle.DUST_PLUME, digLoc.clone().add(0, 0.3, 0), 30, 0.5, 0.2, 0.5, 0.1);
+        world.spawnParticle(Particle.BLOCK, digLoc, 20, 0.3, 0.2, 0.3, 0,
+            org.bukkit.Material.DIRT.createBlockData());
+
+        // Son de fouille
+        world.playSound(digLoc, Sound.ITEM_BRUSH_BRUSHING_SAND_COMPLETE, 1.2f, 1.0f);
+        world.playSound(digLoc, Sound.BLOCK_GRAVEL_BREAK, 0.8f, 0.8f);
+
+        // Animation de découverte (après un court délai)
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                // Effet de découverte!
+                world.spawnParticle(Particle.TOTEM_OF_UNDYING, digLoc.clone().add(0, 1, 0),
+                    20, 0.3, 0.5, 0.3, 0.2);
+                world.spawnParticle(chosenBonus.particle, digLoc.clone().add(0, 1.5, 0),
+                    15, 0.3, 0.3, 0.3, 0.1);
+
+                world.playSound(digLoc, chosenBonus.sound, 1.0f, 1.2f);
+                world.playSound(digLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.5f);
+
+                // Appliquer l'effet immédiat si c'est un bouclier
+                if (chosenBonus == DigBonus.SHIELD) {
+                    double shieldAmount = DigBonus.SHIELD.value + (petData.getStatMultiplier() - 1) * 5;
+                    int absorptionLevel = (int) (shieldAmount / 4); // 10 = niveau 2-3
+                    player.addPotionEffect(new PotionEffect(
+                        PotionEffectType.ABSORPTION, adjustedDuration, absorptionLevel, false, true));
+                }
+
+                player.sendMessage("§a[Pet] §6🦴 DÉCOUVERTE! " + chosenBonus.displayName +
+                    " §7(" + (adjustedDuration / 20) + "s)");
+            },
+            10L
+        );
+
+        // Timer pour fin du bonus
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                if (activeBonus.get(uuid) == chosenBonus) {
+                    activeBonus.remove(uuid);
+                    activeBonusEnd.remove(uuid);
+                    player.sendMessage("§a[Pet] §7Le bonus " + chosenBonus.displayName + " §7s'estompe...");
+                }
+            },
+            adjustedDuration
+        );
+    }
+
+    public boolean hasActiveBonus(UUID uuid) {
+        if (!activeBonusEnd.containsKey(uuid)) return false;
+        return System.currentTimeMillis() < activeBonusEnd.get(uuid);
+    }
+
+    public DigBonus getActiveBonus(UUID uuid) {
+        if (hasActiveBonus(uuid)) {
+            return activeBonus.get(uuid);
+        }
+        return null;
+    }
+
+    public int getAttackCount(UUID uuid) {
+        return attackCounters.getOrDefault(uuid, 0);
+    }
+}
+
+@Getter
+class AncientRelicActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int relicDurationTicks;         // 8s = 160 ticks
+    private final double slowAuraPercent;         // 40% slow
+    private final double auraRadius;              // Rayon de l'aura
+
+    public AncientRelicActive(String id, String name, String desc, int cd,
+                               int duration, double slowPercent, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.relicDurationTicks = duration;
+        this.slowAuraPercent = slowPercent;
+        this.auraRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Ajuster les valeurs par niveau
+        int adjustedDuration = (int) (relicDurationTicks + (petData.getStatMultiplier() - 1) * 60);
+        double adjustedRadius = auraRadius + (petData.getStatMultiplier() - 1) * 2;
+        double adjustedSlow = slowAuraPercent + (petData.getStatMultiplier() - 1) * 0.10;
+
+        // Calculer les bonus amplifiés
+        double damageBoost = 0.20 + (petData.getStatMultiplier() - 1) * 0.15;  // +20% → +35%
+        double speedBoost = 0.30 + (petData.getStatMultiplier() - 1) * 0.15;   // +30% → +45%
+        double shieldAmount = 10 + (petData.getStatMultiplier() - 1) * 8;       // 10 → 18 cœurs
+
+        player.sendMessage("§a[Pet] §6§l🏛️ RELIQUE ANCESTRALE! §7Tous les bonus pendant " +
+            (adjustedDuration / 20) + "s!");
+
+        // Animation d'invocation de la relique
+        Location relicLoc = playerLoc.clone().add(playerLoc.getDirection().multiply(2));
+        relicLoc.setY(playerLoc.getY());
+
+        // Effet de fouille épique
+        world.spawnParticle(Particle.DUST_PLUME, relicLoc, 100, 1, 0.5, 1, 0.2);
+        world.playSound(relicLoc, Sound.ITEM_BRUSH_BRUSHING_SAND_COMPLETE, 2.0f, 0.8f);
+        world.playSound(relicLoc, Sound.BLOCK_ANCIENT_DEBRIS_BREAK, 1.5f, 0.5f);
+
+        // Après un court délai, révéler la relique
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                // Explosion de découverte!
+                world.spawnParticle(Particle.TOTEM_OF_UNDYING, relicLoc.clone().add(0, 1.5, 0),
+                    100, 1, 1.5, 1, 0.5);
+                world.spawnParticle(Particle.END_ROD, relicLoc.clone().add(0, 2, 0),
+                    50, 0.5, 1, 0.5, 0.1);
+
+                // Sons épiques
+                world.playSound(relicLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 1.0f);
+                world.playSound(relicLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.2f);
+                world.playSound(relicLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.8f);
+
+                // Appliquer TOUS les bonus au joueur
+                int speedLevel = (int) (speedBoost * 4);
+                int absorptionLevel = (int) (shieldAmount / 4);
+
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.SPEED, adjustedDuration, speedLevel, false, true));
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.STRENGTH, adjustedDuration, 1, false, true));
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.REGENERATION, adjustedDuration, 1, false, true));
+                player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.ABSORPTION, adjustedDuration, absorptionLevel, false, true));
+
+                player.sendMessage("§a[Pet] §c⚔ +20% Dégâts §7| §b⚡ +30% Vitesse §7| §a❤ Regen §7| §e🛡 Bouclier");
+            },
+            15L
+        );
+
+        // Animation continue de la relique et aura de slow
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            final Location center = playerLoc.clone();
+
+            @Override
+            public void run() {
+                if (ticksAlive >= adjustedDuration || !player.isOnline()) {
+                    // Fin de l'effet
+                    world.spawnParticle(Particle.DUST_PLUME, player.getLocation().add(0, 1, 0),
+                        30, 0.5, 0.5, 0.5, 0.1);
+                    world.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.0f);
+                    player.sendMessage("§a[Pet] §7La relique retourne dans les profondeurs...");
+                    cancel();
+                    return;
+                }
+
+                Location currentLoc = player.getLocation();
+
+                // Particules d'aura autour du joueur (toutes les 3 ticks)
+                if (ticksAlive % 3 == 0) {
+                    // Cercle de particules
+                    for (int angle = 0; angle < 360; angle += 30) {
+                        double rad = Math.toRadians(angle + ticksAlive * 3);
+                        Location particleLoc = currentLoc.clone().add(
+                            Math.cos(rad) * adjustedRadius * 0.8,
+                            0.2,
+                            Math.sin(rad) * adjustedRadius * 0.8
+                        );
+                        world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
+                    }
+
+                    // Particules montantes autour du joueur
+                    world.spawnParticle(Particle.ENCHANT, currentLoc.add(0, 1, 0),
+                        5, 0.5, 0.5, 0.5, 0.5);
+                }
+
+                // Appliquer l'aura de slow aux ennemis (toutes les 10 ticks)
+                if (ticksAlive % 10 == 0) {
+                    int slowLevel = (int) (adjustedSlow * 3); // 40% ≈ niveau 1
+
+                    for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
+                        if (entity instanceof Monster monster) {
+                            double distSq = entity.getLocation().distanceSquared(currentLoc);
+                            if (distSq <= adjustedRadius * adjustedRadius) {
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.SLOWNESS, 15, slowLevel, false, false));
+
+                                // Effet visuel sur l'ennemi ralenti
+                                world.spawnParticle(Particle.DUST_PLUME, monster.getLocation().add(0, 0.5, 0),
+                                    3, 0.2, 0.2, 0.2, 0.01);
+                            }
+                        }
+                    }
+                }
+
+                // Son ambiant (toutes les 40 ticks)
+                if (ticksAlive % 40 == 0) {
+                    world.playSound(currentLoc, Sound.BLOCK_BEACON_AMBIENT, 0.3f, 1.5f);
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 20L, 1L);
+
+        return true;
+    }
+}

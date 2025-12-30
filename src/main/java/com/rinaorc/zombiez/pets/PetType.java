@@ -328,19 +328,19 @@ public enum PetType {
     ),
 
     SPECTRE_GARDIEN(
-        "Spectre Gardien",
+        "Renifleur Archéologue",
         PetRarity.RARE,
-        Material.CHAINMAIL_CHESTPLATE,
-        EntityType.VEX,
-        "guardian_specter",
-        "Protection / Contre-attaque",
-        "Fantôme en armure",
-        "Pare automatiquement 1 attaque/30s",
-        "Riposte Spectrale",
-        "Prochaine attaque subie = contre-attaque x2",
-        20,
-        "Parade toutes les 25s",
-        "La parade stun l'attaquant"
+        Material.BRUSH,
+        EntityType.SNIFFER,
+        "archaeologist_sniffer",
+        "Découverte / RNG positif",
+        "Ancien Sniffer aux sens affûtés pour les trésors",
+        "Toutes les 8 attaques, déterre un bonus aléatoire (5s)",
+        "Relique Ancestrale",
+        "Déterre une relique : TOUS les bonus + aura slow 40%",
+        40,
+        "Fouille toutes les 6 attaques",
+        "Les bonus durent 8s et sont 50% plus puissants"
     ),
 
     // --- NOUVEAUX PETS RARES (Synergies Avancées) ---
