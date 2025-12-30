@@ -478,19 +478,19 @@ public enum PetType {
     ),
 
     ELEMENTAIRE_INSTABLE(
-        "Élémentaire Instable",
+        "Tempête Vivante",
         PetRarity.EPIC,
-        Material.END_CRYSTAL,
-        EntityType.VEX,
-        "unstable_elemental",
-        "Chaos / Aléatoire",
-        "Sphère d'énergie multicolore changeante",
-        "Effet aléatoire toutes les 30s (buff ou dégâts zone)",
-        "Implosion Chaotique",
-        "Effet puissant aléatoire",
-        30,
-        "Les effets positifs durent +50%",
-        "Peut déclencher plusieurs effets à la fois"
+        Material.WIND_CHARGE,
+        EntityType.BREEZE,
+        "living_storm",
+        "Vent / Contrôle / Propulsion",
+        "Breeze miniature aux vents tourbillonnants",
+        "25% chance de rafale de vent (knockback + 15% dégâts)",
+        "Vortex Chaotique",
+        "Aspire puis expulse violemment les ennemis (60 dégâts)",
+        35,
+        "Rafales +10% dégâts, knockback +30%",
+        "Le vortex désoriente les ennemis 3s après l'éjection"
     ),
 
     // --- NOUVEAUX PETS ÉPIQUES (Synergies Uniques) ---

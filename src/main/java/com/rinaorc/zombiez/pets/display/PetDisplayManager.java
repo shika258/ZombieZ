@@ -904,6 +904,15 @@ public class PetDisplayManager {
                 }
                 entity = ghast;
             }
+            case BREEZE -> {
+                // Tempête Vivante - Breeze miniature
+                org.bukkit.entity.Breeze breeze = (org.bukkit.entity.Breeze) world.spawnEntity(loc, EntityType.BREEZE);
+                // Scale 0.6 pour un Breeze plus petit et mignon
+                if (breeze.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    breeze.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = breeze;
+            }
             case ARMOR_STAND -> {
                 // Pour les golems et autres - ArmorStand visible avec équipement
                 ArmorStand stand = (ArmorStand) world.spawnEntity(loc, EntityType.ARMOR_STAND);

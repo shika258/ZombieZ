@@ -221,12 +221,12 @@ public class PetAbilityRegistry {
                 "Marque un ennemi 8s : +50% dégâts, 100% crit", 25, 8, 0.50)
         );
 
-        // Élémentaire Instable
+        // Tempête Vivante (Breeze)
         registerAbilities(PetType.ELEMENTAIRE_INSTABLE,
-            new ChaosPassive("elemental_chaos", "Instabilité",
-                "Effet aléatoire toutes les 30s", 30),
-            new ChaosActive("elemental_implode", "Implosion Chaotique",
-                "Effet puissant aléatoire", 30)
+            new WindGustPassive("breeze_gust", "Rafales Imprévisibles",
+                "25% chance de rafale (knockback + 15% dégâts)", 0.25, 0.15, 1.2),
+            new ChaoticVortexActive("breeze_vortex", "Vortex Chaotique",
+                "Aspire puis expulse violemment (60 dégâts)", 35, 60, 8)
         );
 
         // ==================== LÉGENDAIRES ====================

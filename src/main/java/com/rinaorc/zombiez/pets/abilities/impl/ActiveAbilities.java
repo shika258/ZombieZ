@@ -2562,3 +2562,151 @@ class ColossusActive implements PetAbility {
         return true;
     }
 }
+
+// ==================== VORTEX CHAOTIQUE (BREEZE) ====================
+
+@Getter
+class ChaoticVortexActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double baseDamage;
+    private final double radius;
+
+    ChaoticVortexActive(String id, String name, String desc, int cd, double damage, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.baseDamage = damage;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location center = player.getLocation();
+
+        double adjustedDamage = baseDamage * petData.getStatMultiplier();
+        double adjustedRadius = radius + (petData.getStatMultiplier() - 1) * 2;
+
+        player.sendMessage("§a[Pet] §b§l🌪️ VORTEX CHAOTIQUE! §7Les vents se déchaînent!");
+
+        // Sons initiaux
+        world.playSound(center, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
+        world.playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.5f);
+
+        // Phase 1: Aspiration (2 secondes)
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int suctionDuration = 40; // 2 secondes
+            final List<Monster> trappedMonsters = new ArrayList<>();
+
+            @Override
+            public void run() {
+                if (ticks < suctionDuration) {
+                    // Phase d'aspiration
+                    double progress = ticks / (double) suctionDuration;
+
+                    // Particules de tourbillon
+                    for (int i = 0; i < 20; i++) {
+                        double angle = (ticks * 0.3) + i * (Math.PI * 2 / 20);
+                        double currentRadius = adjustedRadius * (1 - progress * 0.5);
+                        double height = Math.sin(ticks * 0.2 + i * 0.3) * 2 + 1;
+
+                        Location particleLoc = center.clone().add(
+                            Math.cos(angle) * currentRadius,
+                            height,
+                            Math.sin(angle) * currentRadius
+                        );
+
+                        world.spawnParticle(Particle.CLOUD, particleLoc, 1, 0.1, 0.1, 0.1, 0);
+                        if (i % 4 == 0) {
+                            world.spawnParticle(Particle.SWEEP_ATTACK, particleLoc, 1, 0, 0, 0, 0);
+                        }
+                    }
+
+                    // Aspirer les ennemis vers le centre
+                    for (Entity entity : center.getNearbyEntities(adjustedRadius, 4, adjustedRadius)) {
+                        if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                            if (!trappedMonsters.contains(m)) {
+                                trappedMonsters.add(m);
+                            }
+
+                            Vector toCenter = center.toVector().subtract(m.getLocation().toVector());
+                            double dist = toCenter.length();
+                            if (dist > 1) {
+                                toCenter.normalize().multiply(0.4);
+                                toCenter.setY(0.1);
+                                m.setVelocity(toCenter);
+                            }
+
+                            // Désorientation (slow + faiblesse)
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 2, false, false));
+                        }
+                    }
+
+                    // Son périodique de vent
+                    if (ticks % 10 == 0) {
+                        world.playSound(center, Sound.ENTITY_BREEZE_INHALE, 0.8f, 1.0f + (float) progress * 0.5f);
+                    }
+                } else if (ticks == suctionDuration) {
+                    // Phase 2: EXPLOSION!
+                    world.playSound(center, Sound.ENTITY_BREEZE_SHOOT, 1.5f, 0.5f);
+                    world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.5f);
+                    world.playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 1.5f, 0.8f);
+
+                    // Particules d'explosion
+                    Location explosionCenter = center.clone().add(0, 1, 0);
+                    world.spawnParticle(Particle.EXPLOSION, explosionCenter, 5, 1, 1, 1, 0);
+                    world.spawnParticle(Particle.CLOUD, explosionCenter, 100, 3, 2, 3, 0.5);
+                    world.spawnParticle(Particle.SWEEP_ATTACK, explosionCenter, 30, 2, 1, 2, 0);
+
+                    // Projeter et endommager tous les monstres piégés
+                    for (Monster m : trappedMonsters) {
+                        if (m.isValid() && !m.isDead()) {
+                            // Dégâts
+                            m.damage(adjustedDamage, player);
+
+                            // Knockback massif vers l'extérieur
+                            Vector expulsion = m.getLocation().toVector()
+                                .subtract(center.toVector());
+                            if (expulsion.lengthSquared() < 0.1) {
+                                // Si trop proche du centre, direction aléatoire
+                                expulsion = new Vector(
+                                    Math.random() - 0.5,
+                                    0,
+                                    Math.random() - 0.5
+                                );
+                            }
+                            expulsion.normalize().multiply(2.5);
+                            expulsion.setY(0.8);
+                            m.setVelocity(expulsion);
+
+                            // Effet de désorientation prolongée
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, false, false));
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 1, false, false));
+
+                            // Particules sur chaque monstre éjecté
+                            world.spawnParticle(Particle.CLOUD, m.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                        }
+                    }
+
+                    player.sendMessage("§a[Pet] §7Ennemis éjectés : §e" + trappedMonsters.size());
+                    cancel();
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+}

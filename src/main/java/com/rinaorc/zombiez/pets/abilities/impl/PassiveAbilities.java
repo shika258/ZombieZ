@@ -1167,5 +1167,70 @@ class SpeedBoostPassive implements PetAbility {
 
 // ==================== PUISSANCE ET LENTEUR ====================
 
+// ==================== RAFALES DE VENT (BREEZE) ====================
+
+@Getter
+class WindGustPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double procChance;          // 25% de chance
+    private final double damageBonus;         // +15% dégâts sur le proc
+    private final double knockbackStrength;   // Force du knockback
+
+    WindGustPassive(String id, String name, String desc, double chance, double bonus, double knockback) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.procChance = chance;
+        this.damageBonus = bonus;
+        this.knockbackStrength = knockback;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        // 25% de chance de déclencher une rafale
+        if (Math.random() < procChance * petData.getStatMultiplier()) {
+            World world = player.getWorld();
+            Location targetLoc = target.getLocation();
+
+            // Appliquer le knockback à la cible
+            org.bukkit.util.Vector direction = targetLoc.toVector()
+                .subtract(player.getLocation().toVector())
+                .normalize()
+                .multiply(knockbackStrength);
+            direction.setY(0.4); // Légère élévation
+            target.setVelocity(direction);
+
+            // Repousser les ennemis proches aussi
+            for (Entity entity : target.getNearbyEntities(3, 2, 3)) {
+                if (entity instanceof Monster m && m != target) {
+                    org.bukkit.util.Vector pushDir = m.getLocation().toVector()
+                        .subtract(player.getLocation().toVector())
+                        .normalize()
+                        .multiply(knockbackStrength * 0.7);
+                    pushDir.setY(0.3);
+                    m.setVelocity(pushDir);
+                }
+            }
+
+            // Effets visuels - particules de vent
+            world.spawnParticle(Particle.CLOUD, targetLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.SWEEP_ATTACK, targetLoc, 5, 0.3, 0.3, 0.3, 0);
+
+            // Sons de vent (Breeze sounds)
+            world.playSound(targetLoc, Sound.ENTITY_BREEZE_INHALE, 0.8f, 1.2f);
+            world.playSound(targetLoc, Sound.ENTITY_BREEZE_WIND_BURST, 0.6f, 1.5f);
+
+            // Bonus de dégâts
+            return damage * (1 + damageBonus);
+        }
+        return damage;
+    }
+}
+
 // PassiveAbilityCleanup class moved to its own file
 // (PassiveAbilityCleanup.java)
