@@ -257,12 +257,13 @@ public class PetAbilityRegistry {
                 "Couteau tournoyant (750% dégâts arme)", spectralSwiftPassive, 7.50, 1.5)
         );
 
-        // Esprit de la Forêt
-        registerAbilities(PetType.ESPRIT_FORET,
-            new AdvancedRegenPassive("forest_regen", "Symbiose Naturelle",
-                "1 coeur/3s, +50% efficacité soins", 1.0, 60, 0.50),
-            new SanctuaryActive("forest_sanctuary", "Sanctuaire Naturel",
-                "Zone de soin massive (5 coeurs/s, 10s)", 60, 5, 10)
+        // Creaking Vengeur (Racines / Contrôle de Zone)
+        RootGraspPassive rootGraspPassive = new RootGraspPassive("root_grasp", "Emprise Racinaire",
+            "8% chance de root (1.5s + 25% dégâts)", 0.08, 0.25, 30);
+        registerAbilities(PetType.CREAKING_VENGEUR,
+            rootGraspPassive,
+            new AwakenedForestActive("awakened_forest", "Forêt Éveillée",
+                "Explosion 12 blocs (root 4s + 100% dégâts) + éruptions 6s", rootGraspPassive, 1.00, 12.0, 80, 120)
         );
 
         // Phénix Ancestral

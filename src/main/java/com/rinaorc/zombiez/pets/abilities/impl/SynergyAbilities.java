@@ -6626,3 +6626,456 @@ class PhantomBladeActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== VENGEFUL CREAKING SYSTEM (Creaking Vengeur) ====================
+
+/**
+ * Emprise Racinaire - Chance de faire jaillir des racines sous les ennemis
+ * 8% chance, root 1.5s + 25% dégâts joueur
+ */
+@Getter
+class RootGraspPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseChance;           // 8% = 0.08
+    private final double baseDamagePercent;    // 25% = 0.25
+    private final int rootDurationTicks;       // 1.5s = 30 ticks
+    private static final Random random = new Random();
+
+    public RootGraspPassive(String id, String name, String desc, double chance,
+                             double damagePercent, int rootDuration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseChance = chance;
+        this.baseDamagePercent = damagePercent;
+        this.rootDurationTicks = rootDuration;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Calcule la chance selon le niveau
+     * Base: 8%, Niveau 5+: 12%
+     */
+    private double getEffectiveChance(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.12; // 12%
+        }
+        return baseChance; // 8%
+    }
+
+    /**
+     * Calcule le % de dégâts selon le niveau
+     * Base: 25%, Niveau 5+: 30%
+     */
+    private double getEffectiveDamagePercent(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.30; // 30%
+        }
+        return baseDamagePercent; // 25%
+    }
+
+    /**
+     * Vérifie si on applique Wither (étoiles max)
+     */
+    private boolean shouldApplyWither(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        double chance = getEffectiveChance(petData);
+
+        if (random.nextDouble() < chance) {
+            spawnRoots(player, target, petData);
+        }
+    }
+
+    /**
+     * Fait jaillir des racines sous l'ennemi
+     */
+    private void spawnRoots(Player player, LivingEntity target, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        Location loc = target.getLocation();
+        World world = target.getWorld();
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+        double rootDamage = baseDamage * getEffectiveDamagePercent(petData) * petData.getStatMultiplier();
+
+        boolean applyWither = shouldApplyWither(petData);
+
+        // Effet visuel des racines
+        world.playSound(loc, Sound.BLOCK_ROOTS_BREAK, 1.5f, 0.6f);
+        world.playSound(loc, Sound.BLOCK_WOOD_BREAK, 1.0f, 0.5f);
+        world.playSound(loc, Sound.ENTITY_CREAKING_SPAWN, 0.8f, 1.0f);
+
+        // Particules de racines qui jaillissent
+        spawnRootParticles(loc, world);
+
+        // Root (immobilisation via slowness extrême + no jump)
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, rootDurationTicks, 100)); // Immobile
+        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, rootDurationTicks, 128)); // No jump
+
+        // Wither si étoiles max
+        if (applyWither) {
+            target.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, rootDurationTicks + 20, 1)); // Wither II
+        }
+
+        // Infliger les dégâts
+        var zombieManager = plugin.getZombieManager();
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, rootDamage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+            } else {
+                target.damage(rootDamage, player);
+            }
+        } else {
+            target.damage(rootDamage, player);
+        }
+
+        // Message
+        String witherMsg = applyWither ? " §8+ Wither" : "";
+        player.sendMessage("§2[Pet] §a🌿 §7Racines! §c" +
+            String.format("%.0f", rootDamage) + " §7dégâts + Root " +
+            String.format("%.1f", rootDurationTicks / 20.0) + "s" + witherMsg);
+    }
+
+    /**
+     * Crée l'effet visuel des racines
+     */
+    private void spawnRootParticles(Location center, World world) {
+        // Racines qui montent du sol
+        new BukkitRunnable() {
+            int ticks = 0;
+            double height = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 15) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de racines
+                for (double angle = 0; angle < 360; angle += 45) {
+                    double rad = Math.toRadians(angle + ticks * 20);
+                    double r = 0.5 + ticks * 0.05;
+                    double x = center.getX() + r * Math.cos(rad);
+                    double z = center.getZ() + r * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, center.getY() + height, z);
+
+                    world.spawnParticle(Particle.BLOCK, particleLoc,
+                        3, 0.1, 0.2, 0.1, 0,
+                        Material.PALE_OAK_WOOD.createBlockData());
+                    world.spawnParticle(Particle.BLOCK, particleLoc,
+                        2, 0.1, 0.1, 0.1, 0,
+                        Material.PALE_OAK_LEAVES.createBlockData());
+                }
+
+                height += 0.1;
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Forêt Éveillée - Explosion massive de racines avec éruptions continues
+ * Root 4s + 100% dégâts joueur dans 12 blocs, puis éruptions pendant 6s
+ */
+@Getter
+class AwakenedForestActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final RootGraspPassive linkedPassive;
+    private final double damagePercent;        // 100% = 1.00
+    private final double explosionRadius;      // 12 blocs
+    private final int rootDurationTicks;       // 4s = 80 ticks
+    private final int eruptionDurationTicks;   // 6s = 120 ticks
+
+    public AwakenedForestActive(String id, String name, String desc, RootGraspPassive passive,
+                                 double dmgPercent, double radius, int rootDuration, int eruptionDuration) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damagePercent = dmgPercent;
+        this.explosionRadius = radius;
+        this.rootDurationTicks = rootDuration;
+        this.eruptionDurationTicks = eruptionDuration;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        Location center = player.getLocation();
+        World world = player.getWorld();
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+        double explosionDamage = baseDamage * this.damagePercent * petData.getStatMultiplier();
+        double eruptionDamage = explosionDamage * 0.3; // 30% pour les éruptions
+
+        boolean applyWither = petData.getStarPower() > 0;
+
+        // Son d'activation
+        world.playSound(center, Sound.ENTITY_CREAKING_ACTIVATE, 2.0f, 0.5f);
+        world.playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.8f, 0.3f);
+        world.playSound(center, Sound.BLOCK_ROOTS_BREAK, 2.0f, 0.4f);
+
+        // Explosion initiale de racines
+        spawnForestExplosion(center, world);
+
+        // Affecter tous les ennemis dans le rayon
+        int affected = 0;
+        for (Entity entity : world.getNearbyEntities(center, explosionRadius, explosionRadius, explosionRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(center);
+                if (distSq > explosionRadius * explosionRadius) continue;
+
+                affected++;
+
+                // Root (immobilisation)
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, rootDurationTicks, 100));
+                living.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, rootDurationTicks, 128));
+
+                // Wither si étoiles max
+                if (applyWither) {
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, rootDurationTicks + 40, 1));
+                }
+
+                // Dégâts
+                dealDamage(player, living, explosionDamage, plugin);
+
+                // Effet visuel sur chaque cible
+                spawnRootOnTarget(living.getLocation(), world);
+            }
+        }
+
+        // Lancer les éruptions continues
+        startEruptions(player, center, eruptionDamage, applyWither, plugin);
+
+        // Message
+        String witherMsg = applyWither ? " §8+ Wither" : "";
+        player.sendMessage("§2[Pet] §a🌲 §7Forêt Éveillée! §e" + affected +
+            " §7ennemis rootés + §c" + String.format("%.0f", explosionDamage) + " §7dégâts" + witherMsg);
+    }
+
+    /**
+     * Crée l'explosion visuelle de la forêt
+     */
+    private void spawnForestExplosion(Location center, World world) {
+        // Onde de racines qui s'expand
+        new BukkitRunnable() {
+            double radius = 0;
+
+            @Override
+            public void run() {
+                if (radius >= explosionRadius) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de racines
+                for (double angle = 0; angle < 360; angle += 10) {
+                    double rad = Math.toRadians(angle);
+                    double x = center.getX() + radius * Math.cos(rad);
+                    double z = center.getZ() + radius * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, center.getY() + 0.2, z);
+
+                    world.spawnParticle(Particle.BLOCK, particleLoc,
+                        5, 0.2, 0.1, 0.2, 0,
+                        Material.PALE_OAK_WOOD.createBlockData());
+                    world.spawnParticle(Particle.BLOCK, particleLoc,
+                        3, 0.1, 0.1, 0.1, 0,
+                        Material.PALE_OAK_LEAVES.createBlockData());
+                }
+
+                // Son de craquement
+                if (radius % 3 < 1) {
+                    world.playSound(center.clone().add(radius, 0, 0), Sound.BLOCK_WOOD_BREAK, 0.5f, 0.6f);
+                }
+
+                radius += 1.5;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Spawn des racines sur une cible
+     */
+    private void spawnRootOnTarget(Location loc, World world) {
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.random() * 360;
+            double rad = Math.toRadians(angle);
+            double r = Math.random() * 0.8;
+            double x = loc.getX() + r * Math.cos(rad);
+            double z = loc.getZ() + r * Math.sin(rad);
+
+            for (double y = 0; y < 1.5; y += 0.3) {
+                Location particleLoc = new Location(world, x, loc.getY() + y, z);
+                world.spawnParticle(Particle.BLOCK, particleLoc,
+                    2, 0.05, 0.1, 0.05, 0,
+                    Material.PALE_OAK_WOOD.createBlockData());
+            }
+        }
+    }
+
+    /**
+     * Lance les éruptions de racines continues
+     */
+    private void startEruptions(Player player, Location center, double eruptionDamage,
+                                 boolean applyWither, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        Random random = new Random();
+
+        new BukkitRunnable() {
+            int ticksRemaining = eruptionDurationTicks;
+
+            @Override
+            public void run() {
+                if (ticksRemaining <= 0 || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Éruption toutes les 15 ticks (0.75s)
+                if (ticksRemaining % 15 == 0) {
+                    // Position aléatoire dans le rayon
+                    double angle = random.nextDouble() * 360;
+                    double rad = Math.toRadians(angle);
+                    double r = random.nextDouble() * explosionRadius;
+                    double x = center.getX() + r * Math.cos(rad);
+                    double z = center.getZ() + r * Math.sin(rad);
+                    Location eruptLoc = new Location(world, x, center.getY(), z);
+
+                    // Ajuster Y au sol
+                    eruptLoc = world.getHighestBlockAt(eruptLoc).getLocation().add(0, 1, 0);
+
+                    // Effet d'éruption
+                    spawnEruption(eruptLoc, world);
+
+                    // Dégâts aux ennemis proches de l'éruption
+                    for (Entity entity : world.getNearbyEntities(eruptLoc, 2, 2, 2)) {
+                        if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                            && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                            dealDamage(player, living, eruptionDamage, plugin);
+
+                            // Mini root
+                            living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 50));
+
+                            // Wither si étoiles max
+                            if (applyWither) {
+                                living.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, 40, 0));
+                            }
+                        }
+                    }
+                }
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Crée une éruption de racine ponctuelle
+     */
+    private void spawnEruption(Location loc, World world) {
+        world.playSound(loc, Sound.BLOCK_ROOTS_BREAK, 1.0f, 0.8f);
+        world.playSound(loc, Sound.ENTITY_CREAKING_STEP, 0.8f, 1.2f);
+
+        // Racines qui jaillissent
+        new BukkitRunnable() {
+            int ticks = 0;
+            double height = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 10) {
+                    cancel();
+                    return;
+                }
+
+                for (double angle = 0; angle < 360; angle += 60) {
+                    double rad = Math.toRadians(angle + ticks * 30);
+                    double r = 0.3;
+                    double x = loc.getX() + r * Math.cos(rad);
+                    double z = loc.getZ() + r * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, loc.getY() + height, z);
+
+                    world.spawnParticle(Particle.BLOCK, particleLoc,
+                        3, 0.1, 0.15, 0.1, 0,
+                        Material.PALE_OAK_WOOD.createBlockData());
+                }
+
+                // Pointe de la racine
+                world.spawnParticle(Particle.CRIT, loc.clone().add(0, height + 0.3, 0),
+                    3, 0.1, 0.1, 0.1, 0.1);
+
+                height += 0.2;
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                             com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        var zombieManager = plugin.getZombieManager();
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

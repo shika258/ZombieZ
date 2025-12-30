@@ -611,20 +611,20 @@ public enum PetType {
         "Le couteau traverse et touche tous les ennemis sur son passage"
     ),
 
-    ESPRIT_FORET(
-        "Esprit de la Forêt",
+    CREAKING_VENGEUR(
+        "Creaking Vengeur",
         PetRarity.LEGENDARY,
-        Material.OAK_SAPLING,
-        EntityType.ALLAY,
-        "forest_spirit",
-        "Nature / Régénération Ultime",
-        "Dryade miniature avec feuilles et fleurs",
-        "Régénération de 1 coeur/3s, +50% efficacité des soins reçus",
-        "Sanctuaire Naturel",
-        "Zone de soin massive (5 coeurs/s pendant 10s)",
-        60,
-        "Régénération +0.5 coeur/3s",
-        "Le sanctuaire fait aussi repousser les morts-vivants"
+        Material.PALE_OAK_SAPLING,
+        EntityType.CREAKING,
+        "vengeful_creaking",
+        "Racines / Contrôle de Zone",
+        "Creaking spectral aux yeux rougeoyants et racines ondulantes",
+        "8% chance par attaque de faire jaillir des racines (root 1.5s + 25% dégâts)",
+        "Forêt Éveillée",
+        "Explosion de racines (12 blocs) : root 4s + 100% dégâts, puis éruptions 6s",
+        45,
+        "12% chance, 30% dégâts racines",
+        "Les racines appliquent aussi Wither II"
     ),
 
     PHENIX_ANCESTRAL(
