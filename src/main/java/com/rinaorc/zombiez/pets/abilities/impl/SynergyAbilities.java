@@ -3595,51 +3595,30 @@ class SwarmFuryActive implements PetAbility {
     }
 }
 
-// ==================== RENIFLEUR ARCHÉOLOGUE (Découverte / RNG positif) ====================
+// ==================== TENTACULE DU VIDE (Proc / Invocation - Style Gur'thalak) ====================
 
 @Getter
-class ArchaeologyDigPassive implements PetAbility {
+class VoidTentaclePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForDig;              // 8 attaques
-    private final int bonusDurationTicks;         // 5s = 100 ticks
-    private final long procCooldownMs;            // 5000ms = 5s cooldown entre procs
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
-    private final Map<UUID, Long> activeBonusEnd = new HashMap<>();
-    private final Map<UUID, DigBonus> activeBonus = new HashMap<>();
+    private final double procChance;              // 15% de chance
+    private final double damagePercent;           // % des dégâts du joueur
+    private final int tentacleDurationTicks;      // Durée des tentacules
+    private final double tentacleRadius;          // Rayon d'attaque des tentacules
+    private final int tentacleCount;              // Nombre de tentacules invoqués
     private final Map<UUID, Long> lastProcTime = new HashMap<>();
 
-    // Types de bonus possibles
-    public enum DigBonus {
-        DAMAGE("§c⚔ Force Antique", 0.20, Particle.CRIT, Sound.ENTITY_PLAYER_ATTACK_STRONG),
-        SPEED("§b⚡ Célérité", 0.30, Particle.CLOUD, Sound.ENTITY_PLAYER_LEVELUP),
-        HEAL("§a❤ Régénération", 0.10, Particle.HEART, Sound.ENTITY_PLAYER_LEVELUP),
-        SHIELD("§e🛡 Bouclier Doré", 10.0, Particle.WAX_ON, Sound.ITEM_ARMOR_EQUIP_GOLD);
-
-        public final String displayName;
-        public final double value;
-        public final Particle particle;
-        public final Sound sound;
-
-        DigBonus(String name, double val, Particle p, Sound s) {
-            this.displayName = name;
-            this.value = val;
-            this.particle = p;
-            this.sound = s;
-        }
-    }
-
-    public ArchaeologyDigPassive(String id, String name, String desc, int attacksNeeded, int durationTicks, long cooldownMs) {
+    public VoidTentaclePassive(String id, String name, String desc, double chance, double dmgPercent,
+                                int duration, double radius, int count) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForDig = attacksNeeded;
-        this.bonusDurationTicks = durationTicks;
-        this.procCooldownMs = cooldownMs;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
-        PassiveAbilityCleanup.registerForCleanup(activeBonusEnd);
-        PassiveAbilityCleanup.registerForCleanup(activeBonus);
+        this.procChance = chance;
+        this.damagePercent = dmgPercent;
+        this.tentacleDurationTicks = duration;
+        this.tentacleRadius = radius;
+        this.tentacleCount = count;
         PassiveAbilityCleanup.registerForCleanup(lastProcTime);
     }
 
@@ -3649,187 +3628,187 @@ class ArchaeologyDigPassive implements PetAbility {
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
         UUID uuid = player.getUniqueId();
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
 
-        // Ajuster le nombre d'attaques par niveau
-        int adjustedAttacks = attacksForDig - (int)((petData.getStatMultiplier() - 1) * 2);
-        adjustedAttacks = Math.max(adjustedAttacks, 4); // Minimum 4 attaques
+        // Ajuster la chance par niveau
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.05;
 
-        // Vérifier si un bonus est actif
-        double bonusDamage = damage;
-        if (hasActiveBonus(uuid) && activeBonus.get(uuid) == DigBonus.DAMAGE) {
-            double damageBoost = DigBonus.DAMAGE.value + (petData.getStatMultiplier() - 1) * 0.10;
-            bonusDamage = damage * (1 + damageBoost);
-
-            // Effet visuel du bonus de dégâts
-            player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
-                5, 0.3, 0.3, 0.3, 0.1);
+        // Cooldown interne de 2s pour éviter le spam
+        long now = System.currentTimeMillis();
+        long lastProc = lastProcTime.getOrDefault(uuid, 0L);
+        if (now - lastProc < 2000) {
+            return damage;
         }
 
-        if (count >= adjustedAttacks) {
-            // Vérifier le cooldown entre procs (5s)
-            long now = System.currentTimeMillis();
-            long lastProc = lastProcTime.getOrDefault(uuid, 0L);
-
-            if (now - lastProc >= procCooldownMs) {
-                // Fouille!
-                attackCounters.put(uuid, 0);
-                lastProcTime.put(uuid, now);
-                performDig(player, petData);
-            } else {
-                // Cooldown actif - reset le compteur mais pas de proc
-                attackCounters.put(uuid, 0);
-                long remainingCd = (procCooldownMs - (now - lastProc)) / 1000;
-                player.sendMessage("§a[Pet] §7Fouille en cooldown... §e" + remainingCd + "s");
-            }
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur de progression (animation de fouille)
-            if (count >= adjustedAttacks - 2) {
-                player.getWorld().spawnParticle(Particle.DUST_PLUME, player.getLocation().add(0, 0.5, 0),
-                    3, 0.3, 0.1, 0.3, 0.02);
-            }
+        // Test de proc
+        if (Math.random() < adjustedChance) {
+            lastProcTime.put(uuid, now);
+            spawnVoidTentacles(player, petData, target.getLocation(), false);
         }
 
-        return bonusDamage;
+        return damage;
     }
 
-    @Override
-    public void applyPassive(Player player, PetData petData) {
-        UUID uuid = player.getUniqueId();
+    public void spawnVoidTentacles(Player player, PetData petData, Location center, boolean isUltimate) {
+        World world = center.getWorld();
 
-        // Appliquer les effets des bonus actifs
-        if (hasActiveBonus(uuid)) {
-            DigBonus bonus = activeBonus.get(uuid);
+        // Ajuster les valeurs par niveau
+        double adjustedRadius = tentacleRadius + (petData.getStatMultiplier() - 1) * 1.5;
+        int adjustedDuration = (int) (tentacleDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
+        int adjustedCount = isUltimate ? 5 : tentacleCount + (int)((petData.getStatMultiplier() - 1) * 0.5);
 
-            // Particules du bonus actif
-            player.spawnParticle(bonus.particle, player.getLocation().add(0, 1.5, 0),
-                2, 0.3, 0.3, 0.3, 0.01);
+        // Calculer les dégâts des tentacules
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double tentacleDamage = playerDamage * (isUltimate ? adjustedDmgPercent * 1.5 : adjustedDmgPercent);
 
-            // Effet de vitesse
-            if (bonus == DigBonus.SPEED) {
-                double speedBoost = DigBonus.SPEED.value + (petData.getStatMultiplier() - 1) * 0.10;
-                int speedLevel = (int) (speedBoost * 3); // 30% ≈ niveau 1
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.SPEED, 25, speedLevel, false, false));
-            }
+        // Son d'invocation
+        world.playSound(center, Sound.ENTITY_WARDEN_EMERGE, 0.8f, 1.5f);
+        world.playSound(center, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.5f, 0.5f);
 
-            // Effet de régénération
-            if (bonus == DigBonus.HEAL) {
-                // Régénération légère
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.REGENERATION, 25, 0, false, false));
-            }
+        if (!isUltimate) {
+            player.sendMessage("§a[Pet] §5🦑 TENTACULES DU VIDE! §7" + adjustedCount + " tentacule(s) invoqué(s)!");
+        }
+
+        // Spawner les tentacules en cercle autour du point d'impact
+        for (int i = 0; i < adjustedCount; i++) {
+            double angle = (2 * Math.PI / adjustedCount) * i;
+            double spawnRadius = isUltimate ? 3.0 : 1.5;
+            Location tentacleLoc = center.clone().add(
+                Math.cos(angle) * spawnRadius,
+                0,
+                Math.sin(angle) * spawnRadius
+            );
+
+            // Délai entre chaque spawn de tentacule
+            final int tentacleIndex = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnSingleTentacle(player, petData, tentacleLoc, tentacleDamage, adjustedRadius,
+                    adjustedDuration, isUltimate),
+                i * 3L
+            );
         }
     }
 
-    private void performDig(Player player, PetData petData) {
-        UUID uuid = player.getUniqueId();
-        World world = player.getWorld();
-        Location playerLoc = player.getLocation();
+    private void spawnSingleTentacle(Player player, PetData petData, Location spawnLoc,
+                                      double damage, double radius, int duration, boolean isUltimate) {
+        World world = spawnLoc.getWorld();
 
-        // Choisir un bonus aléatoire
-        DigBonus[] bonuses = DigBonus.values();
-        DigBonus chosenBonus = bonuses[(int)(Math.random() * bonuses.length)];
+        // Effet d'émergence
+        world.spawnParticle(Particle.PORTAL, spawnLoc, 30, 0.3, 0.5, 0.3, 0.5);
+        world.spawnParticle(Particle.SQUID_INK, spawnLoc, 15, 0.2, 0.3, 0.2, 0.1);
+        world.playSound(spawnLoc, Sound.ENTITY_SQUID_SQUIRT, 1.0f, 0.6f);
 
-        // Ajuster la durée par niveau
-        int adjustedDuration = (int) (bonusDurationTicks + (petData.getStatMultiplier() - 1) * 60);
+        // Animation du tentacule
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            double tentacleHeight = 0;
+            final double maxHeight = isUltimate ? 4.0 : 2.5;
+            boolean emerging = true;
+            int attackTick = 0;
 
-        // Activer le bonus
-        activeBonus.put(uuid, chosenBonus);
-        activeBonusEnd.put(uuid, System.currentTimeMillis() + adjustedDuration * 50L);
-
-        // Animation de fouille
-        Location digLoc = playerLoc.clone().add(playerLoc.getDirection().multiply(1.5));
-        digLoc.setY(playerLoc.getY());
-
-        // Effet de creusement
-        world.spawnParticle(Particle.DUST_PLUME, digLoc.clone().add(0, 0.3, 0), 30, 0.5, 0.2, 0.5, 0.1);
-        world.spawnParticle(Particle.BLOCK, digLoc, 20, 0.3, 0.2, 0.3, 0,
-            org.bukkit.Material.DIRT.createBlockData());
-
-        // Son de fouille
-        world.playSound(digLoc, Sound.ITEM_BRUSH_BRUSHING_SAND_COMPLETE, 1.2f, 1.0f);
-        world.playSound(digLoc, Sound.BLOCK_GRAVEL_BREAK, 0.8f, 0.8f);
-
-        // Animation de découverte (après un court délai)
-        Bukkit.getScheduler().runTaskLater(
-            Bukkit.getPluginManager().getPlugin("ZombieZ"),
-            () -> {
-                // Effet de découverte!
-                world.spawnParticle(Particle.TOTEM_OF_UNDYING, digLoc.clone().add(0, 1, 0),
-                    20, 0.3, 0.5, 0.3, 0.2);
-                world.spawnParticle(chosenBonus.particle, digLoc.clone().add(0, 1.5, 0),
-                    15, 0.3, 0.3, 0.3, 0.1);
-
-                world.playSound(digLoc, chosenBonus.sound, 1.0f, 1.2f);
-                world.playSound(digLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1.5f);
-
-                // Appliquer l'effet immédiat si c'est un bouclier
-                if (chosenBonus == DigBonus.SHIELD) {
-                    double shieldAmount = DigBonus.SHIELD.value + (petData.getStatMultiplier() - 1) * 5;
-                    int absorptionLevel = (int) (shieldAmount / 4); // 10 = niveau 2-3
-                    player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.ABSORPTION, adjustedDuration, absorptionLevel, false, true));
+            @Override
+            public void run() {
+                if (ticksAlive >= duration || !player.isOnline()) {
+                    // Disparition du tentacule
+                    world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, tentacleHeight / 2, 0),
+                        20, 0.3, tentacleHeight / 2, 0.3, 0.3);
+                    world.playSound(spawnLoc, Sound.ENTITY_SQUID_HURT, 0.8f, 0.8f);
+                    cancel();
+                    return;
                 }
 
-                player.sendMessage("§a[Pet] §6🦴 DÉCOUVERTE! " + chosenBonus.displayName +
-                    " §7(" + (adjustedDuration / 20) + "s)");
-            },
-            10L
-        );
-
-        // Timer pour fin du bonus
-        Bukkit.getScheduler().runTaskLater(
-            Bukkit.getPluginManager().getPlugin("ZombieZ"),
-            () -> {
-                if (activeBonus.get(uuid) == chosenBonus) {
-                    activeBonus.remove(uuid);
-                    activeBonusEnd.remove(uuid);
-                    player.sendMessage("§a[Pet] §7Le bonus " + chosenBonus.displayName + " §7s'estompe...");
+                // Phase d'émergence (10 premiers ticks)
+                if (emerging && ticksAlive < 10) {
+                    tentacleHeight = maxHeight * (ticksAlive / 10.0);
+                } else {
+                    emerging = false;
                 }
-            },
-            adjustedDuration
-        );
-    }
 
-    public boolean hasActiveBonus(UUID uuid) {
-        if (!activeBonusEnd.containsKey(uuid)) return false;
-        return System.currentTimeMillis() < activeBonusEnd.get(uuid);
-    }
+                // Dessiner le tentacule (particules verticales ondulantes)
+                if (ticksAlive % 2 == 0) {
+                    for (double h = 0; h < tentacleHeight; h += 0.4) {
+                        double wave = Math.sin(ticksAlive * 0.3 + h * 2) * 0.3;
+                        double wave2 = Math.cos(ticksAlive * 0.3 + h * 2) * 0.3;
+                        Location particleLoc = spawnLoc.clone().add(wave, h, wave2);
 
-    public DigBonus getActiveBonus(UUID uuid) {
-        if (hasActiveBonus(uuid)) {
-            return activeBonus.get(uuid);
-        }
-        return null;
-    }
+                        // Couleur violette/sombre pour le vide
+                        world.spawnParticle(Particle.PORTAL, particleLoc, 1, 0.05, 0.05, 0.05, 0);
+                        if (h > tentacleHeight - 0.8) {
+                            // Bout du tentacule plus visible
+                            world.spawnParticle(Particle.WITCH, particleLoc, 1, 0.1, 0.1, 0.1, 0);
+                        }
+                    }
+                }
 
-    public int getAttackCount(UUID uuid) {
-        return attackCounters.getOrDefault(uuid, 0);
+                // Attaquer toutes les 15 ticks (0.75s)
+                if (!emerging && ticksAlive >= attackTick + 15) {
+                    attackTick = ticksAlive;
+
+                    // Chercher des cibles dans le rayon
+                    for (Entity entity : world.getNearbyEntities(spawnLoc, radius, radius, radius)) {
+                        if (entity instanceof Monster monster) {
+                            double distSq = entity.getLocation().distanceSquared(spawnLoc);
+                            if (distSq <= radius * radius) {
+                                // Attaque!
+                                monster.damage(damage, player);
+                                petData.addDamage((long) damage);
+
+                                // Appliquer le slow
+                                int slowLevel = isUltimate ? 2 : 1;
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.SLOWNESS, 30, slowLevel, false, false));
+
+                                // Effet visuel d'attaque
+                                Location monsterLoc = monster.getLocation().add(0, 1, 0);
+                                world.spawnParticle(Particle.SQUID_INK, monsterLoc, 8, 0.3, 0.3, 0.3, 0.05);
+                                world.spawnParticle(Particle.CRIT_MAGIC, monsterLoc, 5, 0.2, 0.2, 0.2, 0.1);
+
+                                // Ligne de particules du tentacule vers la cible
+                                Vector dir = monsterLoc.toVector().subtract(spawnLoc.clone().add(0, tentacleHeight, 0).toVector());
+                                double dist = dir.length();
+                                dir.normalize();
+                                for (double d = 0; d < dist; d += 0.5) {
+                                    Location lineLoc = spawnLoc.clone().add(0, tentacleHeight, 0).add(dir.clone().multiply(d));
+                                    world.spawnParticle(Particle.PORTAL, lineLoc, 1, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+
+                    // Son d'attaque
+                    world.playSound(spawnLoc, Sound.ENTITY_SQUID_SQUIRT, 0.6f, 1.2f);
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
 
 @Getter
-class AncientRelicActive implements PetAbility {
+class VoidEruptionActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
     private final int cooldown;
-    private final int relicDurationTicks;         // 8s = 160 ticks
-    private final double slowAuraPercent;         // 40% slow
-    private final double auraRadius;              // Rayon de l'aura
+    private final int tentacleCount;              // 5 tentacules
+    private final double damagePercent;           // % des dégâts du joueur
+    private final int tentacleDurationTicks;      // 6s = 120 ticks
+    private final double tentacleRadius;          // Rayon d'attaque
+    private final boolean drainLife;              // Upgrade: drain de vie
 
-    public AncientRelicActive(String id, String name, String desc, int cd,
-                               int duration, double slowPercent, double radius) {
+    public VoidEruptionActive(String id, String name, String desc, int cd, int count,
+                               double dmgPercent, int duration, double radius, boolean drain) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
         this.cooldown = cd;
-        this.relicDurationTicks = duration;
-        this.slowAuraPercent = slowPercent;
-        this.auraRadius = radius;
+        this.tentacleCount = count;
+        this.damagePercent = dmgPercent;
+        this.tentacleDurationTicks = duration;
+        this.tentacleRadius = radius;
+        this.drainLife = drain;
     }
 
     @Override
@@ -3840,130 +3819,184 @@ class AncientRelicActive implements PetAbility {
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        UUID uuid = player.getUniqueId();
         World world = player.getWorld();
         Location playerLoc = player.getLocation();
 
+        // Vérifier qu'il y a des ennemis
+        boolean hasEnemies = player.getNearbyEntities(10, 10, 10).stream()
+            .anyMatch(e -> e instanceof Monster);
+
+        if (!hasEnemies) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
+        }
+
         // Ajuster les valeurs par niveau
-        int adjustedDuration = (int) (relicDurationTicks + (petData.getStatMultiplier() - 1) * 60);
-        double adjustedRadius = auraRadius + (petData.getStatMultiplier() - 1) * 2;
-        double adjustedSlow = slowAuraPercent + (petData.getStatMultiplier() - 1) * 0.10;
+        int adjustedCount = tentacleCount + (int)((petData.getStatMultiplier() - 1) * 2);
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
+        int adjustedDuration = (int) (tentacleDurationTicks + (petData.getStatMultiplier() - 1) * 40);
+        double adjustedRadius = tentacleRadius + (petData.getStatMultiplier() - 1) * 1.5;
 
-        // Calculer les bonus amplifiés
-        double damageBoost = 0.20 + (petData.getStatMultiplier() - 1) * 0.15;  // +20% → +35%
-        double speedBoost = 0.30 + (petData.getStatMultiplier() - 1) * 0.15;   // +30% → +45%
-        double shieldAmount = 10 + (petData.getStatMultiplier() - 1) * 8;       // 10 → 18 cœurs
+        // Calculer les dégâts
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double tentacleDamage = playerDamage * adjustedDmgPercent;
 
-        player.sendMessage("§a[Pet] §6§l🏛️ RELIQUE ANCESTRALE! §7Tous les bonus pendant " +
-            (adjustedDuration / 20) + "s!");
+        player.sendMessage("§a[Pet] §5§l🦑 ÉRUPTION DU VIDE! §7" + adjustedCount +
+            " tentacules géants pendant " + (adjustedDuration / 20) + "s!");
 
-        // Animation d'invocation de la relique
-        Location relicLoc = playerLoc.clone().add(playerLoc.getDirection().multiply(2));
-        relicLoc.setY(playerLoc.getY());
+        // Effet d'éruption centrale
+        world.spawnParticle(Particle.EXPLOSION, playerLoc, 3, 1, 0.5, 1, 0);
+        world.spawnParticle(Particle.PORTAL, playerLoc, 100, 2, 1, 2, 1);
+        world.spawnParticle(Particle.SQUID_INK, playerLoc, 50, 1.5, 0.5, 1.5, 0.2);
 
-        // Effet de fouille épique
-        world.spawnParticle(Particle.DUST_PLUME, relicLoc, 100, 1, 0.5, 1, 0.2);
-        world.playSound(relicLoc, Sound.ITEM_BRUSH_BRUSHING_SAND_COMPLETE, 2.0f, 0.8f);
-        world.playSound(relicLoc, Sound.BLOCK_ANCIENT_DEBRIS_BREAK, 1.5f, 0.5f);
+        // Sons épiques
+        world.playSound(playerLoc, Sound.ENTITY_WARDEN_ROAR, 0.6f, 1.5f);
+        world.playSound(playerLoc, Sound.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f, 0.3f);
+        world.playSound(playerLoc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.4f, 1.5f);
 
-        // Après un court délai, révéler la relique
-        Bukkit.getScheduler().runTaskLater(
-            Bukkit.getPluginManager().getPlugin("ZombieZ"),
-            () -> {
-                // Explosion de découverte!
-                world.spawnParticle(Particle.TOTEM_OF_UNDYING, relicLoc.clone().add(0, 1.5, 0),
-                    100, 1, 1.5, 1, 0.5);
-                world.spawnParticle(Particle.END_ROD, relicLoc.clone().add(0, 2, 0),
-                    50, 0.5, 1, 0.5, 0.1);
+        // Spawner les tentacules en cercle élargi
+        for (int i = 0; i < adjustedCount; i++) {
+            double angle = (2 * Math.PI / adjustedCount) * i;
+            double spawnRadius = 4.0 + Math.random() * 2;
+            Location tentacleLoc = playerLoc.clone().add(
+                Math.cos(angle) * spawnRadius,
+                0,
+                Math.sin(angle) * spawnRadius
+            );
 
-                // Sons épiques
-                world.playSound(relicLoc, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.5f, 1.0f);
-                world.playSound(relicLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.2f);
-                world.playSound(relicLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 0.8f);
+            final int tentacleIndex = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnGiantTentacle(player, petData, tentacleLoc, tentacleDamage,
+                    adjustedRadius, adjustedDuration, drainLife),
+                i * 5L
+            );
+        }
 
-                // Appliquer TOUS les bonus au joueur
-                int speedLevel = (int) (speedBoost * 4);
-                int absorptionLevel = (int) (shieldAmount / 4);
+        return true;
+    }
 
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.SPEED, adjustedDuration, speedLevel, false, true));
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.STRENGTH, adjustedDuration, 1, false, true));
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.REGENERATION, adjustedDuration, 1, false, true));
-                player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.ABSORPTION, adjustedDuration, absorptionLevel, false, true));
+    private void spawnGiantTentacle(Player player, PetData petData, Location spawnLoc,
+                                     double damage, double radius, int duration, boolean drain) {
+        World world = spawnLoc.getWorld();
 
-                player.sendMessage("§a[Pet] §c⚔ +20% Dégâts §7| §b⚡ +30% Vitesse §7| §a❤ Regen §7| §e🛡 Bouclier");
-            },
-            15L
-        );
+        // Effet d'émergence épique
+        world.spawnParticle(Particle.PORTAL, spawnLoc, 50, 0.5, 1, 0.5, 1);
+        world.spawnParticle(Particle.SQUID_INK, spawnLoc, 30, 0.3, 0.5, 0.3, 0.2);
+        world.spawnParticle(Particle.REVERSE_PORTAL, spawnLoc, 20, 0.5, 0.1, 0.5, 0.1);
+        world.playSound(spawnLoc, Sound.ENTITY_WARDEN_EMERGE, 1.0f, 1.2f);
 
-        // Animation continue de la relique et aura de slow
+        // Animation du tentacule géant
         new BukkitRunnable() {
             int ticksAlive = 0;
-            final Location center = playerLoc.clone();
+            double tentacleHeight = 0;
+            final double maxHeight = 5.0;
+            boolean emerging = true;
+            int attackTick = 0;
 
             @Override
             public void run() {
-                if (ticksAlive >= adjustedDuration || !player.isOnline()) {
-                    // Fin de l'effet
-                    world.spawnParticle(Particle.DUST_PLUME, player.getLocation().add(0, 1, 0),
-                        30, 0.5, 0.5, 0.5, 0.1);
-                    world.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.0f);
-                    player.sendMessage("§a[Pet] §7La relique retourne dans les profondeurs...");
+                if (ticksAlive >= duration || !player.isOnline()) {
+                    // Disparition épique
+                    for (double h = 0; h < tentacleHeight; h += 0.5) {
+                        Location particleLoc = spawnLoc.clone().add(0, h, 0);
+                        world.spawnParticle(Particle.PORTAL, particleLoc, 5, 0.3, 0.3, 0.3, 0.5);
+                    }
+                    world.playSound(spawnLoc, Sound.ENTITY_SQUID_DEATH, 1.0f, 0.6f);
                     cancel();
                     return;
                 }
 
-                Location currentLoc = player.getLocation();
-
-                // Particules d'aura autour du joueur (toutes les 3 ticks)
-                if (ticksAlive % 3 == 0) {
-                    // Cercle de particules
-                    for (int angle = 0; angle < 360; angle += 30) {
-                        double rad = Math.toRadians(angle + ticksAlive * 3);
-                        Location particleLoc = currentLoc.clone().add(
-                            Math.cos(rad) * adjustedRadius * 0.8,
-                            0.2,
-                            Math.sin(rad) * adjustedRadius * 0.8
-                        );
-                        world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
-                    }
-
-                    // Particules montantes autour du joueur
-                    world.spawnParticle(Particle.ENCHANT, currentLoc.add(0, 1, 0),
-                        5, 0.5, 0.5, 0.5, 0.5);
+                // Phase d'émergence (15 premiers ticks)
+                if (emerging && ticksAlive < 15) {
+                    tentacleHeight = maxHeight * (ticksAlive / 15.0);
+                } else {
+                    emerging = false;
                 }
 
-                // Appliquer l'aura de slow aux ennemis (toutes les 10 ticks)
-                if (ticksAlive % 10 == 0) {
-                    int slowLevel = (int) (adjustedSlow * 3); // 40% ≈ niveau 1
+                // Dessiner le tentacule géant (plus épais et menaçant)
+                if (ticksAlive % 2 == 0) {
+                    for (double h = 0; h < tentacleHeight; h += 0.3) {
+                        double wave = Math.sin(ticksAlive * 0.25 + h * 1.5) * 0.5;
+                        double wave2 = Math.cos(ticksAlive * 0.25 + h * 1.5) * 0.5;
 
-                    for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
+                        // Tentacule principal
+                        Location particleLoc = spawnLoc.clone().add(wave, h, wave2);
+                        world.spawnParticle(Particle.PORTAL, particleLoc, 2, 0.1, 0.1, 0.1, 0);
+                        world.spawnParticle(Particle.WITCH, particleLoc, 1, 0.1, 0.1, 0.1, 0);
+
+                        // Bout du tentacule (tête)
+                        if (h > tentacleHeight - 1.0) {
+                            world.spawnParticle(Particle.SQUID_INK, particleLoc, 2, 0.2, 0.2, 0.2, 0.02);
+                            world.spawnParticle(Particle.DRAGON_BREATH, particleLoc, 1, 0.15, 0.15, 0.15, 0);
+                        }
+                    }
+
+                    // Cercle au sol (zone de danger)
+                    for (int angle = 0; angle < 360; angle += 20) {
+                        double rad = Math.toRadians(angle + ticksAlive * 2);
+                        Location ringLoc = spawnLoc.clone().add(
+                            Math.cos(rad) * radius * 0.8,
+                            0.1,
+                            Math.sin(rad) * radius * 0.8
+                        );
+                        world.spawnParticle(Particle.PORTAL, ringLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Attaquer toutes les 12 ticks (0.6s) - plus rapide que le passif
+                if (!emerging && ticksAlive >= attackTick + 12) {
+                    attackTick = ticksAlive;
+
+                    double totalDamageDealt = 0;
+
+                    // Chercher des cibles dans le rayon
+                    for (Entity entity : world.getNearbyEntities(spawnLoc, radius, radius, radius)) {
                         if (entity instanceof Monster monster) {
-                            double distSq = entity.getLocation().distanceSquared(currentLoc);
-                            if (distSq <= adjustedRadius * adjustedRadius) {
-                                monster.addPotionEffect(new PotionEffect(
-                                    PotionEffectType.SLOWNESS, 15, slowLevel, false, false));
+                            double distSq = entity.getLocation().distanceSquared(spawnLoc);
+                            if (distSq <= radius * radius) {
+                                // Attaque!
+                                monster.damage(damage, player);
+                                petData.addDamage((long) damage);
+                                totalDamageDealt += damage;
 
-                                // Effet visuel sur l'ennemi ralenti
-                                world.spawnParticle(Particle.DUST_PLUME, monster.getLocation().add(0, 0.5, 0),
-                                    3, 0.2, 0.2, 0.2, 0.01);
+                                // Slow plus puissant
+                                monster.addPotionEffect(new PotionEffect(
+                                    PotionEffectType.SLOWNESS, 40, 2, false, false));
+
+                                // Effet visuel d'attaque
+                                Location monsterLoc = monster.getLocation().add(0, 1, 0);
+                                world.spawnParticle(Particle.SQUID_INK, monsterLoc, 12, 0.4, 0.4, 0.4, 0.08);
+                                world.spawnParticle(Particle.CRIT_MAGIC, monsterLoc, 8, 0.3, 0.3, 0.3, 0.15);
+                                world.spawnParticle(Particle.DRAGON_BREATH, monsterLoc, 3, 0.2, 0.2, 0.2, 0.02);
                             }
                         }
                     }
+
+                    // Drain de vie (upgrade)
+                    if (drain && totalDamageDealt > 0) {
+                        double healAmount = totalDamageDealt * 0.15; // 15% des dégâts en heal
+                        double newHealth = Math.min(player.getHealth() + healAmount,
+                            player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
+                        player.setHealth(newHealth);
+
+                        // Effet visuel de drain
+                        world.spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0),
+                            3, 0.3, 0.3, 0.3, 0);
+                    }
+
+                    // Son d'attaque
+                    world.playSound(spawnLoc, Sound.ENTITY_SQUID_SQUIRT, 0.8f, 0.8f);
+                    world.playSound(spawnLoc, Sound.ENTITY_WARDEN_ATTACK_IMPACT, 0.3f, 1.5f);
                 }
 
-                // Son ambiant (toutes les 40 ticks)
-                if (ticksAlive % 40 == 0) {
-                    world.playSound(currentLoc, Sound.BLOCK_BEACON_AMBIENT, 0.3f, 1.5f);
+                // Son ambiant toutes les 30 ticks
+                if (ticksAlive % 30 == 0) {
+                    world.playSound(spawnLoc, Sound.ENTITY_SQUID_AMBIENT, 0.4f, 0.5f);
                 }
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 20L, 1L);
-
-        return true;
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }

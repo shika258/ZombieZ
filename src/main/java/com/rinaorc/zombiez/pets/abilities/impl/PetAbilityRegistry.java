@@ -177,14 +177,14 @@ public class PetAbilityRegistry {
                 "3 mini-abeilles attaquent tous les ennemis 6s (10% dégâts/0.5s)", 30, 0.10, 120, 10, 8.0)
         );
 
-        // Renifleur Archéologue (anciennement Spectre Gardien)
-        // Passif: Toutes les 8 attaques, déterre un bonus aléatoire (dégâts, vitesse, heal, bouclier) 5s, CD 5s
-        // Ultimate: Déterre une relique qui donne TOUS les bonus 8s + aura slow 40%
+        // Tentacule du Vide (Style Gur'thalak WoW)
+        // Passif: 15% chance d'invoquer des tentacules du vide (% dégâts joueur + slow), CD 2s
+        // Ultimate: Invoque 5 tentacules géants qui ravagent la zone pendant 6s
         registerAbilities(PetType.SPECTRE_GARDIEN,
-            new ArchaeologyDigPassive("sniffer_dig", "Fouille Antique",
-                "Toutes les 8 attaques, déterre un bonus aléatoire (5s, CD 5s)", 8, 100, 5000),
-            new AncientRelicActive("sniffer_relic", "Relique Ancestrale",
-                "Déterre une relique: TOUS les bonus 8s + aura slow 40%", 40, 160, 0.40, 6.0)
+            new VoidTentaclePassive("void_tentacle", "Appel du Vide",
+                "15% chance d'invoquer des tentacules (20% dégâts, slow, rayon 4 blocs)", 0.15, 0.20, 60, 4.0, 2),
+            new VoidEruptionActive("void_eruption", "Éruption du Vide",
+                "Invoque 5 tentacules géants (30% dégâts, slow 2, 6s)", 35, 5, 0.30, 120, 5.0, false)
         );
 
         // ==================== ÉPIQUES ====================

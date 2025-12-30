@@ -328,19 +328,19 @@ public enum PetType {
     ),
 
     SPECTRE_GARDIEN(
-        "Renifleur Archéologue",
+        "Tentacule du Vide",
         PetRarity.RARE,
-        Material.BRUSH,
-        EntityType.SNIFFER,
-        "archaeologist_sniffer",
-        "Découverte / RNG positif",
-        "Ancien Sniffer aux sens affûtés pour les trésors",
-        "Toutes les 8 attaques, déterre un bonus aléatoire (5s)",
-        "Relique Ancestrale",
-        "Déterre une relique : TOUS les bonus + aura slow 40%",
-        40,
-        "Fouille toutes les 6 attaques",
-        "Les bonus durent 8s et sont 50% plus puissants"
+        Material.INK_SAC,
+        EntityType.SQUID,
+        "void_tentacle",
+        "Proc / Invocation",
+        "Poulpe ancestral aux tentacules imprégnés du vide",
+        "15% chance d'invoquer des tentacules du vide (% dégâts joueur + slow)",
+        "Éruption du Vide",
+        "Invoque 5 tentacules géants qui ravagent la zone pendant 6s",
+        35,
+        "Chance +5%, tentacules +1",
+        "Les tentacules drainent la vie des ennemis"
     ),
 
     // --- NOUVEAUX PETS RARES (Synergies Avancées) ---
