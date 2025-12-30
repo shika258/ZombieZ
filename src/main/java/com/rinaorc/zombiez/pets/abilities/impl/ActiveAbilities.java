@@ -999,6 +999,267 @@ class AbyssLaserActive implements PetAbility {
     }
 }
 
+// ==================== VEX SWARM (Evoker) ====================
+
+@Getter
+class VexSwarmActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int vexCount;                   // Nombre de Vex invoqués
+    private final int durationSeconds;            // Durée de vie des Vex
+    private final double damagePercent;           // % des dégâts du joueur par Vex
+
+    VexSwarmActive(String id, String name, String desc, int cd, int count, int duration, double dmgPercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.vexCount = count;
+        this.durationSeconds = duration;
+        this.damagePercent = dmgPercent;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Calculer les stats ajustées par niveau
+        int adjustedVexCount = vexCount + (int)((petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
+        double vexDamage = playerDamage * adjustedDmgPercent;
+
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(15, 8, 15).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi pour les Vex!");
+            return false;
+        }
+
+        player.sendMessage("§a[Pet] §5§l👻 NUÉE DE VEX! §r§d(" + adjustedVexCount + " Vex pendant " + adjustedDuration + "s)");
+
+        // Animation de l'Evoker pet
+        animateEvokerSummon(player);
+
+        // Sons d'invocation
+        world.playSound(playerLoc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 1.0f, 1.0f);
+        world.playSound(playerLoc, Sound.ENTITY_VEX_AMBIENT, 1.0f, 0.8f);
+
+        // Particules de rituel
+        spawnSummonCircle(world, playerLoc);
+
+        // Invoquer les Vex avec un petit délai entre chaque
+        List<org.bukkit.entity.Vex> summonedVex = new ArrayList<>();
+        String allyTag = "pet_vex_" + playerUUID;
+
+        for (int i = 0; i < adjustedVexCount; i++) {
+            final int index = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Position de spawn en cercle autour du joueur
+                    double angle = (2 * Math.PI / adjustedVexCount) * index;
+                    double spawnRadius = 1.5;
+                    Location spawnLoc = playerLoc.clone().add(
+                        Math.cos(angle) * spawnRadius,
+                        1.5 + Math.random() * 0.5,
+                        Math.sin(angle) * spawnRadius
+                    );
+
+                    // Spawner le Vex
+                    org.bukkit.entity.Vex vex = world.spawn(spawnLoc, org.bukkit.entity.Vex.class, v -> {
+                        v.setCustomName("§d✦ Vex de " + player.getName());
+                        v.setCustomNameVisible(false);
+                        v.addScoreboardTag(allyTag);
+                        v.addScoreboardTag("pet_ally");
+                        v.setPersistent(false);
+
+                        // Empêcher le Vex d'attaquer le joueur
+                        v.setCharging(true);
+                    });
+
+                    summonedVex.add(vex);
+
+                    // Particules d'apparition
+                    world.spawnParticle(Particle.WITCH, spawnLoc, 15, 0.2, 0.3, 0.2, 0.05);
+                    world.spawnParticle(Particle.SMOKE, spawnLoc, 10, 0.2, 0.2, 0.2, 0.02);
+                    world.playSound(spawnLoc, Sound.ENTITY_VEX_CHARGE, 0.8f, 1.2f);
+                },
+                i * 3L // Délai progressif pour l'effet visuel
+            );
+        }
+
+        // IA des Vex - attaquer les ennemis
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> startVexAI(player, summonedVex, vexDamage, petData, adjustedDuration * 20),
+            adjustedVexCount * 3L + 5L // Après que tous les Vex soient spawnés
+        );
+
+        return true;
+    }
+
+    private void startVexAI(Player player, List<org.bukkit.entity.Vex> vexList, double damage, PetData petData, int durationTicks) {
+        World world = player.getWorld();
+
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                // Fin de la durée ou plus de Vex
+                vexList.removeIf(v -> !v.isValid() || v.isDead());
+
+                if (ticks >= durationTicks || vexList.isEmpty()) {
+                    // Faire disparaître les Vex restants
+                    for (org.bukkit.entity.Vex vex : vexList) {
+                        if (vex.isValid()) {
+                            // Particules de disparition
+                            vex.getWorld().spawnParticle(Particle.WITCH, vex.getLocation(), 10, 0.2, 0.2, 0.2, 0.02);
+                            vex.getWorld().spawnParticle(Particle.SMOKE, vex.getLocation(), 8, 0.2, 0.2, 0.2, 0.02);
+                            vex.remove();
+                        }
+                    }
+
+                    if (player.isOnline()) {
+                        player.sendMessage("§a[Pet] §7Les Vex se dissipent...");
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Toutes les 10 ticks, faire attaquer les Vex
+                if (ticks % 10 == 0) {
+                    // Trouver les cibles
+                    List<Monster> targets = new ArrayList<>();
+                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                        if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                            targets.add(m);
+                        }
+                    }
+
+                    if (!targets.isEmpty()) {
+                        for (org.bukkit.entity.Vex vex : vexList) {
+                            if (!vex.isValid()) continue;
+
+                            // Choisir une cible aléatoire
+                            Monster target = targets.get((int) (Math.random() * targets.size()));
+
+                            // Mouvement vers la cible
+                            Vector direction = target.getLocation().toVector()
+                                .subtract(vex.getLocation().toVector()).normalize().multiply(0.3);
+                            vex.setVelocity(direction.add(new Vector(0, 0.1, 0)));
+
+                            // Attaquer si assez proche
+                            if (vex.getLocation().distanceSquared(target.getLocation()) < 4) {
+                                target.damage(damage, player);
+                                petData.addDamage((long) damage);
+
+                                // Effets d'attaque
+                                vex.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                                    5, 0.2, 0.2, 0.2, 0.05);
+                                vex.getWorld().playSound(target.getLocation(), Sound.ENTITY_VEX_HURT, 0.5f, 1.5f);
+
+                                // Animation de charge
+                                vex.setCharging(true);
+                                Bukkit.getScheduler().runTaskLater(
+                                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                                    () -> { if (vex.isValid()) vex.setCharging(false); },
+                                    5L
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Particules ambiantes sur les Vex
+                if (ticks % 20 == 0) {
+                    for (org.bukkit.entity.Vex vex : vexList) {
+                        if (vex.isValid()) {
+                            vex.getWorld().spawnParticle(Particle.WITCH, vex.getLocation(),
+                                3, 0.1, 0.1, 0.1, 0.01);
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    private void animateEvokerSummon(Player player) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Evoker evoker
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                Location loc = evoker.getLocation().add(0, 1.5, 0);
+
+                // Particules d'invocation
+                evoker.getWorld().spawnParticle(Particle.WITCH, loc, 30, 0.4, 0.4, 0.4, 0.05);
+                evoker.getWorld().spawnParticle(Particle.ENCHANT, loc, 25, 0.5, 0.5, 0.5, 0.5);
+                evoker.getWorld().spawnParticle(Particle.SOUL, loc, 15, 0.3, 0.3, 0.3, 0.02);
+
+                break;
+            }
+        }
+    }
+
+    private void spawnSummonCircle(World world, Location center) {
+        // Cercle de particules au sol
+        new BukkitRunnable() {
+            int ticks = 0;
+            double rotation = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 20) { // 1 seconde d'animation
+                    cancel();
+                    return;
+                }
+
+                double radius = 1.5 + (ticks / 20.0) * 0.5;
+
+                for (int i = 0; i < 12; i++) {
+                    double angle = rotation + i * (Math.PI / 6);
+                    Location particleLoc = center.clone().add(
+                        Math.cos(angle) * radius,
+                        0.1,
+                        Math.sin(angle) * radius
+                    );
+
+                    // Alterner les couleurs
+                    if (i % 2 == 0) {
+                        world.spawnParticle(Particle.WITCH, particleLoc, 1, 0, 0, 0, 0);
+                    } else {
+                        world.spawnParticle(Particle.ENCHANT, particleLoc, 2, 0, 0.1, 0, 0.1);
+                    }
+                }
+
+                rotation += 0.3;
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}
+
 // ==================== RESURRECT ====================
 
 @Getter

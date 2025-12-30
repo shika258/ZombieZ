@@ -430,19 +430,19 @@ public enum PetType {
     ),
 
     FAMILIER_NECROMANTIQUE(
-        "Familier Nécromantique",
+        "Invocateur Maudit",
         PetRarity.EPIC,
-        Material.WITHER_SKELETON_SKULL,
-        EntityType.VEX,
-        "necro_familiar",
-        "Nécromancie / Minions",
-        "Crâne flottant avec aura violette",
-        "Les zombies tués ont 10% de chance de devenir alliés (15s)",
-        "Résurrection",
-        "Ressuscite le dernier zombie tué comme allié (30s)",
-        45,
-        "Chance +5%, durée +5s",
-        "Les alliés morts-vivants explosent en mourant"
+        Material.TOTEM_OF_UNDYING,
+        EntityType.EVOKER,
+        "cursed_evoker",
+        "Invocation / Crocs",
+        "Evoker miniature aux mains lumineuses",
+        "20% chance d'invoquer des crocs d'Evoker sous l'ennemi frappé",
+        "Nuée de Vex",
+        "Invoque 4 Vex alliés qui attaquent pendant 8s",
+        35,
+        "Chance +10%, crocs infligent +50% dégâts",
+        "L'Evoker lève les bras pendant l'invocation"
     ),
 
     GOLEM_CRISTAL(

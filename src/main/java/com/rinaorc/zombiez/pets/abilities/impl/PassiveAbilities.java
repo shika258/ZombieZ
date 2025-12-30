@@ -568,6 +568,143 @@ class NecromancyPassive implements PetAbility {
     }
 }
 
+// ==================== EVOKER FANGS ====================
+
+@Getter
+class EvokerFangsPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double fangChance;              // 20% de base
+    private final double damagePercent;           // % des dégâts du joueur
+    private final Map<UUID, Long> lastFangSpawn = new HashMap<>();
+
+    EvokerFangsPassive(String id, String name, String desc, double chance, double dmgPercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.fangChance = chance;
+        this.damagePercent = dmgPercent;
+        PassiveAbilityCleanup.registerForCleanup(lastFangSpawn);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID playerUUID = player.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Cooldown de 0.5s entre les spawns de crocs
+        if (now - lastFangSpawn.getOrDefault(playerUUID, 0L) < 500) {
+            return damage;
+        }
+
+        // Calculer la chance ajustée par niveau
+        double adjustedChance = fangChance + (petData.getStatMultiplier() - 1) * 0.10;
+
+        if (Math.random() > adjustedChance) {
+            return damage;
+        }
+
+        lastFangSpawn.put(playerUUID, now);
+
+        // Calculer les dégâts des crocs
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double fangDamage = playerDamage * adjustedDmgPercent;
+
+        Location targetLoc = target.getLocation();
+        World world = targetLoc.getWorld();
+
+        // Invoquer les crocs d'Evoker
+        spawnEvokerFangs(world, targetLoc, player, fangDamage, petData);
+
+        // Animation de l'Evoker pet (lever les bras)
+        animateEvokerPet(player, true);
+
+        // Remettre l'animation normale après un court délai
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> animateEvokerPet(player, false),
+            15L
+        );
+
+        return damage;
+    }
+
+    private void spawnEvokerFangs(World world, Location center, Player player, double damage, PetData petData) {
+        // Spawn d'une ligne de 3 crocs
+        Vector direction = player.getLocation().getDirection().setY(0).normalize();
+        Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX());
+
+        // Son d'invocation
+        world.playSound(center, Sound.ENTITY_EVOKER_FANGS_ATTACK, 1.0f, 1.0f);
+        world.playSound(center, Sound.ENTITY_EVOKER_PREPARE_ATTACK, 0.8f, 1.2f);
+
+        // Particules de préparation
+        world.spawnParticle(Particle.WITCH, center, 15, 0.5, 0.2, 0.5, 0.02);
+
+        // Spawner 3 crocs en ligne
+        for (int i = -1; i <= 1; i++) {
+            Location fangLoc = center.clone().add(perpendicular.clone().multiply(i * 0.8));
+            fangLoc.setY(center.getY());
+
+            // Spawn du croc avec délai progressif
+            final int delay = Math.abs(i) * 2;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Spawner le croc d'Evoker
+                    org.bukkit.entity.EvokerFangs fangs = world.spawn(fangLoc, org.bukkit.entity.EvokerFangs.class, f -> {
+                        f.setOwner(player);
+                    });
+
+                    // Appliquer les dégâts manuellement aux mobs proches
+                    Bukkit.getScheduler().runTaskLater(
+                        Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                        () -> {
+                            for (Entity entity : world.getNearbyEntities(fangLoc, 1.0, 1.5, 1.0)) {
+                                if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                                    m.damage(damage, player);
+                                    petData.addDamage((long) damage);
+
+                                    // Particules d'impact
+                                    m.getWorld().spawnParticle(Particle.CRIT, m.getLocation().add(0, 1, 0),
+                                        10, 0.2, 0.3, 0.2, 0.1);
+                                }
+                            }
+                        },
+                        5L // Les crocs frappent après ~0.25s
+                    );
+                },
+                delay
+            );
+        }
+    }
+
+    private void animateEvokerPet(Player player, boolean raise) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Evoker evoker
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                // Note: L'API Bukkit ne permet pas de contrôler directement l'animation
+                // On utilise des particules pour simuler l'effet magique
+                if (raise) {
+                    Location loc = evoker.getLocation().add(0, 1.5, 0);
+                    evoker.getWorld().spawnParticle(Particle.ENCHANT, loc, 20, 0.3, 0.3, 0.3, 0.5);
+                    evoker.getWorld().spawnParticle(Particle.WITCH, loc, 10, 0.2, 0.2, 0.2, 0.02);
+                }
+                break;
+            }
+        }
+    }
+}
+
 // ==================== BONUS HP ====================
 
 @Getter

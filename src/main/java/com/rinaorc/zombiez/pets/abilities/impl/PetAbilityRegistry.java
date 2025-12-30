@@ -197,12 +197,12 @@ public class PetAbilityRegistry {
                 "Laser chargeant (1.5s) puis frappe tous les ennemis (80% dégâts)", 30, 0.80, 8)
         );
 
-        // Familier Nécromantique
+        // Invocateur Maudit (Evoker)
         registerAbilities(PetType.FAMILIER_NECROMANTIQUE,
-            new NecromancyPassive("necro_passive", "Domination",
-                "10% de chance de contrôler un zombie tué", 0.10, 15),
-            new ResurrectActive("necro_resurrect", "Résurrection",
-                "Ressuscite le dernier zombie comme allié", 45, 30)
+            new EvokerFangsPassive("evoker_fangs", "Mâchoires Spectrales",
+                "20% chance d'invoquer des crocs d'Evoker (50% dégâts joueur)", 0.20, 0.50),
+            new VexSwarmActive("vex_swarm", "Nuée de Vex",
+                "Invoque 4 Vex alliés pendant 8s (15% dégâts chacun)", 35, 4, 8, 0.15)
         );
 
         // Golem de Cristal
