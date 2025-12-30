@@ -9195,3 +9195,206 @@ class ArcaneTorrentActive extends SynergyAbilities.BasePetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== DEATH AVATAR SYSTEM ====================
+
+/**
+ * Ultimate: Jugement Final - Frappe dévastatrice du Vindicator
+ * Dégâts: 200% arme + 100% bonus basé sur HP manquants de la cible
+ * Max stars: Onde de mort (150% dégâts AoE)
+ */
+class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
+
+    private final double baseDamagePercent;
+    private final double missingHpBonusPercent;
+    private final double deathWaveDamagePercent;
+    private final double waveRadius;
+
+    public FinalJudgmentActive(String id, String name, String description,
+                               double baseDamagePercent, double missingHpBonusPercent,
+                               double deathWaveDamagePercent, double waveRadius) {
+        super(id, name, description, true);
+        this.baseDamagePercent = baseDamagePercent;
+        this.missingHpBonusPercent = missingHpBonusPercent;
+        this.deathWaveDamagePercent = deathWaveDamagePercent;
+        this.waveRadius = waveRadius;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Récupérer stats joueur
+        Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
+        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+
+        // Dégâts de base de l'arme
+        double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        boolean hasMaxStars = petData.getStarPower() > 0;
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Son de préparation - Vindicator
+        world.playSound(playerLoc, Sound.ENTITY_VINDICATOR_CELEBRATE, 1.2f, 0.6f);
+        world.playSound(playerLoc, Sound.ITEM_TRIDENT_THUNDER, 0.8f, 0.5f);
+
+        // Effet de charge - aura mortelle
+        world.spawnParticle(Particle.SMOKE, playerLoc.clone().add(0, 1, 0), 40, 0.5, 0.8, 0.5, 0.05);
+        world.spawnParticle(Particle.SOUL, playerLoc.clone().add(0, 1, 0), 20, 0.4, 0.6, 0.4, 0.02);
+
+        // Trouver la cible la plus proche (priorité aux faibles HP)
+        LivingEntity primaryTarget = null;
+        double lowestHpPercent = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(playerLoc, 8, 4, 8)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double hpPercent = living.getHealth() / living.getMaxHealth();
+                if (hpPercent < lowestHpPercent) {
+                    lowestHpPercent = hpPercent;
+                    primaryTarget = living;
+                }
+            }
+        }
+
+        if (primaryTarget == null) {
+            player.sendMessage("§4§l☠ §cJugement Final: §7Aucune cible à proximité!");
+            return;
+        }
+
+        final LivingEntity target = primaryTarget;
+        Location targetLoc = target.getLocation();
+
+        // Animation de dash vers la cible
+        Vector direction = targetLoc.toVector().subtract(playerLoc.toVector()).normalize();
+        double distance = playerLoc.distance(targetLoc);
+
+        // Téléporter le joueur vers la cible (effet de rush)
+        Location strikePos = targetLoc.clone().subtract(direction.clone().multiply(1.5));
+        strikePos.setDirection(direction);
+        player.teleport(strikePos);
+
+        // Délai court puis frappe
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Calculer les dégâts
+                double baseDamage = weaponDamage * baseDamagePercent * statMultiplier;
+
+                // Bonus basé sur HP manquants (% de HP max manquants × bonus)
+                double targetHpPercent = target.getHealth() / target.getMaxHealth();
+                double missingHpPercent = 1.0 - targetHpPercent;
+                double missingHpBonus = weaponDamage * missingHpBonusPercent * missingHpPercent * statMultiplier;
+
+                double totalDamage = baseDamage + missingHpBonus;
+
+                // Effet de frappe
+                world.playSound(target.getLocation(), Sound.ENTITY_VINDICATOR_HURT, 1.5f, 0.5f);
+                world.playSound(target.getLocation(), Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 1.2f, 0.8f);
+
+                // Particules d'impact
+                world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 30, 0.4, 0.5, 0.4, 0.3);
+                world.spawnParticle(Particle.DAMAGE_INDICATOR, target.getLocation().add(0, 1, 0), 15, 0.3, 0.4, 0.3, 0.1);
+                world.spawnParticle(Particle.SOUL, target.getLocation().add(0, 1, 0), 20, 0.5, 0.6, 0.5, 0.05);
+
+                // Infliger les dégâts à la cible principale
+                dealDamage(player, target, totalDamage, zombieManager);
+
+                // Message avec dégâts
+                int displayDamage = (int) totalDamage;
+                int bonusPercent = (int) (missingHpPercent * 100);
+                player.sendMessage("§4§l☠ §cJugement Final §7sur " + target.getName() +
+                    " §7(§c" + displayDamage + " §7dégâts, §6+" + bonusPercent + "% §7bonus HP manquants)");
+
+                // Onde de mort si étoiles max
+                if (hasMaxStars) {
+                    // Délai court pour l'onde
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            createDeathWave(player, target.getLocation(), weaponDamage, statMultiplier, zombieManager, world);
+                        }
+                    }.runTaskLater(plugin, 5L);
+                }
+            }
+        }.runTaskLater(plugin, 3L);
+    }
+
+    private void createDeathWave(Player player, Location center, double weaponDamage, double statMultiplier,
+                                  com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        double waveDamage = weaponDamage * deathWaveDamagePercent * statMultiplier;
+
+        // Effet visuel de l'onde
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 0.5f);
+        world.playSound(center, Sound.ENTITY_WITHER_DEATH, 0.6f, 1.5f);
+
+        // Cercle de particules expansif
+        for (double radius = 1; radius <= waveRadius; radius += 1.5) {
+            final double r = radius;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                        double x = Math.cos(angle) * r;
+                        double z = Math.sin(angle) * r;
+                        Location particleLoc = center.clone().add(x, 0.5, z);
+                        world.spawnParticle(Particle.SOUL, particleLoc, 2, 0.1, 0.1, 0.1, 0.01);
+                        world.spawnParticle(Particle.SMOKE, particleLoc, 3, 0.1, 0.2, 0.1, 0.02);
+                    }
+                }
+            }.runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), (long) (radius / 1.5));
+        }
+
+        // Dégâts aux ennemis dans la zone
+        Set<UUID> hit = new HashSet<>();
+        for (Entity entity : world.getNearbyEntities(center, waveRadius, 3, waveRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (hit.add(entity.getUniqueId())) {
+                    dealDamage(player, living, waveDamage, zombieManager);
+
+                    // Effet sur chaque cible
+                    world.spawnParticle(Particle.SOUL, living.getLocation().add(0, 1, 0), 8, 0.2, 0.3, 0.2, 0.02);
+                }
+            }
+        }
+
+        player.sendMessage("§4§l☠ §8Onde de mort: §7" + hit.size() + " ennemis frappés!");
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

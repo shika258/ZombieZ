@@ -277,12 +277,15 @@ public class PetAbilityRegistry {
 
         // ==================== MYTHIQUES ====================
 
-        // Avatar de la Mort
+        // Avatar de la Mort (Vindicator - Exécuteur)
+        // Passif: Exécute les ennemis sous 15% HP
+        // Ultimate: Jugement Final - 200% dégâts + 100% bonus HP manquants
+        // Max stars: Onde de mort (150% dégâts AoE, 6 blocs)
         registerAbilities(PetType.AVATAR_MORT,
             new ExecutionPassive("death_execute", "Faucheuse",
                 "Exécute les ennemis sous 15% HP", 0.15),
-            new DeathSentenceActive("death_sentence", "Sentence Mortelle",
-                "Marque une cible, elle meurt dans 5s", 90, 5)
+            new FinalJudgmentActive("final_judgment", "Jugement Final",
+                "Frappe dévastatrice (200% + bonus HP manquants)", 2.00, 1.00, 1.50, 6.0)
         );
 
         // Entité du Vide

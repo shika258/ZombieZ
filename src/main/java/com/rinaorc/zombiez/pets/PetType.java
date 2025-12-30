@@ -716,17 +716,17 @@ public enum PetType {
     AVATAR_MORT(
         "Avatar de la Mort",
         PetRarity.MYTHIC,
-        Material.WITHER_SKELETON_SKULL,
-        EntityType.VEX,
+        Material.IRON_AXE,
+        EntityType.VINDICATOR,
         "death_avatar",
         "Exécution / Mortalité",
-        "Faucheuse miniature avec faux scintillante",
+        "Bourreau sinistre avec hache ensanglantée et aura mortelle",
         "Les ennemis sous 15% HP sont exécutés instantanément",
-        "Sentence Mortelle",
-        "Marque une cible, elle meurt dans 5s (boss: -50% HP)",
+        "Jugement Final",
+        "Frappe dévastatrice (200% dégâts + 100% des HP manquants)",
         90,
-        "Seuil d'exécution 20%",
-        "L'exécution soigne le joueur de 20% HP max"
+        "Seuil d'exécution 20%, chaque exécution +5% dégâts (max 30%, 10s)",
+        "Jugement déclenche une onde de mort (150% dégâts AoE)"
     ),
 
     ENTITE_VIDE(
