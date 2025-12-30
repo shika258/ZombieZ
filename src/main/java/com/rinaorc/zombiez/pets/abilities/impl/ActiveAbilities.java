@@ -1943,6 +1943,7 @@ class DivineActive implements PetAbility {
     private final String displayName;
     private final String description;
     private final int invincibilitySeconds;
+    private static final double ALLY_BLESSING_RADIUS = 10.0; // Rayon pour bénir les alliés
 
     DivineActive(String id, String name, String desc, int cooldown, int duration) {
         this.id = id;
@@ -1957,24 +1958,112 @@ class DivineActive implements PetAbility {
     @Override
     public int getCooldown() { return 120; }
 
+    /**
+     * Vérifie si la bénédiction affecte aussi les alliés (étoiles max)
+     */
+    private boolean shouldBlessAllies(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
     @Override
     public boolean activate(Player player, PetData petData) {
-        // Full heal
-        player.setHealth(player.getMaxHealth());
-
-        // Invincibilité
         int adjustedDuration = (int) (invincibilitySeconds * 20 * petData.getStatMultiplier());
-        player.addPotionEffect(new PotionEffect(
-            PotionEffectType.RESISTANCE, adjustedDuration, 254, false, true));
-        player.addPotionEffect(new PotionEffect(
-            PotionEffectType.REGENERATION, adjustedDuration, 4, false, true));
+        boolean blessAllies = shouldBlessAllies(petData);
 
-        // Effet visuel
+        // Appliquer au joueur
+        applyBlessing(player, adjustedDuration);
+
+        int alliesBlessed = 0;
+
+        // Étoiles max : Bénir aussi les alliés dans 10 blocs
+        if (blessAllies) {
+            for (Entity entity : player.getNearbyEntities(ALLY_BLESSING_RADIUS, ALLY_BLESSING_RADIUS, ALLY_BLESSING_RADIUS)) {
+                if (entity instanceof Player ally && !ally.equals(player)) {
+                    applyBlessing(ally, adjustedDuration);
+                    alliesBlessed++;
+
+                    // Effet visuel sur l'allié
+                    ally.getWorld().spawnParticle(Particle.END_ROD, ally.getLocation().add(0, 1, 0), 50, 1, 1.5, 1, 0.05);
+                    ally.playSound(ally.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.2f);
+                    ally.sendMessage("§a[Pet] §6Bénédiction Divine reçue! §7Invincible pendant §e" + invincibilitySeconds + "s§7!");
+                }
+            }
+        }
+
+        // Effet visuel principal
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation(), 100, 2, 2, 2, 0.1);
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
-        player.sendMessage("§a[Pet] §6Bénédiction Divine! §7Invincible pendant §e" + invincibilitySeconds + "s§7!");
+        // Rayon de lumière si bénédiction de groupe
+        if (blessAllies) {
+            spawnDivineRay(player.getLocation());
+        }
+
+        String allyMsg = alliesBlessed > 0 ? " §7(+" + alliesBlessed + " alliés)" : "";
+        player.sendMessage("§a[Pet] §6Bénédiction Divine! §7Invincible pendant §e" + invincibilitySeconds + "s§7!" + allyMsg);
         return true;
+    }
+
+    /**
+     * Applique la bénédiction divine à un joueur (full heal + invincibilité)
+     */
+    private void applyBlessing(Player player, int durationTicks) {
+        // Full heal
+        player.setHealth(player.getMaxHealth());
+
+        // Invincibilité (Resistance 254 = immune aux dégâts)
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.RESISTANCE, durationTicks, 254, false, true));
+
+        // Régénération V
+        player.addPotionEffect(new PotionEffect(
+            PotionEffectType.REGENERATION, durationTicks, 4, false, true));
+
+        // Retirer tous les effets négatifs
+        player.removePotionEffect(PotionEffectType.POISON);
+        player.removePotionEffect(PotionEffectType.WITHER);
+        player.removePotionEffect(PotionEffectType.SLOWNESS);
+        player.removePotionEffect(PotionEffectType.WEAKNESS);
+        player.removePotionEffect(PotionEffectType.BLINDNESS);
+        player.removePotionEffect(PotionEffectType.NAUSEA);
+        player.removePotionEffect(PotionEffectType.HUNGER);
+        player.removePotionEffect(PotionEffectType.DARKNESS);
+    }
+
+    /**
+     * Crée un rayon de lumière divine descendant du ciel
+     */
+    private void spawnDivineRay(Location center) {
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int ticks = 0;
+            double height = 15;
+
+            @Override
+            public void run() {
+                if (ticks >= 30) {
+                    cancel();
+                    return;
+                }
+
+                // Rayon descendant
+                for (double y = 0; y < height; y += 0.5) {
+                    Location loc = center.clone().add(0, y, 0);
+                    center.getWorld().spawnParticle(Particle.END_ROD, loc, 1, 0.2, 0, 0.2, 0);
+                }
+
+                // Cercle au sol
+                for (double angle = 0; angle < 360; angle += 30) {
+                    double rad = Math.toRadians(angle + ticks * 12);
+                    double x = ALLY_BLESSING_RADIUS * Math.cos(rad);
+                    double z = ALLY_BLESSING_RADIUS * Math.sin(rad);
+                    Location particleLoc = center.clone().add(x, 0.1, z);
+                    center.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, particleLoc, 1, 0, 0, 0, 0);
+                }
+
+                height -= 0.5;
+                ticks++;
+            }
+        }.runTaskTimer(org.bukkit.Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 }
 

@@ -942,7 +942,7 @@ public class PetDisplayManager {
         switch (type) {
             case GOLEM_POCHE -> helmet = new org.bukkit.inventory.ItemStack(Material.IRON_BLOCK);
             // GOLEM_CRISTAL et GOLEM_LAVE sont maintenant des entités (GHAST, FOX)
-            case TITAN_MINIATURE -> helmet = new org.bukkit.inventory.ItemStack(Material.NETHERITE_BLOCK);
+            // TITAN_MINIATURE remplacé par SPECTRE_GIVRE (STRAY, pas ArmorStand)
             case COLOSSUS_OUBLIE -> helmet = new org.bukkit.inventory.ItemStack(Material.ANCIENT_DEBRIS);
             default -> helmet = new org.bukkit.inventory.ItemStack(Material.STONE);
         }

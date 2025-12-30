@@ -239,46 +239,53 @@ public class PetAbilityRegistry {
                 "Invincibilité 3s + full heal", 120, 3)
         );
 
-        // Wyrm du Néant
-        registerAbilities(PetType.WYRM_NEANT,
-            new TeleportOnDamagePassive("wyrm_blink", "Distorsion",
-                "Téléportation 5 blocs en prenant des dégâts", 5, 10),
-            new PortalActive("wyrm_portal", "Portail du Néant",
-                "Crée un portail vers un point visible", 30, 50)
+        // Piglin Berserker (Saut Dévastateur / Cri Féroce)
+        WarLeapPassive warLeapPassive = new WarLeapPassive("war_leap", "Saut Dévastateur",
+            "1% chance de saut AoE (180% dégâts, 8 blocs, Slow 60% 3s)", 0.01, 1.80, 8.0, 60);
+        registerAbilities(PetType.PIGLIN_BERSERKER,
+            warLeapPassive,
+            new FerociousCryActive("ferocious_cry", "Cri Féroce",
+                "Ennemis 25 blocs: -20% dégâts pendant 15s", warLeapPassive, 0.20, 25.0, 300)
         );
 
-        // Titan Miniature
-        registerAbilities(PetType.TITAN_MINIATURE,
-            new MeleeDamagePassive("titan_melee", "Force Titanesque",
-                "+30% dégâts de mêlée", 0.30),
-            new SmashActive("titan_smash", "Coup Titanesque",
-                "Frappe le sol (80 dégâts zone, knockback)", 25, 80, 5)
+        // Spectre du Givre (Vitesse / Lame Fantôme)
+        SpectralSwiftPassive spectralSwiftPassive = new SpectralSwiftPassive("spectral_swift", "Agilité Spectrale",
+            "+33% vitesse de déplacement constante", 0.33);
+        registerAbilities(PetType.SPECTRE_GIVRE,
+            spectralSwiftPassive,
+            new PhantomBladeActive("phantom_blade", "Lame Fantôme",
+                "Couteau tournoyant (750% dégâts arme)", spectralSwiftPassive, 7.50, 1.5)
         );
 
-        // Esprit de la Forêt
-        registerAbilities(PetType.ESPRIT_FORET,
-            new AdvancedRegenPassive("forest_regen", "Symbiose Naturelle",
-                "1 coeur/3s, +50% efficacité soins", 1.0, 60, 0.50),
-            new SanctuaryActive("forest_sanctuary", "Sanctuaire Naturel",
-                "Zone de soin massive (5 coeurs/s, 10s)", 60, 5, 10)
+        // Creaking Vengeur (Racines / Contrôle de Zone)
+        RootGraspPassive rootGraspPassive = new RootGraspPassive("root_grasp", "Emprise Racinaire",
+            "8% chance de root (1.5s + 25% dégâts)", 0.08, 0.25, 30);
+        registerAbilities(PetType.CREAKING_VENGEUR,
+            rootGraspPassive,
+            new AwakenedForestActive("awakened_forest", "Forêt Éveillée",
+                "Explosion 12 blocs (root 4s + 100% dégâts) + éruptions 6s", rootGraspPassive, 1.00, 12.0, 80, 120)
         );
 
-        // Phénix Ancestral
-        registerAbilities(PetType.PHENIX_ANCESTRAL,
-            new AdvancedRebornPassive("phoenix_immortal", "Immortalité",
-                "Renaissance automatique une fois par vie", 1.0),
-            new ApocalypseActive("phoenix_apocalypse", "Apocalypse de Feu",
-                "Pluie de feu (zone 10x10, 100 dégâts)", 45, 100, 10)
+        // Sorcière Nécromancienne (Drain de Vie / Zombie Suicidaire)
+        LifeDrainPassive lifeDrainPassive = new LifeDrainPassive("life_drain", "Drain de Vie",
+            "5s: draine 5 ennemis (18 blocs), +5% dégâts/ennemi, -5% HP mob", 0.05, 0.05, 18.0, 5);
+        registerAbilities(PetType.SORCIERE_NECRO,
+            lifeDrainPassive,
+            new SuicidalZombieActive("suicidal_zombie", "Nécromancie",
+                "Zombie suicidaire (560% dégâts poison sur son chemin)", lifeDrainPassive, 5.60, 4.0, 200)
         );
 
         // ==================== MYTHIQUES ====================
 
-        // Avatar de la Mort
+        // Avatar de la Mort (Vindicator - Exécuteur)
+        // Passif: Exécute les ennemis sous 15% HP
+        // Ultimate: Jugement Final - 200% dégâts + 100% bonus HP manquants
+        // Max stars: Onde de mort (150% dégâts AoE, 6 blocs)
         registerAbilities(PetType.AVATAR_MORT,
             new ExecutionPassive("death_execute", "Faucheuse",
                 "Exécute les ennemis sous 15% HP", 0.15),
-            new DeathSentenceActive("death_sentence", "Sentence Mortelle",
-                "Marque une cible, elle meurt dans 5s", 90, 5)
+            new FinalJudgmentActive("final_judgment", "Jugement Final",
+                "Frappe dévastatrice (200% + bonus HP manquants)", 2.00, 1.00, 1.50, 6.0)
         );
 
         // Entité du Vide
@@ -375,37 +382,40 @@ public class PetAbilityRegistry {
                 "Applique les 3 éléments, déclenche toutes les réactions (100% dégâts)", 35, 1.0, catalystPassive)
         );
 
-        // Spectre de Vengeance (Damage Taken)
-        VengeancePassive vengeancePassive = new VengeancePassive("vengeance_stack", "Accumulation de Rage",
-            "50% des dégâts subis = Rage (max 200)", 50, 200);
-        registerAbilities(PetType.SPECTRE_VENGEANCE,
-            vengeancePassive,
-            new VengeanceExplosionActive("vengeance_explode", "Explosion de Vengeance",
-                "Libère la Rage en dégâts de zone", vengeancePassive)
+        // Panda Gourmand (Buffs & Food Drops)
+        GourmandPassive gourmandPassive = new GourmandPassive("gourmand_feast", "Festin de Bambou",
+            "5 kills = buff aléatoire 8s (Force/Vitesse/Régén/Crit)", 5, 160);
+        registerAbilities(PetType.PANDA_GOURMAND,
+            gourmandPassive,
+            new SneezingExplosiveActive("sneeze_explode", "Éternuement Explosif",
+                "Onde de choc 80% dégâts, tous buffs 5s", gourmandPassive, 0.80, 0.30)
         );
 
-        // Djinn du Jackpot (Jackpot System)
-        registerAbilities(PetType.DJINN_JACKPOT,
-            new JackpotPassive("jackpot_passive", "Fortune du Djinn",
-                "+30% chance Jackpot, +50% récompenses", 0.30, 0.50),
-            new SuperJackpotActive("super_jackpot", "Super Jackpot",
-                "Déclenche un Jackpot garanti x3")
+        // Chèvre Flipper (Ricochet System)
+        FlipperPassive flipperPassive = new FlipperPassive("flipper_bounce", "Rebond Dévastateur",
+            "Kill = projectile rebondissant (30% dégâts, +10%/rebond, max 5)", 0.30, 0.10, 5);
+        registerAbilities(PetType.CHEVRE_FLIPPER,
+            flipperPassive,
+            new FlipperBallActive("flipper_ball", "Boule de Flipper",
+                "Rebondit entre 8 ennemis (50% dégâts × n° rebond)", flipperPassive, 0.50, 8)
         );
 
-        // Dragon Chromatique (Class Adaptive)
-        registerAbilities(PetType.DRAGON_CHROMATIQUE,
-            new ClassAdaptivePassive("chromatic_adapt", "Adaptation Chromatique",
-                "Bonus +25% selon classe (mêlée/crit/skill)", 0.25),
-            new ChromaticBreathActive("chromatic_breath", "Souffle Chromatique",
-                "Attaque adaptée à la classe")
+        // Pillard Vengeur (Dégâts Arc/Arbalète / Volée de Flèches)
+        RangedDamagePassive rangedDamagePassive = new RangedDamagePassive("ranged_damage", "Tir à Distance",
+            "+30% dégâts arc/arbalète", 0.30);
+        registerAbilities(PetType.PILLARD_VENGEUR,
+            rangedDamagePassive,
+            new ArrowVolleyActive("arrow_volley", "Volée de Flèches",
+                "Pluie de flèches (360% dégâts à tous les ennemis)", rangedDamagePassive, 3.60, 10.0, 15)
         );
 
-        // Sentinelle des Zones (Zone Environment)
-        registerAbilities(PetType.SENTINELLE_ZONES,
-            new ZoneAdaptPassive("zone_adapt", "Adaptation Environnementale",
-                "+15% bonus selon effet de zone actif", 0.15),
-            new ZoneMasteryActive("zone_mastery", "Maîtrise de Zone",
-                "Immunité zone 10s + bonus zone x2")
+        // Cube Infernal (Dégâts Feu / Météore)
+        FireDamagePassive fireDamagePassive = new FireDamagePassive("fire_damage", "Pyromanie",
+            "+40% dégâts sur mobs en feu", 0.40);
+        registerAbilities(PetType.CUBE_INFERNAL,
+            fireDamagePassive,
+            new MeteorStrikeActive("meteor_strike", "Frappe Météoritique",
+                "Météore géant (450% dégâts) + zone enflammée (120% sur 3s)", fireDamagePassive, 4.50, 1.20, 8.0)
         );
 
         // Symbiote Éternel (Total Amplification)
@@ -456,36 +466,43 @@ public class PetAbilityRegistry {
                 "Blizzard (8 blocs, 6s) : Slow III + 10% dégâts joueur/s", 35, 8, 6, 0.10, frostBitePassive)
         );
 
-        // Phénix Solaire (Feu / Météores)
-        registerAbilities(PetType.PHOENIX_SOLAIRE,
-            new FireballPassive("solar_fireball", "Boule de Feu Solaire",
-                "25% de lancer une boule de feu", 0.25, 15),
-            new MeteorShowerActive("meteor_shower", "Pluie de Météores",
-                "12 météores de feu sur la zone", 20, 12)
+        // Poulet Bombardier (Œufs Explosifs)
+        EggBomberPassive eggBomberPassive = new EggBomberPassive("egg_bomber", "Ponte Explosive",
+            "3 attaques = œuf explosif (35% dégâts AoE)", 3, 0.35, 0.10);
+        registerAbilities(PetType.POULET_BOMBARDIER,
+            eggBomberPassive,
+            new AirstrikeActive("airstrike", "Frappe Aérienne",
+                "10 œufs explosifs depuis le ciel (50% dégâts chacun)", eggBomberPassive, 0.50, 10)
         );
 
-        // Ombre Déchirante (Ombre / Tentacules)
-        registerAbilities(PetType.OMBRE_DECHIRANTE,
-            new ShadowTentaclePassive("shadow_tentacle", "Tentacule d'Ombre",
-                "20% de faire surgir un tentacule", 0.20, 8),
-            new VoidVortexActive("void_vortex", "Vortex du Néant",
-                "Aspire les ennemis puis explose", 20, 4)
+        // Hurleur du Vide (Cris / Téléportation)
+        VoidScreamPassive voidScreamPassive = new VoidScreamPassive("void_scream", "Cri du Vide",
+            "4 attaques = cri (Slow II + 8%/s DoT, 3s)", 4, 0.08, 60, 6.0);
+        registerAbilities(PetType.HURLEUR_DU_VIDE,
+            voidScreamPassive,
+            new PhantomStrikeActive("phantom_strike", "Frappe Fantôme",
+                "5 TP enchaînés (40% dégâts) + échos explosifs (20% AoE)", voidScreamPassive, 0.40, 0.20, 5, 8.0)
         );
 
-        // Hydre de Givre (Glace / Blizzard)
-        registerAbilities(PetType.HYDRE_GIVRE,
-            new IceShardPassive("ice_shard", "Éclat de Glace",
-                "30% de lancer un éclat de glace", 0.30, 2),
-            new BlizzardActive("blizzard", "Blizzard",
-                "8s de tempête, 10 dégâts/s", 10, 8, 8)
+        // Zoglin Enragé (Exécution / Charge)
+        ExecuteDamagePassive executeDamagePassive = new ExecuteDamagePassive("execute_damage", "Instinct de Tueur",
+            "+40% dégâts sur ennemis <30% HP", 0.40, 0.30);
+        registerAbilities(PetType.ZOGLIN_ENRAGE,
+            executeDamagePassive,
+            new ZoglinChargeActive("zoglin_charge", "Charge Dévastatrice",
+                "Charge (220% dégâts, knockback)", executeDamagePassive, 2.20, 12.0, 2.5)
         );
 
-        // Esprit Prismatique (Lumière / Arc-en-ciel)
-        registerAbilities(PetType.ESPRIT_PRISMATIQUE,
-            new PrismaticBeamPassive("prismatic_beam", "Rayon Prismatique",
-                "Tire un rayon arc-en-ciel (+10 dégâts)", 10),
-            new RainbowNovaActive("rainbow_nova", "Nova Prismatique",
-                "Onde arc-en-ciel expansive (30 dégâts)", 30, 10)
+        // Illusioniste Arcanique (Sniper / Arcane)
+        // Passif: +30% dégâts au-delà de 15 blocs (Niv5+: +40%, dès 12 blocs)
+        // Ultimate: Torrent de projectiles (150% → 400% dégâts, +50%/s)
+        // Max stars: explosions secondaires (80% dégâts)
+        SniperDamagePassive sniperDamagePassive = new SniperDamagePassive("sniper_damage", "Tir de Précision",
+            "+30% dégâts aux ennemis au-delà de 15 blocs", 0.30, 15.0, 0.40, 12.0);
+        registerAbilities(PetType.ILLUSIONISTE_ARCANIQUE,
+            sniperDamagePassive,
+            new ArcaneTorrentActive("arcane_torrent", "Torrent Arcanique",
+                "Volée de projectiles (150% → 400% dégâts, +50%/s)", sniperDamagePassive, 1.50, 0.50, 4.00, 0.80)
         );
 
         // Kraken Miniature (Eau / Tentacules)

@@ -495,70 +495,70 @@ public enum PetType {
 
     // --- NOUVEAUX PETS ÉPIQUES (Synergies Uniques) ---
 
-    SPECTRE_VENGEANCE(
-        "Spectre de Vengeance",
+    PANDA_GOURMAND(
+        "Panda Gourmand",
         PetRarity.EPIC,
-        Material.PHANTOM_MEMBRANE,
-        EntityType.PHANTOM,
-        "vengeance_specter",
-        "Contre-attaque / Accumulation",
-        "Spectre rouge sang avec chaînes brisées",
-        "Accumule 50% des dégâts subis en Rage (max 200). Prochain hit = +Rage en dégâts",
-        "Explosion de Vengeance",
-        "Libère toute la Rage en dégâts de zone (rayon 8)",
-        15,
-        "Accumulation +25%",
-        "La Rage ne decay plus, et les dégâts de Vengeance ignorent les résistances"
+        Material.BAMBOO,
+        EntityType.PANDA,
+        "gourmand_panda",
+        "Buffs / Nourriture",
+        "Panda dodu mâchant constamment du bambou avec des particules vertes",
+        "Chaque 5 kills accorde un buff aléatoire 8s (+25% dégâts, +30% vitesse, régén ou +20% crit)",
+        "Éternuement Explosif",
+        "Onde de choc (rayon 6) infligeant 80% de vos dégâts. Applique tous les buffs 5s",
+        20,
+        "Buffs 12s, 4 kills requis",
+        "L'éternuement a 30% de chance de drop un consommable ou nourriture"
     ),
 
-    DJINN_JACKPOT(
-        "Djinn du Jackpot",
+    CHEVRE_FLIPPER(
+        "Chèvre Flipper",
         PetRarity.EPIC,
-        Material.EMERALD,
-        EntityType.VEX,
-        "jackpot_djinn",
-        "Chance / Jackpot",
-        "Génie doré avec pièces flottantes autour de lui",
-        "+30% chance de déclencher le Jackpot, +50% récompenses Jackpot",
-        "Super Jackpot",
-        "Déclenche un Jackpot garanti avec récompenses x3",
-        90,
-        "Récompenses Jackpot +25%",
-        "Les Jackpots peuvent drop des oeufs de pet (rare)"
+        Material.SLIME_BALL,
+        EntityType.GOAT,
+        "flipper_goat",
+        "Ricochets / Réactions en chaîne",
+        "Chèvre bondissante avec traînée de particules rebondissantes",
+        "Les ennemis tués sont projetés et rebondissent sur d'autres (30% dégâts, +10%/rebond, max 5)",
+        "Boule de Flipper",
+        "Rebondit entre 8 ennemis avec dégâts croissants (50% × n° rebond)",
+        25,
+        "7 rebonds max, +15%/rebond",
+        "Les ennemis tués par ricochet explosent en dégâts de zone"
     ),
 
     // --- NOUVEAUX PETS ÉPIQUES (Visuels) ---
 
-    PHOENIX_SOLAIRE(
-        "Phénix Solaire",
+    POULET_BOMBARDIER(
+        "Poulet Bombardier",
         PetRarity.EPIC,
-        Material.FIRE_CHARGE,
+        Material.EGG,
         EntityType.CHICKEN,
-        "solar_phoenix",
-        "Feu / Météores",
-        "Phénix doré irradiant de chaleur solaire",
-        "25% chance de lancer une boule de feu (15 dégâts, explosion AoE)",
-        "Pluie de Météores",
-        "Fait pleuvoir 12 météores de feu sur la zone",
-        35,
-        "Boules de feu +5 dégâts",
-        "Les météores laissent des zones de feu persistantes"
+        "bomber_chicken",
+        "Œufs Explosifs / Bombardement",
+        "Poulet de combat avec casque militaire et ceinture d'œufs",
+        "Toutes les 3 attaques, lance un œuf explosif (35% dégâts AoE, rayon 3)",
+        "Frappe Aérienne",
+        "Bombarde la zone de 10 œufs explosifs sur les ennemis (50% dégâts chacun)",
+        20,
+        "2 attaques pour un œuf, 40% dégâts",
+        "10% chance d'œuf doré (dégâts x2 + stun 1s)"
     ),
 
-    OMBRE_DECHIRANTE(
-        "Ombre Déchirante",
+    HURLEUR_DU_VIDE(
+        "Hurleur du Vide",
         PetRarity.EPIC,
-        Material.BLACK_DYE,
-        EntityType.VEX,
-        "tearing_shadow",
-        "Ombre / Tentacules",
-        "Masse d'ombre pure avec des tentacules ondulants",
-        "20% chance de faire surgir un tentacule d'ombre (+8 dégâts, aveugle)",
-        "Vortex du Néant",
-        "Crée un vortex aspirant les ennemis pendant 4s puis explose",
-        50,
-        "Tentacules infligent +5 dégâts",
-        "Le vortex génère des tentacules supplémentaires"
+        Material.ENDER_EYE,
+        EntityType.ENDERMAN,
+        "void_screamer",
+        "Cris du Vide / Téléportation",
+        "Mini Enderman spectral aux yeux violets incandescents (scale 0.5)",
+        "Toutes les 4 attaques, cri strident : Slow II + DoT 8%/s (3s) dans 6 blocs",
+        "Frappe Fantôme",
+        "Se TP sur 5 ennemis enchaînés, 40% dégâts + écho d'ombre explosif (20% AoE)",
+        25,
+        "3 attaques pour cri, 10% dégâts/s",
+        "Blindness sur le cri, vortex attractif sur l'écho final"
     ),
 
     // ==================== LÉGENDAIRES (§6) ====================
@@ -579,136 +579,136 @@ public enum PetType {
         "La bénédiction affecte aussi les alliés dans 10 blocs"
     ),
 
-    WYRM_NEANT(
-        "Wyrm du Néant",
+    PIGLIN_BERSERKER(
+        "Piglin Berserker",
         PetRarity.LEGENDARY,
-        Material.ENDER_EYE,
-        EntityType.SILVERFISH,
-        "void_wyrm",
-        "Espace / Téléportation",
-        "Serpent cosmique avec étoiles dans le corps",
-        "Téléportation courte (5 blocs) en prenant des dégâts (CD: 10s)",
-        "Portail du Néant",
-        "Crée un portail vers un point visible",
-        30,
-        "Téléportation +3 blocs, CD -3s",
-        "Peut emmener les alliés dans le portail"
-    ),
-
-    TITAN_MINIATURE(
-        "Titan Miniature",
-        PetRarity.LEGENDARY,
-        Material.IRON_GOLEM_SPAWN_EGG,
-        EntityType.ARMOR_STAND,
-        "mini_titan",
-        "Force Brute / Écrasement",
-        "Géant humanoïde miniature (1 bloc de haut)",
-        "+30% dégâts de mêlée",
-        "Coup Titanesque",
-        "Frappe le sol (80 dégâts zone, knockback)",
-        25,
-        "Dégâts mêlée +15%",
-        "Le coup laisse une fissure qui inflige des dégâts continus"
-    ),
-
-    ESPRIT_FORET(
-        "Esprit de la Forêt",
-        PetRarity.LEGENDARY,
-        Material.OAK_SAPLING,
-        EntityType.ALLAY,
-        "forest_spirit",
-        "Nature / Régénération Ultime",
-        "Dryade miniature avec feuilles et fleurs",
-        "Régénération de 1 coeur/3s, +50% efficacité des soins reçus",
-        "Sanctuaire Naturel",
-        "Zone de soin massive (5 coeurs/s pendant 10s)",
-        60,
-        "Régénération +0.5 coeur/3s",
-        "Le sanctuaire fait aussi repousser les morts-vivants"
-    ),
-
-    PHENIX_ANCESTRAL(
-        "Phénix Ancestral",
-        PetRarity.LEGENDARY,
-        Material.NETHER_STAR,
-        EntityType.CHICKEN,
-        "ancestral_phoenix",
-        "Renaissance / Puissance de Feu",
-        "Grand phénix doré majestueux",
-        "Renaissance automatique une fois par vie (full HP)",
-        "Apocalypse de Feu",
-        "Pluie de feu (zone 10x10, 100 dégâts total)",
+        Material.GOLDEN_AXE,
+        EntityType.PIGLIN,
+        "piglin_berserker",
+        "Guerre / Intimidation",
+        "Piglin guerrier avec armure dorée et hache massive",
+        "1% chance de déclencher un saut dévastateur (180% dégâts AoE 8 blocs + Slow 60% 3s)",
+        "Cri Féroce",
+        "Réduit les dégâts des ennemis de 20% dans 25 blocs pendant 15s",
         45,
-        "Renaissance donne 5s d'invincibilité",
-        "La renaissance déclenche automatiquement l'apocalypse"
+        "2% chance de saut, 200% dégâts",
+        "Le cri applique aussi Weakness aux ennemis"
+    ),
+
+    SPECTRE_GIVRE(
+        "Spectre du Givre",
+        PetRarity.LEGENDARY,
+        Material.IRON_SWORD,
+        EntityType.STRAY,
+        "frost_specter",
+        "Vitesse / Assassinat",
+        "Stray spectral avec cape sombre et dagues givrées",
+        "+33% vitesse de déplacement constante",
+        "Lame Fantôme",
+        "Lance un couteau tournoyant qui empale l'ennemi (750% dégâts arme)",
+        30,
+        "+40% vitesse de déplacement",
+        "Le couteau traverse et touche tous les ennemis sur son passage"
+    ),
+
+    CREAKING_VENGEUR(
+        "Creaking Vengeur",
+        PetRarity.LEGENDARY,
+        Material.PALE_OAK_SAPLING,
+        EntityType.CREAKING,
+        "vengeful_creaking",
+        "Racines / Contrôle de Zone",
+        "Creaking spectral aux yeux rougeoyants et racines ondulantes",
+        "8% chance par attaque de faire jaillir des racines (root 1.5s + 25% dégâts)",
+        "Forêt Éveillée",
+        "Explosion de racines (12 blocs) : root 4s + 100% dégâts, puis éruptions 6s",
+        45,
+        "12% chance, 30% dégâts racines",
+        "Les racines appliquent aussi Wither II"
+    ),
+
+    SORCIERE_NECRO(
+        "Sorcière Nécromancienne",
+        PetRarity.LEGENDARY,
+        Material.POISONOUS_POTATO,
+        EntityType.WITCH,
+        "necro_witch",
+        "Drain de Vie / Nécromancie",
+        "Witch aux yeux verts lumineux avec aura sombre",
+        "Toutes les 5s, draine 5 ennemis (18 blocs) : +5% dégâts/ennemi, -5% HP mob",
+        "Zombie Suicidaire",
+        "Invoque un zombie qui explose en poison (560% dégâts arme) sur son chemin",
+        35,
+        "Drain toutes les 4s, +7% dégâts/ennemi",
+        "Le zombie laisse une traînée de poison permanente"
     ),
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Synergies de Classe) ---
 
-    DRAGON_CHROMATIQUE(
-        "Dragon Chromatique",
+    PILLARD_VENGEUR(
+        "Pillard Vengeur",
         PetRarity.LEGENDARY,
-        Material.DRAGON_EGG,
-        EntityType.ENDER_DRAGON,
-        "chromatic_dragon",
-        "Adaptation / Classe",
-        "Dragon aux écailles changeantes selon la classe équipée",
-        "S'adapte à la classe: Guerrier=+25% mêlée, Chasseur=+25% crit, Occultiste=+25% skill",
-        "Souffle Chromatique",
-        "Attaque adaptée: Guerrier=onde de choc, Chasseur=multi-projectiles, Occultiste=nova magique",
-        30,
-        "Bonus de classe +10%",
-        "Synergie totale: Amplifie de 50% le talent ultime de la classe"
+        Material.CROSSBOW,
+        EntityType.PILLAGER,
+        "vengeful_pillager",
+        "Tir à Distance / Volée de Flèches",
+        "Pillager aux yeux rouges lumineux avec arbalète enchantée",
+        "Augmente les dégâts à l'arc et à l'arbalète de +30%",
+        "Volée de Flèches",
+        "Tire une pluie de flèches massive infligeant 360% des dégâts de l'arme",
+        35,
+        "+40% dégâts arc/arbalète, attaques percent les armures",
+        "La volée de flèches ricoche sur 3 ennemis supplémentaires"
     ),
 
-    SENTINELLE_ZONES(
-        "Sentinelle des Zones",
+    CUBE_INFERNAL(
+        "Cube Infernal",
         PetRarity.LEGENDARY,
-        Material.LODESTONE,
-        EntityType.SHULKER,
-        "zone_sentinel",
-        "Zones / Environnement",
-        "Golem cristallin qui absorbe l'énergie de la zone",
-        "Adapte les bonus selon la zone: +15% résist (toxique), +15% dégâts (feu), +15% speed (froid)",
-        "Maîtrise de Zone",
-        "Immunité totale aux effets de zone pendant 10s + bonus zone x2",
-        60,
-        "Bonus de zone +10%",
-        "Dans les zones difficiles (40+): +30% XP et loot supplémentaire"
+        Material.MAGMA_BLOCK,
+        EntityType.MAGMA_CUBE,
+        "infernal_cube",
+        "Feu / Météore",
+        "Cube de magma aux yeux incandescents avec particules de lave",
+        "Augmente les dégâts infligés aux mobs en feu de +40%",
+        "Frappe Météoritique",
+        "Invoque un météore géant infligeant 450% dégâts feu + zone enflammée (120% sur 3s)",
+        35,
+        "+50% dégâts sur mobs en feu, enflamme automatiquement les cibles",
+        "Le météore laisse un lac de lave permanent (10s) infligeant 50% dégâts/s"
     ),
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Visuels) ---
 
-    HYDRE_GIVRE(
-        "Hydre de Givre",
+    ZOGLIN_ENRAGE(
+        "Zoglin Enragé",
         PetRarity.LEGENDARY,
-        Material.BLUE_ICE,
-        EntityType.ENDER_DRAGON,
-        "frost_hydra",
-        "Glace / Blizzard",
-        "Hydre à trois têtes faite de glace cristalline",
-        "30% chance de lancer un éclat de glace (ralentit 2s, +10% dégâts)",
-        "Blizzard",
-        "Déchaîne un blizzard (8s, 10 dégâts/s, gèle les ennemis)",
-        45,
-        "Ralentissement +1s",
-        "Le blizzard peut congeler complètement les ennemis (immobilise 3s)"
+        Material.CRIMSON_FUNGUS,
+        EntityType.ZOGLIN,
+        "enraged_zoglin",
+        "Exécution / Charge",
+        "Zoglin aux yeux rouges flamboyants avec aura de rage",
+        "Inflige +40% de dégâts aux ennemis ayant moins de 30% de vie",
+        "Charge Dévastatrice",
+        "Le Zoglin se précipite en avant, repoussant et infligeant 220% dégâts",
+        10,
+        "+50% dégâts sous 30% HP, seuil augmenté à 35%",
+        "La charge laisse une traînée de feu infernal infligeant 50% dégâts/s"
     ),
 
-    ESPRIT_PRISMATIQUE(
-        "Esprit Prismatique",
+    ILLUSIONISTE_ARCANIQUE(
+        "Illusioniste Arcanique",
         PetRarity.LEGENDARY,
-        Material.PRISMARINE_CRYSTALS,
-        EntityType.ALLAY,
-        "prismatic_spirit",
-        "Lumière / Arc-en-ciel",
-        "Esprit de lumière pure aux couleurs changeantes",
-        "Tire un rayon prismatique toutes les 3s (+10 dégâts)",
-        "Nova Prismatique",
-        "Onde arc-en-ciel expansive (30 dégâts, rayon 10)",
-        35,
-        "Rayons +5 dégâts",
-        "La nova applique un effet aléatoire (brûle/gèle/stun/poison)"
+        Material.ENDER_EYE,
+        EntityType.ILLUSIONER,
+        "arcane_illusionist",
+        "Arcane / Sniper",
+        "Illusioniste aux yeux violets lumineux avec aura magique",
+        "Inflige +30% de dégâts aux ennemis situés au-delà de 15 blocs",
+        "Torrent Arcanique",
+        "Volée de projectiles (150% dégâts, +50%/s, max 400%)",
+        30,
+        "+40% dégâts au-delà de 15 blocs, bonus dès 12 blocs",
+        "Le torrent crée des explosions arcaniques secondaires (80% dégâts)"
     ),
 
     // ==================== MYTHIQUES (§c) ====================
@@ -716,17 +716,17 @@ public enum PetType {
     AVATAR_MORT(
         "Avatar de la Mort",
         PetRarity.MYTHIC,
-        Material.WITHER_SKELETON_SKULL,
-        EntityType.VEX,
+        Material.IRON_AXE,
+        EntityType.VINDICATOR,
         "death_avatar",
         "Exécution / Mortalité",
-        "Faucheuse miniature avec faux scintillante",
+        "Bourreau sinistre avec hache ensanglantée et aura mortelle",
         "Les ennemis sous 15% HP sont exécutés instantanément",
-        "Sentence Mortelle",
-        "Marque une cible, elle meurt dans 5s (boss: -50% HP)",
+        "Jugement Final",
+        "Frappe dévastatrice (200% dégâts + 100% des HP manquants)",
         90,
-        "Seuil d'exécution 20%",
-        "L'exécution soigne le joueur de 20% HP max"
+        "Seuil d'exécution 20%, chaque exécution +5% dégâts (max 30%, 10s)",
+        "Jugement déclenche une onde de mort (150% dégâts AoE)"
     ),
 
     ENTITE_VIDE(

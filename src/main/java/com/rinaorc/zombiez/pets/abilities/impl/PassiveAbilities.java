@@ -888,6 +888,7 @@ class DebuffImmunityPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
+    private static final double ALLY_SHARE_RADIUS = 8.0; // Rayon pour partager l'immunité
 
     DebuffImmunityPassive(String id, String name, String desc) {
         this.id = id;
@@ -900,9 +901,32 @@ class DebuffImmunityPassive implements PetAbility {
         return true;
     }
 
+    /**
+     * Vérifie si le bonus de partage aux alliés est actif (niveau 5+)
+     */
+    private boolean shouldShareWithAllies(PetData petData) {
+        return petData.getStatMultiplier() >= 1.5; // Niveau 5+
+    }
+
     @Override
     public void applyPassive(Player player, PetData petData) {
-        // Retirer les effets négatifs
+        // Retirer les effets négatifs du joueur
+        removeDebuffs(player);
+
+        // Niveau 5+ : Partager l'immunité aux alliés proches
+        if (shouldShareWithAllies(petData)) {
+            for (Entity entity : player.getNearbyEntities(ALLY_SHARE_RADIUS, ALLY_SHARE_RADIUS, ALLY_SHARE_RADIUS)) {
+                if (entity instanceof Player ally && !ally.equals(player)) {
+                    removeDebuffs(ally);
+                }
+            }
+        }
+    }
+
+    /**
+     * Retire tous les effets négatifs d'un joueur
+     */
+    private void removeDebuffs(Player player) {
         player.removePotionEffect(PotionEffectType.POISON);
         player.removePotionEffect(PotionEffectType.WITHER);
         player.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -910,6 +934,10 @@ class DebuffImmunityPassive implements PetAbility {
         player.removePotionEffect(PotionEffectType.HUNGER);
         player.removePotionEffect(PotionEffectType.BLINDNESS);
         player.removePotionEffect(PotionEffectType.NAUSEA);
+        player.removePotionEffect(PotionEffectType.MINING_FATIGUE);
+        player.removePotionEffect(PotionEffectType.LEVITATION);
+        player.removePotionEffect(PotionEffectType.BAD_OMEN);
+        player.removePotionEffect(PotionEffectType.DARKNESS);
     }
 }
 
