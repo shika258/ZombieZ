@@ -729,6 +729,100 @@ class HealthBonusPassive implements PetAbility {
     // Le bonus est appliqué via onEquip/onUnequip
 }
 
+// ==================== JOYFUL TEARS (Happy Ghast) ====================
+
+@Getter
+class JoyfulTearsPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double healPercent;             // 5% HP par kill
+
+    JoyfulTearsPassive(String id, String name, String desc, double healPct) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.healPercent = healPct;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void onKill(Player player, PetData petData, LivingEntity killed) {
+        if (!(killed instanceof Monster)) return;
+
+        // Calculer le heal ajusté par niveau
+        double adjustedHeal = healPercent + (petData.getStatMultiplier() - 1) * 0.03;
+        double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+        double healAmount = maxHealth * adjustedHeal;
+
+        // Appliquer le soin
+        double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+        player.setHealth(newHealth);
+
+        // Effets visuels - larmes de joie du Ghast
+        Location playerLoc = player.getLocation().add(0, 1.5, 0);
+        World world = player.getWorld();
+
+        // Trouver le Ghast pet pour les effets
+        Entity ghastPet = findGhastPet(player);
+        Location effectLoc = ghastPet != null ? ghastPet.getLocation() : playerLoc.add(0, 1, 0);
+
+        // Particules de larmes arc-en-ciel
+        spawnRainbowTears(world, effectLoc, playerLoc);
+
+        // Particules de soin sur le joueur
+        world.spawnParticle(Particle.HEART, playerLoc, 3, 0.3, 0.3, 0.3, 0);
+        world.spawnParticle(Particle.HAPPY_VILLAGER, playerLoc, 5, 0.4, 0.4, 0.4, 0);
+
+        // Son de soin
+        world.playSound(playerLoc, Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 2.0f);
+        world.playSound(effectLoc, Sound.ENTITY_GHAST_AMBIENT, 0.4f, 1.8f);
+    }
+
+    private Entity findGhastPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Ghast
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    private void spawnRainbowTears(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector()).normalize();
+        double distance = from.distance(to);
+
+        // Couleurs arc-en-ciel
+        Color[] rainbowColors = {
+            Color.fromRGB(255, 100, 100),   // Rose
+            Color.fromRGB(255, 200, 100),   // Orange clair
+            Color.fromRGB(255, 255, 150),   // Jaune
+            Color.fromRGB(150, 255, 150),   // Vert clair
+            Color.fromRGB(150, 200, 255),   // Bleu clair
+            Color.fromRGB(200, 150, 255)    // Violet clair
+        };
+
+        for (double d = 0; d < distance; d += 0.4) {
+            Location point = from.clone().add(direction.clone().multiply(d));
+
+            // Choisir une couleur arc-en-ciel
+            Color color = rainbowColors[(int)(d * 2) % rainbowColors.length];
+            Particle.DustOptions dust = new Particle.DustOptions(color, 0.8f);
+
+            world.spawnParticle(Particle.DUST, point, 1, 0.05, 0.05, 0.05, dust);
+
+            // Petites étoiles scintillantes
+            if (d % 0.8 < 0.4) {
+                world.spawnParticle(Particle.END_ROD, point, 1, 0.02, 0.02, 0.02, 0);
+            }
+        }
+    }
+}
+
 // ==================== CHAOS ====================
 
 @Getter

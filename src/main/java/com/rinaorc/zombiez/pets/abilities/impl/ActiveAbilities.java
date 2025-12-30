@@ -1260,6 +1260,187 @@ class VexSwarmActive implements PetAbility {
     }
 }
 
+// ==================== BENEVOLENT RAIN (Happy Ghast) ====================
+
+@Getter
+class BenevolentRainActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int radius;                     // 6 blocs
+    private final int durationSeconds;            // 5 secondes
+    private final double regenPerSecond;          // % HP regen par seconde
+    private final int slowLevel;                  // Niveau de slow sur ennemis
+
+    BenevolentRainActive(String id, String name, String desc, int cd, int radius,
+                          int duration, double regenPct, int slow) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.radius = radius;
+        this.durationSeconds = duration;
+        this.regenPerSecond = regenPct;
+        this.slowLevel = slow;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Ajuster par niveau
+        int adjustedRadius = radius + (int)((petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 1);
+        double adjustedRegen = regenPerSecond + (petData.getStatMultiplier() - 1) * 0.01;
+
+        player.sendMessage("§a[Pet] §d§l☔ PLUIE BIENFAISANTE! §r§d(rayon " + adjustedRadius + " blocs, " + adjustedDuration + "s)");
+
+        // Sons de début
+        world.playSound(center, Sound.ENTITY_GHAST_AMBIENT, 1.0f, 1.5f);
+        world.playSound(center, Sound.WEATHER_RAIN, 1.0f, 1.2f);
+        world.playSound(center, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
+
+        // Trouver le Ghast pet pour les effets
+        Entity ghastPet = findGhastPet(player);
+        if (ghastPet != null) {
+            // Effet de "pleurs" du Ghast
+            Location ghastLoc = ghastPet.getLocation();
+            world.spawnParticle(Particle.FALLING_WATER, ghastLoc, 30, 0.3, 0.2, 0.3, 0);
+        }
+
+        // Animation de pluie bienfaisante
+        new BukkitRunnable() {
+            int ticks = 0;
+            final Location rainCenter = center.clone();
+            final Random random = new Random();
+
+            @Override
+            public void run() {
+                if (ticks >= adjustedDuration * 20) {
+                    // Fin de la pluie
+                    world.playSound(rainCenter, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    world.spawnParticle(Particle.HAPPY_VILLAGER, rainCenter.clone().add(0, 1, 0), 30,
+                        adjustedRadius * 0.5, 1, adjustedRadius * 0.5, 0);
+
+                    player.sendMessage("§a[Pet] §7La pluie s'arrête...");
+                    cancel();
+                    return;
+                }
+
+                // Particules de pluie arc-en-ciel tombantes
+                if (ticks % 2 == 0) {
+                    for (int i = 0; i < 15; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius;
+                        double height = 4 + random.nextDouble() * 2;
+
+                        Location dropLoc = rainCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            height,
+                            Math.sin(angle) * dist
+                        );
+
+                        // Gouttes arc-en-ciel
+                        Color[] colors = {
+                            Color.fromRGB(255, 150, 200),  // Rose
+                            Color.fromRGB(200, 255, 200),  // Vert clair
+                            Color.fromRGB(200, 200, 255),  // Bleu clair
+                            Color.fromRGB(255, 255, 200)   // Jaune clair
+                        };
+                        Color dropColor = colors[random.nextInt(colors.length)];
+                        Particle.DustOptions dust = new Particle.DustOptions(dropColor, 0.6f);
+
+                        world.spawnParticle(Particle.DUST, dropLoc, 1, 0, 0, 0, dust);
+                        world.spawnParticle(Particle.FALLING_WATER, dropLoc, 1, 0.1, 0, 0.1, 0);
+                    }
+                }
+
+                // Cercle au sol qui pulse
+                if (ticks % 10 == 0) {
+                    double pulseRadius = adjustedRadius * (0.8 + 0.2 * Math.sin(ticks * 0.1));
+                    for (int i = 0; i < 24; i++) {
+                        double angle = i * (Math.PI / 12);
+                        Location circleLoc = rainCenter.clone().add(
+                            Math.cos(angle) * pulseRadius,
+                            0.1,
+                            Math.sin(angle) * pulseRadius
+                        );
+                        world.spawnParticle(Particle.HAPPY_VILLAGER, circleLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Effets chaque seconde
+                if (ticks % 20 == 0) {
+                    // Son ambiant de pluie douce
+                    world.playSound(rainCenter, Sound.WEATHER_RAIN, 0.5f, 1.5f);
+                    world.playSound(rainCenter, Sound.ENTITY_GHAST_AMBIENT, 0.3f, 2.0f);
+
+                    // Heal le joueur
+                    if (player.getLocation().distanceSquared(rainCenter) <= adjustedRadius * adjustedRadius) {
+                        double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                        double healAmount = maxHealth * adjustedRegen;
+                        double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+                        player.setHealth(newHealth);
+
+                        // Effet de soin
+                        player.getWorld().spawnParticle(Particle.HEART,
+                            player.getLocation().add(0, 2, 0), 2, 0.3, 0.2, 0.3, 0);
+                    }
+
+                    // Slow les ennemis dans la zone
+                    for (Entity entity : rainCenter.getWorld().getNearbyEntities(rainCenter, adjustedRadius, 4, adjustedRadius)) {
+                        if (entity instanceof Monster m) {
+                            m.addPotionEffect(new PotionEffect(
+                                PotionEffectType.SLOWNESS, 30, slowLevel, false, true));
+
+                            // Particules de slow sur les ennemis
+                            Location mLoc = m.getLocation().add(0, 1, 0);
+                            world.spawnParticle(Particle.FALLING_WATER, mLoc, 5, 0.3, 0.3, 0.3, 0);
+                        }
+                    }
+                }
+
+                // Nuages doux au-dessus de la zone
+                if (ticks % 15 == 0) {
+                    for (int i = 0; i < 5; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius * 0.7;
+                        Location cloudLoc = rainCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            5 + random.nextDouble(),
+                            Math.sin(angle) * dist
+                        );
+                        world.spawnParticle(Particle.CLOUD, cloudLoc, 3, 0.5, 0.2, 0.5, 0.01);
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private Entity findGhastPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Ghast
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+}
+
 // ==================== RESURRECT ====================
 
 @Getter

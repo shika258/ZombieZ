@@ -205,12 +205,12 @@ public class PetAbilityRegistry {
                 "Invoque 4 Vex alliés pendant 8s (15% dégâts chacun)", 35, 4, 8, 0.15)
         );
 
-        // Golem de Cristal
+        // Nuage de Bonheur (Happy Ghast)
         registerAbilities(PetType.GOLEM_CRISTAL,
-            new HealthBonusPassive("crystal_hp", "Corps de Cristal",
-                "+25% HP max", 0.25),
-            new SacrificeActive("crystal_sacrifice", "Sacrifice Cristallin",
-                "Absorbe 100% des dégâts pendant 5s", 60, 5)
+            new JoyfulTearsPassive("joyful_tears", "Larmes de Joie",
+                "Chaque kill restore 5% HP au joueur", 0.05),
+            new BenevolentRainActive("benevolent_rain", "Pluie Bienfaisante",
+                "Zone (6 blocs, 5s) : 3% HP/s + Slow II ennemis", 40, 6, 5, 0.03, 1)
         );
 
         // Félin de l'Ombre

@@ -446,19 +446,19 @@ public enum PetType {
     ),
 
     GOLEM_CRISTAL(
-        "Golem de Cristal",
+        "Nuage de Bonheur",
         PetRarity.EPIC,
-        Material.AMETHYST_CLUSTER,
-        EntityType.ARMOR_STAND,
-        "crystal_golem",
-        "Tank Ultime / Sacrifice",
-        "Golem fait de cristaux violets",
-        "+25% HP max au joueur",
-        "Sacrifice Cristallin",
-        "Absorbe 100% des dégâts pendant 5s, puis explose",
-        60,
-        "HP +10%",
-        "L'explosion soigne le joueur"
+        Material.GHAST_TEAR,
+        EntityType.GHAST,
+        "happy_cloud",
+        "Soin / Régénération",
+        "Petit Ghast souriant flottant (scale 0.2)",
+        "Chaque kill restore 5% HP au joueur",
+        "Pluie Bienfaisante",
+        "Zone (6 blocs, 5s) : regen joueur + slow ennemis",
+        40,
+        "Heal +3% par kill, zone +2 blocs",
+        "Le Ghast pleure des larmes arc-en-ciel"
     ),
 
     FELIN_OMBRE(

@@ -814,6 +814,25 @@ public class PetDisplayManager {
                 vex.setCharging(false);
                 entity = vex;
             }
+            case FOX -> {
+                org.bukkit.entity.Fox fox = (org.bukkit.entity.Fox) world.spawnEntity(loc, EntityType.FOX);
+                fox.setFoxType(org.bukkit.entity.Fox.Type.RED);
+                fox.setSitting(false);
+                entity = fox;
+            }
+            case GUARDIAN -> {
+                org.bukkit.entity.Guardian guardian = (org.bukkit.entity.Guardian) world.spawnEntity(loc, EntityType.GUARDIAN);
+                // Gardien des Abysses - taille normale
+                entity = guardian;
+            }
+            case EVOKER -> {
+                org.bukkit.entity.Evoker evoker = (org.bukkit.entity.Evoker) world.spawnEntity(loc, EntityType.EVOKER);
+                // Invocateur Maudit - scale réduit pour être plus mignon
+                if (evoker.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    evoker.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = evoker;
+            }
             case CHICKEN -> {
                 Chicken chicken = (Chicken) world.spawnEntity(loc, EntityType.CHICKEN);
                 chicken.setBaby();
@@ -876,6 +895,15 @@ public class PetDisplayManager {
                 dragonPet.setSize(2); // Un peu plus grand pour ressembler à un dragon
                 entity = dragonPet;
             }
+            case GHAST -> {
+                // Happy Ghast miniature (Nuage de Bonheur)
+                org.bukkit.entity.Ghast ghast = (org.bukkit.entity.Ghast) world.spawnEntity(loc, EntityType.GHAST);
+                // Scale 0.2 = 1/5 de la taille normale
+                if (ghast.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    ghast.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.2);
+                }
+                entity = ghast;
+            }
             case ARMOR_STAND -> {
                 // Pour les golems et autres - ArmorStand visible avec équipement
                 ArmorStand stand = (ArmorStand) world.spawnEntity(loc, EntityType.ARMOR_STAND);
@@ -904,8 +932,7 @@ public class PetDisplayManager {
 
         switch (type) {
             case GOLEM_POCHE -> helmet = new org.bukkit.inventory.ItemStack(Material.IRON_BLOCK);
-            case GOLEM_CRISTAL -> helmet = new org.bukkit.inventory.ItemStack(Material.AMETHYST_CLUSTER);
-            case GOLEM_LAVE -> helmet = new org.bukkit.inventory.ItemStack(Material.MAGMA_BLOCK);
+            // GOLEM_CRISTAL et GOLEM_LAVE sont maintenant des entités (GHAST, FOX)
             case TITAN_MINIATURE -> helmet = new org.bukkit.inventory.ItemStack(Material.NETHERITE_BLOCK);
             case COLOSSUS_OUBLIE -> helmet = new org.bukkit.inventory.ItemStack(Material.ANCIENT_DEBRIS);
             default -> helmet = new org.bukkit.inventory.ItemStack(Material.STONE);
