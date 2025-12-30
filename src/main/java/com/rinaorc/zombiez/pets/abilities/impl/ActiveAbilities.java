@@ -795,6 +795,210 @@ class BreathActive implements PetAbility {
     }
 }
 
+// ==================== ABYSS LASER (Guardian) ====================
+
+@Getter
+class AbyssLaserActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double damagePercent;          // % des dégâts du joueur
+    private final int range;                      // Portée du laser
+
+    AbyssLaserActive(String id, String name, String desc, int cd, double dmgPercent, int range) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.damagePercent = dmgPercent;
+        this.range = range;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Calculer les dégâts basés sur les stats du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
+        double laserDamage = playerDamage * adjustedPercent;
+
+        int adjustedRange = range + (int)((petData.getStatMultiplier() - 1) * 2);
+
+        // Trouver des cibles
+        List<Monster> targets = player.getNearbyEntities(adjustedRange, 5, adjustedRange).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à portée du laser!");
+            return false;
+        }
+
+        // Trouver le Guardian pet pour l'animation
+        Entity guardianPet = findGuardianPet(player);
+
+        player.sendMessage("§a[Pet] §b§l⚡ RAYON DES ABYSSES!");
+        world.playSound(playerLoc, Sound.ENTITY_GUARDIAN_ATTACK, 1.0f, 0.8f);
+
+        // Phase 1: Charge du laser (1.5s) - marquer les cibles
+        Set<UUID> markedTargets = new java.util.HashSet<>();
+        for (Monster target : targets) {
+            markedTargets.add(target.getUniqueId());
+
+            // Effet de marquage sur la cible
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.SOUL, targetLoc, 10, 0.3, 0.3, 0.3, 0.02);
+
+            // Particules de charge vers la cible
+            new BukkitRunnable() {
+                int ticks = 0;
+
+                @Override
+                public void run() {
+                    if (ticks >= 30 || !target.isValid()) { // 1.5s charge
+                        cancel();
+                        return;
+                    }
+
+                    // Particules de charge orbitant autour de la cible
+                    Location loc = target.getLocation().add(0, 1, 0);
+                    double angle = ticks * 0.4;
+                    double radius = 0.8 - (ticks / 30.0) * 0.5; // Rétrécit
+
+                    for (int i = 0; i < 3; i++) {
+                        double a = angle + i * (2 * Math.PI / 3);
+                        Location orbLoc = loc.clone().add(
+                            Math.cos(a) * radius,
+                            Math.sin(ticks * 0.2) * 0.3,
+                            Math.sin(a) * radius
+                        );
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, orbLoc, 1, 0, 0, 0, 0);
+                    }
+
+                    // Son de charge
+                    if (ticks % 10 == 0) {
+                        world.playSound(loc, Sound.ENTITY_GUARDIAN_AMBIENT, 0.5f, 1.5f + (ticks / 30.0f));
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }
+
+        // Faire briller l'œil du Guardian pendant l'ultimate
+        if (guardianPet instanceof org.bukkit.entity.Guardian guardian) {
+            guardian.setLaser(true);
+        }
+
+        // Phase 2: Tir des lasers (après 1.5s de charge)
+        Bukkit.getScheduler().runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), () -> {
+            // Son de tir
+            world.playSound(playerLoc, Sound.ENTITY_GUARDIAN_ATTACK, 1.5f, 0.5f);
+            world.playSound(playerLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 2.0f);
+
+            // Trouver la position du Guardian pet ou utiliser celle du joueur
+            Location laserSource = guardianPet != null ?
+                guardianPet.getLocation().add(0, 0.5, 0) :
+                playerLoc.add(0, 1.5, 0);
+
+            // Tirer un laser vers chaque cible marquée
+            for (Monster target : targets) {
+                if (!target.isValid() || target.isDead()) continue;
+                if (!markedTargets.contains(target.getUniqueId())) continue;
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+
+                // Dessiner le laser
+                drawGuardianLaser(world, laserSource, targetLoc);
+
+                // Infliger les dégâts
+                target.damage(laserDamage, player);
+                petData.addDamage((long) laserDamage);
+
+                // Effet d'impact
+                world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 30, 0.5, 0.5, 0.5, 0.1);
+                world.spawnParticle(Particle.BUBBLE_POP, targetLoc, 20, 0.4, 0.4, 0.4, 0.05);
+                world.spawnParticle(Particle.FLASH, targetLoc, 1, 0, 0, 0, 0);
+
+                // Mining Fatigue (signature du Guardian)
+                target.addPotionEffect(new PotionEffect(
+                    PotionEffectType.MINING_FATIGUE, 60, 1, false, true));
+
+                // Léger knockback
+                Vector knockback = targetLoc.toVector().subtract(laserSource.toVector()).normalize().multiply(0.3);
+                target.setVelocity(target.getVelocity().add(knockback));
+            }
+
+            // Désactiver le laser du Guardian après un court délai
+            if (guardianPet instanceof org.bukkit.entity.Guardian guardian) {
+                Bukkit.getScheduler().runTaskLater(
+                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    () -> guardian.setLaser(false),
+                    20L
+                );
+            }
+
+        }, 30L); // Délai de 1.5s pour la charge
+
+        return true;
+    }
+
+    /**
+     * Trouve le Guardian pet du joueur
+     */
+    private Entity findGuardianPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Guardian
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Dessine le laser de Guardian entre deux points
+     */
+    private void drawGuardianLaser(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Couleurs du laser Guardian (cyan/turquoise)
+        Color laserColor = Color.fromRGB(0, 200, 200);
+        Color coreColor = Color.fromRGB(150, 255, 255);
+
+        for (double d = 0; d < distance; d += 0.3) {
+            Location point = from.clone().add(direction.clone().multiply(d));
+
+            // Cœur du laser (blanc-cyan)
+            Particle.DustOptions coreDust = new Particle.DustOptions(coreColor, 1.0f);
+            world.spawnParticle(Particle.DUST, point, 2, 0.02, 0.02, 0.02, coreDust);
+
+            // Aura du laser (cyan)
+            Particle.DustOptions auraDust = new Particle.DustOptions(laserColor, 0.7f);
+            world.spawnParticle(Particle.DUST, point, 3, 0.08, 0.08, 0.08, auraDust);
+
+            // Étincelles électriques
+            if (d % 1 < 0.3) {
+                world.spawnParticle(Particle.ELECTRIC_SPARK, point, 1, 0.1, 0.1, 0.1, 0.02);
+            }
+        }
+    }
+}
+
 // ==================== RESURRECT ====================
 
 @Getter

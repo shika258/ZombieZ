@@ -414,19 +414,19 @@ public enum PetType {
     // ==================== ÉPIQUES (§d) ====================
 
     DRAGON_PYGMEE(
-        "Dragon Pygmée",
+        "Gardien des Abysses",
         PetRarity.EPIC,
-        Material.DRAGON_HEAD,
-        EntityType.VEX,
-        "pygmy_dragon",
-        "Puissance / Multi-éléments",
-        "Mini dragon (taille d'un chat)",
+        Material.PRISMARINE_SHARD,
+        EntityType.GUARDIAN,
+        "abyss_guardian",
+        "Puissance / Laser",
+        "Guardian miniature aux yeux lumineux",
         "+15% dégâts globaux",
-        "Souffle Draconique",
-        "Souffle de feu en cône (40 dégâts)",
-        25,
-        "Dégâts +10%",
-        "Alterne entre feu/glace/foudre"
+        "Rayon des Abysses",
+        "Laser balayant (8 blocs, marque puis explose)",
+        30,
+        "Dégâts +20%, laser traverse les ennemis",
+        "L'œil du guardian brille pendant l'ultimate"
     ),
 
     FAMILIER_NECROMANTIQUE(

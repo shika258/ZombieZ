@@ -189,12 +189,12 @@ public class PetAbilityRegistry {
 
         // ==================== ÉPIQUES ====================
 
-        // Dragon Pygmée
+        // Gardien des Abysses (Guardian)
         registerAbilities(PetType.DRAGON_PYGMEE,
-            new DamageMultiplierPassive("dragon_power", "Puissance Draconique",
+            new DamageMultiplierPassive("abyss_power", "Puissance Abyssale",
                 "+15% dégâts globaux", 0.15),
-            new BreathActive("dragon_breath", "Souffle Draconique",
-                "Souffle de feu en cône (40 dégâts)", 25, 40)
+            new AbyssLaserActive("abyss_laser", "Rayon des Abysses",
+                "Laser chargeant (1.5s) puis frappe tous les ennemis (80% dégâts)", 30, 0.80, 8)
         );
 
         // Familier Nécromantique
