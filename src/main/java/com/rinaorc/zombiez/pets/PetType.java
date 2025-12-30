@@ -695,20 +695,20 @@ public enum PetType {
         "La charge laisse une traînée de feu infernal infligeant 50% dégâts/s"
     ),
 
-    ESPRIT_PRISMATIQUE(
-        "Esprit Prismatique",
+    ILLUSIONISTE_ARCANIQUE(
+        "Illusioniste Arcanique",
         PetRarity.LEGENDARY,
-        Material.PRISMARINE_CRYSTALS,
-        EntityType.ALLAY,
-        "prismatic_spirit",
-        "Lumière / Arc-en-ciel",
-        "Esprit de lumière pure aux couleurs changeantes",
-        "Tire un rayon prismatique toutes les 3s (+10 dégâts)",
-        "Nova Prismatique",
-        "Onde arc-en-ciel expansive (30 dégâts, rayon 10)",
-        35,
-        "Rayons +5 dégâts",
-        "La nova applique un effet aléatoire (brûle/gèle/stun/poison)"
+        Material.ENDER_EYE,
+        EntityType.ILLUSIONER,
+        "arcane_illusionist",
+        "Arcane / Sniper",
+        "Illusioniste aux yeux violets lumineux avec aura magique",
+        "Inflige +30% de dégâts aux ennemis situés au-delà de 15 blocs",
+        "Torrent Arcanique",
+        "Volée de projectiles (150% dégâts, +50%/s, max 400%)",
+        30,
+        "+40% dégâts au-delà de 15 blocs, bonus dès 12 blocs",
+        "Le torrent crée des explosions arcaniques secondaires (80% dégâts)"
     ),
 
     // ==================== MYTHIQUES (§c) ====================

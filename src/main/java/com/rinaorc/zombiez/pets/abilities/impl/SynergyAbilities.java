@@ -8875,3 +8875,323 @@ class ZoglinChargeActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== ARCANE ILLUSIONIST SYSTEM ====================
+
+/**
+ * Passif: +30% dégâts aux ennemis au-delà de 15 blocs
+ * Niveau 5+: +40% dégâts au-delà de 15 blocs, bonus dès 12 blocs
+ */
+class SniperDamagePassive extends SynergyAbilities.BasePetAbility {
+
+    private final double baseBonusPercent;
+    private final double baseDistanceThreshold;
+    private final double level5BonusPercent;
+    private final double level5DistanceThreshold;
+
+    public SniperDamagePassive(String id, String name, String description,
+                               double baseBonusPercent, double baseDistanceThreshold,
+                               double level5BonusPercent, double level5DistanceThreshold) {
+        super(id, name, description, false);
+        this.baseBonusPercent = baseBonusPercent;
+        this.baseDistanceThreshold = baseDistanceThreshold;
+        this.level5BonusPercent = level5BonusPercent;
+        this.level5DistanceThreshold = level5DistanceThreshold;
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Passif calculé dans onDamageDealt
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        double distance = player.getLocation().distance(target.getLocation());
+
+        boolean isLevel5Plus = petData.getStatMultiplier() >= 1.5;
+        double threshold = isLevel5Plus ? level5DistanceThreshold : baseDistanceThreshold;
+        double bonusPercent = isLevel5Plus ? level5BonusPercent : baseBonusPercent;
+
+        if (distance >= threshold) {
+            // Calculer le bonus basé sur les dégâts de l'arme du joueur
+            var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+            var zombieManager = plugin.getZombieManager();
+
+            // Récupérer stats joueur
+            Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+                plugin.getItemManager().calculatePlayerStats(player);
+
+            double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
+            double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+
+            // Dégâts de base de l'arme
+            double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+            // Bonus de dégâts à distance
+            double bonusDamage = weaponDamage * bonusPercent * petData.getStatMultiplier();
+
+            // Appliquer les dégâts bonus
+            if (zombieManager != null) {
+                var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    zombieManager.damageZombie(player, activeZombie, bonusDamage,
+                        com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                }
+            } else {
+                target.damage(bonusDamage, player);
+            }
+
+            // Effet visuel arcanique
+            World world = target.getWorld();
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.WITCH, targetLoc, 8, 0.3, 0.4, 0.3, 0.02);
+            world.spawnParticle(Particle.END_ROD, targetLoc, 3, 0.2, 0.3, 0.2, 0.01);
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
+
+/**
+ * Ultimate: Torrent Arcanique - volée de projectiles magiques
+ * Dégâts démarrent à 150% et augmentent de 50%/s jusqu'à 400% max
+ * Max stars: crée des explosions arcaniques secondaires (80% dégâts)
+ */
+class ArcaneTorrentActive extends SynergyAbilities.BasePetAbility {
+
+    private final SniperDamagePassive linkedPassive;
+    private final double initialDamagePercent;
+    private final double damageIncreasePerSecond;
+    private final double maxDamagePercent;
+    private final double secondaryExplosionPercent;
+
+    public ArcaneTorrentActive(String id, String name, String description,
+                               SniperDamagePassive linkedPassive,
+                               double initialDamagePercent, double damageIncreasePerSecond,
+                               double maxDamagePercent, double secondaryExplosionPercent) {
+        super(id, name, description, true);
+        this.linkedPassive = linkedPassive;
+        this.initialDamagePercent = initialDamagePercent;
+        this.damageIncreasePerSecond = damageIncreasePerSecond;
+        this.maxDamagePercent = maxDamagePercent;
+        this.secondaryExplosionPercent = secondaryExplosionPercent;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Récupérer stats joueur
+        Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
+        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+
+        // Dégâts de base de l'arme
+        double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        boolean hasMaxStars = petData.getStarPower() > 0;
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Son d'invocation
+        world.playSound(playerLoc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1.2f, 0.8f);
+        world.playSound(playerLoc, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.5f);
+
+        // Effet de lancement
+        world.spawnParticle(Particle.WITCH, playerLoc.clone().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.END_ROD, playerLoc.clone().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.05);
+
+        // Collecter les cibles initiales
+        List<LivingEntity> targets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, 12, 6, 12)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+                targets.add(living);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§5§l✦ §dTorrent Arcanique: §7Aucune cible à proximité!");
+            return;
+        }
+
+        player.sendMessage("§5§l✦ §dTorrent Arcanique §7activé! §e" + targets.size() + " §7cibles détectées.");
+
+        // Projectiles qui frappent au fil du temps avec dégâts croissants
+        // Durée: 5 secondes (100 ticks), 1 vague de projectiles par seconde
+        final int DURATION_TICKS = 100;
+        final int WAVES = 5;
+
+        new BukkitRunnable() {
+            int ticksElapsed = 0;
+            int wavesFired = 0;
+
+            @Override
+            public void run() {
+                if (ticksElapsed >= DURATION_TICKS || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Tirer une vague tous les 20 ticks (1 seconde)
+                if (ticksElapsed % 20 == 0 && wavesFired < WAVES) {
+                    // Calculer les dégâts pour cette vague (augmentent avec le temps)
+                    double secondsElapsed = ticksElapsed / 20.0;
+                    double currentDamagePercent = Math.min(
+                        initialDamagePercent + (damageIncreasePerSecond * secondsElapsed),
+                        maxDamagePercent
+                    );
+
+                    double waveDamage = weaponDamage * currentDamagePercent * statMultiplier;
+
+                    // Lancer des projectiles vers les cibles
+                    Location origin = player.getLocation().add(0, 1.5, 0);
+
+                    // Effet de lancement de vague
+                    world.playSound(origin, Sound.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 0.7f, 1.2f + (wavesFired * 0.1f));
+                    world.spawnParticle(Particle.REVERSE_PORTAL, origin, 20, 0.3, 0.3, 0.3, 0.05);
+
+                    // Tirer vers chaque cible (ou leurs dernières positions connues)
+                    for (LivingEntity target : new ArrayList<>(targets)) {
+                        if (target.isDead() || !target.isValid()) {
+                            targets.remove(target);
+                            continue;
+                        }
+
+                        // Créer le projectile arcanique (visuel)
+                        Location targetLoc = target.getLocation().add(0, 1, 0);
+                        Vector direction = targetLoc.toVector().subtract(origin.toVector()).normalize();
+
+                        // Animation du projectile
+                        fireArcaneProjectile(player, origin.clone(), targetLoc, waveDamage,
+                            hasMaxStars, weaponDamage * secondaryExplosionPercent * statMultiplier,
+                            zombieManager, world);
+                    }
+
+                    wavesFired++;
+
+                    // Message de progression
+                    int percentDamage = (int) (currentDamagePercent * 100);
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§5✦ Torrent Arcanique: §d" + percentDamage + "% §7dégâts"));
+                }
+
+                ticksElapsed++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    private void fireArcaneProjectile(Player player, Location origin, Location targetLoc, double damage,
+                                      boolean hasMaxStars, double secondaryDamage,
+                                      com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+
+        Vector direction = targetLoc.toVector().subtract(origin.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Vitesse du projectile
+        final double SPEED = 1.5;
+        final int maxTicks = (int) (distance / SPEED) + 10;
+
+        new BukkitRunnable() {
+            Location current = origin.clone();
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Avancer le projectile
+                current.add(direction.clone().multiply(SPEED));
+
+                // Particules de traînée
+                world.spawnParticle(Particle.WITCH, current, 3, 0.1, 0.1, 0.1, 0.01);
+                world.spawnParticle(Particle.DRAGON_BREATH, current, 2, 0.05, 0.05, 0.05, 0.01);
+
+                // Vérifier les collisions
+                for (Entity entity : world.getNearbyEntities(current, 1.2, 1.2, 1.2)) {
+                    if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                        && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                        // Impact principal
+                        dealDamage(player, living, damage, zombieManager);
+
+                        // Effet d'impact
+                        world.spawnParticle(Particle.WITCH, current, 20, 0.4, 0.4, 0.4, 0.1);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, current, 15, 0.3, 0.3, 0.3, 0.05);
+                        world.playSound(current, Sound.ENTITY_ILLUSIONER_HURT, 0.8f, 1.5f);
+
+                        // Explosion secondaire si max stars
+                        if (hasMaxStars) {
+                            createSecondaryExplosion(player, current, secondaryDamage, zombieManager, world);
+                        }
+
+                        cancel();
+                        return;
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    private void createSecondaryExplosion(Player player, Location center, double damage,
+                                          com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        // Explosion arcanique secondaire
+        world.spawnParticle(Particle.WITCH, center, 40, 2, 1, 2, 0.1);
+        world.spawnParticle(Particle.END_ROD, center, 20, 1.5, 0.5, 1.5, 0.05);
+        world.playSound(center, Sound.ENTITY_EVOKER_CAST_SPELL, 0.7f, 1.3f);
+
+        Set<UUID> hit = new HashSet<>();
+        for (Entity entity : world.getNearbyEntities(center, 3, 2, 3)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (hit.add(entity.getUniqueId())) {
+                    dealDamage(player, living, damage, zombieManager);
+                }
+            }
+        }
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

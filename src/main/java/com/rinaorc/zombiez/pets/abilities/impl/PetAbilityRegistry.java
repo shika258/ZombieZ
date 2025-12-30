@@ -490,12 +490,16 @@ public class PetAbilityRegistry {
                 "Charge (220% dégâts, knockback)", executeDamagePassive, 2.20, 12.0, 2.5)
         );
 
-        // Esprit Prismatique (Lumière / Arc-en-ciel)
-        registerAbilities(PetType.ESPRIT_PRISMATIQUE,
-            new PrismaticBeamPassive("prismatic_beam", "Rayon Prismatique",
-                "Tire un rayon arc-en-ciel (+10 dégâts)", 10),
-            new RainbowNovaActive("rainbow_nova", "Nova Prismatique",
-                "Onde arc-en-ciel expansive (30 dégâts)", 30, 10)
+        // Illusioniste Arcanique (Sniper / Arcane)
+        // Passif: +30% dégâts au-delà de 15 blocs (Niv5+: +40%, dès 12 blocs)
+        // Ultimate: Torrent de projectiles (150% → 400% dégâts, +50%/s)
+        // Max stars: explosions secondaires (80% dégâts)
+        SniperDamagePassive sniperDamagePassive = new SniperDamagePassive("sniper_damage", "Tir de Précision",
+            "+30% dégâts aux ennemis au-delà de 15 blocs", 0.30, 15.0, 0.40, 12.0);
+        registerAbilities(PetType.ILLUSIONISTE_ARCANIQUE,
+            sniperDamagePassive,
+            new ArcaneTorrentActive("arcane_torrent", "Torrent Arcanique",
+                "Volée de projectiles (150% → 400% dégâts, +50%/s)", sniperDamagePassive, 1.50, 0.50, 4.00, 0.80)
         );
 
         // Kraken Miniature (Eau / Tentacules)
