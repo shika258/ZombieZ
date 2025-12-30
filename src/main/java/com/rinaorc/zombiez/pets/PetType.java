@@ -495,20 +495,20 @@ public enum PetType {
 
     // --- NOUVEAUX PETS ÉPIQUES (Synergies Uniques) ---
 
-    SPECTRE_VENGEANCE(
-        "Spectre de Vengeance",
+    PANDA_GOURMAND(
+        "Panda Gourmand",
         PetRarity.EPIC,
-        Material.PHANTOM_MEMBRANE,
-        EntityType.PHANTOM,
-        "vengeance_specter",
-        "Contre-attaque / Accumulation",
-        "Spectre rouge sang avec chaînes brisées",
-        "Accumule 50% des dégâts subis en Rage (max 200). Prochain hit = +Rage en dégâts",
-        "Explosion de Vengeance",
-        "Libère toute la Rage en dégâts de zone (rayon 8)",
-        15,
-        "Accumulation +25%",
-        "La Rage ne decay plus, et les dégâts de Vengeance ignorent les résistances"
+        Material.BAMBOO,
+        EntityType.PANDA,
+        "gourmand_panda",
+        "Buffs / Nourriture",
+        "Panda dodu mâchant constamment du bambou avec des particules vertes",
+        "Chaque 5 kills accorde un buff aléatoire 8s (+25% dégâts, +30% vitesse, régén ou +20% crit)",
+        "Éternuement Explosif",
+        "Onde de choc (rayon 6) infligeant 80% de vos dégâts. Applique tous les buffs 5s",
+        20,
+        "Buffs 12s, 4 kills requis",
+        "L'éternuement a 30% de chance de drop un consommable ou nourriture"
     ),
 
     DJINN_JACKPOT(

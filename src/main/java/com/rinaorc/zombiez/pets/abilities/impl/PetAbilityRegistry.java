@@ -375,13 +375,13 @@ public class PetAbilityRegistry {
                 "Applique les 3 éléments, déclenche toutes les réactions (100% dégâts)", 35, 1.0, catalystPassive)
         );
 
-        // Spectre de Vengeance (Damage Taken)
-        VengeancePassive vengeancePassive = new VengeancePassive("vengeance_stack", "Accumulation de Rage",
-            "50% des dégâts subis = Rage (max 200)", 50, 200);
-        registerAbilities(PetType.SPECTRE_VENGEANCE,
-            vengeancePassive,
-            new VengeanceExplosionActive("vengeance_explode", "Explosion de Vengeance",
-                "Libère la Rage en dégâts de zone", vengeancePassive)
+        // Panda Gourmand (Buffs & Food Drops)
+        GourmandPassive gourmandPassive = new GourmandPassive("gourmand_feast", "Festin de Bambou",
+            "5 kills = buff aléatoire 8s (Force/Vitesse/Régén/Crit)", 5, 160);
+        registerAbilities(PetType.PANDA_GOURMAND,
+            gourmandPassive,
+            new SneezingExplosiveActive("sneeze_explode", "Éternuement Explosif",
+                "Onde de choc 80% dégâts, tous buffs 5s", gourmandPassive, 0.80, 0.30)
         );
 
         // Djinn du Jackpot (Jackpot System)

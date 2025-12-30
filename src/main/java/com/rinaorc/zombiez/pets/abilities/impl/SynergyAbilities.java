@@ -1356,110 +1356,292 @@ class ChainReactionActive implements PetAbility {
     }
 }
 
-// ==================== VENGEANCE SYSTEM (Spectre de Vengeance) ====================
+// ==================== GOURMAND SYSTEM (Panda Gourmand) ====================
 
 @Getter
-class VengeancePassive implements PetAbility {
+class GourmandPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double accumulationPercent;
-    private final double maxRage;
-    private final Map<UUID, Double> vengeanceRage = new HashMap<>();
+    private final int baseKillsRequired;
+    private final int baseDurationTicks;
+    private final Map<UUID, Integer> killCounts = new HashMap<>();
+    private final Map<UUID, GourmandBuff> activeBuffs = new HashMap<>();
 
-    public VengeancePassive(String id, String name, String desc, double percent, double max) {
+    // Types de buffs possibles
+    public enum GourmandBuff {
+        FORCE("§c⚔ Force", "+25% dégâts", 0.25),
+        VITESSE("§b⚡ Vélocité", "+30% vitesse", 0.30),
+        REGEN("§a❤ Régénération", "+3♥/s", 0.0), // Spécial: applique regen directement
+        CRIT("§e✦ Précision", "+20% crit chance", 0.20);
+
+        @Getter private final String displayName;
+        @Getter private final String desc;
+        @Getter private final double value;
+
+        GourmandBuff(String displayName, String desc, double value) {
+            this.displayName = displayName;
+            this.desc = desc;
+            this.value = value;
+        }
+    }
+
+    public GourmandPassive(String id, String name, String desc, int killsRequired, int durationTicks) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.accumulationPercent = percent;
-        this.maxRage = max;
-        PassiveAbilityCleanup.registerForCleanup(vengeanceRage);
+        this.baseKillsRequired = killsRequired;
+        this.baseDurationTicks = durationTicks;
+        PassiveAbilityCleanup.registerForCleanup(killCounts);
+        PassiveAbilityCleanup.registerForCleanup(activeBuffs);
     }
 
     @Override
     public boolean isPassive() { return true; }
 
+    /**
+     * Kills requis selon le niveau (niveau élevé = moins de kills)
+     */
+    private int getEffectiveKillsRequired(PetData petData) {
+        // Base 5, réduit à 4 avec niveau 5+
+        double mult = petData.getStatMultiplier();
+        return mult >= 1.5 ? baseKillsRequired - 1 : baseKillsRequired;
+    }
+
+    /**
+     * Durée des buffs selon le niveau
+     */
+    private int getEffectiveDuration(PetData petData) {
+        // Base 8s (160 ticks), monte à 12s (240 ticks) avec niveau max
+        double mult = petData.getStatMultiplier();
+        return (int) (baseDurationTicks * (mult >= 1.5 ? 1.5 : 1.0));
+    }
+
     @Override
-    public void onDamageReceived(Player player, PetData petData, double damage) {
+    public void onKill(Player player, PetData petData, LivingEntity killed) {
         UUID uuid = player.getUniqueId();
-        double current = vengeanceRage.getOrDefault(uuid, 0.0);
-        double added = damage * (accumulationPercent / 100.0) * petData.getStatMultiplier();
-        double maxR = maxRage * petData.getStatMultiplier();
+        int kills = killCounts.getOrDefault(uuid, 0) + 1;
+        int required = getEffectiveKillsRequired(petData);
 
-        vengeanceRage.put(uuid, Math.min(maxR, current + added));
+        if (kills >= required) {
+            // Reset le compteur
+            killCounts.put(uuid, 0);
 
-        if (added > 5) {
-            player.spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation().add(0, 2, 0), 3, 0.3, 0.3, 0.3, 0);
+            // Choix aléatoire du buff
+            GourmandBuff buff = GourmandBuff.values()[new Random().nextInt(GourmandBuff.values().length)];
+            activeBuffs.put(uuid, buff);
+
+            int duration = getEffectiveDuration(petData);
+
+            // Appliquer le buff spécifique
+            if (buff == GourmandBuff.REGEN) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, duration, 1)); // Regen II
+            } else if (buff == GourmandBuff.VITESSE) {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, duration, 1)); // Speed II
+            }
+
+            // Effets visuels
+            player.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0);
+            player.playSound(player.getLocation(), Sound.ENTITY_PANDA_EAT, 1.0f, 1.2f);
+            player.sendMessage("§a[Pet] §e" + buff.getDisplayName() + " §7activé! (" + buff.getDesc() + " §7pendant " + (duration / 20) + "s)");
+
+            // Programmer la fin du buff
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    activeBuffs.remove(uuid);
+                }
+            }.runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), duration);
+
+        } else {
+            killCounts.put(uuid, kills);
+
+            // Notification de progression tous les kills
+            if (kills == required - 1) {
+                player.spawnParticle(Particle.COMPOSTER, player.getLocation().add(0, 1.5, 0), 5, 0.3, 0.3, 0.3, 0);
+            }
         }
     }
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
-        double rage = vengeanceRage.getOrDefault(uuid, 0.0);
-
-        if (rage > 0) {
-            vengeanceRage.put(uuid, 0.0);
-            player.sendMessage("§a[Pet] §c+" + (int)rage + " §7dégâts de Rage!");
-            return damage + rage;
+        GourmandBuff buff = activeBuffs.get(player.getUniqueId());
+        if (buff != null) {
+            return switch (buff) {
+                case FORCE -> damage * (1.0 + buff.getValue() * petData.getStatMultiplier());
+                case CRIT -> damage; // Le crit est géré différemment
+                default -> damage;
+            };
         }
-
         return damage;
     }
 
-    public double getRage(UUID uuid) {
-        return vengeanceRage.getOrDefault(uuid, 0.0);
+    /**
+     * Retourne le buff actif pour le joueur (utilisé par d'autres systèmes)
+     */
+    public GourmandBuff getActiveBuff(UUID uuid) {
+        return activeBuffs.get(uuid);
     }
 
-    public void clearRage(UUID uuid) {
-        vengeanceRage.put(uuid, 0.0);
+    /**
+     * Retourne le nombre de kills actuel
+     */
+    public int getKillCount(UUID uuid) {
+        return killCounts.getOrDefault(uuid, 0);
     }
 }
 
 @Getter
-class VengeanceExplosionActive implements PetAbility {
+class SneezingExplosiveActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final VengeancePassive vengeancePassive;
+    private final GourmandPassive gourmandPassive;
+    private final double baseDamagePercent; // % des dégâts du joueur
+    private final double baseDropChance;    // Chance de drop
+    private static final Random random = new Random();
 
-    public VengeanceExplosionActive(String id, String name, String desc, VengeancePassive passive) {
+    public SneezingExplosiveActive(String id, String name, String desc, GourmandPassive passive,
+                                    double damagePercent, double dropChance) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.vengeancePassive = passive;
+        this.gourmandPassive = passive;
+        this.baseDamagePercent = damagePercent;
+        this.baseDropChance = dropChance;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 15; }
+    public int getCooldown() { return 20; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        double rage = vengeancePassive.getRage(player.getUniqueId());
-        if (rage < 20) {
-            player.sendMessage("§c[Pet] §7Pas assez de Rage! (§e" + (int)rage + "§7/20 minimum)");
-            return false;
+        // Récupérer les dégâts du joueur via le plugin
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return false;
+
+        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+
+        // Calculer les dégâts finaux: (base + flat) * (1 + percent) * damagePercent de l'ultime
+        double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+        double effectiveDamagePercent = baseDamagePercent * petData.getStatMultiplier();
+        double ultimateDamage = playerBaseDamage * effectiveDamagePercent;
+
+        // Effet visuel de l'éternuement
+        Location loc = player.getLocation();
+        Vector direction = loc.getDirection().normalize();
+
+        // Particules d'éternuement (vert bambou)
+        for (int i = 0; i < 30; i++) {
+            double spread = 0.5;
+            Vector offset = new Vector(
+                (random.nextDouble() - 0.5) * spread,
+                (random.nextDouble() - 0.5) * spread,
+                (random.nextDouble() - 0.5) * spread
+            );
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
+                loc.clone().add(direction.clone().multiply(2)).add(offset).add(0, 1, 0),
+                1, 0, 0, 0, 0);
         }
 
-        vengeancePassive.clearRage(player.getUniqueId());
+        // Onde de choc circulaire
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            double x = Math.cos(angle) * 6;
+            double z = Math.sin(angle) * 6;
+            player.getWorld().spawnParticle(Particle.SNEEZE,
+                loc.clone().add(x, 0.5, z), 2, 0.2, 0.1, 0.2, 0.02);
+        }
 
-        Collection<Entity> nearby = player.getNearbyEntities(8, 8, 8);
+        // Son de l'éternuement
+        player.getWorld().playSound(loc, Sound.ENTITY_PANDA_SNEEZE, 2.0f, 0.8f);
+        player.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.5f);
+
+        // Infliger les dégâts aux ennemis dans le rayon
+        int enemiesHit = 0;
+        Collection<Entity> nearby = player.getNearbyEntities(6, 6, 6);
         for (Entity entity : nearby) {
             if (entity instanceof Monster monster) {
-                monster.damage(rage, player);
-                petData.addDamage((long) rage);
+                monster.damage(ultimateDamage, player);
+                petData.addDamage((long) ultimateDamage);
+                enemiesHit++;
+
+                // Appliquer knockback léger
+                Vector knockback = monster.getLocation().toVector()
+                    .subtract(player.getLocation().toVector())
+                    .normalize().multiply(0.8).setY(0.3);
+                monster.setVelocity(knockback);
+
+                // Particule d'impact
+                monster.getWorld().spawnParticle(Particle.SNEEZE,
+                    monster.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.05);
             }
         }
 
-        player.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, player.getLocation(), 50, 5, 2, 5, 0);
-        player.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, player.getLocation(), 30, 4, 1, 4, 0.1);
-        player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_ROAR, 0.5f, 1.5f);
-        player.sendMessage("§a[Pet] §c§lExplosion de Vengeance! §7" + (int)rage + " dégâts!");
+        // Appliquer tous les buffs pendant 5s (100 ticks)
+        int buffDuration = (int) (100 * petData.getStatMultiplier());
+        player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, buffDuration, 0));      // Force I
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, buffDuration, 1));         // Speed II
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, buffDuration, 1));  // Regen II
+
+        // Chance de drop (30% au max level)
+        double dropChance = petData.getStarPower() > 0 ? baseDropChance : 0;
+        if (random.nextDouble() < dropChance) {
+            dropRandomConsumableOrFood(player, plugin);
+        }
+
+        player.sendMessage("§a[Pet] §e§lATCHOUM! §7" + enemiesHit + " ennemis touchés! (§c" +
+            String.format("%.0f", ultimateDamage) + " §7dégâts)");
 
         return true;
+    }
+
+    /**
+     * Drop un consommable ou nourriture aléatoire
+     */
+    private void dropRandomConsumableOrFood(Player player, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        // 50% chance nourriture, 50% chance consommable
+        if (random.nextBoolean()) {
+            // Drop nourriture depuis FoodItemRegistry
+            var foodRegistry = plugin.getFoodItemRegistry();
+            if (foodRegistry != null) {
+                var food = foodRegistry.getRandomZombieFood();
+                if (food != null) {
+                    org.bukkit.inventory.ItemStack foodItem = food.createItemStack();
+                    player.getWorld().dropItemNaturally(player.getLocation(), foodItem);
+                    player.sendMessage("§a[Pet] §6✦ §eLe Panda a trouvé: " + food.getRarity().getColor() + food.getDisplayName());
+                    player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
+                }
+            }
+        } else {
+            // Drop consommable aléatoire
+            var consumableTypes = com.rinaorc.zombiez.consumables.ConsumableType.values();
+            var randomType = consumableTypes[random.nextInt(consumableTypes.length)];
+
+            // Rareté aléatoire pondérée (plus de commun/uncommon)
+            var rarities = com.rinaorc.zombiez.consumables.ConsumableRarity.values();
+            double roll = random.nextDouble();
+            com.rinaorc.zombiez.consumables.ConsumableRarity rarity;
+            if (roll < 0.5) rarity = rarities[0];      // 50% Common
+            else if (roll < 0.8) rarity = rarities[1]; // 30% Uncommon
+            else if (roll < 0.95) rarity = rarities[2]; // 15% Rare
+            else rarity = rarities[3];                  // 5% Epic
+
+            // Zone du joueur pour le scaling
+            int zone = plugin.getZoneManager().getPlayerZone(player);
+
+            var consumable = new com.rinaorc.zombiez.consumables.Consumable(randomType, rarity, zone);
+            org.bukkit.inventory.ItemStack consumableItem = consumable.createItemStack();
+            player.getWorld().dropItemNaturally(player.getLocation(), consumableItem);
+            player.sendMessage("§a[Pet] §6✦ §eLe Panda a trouvé: " + rarity.getColor() + randomType.getDisplayName());
+            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
+        }
     }
 }
 
