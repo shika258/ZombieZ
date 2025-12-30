@@ -406,12 +406,13 @@ public class PetAbilityRegistry {
                 "Pluie de flèches (360% dégâts à tous les ennemis)", rangedDamagePassive, 3.60, 10.0, 15)
         );
 
-        // Sentinelle des Zones (Zone Environment)
-        registerAbilities(PetType.SENTINELLE_ZONES,
-            new ZoneAdaptPassive("zone_adapt", "Adaptation Environnementale",
-                "+15% bonus selon effet de zone actif", 0.15),
-            new ZoneMasteryActive("zone_mastery", "Maîtrise de Zone",
-                "Immunité zone 10s + bonus zone x2")
+        // Cube Infernal (Dégâts Feu / Météore)
+        FireDamagePassive fireDamagePassive = new FireDamagePassive("fire_damage", "Pyromanie",
+            "+40% dégâts sur mobs en feu", 0.40);
+        registerAbilities(PetType.CUBE_INFERNAL,
+            fireDamagePassive,
+            new MeteorStrikeActive("meteor_strike", "Frappe Météoritique",
+                "Météore géant (450% dégâts) + zone enflammée (120% sur 3s)", fireDamagePassive, 4.50, 1.20, 8.0)
         );
 
         // Symbiote Éternel (Total Amplification)

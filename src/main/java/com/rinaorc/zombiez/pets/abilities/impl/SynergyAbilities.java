@@ -8039,3 +8039,482 @@ class ArrowVolleyActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== INFERNAL CUBE SYSTEM (Cube Infernal) ====================
+
+/**
+ * Pyromanie - Augmente les dégâts contre les mobs en feu
+ * +40% (base), +50% (niveau 5+), auto-enflamme (étoiles max)
+ */
+@Getter
+class FireDamagePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseDamageBonus;       // 40% = 0.40
+
+    public FireDamagePassive(String id, String name, String desc, double damageBonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseDamageBonus = damageBonus;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Récupère le bonus de dégâts selon le niveau
+     * Base: 40%, Niveau 5+: 50%
+     */
+    public double getEffectiveDamageBonus(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.50; // 50%
+        }
+        return baseDamageBonus; // 40%
+    }
+
+    /**
+     * Vérifie si les attaques enflamment automatiquement (étoiles max)
+     */
+    public boolean hasAutoIgnite(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        World world = target.getWorld();
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+
+        // Auto-enflamme si étoiles max
+        if (hasAutoIgnite(petData) && target.getFireTicks() <= 0) {
+            target.setFireTicks(60); // 3 secondes de feu
+
+            // Effet visuel d'ignition
+            world.spawnParticle(Particle.FLAME, targetLoc, 15, 0.3, 0.5, 0.3, 0.05);
+            world.playSound(targetLoc, Sound.ITEM_FIRECHARGE_USE, 0.6f, 1.2f);
+        }
+
+        // Effet visuel si la cible est en feu
+        if (target.getFireTicks() > 0) {
+            world.spawnParticle(Particle.LAVA, targetLoc, 3, 0.2, 0.3, 0.2, 0);
+
+            // Son occasionnel
+            if (Math.random() < 0.2) {
+                world.playSound(targetLoc, Sound.BLOCK_FIRE_AMBIENT, 0.4f, 1.0f);
+            }
+        }
+    }
+
+    /**
+     * Vérifie si la cible est en feu et retourne le bonus applicable
+     */
+    public double getBonusForTarget(LivingEntity target, PetData petData) {
+        if (target.getFireTicks() > 0) {
+            return getEffectiveDamageBonus(petData);
+        }
+        return 0.0;
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Frappe Météoritique - Invoque un météore géant
+ * 450% dégâts feu + zone enflammée (120% sur 3s)
+ */
+@Getter
+class MeteorStrikeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final FireDamagePassive linkedPassive;
+    private final double impactDamagePercent;    // 450% = 4.50
+    private final double groundFirePercent;      // 120% = 1.20 sur 3s
+    private final double impactRadius;           // Rayon d'impact
+
+    public MeteorStrikeActive(String id, String name, String desc, FireDamagePassive passive,
+                               double impactDmg, double groundFireDmg, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.impactDamagePercent = impactDmg;
+        this.groundFirePercent = groundFireDmg;
+        this.impactRadius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    /**
+     * Vérifie si le météore crée un lac de lave (étoiles max)
+     */
+    private boolean hasLavaLake(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer le point d'impact (devant le joueur ou bloc visé)
+        Location targetLoc = player.getTargetBlockExact(30) != null
+            ? player.getTargetBlockExact(30).getLocation().add(0, 1, 0)
+            : playerLoc.add(player.getLocation().getDirection().multiply(10));
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
+        double impactDamage = baseDamage * impactDamagePercent * petData.getStatMultiplier();
+        double groundFireDamage = baseDamage * groundFirePercent * petData.getStatMultiplier();
+
+        boolean createLavaLake = hasLavaLake(petData);
+        double lavaDamagePerSecond = baseDamage * 0.50 * petData.getStatMultiplier(); // 50% par seconde
+
+        // Son d'avertissement
+        world.playSound(targetLoc, Sound.ENTITY_BLAZE_SHOOT, 2.0f, 0.5f);
+        world.playSound(playerLoc, Sound.ENTITY_MAGMA_CUBE_JUMP_SMALL, 1.5f, 0.8f);
+
+        // Message
+        player.sendMessage("§c[Pet] §6☄ §7Frappe Météoritique! §c" +
+            String.format("%.0f", impactDamage) + " §7dégâts feu!");
+
+        // Lancer le météore
+        launchMeteor(player, targetLoc, impactDamage, groundFireDamage, createLavaLake, lavaDamagePerSecond, plugin);
+    }
+
+    /**
+     * Lance le météore depuis le ciel
+     */
+    private void launchMeteor(Player player, Location target, double impactDamage, double groundFireDamage,
+                               boolean createLavaLake, double lavaDamage,
+                               com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = target.getWorld();
+        if (world == null) return;
+
+        // Position de départ du météore (haut dans le ciel)
+        Location meteorStart = target.clone().add(0, 25, 0);
+        final Location impactPoint = target.clone();
+
+        // Animation du météore qui tombe
+        new BukkitRunnable() {
+            Location current = meteorStart.clone();
+            final org.bukkit.util.Vector velocity = new org.bukkit.util.Vector(0, -1.5, 0);
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                // Vérifier si on a atteint le sol
+                if (current.getY() <= impactPoint.getY() || ticks > 40) {
+                    // IMPACT!
+                    performImpact(player, impactPoint, impactDamage, groundFireDamage,
+                        createLavaLake, lavaDamage, plugin);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le météore
+                current.add(velocity);
+                ticks++;
+
+                // Particules du météore
+                world.spawnParticle(Particle.FLAME, current, 30, 0.8, 0.8, 0.8, 0.1);
+                world.spawnParticle(Particle.LAVA, current, 10, 0.5, 0.5, 0.5, 0);
+                world.spawnParticle(Particle.SMOKE, current, 15, 0.6, 0.6, 0.6, 0.05);
+
+                // Traînée de feu
+                for (int i = 1; i <= 3; i++) {
+                    Location trailLoc = current.clone().add(0, i * 0.8, 0);
+                    world.spawnParticle(Particle.FLAME, trailLoc, 8, 0.3, 0.3, 0.3, 0.02);
+                }
+
+                // Son de chute
+                if (ticks % 5 == 0) {
+                    world.playSound(current, Sound.ENTITY_BLAZE_BURN, 1.0f, 0.5f);
+                }
+
+                // Indicateur au sol
+                world.spawnParticle(Particle.FLAME, impactPoint, 5, impactRadius * 0.5, 0.1, impactRadius * 0.5, 0.01);
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Effectue l'impact du météore
+     */
+    private void performImpact(Player player, Location center, double impactDamage, double groundFireDamage,
+                                boolean createLavaLake, double lavaDamage,
+                                com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        // Sons d'explosion
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.6f);
+        world.playSound(center, Sound.ENTITY_BLAZE_DEATH, 1.5f, 0.5f);
+        world.playSound(center, Sound.BLOCK_LAVA_POP, 2.0f, 0.8f);
+
+        // Explosion visuelle massive
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 3, 0.5, 0.5, 0.5, 0);
+        world.spawnParticle(Particle.FLAME, center, 100, impactRadius, 1.5, impactRadius, 0.2);
+        world.spawnParticle(Particle.LAVA, center, 50, impactRadius * 0.8, 1, impactRadius * 0.8, 0);
+        world.spawnParticle(Particle.SMOKE, center, 60, impactRadius, 2, impactRadius, 0.1);
+
+        // Onde de choc visuelle
+        spawnShockwave(center, world);
+
+        // Infliger les dégâts d'impact
+        Set<UUID> hitEntities = new HashSet<>();
+        var zombieManager = plugin.getZombieManager();
+        int hitCount = 0;
+
+        for (Entity entity : world.getNearbyEntities(center, impactRadius, impactRadius, impactRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(center);
+                if (distSq > impactRadius * impactRadius) continue;
+
+                hitEntities.add(entity.getUniqueId());
+                hitCount++;
+
+                // Enflammer la cible
+                living.setFireTicks(100); // 5 secondes
+
+                // Dégâts d'impact
+                dealDamage(player, living, impactDamage, zombieManager);
+
+                // Knockback depuis le centre
+                org.bukkit.util.Vector knockback = living.getLocation().toVector()
+                    .subtract(center.toVector()).normalize().multiply(1.5);
+                knockback.setY(0.5);
+                living.setVelocity(knockback);
+
+                // Effet sur la cible
+                Location targetLoc = living.getLocation().add(0, 1, 0);
+                world.spawnParticle(Particle.FLAME, targetLoc, 20, 0.3, 0.5, 0.3, 0.1);
+                world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc, 8, 0.2, 0.3, 0.2, 0.1);
+            }
+        }
+
+        // Message de résultat
+        if (hitCount > 0) {
+            player.sendMessage("§c[Pet] §6⚔ §7Impact! §e" + hitCount + " §7ennemis touchés + enflammés!");
+        }
+
+        // Zone enflammée au sol
+        startGroundFire(player, center, groundFireDamage, hitEntities, plugin);
+
+        // Lac de lave si étoiles max
+        if (createLavaLake) {
+            startLavaLake(player, center, lavaDamage, plugin);
+        }
+    }
+
+    /**
+     * Crée l'onde de choc visuelle
+     */
+    private void spawnShockwave(Location center, World world) {
+        new BukkitRunnable() {
+            double radius = 0;
+
+            @Override
+            public void run() {
+                if (radius >= impactRadius * 1.5) {
+                    cancel();
+                    return;
+                }
+
+                for (double angle = 0; angle < 360; angle += 15) {
+                    double rad = Math.toRadians(angle);
+                    double x = center.getX() + radius * Math.cos(rad);
+                    double z = center.getZ() + radius * Math.sin(rad);
+                    Location particleLoc = new Location(world, x, center.getY() + 0.2, z);
+
+                    world.spawnParticle(Particle.FLAME, particleLoc, 2, 0.1, 0.05, 0.1, 0.02);
+                }
+
+                radius += 1.0;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Zone de flammes au sol (120% sur 3s = 40% par seconde)
+     */
+    private void startGroundFire(Player player, Location center, double totalDamage,
+                                  Set<UUID> alreadyHit, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        double damagePerTick = totalDamage / 60.0; // 3 secondes = 60 ticks
+        var zombieManager = plugin.getZombieManager();
+
+        new BukkitRunnable() {
+            int ticksRemaining = 60; // 3 secondes
+
+            @Override
+            public void run() {
+                if (ticksRemaining <= 0) {
+                    cancel();
+                    return;
+                }
+
+                // Particules de flammes au sol
+                if (ticksRemaining % 3 == 0) {
+                    for (double angle = 0; angle < 360; angle += 30) {
+                        double rad = Math.toRadians(angle);
+                        double r = Math.random() * impactRadius;
+                        double x = center.getX() + r * Math.cos(rad);
+                        double z = center.getZ() + r * Math.sin(rad);
+                        Location flameLoc = new Location(world, x, center.getY() + 0.1, z);
+
+                        world.spawnParticle(Particle.FLAME, flameLoc, 2, 0.1, 0.2, 0.1, 0.02);
+                    }
+                }
+
+                // Dégâts toutes les 10 ticks (0.5s)
+                if (ticksRemaining % 10 == 0) {
+                    for (Entity entity : world.getNearbyEntities(center, impactRadius, 2, impactRadius)) {
+                        if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                            && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                            double distSq = entity.getLocation().distanceSquared(center);
+                            if (distSq > impactRadius * impactRadius) continue;
+
+                            // Maintenir en feu
+                            if (living.getFireTicks() < 40) {
+                                living.setFireTicks(40);
+                            }
+
+                            // Dégâts de brûlure
+                            dealDamage(player, living, damagePerTick * 10, zombieManager);
+                        }
+                    }
+                }
+
+                // Son de feu
+                if (ticksRemaining % 20 == 0) {
+                    world.playSound(center, Sound.BLOCK_FIRE_AMBIENT, 0.8f, 1.0f);
+                }
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Lac de lave permanent (étoiles max) - 10 secondes, 50% dégâts/s
+     */
+    private void startLavaLake(Player player, Location center, double damagePerSecond,
+                                com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        var zombieManager = plugin.getZombieManager();
+        double lakeRadius = impactRadius * 0.8;
+
+        new BukkitRunnable() {
+            int ticksRemaining = 200; // 10 secondes
+
+            @Override
+            public void run() {
+                if (ticksRemaining <= 0) {
+                    cancel();
+                    return;
+                }
+
+                // Particules de lave
+                if (ticksRemaining % 5 == 0) {
+                    for (int i = 0; i < 8; i++) {
+                        double angle = Math.random() * 360;
+                        double rad = Math.toRadians(angle);
+                        double r = Math.random() * lakeRadius;
+                        double x = center.getX() + r * Math.cos(rad);
+                        double z = center.getZ() + r * Math.sin(rad);
+                        Location lavaLoc = new Location(world, x, center.getY() + 0.1, z);
+
+                        world.spawnParticle(Particle.LAVA, lavaLoc, 1, 0.1, 0.05, 0.1, 0);
+                        world.spawnParticle(Particle.FLAME, lavaLoc, 1, 0.1, 0.1, 0.1, 0.01);
+                    }
+                }
+
+                // Bulles de lave
+                if (ticksRemaining % 15 == 0) {
+                    double angle = Math.random() * 360;
+                    double rad = Math.toRadians(angle);
+                    double r = Math.random() * lakeRadius;
+                    Location bubbleLoc = center.clone().add(r * Math.cos(rad), 0.2, r * Math.sin(rad));
+
+                    world.spawnParticle(Particle.LAVA, bubbleLoc, 3, 0.1, 0.1, 0.1, 0);
+                    world.playSound(bubbleLoc, Sound.BLOCK_LAVA_POP, 0.5f, 1.0f);
+                }
+
+                // Dégâts toutes les 20 ticks (1s)
+                if (ticksRemaining % 20 == 0) {
+                    for (Entity entity : world.getNearbyEntities(center, lakeRadius, 2, lakeRadius)) {
+                        if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                            && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                            double distSq = entity.getLocation().distanceSquared(center);
+                            if (distSq > lakeRadius * lakeRadius) continue;
+
+                            // Enflammer
+                            living.setFireTicks(60);
+
+                            // Dégâts de lave
+                            dealDamage(player, living, damagePerSecond, zombieManager);
+
+                            // Effet
+                            Location targetLoc = living.getLocation().add(0, 0.5, 0);
+                            world.spawnParticle(Particle.LAVA, targetLoc, 5, 0.2, 0.3, 0.2, 0);
+                        }
+                    }
+                }
+
+                ticksRemaining--;
+            }
+        }.runTaskTimer(plugin, 60L, 1L); // Commence après les flammes initiales
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                             com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.FIRE, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

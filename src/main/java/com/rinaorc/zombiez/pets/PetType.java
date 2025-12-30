@@ -661,20 +661,20 @@ public enum PetType {
         "La volée de flèches ricoche sur 3 ennemis supplémentaires"
     ),
 
-    SENTINELLE_ZONES(
-        "Sentinelle des Zones",
+    CUBE_INFERNAL(
+        "Cube Infernal",
         PetRarity.LEGENDARY,
-        Material.LODESTONE,
-        EntityType.SHULKER,
-        "zone_sentinel",
-        "Zones / Environnement",
-        "Golem cristallin qui absorbe l'énergie de la zone",
-        "Adapte les bonus selon la zone: +15% résist (toxique), +15% dégâts (feu), +15% speed (froid)",
-        "Maîtrise de Zone",
-        "Immunité totale aux effets de zone pendant 10s + bonus zone x2",
-        60,
-        "Bonus de zone +10%",
-        "Dans les zones difficiles (40+): +30% XP et loot supplémentaire"
+        Material.MAGMA_BLOCK,
+        EntityType.MAGMA_CUBE,
+        "infernal_cube",
+        "Feu / Météore",
+        "Cube de magma aux yeux incandescents avec particules de lave",
+        "Augmente les dégâts infligés aux mobs en feu de +40%",
+        "Frappe Météoritique",
+        "Invoque un météore géant infligeant 450% dégâts feu + zone enflammée (120% sur 3s)",
+        35,
+        "+50% dégâts sur mobs en feu, enflamme automatiquement les cibles",
+        "Le météore laisse un lac de lave permanent (10s) infligeant 50% dégâts/s"
     ),
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Visuels) ---
