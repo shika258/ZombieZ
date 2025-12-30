@@ -436,12 +436,15 @@ public class PetAbilityRegistry {
                 "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun)", 5, 0.50, 15)
         );
 
-        // Serpent Foudroyant (Foudre / Chaîne)
+        // Mouton Arc-en-Ciel (Buffs / Polyvalent)
+        // Passif: Cycle les couleurs (3s), chaque couleur = bonus unique
+        // Ultimate: Nova arc-en-ciel, applique tous les bonus pendant 6s
+        ChromaticSpectrumPassive spectrumPassive = new ChromaticSpectrumPassive("chromatic_spectrum", "Spectre Chromatique",
+            "Cycle couleurs (3s), chaque couleur = bonus unique", 3000, 0.15, 0.05);
         registerAbilities(PetType.SERPENT_FOUDROYANT,
-            new ChainLightningPassive("chain_lightning", "Foudre en Chaîne",
-                "20% de déclencher un éclair en chaîne", 0.20, 5, 10),
-            new ThunderstormActive("thunderstorm", "Tempête de Foudre",
-                "6 éclairs sur les ennemis", 25, 6)
+            spectrumPassive,
+            new PrismaticNovaActive("prismatic_nova", "Nova Prismatique",
+                "Explosion arc-en-ciel, tous les bonus pendant 6s (50% dégâts)", 35, 0.50, 120, spectrumPassive)
         );
 
         // Golem de Lave (Lave / Traînée)

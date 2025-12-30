@@ -375,186 +375,420 @@ class BlizzardActive implements PetAbility {
     }
 }
 
-// ==================== SERPENT FOUDROYANT - Éclairs en Chaîne ====================
+// ==================== MOUTON ARC-EN-CIEL - Spectre Chromatique ====================
 
 @Getter
-class ChainLightningPassive implements PetAbility {
+class ChromaticSpectrumPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double chainChance;
-    private final int maxChains;
-    private final double chainDamage;
+    private final int colorCycleMs;                  // 3000ms = 3s entre chaque couleur
+    private final double baseDamageBonus;            // 15% bonus dégâts (rouge)
+    private final double baseLifestealPercent;       // 5% lifesteal (vert)
 
-    public ChainLightningPassive(String id, String name, String desc, double chance, int chains, double damage) {
+    // Couleurs: 0=Rouge, 1=Orange, 2=Jaune, 3=Vert, 4=Bleu, 5=Violet
+    private final Map<UUID, Integer> currentColor = new HashMap<>();
+    private final Map<UUID, Long> lastColorChange = new HashMap<>();
+    private final Map<UUID, Boolean> allBuffsActive = new HashMap<>(); // Pour l'ultimate
+
+    // DyeColor correspondants
+    private static final org.bukkit.DyeColor[] RAINBOW_COLORS = {
+        org.bukkit.DyeColor.RED,
+        org.bukkit.DyeColor.ORANGE,
+        org.bukkit.DyeColor.YELLOW,
+        org.bukkit.DyeColor.LIME,
+        org.bukkit.DyeColor.LIGHT_BLUE,
+        org.bukkit.DyeColor.PURPLE
+    };
+
+    public ChromaticSpectrumPassive(String id, String name, String desc, int cycleMs,
+                                     double dmgBonus, double lifesteal) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.chainChance = chance;
-        this.maxChains = chains;
-        this.chainDamage = damage;
+        this.colorCycleMs = cycleMs;
+        this.baseDamageBonus = dmgBonus;
+        this.baseLifestealPercent = lifesteal;
+        PassiveAbilityCleanup.registerForCleanup(currentColor);
+        PassiveAbilityCleanup.registerForCleanup(lastColorChange);
+        PassiveAbilityCleanup.registerForCleanup(allBuffsActive);
     }
 
     @Override
     public boolean isPassive() { return true; }
 
     @Override
-    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        if (Math.random() > chainChance * petData.getStatMultiplier()) return damage;
+    public void applyPassive(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastChange = lastColorChange.getOrDefault(uuid, 0L);
 
-        // Déclencher la chaîne d'éclairs
-        int chains = (int) (maxChains * petData.getStatMultiplier());
-        double chainDmg = chainDamage * petData.getStatMultiplier();
+        // Si tous les buffs sont actifs (ultimate), ne pas cycler
+        if (allBuffsActive.getOrDefault(uuid, false)) {
+            return;
+        }
 
-        chainLightning(player, target, chains, chainDmg, petData, new HashSet<>());
+        // Ajuster le cycle par niveau (plus rapide à haut niveau)
+        int adjustedCycle = (int) (colorCycleMs - (petData.getStatMultiplier() - 1) * 300);
+        adjustedCycle = Math.max(adjustedCycle, 1500); // Minimum 1.5s
 
-        return damage;
+        // Cycler les couleurs
+        if (now - lastChange > adjustedCycle) {
+            int current = currentColor.getOrDefault(uuid, 0);
+            int newColor = (current + 1) % 6;
+            currentColor.put(uuid, newColor);
+            lastColorChange.put(uuid, now);
+
+            // Changer la couleur du mouton
+            updateSheepColor(player, newColor);
+
+            // Message avec l'effet actif
+            String colorInfo = getColorInfo(newColor, petData);
+            player.sendMessage("§a[Pet] " + colorInfo);
+        }
     }
 
-    private void chainLightning(Player player, LivingEntity current, int remainingChains, double damage, PetData petData, Set<UUID> hit) {
-        if (remainingChains <= 0 || current == null) return;
-        hit.add(current.getUniqueId());
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
+        World world = target.getWorld();
 
-        // Effet d'éclair sur la cible
-        Location loc = current.getLocation().add(0, 1, 0);
-        current.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.3, 0.5, 0.3, 0.1);
-        current.getWorld().spawnParticle(Particle.FLASH, loc, 1, 0, 0, 0, 0);
-        current.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.5f);
+        double bonusDamage = 0;
+        double adjustedBonus = baseDamageBonus + (petData.getStatMultiplier() - 1) * 0.05;
+        double adjustedLifesteal = baseLifestealPercent + (petData.getStatMultiplier() - 1) * 0.02;
 
-        current.damage(damage, player);
-        petData.addDamage((long) damage);
+        // Si l'ultimate est actif, appliquer tous les effets
+        if (allBuffs) {
+            // Rouge: +15% dégâts
+            bonusDamage += damage * adjustedBonus;
 
-        // Trouver la prochaine cible
-        LivingEntity next = null;
-        double minDist = 8;
+            // Jaune: +10% crit (simulé par dégâts bonus aléatoire)
+            if (Math.random() < 0.10 + (petData.getStatMultiplier() - 1) * 0.03) {
+                bonusDamage += damage * 0.5; // Crit!
+                world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+            }
 
-        for (Entity e : current.getNearbyEntities(8, 8, 8)) {
-            if (e instanceof Monster m && !hit.contains(m.getUniqueId())) {
-                double dist = m.getLocation().distance(current.getLocation());
-                if (dist < minDist) {
-                    minDist = dist;
-                    next = m;
+            // Vert: 5% lifesteal
+            double heal = damage * adjustedLifesteal;
+            player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+
+            // Violet: Slow
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1, false, false));
+
+            // Particules arc-en-ciel
+            spawnRainbowParticles(target.getLocation().add(0, 1, 0), world);
+
+        } else {
+            // Appliquer seulement l'effet de la couleur actuelle
+            switch (color) {
+                case 0 -> { // Rouge: +15% dégâts
+                    bonusDamage = damage * adjustedBonus;
+                    world.spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.02);
+                }
+                case 1 -> { // Orange: Vitesse d'attaque (effet visuel + petit bonus)
+                    bonusDamage = damage * 0.08;
+                    world.spawnParticle(Particle.LAVA, target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0);
+                }
+                case 2 -> { // Jaune: Crit chance +10%
+                    if (Math.random() < 0.10 + (petData.getStatMultiplier() - 1) * 0.03) {
+                        bonusDamage = damage * 0.5;
+                        world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                        world.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
+                    }
+                }
+                case 3 -> { // Vert: 5% lifesteal
+                    double heal = damage * adjustedLifesteal;
+                    player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+                    world.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0);
+                }
+                case 4 -> { // Bleu: (défense gérée dans onDamageReceived)
+                    world.spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.02);
+                }
+                case 5 -> { // Violet: Slow ennemi
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1, false, false));
+                    world.spawnParticle(Particle.WITCH, target.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.02);
                 }
             }
         }
 
-        if (next != null) {
-            // Dessiner l'éclair entre les deux cibles
-            drawLightningBolt(current.getLocation().add(0, 1, 0), next.getLocation().add(0, 1, 0));
+        return damage + bonusDamage;
+    }
 
-            // Continuer la chaîne avec délai
-            LivingEntity finalNext = next;
-            Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
-                () -> chainLightning(player, finalNext, remainingChains - 1, damage * 0.8, petData, hit),
-                3L
-            );
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        UUID uuid = player.getUniqueId();
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
+
+        // Bleu: -10% dégâts reçus (appliqué via effet de particules ici, réduction réelle ailleurs)
+        if (color == 4 || allBuffs) {
+            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation().add(0, 1, 0),
+                10, 0.4, 0.4, 0.4, 0.02);
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.3f, 1.8f);
         }
     }
 
-    private void drawLightningBolt(Location from, Location to) {
-        Vector direction = to.toVector().subtract(from.toVector());
-        double distance = direction.length();
-        direction.normalize();
+    /**
+     * Retourne le pourcentage de réduction de dégâts si couleur bleue active
+     */
+    public double getDamageReduction(UUID uuid, double petMultiplier) {
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
 
-        Random random = new Random();
-        Location current = from.clone();
-
-        for (double d = 0; d < distance; d += 0.5) {
-            // Ajouter un peu de zigzag
-            double offsetX = (random.nextDouble() - 0.5) * 0.3;
-            double offsetY = (random.nextDouble() - 0.5) * 0.3;
-            double offsetZ = (random.nextDouble() - 0.5) * 0.3;
-
-            current.add(direction.clone().multiply(0.5)).add(offsetX, offsetY, offsetZ);
-            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, current, 3, 0.05, 0.05, 0.05, 0);
+        if (color == 4 || allBuffs) {
+            return 0.10 + (petMultiplier - 1) * 0.03; // 10% + bonus niveau
         }
+        return 0;
+    }
+
+    private void updateSheepColor(Player player, int colorIndex) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+            if (entity instanceof org.bukkit.entity.Sheep sheep
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                sheep.setColor(RAINBOW_COLORS[colorIndex]);
+
+                // Particules de transition
+                Particle particle = getColorParticle(colorIndex);
+                sheep.getWorld().spawnParticle(particle, sheep.getLocation().add(0, 0.5, 0),
+                    15, 0.3, 0.3, 0.3, 0.05);
+
+                break;
+            }
+        }
+    }
+
+    private String getColorInfo(int colorIndex, PetData petData) {
+        double mult = petData.getStatMultiplier();
+        return switch (colorIndex) {
+            case 0 -> "§c🔴 ROUGE §7- §c+" + (int)((baseDamageBonus + (mult-1)*0.05) * 100) + "% dégâts";
+            case 1 -> "§6🟠 ORANGE §7- §6+20% vitesse attaque";
+            case 2 -> "§e🟡 JAUNE §7- §e+" + (int)((0.10 + (mult-1)*0.03) * 100) + "% crit";
+            case 3 -> "§a🟢 VERT §7- §a" + (int)((baseLifestealPercent + (mult-1)*0.02) * 100) + "% lifesteal";
+            case 4 -> "§b🔵 BLEU §7- §b-" + (int)((0.10 + (mult-1)*0.03) * 100) + "% dégâts reçus";
+            case 5 -> "§d🟣 VIOLET §7- §dSlow les ennemis";
+            default -> "§7?";
+        };
+    }
+
+    private Particle getColorParticle(int colorIndex) {
+        return switch (colorIndex) {
+            case 0 -> Particle.FLAME;
+            case 1 -> Particle.LAVA;
+            case 2 -> Particle.CRIT;
+            case 3 -> Particle.HAPPY_VILLAGER;
+            case 4 -> Particle.SNOWFLAKE;
+            case 5 -> Particle.WITCH;
+            default -> Particle.CRIT;
+        };
+    }
+
+    private void spawnRainbowParticles(Location loc, World world) {
+        world.spawnParticle(Particle.FLAME, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.LAVA, loc, 1, 0.2, 0.2, 0.2, 0);
+        world.spawnParticle(Particle.CRIT, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.HAPPY_VILLAGER, loc, 2, 0.2, 0.2, 0.2, 0);
+        world.spawnParticle(Particle.SNOWFLAKE, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0.02);
+    }
+
+    public void setAllBuffsActive(UUID uuid, boolean active) {
+        allBuffsActive.put(uuid, active);
+    }
+
+    public int getCurrentColor(UUID uuid) {
+        return currentColor.getOrDefault(uuid, 0);
     }
 }
 
 @Getter
-class ThunderstormActive implements PetAbility {
+class PrismaticNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double boltDamage;
-    private final int boltCount;
+    private final int cooldown;
+    private final double damagePercent;              // % dégâts joueur
+    private final int buffDurationTicks;             // 6s = 120 ticks
+    private final ChromaticSpectrumPassive spectrumPassive;
 
-    public ThunderstormActive(String id, String name, String desc, double damage, int count) {
+    public PrismaticNovaActive(String id, String name, String desc, int cd,
+                                double dmgPercent, int buffDuration, ChromaticSpectrumPassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.boltDamage = damage;
-        this.boltCount = count;
+        this.cooldown = cd;
+        this.damagePercent = dmgPercent;
+        this.buffDurationTicks = buffDuration;
+        this.spectrumPassive = passive;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 30; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        Location center = player.getLocation();
-        double damage = boltDamage * petData.getStatMultiplier();
-        int count = (int) (boltCount * petData.getStatMultiplier());
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID uuid = player.getUniqueId();
 
-        player.sendMessage("§a[Pet] §e§l⚡ TEMPÊTE DE FOUDRE!");
-        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.8f);
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(10, 6, 10).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
 
-        // Collecter les cibles
-        List<Monster> targets = new ArrayList<>();
-        for (Entity e : player.getNearbyEntities(15, 15, 15)) {
-            if (e instanceof Monster m) targets.add(m);
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
         }
 
-        // Frapper les cibles avec des éclairs
+        // Calculer les dégâts
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.20;
+        double novaDamage = playerDamage * adjustedPercent;
+
+        // Ajuster la durée des buffs
+        int adjustedDuration = (int) (buffDurationTicks + (petData.getStatMultiplier() - 1) * 40);
+
+        // Activer tous les buffs
+        spectrumPassive.setAllBuffsActive(uuid, true);
+
+        // Faire cycler rapidement les couleurs du mouton pendant l'explosion
+        cycleSheepColorsRapidly(player, 30); // 1.5 secondes d'animation
+
+        // Effet de préparation
+        world.playSound(playerLoc, Sound.ENTITY_SHEEP_AMBIENT, 2.0f, 0.5f);
+        world.playSound(playerLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
+
+        player.sendMessage("§a[Pet] §d§l🌈 NOVA PRISMATIQUE! §7Tous les bonus actifs pendant " + (adjustedDuration / 20) + "s!");
+
+        // Explosion arc-en-ciel avec anneaux expansifs
+        for (int ring = 1; ring <= 4; ring++) {
+            final int currentRing = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnRainbowRing(world, playerLoc, currentRing * 2.5),
+                ring * 4L
+            );
+        }
+
+        // Infliger les dégâts aux ennemis
+        for (Monster target : targets) {
+            target.damage(novaDamage, player);
+            petData.addDamage((long) novaDamage);
+
+            // Appliquer tous les effets
+            target.setFireTicks(40); // Rouge - feu
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2, false, false)); // Violet - slow
+
+            // Lifesteal sur chaque cible
+            double heal = novaDamage * 0.05;
+            player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+
+            // Particules sur la cible
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 20, 0.5, 0.5, 0.5, 0.2);
+        }
+
+        // Appliquer les buffs au joueur
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, adjustedDuration, 1, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, adjustedDuration, 0, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, adjustedDuration, 0, false, true));
+
+        // Son d'explosion
+        world.playSound(playerLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+        world.playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.0f);
+
+        // Désactiver les buffs après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                spectrumPassive.setAllBuffsActive(uuid, false);
+                player.sendMessage("§a[Pet] §7Les bonus arc-en-ciel se dissipent...");
+                world.playSound(playerLoc, Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
+            },
+            adjustedDuration
+        );
+
+        return true;
+    }
+
+    private void cycleSheepColorsRapidly(Player player, int durationTicks) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
         new BukkitRunnable() {
-            int struck = 0;
-            Random random = new Random();
+            int ticks = 0;
+            int colorIndex = 0;
 
             @Override
             public void run() {
-                if (struck >= count || targets.isEmpty()) {
+                if (ticks >= durationTicks) {
                     cancel();
                     return;
                 }
 
-                // Choisir une cible
-                Monster target = targets.get(random.nextInt(targets.size()));
-                Location loc = target.getLocation();
+                // Changer la couleur toutes les 2 ticks
+                if (ticks % 2 == 0) {
+                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                        if (entity instanceof org.bukkit.entity.Sheep sheep
+                            && entity.getScoreboardTags().contains(ownerTag)) {
 
-                // Effet d'éclair spectaculaire
-                loc.getWorld().strikeLightningEffect(loc);
-
-                // Particules supplémentaires
-                for (int i = 0; i < 5; i++) {
-                    double y = i * 5;
-                    Location boltLoc = loc.clone().add(0, y, 0);
-                    loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, boltLoc, 20, 0.2, 2, 0.2, 0.1);
-                }
-                loc.getWorld().spawnParticle(Particle.FLASH, loc, 3, 0.5, 0.5, 0.5, 0);
-                loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
-
-                // Dégâts + chaîne
-                target.damage(damage, player);
-                petData.addDamage((long) damage);
-
-                // Dégâts aux ennemis proches
-                for (Entity e : target.getNearbyEntities(4, 4, 4)) {
-                    if (e instanceof Monster m && m != target) {
-                        m.damage(damage * 0.5, player);
-                        m.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, m.getLocation().add(0, 1, 0), 15, 0.2, 0.3, 0.2, 0.05);
-                        petData.addDamage((long) (damage * 0.5));
+                            org.bukkit.DyeColor[] colors = {
+                                org.bukkit.DyeColor.RED, org.bukkit.DyeColor.ORANGE,
+                                org.bukkit.DyeColor.YELLOW, org.bukkit.DyeColor.LIME,
+                                org.bukkit.DyeColor.LIGHT_BLUE, org.bukkit.DyeColor.PURPLE
+                            };
+                            sheep.setColor(colors[colorIndex % 6]);
+                            colorIndex++;
+                            break;
+                        }
                     }
                 }
 
-                struck++;
+                ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 5L);
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
 
-        return true;
+    private void spawnRainbowRing(World world, Location center, double radius) {
+        org.bukkit.Color[] colors = {
+            org.bukkit.Color.RED, org.bukkit.Color.ORANGE, org.bukkit.Color.YELLOW,
+            org.bukkit.Color.LIME, org.bukkit.Color.AQUA, org.bukkit.Color.PURPLE
+        };
+
+        for (int angle = 0; angle < 360; angle += 10) {
+            double rad = Math.toRadians(angle);
+            Location ringLoc = center.clone().add(
+                Math.cos(rad) * radius,
+                0.5,
+                Math.sin(rad) * radius
+            );
+
+            // Alterner les particules colorées
+            int colorIndex = (angle / 60) % 6;
+            Particle particle = switch (colorIndex) {
+                case 0 -> Particle.FLAME;
+                case 1 -> Particle.LAVA;
+                case 2 -> Particle.CRIT;
+                case 3 -> Particle.HAPPY_VILLAGER;
+                case 4 -> Particle.SNOWFLAKE;
+                case 5 -> Particle.WITCH;
+                default -> Particle.CRIT;
+            };
+
+            world.spawnParticle(particle, ringLoc, 3, 0.1, 0.1, 0.1, 0.01);
+        }
+
+        world.playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.0f + (float)(radius * 0.1));
     }
 }
 

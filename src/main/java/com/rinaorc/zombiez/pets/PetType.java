@@ -380,19 +380,19 @@ public enum PetType {
     // --- NOUVEAUX PETS RARES (Visuels) ---
 
     SERPENT_FOUDROYANT(
-        "Serpent Foudroyant",
+        "Mouton Arc-en-Ciel",
         PetRarity.RARE,
-        Material.LIGHTNING_ROD,
-        EntityType.SILVERFISH,
-        "lightning_serpent",
-        "Foudre / Chaîne",
-        "Serpent électrique crépitant d'énergie bleue",
-        "20% chance de déclencher un éclair en chaîne (5 cibles, -20% dégâts par rebond)",
-        "Tempête de Foudre",
-        "Invoque 6 éclairs sur les ennemis proches",
-        30,
-        "Chaîne jusqu'à 7 cibles",
-        "Les éclairs paralysent les cibles 1s"
+        Material.WHITE_WOOL,
+        EntityType.SHEEP,
+        "rainbow_sheep",
+        "Buffs / Polyvalent",
+        "Mouton mystique qui change de couleur comme jeb_",
+        "Cycle les couleurs (3s), chaque couleur = bonus unique (+dmg/crit/lifesteal...)",
+        "Nova Prismatique",
+        "Explosion arc-en-ciel, applique tous les bonus pendant 6s",
+        35,
+        "Cycle plus rapide, bonus +50%",
+        "Rouge=Dégâts, Orange=Vitesse, Jaune=Crit, Vert=Lifesteal, Bleu=Défense, Violet=Slow"
     ),
 
     GOLEM_LAVE(
