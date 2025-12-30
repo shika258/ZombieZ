@@ -529,20 +529,20 @@ public enum PetType {
 
     // --- NOUVEAUX PETS ÉPIQUES (Visuels) ---
 
-    PHOENIX_SOLAIRE(
-        "Phénix Solaire",
+    POULET_BOMBARDIER(
+        "Poulet Bombardier",
         PetRarity.EPIC,
-        Material.FIRE_CHARGE,
+        Material.EGG,
         EntityType.CHICKEN,
-        "solar_phoenix",
-        "Feu / Météores",
-        "Phénix doré irradiant de chaleur solaire",
-        "25% chance de lancer une boule de feu (15 dégâts, explosion AoE)",
-        "Pluie de Météores",
-        "Fait pleuvoir 12 météores de feu sur la zone",
-        35,
-        "Boules de feu +5 dégâts",
-        "Les météores laissent des zones de feu persistantes"
+        "bomber_chicken",
+        "Œufs Explosifs / Bombardement",
+        "Poulet de combat avec casque militaire et ceinture d'œufs",
+        "Toutes les 3 attaques, lance un œuf explosif (35% dégâts AoE, rayon 3)",
+        "Frappe Aérienne",
+        "Bombarde la zone de 10 œufs explosifs sur les ennemis (50% dégâts chacun)",
+        20,
+        "2 attaques pour un œuf, 40% dégâts",
+        "10% chance d'œuf doré (dégâts x2 + stun 1s)"
     ),
 
     OMBRE_DECHIRANTE(

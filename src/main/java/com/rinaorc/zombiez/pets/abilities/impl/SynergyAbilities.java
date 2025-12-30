@@ -2008,6 +2008,382 @@ class FlipperBallActive implements PetAbility {
     }
 }
 
+// ==================== EGG BOMBER SYSTEM (Poulet Bombardier) ====================
+
+@Getter
+class EggBomberPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int baseAttacksNeeded;       // Nombre d'attaques pour déclencher
+    private final double baseDamagePercent;    // % des dégâts du joueur
+    private final double baseGoldenChance;     // Chance d'œuf doré (bonus max étoiles)
+    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private static final Random random = new Random();
+
+    public EggBomberPassive(String id, String name, String desc, int attacksNeeded,
+                             double damagePercent, double goldenChance) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseAttacksNeeded = attacksNeeded;
+        this.baseDamagePercent = damagePercent;
+        this.baseGoldenChance = goldenChance;
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Nombre d'attaques nécessaires (réduit avec le niveau)
+     */
+    private int getAttacksNeeded(PetData petData) {
+        return petData.getStatMultiplier() >= 1.5 ? baseAttacksNeeded - 1 : baseAttacksNeeded;
+    }
+
+    /**
+     * % de dégâts (augmente avec le niveau)
+     */
+    private double getDamagePercent(PetData petData) {
+        return petData.getStatMultiplier() >= 1.5 ? baseDamagePercent + 0.05 : baseDamagePercent;
+    }
+
+    /**
+     * Chance d'œuf doré (uniquement avec star power)
+     */
+    private double getGoldenChance(PetData petData) {
+        return petData.getStarPower() > 0 ? baseGoldenChance : 0;
+    }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        int needed = getAttacksNeeded(petData);
+
+        if (count >= needed) {
+            attackCounters.put(uuid, 0);
+            launchExplosiveEgg(player, petData, target);
+        } else {
+            attackCounters.put(uuid, count);
+
+            // Indicateur de charge (œuf qui se forme)
+            if (count == needed - 1) {
+                player.getWorld().spawnParticle(Particle.SNOWFLAKE,
+                    player.getLocation().add(0, 2, 0), 5, 0.2, 0.2, 0.2, 0.01);
+                player.playSound(player.getLocation(), Sound.ENTITY_CHICKEN_EGG, 0.5f, 0.8f);
+            }
+        }
+        return damage;
+    }
+
+    /**
+     * Lance un œuf explosif vers la cible
+     */
+    private void launchExplosiveEgg(Player player, PetData petData, LivingEntity target) {
+        // Récupérer les dégâts du joueur
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        // Déterminer si c'est un œuf doré
+        boolean isGolden = random.nextDouble() < getGoldenChance(petData);
+
+        // Calculer les dégâts
+        double damageMultiplier = getDamagePercent(petData) * petData.getStatMultiplier();
+        if (isGolden) damageMultiplier *= 2.0; // Œuf doré = x2 dégâts
+        double eggDamage = playerBaseDamage * damageMultiplier;
+
+        Location start = player.getLocation().add(0, 1.5, 0);
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+
+        // Son de ponte
+        player.playSound(start, Sound.ENTITY_CHICKEN_EGG, 1.0f, isGolden ? 1.5f : 1.2f);
+
+        // Animation de l'œuf volant
+        spawnEggProjectile(player, start, targetLoc, eggDamage, isGolden, petData);
+    }
+
+    /**
+     * Crée un projectile d'œuf animé
+     */
+    private void spawnEggProjectile(Player player, Location from, Location to, double damage,
+                                     boolean isGolden, PetData petData) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Couleur de l'œuf
+        Particle.DustOptions dust = isGolden
+            ? new Particle.DustOptions(org.bukkit.Color.YELLOW, 1.5f)
+            : new Particle.DustOptions(org.bukkit.Color.WHITE, 1.2f);
+
+        new BukkitRunnable() {
+            double traveled = 0;
+            final Location current = from.clone();
+
+            @Override
+            public void run() {
+                if (traveled >= distance) {
+                    // Explosion à l'arrivée
+                    explodeEgg(player, current, damage, isGolden, petData);
+                    cancel();
+                    return;
+                }
+
+                current.add(direction.clone().multiply(1.5));
+                current.getWorld().spawnParticle(Particle.DUST, current, 3, 0.1, 0.1, 0.1, 0, dust);
+                if (isGolden) {
+                    current.getWorld().spawnParticle(Particle.WAX_ON, current, 2, 0.05, 0.05, 0.05, 0);
+                }
+                traveled += 1.5;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Explosion de l'œuf
+     */
+    private void explodeEgg(Player player, Location loc, double damage, boolean isGolden, PetData petData) {
+        // Effets visuels
+        if (isGolden) {
+            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 30, 0.5, 0.5, 0.5, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 1.2f);
+        } else {
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 20, 0.5, 0.5, 0.5, 0.1,
+                org.bukkit.Material.BONE_BLOCK.createBlockData());
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_TURTLE_EGG_BREAK, 1.5f, 1.0f);
+        }
+
+        // Dégâts de zone (rayon 3)
+        int hits = 0;
+        for (Entity entity : loc.getWorld().getNearbyEntities(loc, 3, 3, 3)) {
+            if (entity instanceof Monster monster) {
+                monster.damage(damage, player);
+                petData.addDamage((long) damage);
+                hits++;
+
+                // Stun si œuf doré
+                if (isGolden) {
+                    monster.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 10)); // 1s stun
+                    monster.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20, 0));
+                }
+            }
+        }
+
+        // Message
+        String eggType = isGolden ? "§6§l★ ŒUF DORÉ" : "§f💣 Œuf";
+        player.sendMessage("§a[Pet] " + eggType + " §7explosé! §c" +
+            String.format("%.0f", damage) + " §7dégâts sur §e" + hits + " §7ennemis!");
+    }
+
+    public int getAttackCount(UUID uuid) {
+        return attackCounters.getOrDefault(uuid, 0);
+    }
+}
+
+@Getter
+class AirstrikeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final EggBomberPassive eggBomberPassive;
+    private final double baseDamagePercent;
+    private final int eggCount;
+    private static final Random random = new Random();
+
+    public AirstrikeActive(String id, String name, String desc, EggBomberPassive passive,
+                           double damagePercent, int eggs) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.eggBomberPassive = passive;
+        this.baseDamagePercent = damagePercent;
+        this.eggCount = eggs;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 20; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        // Récupérer les dégâts du joueur
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return false;
+
+        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+            plugin.getItemManager().calculatePlayerStats(player);
+
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        // Trouver les ennemis cibles
+        List<Monster> targets = new ArrayList<>();
+        for (Entity entity : player.getNearbyEntities(12, 12, 12)) {
+            if (entity instanceof Monster monster) {
+                targets.add(monster);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à portée!");
+            return false;
+        }
+
+        // Son d'alerte
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_CHICKEN_AMBIENT, 2.0f, 0.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_CHICKEN_AMBIENT, 2.0f, 0.7f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_CHICKEN_AMBIENT, 2.0f, 0.9f);
+        player.sendMessage("§a[Pet] §c§l🐔 FRAPPE AÉRIENNE! §e" + eggCount + " §7œufs en approche!");
+
+        // Calculer les dégâts par œuf
+        double eggDamage = playerBaseDamage * baseDamagePercent * petData.getStatMultiplier();
+        double goldenChance = petData.getStarPower() > 0 ? 0.15 : 0; // 15% avec star power
+
+        // Lancer les œufs avec délai
+        for (int i = 0; i < eggCount; i++) {
+            int index = i;
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    // Choisir une cible (cycle ou random)
+                    Monster target = targets.get(index % targets.size());
+                    if (!target.isValid() || target.isDead()) {
+                        // Chercher une autre cible
+                        for (Monster m : targets) {
+                            if (m.isValid() && !m.isDead()) {
+                                target = m;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (target.isValid() && !target.isDead()) {
+                        boolean isGolden = random.nextDouble() < goldenChance;
+                        double finalDamage = isGolden ? eggDamage * 2 : eggDamage;
+
+                        // Position de départ (depuis le ciel)
+                        Location targetLoc = target.getLocation();
+                        Location skyPos = targetLoc.clone().add(
+                            (random.nextDouble() - 0.5) * 3,
+                            15 + random.nextDouble() * 5,
+                            (random.nextDouble() - 0.5) * 3
+                        );
+
+                        // Lancer l'œuf
+                        launchAirstrikeEgg(player, skyPos, targetLoc, finalDamage, isGolden, petData, index + 1);
+                    }
+                }
+            }.runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), i * 4L);
+        }
+
+        return true;
+    }
+
+    /**
+     * Lance un œuf depuis le ciel
+     */
+    private void launchAirstrikeEgg(Player player, Location from, Location to, double damage,
+                                     boolean isGolden, PetData petData, int eggNumber) {
+        Vector direction = to.toVector().subtract(from.toVector()).normalize();
+
+        // Couleur selon type
+        Particle.DustOptions dust = isGolden
+            ? new Particle.DustOptions(org.bukkit.Color.YELLOW, 2.0f)
+            : new Particle.DustOptions(org.bukkit.Color.WHITE, 1.5f);
+
+        new BukkitRunnable() {
+            final Location current = from.clone();
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks > 40 || current.getY() <= to.getY()) {
+                    // Impact!
+                    explodeAirstrikeEgg(player, current, damage, isGolden, petData, eggNumber);
+                    cancel();
+                    return;
+                }
+
+                // Mouvement avec gravité
+                current.add(direction.clone().multiply(1.2));
+
+                // Particules
+                current.getWorld().spawnParticle(Particle.DUST, current, 5, 0.15, 0.15, 0.15, 0, dust);
+                if (isGolden) {
+                    current.getWorld().spawnParticle(Particle.END_ROD, current, 2, 0.1, 0.1, 0.1, 0.02);
+                }
+
+                // Son de chute
+                if (ticks % 5 == 0) {
+                    current.getWorld().playSound(current, Sound.ENTITY_CHICKEN_EGG, 0.3f, 1.5f + (ticks * 0.02f));
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Explosion d'un œuf de frappe aérienne
+     */
+    private void explodeAirstrikeEgg(Player player, Location loc, double damage, boolean isGolden,
+                                      PetData petData, int eggNumber) {
+        // Effets visuels épiques
+        if (isGolden) {
+            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 50, 1, 1, 1, 0.2);
+            loc.getWorld().spawnParticle(Particle.FLASH, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 0.8f, 1.5f);
+        } else {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.3, 0.3, 0.3, 0);
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 30, 0.8, 0.8, 0.8, 0.1,
+                org.bukkit.Material.BONE_BLOCK.createBlockData());
+            loc.getWorld().playSound(loc, Sound.ENTITY_TURTLE_EGG_BREAK, 1.5f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.5f);
+        }
+
+        // Dégâts de zone (rayon 3.5)
+        int hits = 0;
+        for (Entity entity : loc.getWorld().getNearbyEntities(loc, 3.5, 3.5, 3.5)) {
+            if (entity instanceof Monster monster) {
+                monster.damage(damage, player);
+                petData.addDamage((long) damage);
+                hits++;
+
+                // Knockback
+                Vector knockback = monster.getLocation().toVector()
+                    .subtract(loc.toVector())
+                    .normalize().multiply(0.5).setY(0.3);
+                monster.setVelocity(knockback);
+
+                // Stun si œuf doré
+                if (isGolden) {
+                    monster.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 10));
+                }
+            }
+        }
+
+        // Message pour les gros impacts
+        if (hits > 0) {
+            String eggIcon = isGolden ? "§6★" : "§f●";
+            player.sendMessage("§a[Pet] " + eggIcon + " §7Œuf #" + eggNumber + " → §c" +
+                String.format("%.0f", damage) + " §7sur §e" + hits + " §7cibles!");
+        }
+    }
+}
+
 // ==================== CLASS ADAPTIVE (Dragon Chromatique) ====================
 
 @Getter

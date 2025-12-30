@@ -457,12 +457,13 @@ public class PetAbilityRegistry {
                 "Blizzard (8 blocs, 6s) : Slow III + 10% dégâts joueur/s", 35, 8, 6, 0.10, frostBitePassive)
         );
 
-        // Phénix Solaire (Feu / Météores)
-        registerAbilities(PetType.PHOENIX_SOLAIRE,
-            new FireballPassive("solar_fireball", "Boule de Feu Solaire",
-                "25% de lancer une boule de feu", 0.25, 15),
-            new MeteorShowerActive("meteor_shower", "Pluie de Météores",
-                "12 météores de feu sur la zone", 20, 12)
+        // Poulet Bombardier (Œufs Explosifs)
+        EggBomberPassive eggBomberPassive = new EggBomberPassive("egg_bomber", "Ponte Explosive",
+            "3 attaques = œuf explosif (35% dégâts AoE)", 3, 0.35, 0.10);
+        registerAbilities(PetType.POULET_BOMBARDIER,
+            eggBomberPassive,
+            new AirstrikeActive("airstrike", "Frappe Aérienne",
+                "10 œufs explosifs depuis le ciel (50% dégâts chacun)", eggBomberPassive, 0.50, 10)
         );
 
         // Ombre Déchirante (Ombre / Tentacules)
