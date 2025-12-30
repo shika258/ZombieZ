@@ -248,12 +248,13 @@ public class PetAbilityRegistry {
                 "Ennemis 25 blocs: -20% dégâts pendant 15s", warLeapPassive, 0.20, 25.0, 300)
         );
 
-        // Titan Miniature
-        registerAbilities(PetType.TITAN_MINIATURE,
-            new MeleeDamagePassive("titan_melee", "Force Titanesque",
-                "+30% dégâts de mêlée", 0.30),
-            new SmashActive("titan_smash", "Coup Titanesque",
-                "Frappe le sol (80 dégâts zone, knockback)", 25, 80, 5)
+        // Spectre du Givre (Vitesse / Lame Fantôme)
+        SpectralSwiftPassive spectralSwiftPassive = new SpectralSwiftPassive("spectral_swift", "Agilité Spectrale",
+            "+33% vitesse de déplacement constante", 0.33);
+        registerAbilities(PetType.SPECTRE_GIVRE,
+            spectralSwiftPassive,
+            new PhantomBladeActive("phantom_blade", "Lame Fantôme",
+                "Couteau tournoyant (750% dégâts arme)", spectralSwiftPassive, 7.50, 1.5)
         );
 
         // Esprit de la Forêt

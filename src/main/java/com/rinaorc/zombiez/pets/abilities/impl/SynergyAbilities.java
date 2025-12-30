@@ -6330,3 +6330,299 @@ class FerociousCryActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== FROST SPECTER SYSTEM (Spectre du Givre) ====================
+
+/**
+ * Agilité Spectrale - Augmente constamment la vitesse de déplacement du joueur
+ * +33% de vitesse de base, +40% au niveau 5+
+ */
+@Getter
+class SpectralSwiftPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseSpeedBonus;       // 33% = 0.33
+
+    public SpectralSwiftPassive(String id, String name, String desc, double speedBonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseSpeedBonus = speedBonus;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Calcule le bonus de vitesse selon le niveau
+     * Base: 33%, Niveau 5+: 40%
+     */
+    private double getEffectiveSpeedBonus(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.40; // 40%
+        }
+        return baseSpeedBonus; // 33%
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        double speedBonus = getEffectiveSpeedBonus(petData);
+
+        // Vitesse de base: 0.2, max safe: ~0.4
+        // +33% = 0.2 * 1.33 = 0.266
+        // +40% = 0.2 * 1.40 = 0.28
+        float newSpeed = (float) (0.2 * (1.0 + speedBonus));
+
+        // Appliquer la vitesse si différente
+        if (Math.abs(player.getWalkSpeed() - newSpeed) > 0.01f) {
+            player.setWalkSpeed(newSpeed);
+        }
+
+        // Effet visuel subtil (particules de givre occasionnelles)
+        if (Math.random() < 0.1) { // 10% chance par tick
+            player.getWorld().spawnParticle(Particle.SNOWFLAKE,
+                player.getLocation().add(0, 0.5, 0), 2, 0.3, 0.2, 0.3, 0.01);
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Lame Fantôme - Lance un couteau tournoyant qui empale l'ennemi
+ * 750% des dégâts de l'arme, effet visuel d'ArmorStand avec épée
+ */
+@Getter
+class PhantomBladeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final SpectralSwiftPassive linkedPassive;
+    private final double baseDamagePercent;    // 750% = 7.50
+    private final double projectileSpeed;      // Blocs par tick
+
+    public PhantomBladeActive(String id, String name, String desc, SpectralSwiftPassive passive,
+                               double damagePercent, double speed) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.baseDamagePercent = damagePercent;
+        this.projectileSpeed = speed;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 30; }
+
+    /**
+     * Vérifie si le couteau traverse les ennemis (étoiles max)
+     */
+    private boolean shouldPierce(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Calculer les dégâts du joueur
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
+
+        double bladeDamage = baseDamage * baseDamagePercent * petData.getStatMultiplier();
+        boolean piercing = shouldPierce(petData);
+
+        // Direction du regard du joueur
+        Location startLoc = player.getEyeLocation();
+        Vector direction = startLoc.getDirection().normalize();
+
+        // Son de lancement
+        player.getWorld().playSound(startLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.5f, 1.2f);
+        player.getWorld().playSound(startLoc, Sound.ITEM_TRIDENT_THROW, 1.0f, 0.8f);
+
+        // Lancer le couteau
+        launchPhantomBlade(player, startLoc, direction, bladeDamage, piercing, plugin);
+
+        String pierceMsg = piercing ? " §8(Perçant)" : "";
+        player.sendMessage("§b[Pet] §f🗡 §7Lame Fantôme lancée! §c" +
+            String.format("%.0f", bladeDamage) + " §7dégâts" + pierceMsg);
+    }
+
+    /**
+     * Lance le couteau fantôme avec effet d'ArmorStand
+     */
+    private void launchPhantomBlade(Player player, Location start, Vector direction,
+                                     double damage, boolean piercing,
+                                     com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = start.getWorld();
+        if (world == null) return;
+
+        // Créer l'ArmorStand avec l'épée
+        ArmorStand blade = world.spawn(start, ArmorStand.class, as -> {
+            as.setVisible(false);
+            as.setGravity(false);
+            as.setSmall(true);
+            as.setMarker(true);
+            as.setInvulnerable(true);
+            as.setPersistent(false);
+
+            // Épée dans la main
+            as.getEquipment().setItemInMainHand(new org.bukkit.inventory.ItemStack(Material.IRON_SWORD));
+
+            // Orientation initiale
+            as.setRotation(start.getYaw(), start.getPitch());
+        });
+
+        Set<UUID> hitEntities = new HashSet<>();
+
+        // Animation du couteau
+        new BukkitRunnable() {
+            double traveled = 0;
+            final double maxDistance = 30;
+            int rotationAngle = 0;
+            Location currentLoc = start.clone();
+
+            @Override
+            public void run() {
+                // Vérifier si le couteau doit s'arrêter
+                if (traveled >= maxDistance || !blade.isValid()) {
+                    blade.remove();
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le couteau
+                currentLoc.add(direction.clone().multiply(projectileSpeed));
+                traveled += projectileSpeed;
+
+                // Vérifier collision avec bloc solide
+                if (currentLoc.getBlock().getType().isSolid()) {
+                    spawnImpactEffect(currentLoc, world);
+                    blade.remove();
+                    cancel();
+                    return;
+                }
+
+                // Téléporter l'ArmorStand
+                blade.teleport(currentLoc);
+
+                // Rotation de l'épée (effet tournoyant)
+                rotationAngle += 45;
+                org.bukkit.util.EulerAngle armPose = new org.bukkit.util.EulerAngle(
+                    Math.toRadians(rotationAngle),
+                    Math.toRadians(rotationAngle / 2.0),
+                    Math.toRadians(rotationAngle)
+                );
+                blade.setRightArmPose(armPose);
+
+                // Particules de traînée
+                world.spawnParticle(Particle.SNOWFLAKE, currentLoc, 3, 0.1, 0.1, 0.1, 0.02);
+                world.spawnParticle(Particle.CRIT, currentLoc, 2, 0.05, 0.05, 0.05, 0.1);
+
+                // Son de sifflement
+                if (traveled % 3 < projectileSpeed) {
+                    world.playSound(currentLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.3f, 1.5f);
+                }
+
+                // Détecter les collisions avec les ennemis
+                boolean hitSomething = checkEnemyCollisions(player, currentLoc, damage, hitEntities, plugin);
+
+                // Si touché et non-perçant, arrêter
+                if (hitSomething && !piercing) {
+                    spawnImpactEffect(currentLoc, world);
+                    blade.remove();
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    /**
+     * Vérifie les collisions avec les ennemis
+     */
+    private boolean checkEnemyCollisions(Player player, Location loc, double damage,
+                                          Set<UUID> hitEntities,
+                                          com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = loc.getWorld();
+        if (world == null) return false;
+
+        boolean hit = false;
+        double hitRadius = 1.2;
+
+        for (Entity entity : world.getNearbyEntities(loc, hitRadius, hitRadius, hitRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                UUID entityId = entity.getUniqueId();
+                if (hitEntities.contains(entityId)) continue;
+
+                hitEntities.add(entityId);
+                hit = true;
+
+                // Infliger les dégâts
+                var zombieManager = plugin.getZombieManager();
+                if (zombieManager != null) {
+                    var activeZombie = zombieManager.getActiveZombie(entityId);
+                    if (activeZombie != null) {
+                        zombieManager.damageZombie(player, activeZombie, damage,
+                            com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                    } else {
+                        living.damage(damage, player);
+                    }
+                } else {
+                    living.damage(damage, player);
+                }
+
+                // Effet d'empalement
+                world.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+                world.playSound(loc, Sound.ITEM_TRIDENT_HIT, 1.0f, 1.0f);
+                world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0),
+                    20, 0.3, 0.5, 0.3, 0.2);
+                world.spawnParticle(Particle.DAMAGE_INDICATOR, living.getLocation().add(0, 1.5, 0),
+                    5, 0.2, 0.2, 0.2, 0.1);
+
+                // Message de hit
+                player.sendMessage("§b[Pet] §f🎯 §7Lame Fantôme → §c" +
+                    String.format("%.0f", damage) + " §7dégâts!");
+            }
+        }
+
+        return hit;
+    }
+
+    /**
+     * Effet d'impact quand le couteau s'arrête
+     */
+    private void spawnImpactEffect(Location loc, World world) {
+        world.playSound(loc, Sound.BLOCK_GLASS_BREAK, 0.8f, 1.2f);
+        world.playSound(loc, Sound.BLOCK_CHAIN_BREAK, 0.6f, 0.8f);
+        world.spawnParticle(Particle.SNOWFLAKE, loc, 30, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.CRIT, loc, 15, 0.3, 0.3, 0.3, 0.2);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}

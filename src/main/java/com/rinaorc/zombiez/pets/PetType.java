@@ -595,20 +595,20 @@ public enum PetType {
         "Le cri applique aussi Weakness aux ennemis"
     ),
 
-    TITAN_MINIATURE(
-        "Titan Miniature",
+    SPECTRE_GIVRE(
+        "Spectre du Givre",
         PetRarity.LEGENDARY,
-        Material.IRON_GOLEM_SPAWN_EGG,
-        EntityType.ARMOR_STAND,
-        "mini_titan",
-        "Force Brute / Écrasement",
-        "Géant humanoïde miniature (1 bloc de haut)",
-        "+30% dégâts de mêlée",
-        "Coup Titanesque",
-        "Frappe le sol (80 dégâts zone, knockback)",
-        25,
-        "Dégâts mêlée +15%",
-        "Le coup laisse une fissure qui inflige des dégâts continus"
+        Material.IRON_SWORD,
+        EntityType.STRAY,
+        "frost_specter",
+        "Vitesse / Assassinat",
+        "Stray spectral avec cape sombre et dagues givrées",
+        "+33% vitesse de déplacement constante",
+        "Lame Fantôme",
+        "Lance un couteau tournoyant qui empale l'ennemi (750% dégâts arme)",
+        30,
+        "+40% vitesse de déplacement",
+        "Le couteau traverse et touche tous les ennemis sur son passage"
     ),
 
     ESPRIT_FORET(
