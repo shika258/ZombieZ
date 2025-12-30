@@ -353,13 +353,15 @@ public class PetAbilityRegistry {
                 "Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)", 2.0, 0.20, instinctPassive)
         );
 
-        // Orbe d'Âmes (Occultiste Synergy)
-        SoulOrbPassive soulPassive = new SoulOrbPassive("soul_orb", "Collecteur d'Âmes",
-            "+5% dégâts de skill par orbe (max 5)", 0.05, 5);
+        // Tortue Matriarche (Invocation / Essaim)
+        // Passif: Tous les 8 kills, pond un œuf qui éclot en bébé tortue (5s, 10% dégâts)
+        // Ultimate: Pond 4 œufs qui éclosent en tortues enragées (8s, 15% dégâts, slow)
+        TurtleOffspringPassive turtlePassive = new TurtleOffspringPassive("turtle_offspring", "Progéniture Combative",
+            "Tous les 8 kills, pond un œuf → bébé tortue (5s, 10% dégâts)", 8, 0.10, 100, 2);
         registerAbilities(PetType.ORB_AMES,
-            soulPassive,
-            new SoulReleaseActive("soul_release", "Libération d'Âmes",
-                "Consomme les orbes pour explosion (15 dégâts par orbe)", 15, soulPassive)
+            turtlePassive,
+            new WarNestActive("war_nest", "Nid de Guerre",
+                "Pond 4 œufs → tortues enragées (8s, 15% dégâts, slow)", 30, 4, 0.15, 160, turtlePassive)
         );
 
         // Salamandre Élémentaire (Multi-Element)

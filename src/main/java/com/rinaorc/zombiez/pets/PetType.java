@@ -346,19 +346,19 @@ public enum PetType {
     // --- NOUVEAUX PETS RARES (Synergies Avancées) ---
 
     ORB_AMES(
-        "Orbe d'Âmes",
+        "Tortue Matriarche",
         PetRarity.RARE,
-        Material.SOUL_LANTERN,
-        EntityType.VEX,
-        "soul_orb",
-        "Occultiste / Âmes",
-        "Sphère d'énergie violette avec des âmes tourbillonnantes",
-        "Les kills génèrent des Orbes d'Âme (+5% dégâts de skill par orbe, max 5)",
-        "Libération d'Âmes",
-        "Consomme toutes les orbes pour une explosion (15 dégâts par orbe)",
-        15,
-        "Max 7 orbes, dégâts skill +7% par orbe",
-        "Synergie: Triple efficacité avec Soul Siphon et talents Occultiste"
+        Material.TURTLE_EGG,
+        EntityType.TURTLE,
+        "turtle_matriarch",
+        "Invocation / Essaim",
+        "Ancienne tortue de guerre qui protège sa progéniture",
+        "Tous les 8 kills, pond un œuf qui éclot en bébé tortue combative (5s)",
+        "Nid de Guerre",
+        "Pond 4 œufs qui éclosent en bébés tortues enragées (8s, slow)",
+        30,
+        "6 kills pour pondre, bébés +50% dégâts",
+        "Les bébés tortues héritent des bonus du joueur"
     ),
 
     SALAMANDRE_ELEMENTAIRE(

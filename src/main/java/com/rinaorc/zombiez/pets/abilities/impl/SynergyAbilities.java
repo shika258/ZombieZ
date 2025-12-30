@@ -568,24 +568,31 @@ class PredatorStrikeActive implements PetAbility {
     }
 }
 
-// ==================== SOUL ORB SYSTEM (Orbe d'Âmes - Occultiste) ====================
+// ==================== TORTUE MATRIARCHE (Invocation / Essaim) ====================
 
 @Getter
-class SoulOrbPassive implements PetAbility {
+class TurtleOffspringPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double skillBonusPerOrb;
-    private final int maxOrbs;
-    private final Map<UUID, Integer> soulOrbs = new HashMap<>();
+    private final int killsForEgg;               // 8 kills pour pondre
+    private final double damagePercent;          // 10% dégâts joueur par hit
+    private final int babyDurationTicks;         // 5s = 100 ticks
+    private final int maxActiveBabies;           // Max 2 bébés actifs
+    private final Map<UUID, Integer> killCounters = new HashMap<>();
+    private final Map<UUID, Integer> activeBabyCount = new HashMap<>();
 
-    public SoulOrbPassive(String id, String name, String desc, double bonus, int max) {
+    public TurtleOffspringPassive(String id, String name, String desc, int killsNeeded,
+                                   double dmgPercent, int duration, int maxBabies) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.skillBonusPerOrb = bonus;
-        this.maxOrbs = max;
-        PassiveAbilityCleanup.registerForCleanup(soulOrbs);
+        this.killsForEgg = killsNeeded;
+        this.damagePercent = dmgPercent;
+        this.babyDurationTicks = duration;
+        this.maxActiveBabies = maxBabies;
+        PassiveAbilityCleanup.registerForCleanup(killCounters);
+        PassiveAbilityCleanup.registerForCleanup(activeBabyCount);
     }
 
     @Override
@@ -594,82 +601,281 @@ class SoulOrbPassive implements PetAbility {
     @Override
     public void onKill(Player player, PetData petData, LivingEntity killed) {
         UUID uuid = player.getUniqueId();
-        int current = soulOrbs.getOrDefault(uuid, 0);
-        int maxO = (int) (maxOrbs * petData.getStatMultiplier());
 
-        if (current < maxO) {
-            soulOrbs.put(uuid, current + 1);
-            player.spawnParticle(Particle.WITCH, killed.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.05);
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 2.0f);
+        // Vérifier le cap de bébés actifs
+        int currentBabies = activeBabyCount.getOrDefault(uuid, 0);
+        if (currentBabies >= maxActiveBabies) {
+            return; // Cap atteint
+        }
+
+        // Ajuster le nombre de kills nécessaires par niveau
+        int adjustedKills = killsForEgg - (int)((petData.getStatMultiplier() - 1) * 2);
+        adjustedKills = Math.max(adjustedKills, 5); // Minimum 5 kills
+
+        int count = killCounters.getOrDefault(uuid, 0) + 1;
+
+        if (count >= adjustedKills) {
+            killCounters.put(uuid, 0);
+            spawnTurtleEgg(player, petData, killed.getLocation(), false);
+        } else {
+            killCounters.put(uuid, count);
+
+            // Indicateur de progression
+            if (count == adjustedKills - 1) {
+                player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER,
+                    player.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.01);
+            }
         }
     }
 
-    public int getSoulOrbs(UUID uuid) {
-        return soulOrbs.getOrDefault(uuid, 0);
+    public void spawnTurtleEgg(Player player, PetData petData, Location center, boolean isUltimate) {
+        World world = center.getWorld();
+        UUID uuid = player.getUniqueId();
+
+        // Ajuster les valeurs par niveau
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
+        int adjustedDuration = isUltimate
+            ? (int) (babyDurationTicks * 1.6 + (petData.getStatMultiplier() - 1) * 40)  // 8s pour ultimate
+            : (int) (babyDurationTicks + (petData.getStatMultiplier() - 1) * 20);
+
+        // Incrémenter le compteur (sauf pour ultimate qui gère son propre count)
+        if (!isUltimate) {
+            activeBabyCount.merge(uuid, 1, Integer::sum);
+        }
+
+        // Effet de ponte
+        world.spawnParticle(Particle.HAPPY_VILLAGER, center, 15, 0.3, 0.2, 0.3, 0.05);
+        world.playSound(center, Sound.ENTITY_TURTLE_LAY_EGG, 1.0f, 1.0f);
+
+        if (!isUltimate) {
+            int currentBabies = activeBabyCount.getOrDefault(uuid, 0);
+            player.sendMessage("§a[Pet] §2🥚 PONTE! §7Œuf pondu... §8(" + currentBabies + "/" + maxActiveBabies + " bébés)");
+        }
+
+        // Délai d'éclosion (2 secondes)
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> hatchBabyTurtle(player, petData, center, adjustedDmgPercent, adjustedDuration, isUltimate),
+            40L // 2 secondes
+        );
     }
 
-    public void consumeOrbs(UUID uuid) {
-        soulOrbs.put(uuid, 0);
+    private void hatchBabyTurtle(Player player, PetData petData, Location spawnLoc,
+                                  double dmgPercent, int duration, boolean isUltimate) {
+        if (!player.isOnline()) return;
+
+        World world = spawnLoc.getWorld();
+        UUID uuid = player.getUniqueId();
+
+        // Calculer les dégâts du bébé
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double babyDamage = playerDamage * dmgPercent;
+
+        // Effet d'éclosion
+        world.spawnParticle(Particle.BLOCK, spawnLoc.add(0, 0.3, 0), 20, 0.3, 0.2, 0.3, 0,
+            org.bukkit.Material.TURTLE_EGG.createBlockData());
+        world.playSound(spawnLoc, Sound.ENTITY_TURTLE_EGG_HATCH, 1.2f, 1.2f);
+        world.playSound(spawnLoc, Sound.ENTITY_TURTLE_SHAMBLE_BABY, 1.0f, 1.0f);
+
+        // Spawner le bébé tortue
+        org.bukkit.entity.Turtle babyTurtle = world.spawn(spawnLoc, org.bukkit.entity.Turtle.class, turtle -> {
+            turtle.setBaby();
+            turtle.setCustomName(isUltimate ? "§c§lTortue Enragée" : "§a§lBébé Tortue");
+            turtle.setCustomNameVisible(true);
+            turtle.setInvulnerable(true);
+            turtle.setPersistent(false);
+            turtle.setAI(false); // On gère l'IA manuellement
+
+            // Réduire encore plus la taille avec l'attribut scale
+            var scaleAttr = turtle.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+            if (scaleAttr != null) {
+                scaleAttr.setBaseValue(isUltimate ? 0.6 : 0.4);
+            }
+
+            // Tag pour identification
+            turtle.addScoreboardTag("pet_baby_turtle_" + uuid);
+        });
+
+        // Animation et comportement du bébé tortue
+        new BukkitRunnable() {
+            int ticksAlive = 0;
+            int attackTick = 0;
+
+            @Override
+            public void run() {
+                if (ticksAlive >= duration || !player.isOnline() || !babyTurtle.isValid()) {
+                    // Décrémenter le compteur pour le passif
+                    if (!isUltimate) {
+                        decrementBabyCount(uuid);
+                    }
+
+                    // Disparition du bébé
+                    if (babyTurtle.isValid()) {
+                        world.spawnParticle(Particle.HAPPY_VILLAGER, babyTurtle.getLocation().add(0, 0.3, 0),
+                            15, 0.3, 0.2, 0.3, 0.05);
+                        world.playSound(babyTurtle.getLocation(), Sound.ENTITY_TURTLE_SHAMBLE_BABY, 0.8f, 1.5f);
+                        babyTurtle.remove();
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Trouver et suivre la cible la plus proche
+                Monster target = null;
+                double closestDist = 8 * 8; // 8 blocs rayon de recherche
+
+                for (Entity entity : babyTurtle.getNearbyEntities(8, 4, 8)) {
+                    if (entity instanceof Monster monster) {
+                        double dist = monster.getLocation().distanceSquared(babyTurtle.getLocation());
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            target = monster;
+                        }
+                    }
+                }
+
+                if (target != null) {
+                    // Se déplacer vers la cible
+                    Location turtleLoc = babyTurtle.getLocation();
+                    Location targetLoc = target.getLocation();
+                    Vector dir = targetLoc.toVector().subtract(turtleLoc.toVector());
+
+                    if (dir.lengthSquared() > 0.1) {
+                        dir.normalize().multiply(isUltimate ? 0.25 : 0.18); // Vitesse de déplacement
+                        dir.setY(0);
+                        babyTurtle.setVelocity(dir);
+
+                        // Orienter la tortue vers la cible
+                        turtleLoc.setDirection(dir);
+                        babyTurtle.teleport(babyTurtle.getLocation().setDirection(dir));
+                    }
+
+                    // Attaquer toutes les 10 ticks (0.5s)
+                    if (ticksAlive >= attackTick + 10 && closestDist < 2.5 * 2.5) {
+                        attackTick = ticksAlive;
+
+                        // Morsure!
+                        target.damage(babyDamage, player);
+                        petData.addDamage((long) babyDamage);
+
+                        // Slow pour l'ultimate
+                        if (isUltimate) {
+                            target.addPotionEffect(new PotionEffect(
+                                PotionEffectType.SLOWNESS, 20, 1, false, false));
+                        }
+
+                        // Effets visuels de morsure
+                        world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 0.5, 0),
+                            8, 0.2, 0.2, 0.2, 0.1);
+                        world.playSound(target.getLocation(), Sound.ENTITY_TURTLE_EGG_CRACK, 0.8f, 1.2f);
+                    }
+                }
+
+                // Particules de trail
+                if (ticksAlive % 5 == 0) {
+                    Particle trailParticle = isUltimate ? Particle.ANGRY_VILLAGER : Particle.HAPPY_VILLAGER;
+                    world.spawnParticle(trailParticle, babyTurtle.getLocation().add(0, 0.2, 0),
+                        2, 0.1, 0.1, 0.1, 0);
+                }
+
+                ticksAlive++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 
-    public double getSkillBonus(UUID uuid, double basePetMultiplier) {
-        return soulOrbs.getOrDefault(uuid, 0) * skillBonusPerOrb * basePetMultiplier;
+    private void decrementBabyCount(UUID uuid) {
+        activeBabyCount.merge(uuid, -1, (old, dec) -> Math.max(0, old + dec));
+    }
+
+    public int getActiveBabyCount(UUID uuid) {
+        return activeBabyCount.getOrDefault(uuid, 0);
+    }
+
+    public int getMaxBabies() {
+        return maxActiveBabies;
     }
 }
 
 @Getter
-class SoulReleaseActive implements PetAbility {
+class WarNestActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double damagePerOrb;
-    private final SoulOrbPassive soulPassive;
+    private final int cooldown;
+    private final int eggCount;                   // 4 œufs
+    private final double damagePercent;           // 15% dégâts joueur
+    private final int babyDurationTicks;          // 8s = 160 ticks
+    private final TurtleOffspringPassive turtlePassive;
 
-    public SoulReleaseActive(String id, String name, String desc, double damage, SoulOrbPassive passive) {
+    public WarNestActive(String id, String name, String desc, int cd, int eggs,
+                          double dmgPercent, int duration, TurtleOffspringPassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.damagePerOrb = damage;
-        this.soulPassive = passive;
+        this.cooldown = cd;
+        this.eggCount = eggs;
+        this.damagePercent = dmgPercent;
+        this.babyDurationTicks = duration;
+        this.turtlePassive = passive;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 15; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        int orbs = soulPassive.getSoulOrbs(player.getUniqueId());
-        if (orbs < 1) {
-            player.sendMessage("§c[Pet] §7Aucune orbe d'âme!");
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        // Vérifier qu'il y a des ennemis
+        boolean hasEnemies = player.getNearbyEntities(12, 8, 12).stream()
+            .anyMatch(e -> e instanceof Monster);
+
+        if (!hasEnemies) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 
-        soulPassive.consumeOrbs(player.getUniqueId());
-        double totalDamage = orbs * damagePerOrb * petData.getStatMultiplier();
+        // Ajuster le nombre d'œufs par niveau
+        int adjustedEggs = eggCount + (int)((petData.getStatMultiplier() - 1) * 1.5);
 
-        Collection<Entity> nearby = player.getNearbyEntities(10, 10, 10);
-        for (Entity entity : nearby) {
-            if (entity instanceof Monster monster) {
-                monster.damage(totalDamage, player);
-                petData.addDamage((long) totalDamage);
+        // Effet de préparation du nid
+        world.playSound(playerLoc, Sound.ENTITY_TURTLE_AMBIENT_LAND, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.BLOCK_GRASS_BREAK, 1.0f, 0.6f);
 
-                // Effet visuel d'âme
-                Location from = player.getLocation().add(0, 1, 0);
-                Location to = monster.getLocation().add(0, 1, 0);
-                Vector dir = to.toVector().subtract(from.toVector()).normalize();
-                for (int i = 0; i < 10; i++) {
-                    Location loc = from.clone().add(dir.clone().multiply(i * 0.5));
-                    player.getWorld().spawnParticle(Particle.WITCH, loc, 3, 0.1, 0.1, 0.1, 0);
-                }
-            }
+        player.sendMessage("§a[Pet] §2§l🥚 NID DE GUERRE! §7" + adjustedEggs + " œufs pondus!");
+
+        // Spawner les œufs en cercle autour du joueur
+        for (int i = 0; i < adjustedEggs; i++) {
+            double angle = (2 * Math.PI / adjustedEggs) * i;
+            Location eggLoc = playerLoc.clone().add(
+                Math.cos(angle) * 2.5,
+                0,
+                Math.sin(angle) * 2.5
+            );
+
+            // Délai entre chaque ponte
+            final int eggIndex = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Effet de ponte
+                    world.spawnParticle(Particle.BLOCK, eggLoc, 15, 0.2, 0.1, 0.2, 0,
+                        org.bukkit.Material.SAND.createBlockData());
+                    world.playSound(eggLoc, Sound.ENTITY_TURTLE_LAY_EGG, 1.0f, 1.0f + (eggIndex * 0.1f));
+
+                    // Spawner l'œuf via le passif (avec flag ultimate=true)
+                    turtlePassive.spawnTurtleEgg(player, petData, eggLoc, true);
+                },
+                i * 5L // 0.25s entre chaque œuf
+            );
         }
 
-        player.getWorld().spawnParticle(Particle.SOUL, player.getLocation(), 50 * orbs, 3, 2, 3, 0.1);
-        player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
-        player.sendMessage("§a[Pet] §5Libération d'Âmes! §c" + (int)totalDamage + " §7dégâts (§e" + orbs + " §7orbes)");
+        // Effet visuel central
+        world.spawnParticle(Particle.HAPPY_VILLAGER, playerLoc, 30, 2, 0.5, 2, 0.1);
 
         return true;
     }
