@@ -645,20 +645,20 @@ public enum PetType {
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Synergies de Classe) ---
 
-    DRAGON_CHROMATIQUE(
-        "Dragon Chromatique",
+    PILLARD_VENGEUR(
+        "Pillard Vengeur",
         PetRarity.LEGENDARY,
-        Material.DRAGON_EGG,
-        EntityType.ENDER_DRAGON,
-        "chromatic_dragon",
-        "Adaptation / Classe",
-        "Dragon aux écailles changeantes selon la classe équipée",
-        "S'adapte à la classe: Guerrier=+25% mêlée, Chasseur=+25% crit, Occultiste=+25% skill",
-        "Souffle Chromatique",
-        "Attaque adaptée: Guerrier=onde de choc, Chasseur=multi-projectiles, Occultiste=nova magique",
-        30,
-        "Bonus de classe +10%",
-        "Synergie totale: Amplifie de 50% le talent ultime de la classe"
+        Material.CROSSBOW,
+        EntityType.PILLAGER,
+        "vengeful_pillager",
+        "Tir à Distance / Volée de Flèches",
+        "Pillager aux yeux rouges lumineux avec arbalète enchantée",
+        "Augmente les dégâts à l'arc et à l'arbalète de +30%",
+        "Volée de Flèches",
+        "Tire une pluie de flèches massive infligeant 360% des dégâts de l'arme",
+        35,
+        "+40% dégâts arc/arbalète, attaques percent les armures",
+        "La volée de flèches ricoche sur 3 ennemis supplémentaires"
     ),
 
     SENTINELLE_ZONES(

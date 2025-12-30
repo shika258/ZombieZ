@@ -397,12 +397,13 @@ public class PetAbilityRegistry {
                 "Rebondit entre 8 ennemis (50% dégâts × n° rebond)", flipperPassive, 0.50, 8)
         );
 
-        // Dragon Chromatique (Class Adaptive)
-        registerAbilities(PetType.DRAGON_CHROMATIQUE,
-            new ClassAdaptivePassive("chromatic_adapt", "Adaptation Chromatique",
-                "Bonus +25% selon classe (mêlée/crit/skill)", 0.25),
-            new ChromaticBreathActive("chromatic_breath", "Souffle Chromatique",
-                "Attaque adaptée à la classe")
+        // Pillard Vengeur (Dégâts Arc/Arbalète / Volée de Flèches)
+        RangedDamagePassive rangedDamagePassive = new RangedDamagePassive("ranged_damage", "Tir à Distance",
+            "+30% dégâts arc/arbalète", 0.30);
+        registerAbilities(PetType.PILLARD_VENGEUR,
+            rangedDamagePassive,
+            new ArrowVolleyActive("arrow_volley", "Volée de Flèches",
+                "Pluie de flèches (360% dégâts à tous les ennemis)", rangedDamagePassive, 3.60, 10.0, 15)
         );
 
         // Sentinelle des Zones (Zone Environment)

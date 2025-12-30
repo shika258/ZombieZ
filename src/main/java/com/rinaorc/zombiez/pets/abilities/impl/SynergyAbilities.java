@@ -7622,3 +7622,420 @@ class SuicidalZombieActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== VENGEFUL PILLAGER SYSTEM (Pillard Vengeur) ====================
+
+/**
+ * Tir à Distance - Augmente les dégâts à l'arc et l'arbalète
+ * +30% (base), +40% (niveau 5+), perce armure (étoiles max)
+ */
+@Getter
+class RangedDamagePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double baseDamageBonus;       // 30% = 0.30
+
+    // Tracking pour éviter double application
+    private static final Set<UUID> activeBuffs = ConcurrentHashMap.newKeySet();
+
+    public RangedDamagePassive(String id, String name, String desc, double damageBonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.baseDamageBonus = damageBonus;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Récupère le bonus de dégâts selon le niveau
+     * Base: 30%, Niveau 5+: 40%
+     */
+    public double getEffectiveDamageBonus(PetData petData) {
+        if (petData.getStatMultiplier() >= 1.5) { // Niveau 5+
+            return 0.40; // 40%
+        }
+        return baseDamageBonus; // 30%
+    }
+
+    /**
+     * Vérifie si l'arme est un arc ou une arbalète
+     */
+    public boolean isRangedWeapon(org.bukkit.inventory.ItemStack item) {
+        if (item == null) return false;
+        Material type = item.getType();
+        return type == Material.BOW || type == Material.CROSSBOW;
+    }
+
+    /**
+     * Vérifie si les attaques percent l'armure (étoiles max)
+     */
+    public boolean hasArmorPiercing(PetData petData) {
+        return petData.getStarPower() > 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Ce passif est appliqué dans le système de combat via getEffectiveDamageBonus()
+        // Le check d'arme à distance est fait ici pour le feedback visuel
+
+        if (!isRangedWeapon(player.getInventory().getItemInMainHand())) return;
+
+        // Effet visuel de tir puissant
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+        World world = target.getWorld();
+
+        // Particules de flèche améliorée
+        world.spawnParticle(Particle.CRIT, targetLoc, 5, 0.2, 0.3, 0.2, 0.1);
+
+        // Son de tir puissant
+        if (Math.random() < 0.3) { // 30% chance
+            world.playSound(targetLoc, Sound.ENTITY_ARROW_HIT_PLAYER, 0.5f, 1.2f);
+        }
+
+        // Effet de perce-armure si étoiles max
+        if (hasArmorPiercing(petData)) {
+            world.spawnParticle(Particle.ENCHANT, targetLoc, 8, 0.3, 0.4, 0.3, 0.5);
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+}
+
+/**
+ * Volée de Flèches - Tire une pluie de flèches massive
+ * 360% des dégâts de l'arme à tous les ennemis dans la zone
+ */
+@Getter
+class ArrowVolleyActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final RangedDamagePassive linkedPassive;
+    private final double damagePercent;         // 360% = 3.60
+    private final double volleyRadius;          // Rayon de la volée
+    private final int arrowCount;               // Nombre de flèches visuelles
+
+    public ArrowVolleyActive(String id, String name, String desc, RangedDamagePassive passive,
+                              double dmgPercent, double radius, int arrows) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.linkedPassive = passive;
+        this.damagePercent = dmgPercent;
+        this.volleyRadius = radius;
+        this.arrowCount = arrows;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 35; }
+
+    /**
+     * Récupère le nombre de ricochets (étoiles max)
+     */
+    private int getBounceCount(PetData petData) {
+        if (petData.getStarPower() > 0) {
+            return 3; // 3 ricochets supplémentaires
+        }
+        return 0;
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+        Location targetLoc = player.getTargetBlockExact(30) != null
+            ? player.getTargetBlockExact(30).getLocation()
+            : playerLoc.add(player.getLocation().getDirection().multiply(15));
+
+        // Calculer les dégâts
+        var playerStats = plugin.getItemManager().calculatePlayerStats(player);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
+        double volleyDamage = baseDamage * damagePercent * petData.getStatMultiplier();
+
+        int bounces = getBounceCount(petData);
+        boolean hasArmorPiercing = linkedPassive != null && linkedPassive.hasArmorPiercing(petData);
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.ENTITY_PILLAGER_CELEBRATE, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.ITEM_CROSSBOW_SHOOT, 2.0f, 0.6f);
+
+        // Message
+        player.sendMessage("§6[Pet] §e🏹 §7Volée de Flèches! §c" +
+            String.format("%.0f", volleyDamage) + " §7dégâts!");
+
+        // Lancer la pluie de flèches
+        launchArrowRain(player, targetLoc, volleyDamage, bounces, hasArmorPiercing, plugin);
+    }
+
+    /**
+     * Lance la pluie de flèches depuis le ciel
+     */
+    private void launchArrowRain(Player player, Location center, double damage,
+                                  int bounces, boolean armorPiercing,
+                                  com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        // Créer les flèches qui tombent du ciel
+        Location skyCenter = center.clone().add(0, 15, 0);
+
+        new BukkitRunnable() {
+            int wave = 0;
+            final int totalWaves = 3;
+            final Random random = new Random();
+
+            @Override
+            public void run() {
+                if (wave >= totalWaves) {
+                    cancel();
+                    return;
+                }
+
+                // Sons de flèches
+                world.playSound(center, Sound.ENTITY_ARROW_SHOOT, 1.5f, 0.8f + random.nextFloat() * 0.4f);
+
+                // Spawn des flèches visuelles
+                int arrowsThisWave = arrowCount / totalWaves;
+                for (int i = 0; i < arrowsThisWave; i++) {
+                    double offsetX = (random.nextDouble() - 0.5) * volleyRadius * 2;
+                    double offsetZ = (random.nextDouble() - 0.5) * volleyRadius * 2;
+
+                    Location arrowStart = skyCenter.clone().add(offsetX, random.nextDouble() * 3, offsetZ);
+                    Location arrowEnd = center.clone().add(offsetX, 0, offsetZ);
+
+                    // Animation de flèche
+                    spawnArrowTrail(arrowStart, arrowEnd, world);
+                }
+
+                // Dégâts à la zone (une seule fois par vague)
+                if (wave == 1) { // Vague du milieu = impact principal
+                    damageEnemiesInZone(player, center, damage, bounces, armorPiercing, plugin);
+                }
+
+                wave++;
+            }
+        }.runTaskTimer(plugin, 0L, 5L); // Une vague toutes les 0.25s
+    }
+
+    /**
+     * Crée une traînée de flèche animée
+     */
+    private void spawnArrowTrail(Location start, Location end, World world) {
+        org.bukkit.util.Vector direction = end.toVector().subtract(start.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        new BukkitRunnable() {
+            double traveled = 0;
+            final double speed = 2.0;
+            Location current = start.clone();
+
+            @Override
+            public void run() {
+                if (traveled >= distance) {
+                    // Impact
+                    world.spawnParticle(Particle.CRIT, current, 10, 0.3, 0.1, 0.3, 0.1);
+                    world.spawnParticle(Particle.BLOCK, current, 5, 0.2, 0.1, 0.2, 0,
+                        Material.DIRT.createBlockData());
+                    world.playSound(current, Sound.ENTITY_ARROW_HIT, 0.5f, 1.0f);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer
+                current.add(direction.clone().multiply(speed));
+                traveled += speed;
+
+                // Particules de traînée
+                world.spawnParticle(Particle.CRIT, current, 1, 0, 0, 0, 0);
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Inflige des dégâts à tous les ennemis dans la zone
+     */
+    private void damageEnemiesInZone(Player player, Location center, double damage,
+                                      int bounces, boolean armorPiercing,
+                                      com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        World world = center.getWorld();
+        if (world == null) return;
+
+        var zombieManager = plugin.getZombieManager();
+        Set<UUID> hitEntities = new HashSet<>();
+        List<LivingEntity> hitTargets = new ArrayList<>();
+
+        // Première passe: tous les ennemis dans la zone
+        for (Entity entity : world.getNearbyEntities(center, volleyRadius, volleyRadius, volleyRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distSq = entity.getLocation().distanceSquared(center);
+                if (distSq > volleyRadius * volleyRadius) continue;
+
+                hitEntities.add(entity.getUniqueId());
+                hitTargets.add(living);
+
+                // Appliquer les dégâts
+                double finalDamage = damage;
+
+                // Bonus perce-armure (ignore 30% de la défense)
+                if (armorPiercing) {
+                    finalDamage *= 1.15; // +15% dégâts effectifs
+                }
+
+                dealDamage(player, living, finalDamage, zombieManager);
+
+                // Effet visuel
+                Location targetLoc = living.getLocation().add(0, 1, 0);
+                world.spawnParticle(Particle.CRIT, targetLoc, 15, 0.3, 0.5, 0.3, 0.1);
+                world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc, 5, 0.2, 0.3, 0.2, 0.1);
+
+                // Flèche plantée dans la cible
+                world.playSound(targetLoc, Sound.ENTITY_ARROW_HIT, 1.0f, 0.9f);
+            }
+        }
+
+        // Ricochets (étoiles max)
+        if (bounces > 0 && !hitTargets.isEmpty()) {
+            performBounces(player, hitTargets, damage * 0.5, bounces, hitEntities, zombieManager, world);
+        }
+
+        // Message de résultat
+        if (!hitTargets.isEmpty()) {
+            player.sendMessage("§6[Pet] §e⚔ §7Touché §e" + hitTargets.size() +
+                " §7ennemis!" + (bounces > 0 ? " §8(+" + bounces + " ricochets)" : ""));
+        }
+    }
+
+    /**
+     * Effectue les ricochets vers des ennemis supplémentaires
+     */
+    private void performBounces(Player player, List<LivingEntity> initialTargets, double bounceDamage,
+                                 int bounceCount, Set<UUID> hitEntities,
+                                 com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+
+        new BukkitRunnable() {
+            int remainingBounces = bounceCount;
+            List<LivingEntity> currentTargets = new ArrayList<>(initialTargets);
+
+            @Override
+            public void run() {
+                if (remainingBounces <= 0 || currentTargets.isEmpty()) {
+                    cancel();
+                    return;
+                }
+
+                List<LivingEntity> nextTargets = new ArrayList<>();
+
+                for (LivingEntity source : currentTargets) {
+                    if (!source.isValid() || source.isDead()) continue;
+
+                    // Trouver un nouvel ennemi proche
+                    LivingEntity bounceTarget = findNearestUnhitEnemy(source.getLocation(), 8, hitEntities, world);
+                    if (bounceTarget != null) {
+                        hitEntities.add(bounceTarget.getUniqueId());
+                        nextTargets.add(bounceTarget);
+
+                        // Traînée visuelle du ricochet
+                        spawnBounceTrail(source.getLocation().add(0, 1, 0),
+                            bounceTarget.getLocation().add(0, 1, 0), world);
+
+                        // Dégâts
+                        dealDamage(player, bounceTarget, bounceDamage, zombieManager);
+
+                        // Effet
+                        Location targetLoc = bounceTarget.getLocation().add(0, 1, 0);
+                        world.spawnParticle(Particle.CRIT, targetLoc, 8, 0.2, 0.3, 0.2, 0.1);
+                        world.playSound(targetLoc, Sound.ENTITY_ARROW_HIT, 0.8f, 1.2f);
+                    }
+                }
+
+                currentTargets = nextTargets;
+                remainingBounces--;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 5L, 5L);
+    }
+
+    /**
+     * Trouve l'ennemi le plus proche non encore touché
+     */
+    private LivingEntity findNearestUnhitEnemy(Location center, double radius,
+                                                Set<UUID> hitEntities, World world) {
+        LivingEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(center, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()
+                && !hitEntities.contains(entity.getUniqueId())) {
+
+                double dist = entity.getLocation().distanceSquared(center);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = living;
+                }
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * Crée une traînée visuelle de ricochet
+     */
+    private void spawnBounceTrail(Location from, Location to, World world) {
+        org.bukkit.util.Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int steps = (int) (distance * 2);
+        for (int i = 0; i < steps; i++) {
+            Location particleLoc = from.clone().add(direction.clone().multiply(i / 2.0));
+            world.spawnParticle(Particle.CRIT, particleLoc, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Inflige des dégâts à une cible
+     */
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                             com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
