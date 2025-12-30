@@ -44,8 +44,8 @@ public class PetAbilityRegistry {
 
         // Chauve-Souris Fantôme
         registerAbilities(PetType.CHAUVE_SOURIS_FANTOME,
-            new DetectionPassive("bat_detect", "Détection",
-                "Détecte les zombies dans un rayon de 15 blocs", 15),
+            new CritChancePassive("bat_crit", "Vision Nocturne",
+                "+1% de chance de critique", 0.01),
             new EchoScanActive("bat_echo", "Écho-Scan",
                 "Révèle tous les ennemis dans 30 blocs pendant 5s", 30, 5)
         );
@@ -54,158 +54,179 @@ public class PetAbilityRegistry {
         registerAbilities(PetType.RAT_CATACOMBES,
             new LootBonusPassive("rat_loot", "Fouineur",
                 "+5% de chance de loot supplémentaire", 0.05),
-            new SearchActive("rat_search", "Fouille",
-                "Cherche des ressources au sol", 60)
+            new ScavengeActive("rat_scavenge", "Fouille",
+                "Trouve 1 nourriture ou consommable (rareté selon niveau)")
         );
 
-        // Luciole Errante
+        // Luciole Errante - Guérisseuse de Combat
         registerAbilities(PetType.LUCIOLE_ERRANTE,
-            new LightPassive("firefly_light", "Lumière",
-                "Éclaire un rayon de 5 blocs", 5),
-            new FlashActive("firefly_flash", "Flash Aveuglant",
-                "Aveugle les zombies proches 3s", 25, 3)
+            new CombatRegenPassive("firefly_regen", "Aura Curative",
+                "Régénère 0.25❤/s pendant 5s après chaque kill", 0.5, 5),
+            new LifePulseActive("firefly_pulse", "Pulse de Vie",
+                "Soigne 3❤ et donne Régénération I pendant 8s", 3.0, 8)
         );
 
         // Scarabée Blindé
         registerAbilities(PetType.SCARABEE_BLINDE,
             new DamageReductionPassive("beetle_armor", "Carapace Passive",
-                "+5% de réduction de dégâts", 0.05),
-            new ShieldActive("beetle_shield", "Carapace",
-                "Bouclier absorbant 20 dégâts", 45, 20)
+                "+5% réduction de dégâts (cumule avec armure)", 0.05),
+            new ResistanceActive("beetle_resistance", "Carapace Blindée",
+                "Applique Résistance II pendant 5s (-40% dégâts)", 5)
         );
 
         // Corbeau Messager
         registerAbilities(PetType.CORBEAU_MESSAGER,
             new SpeedPassive("raven_speed", "Ailes Rapides",
                 "+5% vitesse de déplacement", 0.05),
-            new ScoutActive("raven_scout", "Vol Éclaireur",
-                "Révèle une zone éloignée", 40)
+            new RavenStrikeActive("raven_strike", "Frappe du Corbeau",
+                "Le corbeau se rue vers un ennemi et inflige 50% de vos dégâts", 0.50)
         );
 
         // ==================== PEU COMMUNS ====================
 
         // Loup Spectral
+        // Passif: +3% dégâts par ennemi proche (max +15%)
+        // Ultimate: Frénésie 8s, chaque kill = +5% dégâts/vitesse (max +25%)
         registerAbilities(PetType.LOUP_SPECTRAL,
-            new AttackPassive("wolf_attack", "Morsure Spectrale",
-                "Attaque les zombies proches (5 dégâts/2s)", 5, 40),
-            new HowlActive("wolf_howl", "Hurlement",
-                "Boost de 20% dégâts pendant 8s", 35, 0.20, 8)
+            new PackHunterPassive("wolf_pack", "Instinct de Meute",
+                "+3% dégâts par ennemi proche (max +15%, rayon 8 blocs)", 0.03, 0.15, 8),
+            new BloodFrenzyActive("wolf_frenzy", "Frénésie Sanguinaire",
+                "Pendant 8s, chaque kill donne +5% dégâts/vitesse (max +25%)", 8, 0.05, 0.25)
         );
 
-        // Champignon Ambulant
+        // Champignon Explosif (anciennement Champignon Ambulant)
+        // Passif: Les kills explosent en spores (20% dégâts, 3 blocs)
+        // Ultimate: Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)
         registerAbilities(PetType.CHAMPIGNON_AMBULANT,
-            new RegenPassive("shroom_regen", "Spores Curatives",
-                "Régénère 0.5 coeur/5s", 0.5, 100),
-            new HealActive("shroom_heal", "Spore Curative",
-                "Soigne 6 coeurs instantanément", 40, 6)
+            new VolatileSporesPassive("shroom_volatile", "Spores Volatiles",
+                "Les kills explosent en spores (20% dégâts AoE, 3 blocs)", 0.20, 3),
+            new FungalDetonationActive("shroom_detonate", "Détonation Fongique",
+                "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)", 1.5, 6, 30)
         );
 
-        // Golem de Poche
+        // Golem Sismique (anciennement Golem de Poche)
+        // Passif: Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)
+        // Ultimate: Séisme - stun 2s + 30 dégâts dans 8 blocs
         registerAbilities(PetType.GOLEM_POCHE,
-            new InterceptPassive("golem_intercept", "Protection",
-                "Intercepte 10% des dégâts", 0.10),
-            new WallActive("golem_wall", "Mur de Pierre",
-                "Crée un mur temporaire 3x2", 30, 5)
+            new HeavyStepsPassive("golem_steps", "Pas Lourds",
+                "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)", 5, 20, 3),
+            new SeismicSlamActive("golem_seism", "Séisme",
+                "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs", 30, 40, 8)
         );
 
-        // Feu Follet
+        // Feu Follet - Boules de Feu
+        // Passif: Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)
+        // Ultimate: Tire 5 boules de feu en éventail (50% dégâts chacune)
         registerAbilities(PetType.FEU_FOLLET,
-            new IgnitePassive("wisp_ignite", "Toucher Enflammé",
-                "10% de chance d'enflammer", 0.10),
-            new IgniteAreaActive("wisp_burst", "Embrasement",
-                "Enflamme tous les zombies dans 5 blocs", 25, 5)
+            new WispFireballPassive("wisp_fireball", "Tir Enflammé",
+                "Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)", 5, 0.30),
+            new InfernalBarrageActive("wisp_barrage", "Barrage Infernal",
+                "Tire 5 boules de feu en éventail (50% dégâts chacune)", 5, 0.50)
         );
 
-        // Araignée Tisseuse
+        // Araignée Chasseuse (anciennement Araignée Tisseuse)
+        // Passif: +25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s
+        // Ultimate: Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts 5s)
+        PredatorPassive predatorPassive = new PredatorPassive("spider_predator", "Prédateur Patient",
+            "+25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s", 0.25, 30);
         registerAbilities(PetType.ARAIGNEE_TISSEUSE,
-            new SlowPassive("spider_slow", "Toile Collante",
-                "Ralentit les zombies touchés 1s", 20),
-            new WebActive("spider_web", "Toile Géante",
-                "Piège les zombies dans une zone 5x5", 30, 4)
+            predatorPassive,
+            new SpiderAmbushActive("spider_ambush", "Embuscade",
+                "Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts 5s)", 60, 0.50, 100, predatorPassive)
         );
 
         // ==================== RARES ====================
 
         // Phénix Mineur
+        // Passif: Renaissance avec 30% HP (CD: 5min)
+        // Ultimate: Nova de Feu (150% dégâts joueur, 5 blocs, enflamme)
         registerAbilities(PetType.PHENIX_MINEUR,
             new RebornPassive("phoenix_reborn", "Renaissance",
-                "Renaissance avec 30% HP (CD: 5min)", 0.30, 300),
+                "À la mort, renaissance avec 30% HP (CD: 5min)", 0.30, 300),
             new FireNovaActive("phoenix_nova", "Nova de Feu",
-                "Explosion de feu (15 dégâts, 5 blocs)", 35, 15, 5)
+                "Explosion de feu (150% dégâts joueur, 5 blocs, enflamme)", 35, 1.5, 5)
         );
 
-        // Serpent de Givre
+        // Ours Polaire Gardien (anciennement Serpent de Givre)
+        // Passif: -20% dégâts reçus, attaquants ralentis 1s + 5% dégâts retournés
+        // Ultimate: Repousse les ennemis (8 blocs), gèle 2s, +30% armure 5s
         registerAbilities(PetType.SERPENT_GIVRE,
-            new ElementalDamagePassive("frost_damage", "Froid Mordant",
-                "+15% dégâts de glace", 0.15, "ICE"),
-            new FreezeActive("frost_freeze", "Souffle Glacial",
-                "Gèle les ennemis devant (3s)", 30, 3)
+            new FrostFurPassive("polar_fur", "Fourrure Glaciale",
+                "-20% dégâts reçus, attaquants ralentis 1s + 5% dégâts retournés", 0.20, 0.05, 20),
+            new ArcticRoarActive("polar_roar", "Rugissement Arctique",
+                "Repousse (8 blocs), gèle 2s, +30% armure 5s", 30, 8, 40, 0.30, 100)
         );
 
-        // Hibou Arcanique
+        // Calamar des Abysses (anciennement Hibou Arcanique)
+        // Passif: Toutes les 10 attaques, crée une flaque d'encre (3s, slow 30%, 15% dégâts/s)
+        // Ultimate: Nuage d'encre géant (8 blocs), zombies confus s'attaquent entre eux 4s
         registerAbilities(PetType.HIBOU_ARCANIQUE,
-            new CooldownReductionPassive("owl_cdr", "Sagesse Arcanique",
-                "-10% cooldown des capacités", 0.10),
-            new ResetCooldownActive("owl_reset", "Reset Arcanique",
-                "Reset le cooldown d'une capacité", 90)
+            new InkPuddlePassive("squid_ink", "Encre Toxique",
+                "Toutes les 10 attaques, flaque d'encre (slow + dégâts/s)", 10, 0.30, 0.15, 60, 3.0),
+            new DarknessCloudActive("squid_cloud", "Nuage d'Obscurité",
+                "Nuage d'encre (8 blocs), zombies confus s'attaquent 4s", 25, 8.0, 80, 0.30)
         );
 
-        // Essaim de Scarabées
+        // Essaim Furieux (anciennement Essaim de Scarabées)
+        // Passif: Contre-attaque automatique quand le joueur subit des dégâts (15% dégâts, CD 2s)
+        // Ultimate: 3 mini-abeilles (scale 0.4) attaquent tous les ennemis pendant 6s (10% dégâts/0.5s)
         registerAbilities(PetType.ESSAIM_SCARABEES,
-            new AuraPassive("swarm_aura", "Nuée",
-                "3 dégâts/s aux zombies proches", 3, 2),
-            new SwarmActive("swarm_attack", "Nuée",
-                "L'essaim attaque une cible (50 dégâts sur 5s)", 25, 50, 5)
+            new SwarmRetaliationPassive("swarm_retaliate", "Représailles de la Ruche",
+                "Contre-attaque auto quand touché (15% dégâts, CD 2s)", 0.15, 2000),
+            new SwarmFuryActive("swarm_fury", "Fureur de l'Essaim",
+                "3 mini-abeilles attaquent tous les ennemis 6s (10% dégâts/0.5s)", 30, 0.10, 120, 10, 8.0)
         );
 
-        // Spectre Gardien
+        // Tentacule du Vide (Style Gur'thalak WoW)
+        // Passif: 15% chance d'invoquer des tentacules du vide (% dégâts joueur + slow), CD 3s, max 4 actifs
+        // Ultimate: Invoque 5 tentacules géants qui ravagent la zone pendant 6s
         registerAbilities(PetType.SPECTRE_GARDIEN,
-            new ParryPassive("specter_parry", "Parade Spectrale",
-                "Pare automatiquement 1 attaque/30s", 30),
-            new RiposteActive("specter_riposte", "Riposte Spectrale",
-                "Prochaine attaque = contre-attaque x2", 20, 2.0)
+            new VoidTentaclePassive("void_tentacle", "Appel du Vide",
+                "15% chance d'invoquer des tentacules (20% dégâts, slow, max 4 actifs)", 0.15, 0.20, 60, 4.0, 2, 4),
+            new VoidEruptionActive("void_eruption", "Éruption du Vide",
+                "Invoque 5 tentacules géants (30% dégâts, slow 2, 6s)", 35, 5, 0.30, 120, 5.0, false)
         );
 
         // ==================== ÉPIQUES ====================
 
-        // Dragon Pygmée
+        // Gardien des Abysses (Guardian)
         registerAbilities(PetType.DRAGON_PYGMEE,
-            new DamageMultiplierPassive("dragon_power", "Puissance Draconique",
+            new DamageMultiplierPassive("abyss_power", "Puissance Abyssale",
                 "+15% dégâts globaux", 0.15),
-            new BreathActive("dragon_breath", "Souffle Draconique",
-                "Souffle de feu en cône (40 dégâts)", 25, 40)
+            new AbyssLaserActive("abyss_laser", "Rayon des Abysses",
+                "Laser chargeant (1.5s) puis frappe tous les ennemis (80% dégâts)", 30, 0.80, 8)
         );
 
-        // Familier Nécromantique
+        // Invocateur Maudit (Evoker)
         registerAbilities(PetType.FAMILIER_NECROMANTIQUE,
-            new NecromancyPassive("necro_passive", "Domination",
-                "10% de chance de contrôler un zombie tué", 0.10, 15),
-            new ResurrectActive("necro_resurrect", "Résurrection",
-                "Ressuscite le dernier zombie comme allié", 45, 30)
+            new EvokerFangsPassive("evoker_fangs", "Mâchoires Spectrales",
+                "20% chance d'invoquer des crocs d'Evoker (50% dégâts joueur)", 0.20, 0.50),
+            new VexSwarmActive("vex_swarm", "Nuée de Vex",
+                "Invoque 4 Vex alliés pendant 8s (15% dégâts chacun)", 35, 4, 8, 0.15)
         );
 
-        // Golem de Cristal
+        // Nuage de Bonheur (Happy Ghast)
         registerAbilities(PetType.GOLEM_CRISTAL,
-            new HealthBonusPassive("crystal_hp", "Corps de Cristal",
-                "+25% HP max", 0.25),
-            new SacrificeActive("crystal_sacrifice", "Sacrifice Cristallin",
-                "Absorbe 100% des dégâts pendant 5s", 60, 5)
+            new JoyfulTearsPassive("joyful_tears", "Larmes de Joie",
+                "Chaque kill restore 5% HP au joueur", 0.05),
+            new BenevolentRainActive("benevolent_rain", "Pluie Bienfaisante",
+                "Zone (6 blocs, 5s) : 3% HP/s + Slow II ennemis", 40, 6, 5, 0.03, 1)
         );
 
         // Félin de l'Ombre
         registerAbilities(PetType.FELIN_OMBRE,
             new CritDamagePassive("cat_crit", "Griffes Assassines",
                 "+20% dégâts critiques", 0.20),
-            new AmbushActive("cat_ambush", "Embuscade",
-                "Prochaine attaque = critique garanti x3", 20, 3.0)
+            new PredatorMarkActive("cat_predator_mark", "Marque du Prédateur",
+                "Marque un ennemi 8s : +50% dégâts, 100% crit", 25, 8, 0.50)
         );
 
-        // Élémentaire Instable
+        // Tempête Vivante (Breeze)
         registerAbilities(PetType.ELEMENTAIRE_INSTABLE,
-            new ChaosPassive("elemental_chaos", "Instabilité",
-                "Effet aléatoire toutes les 30s", 30),
-            new ChaosActive("elemental_implode", "Implosion Chaotique",
-                "Effet puissant aléatoire", 30)
+            new WindGustPassive("breeze_gust", "Rafales Imprévisibles",
+                "25% chance de rafale (knockback + 15% dégâts)", 0.25, 0.15, 1.2),
+            new ChaoticVortexActive("breeze_vortex", "Vortex Chaotique",
+                "Aspire puis expulse violemment (60 dégâts)", 35, 60, 8)
         );
 
         // ==================== LÉGENDAIRES ====================
@@ -294,13 +315,15 @@ public class PetAbilityRegistry {
 
         // ==================== NOUVEAUX PETS SYNERGIES ====================
 
-        // Scarabée de Combo (Combo/Momentum)
+        // Armadillo Combo (Combo/Momentum)
+        // Base: +0.5% par kill, max +5%, reset après 15s
+        // Niveau max: +15% max, reset après 30s
         ComboPassive comboPassive = new ComboPassive("combo_stack", "Momentum",
-            "+0.5% dégâts par kill consécutif (max +15%)", 0.005, 0.15);
-        registerAbilities(PetType.SCARABEE_COMBO,
+            "+0.5% dégâts par kill (max +5%, 15s) - Niv.Max: +15%, 30s", 0.005, 0.05, 15);
+        registerAbilities(PetType.ARMADILLO_COMBO,
             comboPassive,
             new ComboExplosionActive("combo_explode", "Explosion de Combo",
-                "Consomme le combo pour infliger dégâts = combo × 5", comboPassive)
+                "Consomme le combo pour exploser en AoE (8 blocs, 5 dégâts/stack)", comboPassive, 5.0, 8)
         );
 
         // Larve Parasitaire (Lifesteal)
@@ -319,30 +342,37 @@ public class PetAbilityRegistry {
                 "Double les stacks pendant 5s", ragePassive)
         );
 
-        // Faucon Chasseur (Chasseur Synergy)
-        MarkPassive markPassive = new MarkPassive("mark_passive", "Œil du Prédateur",
-            "Marque les cibles (+15% dégâts sur marqués)", 0.15);
+        // Spectre Traqueur (anciennement Faucon Chasseur)
+        // Passif: Marque auto les ennemis <50% HP, +20% dégâts sur marqués
+        // Ultimate: Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)
+        PredatorInstinctPassive instinctPassive = new PredatorInstinctPassive("phantom_instinct", "Instinct du Prédateur",
+            "Marque auto les ennemis <50% HP, +20% dégâts sur marqués", 0.50, 0.20);
         registerAbilities(PetType.FAUCON_CHASSEUR,
-            markPassive,
-            new PredatorStrikeActive("predator_strike", "Frappe Prédatrice",
-                "Attaque une cible marquée pour 3x dégâts", markPassive)
+            instinctPassive,
+            new DeadlyDiveActive("phantom_dive", "Plongeon Mortel",
+                "Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)", 2.0, 0.20, instinctPassive)
         );
 
-        // Orbe d'Âmes (Occultiste Synergy)
-        SoulOrbPassive soulPassive = new SoulOrbPassive("soul_orb", "Collecteur d'Âmes",
-            "+5% dégâts de skill par orbe (max 5)", 0.05, 5);
+        // Tortue Matriarche (Invocation / Essaim)
+        // Passif: Tous les 8 kills, pond un œuf qui éclot en bébé tortue (5s, 10% dégâts)
+        // Ultimate: Pond 4 œufs qui éclosent en tortues enragées (8s, 15% dégâts, slow)
+        TurtleOffspringPassive turtlePassive = new TurtleOffspringPassive("turtle_offspring", "Progéniture Combative",
+            "Tous les 8 kills, pond un œuf → bébé tortue (5s, 10% dégâts)", 8, 0.10, 100, 2);
         registerAbilities(PetType.ORB_AMES,
-            soulPassive,
-            new SoulReleaseActive("soul_release", "Libération d'Âmes",
-                "Consomme les orbes pour explosion (15 dégâts par orbe)", 15, soulPassive)
+            turtlePassive,
+            new WarNestActive("war_nest", "Nid de Guerre",
+                "Pond 4 œufs → tortues enragées (8s, 15% dégâts, slow)", 30, 4, 0.15, 160, turtlePassive)
         );
 
-        // Salamandre Élémentaire (Multi-Element)
+        // Axolotl Prismatique (Réactions Élémentaires style Genshin)
+        // Passif: Marque élémentaire (Feu/Glace/Foudre), combiner = RÉACTION
+        // Ultimate: Applique les 3 éléments et déclenche toutes les réactions
+        ElementalCatalystPassive catalystPassive = new ElementalCatalystPassive("elemental_catalyst", "Catalyseur Élémentaire",
+            "Marque élémentaire, 2 éléments différents = RÉACTION (50% dégâts)", 0.50, 100, 3000);
         registerAbilities(PetType.SALAMANDRE_ELEMENTAIRE,
-            new ElementalRotationPassive("elemental_rotate", "Rotation Élémentaire",
-                "Alterne Feu/Glace/Foudre (+10% dégâts élément actif)", 0.10),
-            new ElementalFusionActive("elemental_fusion", "Fusion Élémentaire",
-                "Attaque combinant les 3 éléments")
+            catalystPassive,
+            new ChainReactionActive("chain_reaction", "Réaction en Chaîne",
+                "Applique les 3 éléments, déclenche toutes les réactions (100% dégâts)", 35, 1.0, catalystPassive)
         );
 
         // Spectre de Vengeance (Damage Taken)
@@ -396,28 +426,34 @@ public class PetAbilityRegistry {
 
         // ==================== NOUVEAUX PETS VISUELS ====================
 
-        // Étoile Filante (Stellaire / Traînée)
+        // Grenouille Bondissante (anciennement Étoile Filante)
+        // Passif: Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
+        // Ultimate: Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)
         registerAbilities(PetType.ETOILE_FILANTE,
-            new StardustTrailPassive("stardust_trail", "Traînée Stellaire",
-                "Laisse une traînée infligeant 3 dégâts", 3),
-            new ShootingStarActive("shooting_stars", "Pluie d'Étoiles",
-                "8 étoiles filantes sur la zone", 12, 8)
+            new FrogBouncePassive("frog_bounce", "Rebond",
+                "Chaque 4ème attaque = bond (+30% dégâts, stun 0.5s)", 4, 0.30, 10),
+            new BouncingAssaultActive("frog_assault", "Assaut Bondissant",
+                "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun)", 5, 0.50, 15)
         );
 
-        // Serpent Foudroyant (Foudre / Chaîne)
+        // Mouton Arc-en-Ciel (Buffs / Polyvalent)
+        // Passif: Cycle les couleurs (3s), chaque couleur = bonus unique
+        // Ultimate: Nova arc-en-ciel, applique tous les bonus pendant 6s
+        ChromaticSpectrumPassive spectrumPassive = new ChromaticSpectrumPassive("chromatic_spectrum", "Spectre Chromatique",
+            "Cycle couleurs (3s), chaque couleur = bonus unique", 3000, 0.15, 0.05);
         registerAbilities(PetType.SERPENT_FOUDROYANT,
-            new ChainLightningPassive("chain_lightning", "Foudre en Chaîne",
-                "20% de déclencher un éclair en chaîne", 0.20, 5, 10),
-            new ThunderstormActive("thunderstorm", "Tempête de Foudre",
-                "6 éclairs sur les ennemis", 25, 6)
+            spectrumPassive,
+            new PrismaticNovaActive("prismatic_nova", "Nova Prismatique",
+                "Explosion arc-en-ciel, tous les bonus pendant 6s (50% dégâts)", 35, 0.50, 120, spectrumPassive)
         );
 
-        // Golem de Lave (Lave / Traînée)
+        // Renard des Neiges (Givre / Gel)
+        FrostBitePassive frostBitePassive = new FrostBitePassive("frost_bite", "Morsure Glaciale",
+            "5 attaques = gel 1.5s, +30% dégâts sur gelé", 5, 1.5, 0.30);
         registerAbilities(PetType.GOLEM_LAVE,
-            new LavaTrailPassive("lava_trail", "Traînée de Lave",
-                "Laisse une traînée brûlant 5 dégâts/s", 5),
-            new VolcanicEruptionActive("volcanic_eruption", "Éruption Volcanique",
-                "Colonne de feu + 10 boules de lave", 15, 10)
+            frostBitePassive,
+            new ArcticStormActive("arctic_storm", "Tempête Arctique",
+                "Blizzard (8 blocs, 6s) : Slow III + 10% dégâts joueur/s", 35, 8, 6, 0.10, frostBitePassive)
         );
 
         // Phénix Solaire (Feu / Météores)

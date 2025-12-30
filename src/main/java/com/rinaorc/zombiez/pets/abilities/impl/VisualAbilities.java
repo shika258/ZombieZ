@@ -375,205 +375,43 @@ class BlizzardActive implements PetAbility {
     }
 }
 
-// ==================== SERPENT FOUDROYANT - Éclairs en Chaîne ====================
+// ==================== MOUTON ARC-EN-CIEL - Spectre Chromatique ====================
 
 @Getter
-class ChainLightningPassive implements PetAbility {
+class ChromaticSpectrumPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double chainChance;
-    private final int maxChains;
-    private final double chainDamage;
+    private final int colorCycleMs;                  // 3000ms = 3s entre chaque couleur
+    private final double baseDamageBonus;            // 15% bonus dégâts (rouge)
+    private final double baseLifestealPercent;       // 5% lifesteal (vert)
 
-    public ChainLightningPassive(String id, String name, String desc, double chance, int chains, double damage) {
+    // Couleurs: 0=Rouge, 1=Orange, 2=Jaune, 3=Vert, 4=Bleu, 5=Violet
+    private final Map<UUID, Integer> currentColor = new HashMap<>();
+    private final Map<UUID, Long> lastColorChange = new HashMap<>();
+    private final Map<UUID, Boolean> allBuffsActive = new HashMap<>(); // Pour l'ultimate
+
+    // DyeColor correspondants
+    private static final org.bukkit.DyeColor[] RAINBOW_COLORS = {
+        org.bukkit.DyeColor.RED,
+        org.bukkit.DyeColor.ORANGE,
+        org.bukkit.DyeColor.YELLOW,
+        org.bukkit.DyeColor.LIME,
+        org.bukkit.DyeColor.LIGHT_BLUE,
+        org.bukkit.DyeColor.PURPLE
+    };
+
+    public ChromaticSpectrumPassive(String id, String name, String desc, int cycleMs,
+                                     double dmgBonus, double lifesteal) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.chainChance = chance;
-        this.maxChains = chains;
-        this.chainDamage = damage;
-    }
-
-    @Override
-    public boolean isPassive() { return true; }
-
-    @Override
-    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        if (Math.random() > chainChance * petData.getStatMultiplier()) return damage;
-
-        // Déclencher la chaîne d'éclairs
-        int chains = (int) (maxChains * petData.getStatMultiplier());
-        double chainDmg = chainDamage * petData.getStatMultiplier();
-
-        chainLightning(player, target, chains, chainDmg, petData, new HashSet<>());
-
-        return damage;
-    }
-
-    private void chainLightning(Player player, LivingEntity current, int remainingChains, double damage, PetData petData, Set<UUID> hit) {
-        if (remainingChains <= 0 || current == null) return;
-        hit.add(current.getUniqueId());
-
-        // Effet d'éclair sur la cible
-        Location loc = current.getLocation().add(0, 1, 0);
-        current.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.3, 0.5, 0.3, 0.1);
-        current.getWorld().spawnParticle(Particle.FLASH, loc, 1, 0, 0, 0, 0);
-        current.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.5f, 1.5f);
-
-        current.damage(damage, player);
-        petData.addDamage((long) damage);
-
-        // Trouver la prochaine cible
-        LivingEntity next = null;
-        double minDist = 8;
-
-        for (Entity e : current.getNearbyEntities(8, 8, 8)) {
-            if (e instanceof Monster m && !hit.contains(m.getUniqueId())) {
-                double dist = m.getLocation().distance(current.getLocation());
-                if (dist < minDist) {
-                    minDist = dist;
-                    next = m;
-                }
-            }
-        }
-
-        if (next != null) {
-            // Dessiner l'éclair entre les deux cibles
-            drawLightningBolt(current.getLocation().add(0, 1, 0), next.getLocation().add(0, 1, 0));
-
-            // Continuer la chaîne avec délai
-            LivingEntity finalNext = next;
-            Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
-                () -> chainLightning(player, finalNext, remainingChains - 1, damage * 0.8, petData, hit),
-                3L
-            );
-        }
-    }
-
-    private void drawLightningBolt(Location from, Location to) {
-        Vector direction = to.toVector().subtract(from.toVector());
-        double distance = direction.length();
-        direction.normalize();
-
-        Random random = new Random();
-        Location current = from.clone();
-
-        for (double d = 0; d < distance; d += 0.5) {
-            // Ajouter un peu de zigzag
-            double offsetX = (random.nextDouble() - 0.5) * 0.3;
-            double offsetY = (random.nextDouble() - 0.5) * 0.3;
-            double offsetZ = (random.nextDouble() - 0.5) * 0.3;
-
-            current.add(direction.clone().multiply(0.5)).add(offsetX, offsetY, offsetZ);
-            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, current, 3, 0.05, 0.05, 0.05, 0);
-        }
-    }
-}
-
-@Getter
-class ThunderstormActive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double boltDamage;
-    private final int boltCount;
-
-    public ThunderstormActive(String id, String name, String desc, double damage, int count) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.boltDamage = damage;
-        this.boltCount = count;
-    }
-
-    @Override
-    public boolean isPassive() { return false; }
-
-    @Override
-    public int getCooldown() { return 30; }
-
-    @Override
-    public boolean activate(Player player, PetData petData) {
-        Location center = player.getLocation();
-        double damage = boltDamage * petData.getStatMultiplier();
-        int count = (int) (boltCount * petData.getStatMultiplier());
-
-        player.sendMessage("§a[Pet] §e§l⚡ TEMPÊTE DE FOUDRE!");
-        player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 0.8f);
-
-        // Collecter les cibles
-        List<Monster> targets = new ArrayList<>();
-        for (Entity e : player.getNearbyEntities(15, 15, 15)) {
-            if (e instanceof Monster m) targets.add(m);
-        }
-
-        // Frapper les cibles avec des éclairs
-        new BukkitRunnable() {
-            int struck = 0;
-            Random random = new Random();
-
-            @Override
-            public void run() {
-                if (struck >= count || targets.isEmpty()) {
-                    cancel();
-                    return;
-                }
-
-                // Choisir une cible
-                Monster target = targets.get(random.nextInt(targets.size()));
-                Location loc = target.getLocation();
-
-                // Effet d'éclair spectaculaire
-                loc.getWorld().strikeLightningEffect(loc);
-
-                // Particules supplémentaires
-                for (int i = 0; i < 5; i++) {
-                    double y = i * 5;
-                    Location boltLoc = loc.clone().add(0, y, 0);
-                    loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, boltLoc, 20, 0.2, 2, 0.2, 0.1);
-                }
-                loc.getWorld().spawnParticle(Particle.FLASH, loc, 3, 0.5, 0.5, 0.5, 0);
-                loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
-
-                // Dégâts + chaîne
-                target.damage(damage, player);
-                petData.addDamage((long) damage);
-
-                // Dégâts aux ennemis proches
-                for (Entity e : target.getNearbyEntities(4, 4, 4)) {
-                    if (e instanceof Monster m && m != target) {
-                        m.damage(damage * 0.5, player);
-                        m.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, m.getLocation().add(0, 1, 0), 15, 0.2, 0.3, 0.2, 0.05);
-                        petData.addDamage((long) (damage * 0.5));
-                    }
-                }
-
-                struck++;
-            }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 5L);
-
-        return true;
-    }
-}
-
-// ==================== GOLEM DE LAVE - Éruption Volcanique ====================
-
-@Getter
-class LavaTrailPassive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double burnDamage;
-    private final Map<UUID, Long> lastTrail = new HashMap<>();
-
-    public LavaTrailPassive(String id, String name, String desc, double damage) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.burnDamage = damage;
-        PassiveAbilityCleanup.registerForCleanup(lastTrail);
+        this.colorCycleMs = cycleMs;
+        this.baseDamageBonus = dmgBonus;
+        this.baseLifestealPercent = lifesteal;
+        PassiveAbilityCleanup.registerForCleanup(currentColor);
+        PassiveAbilityCleanup.registerForCleanup(lastColorChange);
+        PassiveAbilityCleanup.registerForCleanup(allBuffsActive);
     }
 
     @Override
@@ -581,167 +419,800 @@ class LavaTrailPassive implements PetAbility {
 
     @Override
     public void applyPassive(Player player, PetData petData) {
-        // Laisser une traînée de lave toutes les secondes
         UUID uuid = player.getUniqueId();
         long now = System.currentTimeMillis();
+        long lastChange = lastColorChange.getOrDefault(uuid, 0L);
 
-        if (now - lastTrail.getOrDefault(uuid, 0L) < 1000) return;
-        lastTrail.put(uuid, now);
+        // Si tous les buffs sont actifs (ultimate), ne pas cycler
+        if (allBuffsActive.getOrDefault(uuid, false)) {
+            return;
+        }
 
-        Location loc = player.getLocation();
-        double damage = burnDamage * petData.getStatMultiplier();
+        // Ajuster le cycle par niveau (plus rapide à haut niveau)
+        int adjustedCycle = (int) (colorCycleMs - (petData.getStatMultiplier() - 1) * 300);
+        adjustedCycle = Math.max(adjustedCycle, 1500); // Minimum 1.5s
 
-        // Créer une zone de lave temporaire
-        loc.getWorld().spawnParticle(Particle.LAVA, loc, 10, 0.5, 0.1, 0.5, 0);
-        loc.getWorld().spawnParticle(Particle.FLAME, loc, 5, 0.3, 0.1, 0.3, 0.02);
-        loc.getWorld().spawnParticle(Particle.SMOKE, loc, 3, 0.2, 0.1, 0.2, 0.01);
+        // Cycler les couleurs
+        if (now - lastChange > adjustedCycle) {
+            int current = currentColor.getOrDefault(uuid, 0);
+            int newColor = (current + 1) % 6;
+            currentColor.put(uuid, newColor);
+            lastColorChange.put(uuid, now);
 
-        // Zone de dégâts pendant 3 secondes
-        new BukkitRunnable() {
-            int ticks = 0;
-            Location trailLoc = loc.clone();
+            // Changer la couleur du mouton
+            updateSheepColor(player, newColor);
 
-            @Override
-            public void run() {
-                if (ticks >= 60) {
-                    cancel();
-                    return;
+            // Message avec l'effet actif
+            String colorInfo = getColorInfo(newColor, petData);
+            player.sendMessage("§a[Pet] " + colorInfo);
+        }
+    }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID uuid = player.getUniqueId();
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
+        World world = target.getWorld();
+
+        double bonusDamage = 0;
+        double adjustedBonus = baseDamageBonus + (petData.getStatMultiplier() - 1) * 0.05;
+        double adjustedLifesteal = baseLifestealPercent + (petData.getStatMultiplier() - 1) * 0.02;
+
+        // Si l'ultimate est actif, appliquer tous les effets
+        if (allBuffs) {
+            // Rouge: +15% dégâts
+            bonusDamage += damage * adjustedBonus;
+
+            // Jaune: +10% crit (simulé par dégâts bonus aléatoire)
+            if (Math.random() < 0.10 + (petData.getStatMultiplier() - 1) * 0.03) {
+                bonusDamage += damage * 0.5; // Crit!
+                world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+            }
+
+            // Vert: 5% lifesteal
+            double heal = damage * adjustedLifesteal;
+            player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+
+            // Violet: Slow
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1, false, false));
+
+            // Particules arc-en-ciel
+            spawnRainbowParticles(target.getLocation().add(0, 1, 0), world);
+
+        } else {
+            // Appliquer seulement l'effet de la couleur actuelle
+            switch (color) {
+                case 0 -> { // Rouge: +15% dégâts
+                    bonusDamage = damage * adjustedBonus;
+                    world.spawnParticle(Particle.FLAME, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.02);
                 }
-
-                if (ticks % 20 == 0) {
-                    trailLoc.getWorld().spawnParticle(Particle.LAVA, trailLoc, 5, 0.3, 0.1, 0.3, 0);
-                    for (Entity e : trailLoc.getWorld().getNearbyEntities(trailLoc, 1.5, 1, 1.5)) {
-                        if (e instanceof Monster m) {
-                            m.damage(damage, player);
-                            m.setFireTicks(40);
-                            petData.addDamage((long) damage);
-                        }
+                case 1 -> { // Orange: Vitesse d'attaque (effet visuel + petit bonus)
+                    bonusDamage = damage * 0.08;
+                    world.spawnParticle(Particle.LAVA, target.getLocation().add(0, 1, 0), 3, 0.2, 0.2, 0.2, 0);
+                }
+                case 2 -> { // Jaune: Crit chance +10%
+                    if (Math.random() < 0.10 + (petData.getStatMultiplier() - 1) * 0.03) {
+                        bonusDamage = damage * 0.5;
+                        world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                        world.playSound(target.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.2f);
                     }
                 }
-
-                ticks++;
+                case 3 -> { // Vert: 5% lifesteal
+                    double heal = damage * adjustedLifesteal;
+                    player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+                    world.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1, 0), 5, 0.3, 0.3, 0.3, 0);
+                }
+                case 4 -> { // Bleu: (défense gérée dans onDamageReceived)
+                    world.spawnParticle(Particle.SNOWFLAKE, target.getLocation().add(0, 1, 0), 5, 0.2, 0.2, 0.2, 0.02);
+                }
+                case 5 -> { // Violet: Slow ennemi
+                    target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 1, false, false));
+                    world.spawnParticle(Particle.WITCH, target.getLocation().add(0, 1, 0), 8, 0.3, 0.3, 0.3, 0.02);
+                }
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }
+
+        return damage + bonusDamage;
+    }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        UUID uuid = player.getUniqueId();
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
+
+        // Bleu: -10% dégâts reçus (appliqué via effet de particules ici, réduction réelle ailleurs)
+        if (color == 4 || allBuffs) {
+            player.getWorld().spawnParticle(Particle.SNOWFLAKE, player.getLocation().add(0, 1, 0),
+                10, 0.4, 0.4, 0.4, 0.02);
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 0.3f, 1.8f);
+        }
+    }
+
+    /**
+     * Retourne le pourcentage de réduction de dégâts si couleur bleue active
+     */
+    public double getDamageReduction(UUID uuid, double petMultiplier) {
+        int color = currentColor.getOrDefault(uuid, 0);
+        boolean allBuffs = allBuffsActive.getOrDefault(uuid, false);
+
+        if (color == 4 || allBuffs) {
+            return 0.10 + (petMultiplier - 1) * 0.03; // 10% + bonus niveau
+        }
+        return 0;
+    }
+
+    private void updateSheepColor(Player player, int colorIndex) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+            if (entity instanceof org.bukkit.entity.Sheep sheep
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                sheep.setColor(RAINBOW_COLORS[colorIndex]);
+
+                // Particules de transition
+                Particle particle = getColorParticle(colorIndex);
+                sheep.getWorld().spawnParticle(particle, sheep.getLocation().add(0, 0.5, 0),
+                    15, 0.3, 0.3, 0.3, 0.05);
+
+                break;
+            }
+        }
+    }
+
+    private String getColorInfo(int colorIndex, PetData petData) {
+        double mult = petData.getStatMultiplier();
+        return switch (colorIndex) {
+            case 0 -> "§c🔴 ROUGE §7- §c+" + (int)((baseDamageBonus + (mult-1)*0.05) * 100) + "% dégâts";
+            case 1 -> "§6🟠 ORANGE §7- §6+20% vitesse attaque";
+            case 2 -> "§e🟡 JAUNE §7- §e+" + (int)((0.10 + (mult-1)*0.03) * 100) + "% crit";
+            case 3 -> "§a🟢 VERT §7- §a" + (int)((baseLifestealPercent + (mult-1)*0.02) * 100) + "% lifesteal";
+            case 4 -> "§b🔵 BLEU §7- §b-" + (int)((0.10 + (mult-1)*0.03) * 100) + "% dégâts reçus";
+            case 5 -> "§d🟣 VIOLET §7- §dSlow les ennemis";
+            default -> "§7?";
+        };
+    }
+
+    private Particle getColorParticle(int colorIndex) {
+        return switch (colorIndex) {
+            case 0 -> Particle.FLAME;
+            case 1 -> Particle.LAVA;
+            case 2 -> Particle.CRIT;
+            case 3 -> Particle.HAPPY_VILLAGER;
+            case 4 -> Particle.SNOWFLAKE;
+            case 5 -> Particle.WITCH;
+            default -> Particle.CRIT;
+        };
+    }
+
+    private void spawnRainbowParticles(Location loc, World world) {
+        world.spawnParticle(Particle.FLAME, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.LAVA, loc, 1, 0.2, 0.2, 0.2, 0);
+        world.spawnParticle(Particle.CRIT, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.HAPPY_VILLAGER, loc, 2, 0.2, 0.2, 0.2, 0);
+        world.spawnParticle(Particle.SNOWFLAKE, loc, 2, 0.2, 0.2, 0.2, 0.02);
+        world.spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0.02);
+    }
+
+    public void setAllBuffsActive(UUID uuid, boolean active) {
+        allBuffsActive.put(uuid, active);
+    }
+
+    public int getCurrentColor(UUID uuid) {
+        return currentColor.getOrDefault(uuid, 0);
     }
 }
 
 @Getter
-class VolcanicEruptionActive implements PetAbility {
+class PrismaticNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double eruptionDamage;
-    private final int projectileCount;
+    private final int cooldown;
+    private final double damagePercent;              // % dégâts joueur
+    private final int buffDurationTicks;             // 6s = 120 ticks
+    private final ChromaticSpectrumPassive spectrumPassive;
 
-    public VolcanicEruptionActive(String id, String name, String desc, double damage, int count) {
+    public PrismaticNovaActive(String id, String name, String desc, int cd,
+                                double dmgPercent, int buffDuration, ChromaticSpectrumPassive passive) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.eruptionDamage = damage;
-        this.projectileCount = count;
+        this.cooldown = cd;
+        this.damagePercent = dmgPercent;
+        this.buffDurationTicks = buffDuration;
+        this.spectrumPassive = passive;
     }
 
     @Override
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 40; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        Location center = player.getLocation();
-        double damage = eruptionDamage * petData.getStatMultiplier();
-        int count = (int) (projectileCount * petData.getStatMultiplier());
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID uuid = player.getUniqueId();
 
-        player.sendMessage("§a[Pet] §c§l🌋 ÉRUPTION VOLCANIQUE!");
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(10, 6, 10).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
 
-        // Effet d'éruption initial
-        center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.5f);
-        center.getWorld().spawnParticle(Particle.EXPLOSION, center, 5, 1, 0.5, 1, 0);
-        center.getWorld().spawnParticle(Particle.LAVA, center, 100, 2, 3, 2, 0.5);
-        center.getWorld().spawnParticle(Particle.FLAME, center, 150, 3, 4, 3, 0.2);
-        center.getWorld().spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, center, 50, 2, 3, 2, 0.1);
-
-        // Colonne de feu
-        new BukkitRunnable() {
-            int height = 0;
-
-            @Override
-            public void run() {
-                if (height > 15) {
-                    cancel();
-                    return;
-                }
-
-                Location columnLoc = center.clone().add(0, height, 0);
-                columnLoc.getWorld().spawnParticle(Particle.FLAME, columnLoc, 30, 1, 0.5, 1, 0.1);
-                columnLoc.getWorld().spawnParticle(Particle.LAVA, columnLoc, 10, 0.5, 0.3, 0.5, 0);
-
-                height += 2;
-            }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 2L);
-
-        // Projectiles de lave
-        Random random = new Random();
-        for (int i = 0; i < count; i++) {
-            final int delay = i * 3;
-
-            Bukkit.getScheduler().runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), () -> {
-                // Direction aléatoire vers l'extérieur
-                double angle = random.nextDouble() * Math.PI * 2;
-                double speed = 0.5 + random.nextDouble() * 0.5;
-                Vector velocity = new Vector(
-                    Math.cos(angle) * speed,
-                    0.8 + random.nextDouble() * 0.4,
-                    Math.sin(angle) * speed
-                );
-
-                Location start = center.clone().add(0, 2, 0);
-                spawnLavaProjectile(start, velocity, player, damage, petData);
-            }, delay);
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
+            return false;
         }
+
+        // Calculer les dégâts
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.20;
+        double novaDamage = playerDamage * adjustedPercent;
+
+        // Ajuster la durée des buffs
+        int adjustedDuration = (int) (buffDurationTicks + (petData.getStatMultiplier() - 1) * 40);
+
+        // Activer tous les buffs
+        spectrumPassive.setAllBuffsActive(uuid, true);
+
+        // Faire cycler rapidement les couleurs du mouton pendant l'explosion
+        cycleSheepColorsRapidly(player, 30); // 1.5 secondes d'animation
+
+        // Effet de préparation
+        world.playSound(playerLoc, Sound.ENTITY_SHEEP_AMBIENT, 2.0f, 0.5f);
+        world.playSound(playerLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
+
+        player.sendMessage("§a[Pet] §d§l🌈 NOVA PRISMATIQUE! §7Tous les bonus actifs pendant " + (adjustedDuration / 20) + "s!");
+
+        // Explosion arc-en-ciel avec anneaux expansifs
+        for (int ring = 1; ring <= 4; ring++) {
+            final int currentRing = ring;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> spawnRainbowRing(world, playerLoc, currentRing * 2.5),
+                ring * 4L
+            );
+        }
+
+        // Infliger les dégâts aux ennemis
+        for (Monster target : targets) {
+            target.damage(novaDamage, player);
+            petData.addDamage((long) novaDamage);
+
+            // Appliquer tous les effets
+            target.setFireTicks(40); // Rouge - feu
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 2, false, false)); // Violet - slow
+
+            // Lifesteal sur chaque cible
+            double heal = novaDamage * 0.05;
+            player.setHealth(Math.min(player.getHealth() + heal, player.getMaxHealth()));
+
+            // Particules sur la cible
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.TOTEM_OF_UNDYING, targetLoc, 20, 0.5, 0.5, 0.5, 0.2);
+        }
+
+        // Appliquer les buffs au joueur
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, adjustedDuration, 1, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, adjustedDuration, 0, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, adjustedDuration, 0, false, true));
+
+        // Son d'explosion
+        world.playSound(playerLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+        world.playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.0f);
+
+        // Désactiver les buffs après la durée
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> {
+                spectrumPassive.setAllBuffsActive(uuid, false);
+                player.sendMessage("§a[Pet] §7Les bonus arc-en-ciel se dissipent...");
+                world.playSound(playerLoc, Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
+            },
+            adjustedDuration
+        );
 
         return true;
     }
 
-    private void spawnLavaProjectile(Location start, Vector velocity, Player player, double damage, PetData petData) {
+    private void cycleSheepColorsRapidly(Player player, int durationTicks) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
         new BukkitRunnable() {
-            Location current = start.clone();
-            Vector vel = velocity.clone();
             int ticks = 0;
+            int colorIndex = 0;
 
             @Override
             public void run() {
-                if (ticks > 60 || current.getY() < start.getY() - 5) {
-                    // Impact au sol
-                    current.getWorld().spawnParticle(Particle.LAVA, current, 20, 0.5, 0.2, 0.5, 0);
-                    current.getWorld().spawnParticle(Particle.FLAME, current, 15, 0.3, 0.1, 0.3, 0.05);
-                    current.getWorld().playSound(current, Sound.BLOCK_LAVA_EXTINGUISH, 0.5f, 1.0f);
-
-                    for (Entity e : current.getWorld().getNearbyEntities(current, 2, 2, 2)) {
-                        if (e instanceof Monster m) {
-                            m.damage(damage, player);
-                            m.setFireTicks(100);
-                            petData.addDamage((long) damage);
-                        }
-                    }
-
+                if (ticks >= durationTicks) {
                     cancel();
                     return;
                 }
 
-                // Gravité
-                vel.setY(vel.getY() - 0.08);
-                current.add(vel);
+                // Changer la couleur toutes les 2 ticks
+                if (ticks % 2 == 0) {
+                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                        if (entity instanceof org.bukkit.entity.Sheep sheep
+                            && entity.getScoreboardTags().contains(ownerTag)) {
 
-                // Particules
-                current.getWorld().spawnParticle(Particle.LAVA, current, 3, 0.1, 0.1, 0.1, 0);
-                current.getWorld().spawnParticle(Particle.FLAME, current, 5, 0.1, 0.1, 0.1, 0.02);
-                current.getWorld().spawnParticle(Particle.SMOKE, current, 2, 0.1, 0.1, 0.1, 0.01);
+                            org.bukkit.DyeColor[] colors = {
+                                org.bukkit.DyeColor.RED, org.bukkit.DyeColor.ORANGE,
+                                org.bukkit.DyeColor.YELLOW, org.bukkit.DyeColor.LIME,
+                                org.bukkit.DyeColor.LIGHT_BLUE, org.bukkit.DyeColor.PURPLE
+                            };
+                            sheep.setColor(colors[colorIndex % 6]);
+                            colorIndex++;
+                            break;
+                        }
+                    }
+                }
 
                 ticks++;
             }
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    private void spawnRainbowRing(World world, Location center, double radius) {
+        org.bukkit.Color[] colors = {
+            org.bukkit.Color.RED, org.bukkit.Color.ORANGE, org.bukkit.Color.YELLOW,
+            org.bukkit.Color.LIME, org.bukkit.Color.AQUA, org.bukkit.Color.PURPLE
+        };
+
+        for (int angle = 0; angle < 360; angle += 10) {
+            double rad = Math.toRadians(angle);
+            Location ringLoc = center.clone().add(
+                Math.cos(rad) * radius,
+                0.5,
+                Math.sin(rad) * radius
+            );
+
+            // Alterner les particules colorées
+            int colorIndex = (angle / 60) % 6;
+            Particle particle = switch (colorIndex) {
+                case 0 -> Particle.FLAME;
+                case 1 -> Particle.LAVA;
+                case 2 -> Particle.CRIT;
+                case 3 -> Particle.HAPPY_VILLAGER;
+                case 4 -> Particle.SNOWFLAKE;
+                case 5 -> Particle.WITCH;
+                default -> Particle.CRIT;
+            };
+
+            world.spawnParticle(particle, ringLoc, 3, 0.1, 0.1, 0.1, 0.01);
+        }
+
+        world.playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.0f + (float)(radius * 0.1));
+    }
+}
+
+// ==================== RENARD DES NEIGES - Morsure Glaciale ====================
+
+@Getter
+class FrostBitePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int maxStacks;                           // 5 stacks pour geler
+    private final double freezeDuration;                   // 1.5s de gel
+    private final double frozenDamageBonus;                // +30% dégâts sur gelé
+
+    // Tracking des stacks par ennemi (entityUUID -> stacks)
+    private final Map<UUID, Map<UUID, Integer>> frostStacks = new HashMap<>();
+    // Tracking des ennemis gelés (entityUUID -> temps de fin du gel)
+    private final Map<UUID, Map<UUID, Long>> frozenEnemies = new HashMap<>();
+
+    public FrostBitePassive(String id, String name, String desc, int maxStacks,
+                            double freezeDuration, double frozenBonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.maxStacks = maxStacks;
+        this.freezeDuration = freezeDuration;
+        this.frozenDamageBonus = frozenBonus;
+        PassiveAbilityCleanup.registerForCleanup(frostStacks);
+        PassiveAbilityCleanup.registerForCleanup(frozenEnemies);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID playerUUID = player.getUniqueId();
+        UUID targetUUID = target.getUniqueId();
+        World world = target.getWorld();
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+        long now = System.currentTimeMillis();
+
+        // Initialiser les maps si nécessaire
+        frostStacks.computeIfAbsent(playerUUID, k -> new HashMap<>());
+        frozenEnemies.computeIfAbsent(playerUUID, k -> new HashMap<>());
+
+        Map<UUID, Integer> playerFrostStacks = frostStacks.get(playerUUID);
+        Map<UUID, Long> playerFrozenEnemies = frozenEnemies.get(playerUUID);
+
+        // Vérifier si la cible est gelée
+        boolean isFrozen = playerFrozenEnemies.containsKey(targetUUID) &&
+                           playerFrozenEnemies.get(targetUUID) > now;
+
+        if (isFrozen) {
+            // Bonus de dégâts sur cible gelée
+            double adjustedBonus = frozenDamageBonus + (petData.getStatMultiplier() - 1) * 0.10;
+            double bonusDamage = damage * adjustedBonus;
+
+            // Effet visuel de dégâts de glace
+            world.spawnParticle(Particle.BLOCK, targetLoc, 15, 0.3, 0.3, 0.3, Material.BLUE_ICE.createBlockData());
+            world.spawnParticle(Particle.SNOWFLAKE, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
+            world.playSound(targetLoc, Sound.BLOCK_GLASS_BREAK, 0.8f, 1.5f);
+
+            return damage + bonusDamage;
+        }
+
+        // Ajouter un stack de givre
+        int currentStacks = playerFrostStacks.getOrDefault(targetUUID, 0) + 1;
+        playerFrostStacks.put(targetUUID, currentStacks);
+
+        // Particules de givre (intensité selon stacks)
+        world.spawnParticle(Particle.SNOWFLAKE, targetLoc, currentStacks * 3, 0.2, 0.3, 0.2, 0.02);
+
+        // Afficher les stacks
+        if (currentStacks < maxStacks) {
+            // Cristaux de glace progressifs autour de l'ennemi
+            for (int i = 0; i < currentStacks; i++) {
+                double angle = i * (2 * Math.PI / maxStacks);
+                Location crystalLoc = target.getLocation().add(
+                    Math.cos(angle) * 0.5,
+                    0.3 + i * 0.2,
+                    Math.sin(angle) * 0.5
+                );
+                world.spawnParticle(Particle.END_ROD, crystalLoc, 1, 0, 0, 0, 0);
+            }
+
+            // Slow progressif selon les stacks
+            int slowLevel = Math.min(currentStacks - 1, 2); // Slow I à III
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, slowLevel, false, false));
+
+            world.playSound(targetLoc, Sound.BLOCK_POWDER_SNOW_STEP, 0.6f, 1.2f + currentStacks * 0.1f);
+        }
+
+        // À 5 stacks: GELER l'ennemi
+        if (currentStacks >= maxStacks) {
+            // Reset les stacks
+            playerFrostStacks.put(targetUUID, 0);
+
+            // Calculer la durée de gel (ajustée par niveau)
+            double adjustedFreezeDuration = freezeDuration + (petData.getStatMultiplier() - 1) * 0.5;
+            long freezeEndTime = now + (long)(adjustedFreezeDuration * 1000);
+            playerFrozenEnemies.put(targetUUID, freezeEndTime);
+
+            // Message
+            player.sendMessage("§a[Pet] §b❄ Cible §lGELÉE §r§bpendant " + String.format("%.1f", adjustedFreezeDuration) + "s!");
+
+            // Effet de gel spectaculaire
+            world.playSound(targetLoc, Sound.BLOCK_GLASS_BREAK, 1.0f, 0.5f);
+            world.playSound(targetLoc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.8f);
+
+            // Animation de gel
+            freezeEnemy(target, player, petData, (int)(adjustedFreezeDuration * 20));
+        }
+
+        return damage;
+    }
+
+    private void freezeEnemy(LivingEntity target, Player player, PetData petData, int freezeTicks) {
+        Location baseLoc = target.getLocation();
+        World world = target.getWorld();
+
+        // Explosion de cristaux de glace initiale
+        for (int i = 0; i < 20; i++) {
+            double angle = i * (2 * Math.PI / 20);
+            double radius = 0.6;
+            Location crystalLoc = baseLoc.clone().add(
+                Math.cos(angle) * radius,
+                Math.random() * 2,
+                Math.sin(angle) * radius
+            );
+            world.spawnParticle(Particle.BLOCK, crystalLoc, 3, 0.1, 0.1, 0.1, Material.ICE.createBlockData());
+        }
+
+        // Maintenir l'ennemi gelé
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= freezeTicks || !target.isValid() || target.isDead()) {
+                    // Fin du gel - explosion de glace
+                    if (target.isValid()) {
+                        Location endLoc = target.getLocation().add(0, 1, 0);
+                        world.spawnParticle(Particle.BLOCK, endLoc, 30, 0.5, 0.5, 0.5, Material.BLUE_ICE.createBlockData());
+                        world.spawnParticle(Particle.SNOWFLAKE, endLoc, 20, 0.5, 0.5, 0.5, 0.1);
+                        world.playSound(endLoc, Sound.BLOCK_GLASS_BREAK, 1.0f, 1.2f);
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Maintenir immobile
+                target.setVelocity(new Vector(0, -0.1, 0)); // Légère gravité pour rester au sol
+                target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 5, 255, false, false));
+                target.setFreezeTicks(target.getMaxFreezeTicks());
+
+                // Particules de gel continues
+                if (ticks % 5 == 0) {
+                    Location loc = target.getLocation().add(0, 1, 0);
+
+                    // Aura glacée
+                    for (int i = 0; i < 8; i++) {
+                        double angle = ticks * 0.3 + i * (Math.PI / 4);
+                        double radius = 0.4;
+                        Location iceLoc = loc.clone().add(
+                            Math.cos(angle) * radius,
+                            Math.sin(ticks * 0.2) * 0.3,
+                            Math.sin(angle) * radius
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, iceLoc, 1, 0, 0, 0, 0);
+                    }
+
+                    // Cristaux statiques
+                    if (ticks % 10 == 0) {
+                        world.spawnParticle(Particle.BLOCK, loc, 5, 0.3, 0.5, 0.3, Material.PACKED_ICE.createBlockData());
+                    }
+                }
+
+                // Son de craquement de glace
+                if (ticks % 20 == 0) {
+                    world.playSound(target.getLocation(), Sound.BLOCK_POWDER_SNOW_STEP, 0.5f, 0.8f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Nettoyer les données d'un ennemi mort
+     */
+    public void cleanupEnemy(UUID playerUUID, UUID enemyUUID) {
+        Map<UUID, Integer> stacks = frostStacks.get(playerUUID);
+        if (stacks != null) stacks.remove(enemyUUID);
+
+        Map<UUID, Long> frozen = frozenEnemies.get(playerUUID);
+        if (frozen != null) frozen.remove(enemyUUID);
+    }
+
+    /**
+     * Vérifier si une cible est actuellement gelée
+     */
+    public boolean isTargetFrozen(UUID playerUUID, UUID targetUUID) {
+        Map<UUID, Long> frozen = frozenEnemies.get(playerUUID);
+        if (frozen == null) return false;
+        Long endTime = frozen.get(targetUUID);
+        return endTime != null && endTime > System.currentTimeMillis();
+    }
+}
+
+@Getter
+class ArcticStormActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int radius;                              // 8 blocs
+    private final int durationSeconds;                     // 6 secondes
+    private final double damagePercentPerSecond;           // 10% dégâts joueur/s
+    private final FrostBitePassive frostPassive;           // Pour appliquer des stacks de givre
+
+    public ArcticStormActive(String id, String name, String desc, int cd, int radius,
+                              int duration, double dpsPercent, FrostBitePassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.radius = radius;
+        this.durationSeconds = duration;
+        this.damagePercentPerSecond = dpsPercent;
+        this.frostPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Calculer les dégâts basés sur les stats du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercentPerSecond + (petData.getStatMultiplier() - 1) * 0.03;
+        double dps = playerDamage * adjustedPercent;
+
+        int adjustedRadius = (int) (radius + (petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
+
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(adjustedRadius, 6, adjustedRadius).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi dans la zone!");
+            return false;
+        }
+
+        // Message et son de début
+        player.sendMessage("§a[Pet] §b§l❄ TEMPÊTE ARCTIQUE! §r§b(rayon " + adjustedRadius + " blocs, " + adjustedDuration + "s)");
+        world.playSound(center, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 1.5f);
+        world.playSound(center, Sound.ENTITY_WITHER_SPAWN, 0.5f, 2.0f);
+
+        // Changer le renard en variante SNOW
+        setFoxToSnowVariant(player, true);
+
+        // Animation de tempête arctique
+        new BukkitRunnable() {
+            int ticks = 0;
+            Random random = new Random();
+            Location stormCenter = center.clone();
+
+            @Override
+            public void run() {
+                if (ticks >= adjustedDuration * 20) {
+                    // Fin de la tempête - Explosion de gel finale
+                    world.playSound(stormCenter, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.5f);
+
+                    for (int i = 0; i < 100; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius;
+                        Location explosionLoc = stormCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            random.nextDouble() * 4,
+                            Math.sin(angle) * dist
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, explosionLoc, 3, 0.2, 0.2, 0.2, 0.1);
+                        world.spawnParticle(Particle.BLOCK, explosionLoc, 2, 0.1, 0.1, 0.1, Material.SNOW_BLOCK.createBlockData());
+                    }
+
+                    // Remettre le renard normal
+                    setFoxToSnowVariant(player, false);
+
+                    player.sendMessage("§a[Pet] §7La tempête se dissipe...");
+                    cancel();
+                    return;
+                }
+
+                // Particules de blizzard - flocons de neige tombants
+                for (int i = 0; i < 40; i++) {
+                    double angle = random.nextDouble() * Math.PI * 2;
+                    double dist = random.nextDouble() * adjustedRadius;
+                    double height = random.nextDouble() * 8;
+
+                    Location particleLoc = stormCenter.clone().add(
+                        Math.cos(angle) * dist,
+                        height,
+                        Math.sin(angle) * dist
+                    );
+
+                    world.spawnParticle(Particle.SNOWFLAKE, particleLoc, 2, 0.3, 0.3, 0.3, 0.02);
+
+                    // Neige tombante occasionnelle
+                    if (random.nextDouble() < 0.2) {
+                        world.spawnParticle(Particle.BLOCK, particleLoc, 1, 0, 0, 0, Material.SNOW.createBlockData());
+                    }
+                }
+
+                // Anneaux tourbillonnants de glace
+                double spiralAngle = ticks * 0.15;
+                for (int ring = 0; ring < 3; ring++) {
+                    double ringRadius = (adjustedRadius * 0.3) + ring * (adjustedRadius * 0.25);
+                    for (int j = 0; j < 12; j++) {
+                        double a = spiralAngle + j * (Math.PI / 6) + ring * (Math.PI / 4);
+                        Location ringLoc = stormCenter.clone().add(
+                            Math.cos(a) * ringRadius,
+                            0.5 + ring * 0.8 + Math.sin(ticks * 0.1) * 0.3,
+                            Math.sin(a) * ringRadius
+                        );
+                        world.spawnParticle(Particle.SNOWFLAKE, ringLoc, 2, 0.1, 0.1, 0.1, 0.01);
+                        world.spawnParticle(Particle.END_ROD, ringLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Colonnes de glace aléatoires
+                if (ticks % 15 == 0) {
+                    double pillarAngle = random.nextDouble() * Math.PI * 2;
+                    double pillarDist = random.nextDouble() * adjustedRadius * 0.8;
+                    Location pillarBase = stormCenter.clone().add(
+                        Math.cos(pillarAngle) * pillarDist,
+                        0,
+                        Math.sin(pillarAngle) * pillarDist
+                    );
+
+                    for (double y = 0; y < 4; y += 0.3) {
+                        Location pillarLoc = pillarBase.clone().add(0, y, 0);
+                        world.spawnParticle(Particle.BLOCK, pillarLoc, 3, 0.15, 0.1, 0.15, Material.BLUE_ICE.createBlockData());
+                        world.spawnParticle(Particle.SNOWFLAKE, pillarLoc, 2, 0.1, 0.1, 0.1, 0.01);
+                    }
+                    world.playSound(pillarBase, Sound.BLOCK_GLASS_PLACE, 0.5f, 1.5f);
+                }
+
+                // Dégâts et slow toutes les 20 ticks (1 seconde)
+                if (ticks % 20 == 0) {
+                    world.playSound(stormCenter, Sound.ENTITY_SNOW_GOLEM_AMBIENT, 0.8f, 0.5f);
+
+                    for (Entity e : stormCenter.getWorld().getNearbyEntities(stormCenter, adjustedRadius, 6, adjustedRadius)) {
+                        if (e instanceof Monster m) {
+                            // Dégâts
+                            m.damage(dps, player);
+                            petData.addDamage((long) dps);
+
+                            // Slow III
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 2, false, false));
+
+                            // Augmenter le freeze ticks
+                            m.setFreezeTicks(Math.min(m.getFreezeTicks() + 40, m.getMaxFreezeTicks()));
+
+                            // Particules sur la cible
+                            Location mLoc = m.getLocation().add(0, 1, 0);
+                            world.spawnParticle(Particle.SNOWFLAKE, mLoc, 10, 0.3, 0.4, 0.3, 0.05);
+                            world.spawnParticle(Particle.BLOCK, mLoc, 5, 0.2, 0.3, 0.2, Material.ICE.createBlockData());
+                        }
+                    }
+                }
+
+                // Son ambiant de vent glacial
+                if (ticks % 10 == 0) {
+                    world.playSound(stormCenter, Sound.WEATHER_RAIN, 0.6f, 0.3f);
+                    world.playSound(stormCenter, Sound.ENTITY_PLAYER_HURT_FREEZE, 0.3f, 1.5f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    /**
+     * Change le renard en variante SNOW pendant l'ultimate
+     */
+    private void setFoxToSnowVariant(Player player, boolean snow) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Fox fox
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                org.bukkit.entity.Fox.Type type = snow ?
+                    org.bukkit.entity.Fox.Type.SNOW :
+                    org.bukkit.entity.Fox.Type.RED;
+                fox.setFoxType(type);
+
+                // Particules de transformation
+                Location foxLoc = fox.getLocation().add(0, 0.5, 0);
+                if (snow) {
+                    fox.getWorld().spawnParticle(Particle.SNOWFLAKE, foxLoc, 30, 0.3, 0.4, 0.3, 0.1);
+                    fox.getWorld().spawnParticle(Particle.END_ROD, foxLoc, 10, 0.2, 0.3, 0.2, 0.05);
+                    fox.getWorld().playSound(foxLoc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 1.0f);
+                } else {
+                    fox.getWorld().spawnParticle(Particle.FLAME, foxLoc, 15, 0.3, 0.3, 0.3, 0.05);
+                }
+
+                break;
+            }
+        }
     }
 }
 

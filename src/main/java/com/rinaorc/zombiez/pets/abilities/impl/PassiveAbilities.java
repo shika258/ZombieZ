@@ -355,25 +355,56 @@ class RebornPassive implements PetAbility {
         return true;
     }
 
+    /**
+     * Vérifie si la renaissance peut être déclenchée (pas en cooldown)
+     */
+    public boolean canTriggerReborn(UUID uuid) {
+        long now = System.currentTimeMillis();
+        long last = lastReborn.getOrDefault(uuid, 0L);
+        return now - last >= (cooldownSeconds * 1000L);
+    }
+
+    /**
+     * Déclenche la renaissance et sauve le joueur de la mort
+     */
+    public void triggerReborn(Player player, PetData petData) {
+        lastReborn.put(player.getUniqueId(), System.currentTimeMillis());
+
+        // Calculer la santé restaurée
+        double adjustedHealth = player.getMaxHealth() * healthPercent * petData.getStatMultiplier();
+        player.setHealth(Math.max(1, Math.min(adjustedHealth, player.getMaxHealth())));
+
+        // Effet visuel explosif de renaissance
+        World world = player.getWorld();
+        Location loc = player.getLocation();
+
+        world.spawnParticle(Particle.FLAME, loc, 100, 1.5, 1.5, 1.5, 0.15);
+        world.spawnParticle(Particle.LAVA, loc, 30, 1, 1, 1, 0.1);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, loc.add(0, 1, 0), 50, 0.5, 1, 0.5, 0.3);
+
+        // Son de résurrection
+        world.playSound(loc, Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+        world.playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 0.8f, 0.5f);
+
+        // Message
+        int healthRestored = (int) (healthPercent * petData.getStatMultiplier() * 100);
+        player.sendMessage("§a[Pet] §6§l🔥 RENAISSANCE! §7Ressuscité avec §c" + healthRestored + "% §7HP!");
+        player.sendMessage("§a[Pet] §7Cooldown: §e" + cooldownSeconds + "s");
+    }
+
+    /**
+     * Retourne le temps restant avant que la renaissance soit disponible (en secondes)
+     */
+    public int getCooldownRemaining(UUID uuid) {
+        long now = System.currentTimeMillis();
+        long last = lastReborn.getOrDefault(uuid, 0L);
+        long elapsed = (now - last) / 1000;
+        return Math.max(0, cooldownSeconds - (int) elapsed);
+    }
+
     @Override
     public void onDamageReceived(Player player, PetData petData, double damage) {
-        if (player.getHealth() - damage > 0)
-            return; // Pas mort
-
-        long now = System.currentTimeMillis();
-        long last = lastReborn.getOrDefault(player.getUniqueId(), 0L);
-
-        if (now - last < (cooldownSeconds * 1000L))
-            return;
-        lastReborn.put(player.getUniqueId(), now);
-
-        // Sauver de la mort
-        double adjustedHealth = player.getMaxHealth() * healthPercent * petData.getStatMultiplier();
-        player.setHealth(Math.max(1, adjustedHealth));
-
-        // Effet visuel
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 50, 1, 1, 1, 0.1);
-        player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+        // La logique est maintenant gérée dans le listener via canTriggerReborn() et triggerReborn()
     }
 }
 
@@ -537,6 +568,143 @@ class NecromancyPassive implements PetAbility {
     }
 }
 
+// ==================== EVOKER FANGS ====================
+
+@Getter
+class EvokerFangsPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double fangChance;              // 20% de base
+    private final double damagePercent;           // % des dégâts du joueur
+    private final Map<UUID, Long> lastFangSpawn = new HashMap<>();
+
+    EvokerFangsPassive(String id, String name, String desc, double chance, double dmgPercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.fangChance = chance;
+        this.damagePercent = dmgPercent;
+        PassiveAbilityCleanup.registerForCleanup(lastFangSpawn);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        UUID playerUUID = player.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        // Cooldown de 0.5s entre les spawns de crocs
+        if (now - lastFangSpawn.getOrDefault(playerUUID, 0L) < 500) {
+            return damage;
+        }
+
+        // Calculer la chance ajustée par niveau
+        double adjustedChance = fangChance + (petData.getStatMultiplier() - 1) * 0.10;
+
+        if (Math.random() > adjustedChance) {
+            return damage;
+        }
+
+        lastFangSpawn.put(playerUUID, now);
+
+        // Calculer les dégâts des crocs
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double fangDamage = playerDamage * adjustedDmgPercent;
+
+        Location targetLoc = target.getLocation();
+        World world = targetLoc.getWorld();
+
+        // Invoquer les crocs d'Evoker
+        spawnEvokerFangs(world, targetLoc, player, fangDamage, petData);
+
+        // Animation de l'Evoker pet (lever les bras)
+        animateEvokerPet(player, true);
+
+        // Remettre l'animation normale après un court délai
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> animateEvokerPet(player, false),
+            15L
+        );
+
+        return damage;
+    }
+
+    private void spawnEvokerFangs(World world, Location center, Player player, double damage, PetData petData) {
+        // Spawn d'une ligne de 3 crocs
+        Vector direction = player.getLocation().getDirection().setY(0).normalize();
+        Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX());
+
+        // Son d'invocation
+        world.playSound(center, Sound.ENTITY_EVOKER_FANGS_ATTACK, 1.0f, 1.0f);
+        world.playSound(center, Sound.ENTITY_EVOKER_PREPARE_ATTACK, 0.8f, 1.2f);
+
+        // Particules de préparation
+        world.spawnParticle(Particle.WITCH, center, 15, 0.5, 0.2, 0.5, 0.02);
+
+        // Spawner 3 crocs en ligne
+        for (int i = -1; i <= 1; i++) {
+            Location fangLoc = center.clone().add(perpendicular.clone().multiply(i * 0.8));
+            fangLoc.setY(center.getY());
+
+            // Spawn du croc avec délai progressif
+            final int delay = Math.abs(i) * 2;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Spawner le croc d'Evoker
+                    org.bukkit.entity.EvokerFangs fangs = world.spawn(fangLoc, org.bukkit.entity.EvokerFangs.class, f -> {
+                        f.setOwner(player);
+                    });
+
+                    // Appliquer les dégâts manuellement aux mobs proches
+                    Bukkit.getScheduler().runTaskLater(
+                        Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                        () -> {
+                            for (Entity entity : world.getNearbyEntities(fangLoc, 1.0, 1.5, 1.0)) {
+                                if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                                    m.damage(damage, player);
+                                    petData.addDamage((long) damage);
+
+                                    // Particules d'impact
+                                    m.getWorld().spawnParticle(Particle.CRIT, m.getLocation().add(0, 1, 0),
+                                        10, 0.2, 0.3, 0.2, 0.1);
+                                }
+                            }
+                        },
+                        5L // Les crocs frappent après ~0.25s
+                    );
+                },
+                delay
+            );
+        }
+    }
+
+    private void animateEvokerPet(Player player, boolean raise) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Evoker evoker
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                // Note: L'API Bukkit ne permet pas de contrôler directement l'animation
+                // On utilise des particules pour simuler l'effet magique
+                if (raise) {
+                    Location loc = evoker.getLocation().add(0, 1.5, 0);
+                    evoker.getWorld().spawnParticle(Particle.ENCHANT, loc, 20, 0.3, 0.3, 0.3, 0.5);
+                    evoker.getWorld().spawnParticle(Particle.WITCH, loc, 10, 0.2, 0.2, 0.2, 0.02);
+                }
+                break;
+            }
+        }
+    }
+}
+
 // ==================== BONUS HP ====================
 
 @Getter
@@ -559,6 +727,100 @@ class HealthBonusPassive implements PetAbility {
     }
 
     // Le bonus est appliqué via onEquip/onUnequip
+}
+
+// ==================== JOYFUL TEARS (Happy Ghast) ====================
+
+@Getter
+class JoyfulTearsPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double healPercent;             // 5% HP par kill
+
+    JoyfulTearsPassive(String id, String name, String desc, double healPct) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.healPercent = healPct;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void onKill(Player player, PetData petData, LivingEntity killed) {
+        if (!(killed instanceof Monster)) return;
+
+        // Calculer le heal ajusté par niveau
+        double adjustedHeal = healPercent + (petData.getStatMultiplier() - 1) * 0.03;
+        double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+        double healAmount = maxHealth * adjustedHeal;
+
+        // Appliquer le soin
+        double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+        player.setHealth(newHealth);
+
+        // Effets visuels - larmes de joie du Ghast
+        Location playerLoc = player.getLocation().add(0, 1.5, 0);
+        World world = player.getWorld();
+
+        // Trouver le Ghast pet pour les effets
+        Entity ghastPet = findGhastPet(player);
+        Location effectLoc = ghastPet != null ? ghastPet.getLocation() : playerLoc.add(0, 1, 0);
+
+        // Particules de larmes arc-en-ciel
+        spawnRainbowTears(world, effectLoc, playerLoc);
+
+        // Particules de soin sur le joueur
+        world.spawnParticle(Particle.HEART, playerLoc, 3, 0.3, 0.3, 0.3, 0);
+        world.spawnParticle(Particle.HAPPY_VILLAGER, playerLoc, 5, 0.4, 0.4, 0.4, 0);
+
+        // Son de soin
+        world.playSound(playerLoc, Sound.ENTITY_PLAYER_LEVELUP, 0.3f, 2.0f);
+        world.playSound(effectLoc, Sound.ENTITY_GHAST_AMBIENT, 0.4f, 1.8f);
+    }
+
+    private Entity findGhastPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Ghast
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    private void spawnRainbowTears(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector()).normalize();
+        double distance = from.distance(to);
+
+        // Couleurs arc-en-ciel
+        Color[] rainbowColors = {
+            Color.fromRGB(255, 100, 100),   // Rose
+            Color.fromRGB(255, 200, 100),   // Orange clair
+            Color.fromRGB(255, 255, 150),   // Jaune
+            Color.fromRGB(150, 255, 150),   // Vert clair
+            Color.fromRGB(150, 200, 255),   // Bleu clair
+            Color.fromRGB(200, 150, 255)    // Violet clair
+        };
+
+        for (double d = 0; d < distance; d += 0.4) {
+            Location point = from.clone().add(direction.clone().multiply(d));
+
+            // Choisir une couleur arc-en-ciel
+            Color color = rainbowColors[(int)(d * 2) % rainbowColors.length];
+            Particle.DustOptions dust = new Particle.DustOptions(color, 0.8f);
+
+            world.spawnParticle(Particle.DUST, point, 1, 0.05, 0.05, 0.05, dust);
+
+            // Petites étoiles scintillantes
+            if (d % 0.8 < 0.4) {
+                world.spawnParticle(Particle.END_ROD, point, 1, 0.02, 0.02, 0.02, 0);
+            }
+        }
+    }
 }
 
 // ==================== CHAOS ====================
@@ -904,6 +1166,71 @@ class SpeedBoostPassive implements PetAbility {
 // ==================== MULTI-ATTAQUE ====================
 
 // ==================== PUISSANCE ET LENTEUR ====================
+
+// ==================== RAFALES DE VENT (BREEZE) ====================
+
+@Getter
+class WindGustPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double procChance;          // 25% de chance
+    private final double damageBonus;         // +15% dégâts sur le proc
+    private final double knockbackStrength;   // Force du knockback
+
+    WindGustPassive(String id, String name, String desc, double chance, double bonus, double knockback) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.procChance = chance;
+        this.damageBonus = bonus;
+        this.knockbackStrength = knockback;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        // 25% de chance de déclencher une rafale
+        if (Math.random() < procChance * petData.getStatMultiplier()) {
+            World world = player.getWorld();
+            Location targetLoc = target.getLocation();
+
+            // Appliquer le knockback à la cible
+            org.bukkit.util.Vector direction = targetLoc.toVector()
+                .subtract(player.getLocation().toVector())
+                .normalize()
+                .multiply(knockbackStrength);
+            direction.setY(0.4); // Légère élévation
+            target.setVelocity(direction);
+
+            // Repousser les ennemis proches aussi
+            for (Entity entity : target.getNearbyEntities(3, 2, 3)) {
+                if (entity instanceof Monster m && m != target) {
+                    org.bukkit.util.Vector pushDir = m.getLocation().toVector()
+                        .subtract(player.getLocation().toVector())
+                        .normalize()
+                        .multiply(knockbackStrength * 0.7);
+                    pushDir.setY(0.3);
+                    m.setVelocity(pushDir);
+                }
+            }
+
+            // Effets visuels - particules de vent
+            world.spawnParticle(Particle.CLOUD, targetLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
+            world.spawnParticle(Particle.SWEEP_ATTACK, targetLoc, 5, 0.3, 0.3, 0.3, 0);
+
+            // Sons de vent (Breeze sounds)
+            world.playSound(targetLoc, Sound.ENTITY_BREEZE_INHALE, 0.8f, 1.2f);
+            world.playSound(targetLoc, Sound.ENTITY_BREEZE_WIND_BURST, 0.6f, 1.5f);
+
+            // Bonus de dégâts
+            return damage * (1 + damageBonus);
+        }
+        return damage;
+    }
+}
 
 // PassiveAbilityCleanup class moved to its own file
 // (PassiveAbilityCleanup.java)

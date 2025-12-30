@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.pets.listeners;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.*;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.impl.CritChancePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.CritDamagePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.DamageMultiplierPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.DamageReductionPassive;
@@ -11,6 +12,9 @@ import com.rinaorc.zombiez.pets.abilities.impl.MeleeDamagePassive;
 import com.rinaorc.zombiez.pets.abilities.impl.MultiAttackPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.ParryPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PowerSlowPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.RebornPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.FrostFurPassive;
+import com.rinaorc.zombiez.pets.abilities.impl.PredatorMarkActive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -183,6 +187,15 @@ public class PetCombatListener implements Listener {
             }
         }
 
+        // Chance de critique supplémentaire (Chauve-Souris Fantôme)
+        if (passive instanceof CritChancePassive ccp) {
+            double critChance = ccp.getCritChanceBonus() * petData.getStatMultiplier();
+            if (!isCriticalHit(event) && random.nextDouble() < critChance) {
+                // Forcer un coup critique avec le multiplicateur vanilla (1.5x)
+                modifiedDamage *= 1.5;
+            }
+        }
+
         // Bonus de dégâts critiques (Félin de l'Ombre)
         if (passive instanceof CritDamagePassive cdp) {
             if (isCriticalHit(event)) {
@@ -206,16 +219,42 @@ public class PetCombatListener implements Listener {
             }
         }
 
+        // Appliquer les bonus génériques via onDamageDealt (PackHunterPassive, etc.)
+        if (passive != null) {
+            modifiedDamage = passive.onDamageDealt(player, petData, modifiedDamage, target);
+        }
+
+        // Appliquer les bonus de l'ultimate si applicable (BloodFrenzyActive, etc.)
+        PetAbility ultimate = plugin.getPetManager().getAbilityRegistry().getUltimate(petType);
+        if (ultimate != null) {
+            modifiedDamage = ultimate.onDamageDealt(player, petData, modifiedDamage, target);
+        }
+
+        // Bonus de la Marque du Prédateur (Félin de l'Ombre)
+        if (ultimate instanceof PredatorMarkActive pma) {
+            UUID playerUUID = player.getUniqueId();
+            UUID targetUUID = target.getUniqueId();
+
+            if (pma.isMarked(playerUUID, targetUUID)) {
+                // Bonus de dégâts sur cible marquée (+50% base, +10% par niveau au-dessus de 1)
+                double markBonus = pma.getDamageBonus() + (petData.getStatMultiplier() - 1) * 0.10;
+                modifiedDamage *= (1 + markBonus);
+
+                // Forcer le crit si pas déjà crit (100% crit sur cible marquée)
+                if (!isCriticalHit(event)) {
+                    // Appliquer le multiplicateur de crit vanilla (1.5x)
+                    modifiedDamage *= 1.5;
+                    // Particules de crit
+                    target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 15, 0.3, 0.3, 0.3, 0.1);
+                }
+            }
+        }
+
         // Appliquer les dégâts modifiés
         event.setDamage(modifiedDamage);
 
         // Enregistrer les dégâts pour les stats
         petData.addDamage((long) modifiedDamage);
-
-        // Trigger les effets onDamageDealt
-        if (passive != null) {
-            passive.onDamageDealt(player, petData, target, modifiedDamage);
-        }
     }
 
     /**
@@ -261,6 +300,23 @@ public class PetCombatListener implements Listener {
             }
         }
 
+        // Fourrure Glaciale (Ours Polaire Gardien)
+        if (passive instanceof FrostFurPassive ffp) {
+            modifiedDamage *= (1 - ffp.getDamageReduction(petData));
+        }
+
+        // Vérifier si le joueur va mourir et si la renaissance peut le sauver
+        if (player.getHealth() - modifiedDamage <= 0) {
+            if (passive instanceof RebornPassive rebornPassive) {
+                if (rebornPassive.canTriggerReborn(player.getUniqueId())) {
+                    // Annuler l'événement et déclencher la renaissance
+                    event.setCancelled(true);
+                    rebornPassive.triggerReborn(player, petData);
+                    return;
+                }
+            }
+        }
+
         event.setDamage(modifiedDamage);
 
         // Trigger les effets onDamageReceived
@@ -298,9 +354,16 @@ public class PetCombatListener implements Listener {
             if (petData != null) {
                 petData.addKill();
 
+                // Trigger onKill sur le passif
                 PetAbility passive = plugin.getPetManager().getAbilityRegistry().getPassive(petType);
                 if (passive != null) {
                     passive.onKill(player, petData, killed);
+                }
+
+                // Trigger onKill sur l'ultimate (pour les abilities qui trackent les kills)
+                PetAbility ultimate = plugin.getPetManager().getAbilityRegistry().getUltimate(petType);
+                if (ultimate != null) {
+                    ultimate.onKill(player, petData, killed);
                 }
             }
         }

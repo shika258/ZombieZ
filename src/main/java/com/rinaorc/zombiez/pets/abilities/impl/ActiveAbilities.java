@@ -178,53 +178,6 @@ class FlashActive implements PetAbility {
     }
 }
 
-// ==================== SHIELD ====================
-
-@Getter
-class ShieldActive implements PetAbility {
-    private final String id;
-    private final String displayName;
-    private final String description;
-    private final double shieldAmount;
-    private final Map<UUID, Double> activeShields = new HashMap<>();
-
-    ShieldActive(String id, String name, String desc, int cooldown, double shield) {
-        this.id = id;
-        this.displayName = name;
-        this.description = desc;
-        this.shieldAmount = shield;
-    }
-
-    @Override
-    public boolean isPassive() { return false; }
-
-    @Override
-    public int getCooldown() { return 45; }
-
-    @Override
-    public boolean activate(Player player, PetData petData) {
-        double adjustedShield = shieldAmount * petData.getStatMultiplier();
-        activeShields.put(player.getUniqueId(), adjustedShield);
-
-        // Effet visuel
-        player.addPotionEffect(new PotionEffect(
-            PotionEffectType.RESISTANCE, 100, 1, false, true));
-        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1.0f, 1.0f);
-        player.sendMessage("§a[Pet] §7Bouclier activé: §e" + (int) adjustedShield + " §7dégâts absorbés!");
-
-        return true;
-    }
-
-    public double getShieldRemaining(UUID uuid) {
-        return activeShields.getOrDefault(uuid, 0.0);
-    }
-
-    public void absorbDamage(UUID uuid, double damage) {
-        double current = activeShields.getOrDefault(uuid, 0.0);
-        activeShields.put(uuid, Math.max(0, current - damage));
-    }
-}
-
 // ==================== SCOUT ====================
 
 @Getter
@@ -512,14 +465,16 @@ class FireNovaActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double damage;
+    private final double damagePercent;  // Pourcentage des dégâts du joueur (ex: 1.5 = 150%)
     private final int radius;
+    private final int cooldown;
 
-    FireNovaActive(String id, String name, String desc, int cooldown, double damage, int radius) {
+    FireNovaActive(String id, String name, String desc, int cooldown, double damagePercent, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.damage = damage;
+        this.cooldown = cooldown;
+        this.damagePercent = damagePercent;
         this.radius = radius;
     }
 
@@ -527,25 +482,63 @@ class FireNovaActive implements PetAbility {
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 35; }
+    public int getCooldown() { return cooldown; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
-        double adjustedDamage = damage * petData.getStatMultiplier();
-        int adjustedRadius = (int) (radius * petData.getStatMultiplier());
+        World world = player.getWorld();
+        Location loc = player.getLocation();
+
+        // Calculer les dégâts basés sur les dégâts du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDamage = playerDamage * damagePercent * petData.getStatMultiplier();
+        int adjustedRadius = (int) (radius + (petData.getStatMultiplier() - 1) * 2);
+
+        int hitCount = 0;
+        double totalDamage = 0;
 
         Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
         for (Entity entity : nearby) {
             if (entity instanceof Monster monster) {
                 monster.damage(adjustedDamage, player);
-                monster.setFireTicks(60);
+                monster.setFireTicks(100); // 5 secondes de feu
                 petData.addDamage((long) adjustedDamage);
+                hitCount++;
+                totalDamage += adjustedDamage;
+
+                // Particules sur chaque cible touchée
+                world.spawnParticle(Particle.FLAME, monster.getLocation().add(0, 1, 0),
+                    15, 0.3, 0.3, 0.3, 0.1);
             }
         }
 
-        player.getWorld().spawnParticle(Particle.EXPLOSION, player.getLocation(), 5, 2, 1, 2, 0);
-        player.getWorld().spawnParticle(Particle.FLAME, player.getLocation(), 100, radius, 1, radius, 0.1);
-        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
+        // Effet visuel de nova de feu expansive
+        world.spawnParticle(Particle.EXPLOSION, loc, 3, 1, 0.5, 1, 0);
+        world.spawnParticle(Particle.FLAME, loc, 150, adjustedRadius, 1, adjustedRadius, 0.15);
+        world.spawnParticle(Particle.LAVA, loc, 30, adjustedRadius * 0.5, 0.5, adjustedRadius * 0.5, 0);
+
+        // Cercle de feu au sol
+        for (int angle = 0; angle < 360; angle += 15) {
+            double rad = Math.toRadians(angle);
+            Location fireLoc = loc.clone().add(
+                Math.cos(rad) * adjustedRadius,
+                0.1,
+                Math.sin(rad) * adjustedRadius
+            );
+            world.spawnParticle(Particle.FLAME, fireLoc, 5, 0.1, 0.1, 0.1, 0.02);
+        }
+
+        // Sons
+        world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        world.playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 0.8f);
+
+        // Message
+        if (hitCount > 0) {
+            player.sendMessage("§a[Pet] §6§l🔥 NOVA DE FEU! §7" + hitCount + " cibles, §c" +
+                (int) totalDamage + " §7dégâts totaux!");
+        } else {
+            player.sendMessage("§a[Pet] §6🔥 Nova de Feu! §7Aucun ennemi touché.");
+        }
 
         return true;
     }
@@ -802,6 +795,652 @@ class BreathActive implements PetAbility {
     }
 }
 
+// ==================== ABYSS LASER (Guardian) ====================
+
+@Getter
+class AbyssLaserActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double damagePercent;          // % des dégâts du joueur
+    private final int range;                      // Portée du laser
+
+    AbyssLaserActive(String id, String name, String desc, int cd, double dmgPercent, int range) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.damagePercent = dmgPercent;
+        this.range = range;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Calculer les dégâts basés sur les stats du joueur
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
+        double laserDamage = playerDamage * adjustedPercent;
+
+        int adjustedRange = range + (int)((petData.getStatMultiplier() - 1) * 2);
+
+        // Trouver des cibles
+        List<Monster> targets = player.getNearbyEntities(adjustedRange, 5, adjustedRange).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi à portée du laser!");
+            return false;
+        }
+
+        // Trouver le Guardian pet pour l'animation
+        Entity guardianPet = findGuardianPet(player);
+
+        player.sendMessage("§a[Pet] §b§l⚡ RAYON DES ABYSSES!");
+        world.playSound(playerLoc, Sound.ENTITY_GUARDIAN_ATTACK, 1.0f, 0.8f);
+
+        // Phase 1: Charge du laser (1.5s) - marquer les cibles
+        Set<UUID> markedTargets = new java.util.HashSet<>();
+        for (Monster target : targets) {
+            markedTargets.add(target.getUniqueId());
+
+            // Effet de marquage sur la cible
+            Location targetLoc = target.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.SOUL, targetLoc, 10, 0.3, 0.3, 0.3, 0.02);
+
+            // Particules de charge vers la cible
+            new BukkitRunnable() {
+                int ticks = 0;
+
+                @Override
+                public void run() {
+                    if (ticks >= 30 || !target.isValid()) { // 1.5s charge
+                        cancel();
+                        return;
+                    }
+
+                    // Particules de charge orbitant autour de la cible
+                    Location loc = target.getLocation().add(0, 1, 0);
+                    double angle = ticks * 0.4;
+                    double radius = 0.8 - (ticks / 30.0) * 0.5; // Rétrécit
+
+                    for (int i = 0; i < 3; i++) {
+                        double a = angle + i * (2 * Math.PI / 3);
+                        Location orbLoc = loc.clone().add(
+                            Math.cos(a) * radius,
+                            Math.sin(ticks * 0.2) * 0.3,
+                            Math.sin(a) * radius
+                        );
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, orbLoc, 1, 0, 0, 0, 0);
+                    }
+
+                    // Son de charge
+                    if (ticks % 10 == 0) {
+                        world.playSound(loc, Sound.ENTITY_GUARDIAN_AMBIENT, 0.5f, 1.5f + (ticks / 30.0f));
+                    }
+
+                    ticks++;
+                }
+            }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }
+
+        // Faire briller l'œil du Guardian pendant l'ultimate
+        if (guardianPet instanceof org.bukkit.entity.Guardian guardian) {
+            guardian.setLaser(true);
+        }
+
+        // Phase 2: Tir des lasers (après 1.5s de charge)
+        Bukkit.getScheduler().runTaskLater(Bukkit.getPluginManager().getPlugin("ZombieZ"), () -> {
+            // Son de tir
+            world.playSound(playerLoc, Sound.ENTITY_GUARDIAN_ATTACK, 1.5f, 0.5f);
+            world.playSound(playerLoc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 2.0f);
+
+            // Trouver la position du Guardian pet ou utiliser celle du joueur
+            Location laserSource = guardianPet != null ?
+                guardianPet.getLocation().add(0, 0.5, 0) :
+                playerLoc.add(0, 1.5, 0);
+
+            // Tirer un laser vers chaque cible marquée
+            for (Monster target : targets) {
+                if (!target.isValid() || target.isDead()) continue;
+                if (!markedTargets.contains(target.getUniqueId())) continue;
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+
+                // Dessiner le laser
+                drawGuardianLaser(world, laserSource, targetLoc);
+
+                // Infliger les dégâts
+                target.damage(laserDamage, player);
+                petData.addDamage((long) laserDamage);
+
+                // Effet d'impact
+                world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 30, 0.5, 0.5, 0.5, 0.1);
+                world.spawnParticle(Particle.BUBBLE_POP, targetLoc, 20, 0.4, 0.4, 0.4, 0.05);
+                world.spawnParticle(Particle.FLASH, targetLoc, 1, 0, 0, 0, 0);
+
+                // Mining Fatigue (signature du Guardian)
+                target.addPotionEffect(new PotionEffect(
+                    PotionEffectType.MINING_FATIGUE, 60, 1, false, true));
+
+                // Léger knockback
+                Vector knockback = targetLoc.toVector().subtract(laserSource.toVector()).normalize().multiply(0.3);
+                target.setVelocity(target.getVelocity().add(knockback));
+            }
+
+            // Désactiver le laser du Guardian après un court délai
+            if (guardianPet instanceof org.bukkit.entity.Guardian guardian) {
+                Bukkit.getScheduler().runTaskLater(
+                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    () -> guardian.setLaser(false),
+                    20L
+                );
+            }
+
+        }, 30L); // Délai de 1.5s pour la charge
+
+        return true;
+    }
+
+    /**
+     * Trouve le Guardian pet du joueur
+     */
+    private Entity findGuardianPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Guardian
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Dessine le laser de Guardian entre deux points
+     */
+    private void drawGuardianLaser(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        // Couleurs du laser Guardian (cyan/turquoise)
+        Color laserColor = Color.fromRGB(0, 200, 200);
+        Color coreColor = Color.fromRGB(150, 255, 255);
+
+        for (double d = 0; d < distance; d += 0.3) {
+            Location point = from.clone().add(direction.clone().multiply(d));
+
+            // Cœur du laser (blanc-cyan)
+            Particle.DustOptions coreDust = new Particle.DustOptions(coreColor, 1.0f);
+            world.spawnParticle(Particle.DUST, point, 2, 0.02, 0.02, 0.02, coreDust);
+
+            // Aura du laser (cyan)
+            Particle.DustOptions auraDust = new Particle.DustOptions(laserColor, 0.7f);
+            world.spawnParticle(Particle.DUST, point, 3, 0.08, 0.08, 0.08, auraDust);
+
+            // Étincelles électriques
+            if (d % 1 < 0.3) {
+                world.spawnParticle(Particle.ELECTRIC_SPARK, point, 1, 0.1, 0.1, 0.1, 0.02);
+            }
+        }
+    }
+}
+
+// ==================== VEX SWARM (Evoker) ====================
+
+@Getter
+class VexSwarmActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int vexCount;                   // Nombre de Vex invoqués
+    private final int durationSeconds;            // Durée de vie des Vex
+    private final double damagePercent;           // % des dégâts du joueur par Vex
+
+    VexSwarmActive(String id, String name, String desc, int cd, int count, int duration, double dmgPercent) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.vexCount = count;
+        this.durationSeconds = duration;
+        this.damagePercent = dmgPercent;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Calculer les stats ajustées par niveau
+        int adjustedVexCount = vexCount + (int)((petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
+        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
+        double vexDamage = playerDamage * adjustedDmgPercent;
+
+        // Vérifier qu'il y a des ennemis
+        List<Monster> targets = player.getNearbyEntities(15, 8, 15).stream()
+            .filter(e -> e instanceof Monster)
+            .map(e -> (Monster) e)
+            .toList();
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi pour les Vex!");
+            return false;
+        }
+
+        player.sendMessage("§a[Pet] §5§l👻 NUÉE DE VEX! §r§d(" + adjustedVexCount + " Vex pendant " + adjustedDuration + "s)");
+
+        // Animation de l'Evoker pet
+        animateEvokerSummon(player);
+
+        // Sons d'invocation
+        world.playSound(playerLoc, Sound.ENTITY_EVOKER_PREPARE_SUMMON, 1.0f, 1.0f);
+        world.playSound(playerLoc, Sound.ENTITY_VEX_AMBIENT, 1.0f, 0.8f);
+
+        // Particules de rituel
+        spawnSummonCircle(world, playerLoc);
+
+        // Invoquer les Vex avec un petit délai entre chaque
+        List<org.bukkit.entity.Vex> summonedVex = new ArrayList<>();
+        String allyTag = "pet_vex_" + playerUUID;
+
+        for (int i = 0; i < adjustedVexCount; i++) {
+            final int index = i;
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    // Position de spawn en cercle autour du joueur
+                    double angle = (2 * Math.PI / adjustedVexCount) * index;
+                    double spawnRadius = 1.5;
+                    Location spawnLoc = playerLoc.clone().add(
+                        Math.cos(angle) * spawnRadius,
+                        1.5 + Math.random() * 0.5,
+                        Math.sin(angle) * spawnRadius
+                    );
+
+                    // Spawner le Vex
+                    org.bukkit.entity.Vex vex = world.spawn(spawnLoc, org.bukkit.entity.Vex.class, v -> {
+                        v.setCustomName("§d✦ Vex de " + player.getName());
+                        v.setCustomNameVisible(false);
+                        v.addScoreboardTag(allyTag);
+                        v.addScoreboardTag("pet_ally");
+                        v.setPersistent(false);
+
+                        // Empêcher le Vex d'attaquer le joueur
+                        v.setCharging(true);
+                    });
+
+                    summonedVex.add(vex);
+
+                    // Particules d'apparition
+                    world.spawnParticle(Particle.WITCH, spawnLoc, 15, 0.2, 0.3, 0.2, 0.05);
+                    world.spawnParticle(Particle.SMOKE, spawnLoc, 10, 0.2, 0.2, 0.2, 0.02);
+                    world.playSound(spawnLoc, Sound.ENTITY_VEX_CHARGE, 0.8f, 1.2f);
+                },
+                i * 3L // Délai progressif pour l'effet visuel
+            );
+        }
+
+        // IA des Vex - attaquer les ennemis
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            () -> startVexAI(player, summonedVex, vexDamage, petData, adjustedDuration * 20),
+            adjustedVexCount * 3L + 5L // Après que tous les Vex soient spawnés
+        );
+
+        return true;
+    }
+
+    private void startVexAI(Player player, List<org.bukkit.entity.Vex> vexList, double damage, PetData petData, int durationTicks) {
+        World world = player.getWorld();
+
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                // Fin de la durée ou plus de Vex
+                vexList.removeIf(v -> !v.isValid() || v.isDead());
+
+                if (ticks >= durationTicks || vexList.isEmpty()) {
+                    // Faire disparaître les Vex restants
+                    for (org.bukkit.entity.Vex vex : vexList) {
+                        if (vex.isValid()) {
+                            // Particules de disparition
+                            vex.getWorld().spawnParticle(Particle.WITCH, vex.getLocation(), 10, 0.2, 0.2, 0.2, 0.02);
+                            vex.getWorld().spawnParticle(Particle.SMOKE, vex.getLocation(), 8, 0.2, 0.2, 0.2, 0.02);
+                            vex.remove();
+                        }
+                    }
+
+                    if (player.isOnline()) {
+                        player.sendMessage("§a[Pet] §7Les Vex se dissipent...");
+                    }
+                    cancel();
+                    return;
+                }
+
+                // Toutes les 10 ticks, faire attaquer les Vex
+                if (ticks % 10 == 0) {
+                    // Trouver les cibles
+                    List<Monster> targets = new ArrayList<>();
+                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                        if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                            targets.add(m);
+                        }
+                    }
+
+                    if (!targets.isEmpty()) {
+                        for (org.bukkit.entity.Vex vex : vexList) {
+                            if (!vex.isValid()) continue;
+
+                            // Choisir une cible aléatoire
+                            Monster target = targets.get((int) (Math.random() * targets.size()));
+
+                            // Mouvement vers la cible
+                            Vector direction = target.getLocation().toVector()
+                                .subtract(vex.getLocation().toVector()).normalize().multiply(0.3);
+                            vex.setVelocity(direction.add(new Vector(0, 0.1, 0)));
+
+                            // Attaquer si assez proche
+                            if (vex.getLocation().distanceSquared(target.getLocation()) < 4) {
+                                target.damage(damage, player);
+                                petData.addDamage((long) damage);
+
+                                // Effets d'attaque
+                                vex.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                                    5, 0.2, 0.2, 0.2, 0.05);
+                                vex.getWorld().playSound(target.getLocation(), Sound.ENTITY_VEX_HURT, 0.5f, 1.5f);
+
+                                // Animation de charge
+                                vex.setCharging(true);
+                                Bukkit.getScheduler().runTaskLater(
+                                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                                    () -> { if (vex.isValid()) vex.setCharging(false); },
+                                    5L
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Particules ambiantes sur les Vex
+                if (ticks % 20 == 0) {
+                    for (org.bukkit.entity.Vex vex : vexList) {
+                        if (vex.isValid()) {
+                            vex.getWorld().spawnParticle(Particle.WITCH, vex.getLocation(),
+                                3, 0.1, 0.1, 0.1, 0.01);
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    private void animateEvokerSummon(Player player) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Evoker evoker
+                && entity.getScoreboardTags().contains(ownerTag)) {
+
+                Location loc = evoker.getLocation().add(0, 1.5, 0);
+
+                // Particules d'invocation
+                evoker.getWorld().spawnParticle(Particle.WITCH, loc, 30, 0.4, 0.4, 0.4, 0.05);
+                evoker.getWorld().spawnParticle(Particle.ENCHANT, loc, 25, 0.5, 0.5, 0.5, 0.5);
+                evoker.getWorld().spawnParticle(Particle.SOUL, loc, 15, 0.3, 0.3, 0.3, 0.02);
+
+                break;
+            }
+        }
+    }
+
+    private void spawnSummonCircle(World world, Location center) {
+        // Cercle de particules au sol
+        new BukkitRunnable() {
+            int ticks = 0;
+            double rotation = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= 20) { // 1 seconde d'animation
+                    cancel();
+                    return;
+                }
+
+                double radius = 1.5 + (ticks / 20.0) * 0.5;
+
+                for (int i = 0; i < 12; i++) {
+                    double angle = rotation + i * (Math.PI / 6);
+                    Location particleLoc = center.clone().add(
+                        Math.cos(angle) * radius,
+                        0.1,
+                        Math.sin(angle) * radius
+                    );
+
+                    // Alterner les couleurs
+                    if (i % 2 == 0) {
+                        world.spawnParticle(Particle.WITCH, particleLoc, 1, 0, 0, 0, 0);
+                    } else {
+                        world.spawnParticle(Particle.ENCHANT, particleLoc, 2, 0, 0.1, 0, 0.1);
+                    }
+                }
+
+                rotation += 0.3;
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+}
+
+// ==================== BENEVOLENT RAIN (Happy Ghast) ====================
+
+@Getter
+class BenevolentRainActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int radius;                     // 6 blocs
+    private final int durationSeconds;            // 5 secondes
+    private final double regenPerSecond;          // % HP regen par seconde
+    private final int slowLevel;                  // Niveau de slow sur ennemis
+
+    BenevolentRainActive(String id, String name, String desc, int cd, int radius,
+                          int duration, double regenPct, int slow) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.radius = radius;
+        this.durationSeconds = duration;
+        this.regenPerSecond = regenPct;
+        this.slowLevel = slow;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        Location center = player.getLocation();
+        World world = center.getWorld();
+
+        // Ajuster par niveau
+        int adjustedRadius = radius + (int)((petData.getStatMultiplier() - 1) * 2);
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 1);
+        double adjustedRegen = regenPerSecond + (petData.getStatMultiplier() - 1) * 0.01;
+
+        player.sendMessage("§a[Pet] §d§l☔ PLUIE BIENFAISANTE! §r§d(rayon " + adjustedRadius + " blocs, " + adjustedDuration + "s)");
+
+        // Sons de début
+        world.playSound(center, Sound.ENTITY_GHAST_AMBIENT, 1.0f, 1.5f);
+        world.playSound(center, Sound.WEATHER_RAIN, 1.0f, 1.2f);
+        world.playSound(center, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.5f);
+
+        // Trouver le Ghast pet pour les effets
+        Entity ghastPet = findGhastPet(player);
+        if (ghastPet != null) {
+            // Effet de "pleurs" du Ghast
+            Location ghastLoc = ghastPet.getLocation();
+            world.spawnParticle(Particle.FALLING_WATER, ghastLoc, 30, 0.3, 0.2, 0.3, 0);
+        }
+
+        // Animation de pluie bienfaisante
+        new BukkitRunnable() {
+            int ticks = 0;
+            final Location rainCenter = center.clone();
+            final Random random = new Random();
+
+            @Override
+            public void run() {
+                if (ticks >= adjustedDuration * 20) {
+                    // Fin de la pluie
+                    world.playSound(rainCenter, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    world.spawnParticle(Particle.HAPPY_VILLAGER, rainCenter.clone().add(0, 1, 0), 30,
+                        adjustedRadius * 0.5, 1, adjustedRadius * 0.5, 0);
+
+                    player.sendMessage("§a[Pet] §7La pluie s'arrête...");
+                    cancel();
+                    return;
+                }
+
+                // Particules de pluie arc-en-ciel tombantes
+                if (ticks % 2 == 0) {
+                    for (int i = 0; i < 15; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius;
+                        double height = 4 + random.nextDouble() * 2;
+
+                        Location dropLoc = rainCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            height,
+                            Math.sin(angle) * dist
+                        );
+
+                        // Gouttes arc-en-ciel
+                        Color[] colors = {
+                            Color.fromRGB(255, 150, 200),  // Rose
+                            Color.fromRGB(200, 255, 200),  // Vert clair
+                            Color.fromRGB(200, 200, 255),  // Bleu clair
+                            Color.fromRGB(255, 255, 200)   // Jaune clair
+                        };
+                        Color dropColor = colors[random.nextInt(colors.length)];
+                        Particle.DustOptions dust = new Particle.DustOptions(dropColor, 0.6f);
+
+                        world.spawnParticle(Particle.DUST, dropLoc, 1, 0, 0, 0, dust);
+                        world.spawnParticle(Particle.FALLING_WATER, dropLoc, 1, 0.1, 0, 0.1, 0);
+                    }
+                }
+
+                // Cercle au sol qui pulse
+                if (ticks % 10 == 0) {
+                    double pulseRadius = adjustedRadius * (0.8 + 0.2 * Math.sin(ticks * 0.1));
+                    for (int i = 0; i < 24; i++) {
+                        double angle = i * (Math.PI / 12);
+                        Location circleLoc = rainCenter.clone().add(
+                            Math.cos(angle) * pulseRadius,
+                            0.1,
+                            Math.sin(angle) * pulseRadius
+                        );
+                        world.spawnParticle(Particle.HAPPY_VILLAGER, circleLoc, 1, 0, 0, 0, 0);
+                    }
+                }
+
+                // Effets chaque seconde
+                if (ticks % 20 == 0) {
+                    // Son ambiant de pluie douce
+                    world.playSound(rainCenter, Sound.WEATHER_RAIN, 0.5f, 1.5f);
+                    world.playSound(rainCenter, Sound.ENTITY_GHAST_AMBIENT, 0.3f, 2.0f);
+
+                    // Heal le joueur
+                    if (player.getLocation().distanceSquared(rainCenter) <= adjustedRadius * adjustedRadius) {
+                        double maxHealth = player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                        double healAmount = maxHealth * adjustedRegen;
+                        double newHealth = Math.min(player.getHealth() + healAmount, maxHealth);
+                        player.setHealth(newHealth);
+
+                        // Effet de soin
+                        player.getWorld().spawnParticle(Particle.HEART,
+                            player.getLocation().add(0, 2, 0), 2, 0.3, 0.2, 0.3, 0);
+                    }
+
+                    // Slow les ennemis dans la zone
+                    for (Entity entity : rainCenter.getWorld().getNearbyEntities(rainCenter, adjustedRadius, 4, adjustedRadius)) {
+                        if (entity instanceof Monster m) {
+                            m.addPotionEffect(new PotionEffect(
+                                PotionEffectType.SLOWNESS, 30, slowLevel, false, true));
+
+                            // Particules de slow sur les ennemis
+                            Location mLoc = m.getLocation().add(0, 1, 0);
+                            world.spawnParticle(Particle.FALLING_WATER, mLoc, 5, 0.3, 0.3, 0.3, 0);
+                        }
+                    }
+                }
+
+                // Nuages doux au-dessus de la zone
+                if (ticks % 15 == 0) {
+                    for (int i = 0; i < 5; i++) {
+                        double angle = random.nextDouble() * Math.PI * 2;
+                        double dist = random.nextDouble() * adjustedRadius * 0.7;
+                        Location cloudLoc = rainCenter.clone().add(
+                            Math.cos(angle) * dist,
+                            5 + random.nextDouble(),
+                            Math.sin(angle) * dist
+                        );
+                        world.spawnParticle(Particle.CLOUD, cloudLoc, 3, 0.5, 0.2, 0.5, 0.01);
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
+        return true;
+    }
+
+    private Entity findGhastPet(Player player) {
+        String ownerTag = "pet_owner_" + player.getUniqueId();
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof org.bukkit.entity.Ghast
+                && entity.getScoreboardTags().contains(ownerTag)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+}
+
 // ==================== RESURRECT ====================
 
 @Getter
@@ -971,6 +1610,243 @@ class AmbushActive implements PetAbility {
 
     public double getMultiplier() {
         return critMultiplier;
+    }
+}
+
+// ==================== PREDATOR MARK (Shadow Cat) ====================
+
+@Getter
+class PredatorMarkActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final int durationSeconds;            // 8 secondes
+    private final double damageBonus;             // +50% dégâts reçus
+
+    // Tracking des cibles marquées (targetUUID -> endTime)
+    private final Map<UUID, Map<UUID, Long>> markedTargets = new HashMap<>();
+
+    PredatorMarkActive(String id, String name, String desc, int cd, int duration, double bonus) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.durationSeconds = duration;
+        this.damageBonus = bonus;
+        PassiveAbilityCleanup.registerForCleanup(markedTargets);
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        UUID playerUUID = player.getUniqueId();
+
+        // Trouver la cible (ennemi le plus proche dans la direction du regard)
+        Monster target = findTarget(player);
+
+        if (target == null) {
+            player.sendMessage("§c[Pet] §7Aucun ennemi ciblé!");
+            return false;
+        }
+
+        // Calculer la durée ajustée
+        int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
+        double adjustedBonus = damageBonus + (petData.getStatMultiplier() - 1) * 0.10;
+        long endTime = System.currentTimeMillis() + (adjustedDuration * 1000L);
+
+        // Marquer la cible
+        markedTargets.computeIfAbsent(playerUUID, k -> new HashMap<>());
+        markedTargets.get(playerUUID).put(target.getUniqueId(), endTime);
+
+        // Message et sons
+        player.sendMessage("§a[Pet] §c§l🎯 MARQUE DU PRÉDATEUR! §r§7Cible marquée pendant §e" + adjustedDuration + "s");
+        player.sendMessage("§7   ▸ §c+" + (int)(adjustedBonus * 100) + "% §7dégâts reçus, §e100% §7chance de crit");
+
+        world.playSound(target.getLocation(), Sound.ENTITY_CAT_HISS, 1.0f, 0.5f);
+        world.playSound(target.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.5f, 2.0f);
+        world.playSound(player.getLocation(), Sound.ENTITY_EVOKER_PREPARE_ATTACK, 0.8f, 1.5f);
+
+        // Animation du chat pet
+        animateCatMark(player, target);
+
+        // Effets visuels sur la cible marquée
+        startMarkVisuals(player, target, adjustedDuration);
+
+        return true;
+    }
+
+    private Monster findTarget(Player player) {
+        Vector direction = player.getLocation().getDirection().normalize();
+        Monster bestTarget = null;
+        double bestScore = -1;
+
+        for (Entity entity : player.getNearbyEntities(15, 8, 15)) {
+            if (!(entity instanceof Monster m)) continue;
+            if (!m.isValid() || m.isDead()) continue;
+
+            Vector toEntity = entity.getLocation().toVector()
+                .subtract(player.getLocation().toVector());
+            double distance = toEntity.length();
+            toEntity.normalize();
+
+            // Score basé sur l'alignement avec le regard et la distance
+            double dot = direction.dot(toEntity);
+            if (dot < 0.5) continue; // Doit être à peu près devant
+
+            double score = dot / (distance * 0.1 + 1); // Plus proche et aligné = meilleur score
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = m;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    private void animateCatMark(Player player, Monster target) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
+            if (entity instanceof Cat cat && entity.getScoreboardTags().contains(ownerTag)) {
+                Location catLoc = cat.getLocation();
+                World world = cat.getWorld();
+
+                // Particules d'ombre autour du chat
+                world.spawnParticle(Particle.SMOKE, catLoc.add(0, 0.5, 0), 20, 0.3, 0.3, 0.3, 0.02);
+                world.spawnParticle(Particle.WITCH, catLoc, 10, 0.2, 0.2, 0.2, 0.01);
+
+                // Ligne de particules du chat vers la cible
+                Vector dir = target.getLocation().toVector().subtract(catLoc.toVector());
+                double dist = dir.length();
+                dir.normalize();
+
+                for (double d = 0; d < dist; d += 0.5) {
+                    Location point = catLoc.clone().add(dir.clone().multiply(d));
+                    Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(50, 0, 50), 0.6f);
+                    world.spawnParticle(Particle.DUST, point, 1, 0, 0, 0, dust);
+                }
+
+                break;
+            }
+        }
+    }
+
+    private void startMarkVisuals(Player player, Monster target, int durationSeconds) {
+        World world = target.getWorld();
+        UUID targetUUID = target.getUniqueId();
+        UUID playerUUID = player.getUniqueId();
+
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                // Vérifier si la marque est toujours active
+                if (!isMarked(playerUUID, targetUUID) || !target.isValid() || target.isDead()) {
+                    // Fin de la marque
+                    if (target.isValid()) {
+                        Location loc = target.getLocation().add(0, 1, 0);
+                        world.spawnParticle(Particle.SMOKE, loc, 20, 0.4, 0.4, 0.4, 0.02);
+                        world.playSound(loc, Sound.BLOCK_BEACON_DEACTIVATE, 0.5f, 1.5f);
+                    }
+
+                    // Nettoyer
+                    Map<UUID, Long> playerMarks = markedTargets.get(playerUUID);
+                    if (playerMarks != null) {
+                        playerMarks.remove(targetUUID);
+                    }
+
+                    if (player.isOnline()) {
+                        player.sendMessage("§a[Pet] §7La marque s'estompe...");
+                    }
+                    cancel();
+                    return;
+                }
+
+                Location loc = target.getLocation();
+
+                // Particules de marque au-dessus de la tête
+                if (ticks % 5 == 0) {
+                    Location markLoc = loc.clone().add(0, target.getHeight() + 0.5, 0);
+
+                    // Symbole de cible tournant
+                    double angle = ticks * 0.15;
+                    for (int i = 0; i < 4; i++) {
+                        double a = angle + i * (Math.PI / 2);
+                        double radius = 0.4;
+                        Location pointLoc = markLoc.clone().add(
+                            Math.cos(a) * radius,
+                            0,
+                            Math.sin(a) * radius
+                        );
+                        Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(180, 0, 0), 0.8f);
+                        world.spawnParticle(Particle.DUST, pointLoc, 1, 0, 0, 0, dust);
+                    }
+
+                    // Point central
+                    world.spawnParticle(Particle.CRIT, markLoc, 1, 0, 0, 0, 0);
+                }
+
+                // Aura d'ombre autour de la cible
+                if (ticks % 10 == 0) {
+                    for (int i = 0; i < 8; i++) {
+                        double a = (ticks * 0.1) + i * (Math.PI / 4);
+                        Location auraLoc = loc.clone().add(
+                            Math.cos(a) * 0.8,
+                            0.1 + Math.sin(ticks * 0.2) * 0.2,
+                            Math.sin(a) * 0.8
+                        );
+                        Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(30, 0, 30), 0.5f);
+                        world.spawnParticle(Particle.DUST, auraLoc, 1, 0, 0, 0, dust);
+                    }
+                }
+
+                // Son périodique
+                if (ticks % 40 == 0) {
+                    world.playSound(loc, Sound.ENTITY_CAT_AMBIENT, 0.3f, 0.5f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Vérifie si une cible est marquée par un joueur
+     */
+    public boolean isMarked(UUID playerUUID, UUID targetUUID) {
+        Map<UUID, Long> playerMarks = markedTargets.get(playerUUID);
+        if (playerMarks == null) return false;
+
+        Long endTime = playerMarks.get(targetUUID);
+        if (endTime == null) return false;
+
+        return System.currentTimeMillis() < endTime;
+    }
+
+    /**
+     * Obtient le bonus de dégâts pour une cible marquée
+     */
+    public double getMarkBonus(UUID playerUUID, UUID targetUUID, double baseBonus) {
+        if (isMarked(playerUUID, targetUUID)) {
+            return baseBonus;
+        }
+        return 0;
+    }
+
+    /**
+     * Vérifie si l'attaque sur une cible marquée doit être un crit
+     */
+    public boolean shouldForceCrit(UUID playerUUID, UUID targetUUID) {
+        return isMarked(playerUUID, targetUUID);
     }
 }
 
@@ -1683,6 +2559,154 @@ class ColossusActive implements PetAbility {
         player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 0.5f);
 
         player.sendMessage("§a[Pet] §6§lÉVEIL DU COLOSSE! §7(" + durationSeconds + "s)");
+        return true;
+    }
+}
+
+// ==================== VORTEX CHAOTIQUE (BREEZE) ====================
+
+@Getter
+class ChaoticVortexActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int cooldown;
+    private final double baseDamage;
+    private final double radius;
+
+    ChaoticVortexActive(String id, String name, String desc, int cd, double damage, double radius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.cooldown = cd;
+        this.baseDamage = damage;
+        this.radius = radius;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return cooldown; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location center = player.getLocation();
+
+        double adjustedDamage = baseDamage * petData.getStatMultiplier();
+        double adjustedRadius = radius + (petData.getStatMultiplier() - 1) * 2;
+
+        player.sendMessage("§a[Pet] §b§l🌪️ VORTEX CHAOTIQUE! §7Les vents se déchaînent!");
+
+        // Sons initiaux
+        world.playSound(center, Sound.ENTITY_BREEZE_CHARGE, 1.0f, 0.8f);
+        world.playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 1.0f, 0.5f);
+
+        // Phase 1: Aspiration (2 secondes)
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int suctionDuration = 40; // 2 secondes
+            final List<Monster> trappedMonsters = new ArrayList<>();
+
+            @Override
+            public void run() {
+                if (ticks < suctionDuration) {
+                    // Phase d'aspiration
+                    double progress = ticks / (double) suctionDuration;
+
+                    // Particules de tourbillon
+                    for (int i = 0; i < 20; i++) {
+                        double angle = (ticks * 0.3) + i * (Math.PI * 2 / 20);
+                        double currentRadius = adjustedRadius * (1 - progress * 0.5);
+                        double height = Math.sin(ticks * 0.2 + i * 0.3) * 2 + 1;
+
+                        Location particleLoc = center.clone().add(
+                            Math.cos(angle) * currentRadius,
+                            height,
+                            Math.sin(angle) * currentRadius
+                        );
+
+                        world.spawnParticle(Particle.CLOUD, particleLoc, 1, 0.1, 0.1, 0.1, 0);
+                        if (i % 4 == 0) {
+                            world.spawnParticle(Particle.SWEEP_ATTACK, particleLoc, 1, 0, 0, 0, 0);
+                        }
+                    }
+
+                    // Aspirer les ennemis vers le centre
+                    for (Entity entity : center.getNearbyEntities(adjustedRadius, 4, adjustedRadius)) {
+                        if (entity instanceof Monster m && m.isValid() && !m.isDead()) {
+                            if (!trappedMonsters.contains(m)) {
+                                trappedMonsters.add(m);
+                            }
+
+                            Vector toCenter = center.toVector().subtract(m.getLocation().toVector());
+                            double dist = toCenter.length();
+                            if (dist > 1) {
+                                toCenter.normalize().multiply(0.4);
+                                toCenter.setY(0.1);
+                                m.setVelocity(toCenter);
+                            }
+
+                            // Désorientation (slow + faiblesse)
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 30, 2, false, false));
+                        }
+                    }
+
+                    // Son périodique de vent
+                    if (ticks % 10 == 0) {
+                        world.playSound(center, Sound.ENTITY_BREEZE_INHALE, 0.8f, 1.0f + (float) progress * 0.5f);
+                    }
+                } else if (ticks == suctionDuration) {
+                    // Phase 2: EXPLOSION!
+                    world.playSound(center, Sound.ENTITY_BREEZE_SHOOT, 1.5f, 0.5f);
+                    world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.5f);
+                    world.playSound(center, Sound.ENTITY_BREEZE_WIND_BURST, 1.5f, 0.8f);
+
+                    // Particules d'explosion
+                    Location explosionCenter = center.clone().add(0, 1, 0);
+                    world.spawnParticle(Particle.EXPLOSION, explosionCenter, 5, 1, 1, 1, 0);
+                    world.spawnParticle(Particle.CLOUD, explosionCenter, 100, 3, 2, 3, 0.5);
+                    world.spawnParticle(Particle.SWEEP_ATTACK, explosionCenter, 30, 2, 1, 2, 0);
+
+                    // Projeter et endommager tous les monstres piégés
+                    for (Monster m : trappedMonsters) {
+                        if (m.isValid() && !m.isDead()) {
+                            // Dégâts
+                            m.damage(adjustedDamage, player);
+
+                            // Knockback massif vers l'extérieur
+                            Vector expulsion = m.getLocation().toVector()
+                                .subtract(center.toVector());
+                            if (expulsion.lengthSquared() < 0.1) {
+                                // Si trop proche du centre, direction aléatoire
+                                expulsion = new Vector(
+                                    Math.random() - 0.5,
+                                    0,
+                                    Math.random() - 0.5
+                                );
+                            }
+                            expulsion.normalize().multiply(2.5);
+                            expulsion.setY(0.8);
+                            m.setVelocity(expulsion);
+
+                            // Effet de désorientation prolongée
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, false, false));
+                            m.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 1, false, false));
+
+                            // Particules sur chaque monstre éjecté
+                            world.spawnParticle(Particle.CLOUD, m.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3, 0.1);
+                        }
+                    }
+
+                    player.sendMessage("§a[Pet] §7Ennemis éjectés : §e" + trappedMonsters.size());
+                    cancel();
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+
         return true;
     }
 }
