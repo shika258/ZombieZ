@@ -254,6 +254,7 @@ public class EggOpeningAnimation implements InventoryHolder {
                 case EPIC -> Material.MAGENTA_STAINED_GLASS_PANE;
                 case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
                 case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
+                case EXALTED -> Material.PURPLE_STAINED_GLASS_PANE;
             };
             ItemStack frame = ItemBuilder.placeholder(frameMaterial);
             for (int slot : new int[]{3, 4, 5, 12, 14, 21, 22, 23}) {
