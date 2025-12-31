@@ -21,6 +21,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -112,6 +113,32 @@ public class DynamicEventListener implements Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Gère les dégâts aux zombies de horde pour mettre à jour leur affichage de vie
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onHordeZombieDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity entity)) return;
+
+        // Vérifier si c'est un zombie de horde
+        if (!entity.getScoreboardTags().contains("horde_invasion")) return;
+
+        // Mettre à jour l'affichage de vie au tick suivant (après que les dégâts soient appliqués)
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!entity.isValid() || entity.isDead()) return;
+
+            // Trouver l'événement de horde correspondant
+            for (DynamicEvent dynamicEvent : eventManager.getActiveEvents().values()) {
+                if (dynamicEvent instanceof HordeInvasionEvent hordeEvent) {
+                    if (hordeEvent.isHordeZombie(entity.getUniqueId())) {
+                        hordeEvent.updateHordeZombieHealth(entity);
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     /**

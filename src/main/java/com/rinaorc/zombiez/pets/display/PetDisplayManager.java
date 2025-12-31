@@ -936,6 +936,15 @@ public class PetDisplayManager {
                 configureArmorStandAppearance(stand, type);
                 entity = stand;
             }
+            case MOOSHROOM -> {
+                MushroomCow mooshroom = (MushroomCow) world.spawnEntity(loc, EntityType.MOOSHROOM);
+                mooshroom.setVariant(MushroomCow.Variant.RED);
+                // Scale réduit pour un pet mignon
+                if (mooshroom.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    mooshroom.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
+                }
+                entity = mooshroom;
+            }
             default -> {
                 // Fallback: Allay (visible et petit)
                 Allay fallback = (Allay) world.spawnEntity(loc, EntityType.ALLAY);

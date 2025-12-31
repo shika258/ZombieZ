@@ -16,6 +16,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 
 /**
@@ -168,6 +169,16 @@ public class PetConnectionListener implements Listener {
                     plugin.getPetManager().getDisplayManager().spawnPetDisplay(player, data.getEquippedPet());
                 }
             }, 10L);
+        }
+    }
+
+    /**
+     * Empêche l'équipement d'items sur les pets (arc, armes, etc.)
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerInteractWithPet(PlayerInteractEntityEvent event) {
+        if (isPetEntity(event.getRightClicked())) {
+            event.setCancelled(true);
         }
     }
 

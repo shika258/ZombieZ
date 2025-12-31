@@ -61,6 +61,12 @@ public class ProgressionSystem {
         new Milestone("mythic_1", "L'Impossible!", "Obtenir votre premier Mythique",
             MilestoneType.MYTHIC_COUNT, 1, new MilestoneReward(EggType.LEGENDARY, 2, 2000)),
 
+        // Exalted milestones
+        new Milestone("exalted_1", "L'Ultime!", "Obtenir votre premier Exalté",
+            MilestoneType.EXALTED_COUNT, 1, new MilestoneReward(EggType.MYTHIC, 1, 3000)),
+        new Milestone("exalted_3", "Collectionneur Exalté", "Obtenir 3 pets Exaltés",
+            MilestoneType.EXALTED_COUNT, 3, new MilestoneReward(EggType.MYTHIC, 2, 5000)),
+
         // Eggs opened milestones
         new Milestone("eggs_50", "Ouvreur Novice", "Ouvrir 50 oeufs",
             MilestoneType.EGGS_OPENED, 50, new MilestoneReward(EggType.STANDARD, 5, 100)),
@@ -199,6 +205,7 @@ public class ProgressionSystem {
                 case EPIC_COUNT -> countPetsOfRarityOrBetter(petData, PetRarity.EPIC) >= milestone.target();
                 case LEGENDARY_COUNT -> petData.getLegendariesObtained() >= milestone.target();
                 case MYTHIC_COUNT -> petData.getMythicsObtained() >= milestone.target();
+                case EXALTED_COUNT -> petData.getExaltedObtained() >= milestone.target();
                 case EGGS_OPENED -> petData.getTotalEggsOpened() >= milestone.target();
                 case DAILY_STREAK -> {
                     if (plugin.getDailyRewardManager() != null) {
@@ -249,6 +256,7 @@ public class ProgressionSystem {
             case EPIC_COUNT -> countPetsOfRarityOrBetter(petData, PetRarity.EPIC);
             case LEGENDARY_COUNT -> petData.getLegendariesObtained();
             case MYTHIC_COUNT -> petData.getMythicsObtained();
+            case EXALTED_COUNT -> petData.getExaltedObtained();
             case EGGS_OPENED -> petData.getTotalEggsOpened();
             case DAILY_STREAK -> plugin.getDailyRewardManager() != null ?
                 plugin.getDailyRewardManager().getStreak(player) : 0;
@@ -320,6 +328,7 @@ public class ProgressionSystem {
         EPIC_COUNT,      // Nombre de pets epic+
         LEGENDARY_COUNT, // Nombre de légendaires
         MYTHIC_COUNT,    // Nombre de mythiques
+        EXALTED_COUNT,   // Nombre d'exaltés
         EGGS_OPENED,     // Oeufs ouverts
         DAILY_STREAK     // Jours de streak
     }

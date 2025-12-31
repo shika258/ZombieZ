@@ -1225,7 +1225,6 @@ public class ZombieManager {
                 .generate(zoneId, com.rinaorc.zombiez.items.types.Rarity.UNCOMMON, luckBonus);
             if (forcedItem != null) {
                 items.add(forcedItem);
-                MessageUtils.sendActionBar(killer, "§a✦ §7Drop de pitié! §8(streak: " + killsNoDrop + " kills)");
             }
         }
 
@@ -1259,7 +1258,6 @@ public class ZombieManager {
                 // Jackpot: effets spéciaux
                 killer.playSound(killer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.2f);
                 killer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, dropLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-                MessageUtils.sendActionBar(killer, "§6§l★ JACKPOT! §e+" + items.size() + " items §8(x" + combo + " combo)");
             } else if (items.size() >= 2) {
                 // Multiple drops: petit effet
                 killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);

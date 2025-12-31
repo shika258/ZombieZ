@@ -58,7 +58,7 @@ public class CombatListener implements Listener {
     private final Map<UUID, Long> lastAttackTime = new ConcurrentHashMap<>();
 
     // Mode debug pour afficher les valeurs de cooldown dans la console
-    private static final boolean DEBUG_COOLDOWN = true;
+    private static final boolean DEBUG_COOLDOWN = false;
 
     // ============ CONFIGURATION DU SYSTÈME DE COOLDOWN PUNITIF ============
     // Seuil minimum de charge en dessous duquel les dégâts sont plafonnés

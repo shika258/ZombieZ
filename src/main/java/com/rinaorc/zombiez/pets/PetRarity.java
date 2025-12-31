@@ -15,13 +15,13 @@ public enum PetRarity {
 
     COMMON(
         "Commun",
-        "§7",
+        "§f",           // Blanc (cohérent avec Rarity.java armes)
         45.0,           // dropRate
         150,            // copiesForMax (x3 original - grind raisonnable)
         11,             // maxLevel
         8,              // fragmentsPerDuplicate (x1.6 original - compense le grind)
         40,             // fragmentCost (prix pour acheter 1 copie via wild card)
-        Color.GRAY
+        Color.WHITE
     ),
 
     UNCOMMON(
@@ -37,18 +37,18 @@ public enum PetRarity {
 
     RARE(
         "Rare",
-        "§b",
+        "§9",           // Bleu (cohérent avec Rarity.java armes)
         15.0,
         600,            // x3 original
         11,
         50,             // x2 original
         300,            // wild card cost
-        Color.AQUA
+        Color.BLUE
     ),
 
     EPIC(
         "Épique",
-        "§d",
+        "§5",           // Violet foncé (cohérent avec Rarity.java armes)
         7.0,
         1200,           // x3 original
         11,
@@ -70,24 +70,24 @@ public enum PetRarity {
 
     MYTHIC(
         "Mythique",
-        "§c",
+        "§d",           // Rose/Magenta (cohérent avec Rarity.java armes)
         0.5,
         5000,           // x3.3 original
         11,
         2000,           // identique - mythique reste rare
         -1,             // Non achetable via wild card
-        Color.RED
+        Color.FUCHSIA
     ),
 
     EXALTED(
         "Exalté",
-        "§4§l",         // Rouge foncé gras - prestige ultime
+        "§c§l",         // Rouge gras (cohérent avec Rarity.java armes)
         0.1,            // 0.1% de chance - extrêmement rare
         10000,          // 10000 copies pour max - grind massif
         15,             // 15 niveaux max (4 de plus que les autres)
         5000,           // 5000 fragments par duplicate
         -1,             // Non achetable via wild card
-        Color.MAROON    // Rouge foncé
+        Color.RED       // Rouge
     );
 
     private final String displayName;

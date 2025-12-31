@@ -418,6 +418,7 @@ public class PetManager {
                 total_eggs_opened INT DEFAULT 0,
                 legendaries_obtained INT DEFAULT 0,
                 mythics_obtained INT DEFAULT 0,
+                exalteds_obtained INT DEFAULT 0,
                 total_fragments_earned BIGINT DEFAULT 0,
                 last_equip_time BIGINT DEFAULT 0,
                 show_pet_entity BOOLEAN DEFAULT TRUE,
@@ -492,6 +493,11 @@ public class PetManager {
                     data.setTotalEggsOpened(rs.getInt("total_eggs_opened"));
                     data.setLegendariesObtained(rs.getInt("legendaries_obtained"));
                     data.setMythicsObtained(rs.getInt("mythics_obtained"));
+                    try {
+                        data.setExaltedObtained(rs.getInt("exalteds_obtained"));
+                    } catch (SQLException ignored) {
+                        // Colonne manquante - garder la valeur par défaut (migration)
+                    }
                     data.setTotalFragmentsEarned(rs.getLong("total_fragments_earned"));
                     data.setLastEquipTime(rs.getLong("last_equip_time"));
                     // Charger les options (avec gestion des colonnes manquantes)
@@ -579,9 +585,9 @@ public class PetManager {
             // Sauvegarder les données principales
             String mainSql = """
                 REPLACE INTO pet_data (uuid, equipped_pet, fragments, total_eggs_opened,
-                    legendaries_obtained, mythics_obtained, total_fragments_earned, last_equip_time,
+                    legendaries_obtained, mythics_obtained, exalteds_obtained, total_fragments_earned, last_equip_time,
                     show_pet_entity, show_pet_particles, show_ability_messages, auto_equip_on_join, play_pet_sounds)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
             try (PreparedStatement stmt = conn.prepareStatement(mainSql)) {
                 stmt.setString(1, uuidStr);
@@ -590,13 +596,14 @@ public class PetManager {
                 stmt.setInt(4, data.getTotalEggsOpened());
                 stmt.setInt(5, data.getLegendariesObtained());
                 stmt.setInt(6, data.getMythicsObtained());
-                stmt.setLong(7, data.getTotalFragmentsEarned());
-                stmt.setLong(8, data.getLastEquipTime());
-                stmt.setBoolean(9, data.isShowPetEntity());
-                stmt.setBoolean(10, data.isShowPetParticles());
-                stmt.setBoolean(11, data.isShowAbilityMessages());
-                stmt.setBoolean(12, data.isAutoEquipOnJoin());
-                stmt.setBoolean(13, data.isPlayPetSounds());
+                stmt.setInt(7, data.getExaltedObtained());
+                stmt.setLong(8, data.getTotalFragmentsEarned());
+                stmt.setLong(9, data.getLastEquipTime());
+                stmt.setBoolean(10, data.isShowPetEntity());
+                stmt.setBoolean(11, data.isShowPetParticles());
+                stmt.setBoolean(12, data.isShowAbilityMessages());
+                stmt.setBoolean(13, data.isAutoEquipOnJoin());
+                stmt.setBoolean(14, data.isPlayPetSounds());
                 stmt.executeUpdate();
             }
 

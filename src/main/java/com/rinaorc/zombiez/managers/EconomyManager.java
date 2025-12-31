@@ -327,7 +327,6 @@ public class EconomyManager {
             long streakBonus = streak * 5L;
             finalPoints += streakBonus;
             xp += streakBonus;
-            MessageUtils.sendActionBar(player, "§6§l" + streak + " KILLS STREAK! §e+" + streakBonus + " Bonus!");
         }
 
         // Ajouter les récompenses

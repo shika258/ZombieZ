@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -490,7 +491,7 @@ class FireNovaActive implements PetAbility {
         Location loc = player.getLocation();
 
         // Calculer les dégâts basés sur les dégâts du joueur
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedDamage = playerDamage * damagePercent * petData.getStatMultiplier();
         int adjustedRadius = (int) (radius + (petData.getStatMultiplier() - 1) * 2);
 
@@ -828,7 +829,7 @@ class AbyssLaserActive implements PetAbility {
         UUID playerUUID = player.getUniqueId();
 
         // Calculer les dégâts basés sur les stats du joueur
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
         double laserDamage = playerDamage * adjustedPercent;
 
@@ -1036,7 +1037,7 @@ class VexSwarmActive implements PetAbility {
         // Calculer les stats ajustées par niveau
         int adjustedVexCount = vexCount + (int)((petData.getStatMultiplier() - 1) * 2);
         int adjustedDuration = durationSeconds + (int)((petData.getStatMultiplier() - 1) * 2);
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
         double vexDamage = playerDamage * adjustedDmgPercent;
 

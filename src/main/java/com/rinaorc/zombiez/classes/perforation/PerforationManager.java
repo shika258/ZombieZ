@@ -156,7 +156,11 @@ public class PerforationManager {
             public void run() {
                 long now = System.currentTimeMillis();
 
-                entityFrost.entrySet().removeIf(entry -> {
+                // Utiliser une liste pour collecter les entités à supprimer
+                // car on ne peut pas modifier les valeurs dans removeIf
+                List<UUID> toRemove = new ArrayList<>();
+
+                for (Map.Entry<UUID, Double> entry : entityFrost.entrySet()) {
                     UUID entityId = entry.getKey();
                     Long lastUpdate = entityFrostLastUpdate.get(entityId);
 
@@ -164,14 +168,19 @@ public class PerforationManager {
                     if (lastUpdate != null && now - lastUpdate > 2000) {
                         double newFrost = entry.getValue() - FROST_DECAY_PER_SECOND;
                         if (newFrost <= 0) {
-                            entityFrostLastUpdate.remove(entityId);
-                            entityFrostSource.remove(entityId);
-                            return true;
+                            toRemove.add(entityId);
+                        } else {
+                            entityFrost.put(entityId, newFrost);
                         }
-                        entry.setValue(newFrost);
                     }
-                    return false;
-                });
+                }
+
+                // Nettoyer les entités dont le givre est tombé à 0
+                for (UUID entityId : toRemove) {
+                    entityFrost.remove(entityId);
+                    entityFrostLastUpdate.remove(entityId);
+                    entityFrostSource.remove(entityId);
+                }
             }
         }.runTaskTimer(plugin, 20L, 20L); // Toutes les secondes
     }

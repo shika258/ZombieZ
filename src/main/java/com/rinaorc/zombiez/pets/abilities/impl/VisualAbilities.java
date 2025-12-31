@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -651,7 +652,7 @@ class PrismaticNovaActive implements PetAbility {
         }
 
         // Calculer les dégâts
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.20;
         double novaDamage = playerDamage * adjustedPercent;
 
@@ -1035,7 +1036,7 @@ class ArcticStormActive implements PetAbility {
         UUID playerUUID = player.getUniqueId();
 
         // Calculer les dégâts basés sur les stats du joueur
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = damagePercentPerSecond + (petData.getStatMultiplier() - 1) * 0.03;
         double dps = playerDamage * adjustedPercent;
 

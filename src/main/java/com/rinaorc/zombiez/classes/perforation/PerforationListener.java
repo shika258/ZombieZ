@@ -102,21 +102,33 @@ public class PerforationListener implements Listener {
         }
 
         // === CALCUL DU GIVRE À APPLIQUER ===
+        // T1: FLÈCHES REBONDISSANTES requis pour appliquer du givre
+        Talent bounceTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
+        if (bounceTalent == null) {
+            // Pas de talent Givre T1 = pas de givre appliqué
+            return;
+        }
+
         double frostToApply = BASE_FROST_PER_HIT;
 
         // === T2: CHARGE GLACIALE - Bonus givre selon charge ===
-        frostToApply += perforationManager.getFrostChargeBonus(player) * 100;
+        Talent chargeTalent = getActiveTalent(player, Talent.TalentEffectType.CALIBER);
+        if (chargeTalent != null) {
+            frostToApply += perforationManager.getFrostChargeBonus(player) * 100;
+        }
 
-        // Tir Glacial = gel instantané
-        if (perforationManager.isGlacialShot(uuid)) {
+        // Tir Glacial = gel instantané (nécessite T2 CALIBER)
+        if (chargeTalent != null && perforationManager.isGlacialShot(uuid)) {
             frostToApply = 100.0;
         }
 
         // === T3: LIGNE DE GLACE - Bonus givre si dans la zone ===
-        frostToApply += perforationManager.getIceLineFrostBonus(player, target) * 100;
+        Talent iceTalent = getActiveTalent(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
+        if (iceTalent != null) {
+            frostToApply += perforationManager.getIceLineFrostBonus(player, target) * 100;
+        }
 
         // === T1: FLÈCHES REBONDISSANTES - Bonus givre par rebond (après le 1er hit) ===
-        Talent bounceTalent = getActiveTalent(player, Talent.TalentEffectType.PIERCING_ARROWS);
         if (bounceTalent != null && bounceCount > 1) {
             double bonusPerBounce = bounceTalent.getValue(1) * 100; // 25% par rebond
             frostToApply += (bounceCount - 1) * bonusPerBounce * 0.5; // 12.5% givre bonus par rebond
@@ -176,9 +188,17 @@ public class PerforationListener implements Listener {
         }
 
         // Incrémenter Charge Glaciale (seulement sur le premier hit, pas les rebonds)
+        // Nécessite les talents correspondants
         if (bounceCount == 1) {
-            perforationManager.addFrostCharge(player, 1);
-            perforationManager.addHypothermia(player);
+            // T2: CHARGE GLACIALE
+            if (chargeTalent != null) {
+                perforationManager.addFrostCharge(player, 1);
+            }
+            // T4: HYPOTHERMIE
+            Talent hypoTalent = getActiveTalent(player, Talent.TalentEffectType.OVERHEAT);
+            if (hypoTalent != null) {
+                perforationManager.addHypothermia(player);
+            }
         }
 
         // Enregistrer le joueur si pas déjà fait

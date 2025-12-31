@@ -180,7 +180,8 @@ public class HordeQueenBoss extends WorldBoss {
             zombie.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
             zombie.setGlowing(true);
 
-            // Tags
+            // Tags - CRITIQUE: zombiez_mob permet aux armes ZombieZ d'infliger des dégâts
+            zombie.addScoreboardTag("zombiez_mob");
             zombie.addScoreboardTag("queen_minion");
             zombie.addScoreboardTag("minion_of_" + bossId.toString());
         });
