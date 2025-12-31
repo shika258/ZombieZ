@@ -718,6 +718,32 @@ public class JourneyManager {
             mysteryChestManager.clearDiscoveredChestForZone(player.getUniqueId(), targetZone);
         }
 
+        // Pour CLASS_MASTERY: vérifier si le joueur a DÉJÀ niveau 5+ et/ou 2+ talents
+        // Ceci corrige le bug où l'étape affiche 0/2 si le joueur arrive avec les conditions déjà remplies
+        if (step.getType() == JourneyStep.StepType.CLASS_MASTERY) {
+            var classData = plugin.getClassManager().getClassData(player);
+            if (classData != null) {
+                int classLevel = classData.getClassLevel().get();
+                int talentCount = classData.getSelectedTalentCount();
+                int progressToSet = 0;
+
+                // Condition 1: niveau 5+ de classe
+                if (classLevel >= 5) {
+                    progressToSet++;
+                }
+                // Condition 2: 2+ talents activés
+                if (talentCount >= 2) {
+                    progressToSet++;
+                }
+
+                if (progressToSet > 0) {
+                    updateProgress(player, JourneyStep.StepType.CLASS_MASTERY, progressToSet);
+                    plugin.getLogger().info("[Journey] CLASS_MASTERY: Progression initiale " + progressToSet + "/2 pour " + player.getName() +
+                        " (classLevel=" + classLevel + ", talents=" + talentCount + ")");
+                }
+            }
+        }
+
         // Activer automatiquement le GPS si l'étape a des coordonnées
         // Utilise enableGPSSilently pour ne pas spammer de messages
         var gpsManager = plugin.getGPSManager();
