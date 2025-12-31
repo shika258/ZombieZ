@@ -527,12 +527,16 @@ public class PetAbilityRegistry {
                 "Volée de projectiles (150% → 400% dégâts, +50%/s)", sniperDamagePassive, 1.50, 0.50, 4.00, 0.80)
         );
 
-        // Kraken Miniature (Eau / Tentacules)
+        // Gardien Lévitant (anciennement Kraken Miniature)
+        // Passif: 4ème attaque = balle Shulker (40% dégâts + Lévitation 2s), +20% sur lévités
+        // Ultimate: 8 balles en éventail puis slam au sol (150% dégâts chute + stun)
+        ShulkerBulletPassive shulkerBulletPassive = new ShulkerBulletPassive(
+            "shulker_bullet", "Balles de Shulker",
+            "4ème attaque = balle (40% dégâts + Lévitation 2s), +20% sur lévités", 4, 0.40, 2, 0.20);
         registerAbilities(PetType.KRAKEN_MINIATURE,
-            new WaterTentaclePassive("water_tentacle", "Tentacule d'Eau",
-                "15% d'immobiliser avec un tentacule", 0.15, 2),
-            new TsunamiActive("tsunami", "Tsunami",
-                "Vague géante (50 dégâts, knockback)", 50, 25)
+            shulkerBulletPassive,
+            new GravitationalBarrageActive("gravitational_barrage", "Barrage Gravitationnel",
+                "8 balles en éventail, slam 150% + stun", 8, 0.60, 3, 1.50, 2.0, shulkerBulletPassive)
         );
     }
 

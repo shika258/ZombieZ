@@ -12161,3 +12161,502 @@ class SingularityActive implements PetAbility {
         if (task != null) task.cancel();
     }
 }
+
+// ==================== GARDIEN LÉVITANT (SHULKER) ====================
+
+/**
+ * Passif: Balles de Shulker
+ * Chaque 4ème attaque tire une balle de Shulker
+ * La balle inflige 40% dégâts arme + Lévitation 2s
+ * Les ennemis en lévitation subissent +20% dégâts
+ */
+class ShulkerBulletPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final int attacksRequired;      // 4 attaques
+    private final double bulletDamagePercent; // 40% arme
+    private final int levitationDuration;   // 2 secondes (en ticks)
+    private final double levitationDamageBonus; // +20%
+
+    // Track des attaques et ennemis lévités par joueur
+    private static final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
+    private static final Map<UUID, Set<UUID>> levitatingEnemies = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            attackCounters.remove(uuid);
+            levitatingEnemies.remove(uuid);
+        });
+    }
+
+    public ShulkerBulletPassive(String id, String name, String description,
+                                 int attacksRequired, double bulletDamagePercent,
+                                 int levitationDurationSeconds, double levitationDamageBonus) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.attacksRequired = attacksRequired;
+        this.bulletDamagePercent = bulletDamagePercent;
+        this.levitationDuration = levitationDurationSeconds * 20;
+        this.levitationDamageBonus = levitationDamageBonus;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Incrémente le compteur d'attaques
+        int count = attackCounters.getOrDefault(playerId, 0) + 1;
+        attackCounters.put(playerId, count);
+
+        // Vérifie si on doit tirer une balle
+        if (count >= attacksRequired) {
+            attackCounters.put(playerId, 0);
+            fireShulkerBullet(player, target, damage, petData);
+        }
+    }
+
+    /**
+     * Tire une balle de Shulker sur la cible
+     */
+    private void fireShulkerBullet(Player player, LivingEntity target, double baseDamage, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        UUID playerId = player.getUniqueId();
+        World world = player.getWorld();
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+
+        // Calcule les dégâts de la balle
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double bulletDamage = weaponDamage * bulletDamagePercent * petData.getStatMultiplier();
+
+        // Bonus si déjà en lévitation
+        Set<UUID> levitated = levitatingEnemies.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet());
+        boolean wasLevitating = levitated.contains(target.getUniqueId());
+        if (wasLevitating) {
+            bulletDamage *= (1.0 + levitationDamageBonus);
+        }
+
+        // Animation de la balle (projectile visuel)
+        Location startLoc = player.getLocation().add(0, 1.5, 0);
+        spawnBulletTrail(world, startLoc, targetLoc);
+
+        // Inflige les dégâts
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, bulletDamage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+            } else {
+                target.damage(bulletDamage, player);
+            }
+        } else {
+            target.damage(bulletDamage, player);
+        }
+
+        // Applique la lévitation
+        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationDuration, 1, false, true));
+        levitated.add(target.getUniqueId());
+
+        // Planifie le retrait de la lévitation après la durée
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Set<UUID> lev = levitatingEnemies.get(playerId);
+                if (lev != null) {
+                    lev.remove(target.getUniqueId());
+                }
+
+                // Dégâts de chute simulés si l'ennemi est toujours vivant
+                if (!target.isDead() && target.isValid()) {
+                    double fallHeight = target.getFallDistance();
+                    if (fallHeight > 3) {
+                        double fallDamage = fallHeight * 2;
+                        target.damage(fallDamage, player);
+
+                        // Effet d'impact
+                        world.spawnParticle(Particle.BLOCK, target.getLocation(), 20,
+                            0.5, 0.1, 0.5, 0.1, org.bukkit.Material.PURPLE_CONCRETE.createBlockData());
+                        world.playSound(target.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, 1.0f, 0.8f);
+                    }
+                }
+            }
+        }.runTaskLater(plugin, levitationDuration + 10);
+
+        // Effet visuel et sonore
+        world.spawnParticle(Particle.END_ROD, targetLoc, 15, 0.3, 0.5, 0.3, 0.1);
+        world.playSound(targetLoc, Sound.ENTITY_SHULKER_SHOOT, 1.0f, 1.2f);
+
+        // Message
+        String bonusText = wasLevitating ? " §d(+20% Aérien!)" : "";
+        player.sendActionBar(net.kyori.adventure.text.Component.text(
+            "§5✦ Balle de Shulker! §f" + String.format("%.1f", bulletDamage) + " dégâts" + bonusText
+        ));
+    }
+
+    /**
+     * Crée la traînée visuelle de la balle
+     */
+    private void spawnBulletTrail(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 3);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            currentPoint.add(direction.clone().multiply(distance / segments));
+            world.spawnParticle(Particle.DUST, currentPoint, 2, 0.05, 0.05, 0.05, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 100, 255), 0.8f));
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est en lévitation
+     */
+    public boolean isLevitating(Player player, LivingEntity target) {
+        Set<UUID> levitated = levitatingEnemies.get(player.getUniqueId());
+        return levitated != null && levitated.contains(target.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts contre un ennemi lévitant
+     */
+    public double getDamageMultiplier(Player player, LivingEntity target) {
+        if (isLevitating(player, target)) {
+            return 1.0 + levitationDamageBonus;
+        }
+        return 1.0;
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        // Nettoie l'ennemi de la liste des lévités
+        Set<UUID> levitated = levitatingEnemies.get(player.getUniqueId());
+        if (levitated != null) {
+            levitated.remove(victim.getUniqueId());
+        }
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        levitatingEnemies.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        attackCounters.remove(player.getUniqueId());
+        levitatingEnemies.remove(player.getUniqueId());
+    }
+}
+
+/**
+ * Ultimate: Barrage Gravitationnel
+ * Tire 8 balles de Shulker en éventail
+ * Après 3s: tous les ennemis lévitants sont ramenés au sol violemment
+ */
+class GravitationalBarrageActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final int bulletCount;          // 8 balles
+    private final double bulletDamagePercent; // 60% arme
+    private final int levitationDuration;   // 3 secondes
+    private final double slamDamageMultiplier; // 150% dégâts de chute
+    private final double doubleDamageIfLevitating; // x2 si déjà lévitant
+    private final ShulkerBulletPassive linkedPassive;
+
+    public GravitationalBarrageActive(String id, String name, String description,
+                                       int bulletCount, double bulletDamagePercent,
+                                       int levitationDurationSeconds, double slamDamageMultiplier,
+                                       double doubleDamageIfLevitating, ShulkerBulletPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.bulletCount = bulletCount;
+        this.bulletDamagePercent = bulletDamagePercent;
+        this.levitationDuration = levitationDurationSeconds * 20;
+        this.slamDamageMultiplier = slamDamageMultiplier;
+        this.doubleDamageIfLevitating = doubleDamageIfLevitating;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+        Vector baseDirection = playerLoc.getDirection();
+        baseDirection.setY(0).normalize();
+
+        // Calcule les dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Message d'activation
+        player.sendMessage("§5§l✦ BARRAGE GRAVITATIONNEL!");
+        world.playSound(playerLoc, Sound.ENTITY_SHULKER_OPEN, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.0f, 1.5f);
+
+        // Track des ennemis touchés
+        Set<LivingEntity> hitEnemies = ConcurrentHashMap.newKeySet();
+
+        // Tire les balles en éventail
+        double spreadAngle = Math.PI / 2; // 90 degrés total
+        double angleStep = spreadAngle / (bulletCount - 1);
+        double startAngle = -spreadAngle / 2;
+
+        for (int i = 0; i < bulletCount; i++) {
+            double angle = startAngle + (i * angleStep);
+            Vector bulletDir = rotateVector(baseDirection.clone(), angle);
+
+            // Trouve les ennemis dans cette direction
+            fireBulletInDirection(player, playerLoc.clone().add(0, 1.5, 0), bulletDir,
+                weaponDamage, statMultiplier, zombieManager, hitEnemies, world);
+        }
+
+        // Planifie le slam après la lévitation
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                slamEnemies(player, hitEnemies, weaponDamage, statMultiplier, zombieManager, world);
+            }
+        }.runTaskLater(plugin, levitationDuration);
+    }
+
+    /**
+     * Tire une balle dans une direction spécifique
+     */
+    private void fireBulletInDirection(Player player, Location start, Vector direction,
+                                        double weaponDamage, double statMultiplier,
+                                        com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                        Set<LivingEntity> hitEnemies, World world) {
+        double range = 15.0;
+
+        // Trace un rayon pour trouver les ennemis
+        for (double d = 1; d <= range; d += 0.5) {
+            Location checkLoc = start.clone().add(direction.clone().multiply(d));
+
+            // Particules de traînée
+            world.spawnParticle(Particle.DUST, checkLoc, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 100, 255), 1.0f));
+
+            // Cherche des ennemis proches
+            for (Entity entity : world.getNearbyEntities(checkLoc, 1.5, 1.5, 1.5)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()
+                    && !hitEnemies.contains(living)) {
+
+                    hitEnemies.add(living);
+
+                    // Calcule les dégâts
+                    double bulletDamage = weaponDamage * bulletDamagePercent * statMultiplier;
+
+                    // Double dégâts si déjà en lévitation
+                    if (linkedPassive != null && linkedPassive.isLevitating(player, living)) {
+                        bulletDamage *= doubleDamageIfLevitating;
+                        world.spawnParticle(Particle.CRIT_MAGIC, living.getLocation().add(0, 1, 0),
+                            20, 0.3, 0.5, 0.3, 0.2);
+                    }
+
+                    // Inflige les dégâts
+                    if (zombieManager != null) {
+                        var activeZombie = zombieManager.getActiveZombie(living.getUniqueId());
+                        if (activeZombie != null) {
+                            zombieManager.damageZombie(player, activeZombie, bulletDamage,
+                                com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        } else {
+                            living.damage(bulletDamage, player);
+                        }
+                    } else {
+                        living.damage(bulletDamage, player);
+                    }
+
+                    // Applique la lévitation
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationDuration, 2, false, true));
+
+                    // Effet d'impact
+                    world.spawnParticle(Particle.END_ROD, living.getLocation().add(0, 1, 0),
+                        12, 0.3, 0.4, 0.3, 0.1);
+                    world.playSound(living.getLocation(), Sound.ENTITY_SHULKER_BULLET_HIT, 0.8f, 1.3f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Slam tous les ennemis au sol
+     */
+    private void slamEnemies(Player player, Set<LivingEntity> enemies,
+                              double weaponDamage, double statMultiplier,
+                              com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        int killed = 0;
+        int slammed = 0;
+
+        for (LivingEntity target : enemies) {
+            if (target.isDead() || !target.isValid()) continue;
+
+            slammed++;
+
+            // Retire la lévitation et applique une vélocité vers le bas
+            target.removePotionEffect(PotionEffectType.LEVITATION);
+            target.setVelocity(new Vector(0, -2.5, 0));
+
+            // Dégâts de slam
+            double slamDamage = weaponDamage * slamDamageMultiplier * statMultiplier;
+
+            // Planifie l'impact au sol
+            Location targetLoc = target.getLocation();
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (target.isDead()) return;
+
+                    // Inflige les dégâts d'impact
+                    boolean targetKilled = false;
+                    if (zombieManager != null) {
+                        var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                        if (activeZombie != null) {
+                            zombieManager.damageZombie(player, activeZombie, slamDamage,
+                                com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                            targetKilled = target.isDead() || target.getHealth() <= 0;
+                        } else {
+                            target.damage(slamDamage, player);
+                            targetKilled = target.isDead();
+                        }
+                    } else {
+                        target.damage(slamDamage, player);
+                        targetKilled = target.isDead();
+                    }
+
+                    // Stun
+                    if (!targetKilled) {
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 127, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 20, 128, false, false));
+                    }
+
+                    // Effet d'impact au sol
+                    Location impactLoc = target.getLocation();
+                    world.spawnParticle(Particle.EXPLOSION, impactLoc, 1);
+                    world.spawnParticle(Particle.BLOCK, impactLoc, 30, 1, 0.2, 1, 0.1,
+                        org.bukkit.Material.PURPLE_CONCRETE.createBlockData());
+                    world.spawnParticle(Particle.DUST, impactLoc, 20, 0.8, 0.3, 0.8, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(150, 50, 200), 1.5f));
+                    world.playSound(impactLoc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.2f, 0.6f);
+                    world.playSound(impactLoc, Sound.ENTITY_PLAYER_BIG_FALL, 1.5f, 0.7f);
+                }
+            }.runTaskLater((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 5L);
+        }
+
+        // Message final
+        player.sendMessage("§5§l✦ SLAM! §7" + slammed + " ennemis écrasés au sol!");
+
+        // Son de fin
+        world.playSound(player.getLocation(), Sound.ENTITY_WITHER_BREAK_BLOCK, 0.8f, 1.2f);
+    }
+
+    /**
+     * Tourne un vecteur autour de l'axe Y
+     */
+    private Vector rotateVector(Vector v, double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double x = v.getX() * cos - v.getZ() * sin;
+        double z = v.getX() * sin + v.getZ() * cos;
+        return new Vector(x, v.getY(), z);
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) { }
+}

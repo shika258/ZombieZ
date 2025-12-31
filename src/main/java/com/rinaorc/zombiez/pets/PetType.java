@@ -830,19 +830,19 @@ public enum PetType {
     // --- NOUVEAU PET MYTHIQUE (Visuel) ---
 
     KRAKEN_MINIATURE(
-        "Kraken Miniature",
+        "Gardien Lévitant",
         PetRarity.MYTHIC,
-        Material.INK_SAC,
-        EntityType.SQUID,
-        "mini_kraken",
-        "Eau / Tentacules",
-        "Petit kraken aux tentacules chatoyantes et yeux lumineux",
-        "15% chance d'immobiliser un ennemi avec un tentacule d'eau (2s, +20% dégâts)",
-        "Tsunami",
-        "Déclenche une vague géante balayant les ennemis (50 dégâts, knockback massif)",
-        50,
-        "Immobilisation +1s",
-        "Le tsunami noie les ennemis (suffocation 3s) et génère des tentacules"
+        Material.SHULKER_SHELL,
+        EntityType.SHULKER,
+        "levitating_guardian",
+        "Lévitation / Contrôle Aérien",
+        "Shulker mystique entouré d'orbes gravitationnels",
+        "4ème attaque = balle (40% dégâts + Lévitation), +20% sur lévités",
+        "Barrage Gravitationnel",
+        "8 balles en éventail, puis slam au sol (150% dégâts chute)",
+        55,
+        "3ème attaque, +25% sur lévités",
+        "Le barrage double les dégâts sur ennemis déjà en lévitation"
     );
 
     private final String displayName;
