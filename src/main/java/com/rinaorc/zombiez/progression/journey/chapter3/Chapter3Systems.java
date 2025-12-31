@@ -379,49 +379,38 @@ public class Chapter3Systems implements Listener {
         Location loc = FORAIN_LOCATION.clone();
         loc.setWorld(world);
 
-        plugin.log(Level.INFO, "§e[Forain Debug] spawnForain() appelé - Position: " +
-            loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ());
-
         // 1. Si entité en mémoire valide → ne rien faire
         if (forainEntity != null && forainEntity.isValid() && !forainEntity.isDead()) {
-            plugin.log(Level.INFO, "§a[Forain Debug] Forain déjà en mémoire et valide - UUID: " + forainEntity.getUniqueId());
             return;
         }
 
         // 2. S'assurer que le chunk est chargé avant la recherche
         if (!loc.getChunk().isLoaded()) {
-            plugin.log(Level.INFO, "§e[Forain Debug] Chunk non chargé, chargement en cours...");
             loc.getChunk().load();
         }
 
         // 3. Chercher entité existante dans le monde (persistée après reboot)
         // Utiliser un rayon plus large pour trouver le Forain même s'il a été déplacé
-        int foundCount = 0;
         for (Entity entity : world.getNearbyEntities(loc, 100, 50, 100)) {
             if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
-                foundCount++;
                 if (forainEntity == null) {
                     forainEntity = v;
                     // S'assurer qu'il est bien configuré et à la bonne position
                     v.teleport(loc);
                     v.setRotation(0, 0);
                     v.setPersistent(true); // Re-confirmer la persistance
-                    plugin.log(Level.INFO, "§a[Forain Debug] Forain existant trouvé et téléporté - UUID: " + v.getUniqueId());
                 } else {
                     // Doublon trouvé, supprimer
-                    plugin.log(Level.WARNING, "§c[Forain Debug] Doublon Forain supprimé - UUID: " + v.getUniqueId());
                     v.remove();
                 }
             }
         }
 
         if (forainEntity != null) {
-            plugin.log(Level.INFO, "§a[Forain Debug] Utilisation du Forain existant (total trouvés: " + foundCount + ")");
             return;
         }
 
         // 4. Aucun Forain trouvé → Créer nouveau (UNE SEULE FOIS)
-        plugin.log(Level.INFO, "§e[Forain Debug] Aucun Forain existant trouvé, création d'un nouveau...");
 
         forainEntity = world.spawn(loc, Villager.class, villager -> {
             villager.customName(Component.text(FORAIN_NAME, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
@@ -447,10 +436,6 @@ public class Chapter3Systems implements Listener {
             // Orientation
             villager.setRotation(0, 0);
         });
-
-        plugin.log(Level.INFO, "§a[Forain Debug] Nouveau Forain créé - UUID: " + forainEntity.getUniqueId() +
-            " - Position: " + forainEntity.getLocation().getBlockX() + ", " +
-            forainEntity.getLocation().getBlockY() + ", " + forainEntity.getLocation().getBlockZ());
 
         // Créer le TextDisplay au-dessus
         createForainDisplay(world, loc);
