@@ -70,7 +70,7 @@ public class ScavengeActive implements PetAbility {
             // Trouver une nourriture
             FoodItem food = rollFoodByRarity(plugin, rarity);
             if (food != null) {
-                reward = food.createItem();
+                reward = food.createItemStack(1);
                 itemName = food.getDisplayName();
             } else {
                 // Fallback
@@ -81,8 +81,8 @@ public class ScavengeActive implements PetAbility {
             // Trouver un consommable
             ConsumableType type = rollConsumableType();
             int zoneId = getPlayerZone(player, plugin);
-            Consumable consumable = new Consumable(type, zoneId, rarity);
-            reward = consumable.createItem();
+            Consumable consumable = new Consumable(type, rarity, zoneId);
+            reward = consumable.createItemStack();
             itemName = rarity.getColor() + type.getDisplayName();
         }
 
@@ -206,13 +206,10 @@ public class ScavengeActive implements PetAbility {
      * Obtient la zone actuelle du joueur
      */
     private int getPlayerZone(Player player, ZombieZPlugin plugin) {
-        var gameManager = plugin.getGameManager();
-        if (gameManager == null) return 1;
-
-        var zoneManager = gameManager.getZoneManager();
+        var zoneManager = plugin.getZoneManager();
         if (zoneManager == null) return 1;
 
-        var zone = zoneManager.getCurrentZone(player);
+        var zone = zoneManager.getPlayerZone(player);
         return zone != null ? zone.getId() : 1;
     }
 

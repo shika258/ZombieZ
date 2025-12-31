@@ -1321,6 +1321,24 @@ public class ZombieManager {
     }
 
     /**
+     * Inflige des dégâts à un zombie ZombieZ
+     * @param attacker Le joueur qui inflige les dégâts
+     * @param zombie Le zombie actif
+     * @param damage Le montant de dégâts
+     * @param damageType Le type de dégâts (pour effets spéciaux futurs)
+     * @param isCritical Si c'est un coup critique
+     */
+    public void damageZombie(Player attacker, ActiveZombie zombie, double damage, DamageType damageType, boolean isCritical) {
+        Entity entity = plugin.getServer().getEntity(zombie.getEntityId());
+        if (entity instanceof LivingEntity living && !living.isDead()) {
+            living.damage(damage, attacker);
+
+            // Mettre à jour l'affichage de vie
+            updateZombieHealthDisplay(living);
+        }
+    }
+
+    /**
      * Obtient le type de zombie depuis une entité
      */
     public ZombieType getZombieType(Entity entity) {

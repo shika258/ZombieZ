@@ -12,6 +12,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implémentations des capacités de synergie des nouveaux pets
@@ -1172,7 +1173,7 @@ class ElementalCatalystPassive implements PetAbility {
         }
     }
 
-    private void updateAxolotlColor(Player player, int element) {
+    void updateAxolotlColor(Player player, int element) {
         UUID uuid = player.getUniqueId();
         String ownerTag = "pet_owner_" + uuid;
 
@@ -1605,11 +1606,11 @@ class SneezingExplosiveActive implements PetAbility {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
         if (plugin == null) return false;
 
-        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> playerStats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
 
         // Calculer les dégâts finaux: (base + flat) * (1 + percent) * damagePercent de l'ultime
         double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
@@ -1691,7 +1692,7 @@ class SneezingExplosiveActive implements PetAbility {
         // 50% chance nourriture, 50% chance consommable
         if (random.nextBoolean()) {
             // Drop nourriture depuis FoodItemRegistry
-            var foodRegistry = plugin.getFoodItemRegistry();
+            var foodRegistry = plugin.getPassiveMobManager() != null ? plugin.getPassiveMobManager().getFoodRegistry() : null;
             if (foodRegistry != null) {
                 var food = foodRegistry.getRandomZombieFood();
                 if (food != null) {
@@ -1716,7 +1717,8 @@ class SneezingExplosiveActive implements PetAbility {
             else rarity = rarities[3];                  // 5% Epic
 
             // Zone du joueur pour le scaling
-            int zone = plugin.getZoneManager().getPlayerZone(player);
+            var playerZone = plugin.getZoneManager().getPlayerZone(player);
+            int zone = playerZone != null ? playerZone.getId() : 1;
 
             var consumable = new com.rinaorc.zombiez.consumables.Consumable(randomType, rarity, zone);
             org.bukkit.inventory.ItemStack consumableItem = consumable.createItemStack();
@@ -1778,11 +1780,11 @@ class FlipperPassive implements PetAbility {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
         if (plugin == null) return;
 
-        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> playerStats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         // Démarrer la chaîne de rebonds
@@ -1946,11 +1948,11 @@ class FlipperBallActive implements PetAbility {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
         if (plugin == null) return false;
 
-        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> playerStats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         // Trouver tous les ennemis dans le rayon
@@ -2029,7 +2031,7 @@ class FlipperBallActive implements PetAbility {
                 target.setVelocity(knockback);
 
                 // Effets visuels d'impact
-                target.getWorld().spawnParticle(Particle.CRIT_MAGIC, targetLoc, 25, 0.5, 0.5, 0.5, 0.2);
+                target.getWorld().spawnParticle(Particle.ENCHANTED_HIT, targetLoc, 25, 0.5, 0.5, 0.5, 0.2);
                 target.getWorld().spawnParticle(Particle.EXPLOSION, targetLoc, 1, 0, 0, 0, 0);
 
                 // Son d'impact crescendo
@@ -2168,11 +2170,11 @@ class EggBomberPassive implements PetAbility {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
         if (plugin == null) return;
 
-        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> playerStats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         // Déterminer si c'est un œuf doré
@@ -2304,11 +2306,11 @@ class AirstrikeActive implements PetAbility {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
         if (plugin == null) return false;
 
-        Map<com.rinaorc.zombiez.items.StatType, Double> playerStats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> playerStats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 7.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 7.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double playerBaseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         // Trouver les ennemis cibles
@@ -3948,7 +3950,7 @@ class DeadlyDiveActive implements PetAbility {
 
             // Effets visuels d'exécution
             world.spawnParticle(Particle.SOUL, impactLoc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-            world.spawnParticle(Particle.CRIT_MAGIC, impactLoc, 20, 0.3, 0.3, 0.3, 0.2);
+            world.spawnParticle(Particle.ENCHANTED_HIT, impactLoc, 20, 0.3, 0.3, 0.3, 0.2);
             world.playSound(impactLoc, Sound.ENTITY_PHANTOM_DEATH, 1.0f, 0.5f);
             world.playSound(impactLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.5f);
 
@@ -4032,7 +4034,7 @@ class FrogBouncePassive implements PetAbility {
 
             // Particules de bond (splash d'eau + slime)
             world.spawnParticle(Particle.SPLASH, targetLoc.add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
-            world.spawnParticle(Particle.SLIME, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
+            world.spawnParticle(Particle.ITEM_SLIME, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
 
             // Sons de grenouille
             world.playSound(targetLoc, Sound.ENTITY_FROG_LONG_JUMP, 1.0f, 1.2f);
@@ -4188,7 +4190,7 @@ class BouncingAssaultActive implements PetAbility {
 
                 // Particules de bond
                 world.spawnParticle(Particle.SPLASH, currentLoc, 5, 0.1, 0.1, 0.1, 0.02);
-                world.spawnParticle(Particle.SLIME, currentLoc, 3, 0.1, 0.1, 0.1, 0.01);
+                world.spawnParticle(Particle.ITEM_SLIME, currentLoc, 3, 0.1, 0.1, 0.1, 0.01);
 
                 ticks++;
             }
@@ -4990,7 +4992,7 @@ class SwarmFuryActive implements PetAbility {
                 currentLoc.add(direction.clone().multiply(1.5));
 
                 // Particules de trajectoire
-                world.spawnParticle(Particle.CRIT_MAGIC, currentLoc, 2, 0.05, 0.05, 0.05, 0);
+                world.spawnParticle(Particle.ENCHANTED_HIT, currentLoc, 2, 0.05, 0.05, 0.05, 0);
 
                 // Vérifier si on a atteint la cible
                 if (currentLoc.distanceSquared(targetLoc) < 2) {
@@ -5219,7 +5221,7 @@ class VoidTentaclePassive implements PetAbility {
                                 // Effet visuel d'attaque
                                 Location monsterLoc = monster.getLocation().add(0, 1, 0);
                                 world.spawnParticle(Particle.SQUID_INK, monsterLoc, 8, 0.3, 0.3, 0.3, 0.05);
-                                world.spawnParticle(Particle.CRIT_MAGIC, monsterLoc, 5, 0.2, 0.2, 0.2, 0.1);
+                                world.spawnParticle(Particle.ENCHANTED_HIT, monsterLoc, 5, 0.2, 0.2, 0.2, 0.1);
 
                                 // Ligne de particules du tentacule vers la cible
                                 Vector dir = monsterLoc.toVector().subtract(spawnLoc.clone().add(0, tentacleHeight, 0).toVector());
@@ -5424,7 +5426,7 @@ class VoidEruptionActive implements PetAbility {
                                 // Effet visuel d'attaque
                                 Location monsterLoc = monster.getLocation().add(0, 1, 0);
                                 world.spawnParticle(Particle.SQUID_INK, monsterLoc, 12, 0.4, 0.4, 0.4, 0.08);
-                                world.spawnParticle(Particle.CRIT_MAGIC, monsterLoc, 8, 0.3, 0.3, 0.3, 0.15);
+                                world.spawnParticle(Particle.ENCHANTED_HIT, monsterLoc, 8, 0.3, 0.3, 0.3, 0.15);
                                 world.spawnParticle(Particle.DRAGON_BREATH, monsterLoc, 3, 0.2, 0.2, 0.2, 0.02);
                             }
                         }
@@ -5516,7 +5518,6 @@ class VoidScreamPassive implements PetAbility {
         return petData.getStarPower() > 0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         UUID playerId = player.getUniqueId();
         int count = attackCounters.getOrDefault(playerId, 0) + 1;
@@ -5542,8 +5543,8 @@ class VoidScreamPassive implements PetAbility {
         if (plugin == null) return;
 
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         double dotPercentPerSecond = getEffectiveDotPercent(petData);
@@ -5642,14 +5643,12 @@ class VoidScreamPassive implements PetAbility {
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -5701,14 +5700,14 @@ class PhantomStrikeActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         // Calculer les dégâts du joueur
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent) * petData.getStatMultiplier();
 
         double strikeDamage = baseDamage * this.damagePercent;
@@ -5723,7 +5722,7 @@ class PhantomStrikeActive implements PetAbility {
 
         if (firstTarget == null) {
             player.sendMessage("§5[Pet] §7Aucun ennemi à portée pour la Frappe Fantôme!");
-            return;
+            return false;
         }
 
         // Lancer la chaîne de téléportation
@@ -5731,6 +5730,7 @@ class PhantomStrikeActive implements PetAbility {
         world.playSound(start, Sound.ENTITY_ENDERMAN_TELEPORT, 1.5f, 1.2f);
 
         executePhantomChain(player, firstTarget, strikeDamage, echoDamage, maxChains, finalVortex, plugin);
+        return true;
     }
 
     /**
@@ -5941,13 +5941,10 @@ class PhantomStrikeActive implements PetAbility {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -6006,7 +6003,6 @@ class WarLeapPassive implements PetAbility {
         return baseDamagePercent; // 180%
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         double chance = getEffectiveChance(petData);
 
@@ -6027,8 +6023,8 @@ class WarLeapPassive implements PetAbility {
 
         // Calculer les dégâts du joueur
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         double leapDamage = baseDamage * getEffectiveDamagePercent(petData) * petData.getStatMultiplier();
@@ -6154,14 +6150,12 @@ class WarLeapPassive implements PetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -6207,9 +6201,9 @@ class FerociousCryActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         Location center = player.getLocation();
         World world = player.getWorld();
@@ -6262,6 +6256,7 @@ class FerociousCryActive implements PetAbility {
         player.sendMessage("§6[Pet] §c🔊 §7Cri Féroce! §e" + affected +
             " §7ennemis intimidés (-" + (int)(damageReduction * 100) + "% dégâts, " +
             (durationTicks / 20) + "s)" + weaknessMsg);
+        return true;
     }
 
     /**
@@ -6333,13 +6328,10 @@ class FerociousCryActive implements PetAbility {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -6398,17 +6390,14 @@ class SpectralSwiftPassive implements PetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -6448,14 +6437,14 @@ class PhantomBladeActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         // Calculer les dégâts du joueur
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
 
         double bladeDamage = baseDamage * baseDamagePercent * petData.getStatMultiplier();
@@ -6475,6 +6464,7 @@ class PhantomBladeActive implements PetAbility {
         String pierceMsg = piercing ? " §8(Perçant)" : "";
         player.sendMessage("§b[Pet] §f🗡 §7Lame Fantôme lancée! §c" +
             String.format("%.0f", bladeDamage) + " §7dégâts" + pierceMsg);
+        return true;
     }
 
     /**
@@ -6629,13 +6619,10 @@ class PhantomBladeActive implements PetAbility {
         world.spawnParticle(Particle.CRIT, loc, 15, 0.3, 0.3, 0.3, 0.2);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -6697,7 +6684,6 @@ class RootGraspPassive implements PetAbility {
         return petData.getStarPower() > 0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         double chance = getEffectiveChance(petData);
 
@@ -6718,8 +6704,8 @@ class RootGraspPassive implements PetAbility {
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
         double rootDamage = baseDamage * getEffectiveDamagePercent(petData) * petData.getStatMultiplier();
 
@@ -6801,14 +6787,12 @@ class RootGraspPassive implements PetAbility {
         }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -6845,17 +6829,17 @@ class AwakenedForestActive implements PetAbility {
     public int getCooldown() { return 45; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         Location center = player.getLocation();
         World world = player.getWorld();
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
         double explosionDamage = baseDamage * this.damagePercent * petData.getStatMultiplier();
         double eruptionDamage = explosionDamage * 0.3; // 30% pour les éruptions
@@ -6905,6 +6889,7 @@ class AwakenedForestActive implements PetAbility {
         String witherMsg = applyWither ? " §8+ Wither" : "";
         player.sendMessage("§2[Pet] §a🌲 §7Forêt Éveillée! §e" + affected +
             " §7ennemis rootés + §c" + String.format("%.0f", explosionDamage) + " §7dégâts" + witherMsg);
+        return true;
     }
 
     /**
@@ -7082,13 +7067,10 @@ class AwakenedForestActive implements PetAbility {
         target.damage(damage, player);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -7292,19 +7274,16 @@ class LifeDrainPassive implements PetAbility {
         }
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Le buff de dégâts est appliqué via getActiveDamageBuff()
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     /**
      * Nettoyer les données d'un joueur
@@ -7348,17 +7327,17 @@ class SuicidalZombieActive implements PetAbility {
     public int getCooldown() { return 35; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         World world = player.getWorld();
         Location spawnLoc = player.getLocation().add(player.getLocation().getDirection().multiply(2));
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
         double poisonDamage = baseDamage * damagePercent * petData.getStatMultiplier();
 
@@ -7399,6 +7378,7 @@ class SuicidalZombieActive implements PetAbility {
 
         // Contrôler le zombie
         controlZombie(player, suicidalZombie, poisonDamage, leaveTrail, plugin);
+        return true;
     }
 
     /**
@@ -7625,13 +7605,10 @@ class SuicidalZombieActive implements PetAbility {
         world.spawnParticle(Particle.EFFECT, loc, 3, 0.2, 0.1, 0.2, 0);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -7688,7 +7665,6 @@ class RangedDamagePassive implements PetAbility {
         return petData.getStarPower() > 0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Ce passif est appliqué dans le système de combat via getEffectiveDamageBonus()
         // Le check d'arme à distance est fait ici pour le feedback visuel
@@ -7713,14 +7689,12 @@ class RangedDamagePassive implements PetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -7765,9 +7739,9 @@ class ArrowVolleyActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         World world = player.getWorld();
         Location playerLoc = player.getLocation();
@@ -7777,8 +7751,8 @@ class ArrowVolleyActive implements PetAbility {
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
         double volleyDamage = baseDamage * damagePercent * petData.getStatMultiplier();
 
@@ -7795,6 +7769,7 @@ class ArrowVolleyActive implements PetAbility {
 
         // Lancer la pluie de flèches
         launchArrowRain(player, targetLoc, volleyDamage, bounces, hasArmorPiercing, plugin);
+        return true;
     }
 
     /**
@@ -8042,13 +8017,10 @@ class ArrowVolleyActive implements PetAbility {
         target.damage(damage, player);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -8093,7 +8065,6 @@ class FireDamagePassive implements PetAbility {
         return petData.getStarPower() > 0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         World world = target.getWorld();
         Location targetLoc = target.getLocation().add(0, 1, 0);
@@ -8128,14 +8099,12 @@ class FireDamagePassive implements PetAbility {
         return 0.0;
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -8177,9 +8146,9 @@ class MeteorStrikeActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         World world = player.getWorld();
         Location playerLoc = player.getLocation();
@@ -8191,8 +8160,8 @@ class MeteorStrikeActive implements PetAbility {
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
         double impactDamage = baseDamage * impactDamagePercent * petData.getStatMultiplier();
         double groundFireDamage = baseDamage * groundFirePercent * petData.getStatMultiplier();
@@ -8210,6 +8179,7 @@ class MeteorStrikeActive implements PetAbility {
 
         // Lancer le météore
         launchMeteor(player, targetLoc, impactDamage, groundFireDamage, createLavaLake, lavaDamagePerSecond, plugin);
+        return true;
     }
 
     /**
@@ -8521,13 +8491,10 @@ class MeteorStrikeActive implements PetAbility {
         target.damage(damage, player);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -8589,7 +8556,6 @@ class ExecuteDamagePassive implements PetAbility {
         return 0.0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         double healthPercent = target.getHealth() / target.getMaxHealth();
         double threshold = getEffectiveThreshold(petData);
@@ -8609,7 +8575,6 @@ class ExecuteDamagePassive implements PetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) {
         // Effet de kill satisfaisant
         World world = victim.getWorld();
@@ -8619,11 +8584,10 @@ class ExecuteDamagePassive implements PetAbility {
         world.playSound(loc, Sound.ENTITY_ZOGLIN_DEATH, 0.6f, 1.0f);
     }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 }
 
 /**
@@ -8665,9 +8629,9 @@ class ZoglinChargeActive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) Bukkit.getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         World world = player.getWorld();
         Location startLoc = player.getLocation();
@@ -8675,8 +8639,8 @@ class ZoglinChargeActive implements PetAbility {
 
         // Calculer les dégâts
         var playerStats = plugin.getItemManager().calculatePlayerStats(player);
-        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE, 0.0);
-        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercentBonus = playerStats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
         double baseDamage = (7.0 + flatDamage) * (1.0 + damagePercentBonus);
         double chargeDamage = baseDamage * damagePercent * petData.getStatMultiplier();
 
@@ -8693,6 +8657,7 @@ class ZoglinChargeActive implements PetAbility {
 
         // Lancer la charge
         performCharge(player, startLoc, direction, chargeDamage, leaveFireTrail, fireTrailDamage, plugin);
+        return true;
     }
 
     /**
@@ -8878,13 +8843,10 @@ class ZoglinChargeActive implements PetAbility {
         target.damage(damage, player);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -8916,7 +8878,6 @@ class SniperDamagePassive extends SynergyAbilities.BasePetAbility {
         // Passif calculé dans onDamageDealt
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         double distance = player.getLocation().distance(target.getLocation());
 
@@ -8961,10 +8922,8 @@ class SniperDamagePassive extends SynergyAbilities.BasePetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -9198,13 +9157,10 @@ class ArcaneTorrentActive extends SynergyAbilities.BasePetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -9401,13 +9357,10 @@ class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -9760,13 +9713,10 @@ class TridentStormActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -10140,13 +10090,10 @@ class CaravanChargeActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -10679,13 +10626,10 @@ class VoltaicArcActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
 
@@ -10807,19 +10751,16 @@ class BurningCritPassive implements PetAbility {
         return currentStacks.getOrDefault(player.getUniqueId(), 0);
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Le bonus de crit est appliqué via le système de combat
     }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     @Override
     public void onEquip(Player player, PetData petData) { }
@@ -10883,7 +10824,7 @@ class DisintegrationRayActive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         UUID playerId = player.getUniqueId();
 
         // Annule le canal précédent si existant
@@ -10894,7 +10835,7 @@ class DisintegrationRayActive implements PetAbility {
 
         // Obtient le plugin et le ZombieManager
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
         var zombieManager = plugin.getZombieManager();
 
         // Calculer les dégâts de base (% de l'arme)
@@ -10949,6 +10890,7 @@ class DisintegrationRayActive implements PetAbility {
         }.runTaskTimer(plugin, 0L, 1L);
 
         activeChannels.put(playerId, channelTask);
+        return true;
     }
 
     /**
@@ -11162,13 +11104,10 @@ class DisintegrationRayActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
@@ -11239,7 +11178,6 @@ class ElementalSensitivityPassive implements PetAbility {
     @Override
     public String getDescription() { return description; }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Détecte le type de dégât élémentaire infligé
         // Ceci sera appelé via le système de combat avec le DamageType
@@ -11327,17 +11265,15 @@ class ElementalSensitivityPassive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) {
         // Nettoie les stacks de l'ennemi tué
         enemyStacks.remove(victim.getUniqueId());
     }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     @Override
     public void onEquip(Player player, PetData petData) { }
@@ -11406,7 +11342,7 @@ class ArchonFormActive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         UUID playerId = player.getUniqueId();
 
         // Annule la transformation précédente si existante
@@ -11418,7 +11354,7 @@ class ArchonFormActive implements PetAbility {
 
         // Obtient le plugin
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
 
         // Crée le nouvel état
         ArchonState state = new ArchonState();
@@ -11480,6 +11416,7 @@ class ArchonFormActive implements PetAbility {
         }.runTaskTimer(plugin, 0L, 1L);
 
         activeArchons.put(playerId, state);
+        return true;
     }
 
     /**
@@ -11617,7 +11554,6 @@ class ArchonFormActive implements PetAbility {
         return 1.0 + baseDamageBonus + (state.killCount * damagePerKill);
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) {
         ArchonState state = activeArchons.get(player.getUniqueId());
         if (state != null) {
@@ -11636,10 +11572,8 @@ class ArchonFormActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
@@ -11832,19 +11766,16 @@ class VoidGravityPassive implements PetAbility {
         return enemies != null ? enemies.size() : 0;
     }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Le bonus de dégâts est appliqué via getDamageMultiplier
     }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     @Override
     public void onUnequip(Player player, PetData petData) {
@@ -11904,7 +11835,7 @@ class SingularityActive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         UUID playerId = player.getUniqueId();
 
         // Annule la singularité précédente si existante
@@ -11915,7 +11846,7 @@ class SingularityActive implements PetAbility {
 
         // Obtient le plugin et le ZombieManager
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
         var zombieManager = plugin.getZombieManager();
 
         // Position du trou noir (devant le joueur)
@@ -11975,6 +11906,7 @@ class SingularityActive implements PetAbility {
         }.runTaskTimer(plugin, 0L, 1L);
 
         activeSingularities.put(playerId, singularityTask);
+        return true;
     }
 
     /**
@@ -12155,13 +12087,10 @@ class SingularityActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
@@ -12224,7 +12153,6 @@ class ShulkerBulletPassive implements PetAbility {
     @Override
     public String getDescription() { return description; }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         UUID playerId = player.getUniqueId();
 
@@ -12378,10 +12306,8 @@ class ShulkerBulletPassive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) {
         // Nettoie l'ennemi de la liste des lévités
         Set<UUID> levitated = levitatingEnemies.get(player.getUniqueId());
@@ -12391,7 +12317,7 @@ class ShulkerBulletPassive implements PetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     @Override
     public void onEquip(Player player, PetData petData) {
@@ -12447,9 +12373,9 @@ class GravitationalBarrageActive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
-        if (plugin == null) return;
+        if (plugin == null) return false;
         var zombieManager = plugin.getZombieManager();
 
         World world = player.getWorld();
@@ -12490,6 +12416,7 @@ class GravitationalBarrageActive implements PetAbility {
                 slamEnemies(player, hitEnemies, weaponDamage, statMultiplier, zombieManager, world);
             }
         }.runTaskLater(plugin, levitationDuration);
+        return true;
     }
 
     /**
@@ -12523,7 +12450,7 @@ class GravitationalBarrageActive implements PetAbility {
                     // Double dégâts si déjà en lévitation
                     if (linkedPassive != null && linkedPassive.isLevitating(player, living)) {
                         bulletDamage *= doubleDamageIfLevitating;
-                        world.spawnParticle(Particle.CRIT_MAGIC, living.getLocation().add(0, 1, 0),
+                        world.spawnParticle(Particle.ENCHANTED_HIT, living.getLocation().add(0, 1, 0),
                             20, 0.3, 0.5, 0.3, 0.2);
                     }
 
@@ -12657,13 +12584,10 @@ class GravitationalBarrageActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
@@ -12727,12 +12651,11 @@ class SonicSentinelPassive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) { }
+    public boolean activate(Player player, PetData petData) { return false; }
 
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         UUID playerId = player.getUniqueId();
         World world = player.getWorld();
@@ -12883,7 +12806,6 @@ class SonicSentinelPassive implements PetAbility {
         }
     }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
     @Override
@@ -12949,12 +12871,12 @@ class SonicBoomActive implements PetAbility {
     public String getDescription() { return description; }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    public boolean activate(Player player, PetData petData) {
         UUID playerId = player.getUniqueId();
 
         // Éviter les activations multiples
         if (chargingPlayers.getOrDefault(playerId, false)) {
-            return;
+            return false;
         }
 
         chargingPlayers.put(playerId, true);
@@ -13010,6 +12932,7 @@ class SonicBoomActive implements PetAbility {
                 ticks++;
             }
         }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        return true;
     }
 
     /**
@@ -13189,13 +13112,10 @@ class SonicBoomActive implements PetAbility {
     @Override
     public void applyPassive(Player player, PetData petData) { }
 
-    @Override
     public void onKill(Player player, LivingEntity victim, PetData petData) { }
 
-    @Override
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
 
-    @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 
     @Override
