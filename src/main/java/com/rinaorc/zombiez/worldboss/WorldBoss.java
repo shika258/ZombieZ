@@ -12,8 +12,10 @@ import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.util.Vector;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ArmorMeta;
@@ -1131,8 +1133,9 @@ public abstract class WorldBoss {
     }
 
     /**
-     * Drop le loot du boss
+     * Drop le loot du boss avec explosion visuelle
      * Le loot scale avec la difficulté procédurale du boss
+     * Style explosion avec glow et noms visibles comme PinataZombieEvent
      */
     protected void dropLoot(Location location) {
         World world = location.getWorld();
@@ -1142,37 +1145,40 @@ public abstract class WorldBoss {
         if (itemManager == null) return;
 
         // Calculer le bonus de difficulté procédurale
-        // getDifficultyMultiplier() retourne ~1.0 pour un boss normal, plus pour un boss difficile
         double difficultyMult = modifiers != null ? modifiers.getDifficultyMultiplier() : 1.0;
-
-        // Luck bonus scale avec la difficulté: 0.5 base + 0.3 par difficulté excédentaire
-        // Un boss avec 1.5x difficulté aura 0.5 + 0.15 = 0.65 luckBonus
         double luckBonus = 0.5 + Math.max(0, (difficultyMult - 1.0) * 0.3);
 
-        // Drop 1-3 items selon la zone, +1 si difficulté > 1.3
+        // Liste des items à drop
+        List<ItemStack> itemsToDrop = new ArrayList<>();
+        List<Rarity> itemRarities = new ArrayList<>();
+
+        // Drop 1-3 items EPIC selon la zone, +1 si difficulté > 1.3
         int itemCount = 1 + Math.min(2, zoneId / 15);
         if (difficultyMult > 1.3) {
             itemCount++;
         }
 
         for (int i = 0; i < itemCount; i++) {
-            ItemStack item = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.EPIC);
+            ItemStack item = itemManager.generateItem(zoneId, Rarity.EPIC);
             if (item != null) {
-                world.dropItemNaturally(location, item);
+                itemsToDrop.add(item);
+                itemRarities.add(Rarity.EPIC);
             }
         }
 
-        // Item garanti LEGENDARY pour le premier drop
-        ItemStack legendaryItem = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY);
+        // Item garanti LEGENDARY
+        ItemStack legendaryItem = itemManager.generateItem(zoneId, Rarity.LEGENDARY);
         if (legendaryItem != null) {
-            world.dropItemNaturally(location, legendaryItem);
+            itemsToDrop.add(legendaryItem);
+            itemRarities.add(Rarity.LEGENDARY);
         }
 
         // Boss très difficile (>1.5x) = chance d'un second LEGENDARY
         if (difficultyMult > 1.5 && Math.random() < 0.5) {
-            ItemStack bonusLegendary = itemManager.generateItem(zoneId, com.rinaorc.zombiez.items.types.Rarity.LEGENDARY);
+            ItemStack bonusLegendary = itemManager.generateItem(zoneId, Rarity.LEGENDARY);
             if (bonusLegendary != null) {
-                world.dropItemNaturally(location, bonusLegendary);
+                itemsToDrop.add(bonusLegendary);
+                itemRarities.add(Rarity.LEGENDARY);
             }
         }
 
@@ -1182,10 +1188,98 @@ public abstract class WorldBoss {
             for (int i = 0; i < consumableCount; i++) {
                 var consumable = plugin.getConsumableManager().generateConsumable(zoneId, luckBonus);
                 if (consumable != null) {
-                    world.dropItemNaturally(location, consumable.createItemStack());
+                    itemsToDrop.add(consumable.createItemStack());
+                    itemRarities.add(null); // Consommables n'ont pas de rareté ZombieZ
                 }
             }
         }
+
+        // === EXPLOSION DE LOOT ===
+        // Effets visuels et sonores épiques
+        Location center = location.clone().add(0, 1, 0);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 100, 1, 1, 1, 0.5);
+        world.spawnParticle(Particle.FIREWORK, center, 50, 0.5, 0.5, 0.5, 0.2);
+        world.spawnParticle(Particle.EXPLOSION, center, 3, 0.5, 0.5, 0.5, 0);
+        world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.5f, 0.8f);
+        world.playSound(center, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 1f, 1f);
+        world.playSound(center, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1.2f);
+
+        // Drop chaque item avec effet d'explosion
+        Random random = new Random();
+        for (int i = 0; i < itemsToDrop.size(); i++) {
+            ItemStack itemStack = itemsToDrop.get(i);
+            Rarity rarity = itemRarities.get(i);
+
+            // Spawn l'item avec vélocité explosive
+            Item droppedItem = world.dropItem(center, itemStack);
+
+            // Vélocité aléatoire vers l'extérieur (comme une explosion)
+            double angle = random.nextDouble() * Math.PI * 2;
+            double upward = 0.4 + random.nextDouble() * 0.4;
+            double outward = 0.25 + random.nextDouble() * 0.35;
+
+            Vector velocity = new Vector(
+                Math.cos(angle) * outward,
+                upward,
+                Math.sin(angle) * outward
+            );
+            droppedItem.setVelocity(velocity);
+
+            // Appliquer glow et nom visible
+            droppedItem.setGlowing(true);
+            droppedItem.setCustomNameVisible(true);
+
+            // Si c'est un item ZombieZ, utiliser sa rareté pour la couleur
+            if (rarity != null) {
+                // Récupérer le nom de l'item
+                String displayName = "";
+                if (itemStack.hasItemMeta() && itemStack.getItemMeta().hasDisplayName()) {
+                    displayName = itemStack.getItemMeta().getDisplayName();
+                } else {
+                    // Essayer de récupérer via ItemManager
+                    var zItem = itemManager.getItemData(itemStack);
+                    if (zItem != null) {
+                        displayName = zItem.getRarity().getChatColor() + zItem.getGeneratedName();
+                        rarity = zItem.getRarity();
+                    }
+                }
+
+                if (!displayName.isEmpty()) {
+                    droppedItem.setCustomName(displayName);
+                } else {
+                    droppedItem.setCustomName(rarity.getChatColor() + formatMaterialName(itemStack.getType()));
+                }
+
+                // Appliquer la couleur de glow selon la rareté
+                itemManager.applyGlowForRarity(droppedItem, rarity);
+            } else {
+                // Consommable - nom simple
+                if (itemStack.hasItemMeta() && itemStack.getItemMeta().hasDisplayName()) {
+                    droppedItem.setCustomName(itemStack.getItemMeta().getDisplayName());
+                }
+            }
+        }
+    }
+
+    /**
+     * Formate le nom d'un matériau pour l'affichage
+     */
+    private String formatMaterialName(Material material) {
+        String name = material.name().toLowerCase().replace("_", " ");
+        StringBuilder result = new StringBuilder();
+        boolean capitalizeNext = true;
+        for (char c : name.toCharArray()) {
+            if (c == ' ') {
+                capitalizeNext = true;
+                result.append(c);
+            } else if (capitalizeNext) {
+                result.append(Character.toUpperCase(c));
+                capitalizeNext = false;
+            } else {
+                result.append(c);
+            }
+        }
+        return result.toString();
     }
 
     /**
