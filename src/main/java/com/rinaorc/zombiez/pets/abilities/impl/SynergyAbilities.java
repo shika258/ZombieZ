@@ -12660,3 +12660,537 @@ class GravitationalBarrageActive implements PetAbility {
     @Override
     public void onUnequip(Player player, PetData petData) { }
 }
+
+// ==================== EXALTED PET: SENTINELLE SONIQUE ====================
+
+/**
+ * Passif composite de la Sentinelle Sonique (EXALTED - WARDEN)
+ * Combine deux passifs:
+ * - Détection Sismique: Les attaquants sont marqués 8s, +25% dégâts sur eux
+ * - Onde de Choc: Chaque 6ème attaque = onde sonique (40% dégâts AoE, 8 blocs)
+ */
+class SonicSentinelPassive implements PetAbility {
+    private final String id;
+    private final String name;
+    private final String description;
+
+    // Paramètres Détection Sismique
+    private final double markDamageBonus;      // +25% dégâts sur marqués
+    private final int markDuration;             // 8 secondes
+
+    // Paramètres Onde de Choc
+    private final int attacksForShockwave;      // 6 attaques
+    private final double shockwaveDamagePercent; // 40% dégâts
+    private final double shockwaveRadius;        // 8 blocs
+
+    // Tracking
+    private static final Map<UUID, Map<UUID, Long>> markedEnemies = new ConcurrentHashMap<>();
+    private static final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(markedEnemies);
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    public SonicSentinelPassive(String id, String name, String description,
+                                 double markDamageBonus, int markDuration,
+                                 int attacksForShockwave, double shockwaveDamagePercent, double shockwaveRadius) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.markDamageBonus = markDamageBonus;
+        this.markDuration = markDuration;
+        this.attacksForShockwave = attacksForShockwave;
+        this.shockwaveDamagePercent = shockwaveDamagePercent;
+        this.shockwaveRadius = shockwaveRadius;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        World world = player.getWorld();
+
+        // Vérifier si la cible est marquée pour le bonus de dégâts
+        double bonusDamage = 0;
+        if (isMarked(player, target)) {
+            double effectiveBonus = markDamageBonus * petData.getStatMultiplier();
+            bonusDamage = damage * effectiveBonus;
+
+            // Appliquer les dégâts bonus
+            var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+            if (plugin != null && plugin.getZombieManager() != null) {
+                plugin.getZombieManager().damageZombie(target, player, bonusDamage, DamageType.MAGIC);
+            }
+
+            // Effet visuel de dégâts bonus
+            world.spawnParticle(Particle.SONIC_BOOM, target.getLocation().add(0, 1, 0), 1);
+        }
+
+        // Compteur pour onde de choc
+        int count = attackCounters.getOrDefault(playerId, 0) + 1;
+        int effectiveAttacks = petData.getLevel() >= 5 ? attacksForShockwave - 1 : attacksForShockwave;
+
+        if (count >= effectiveAttacks) {
+            attackCounters.put(playerId, 0);
+            triggerShockwave(player, target.getLocation(), damage, petData);
+        } else {
+            attackCounters.put(playerId, count);
+        }
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) {
+        // Marquer l'attaquant (on utilise un système simplifié - marque les ennemis proches)
+        UUID playerId = player.getUniqueId();
+        Location loc = player.getLocation();
+        World world = player.getWorld();
+
+        // Marquer tous les ennemis hostiles proches (simule la détection de l'attaquant)
+        for (Entity entity : world.getNearbyEntities(loc, 5, 3, 5)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                markEnemy(player, living, petData);
+            }
+        }
+    }
+
+    /**
+     * Marque un ennemi comme détecté
+     */
+    private void markEnemy(Player player, LivingEntity target, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        UUID targetId = target.getUniqueId();
+
+        Map<UUID, Long> playerMarks = markedEnemies.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+
+        // Durée de marque (niveau 5+ = 12s au lieu de 8s)
+        int effectiveDuration = petData.getLevel() >= 5 ? markDuration + 4 : markDuration;
+        long expireTime = System.currentTimeMillis() + (effectiveDuration * 1000L);
+        playerMarks.put(targetId, expireTime);
+
+        // Effet visuel de détection
+        World world = player.getWorld();
+        Location targetLoc = target.getLocation().add(0, target.getHeight() + 0.5, 0);
+
+        world.spawnParticle(Particle.SCULK_SOUL, targetLoc, 15, 0.3, 0.3, 0.3, 0.02);
+        world.playSound(targetLoc, Sound.BLOCK_SCULK_SENSOR_CLICKING, 0.8f, 1.2f);
+
+        // Message
+        player.sendMessage("§8§l⦿ §7Cible détectée: §c" + target.getName() + " §7(+25% dégâts)");
+    }
+
+    /**
+     * Vérifie si un ennemi est marqué
+     */
+    public boolean isMarked(Player player, LivingEntity target) {
+        Map<UUID, Long> playerMarks = markedEnemies.get(player.getUniqueId());
+        if (playerMarks == null) return false;
+
+        Long expireTime = playerMarks.get(target.getUniqueId());
+        if (expireTime == null) return false;
+
+        if (System.currentTimeMillis() > expireTime) {
+            playerMarks.remove(target.getUniqueId());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Déclenche une onde de choc sonique
+     */
+    private void triggerShockwave(Player player, Location center, double baseDamage, PetData petData) {
+        World world = player.getWorld();
+        double effectiveDamagePercent = petData.getLevel() >= 5 ? shockwaveDamagePercent + 0.10 : shockwaveDamagePercent;
+        double shockwaveDamage = baseDamage * effectiveDamagePercent * petData.getStatMultiplier();
+
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        int hit = 0;
+
+        // Expansion visuelle de l'onde
+        new BukkitRunnable() {
+            double radius = 1.0;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (radius > shockwaveRadius || ticks > 10) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules en expansion
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                    double x = center.getX() + Math.cos(angle) * radius;
+                    double z = center.getZ() + Math.sin(angle) * radius;
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+                }
+
+                radius += 1.5;
+                ticks++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 2L);
+
+        // Dégâts aux ennemis
+        for (Entity entity : world.getNearbyEntities(center, shockwaveRadius, 4, shockwaveRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                if (plugin != null && plugin.getZombieManager() != null) {
+                    plugin.getZombieManager().damageZombie(living, player, shockwaveDamage, DamageType.MAGIC);
+                    hit++;
+
+                    // Knockback
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
+                    knockback.setY(0.3);
+                    living.setVelocity(knockback);
+                }
+            }
+        }
+
+        // Sons
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.6f, 1.5f);
+        world.playSound(center, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.5f, 1.8f);
+
+        // Message
+        if (hit > 0) {
+            player.sendMessage("§8§l◉ §cOnde de Choc! §7" + hit + " ennemis frappés!");
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        player.sendMessage("§4§l⦿ SENTINELLE SONIQUE §7équipée!");
+        player.sendMessage("§8  ► Détection Sismique: §7Attaquants marqués (+25% dégâts)");
+        player.sendMessage("§8  ► Onde de Choc: §7Chaque 6ème attaque = onde sonique AoE");
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        markedEnemies.remove(playerId);
+        attackCounters.remove(playerId);
+    }
+}
+
+/**
+ * Ultimate de la Sentinelle Sonique: Boom Sonique Dévastatrice
+ * Charge 2s puis inflige 500% dégâts à tous les ennemis + stun 3s
+ * Max stars: Désintègre les ennemis <20% HP et crée des ondes secondaires
+ */
+class SonicBoomActive implements PetAbility {
+    private final String id;
+    private final String name;
+    private final String description;
+
+    private final double chargeTime;            // 2 secondes
+    private final double damageMultiplier;       // 500% dégâts
+    private final double stunDuration;           // 3 secondes
+    private final double radius;                 // Rayon d'effet
+    private final double executeThreshold;       // Seuil d'exécution (max stars)
+
+    private final SonicSentinelPassive passiveRef;
+
+    private static final Map<UUID, Boolean> chargingPlayers = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(chargingPlayers);
+    }
+
+    public SonicBoomActive(String id, String name, String description,
+                           double chargeTime, double damageMultiplier, double stunDuration,
+                           double radius, double executeThreshold, SonicSentinelPassive passiveRef) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.chargeTime = chargeTime;
+        this.damageMultiplier = damageMultiplier;
+        this.stunDuration = stunDuration;
+        this.radius = radius;
+        this.executeThreshold = executeThreshold;
+        this.passiveRef = passiveRef;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Éviter les activations multiples
+        if (chargingPlayers.getOrDefault(playerId, false)) {
+            return;
+        }
+
+        chargingPlayers.put(playerId, true);
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double effectiveMultiplier = damageMultiplier * petData.getStatMultiplier();
+        double totalDamage = weaponDamage * effectiveMultiplier;
+
+        boolean hasStarPower = petData.getStarPower() > 0;
+
+        // Message de charge
+        player.sendMessage("§4§l⦿ BOOM SONIQUE §7en charge...");
+        player.sendTitle("§4§l⦿ CHARGE ⦿", "§7Boom Sonique imminente...", 5, 40, 5);
+
+        // Phase de charge avec effets visuels
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int chargeTicks = (int) (chargeTime * 20);
+
+            @Override
+            public void run() {
+                if (ticks >= chargeTicks) {
+                    cancel();
+                    executeBoum(player, playerLoc, totalDamage, hasStarPower, petData);
+                    chargingPlayers.put(playerId, false);
+                    return;
+                }
+
+                // Vibrations autour du joueur pendant la charge
+                double progress = (double) ticks / chargeTicks;
+
+                // Cercle de particules qui se resserre
+                double currentRadius = radius * (1 - progress * 0.5);
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                    double x = playerLoc.getX() + Math.cos(angle) * currentRadius;
+                    double z = playerLoc.getZ() + Math.sin(angle) * currentRadius;
+                    Location particleLoc = new Location(world, x, playerLoc.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SCULK_CHARGE_POP, particleLoc, 2, 0.1, 0.1, 0.1, 0);
+                }
+
+                // Particules montantes vers le joueur
+                world.spawnParticle(Particle.SCULK_SOUL, playerLoc.clone().add(0, 1.5, 0), 5, 0.5, 0.5, 0.5, 0.02);
+
+                // Sons de charge crescendo
+                if (ticks % 5 == 0) {
+                    float pitch = 0.5f + (float) progress * 1.5f;
+                    world.playSound(playerLoc, Sound.BLOCK_SCULK_SENSOR_CLICKING, 0.5f, pitch);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Exécute la boom sonique après la charge
+     */
+    private void executeBoum(Player player, Location center, double damage, boolean hasStarPower, PetData petData) {
+        World world = player.getWorld();
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+
+        int hit = 0;
+        int executed = 0;
+        List<Location> secondaryWaveLocations = new ArrayList<>();
+
+        // Effet visuel principal - explosion sonique massive
+        world.spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 30, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SCULK_SOUL, center.clone().add(0, 1.5, 0), 100, 3, 2, 3, 0.1);
+        world.spawnParticle(Particle.FLASH, center.clone().add(0, 2, 0), 3, 0, 0, 0, 0);
+
+        // Ondes concentriques visuelles
+        new BukkitRunnable() {
+            double currentRadius = 2.0;
+            int wave = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > radius || wave > 5) {
+                    cancel();
+                    return;
+                }
+
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 24) {
+                    double x = center.getX() + Math.cos(angle) * currentRadius;
+                    double z = center.getZ() + Math.sin(angle) * currentRadius;
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+                    world.spawnParticle(Particle.BLOCK, particleLoc, 3, 0.2, 0.1, 0.2, 0,
+                        Material.SCULK.createBlockData());
+                }
+
+                currentRadius += 3;
+                wave++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 3L);
+
+        // Sons dévastateurs
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 2.0f, 0.7f);
+        world.playSound(center, Sound.ENTITY_WARDEN_ROAR, 1.5f, 0.5f);
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.6f);
+        world.playSound(center, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 1.0f, 0.5f);
+
+        // Dégâts aux ennemis
+        for (Entity entity : world.getNearbyEntities(center, radius, 5, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+
+                // Vérifier si exécution (max stars et <20% HP)
+                boolean shouldExecute = false;
+                if (hasStarPower) {
+                    double healthPercent = living.getHealth() / living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                    if (healthPercent < executeThreshold) {
+                        shouldExecute = true;
+                    }
+                }
+
+                if (shouldExecute) {
+                    // Exécution instantanée
+                    if (plugin != null && plugin.getZombieManager() != null) {
+                        plugin.getZombieManager().damageZombie(living, player, 99999, DamageType.MAGIC);
+                    }
+                    executed++;
+
+                    // Effet de désintégration
+                    Location entityLoc = living.getLocation().add(0, 1, 0);
+                    world.spawnParticle(Particle.SCULK_SOUL, entityLoc, 30, 0.5, 1, 0.5, 0.1);
+                    world.spawnParticle(Particle.ASH, entityLoc, 50, 0.5, 1, 0.5, 0.05);
+                    world.playSound(entityLoc, Sound.ENTITY_WARDEN_DEATH, 0.5f, 1.5f);
+
+                    // Location pour onde secondaire
+                    if (hasStarPower) {
+                        secondaryWaveLocations.add(entityLoc);
+                    }
+                } else {
+                    // Dégâts normaux + stun
+                    if (plugin != null && plugin.getZombieManager() != null) {
+                        // Bonus sur marqués
+                        double effectiveDamage = damage;
+                        if (passiveRef != null && passiveRef.isMarked(player, living)) {
+                            effectiveDamage *= 1.25; // +25% sur marqués
+                        }
+
+                        plugin.getZombieManager().damageZombie(living, player, effectiveDamage, DamageType.MAGIC);
+                    }
+                    hit++;
+
+                    // Stun (Slowness V + No AI temporaire simulé)
+                    int stunTicks = (int) (stunDuration * 20);
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunTicks, 254, false, false)); // Slow max
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunTicks, 254, false, false));
+
+                    // Knockback massif
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(2.0);
+                    knockback.setY(0.5);
+                    living.setVelocity(knockback);
+                }
+            }
+        }
+
+        // Ondes secondaires (max stars)
+        if (hasStarPower && !secondaryWaveLocations.isEmpty()) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (Location loc : secondaryWaveLocations) {
+                        triggerSecondaryWave(player, loc, damage * 0.3, petData);
+                    }
+                }
+            }.runTaskLater((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 10L);
+        }
+
+        // Messages
+        player.sendTitle("§4§l⦿ BOOM SONIQUE ⦿", "§7" + hit + " frappés, " + executed + " désintégrés", 5, 30, 10);
+        player.sendMessage("§4§l⦿ BOOM SONIQUE DÉVASTATRICE! §7" + hit + " ennemis frappés, " + executed + " désintégrés!");
+
+        if (hasStarPower && !secondaryWaveLocations.isEmpty()) {
+            player.sendMessage("§8  ► §7Ondes secondaires déclenchées: " + secondaryWaveLocations.size());
+        }
+    }
+
+    /**
+     * Déclenche une onde secondaire (max stars)
+     */
+    private void triggerSecondaryWave(Player player, Location center, double damage, PetData petData) {
+        World world = player.getWorld();
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+
+        double secondaryRadius = 4.0;
+
+        // Effet visuel
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            double x = center.getX() + Math.cos(angle) * secondaryRadius;
+            double z = center.getZ() + Math.sin(angle) * secondaryRadius;
+            Location particleLoc = new Location(world, x, center.getY() + 0.3, z);
+            world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+        }
+
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
+
+        // Dégâts
+        for (Entity entity : world.getNearbyEntities(center, secondaryRadius, 3, secondaryRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                if (plugin != null && plugin.getZombieManager() != null) {
+                    plugin.getZombieManager().damageZombie(living, player, damage, DamageType.MAGIC);
+                }
+            }
+        }
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        chargingPlayers.remove(player.getUniqueId());
+    }
+}

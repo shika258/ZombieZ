@@ -77,6 +77,17 @@ public enum PetRarity {
         2000,           // identique - mythique reste rare
         -1,             // Non achetable via wild card
         Color.RED
+    ),
+
+    EXALTED(
+        "Exalté",
+        "§4§l",         // Rouge foncé gras - prestige ultime
+        0.1,            // 0.1% de chance - extrêmement rare
+        10000,          // 10000 copies pour max - grind massif
+        15,             // 15 niveaux max (4 de plus que les autres)
+        5000,           // 5000 fragments par duplicate
+        -1,             // Non achetable via wild card
+        Color.MAROON    // Rouge foncé
     );
 
     private final String displayName;
@@ -129,7 +140,12 @@ public enum PetRarity {
             0.13,   // Level 8: 13%
             0.17,   // Level 9: 17%
             0.20,   // Level 10: 20% (mur de progression)
-            0.225   // Level 11: 22.5% (prestige/max)
+            0.225,  // Level 11: 22.5% (prestige/max pour non-Exalted)
+            // Niveaux Exalted uniquement (12-15)
+            0.25,   // Level 12: 25%
+            0.30,   // Level 13: 30%
+            0.35,   // Level 14: 35%
+            0.40    // Level 15: 40% (max Exalted)
         };
 
         // Calculer le nombre de copies pour ce niveau

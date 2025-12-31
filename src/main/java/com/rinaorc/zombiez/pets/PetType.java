@@ -843,6 +843,24 @@ public enum PetType {
         55,
         "3ème attaque, +25% sur lévités",
         "Le barrage double les dégâts sur ennemis déjà en lévitation"
+    ),
+
+    // ==================== EXALTÉS (§4§l) ====================
+
+    SENTINELLE_SONIQUE(
+        "Sentinelle Sonique",
+        PetRarity.EXALTED,
+        Material.SCULK_CATALYST,
+        EntityType.WARDEN,
+        "sonic_sentinel",
+        "Détection / Destruction Sonique",
+        "Warden ancestral irradiant une énergie sonique destructrice",
+        "Détection Sismique: attaquants marqués 8s (+25% dégâts). Onde de Choc: 6ème attaque = onde sonique (40% AoE, 8 blocs)",
+        "Boom Sonique Dévastatrice",
+        "Charge 2s puis 500% dégâts à tous les ennemis + stun 3s",
+        120,
+        "Passif 1: +30% dégâts sur marqués, durée 12s. Passif 2: 5ème attaque, 50% dégâts",
+        "La Boom Sonique désintègre les ennemis <20% HP et crée des ondes secondaires"
     );
 
     private final String displayName;

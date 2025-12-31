@@ -538,6 +538,23 @@ public class PetAbilityRegistry {
             new GravitationalBarrageActive("gravitational_barrage", "Barrage Gravitationnel",
                 "8 balles en éventail, slam 150% + stun", 8, 0.60, 3, 1.50, 2.0, shulkerBulletPassive)
         );
+
+        // ==================== EXALTÉS ====================
+
+        // Sentinelle Sonique (WARDEN - EXALTED)
+        // Passif composite: Détection Sismique (+25% dégâts sur attaquants marqués 8s)
+        //                   Onde de Choc (6ème attaque = onde sonique 40% AoE, 8 blocs)
+        // Ultimate: Boom Sonique Dévastatrice (charge 2s, 500% dégâts, stun 3s)
+        // Max stars: Désintègre <20% HP + ondes secondaires
+        SonicSentinelPassive sonicSentinelPassive = new SonicSentinelPassive(
+            "sonic_sentinel", "Sentinelle Sonique",
+            "Détection: marqués +25% dégâts. Onde: 6ème attaque = AoE 40%",
+            0.25, 8, 6, 0.40, 8.0);
+        registerAbilities(PetType.SENTINELLE_SONIQUE,
+            sonicSentinelPassive,
+            new SonicBoomActive("sonic_boom", "Boom Sonique Dévastatrice",
+                "Charge 2s → 500% dégâts à tous + stun 3s", 2.0, 5.00, 3.0, 15.0, 0.20, sonicSentinelPassive)
+        );
     }
 
     /**
