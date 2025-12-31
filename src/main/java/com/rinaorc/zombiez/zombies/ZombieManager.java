@@ -1272,8 +1272,8 @@ public class ZombieManager {
             plugin.getConsumableManager().tryDropConsumable(dropLoc, zoneId, type, luckBonus);
         }
 
-        // === DROP NOURRITURE ZOMBIE (8% de base, qualité inférieure aux mobs passifs) ===
-        double foodDropChance = 0.08 + (luckBonus * 0.02); // 8% + bonus luck
+        // === DROP NOURRITURE ZOMBIE (4% de base, qualité inférieure aux mobs passifs) ===
+        double foodDropChance = 0.04 + (luckBonus * 0.01); // 4% + bonus luck
         if (Math.random() < foodDropChance && plugin.getPassiveMobManager() != null) {
             FoodItem zombieFood = plugin.getPassiveMobManager().getFoodRegistry().getRandomZombieFood();
             if (zombieFood != null) {
@@ -1287,8 +1287,8 @@ public class ZombieManager {
             }
         }
 
-        // === DROP BANDAGE RARE (2.5% de base) ===
-        double bandageDropChance = 0.025 + (luckBonus * 0.005); // 2.5% + petit bonus luck
+        // === DROP BANDAGE RARE (1.25% de base) ===
+        double bandageDropChance = 0.0125 + (luckBonus * 0.0025); // 1.25% + petit bonus luck
         if (Math.random() < bandageDropChance && plugin.getConsumableManager() != null) {
             // Créer un bandage de rareté aléatoire (principalement common/uncommon)
             ConsumableRarity bandageRarity = Math.random() < 0.8 ? ConsumableRarity.COMMON :
