@@ -625,6 +625,9 @@ public class JourneyManager {
         plugin.getEconomyManager().addPoints(player, step.getPointReward());
         plugin.getEconomyManager().addGems(player, step.getGemReward());
 
+        // Donner de l'XP de survie (inclut automatiquement 30% d'XP de classe)
+        plugin.getEconomyManager().addXp(player, step.getPointReward(), "Journey: " + step.getName());
+
         // Notification
         sendStepCompletedNotification(player, step);
 
