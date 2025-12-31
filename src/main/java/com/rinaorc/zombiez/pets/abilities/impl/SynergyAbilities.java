@@ -10676,3 +10676,495 @@ class VoltaicArcActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== MARCHEUR DE BRAISE (STRIDER) ====================
+
+/**
+ * Passif: Braises Critiques
+ * +6% crit par ennemi en feu dans un rayon de 32 blocs (max 5 stacks = 30%)
+ * Le bonus dure 3 secondes après que l'ennemi cesse de brûler
+ */
+class BurningCritPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double critPerBurning;  // +6% par ennemi
+    private final int maxStacks;          // Max 5
+    private final double range;           // 32 blocs
+    private final long stackDuration;     // 3 secondes
+
+    // Track des stacks par joueur
+    private static final Map<UUID, Integer> currentStacks = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> lastStackUpdate = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(currentStacks::remove);
+        PassiveAbilityCleanup.registerForCleanup(lastStackUpdate::remove);
+    }
+
+    public BurningCritPassive(String id, String name, String description,
+                               double critPerBurning, int maxStacks, double range, long stackDurationSeconds) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.critPerBurning = critPerBurning;
+        this.maxStacks = maxStacks;
+        this.range = range;
+        this.stackDuration = stackDurationSeconds * 1000;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Compte les ennemis en feu dans le rayon
+        int burningEnemies = countBurningEnemies(player);
+
+        // Calcule les stacks (max 5)
+        int stacks = Math.min(burningEnemies, maxStacks);
+
+        // Met à jour les stacks
+        UUID playerId = player.getUniqueId();
+        int previousStacks = currentStacks.getOrDefault(playerId, 0);
+
+        if (stacks > 0) {
+            currentStacks.put(playerId, stacks);
+            lastStackUpdate.put(playerId, System.currentTimeMillis());
+
+            // Affiche le changement de stacks
+            if (stacks != previousStacks) {
+                double totalCrit = stacks * critPerBurning * 100;
+                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                    "§6🔥 Braises Critiques: §e+" + String.format("%.0f", totalCrit) + "% crit §7(" + stacks + "/" + maxStacks + ")"
+                ));
+
+                // Effet visuel
+                player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+                    stacks * 3, 0.5, 0.5, 0.5, 0.02);
+            }
+        } else {
+            // Vérifie si le bonus a expiré
+            Long lastUpdate = lastStackUpdate.get(playerId);
+            if (lastUpdate != null && System.currentTimeMillis() - lastUpdate > stackDuration) {
+                currentStacks.remove(playerId);
+                lastStackUpdate.remove(playerId);
+            }
+        }
+    }
+
+    /**
+     * Compte les ennemis en feu dans le rayon
+     */
+    private int countBurningEnemies(Player player) {
+        int count = 0;
+        Location playerLoc = player.getLocation();
+        double rangeSquared = range * range;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(playerLoc, range, range, range)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (living.getFireTicks() > 0 && living.getLocation().distanceSquared(playerLoc) <= rangeSquared) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Obtient le bonus de crit actuel pour un joueur
+     */
+    public double getCritBonus(Player player) {
+        int stacks = currentStacks.getOrDefault(player.getUniqueId(), 0);
+        return stacks * critPerBurning;
+    }
+
+    /**
+     * Obtient le nombre de stacks actuel
+     */
+    public int getCurrentStacks(Player player) {
+        return currentStacks.getOrDefault(player.getUniqueId(), 0);
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Le bonus de crit est appliqué via le système de combat
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        currentStacks.remove(player.getUniqueId());
+        lastStackUpdate.remove(player.getUniqueId());
+    }
+}
+
+/**
+ * Ultimate: Rayon de Désintégration
+ * Canalise un rayon d'énergie brûlante qui inflige des dégâts croissants
+ * et désintègre les ennemis tués
+ */
+class DisintegrationRayActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double baseDamagePercent;    // 100% arme/s
+    private final double damageIncreasePercent; // +50% arme/s
+    private final double maxDamagePercent;      // 400% max
+    private final double range;                 // Portée du rayon
+    private final int durationTicks;            // Durée de la canalisation
+    private final BurningCritPassive linkedPassive;
+
+    // Track des joueurs qui canalisent
+    private static final Map<UUID, BukkitTask> activeChannels = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            BukkitTask task = activeChannels.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public DisintegrationRayActive(String id, String name, String description,
+                                    double baseDamagePercent, double damageIncreasePercent,
+                                    double maxDamagePercent, double range, int durationSeconds,
+                                    BurningCritPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.baseDamagePercent = baseDamagePercent;
+        this.damageIncreasePercent = damageIncreasePercent;
+        this.maxDamagePercent = maxDamagePercent;
+        this.range = range;
+        this.durationTicks = durationSeconds * 20;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule le canal précédent si existant
+        BukkitTask existingTask = activeChannels.remove(playerId);
+        if (existingTask != null) {
+            existingTask.cancel();
+        }
+
+        // Obtient le plugin et le ZombieManager
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        // Calculer les dégâts de base (% de l'arme)
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Effet d'activation
+        player.sendMessage("§6§l⚡ RAYON DE DÉSINTÉGRATION ACTIVÉ!");
+        player.getWorld().playSound(player.getLocation(), Sound.ITEM_FIRECHARGE_USE, 1.5f, 0.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 0.8f);
+
+        // Démarre la canalisation
+        final int[] ticksElapsed = {0};
+        final double[] currentDamageMultiplier = {baseDamagePercent};
+
+        BukkitTask channelTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Vérifie si le joueur est toujours en ligne et vivant
+                if (!player.isOnline() || player.isDead()) {
+                    endChannel(player, "§cRayon interrompu!");
+                    return;
+                }
+
+                ticksElapsed[0]++;
+
+                // Fin de la canalisation
+                if (ticksElapsed[0] >= durationTicks) {
+                    endChannel(player, "§6Rayon de Désintégration terminé.");
+                    return;
+                }
+
+                // Augmente les dégâts chaque seconde
+                if (ticksElapsed[0] % 20 == 0) {
+                    currentDamageMultiplier[0] = Math.min(
+                        currentDamageMultiplier[0] + damageIncreasePercent,
+                        maxDamagePercent
+                    );
+                }
+
+                // Tire le rayon toutes les 10 ticks (0.5s)
+                if (ticksElapsed[0] % 10 == 0) {
+                    fireDisintegrationRay(player, zombieManager, weaponDamage,
+                        currentDamageMultiplier[0], statMultiplier, petData);
+                }
+
+                // Effet visuel continu sur le joueur
+                if (ticksElapsed[0] % 5 == 0) {
+                    spawnChannelParticles(player);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeChannels.put(playerId, channelTask);
+    }
+
+    /**
+     * Termine la canalisation
+     */
+    private void endChannel(Player player, String message) {
+        UUID playerId = player.getUniqueId();
+        BukkitTask task = activeChannels.remove(playerId);
+        if (task != null) {
+            task.cancel();
+        }
+        player.sendMessage(message);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.2f);
+    }
+
+    /**
+     * Tire le rayon de désintégration
+     */
+    private void fireDisintegrationRay(Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                        double weaponDamage, double damageMultiplier, double statMultiplier,
+                                        PetData petData) {
+        World world = player.getWorld();
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+
+        // Trouve l'ennemi ciblé
+        LivingEntity target = findTargetInRay(player, eyeLoc, direction, range);
+
+        // Dessine le rayon (toujours, même sans cible)
+        Location endPoint = target != null ? target.getLocation().add(0, 1, 0)
+            : eyeLoc.clone().add(direction.clone().multiply(range));
+        drawDisintegrationBeam(world, eyeLoc, endPoint, target != null);
+
+        // Inflige des dégâts si cible trouvée
+        if (target != null) {
+            double damage = weaponDamage * damageMultiplier * statMultiplier;
+
+            // Bonus si le passif est actif
+            if (linkedPassive != null) {
+                int stacks = linkedPassive.getCurrentStacks(player);
+                if (stacks > 0) {
+                    damage *= (1.0 + stacks * 0.10); // +10% par stack
+                }
+            }
+
+            // Met le feu à la cible
+            target.setFireTicks(60);
+
+            // Inflige les dégâts
+            boolean killed = false;
+            if (zombieManager != null) {
+                var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    double healthBefore = target.getHealth();
+                    zombieManager.damageZombie(player, activeZombie, damage,
+                        com.rinaorc.zombiez.zombies.DamageType.FIRE, false);
+                    killed = target.isDead() || target.getHealth() <= 0;
+                } else {
+                    target.damage(damage, player);
+                    killed = target.isDead();
+                }
+            } else {
+                target.damage(damage, player);
+                killed = target.isDead();
+            }
+
+            // Effet de désintégration si tué
+            if (killed) {
+                spawnDisintegrationEffect(world, target.getLocation());
+            }
+        }
+    }
+
+    /**
+     * Trouve une cible dans la direction du rayon
+     */
+    private LivingEntity findTargetInRay(Player player, Location start, Vector direction, double maxRange) {
+        LivingEntity closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(start, maxRange, maxRange, maxRange)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                Location targetLoc = living.getLocation().add(0, 1, 0);
+                Vector toTarget = targetLoc.toVector().subtract(start.toVector());
+
+                // Vérifie si dans le cône du rayon (angle < 10 degrés)
+                double angle = direction.angle(toTarget.clone().normalize());
+                if (angle < Math.toRadians(10)) {
+                    double dist = toTarget.length();
+                    if (dist < closestDist && dist <= maxRange) {
+                        closestDist = dist;
+                        closest = living;
+                    }
+                }
+            }
+        }
+        return closest;
+    }
+
+    /**
+     * Dessine le rayon de désintégration
+     */
+    private void drawDisintegrationBeam(World world, Location from, Location to, boolean hasTarget) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 4);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            currentPoint.add(direction.clone().multiply(distance / segments));
+
+            // Couleur selon si on touche une cible
+            if (hasTarget) {
+                // Rayon orange/rouge intense
+                world.spawnParticle(Particle.FLAME, currentPoint, 2, 0.05, 0.05, 0.05, 0.01);
+                world.spawnParticle(Particle.DUST, currentPoint, 3, 0.08, 0.08, 0.08, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 1.2f));
+            } else {
+                // Rayon jaune/orange
+                world.spawnParticle(Particle.DUST, currentPoint, 2, 0.06, 0.06, 0.06, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 180, 50), 0.8f));
+            }
+
+            // Étincelles tous les 3 segments
+            if (i % 3 == 0) {
+                world.spawnParticle(Particle.LAVA, currentPoint, 1, 0.1, 0.1, 0.1, 0);
+            }
+        }
+
+        // Son du rayon
+        world.playSound(from, Sound.ENTITY_BLAZE_SHOOT, 0.3f, 1.5f);
+    }
+
+    /**
+     * Effet de désintégration quand un ennemi meurt
+     */
+    private void spawnDisintegrationEffect(World world, Location loc) {
+        // Explosion de cendres et particules
+        world.spawnParticle(Particle.FLAME, loc.add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.15);
+        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 20, 0.3, 0.5, 0.3, 0.05);
+        world.spawnParticle(Particle.ASH, loc, 80, 1.0, 1.0, 1.0, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 30, 0.6, 0.8, 0.6, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(50, 50, 50), 1.5f));
+
+        // Spirale montante de cendres
+        for (double y = 0; y < 2.0; y += 0.15) {
+            double angle = y * Math.PI * 2;
+            double radius = 0.4 * (1 - y/2);
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, loc.clone().add(x, y, z),
+                1, 0, 0, 0, 0);
+        }
+
+        // Sons
+        world.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 1.5f, 0.6f);
+        world.playSound(loc, Sound.ENTITY_BLAZE_DEATH, 0.8f, 1.5f);
+
+        // Message
+        world.getPlayers().stream()
+            .filter(p -> p.getLocation().distanceSquared(loc) < 400)
+            .forEach(p -> p.sendMessage("§8§o*Un ennemi a été réduit en cendres*"));
+    }
+
+    /**
+     * Particules de canalisation autour du joueur
+     */
+    private void spawnChannelParticles(Player player) {
+        Location loc = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Aura de chaleur
+        for (int i = 0; i < 3; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double radius = 0.5 + Math.random() * 0.3;
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            world.spawnParticle(Particle.FLAME, loc.clone().add(x, 0, z), 1, 0, 0.2, 0, 0.02);
+        }
+
+        // Particules sur les mains
+        Location handLoc = player.getEyeLocation().add(player.getEyeLocation().getDirection().multiply(0.5));
+        world.spawnParticle(Particle.DUST, handLoc, 3, 0.1, 0.1, 0.1, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 150, 0), 0.6f));
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        BukkitTask task = activeChannels.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+    }
+}

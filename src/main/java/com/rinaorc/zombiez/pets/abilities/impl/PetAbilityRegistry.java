@@ -322,12 +322,16 @@ public class PetAbilityRegistry {
                 "Éclair rebondissant entre 8 ennemis (80% dégâts)", 8, 0.80, 0.50, 10.0, unstableMerchandisePassive)
         );
 
-        // Colossus Oublié
+        // Marcheur de Braise (anciennement Colossus Oublié)
+        // Passif: +6% crit par ennemi en feu (max 5 stacks = 30%, rayon 32 blocs)
+        // Ultimate: Rayon de désintégration (100% → 400% dégâts, 8s)
+        BurningCritPassive burningCritPassive = new BurningCritPassive(
+            "burning_crit", "Braises Critiques",
+            "+6% crit/ennemi en feu (max 5, 32 blocs)", 0.06, 5, 32.0, 3);
         registerAbilities(PetType.COLOSSUS_OUBLIE,
-            new PowerSlowPassive("colossus_power", "Puissance Ancienne",
-                "+50% dégâts, -20% vitesse", 0.50, -0.20),
-            new ColossusActive("colossus_awaken", "Éveil du Colosse",
-                "Transformation géante (10s) - dégâts x3, immunité", 120, 10)
+            burningCritPassive,
+            new DisintegrationRayActive("disintegration_ray", "Rayon de Désintégration",
+                "Rayon brûlant (100% → 400%/s, désintègre)", 1.00, 0.50, 4.00, 20.0, 8, burningCritPassive)
         );
 
         // ==================== NOUVEAUX PETS SYNERGIES ====================

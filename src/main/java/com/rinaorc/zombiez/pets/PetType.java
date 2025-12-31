@@ -778,19 +778,19 @@ public enum PetType {
     ),
 
     COLOSSUS_OUBLIE(
-        "Colossus Oublié",
+        "Marcheur de Braise",
         PetRarity.MYTHIC,
-        Material.ANCIENT_DEBRIS,
-        EntityType.ARMOR_STAND,
-        "forgotten_colossus",
-        "Puissance Ancienne / Destruction",
-        "Fragment d'un ancien colosse de pierre avec runes brillantes",
-        "+50% dégâts, mais -20% vitesse",
-        "Éveil du Colosse",
-        "Transformation géante (10s) - dégâts x3, immunité",
-        120,
-        "Malus de vitesse réduit à -10%",
-        "L'éveil génère des ondes de choc continues"
+        Material.WARPED_FUNGUS_ON_A_STICK,
+        EntityType.STRIDER,
+        "ember_walker",
+        "Feu / Désintégration",
+        "Strider des profondeurs du Nether émettant une chaleur intense",
+        "+6% crit/ennemi en feu (max 5 stacks, 32 blocs)",
+        "Rayon de Désintégration",
+        "Rayon brûlant (+X%/s, désintègre les kills)",
+        40,
+        "+8% crit/stack, portée 40 blocs",
+        "Le rayon génère des explosions de cendres"
     ),
 
     // --- NOUVEAUX PETS MYTHIQUES (Synergies Ultimes) ---
