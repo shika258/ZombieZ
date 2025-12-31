@@ -3627,6 +3627,7 @@ class SpiderAmbushActive implements PetAbility {
 
         final Monster finalTarget = target;
         final Location targetLoc = target.getLocation();
+        final double finalMinDist = minDist;
 
         // Calcul des durées ajustées par niveau
         int adjustedImmobilize = (int) (immobilizeDurationTicks + (petData.getStatMultiplier() - 1) * 20);
@@ -3643,7 +3644,7 @@ class SpiderAmbushActive implements PetAbility {
         new BukkitRunnable() {
             Location currentLoc = spiderStart.clone();
             int ticks = 0;
-            final int maxTicks = (int) (minDist * 2); // Durée basée sur la distance
+            final int maxTicks = (int) (finalMinDist * 2); // Durée basée sur la distance
 
             @Override
             public void run() {
@@ -12682,7 +12683,10 @@ class SonicSentinelPassive implements PetAbility {
             // Appliquer les dégâts bonus
             var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
             if (plugin != null && plugin.getZombieManager() != null) {
-                plugin.getZombieManager().damageZombie(target, player, bonusDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
+                var activeZombie = plugin.getZombieManager().getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    plugin.getZombieManager().damageZombie(player, activeZombie, bonusDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                }
             }
 
             // Effet visuel de dégâts bonus
@@ -12702,7 +12706,7 @@ class SonicSentinelPassive implements PetAbility {
     }
 
     @Override
-    public void onDamageReceived(Player player, double damage, PetData petData) {
+    public void onDamageReceived(Player player, PetData petData, double damage) {
         // Marquer l'attaquant (on utilise un système simplifié - marque les ennemis proches)
         UUID playerId = player.getUniqueId();
         Location loc = player.getLocation();
@@ -12798,13 +12802,16 @@ class SonicSentinelPassive implements PetAbility {
         for (Entity entity : world.getNearbyEntities(center, shockwaveRadius, 4, shockwaveRadius)) {
             if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
                 if (plugin != null && plugin.getZombieManager() != null) {
-                    plugin.getZombieManager().damageZombie(living, player, shockwaveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
-                    hit++;
+                    var activeZombie = plugin.getZombieManager().getActiveZombie(living.getUniqueId());
+                    if (activeZombie != null) {
+                        plugin.getZombieManager().damageZombie(player, activeZombie, shockwaveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        hit++;
 
-                    // Knockback
-                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
-                    knockback.setY(0.3);
-                    living.setVelocity(knockback);
+                        // Knockback
+                        Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
+                        knockback.setY(0.3);
+                        living.setVelocity(knockback);
+                    }
                 }
             }
         }
@@ -13015,7 +13022,10 @@ class SonicBoomActive implements PetAbility {
                 if (shouldExecute) {
                     // Exécution instantanée
                     if (plugin != null && plugin.getZombieManager() != null) {
-                        plugin.getZombieManager().damageZombie(living, player, 99999, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
+                        var activeZombie = plugin.getZombieManager().getActiveZombie(living.getUniqueId());
+                        if (activeZombie != null) {
+                            plugin.getZombieManager().damageZombie(player, activeZombie, 99999, com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        }
                     }
                     executed++;
 
@@ -13038,7 +13048,10 @@ class SonicBoomActive implements PetAbility {
                             effectiveDamage *= 1.25; // +25% sur marqués
                         }
 
-                        plugin.getZombieManager().damageZombie(living, player, effectiveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
+                        var activeZombie = plugin.getZombieManager().getActiveZombie(living.getUniqueId());
+                        if (activeZombie != null) {
+                            plugin.getZombieManager().damageZombie(player, activeZombie, effectiveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        }
                     }
                     hit++;
 
@@ -13099,7 +13112,10 @@ class SonicBoomActive implements PetAbility {
         for (Entity entity : world.getNearbyEntities(center, secondaryRadius, 3, secondaryRadius)) {
             if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
                 if (plugin != null && plugin.getZombieManager() != null) {
-                    plugin.getZombieManager().damageZombie(living, player, damage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
+                    var activeZombie = plugin.getZombieManager().getActiveZombie(living.getUniqueId());
+                    if (activeZombie != null) {
+                        plugin.getZombieManager().damageZombie(player, activeZombie, damage, com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                    }
                 }
             }
         }
