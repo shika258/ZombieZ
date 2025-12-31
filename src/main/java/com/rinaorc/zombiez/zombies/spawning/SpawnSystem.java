@@ -39,17 +39,17 @@ public class SpawnSystem {
 
     // Compteur de spawns pour éviter le lag
     private int spawnsThisTick = 0;
-    private static final int MAX_SPAWNS_PER_TICK = 15; // Augmenté de 5 à 15
+    private static final int MAX_SPAWNS_PER_TICK = 12; // Réduit de 15 à 12 (-20%)
 
     // Configuration de densité de spawn
     private static final double MIN_DISTANCE_BETWEEN_ZOMBIES = 5.0; // Distance minimum entre zombies
-    private static final int MAX_ZOMBIES_IN_AREA = 8; // Max zombies dans un rayon de 10 blocs
+    private static final int MAX_ZOMBIES_IN_AREA = 6; // Max zombies dans un rayon de 10 blocs (réduit de 8)
     private static final double DENSITY_CHECK_RADIUS = 10.0; // Rayon pour vérifier la densité
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ANTI-ACCUMULATION: Limites strictes par joueur
     // ═══════════════════════════════════════════════════════════════════════════
-    private static final int MAX_MOBS_PER_PLAYER = 40; // Max mobs autour d'un joueur
+    private static final int MAX_MOBS_PER_PLAYER = 30; // Max mobs autour d'un joueur (réduit de 40)
     private static final double PLAYER_MOB_CHECK_RADIUS = 48.0; // Rayon de vérification
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -59,13 +59,13 @@ public class SpawnSystem {
     private final Map<UUID, Long> playerAfkSince = new ConcurrentHashMap<>();
     private static final long AFK_THRESHOLD_MS = 30_000; // 30 secondes sans bouger = AFK
     private static final double AFK_MOVEMENT_THRESHOLD = 2.0; // Distance minimale pour reset AFK
-    private static final int AFK_MOB_LIMIT = 15; // Limite réduite pour joueurs AFK
+    private static final int AFK_MOB_LIMIT = 11; // Limite réduite pour joueurs AFK (réduit de 15)
 
     // ═══════════════════════════════════════════════════════════════════════════
     // HARD CAP: Limite globale stricte avec vérification réelle
     // ═══════════════════════════════════════════════════════════════════════════
-    private static final int HARD_GLOBAL_CAP = 400; // Limite absolue avant pause de spawn
-    private static final int EMERGENCY_CLEANUP_THRESHOLD = 350; // Déclenche cleanup agressif
+    private static final int HARD_GLOBAL_CAP = 300; // Limite absolue avant pause de spawn (réduit de 400)
+    private static final int EMERGENCY_CLEANUP_THRESHOLD = 260; // Déclenche cleanup agressif (réduit de 350)
 
     // État du système
     @Getter
@@ -203,34 +203,35 @@ public class SpawnSystem {
             }
 
             // Calcul du nombre max de zombies et taux de spawn selon l'acte
+            // NOTE: Valeurs réduites de ~25% pour meilleur équilibrage
             if (zoneId <= 10) {
-                // ACTE I - LES DERNIERS JOURS: densité augmentée pour début de partie dynamique
-                maxZombies = 50 + (zoneId * 5);  // 55-100
-                spawnRate = 18 + (zoneId * 2);    // 20-38 spawns/min (beaucoup plus rapide)
-                minSpawnRadius = 12;              // Plus proche du joueur
-                maxSpawnRadius = 25 + zoneId;     // Rayon réduit pour concentration
+                // ACTE I - LES DERNIERS JOURS: densité modérée pour début de partie
+                maxZombies = 38 + (zoneId * 4);  // 42-78 (réduit de 55-100)
+                spawnRate = 14 + (zoneId * 2);    // 16-34 spawns/min (réduit)
+                minSpawnRadius = 12;
+                maxSpawnRadius = 25 + zoneId;
             } else if (zoneId <= 20) {
-                // ACTE II - LA CONTAMINATION: densité croissante, transition depuis Act I
-                maxZombies = 70 + ((zoneId - 10) * 4);  // 74-110
-                spawnRate = 25 + ((zoneId - 10));        // 26-35 spawns/min
+                // ACTE II - LA CONTAMINATION: densité croissante
+                maxZombies = 52 + ((zoneId - 10) * 3);  // 55-82 (réduit de 74-110)
+                spawnRate = 19 + ((zoneId - 10));        // 20-29 spawns/min (réduit)
                 minSpawnRadius = 14;
                 maxSpawnRadius = 35;
             } else if (zoneId <= 30) {
                 // ACTE III - LE CHAOS: haute densité
-                maxZombies = 90 + ((zoneId - 20) * 4);  // 94-130
-                spawnRate = 20 + ((zoneId - 20) / 2);    // 20-25 spawns/min
+                maxZombies = 68 + ((zoneId - 20) * 3);  // 71-98 (réduit de 94-130)
+                spawnRate = 15 + ((zoneId - 20) / 2);    // 15-20 spawns/min (réduit)
                 minSpawnRadius = 14;
                 maxSpawnRadius = 36;
             } else if (zoneId <= 40) {
                 // ACTE IV - L'EXTINCTION: densité décroissante, zombies plus forts
-                maxZombies = 80 + ((zoneId - 30) * 2);  // 82-100
-                spawnRate = 15 + ((zoneId - 30) / 3);    // 15-18 spawns/min
+                maxZombies = 60 + ((zoneId - 30) * 2);  // 62-80 (réduit de 82-100)
+                spawnRate = 12 + ((zoneId - 30) / 3);    // 12-15 spawns/min (réduit)
                 minSpawnRadius = 14;
                 maxSpawnRadius = 34;
             } else {
                 // ACTE V - L'ORIGINE DU MAL: densité réduite, zombies très dangereux
-                maxZombies = 60 + ((zoneId - 40) * 2);  // 62-80
-                spawnRate = 12 + ((zoneId - 40) / 3);    // 12-15 spawns/min
+                maxZombies = 45 + ((zoneId - 40) * 2);  // 47-65 (réduit de 62-80)
+                spawnRate = 10 + ((zoneId - 40) / 3);    // 10-13 spawns/min (réduit)
                 minSpawnRadius = 12;
                 maxSpawnRadius = 30;
             }
@@ -238,13 +239,13 @@ public class SpawnSystem {
             // Ajustements spéciaux pour certaines zones
             if (zoneId == 26) {
                 // Zone PVP - moins de zombies pour focus sur le PVP
-                maxZombies = 60;
-                spawnRate = 12;
+                maxZombies = 45; // réduit de 60
+                spawnRate = 10;  // réduit de 12
             }
             if (zoneId == 50) {
                 // Zone Boss finale - densité réduite, zombies très dangereux
-                maxZombies = 50;
-                spawnRate = 10;
+                maxZombies = 38; // réduit de 50
+                spawnRate = 8;   // réduit de 10
             }
 
             zoneConfigs.put(zoneId, new ZoneSpawnConfig(

@@ -107,7 +107,7 @@ public class ZombieManager {
 
     // === LIMITE GLOBALE DE SPAWN ===
     @Getter
-    private int maxGlobalZombies = 500; // Valeur par défaut, modifiable via config
+    private int maxGlobalZombies = 375; // Réduit de 500 à 375 (-25%)
 
     // === SYSTÈME DE LOOT AMÉLIORÉ ===
     // Pity system: kills sans drop par joueur (reset quand drop)
@@ -205,6 +205,7 @@ public class ZombieManager {
     /**
      * Initialise les limites de zombies par zone
      * 50 zones avec limites progressives
+     * NOTE: Valeurs réduites de ~25% pour meilleur équilibrage
      */
     private void initializeZoneLimits() {
         // Zone 0 (Spawn) - Pas de zombies
@@ -214,29 +215,29 @@ public class ZombieManager {
         for (int zone = 1; zone <= 50; zone++) {
             int limit;
             if (zone <= 10) {
-                // ACTE I - LES DERNIERS JOURS: 60-100 zombies
-                limit = 60 + (zone * 4);
+                // ACTE I - LES DERNIERS JOURS: 45-75 zombies (réduit de 60-100)
+                limit = 45 + (zone * 3);
             } else if (zone <= 20) {
-                // ACTE II - LA CONTAMINATION: 80-120 zombies
-                limit = 80 + ((zone - 10) * 4);
+                // ACTE II - LA CONTAMINATION: 60-90 zombies (réduit de 80-120)
+                limit = 60 + ((zone - 10) * 3);
             } else if (zone <= 30) {
-                // ACTE III - LE CHAOS: 100-140 zombies
-                limit = 100 + ((zone - 20) * 4);
+                // ACTE III - LE CHAOS: 75-105 zombies (réduit de 100-140)
+                limit = 75 + ((zone - 20) * 3);
             } else if (zone <= 40) {
-                // ACTE IV - L'EXTINCTION: 90-110 zombies
-                limit = 90 + ((zone - 30) * 2);
+                // ACTE IV - L'EXTINCTION: 68-83 zombies (réduit de 90-110)
+                limit = 68 + (int) ((zone - 30) * 1.5);
             } else {
-                // ACTE V - L'ORIGINE DU MAL: 70-80 zombies (plus difficile, moins nombreux)
-                limit = 70 + ((zone - 40));
+                // ACTE V - L'ORIGINE DU MAL: 52-60 zombies (réduit de 70-80)
+                limit = 52 + ((zone - 40));
             }
 
             // Zone PVP (26) - Moins de zombies
             if (zone == 26) {
-                limit = 50;
+                limit = 38; // réduit de 50
             }
             // Zone Boss finale (50) - Moins de zombies mais plus dangereux
             if (zone == 50) {
-                limit = 40;
+                limit = 30; // réduit de 40
             }
 
             maxZombiesPerZone.put(zone, limit);
