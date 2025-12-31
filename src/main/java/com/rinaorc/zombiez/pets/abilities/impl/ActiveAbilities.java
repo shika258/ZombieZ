@@ -1616,7 +1616,7 @@ class AmbushActive implements PetAbility {
 // ==================== PREDATOR MARK (Shadow Cat) ====================
 
 @Getter
-public class PredatorMarkActive implements PetAbility {
+class PredatorMarkActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;

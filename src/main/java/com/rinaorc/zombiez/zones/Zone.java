@@ -267,11 +267,11 @@ public class Zone {
      * @param maxZ Coordonnée Z maximale
      * @param difficulty Difficulté de la zone (1-10)
      */
-    public static Zone.ZoneBuilder standardZone(int id, String name, int minZ, int maxZ, int difficulty) {
+    public static ZoneBuilder standardZone(int id, String name, int minZ, int maxZ, int difficulty) {
         // Progression basée sur l'ID de zone (1-50)
         double zoneProgress = (double) id / 50.0; // 0.02 à 1.0
 
-        return Zone.builder()
+        return builder()
             .id(id)
             .name(name.toLowerCase().replace(" ", "_"))
             .displayName(name)
