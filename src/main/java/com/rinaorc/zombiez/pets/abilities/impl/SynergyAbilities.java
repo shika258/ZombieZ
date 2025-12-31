@@ -9398,3 +9398,3799 @@ class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== SENTINELLE DES ABYSSES (Régénération / Tridents) ====================
+
+/**
+ * Passif: Régénération stackable
+ * - 3% HP/s par stack (max 3 stacks = 9% HP/s)
+ * - Accumule 1 stack toutes les secondes sans prendre de dégâts
+ * - Reset complet 5s après avoir subi des dégâts
+ */
+@Getter
+class AbyssalRegenPassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double regenPerStack;    // 3% = 0.03
+    private final int maxStacks;           // 3 stacks max
+    private final int resetDelaySeconds;   // 5s après dégâts
+
+    private final Map<UUID, Long> lastDamageTime = new HashMap<>();
+    private final Map<UUID, Integer> regenStacks = new HashMap<>();
+    private final Map<UUID, Long> lastStackGainTime = new HashMap<>();
+
+    public AbyssalRegenPassive(String id, String name, String desc, double regenPerStack, int maxStacks, int resetDelay) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.regenPerStack = regenPerStack;
+        this.maxStacks = maxStacks;
+        this.resetDelaySeconds = resetDelay;
+        PassiveAbilityCleanup.registerForCleanup(lastDamageTime);
+        PassiveAbilityCleanup.registerForCleanup(regenStacks);
+        PassiveAbilityCleanup.registerForCleanup(lastStackGainTime);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastDamage = lastDamageTime.getOrDefault(uuid, 0L);
+        long timeSinceDamage = now - lastDamage;
+
+        // Ajuster le max stacks et regen par niveau
+        int adjustedMaxStacks = maxStacks + (petData.getStarPower() >= 1 ? 1 : 0);
+        double adjustedRegen = regenPerStack + (petData.getStatMultiplier() - 1) * 0.01;
+
+        // Si on a pris des dégâts dans les 5 dernières secondes, pas de regen
+        if (timeSinceDamage < (resetDelaySeconds * 1000L)) {
+            // Reset les stacks si on vient de prendre des dégâts
+            if (regenStacks.getOrDefault(uuid, 0) > 0) {
+                regenStacks.put(uuid, 0);
+                World world = player.getWorld();
+                world.playSound(player.getLocation(), Sound.BLOCK_CONDUIT_DEACTIVATE, 0.5f, 1.2f);
+            }
+            return;
+        }
+
+        // Accumuler les stacks (1 par seconde sans dégâts)
+        int currentStacks = regenStacks.getOrDefault(uuid, 0);
+        long lastGain = lastStackGainTime.getOrDefault(uuid, 0L);
+
+        if (now - lastGain >= 1000L && currentStacks < adjustedMaxStacks) {
+            currentStacks++;
+            regenStacks.put(uuid, currentStacks);
+            lastStackGainTime.put(uuid, now);
+
+            // Feedback visuel pour gain de stack
+            World world = player.getWorld();
+            Location loc = player.getLocation().add(0, 1, 0);
+            world.spawnParticle(Particle.BUBBLE_POP, loc, 8, 0.3, 0.5, 0.3, 0.02);
+            world.playSound(loc, Sound.ENTITY_DROWNED_AMBIENT_WATER, 0.3f, 1.5f + (currentStacks * 0.2f));
+
+            // Message de stack
+            String stackBar = "§b" + "▮".repeat(currentStacks) + "§7" + "▯".repeat(adjustedMaxStacks - currentStacks);
+            player.sendMessage("§a[Pet] §3⚓ Régénération Abyssale: " + stackBar + " §8(" +
+                String.format("%.0f", currentStacks * adjustedRegen * 100) + "% HP/s)");
+        }
+
+        // Appliquer la régénération
+        if (currentStacks > 0) {
+            double maxHealth = player.getMaxHealth();
+            double currentHealth = player.getHealth();
+            double healAmount = maxHealth * adjustedRegen * currentStacks;
+
+            if (currentHealth < maxHealth) {
+                double newHealth = Math.min(maxHealth, currentHealth + healAmount);
+                player.setHealth(newHealth);
+
+                // Particules de heal
+                World world = player.getWorld();
+                Location loc = player.getLocation().add(0, 1, 0);
+                world.spawnParticle(Particle.HEART, loc, 1, 0.3, 0.3, 0.3, 0);
+                world.spawnParticle(Particle.DRIPPING_WATER, loc, 5, 0.4, 0.5, 0.4, 0);
+            }
+        }
+    }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        UUID uuid = player.getUniqueId();
+        lastDamageTime.put(uuid, System.currentTimeMillis());
+
+        // Reset les stacks immédiatement
+        int previousStacks = regenStacks.getOrDefault(uuid, 0);
+        if (previousStacks > 0) {
+            regenStacks.put(uuid, 0);
+
+            World world = player.getWorld();
+            world.playSound(player.getLocation(), Sound.ENTITY_DROWNED_HURT, 0.6f, 0.8f);
+            world.spawnParticle(Particle.FALLING_WATER, player.getLocation().add(0, 1, 0), 15, 0.4, 0.5, 0.4, 0);
+            player.sendMessage("§a[Pet] §c⚓ Régénération interrompue! §7(5s de récupération)");
+        }
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        player.sendMessage("§a[Pet] §3⚓ Sentinelle des Abysses équipée!");
+        player.sendMessage("§7Régénère §b" + String.format("%.0f", regenPerStack * 100) + "% HP/s §7par stack (max " + maxStacks + ")");
+        player.sendMessage("§7Les dégâts réinitialisent la régénération pendant §c" + resetDelaySeconds + "s");
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        regenStacks.remove(uuid);
+        lastDamageTime.remove(uuid);
+        lastStackGainTime.remove(uuid);
+    }
+
+    public int getCurrentStacks(UUID uuid) {
+        return regenStacks.getOrDefault(uuid, 0);
+    }
+}
+
+/**
+ * Ultimate: Tempête de Tridents
+ * - Lance une volée de tridents sur les ennemis proches
+ * - Dégâts basés sur % de l'arme du joueur
+ * - Star Power: Les tridents percent et touchent les ennemis derrière
+ */
+@Getter
+class TridentStormActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double damagePercent;     // % des dégâts de l'arme
+    private final int tridentCount;         // Nombre de tridents
+    private final double radius;            // Rayon de ciblage
+    private final AbyssalRegenPassive linkedPassive;
+
+    public TridentStormActive(String id, String name, String desc, double dmgPercent, int count, double radius, AbyssalRegenPassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.damagePercent = dmgPercent;
+        this.tridentCount = count;
+        this.radius = radius;
+        this.linkedPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 45; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Ajuster les valeurs par niveau
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.20;
+        int adjustedCount = tridentCount + (int)((petData.getStatMultiplier() - 1) * 3);
+        boolean piercing = petData.getStarPower() >= 3; // Star 3: les tridents percent
+
+        // Calculer les dégâts basés sur l'arme du joueur
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double tridentDamage = weaponDamage * adjustedDamagePercent;
+
+        // Bonus si le passif a des stacks
+        int regenStacks = linkedPassive != null ? linkedPassive.getCurrentStacks(player.getUniqueId()) : 0;
+        if (regenStacks > 0) {
+            tridentDamage *= (1 + regenStacks * 0.15); // +15% par stack
+            player.sendMessage("§a[Pet] §3⚡ Bonus de stack: §b+" + (regenStacks * 15) + "% §7dégâts!");
+        }
+
+        // Trouver les cibles
+        List<LivingEntity> targets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+                targets.add(living);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            player.sendMessage("§a[Pet] §c⚓ Aucune cible à portée!");
+            return false;
+        }
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.ITEM_TRIDENT_RIPTIDE_3, 1.2f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_DROWNED_SHOOT, 1.0f, 1.2f);
+
+        player.sendMessage("§a[Pet] §3§l⚓ TEMPÊTE DE TRIDENTS! §7" + adjustedCount + " tridents lancés!");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Lancer les tridents avec un délai entre chaque
+        final double finalTridentDamage = tridentDamage;
+        new BukkitRunnable() {
+            int launched = 0;
+            int targetIndex = 0;
+            Set<UUID> hitByPiercing = new HashSet<>();
+
+            @Override
+            public void run() {
+                if (launched >= adjustedCount || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Cibler en rotation
+                if (targets.isEmpty()) {
+                    cancel();
+                    return;
+                }
+                LivingEntity target = targets.get(targetIndex % targets.size());
+                if (target.isDead()) {
+                    targets.remove(target);
+                    if (targets.isEmpty()) {
+                        cancel();
+                        return;
+                    }
+                    target = targets.get(targetIndex % targets.size());
+                }
+
+                // Position de départ (au-dessus du joueur)
+                Location startLoc = playerLoc.clone().add(
+                    (Math.random() - 0.5) * 2,
+                    2.5 + Math.random(),
+                    (Math.random() - 0.5) * 2
+                );
+
+                // Direction vers la cible
+                Vector direction = target.getLocation().add(0, 1, 0).toVector()
+                    .subtract(startLoc.toVector()).normalize();
+
+                // Créer le trident visuel
+                spawnTridentProjectile(world, startLoc, direction, target, finalTridentDamage,
+                    player, zombieManager, piercing, hitByPiercing);
+
+                // Son de lancer
+                world.playSound(startLoc, Sound.ITEM_TRIDENT_THROW, 0.8f, 1.0f + (float)(Math.random() * 0.4));
+
+                launched++;
+                targetIndex++;
+            }
+        }.runTaskTimer(plugin, 0L, 2L); // Un trident toutes les 2 ticks (0.1s)
+
+        return true;
+    }
+
+    private void spawnTridentProjectile(World world, Location start, Vector direction,
+            LivingEntity primaryTarget, double damage, Player player,
+            com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+            boolean piercing, Set<UUID> alreadyHit) {
+
+        new BukkitRunnable() {
+            Location currentLoc = start.clone();
+            int ticks = 0;
+            final int maxTicks = 40; // 2 secondes max
+            boolean hasHitPrimary = false;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks) {
+                    cancel();
+                    return;
+                }
+
+                // Déplacer le trident
+                currentLoc.add(direction.clone().multiply(1.5));
+
+                // Particules de traînée
+                world.spawnParticle(Particle.BUBBLE_POP, currentLoc, 3, 0.1, 0.1, 0.1, 0);
+                world.spawnParticle(Particle.DRIPPING_WATER, currentLoc, 2, 0.1, 0.1, 0.1, 0);
+
+                // Vérifier les collisions
+                for (Entity entity : world.getNearbyEntities(currentLoc, 1, 1, 1)) {
+                    if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                        && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                        // Si piercing, ne pas toucher deux fois la même cible
+                        if (piercing && alreadyHit.contains(entity.getUniqueId())) {
+                            continue;
+                        }
+
+                        // Impact!
+                        world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 10, 0.2, 0.3, 0.2, 0.1);
+                        world.playSound(living.getLocation(), Sound.ITEM_TRIDENT_HIT, 1.0f, 1.0f);
+
+                        // Infliger les dégâts
+                        dealDamage(player, living, damage, zombieManager);
+
+                        if (piercing) {
+                            alreadyHit.add(entity.getUniqueId());
+                            // Continuer le trajet pour le piercing
+                            if (entity.equals(primaryTarget)) {
+                                hasHitPrimary = true;
+                            }
+                        } else {
+                            cancel();
+                            return;
+                        }
+                    }
+                }
+
+                // Vérifier si on a atteint la cible principale ou si on est hors de portée
+                if (!piercing && currentLoc.distanceSquared(primaryTarget.getLocation()) < 1) {
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 1L);
+    }
+
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
+
+// ==================== CARAVANIER DU DÉSERT (Blocage / Contre-attaque) ====================
+
+/**
+ * Passif: Endurance du Désert
+ * - Désactive l'esquive (0% dodge)
+ * - +30% de chance de blocage
+ * - Les blocages restaurent 2% HP max
+ */
+@Getter
+class DesertEndurancePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double blockBonus;         // +30% = 0.30
+    private final double healPerBlock;       // 2% HP = 0.02
+
+    private final Map<UUID, Boolean> dodgeDisabled = new HashMap<>();
+
+    public DesertEndurancePassive(String id, String name, String desc, double blockBonus, double healPerBlock) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.blockBonus = blockBonus;
+        this.healPerBlock = healPerBlock;
+        PassiveAbilityCleanup.registerForCleanup(dodgeDisabled);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Retourne le bonus de blocage ajusté par niveau
+     */
+    public double getAdjustedBlockBonus(PetData petData) {
+        // Star 1+: +35% au lieu de +30%
+        double bonus = petData.getStarPower() >= 1 ? 0.35 : blockBonus;
+        return bonus + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    /**
+     * Retourne le heal par block ajusté par niveau
+     */
+    public double getAdjustedHealPerBlock(PetData petData) {
+        // Star 1+: 3% au lieu de 2%
+        double heal = petData.getStarPower() >= 1 ? 0.03 : healPerBlock;
+        return heal + (petData.getStatMultiplier() - 1) * 0.005;
+    }
+
+    /**
+     * Vérifie si l'esquive est désactivée pour ce joueur
+     */
+    public boolean isDodgeDisabled(UUID uuid) {
+        return dodgeDisabled.getOrDefault(uuid, false);
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        dodgeDisabled.put(uuid, true);
+
+        double adjustedBlock = getAdjustedBlockBonus(petData);
+        double adjustedHeal = getAdjustedHealPerBlock(petData);
+
+        player.sendMessage("§a[Pet] §e🐫 Caravanier du Désert équipé!");
+        player.sendMessage("§c⚠ Esquive désactivée §7| §a+" + String.format("%.0f", adjustedBlock * 100) + "% blocage");
+        player.sendMessage("§a❤ Les blocages soignent §b" + String.format("%.0f", adjustedHeal * 100) + "% HP");
+
+        World world = player.getWorld();
+        world.playSound(player.getLocation(), Sound.ENTITY_CAMEL_AMBIENT, 1.0f, 1.0f);
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        dodgeDisabled.remove(uuid);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Le bonus de block est appliqué dans le CombatListener via getAdjustedBlockBonus()
+        // Ici on maintient juste l'état du joueur
+    }
+
+    /**
+     * Appelé quand le joueur bloque une attaque (depuis CombatListener ou PetCombatListener)
+     * Retourne le montant de heal effectué
+     */
+    public double onBlock(Player player, PetData petData, double blockedDamage) {
+        double adjustedHeal = getAdjustedHealPerBlock(petData);
+        double maxHealth = player.getMaxHealth();
+        double healAmount = maxHealth * adjustedHeal;
+
+        double currentHealth = player.getHealth();
+        double newHealth = Math.min(maxHealth, currentHealth + healAmount);
+        player.setHealth(newHealth);
+
+        // Feedback visuel
+        World world = player.getWorld();
+        Location loc = player.getLocation().add(0, 1, 0);
+        world.spawnParticle(Particle.HEART, loc, 2, 0.3, 0.3, 0.3, 0);
+        world.spawnParticle(Particle.BLOCK, loc, 8, 0.3, 0.5, 0.3, 0, Material.SAND.createBlockData());
+        world.playSound(loc, Sound.ITEM_SHIELD_BLOCK, 0.8f, 1.2f);
+
+        return healAmount;
+    }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        // La logique de block est gérée par le système de combat ZombieZ
+        // et appelle onBlock() quand un block se produit
+    }
+}
+
+/**
+ * Ultimate: Charge du Caravanier
+ * - Pendant 6 secondes, stocke tous les dégâts bloqués
+ * - À la fin, explosion AoE de 200% des dégâts stockés
+ * - Pendant le stockage, +20% block supplémentaire
+ * - Star 3: L'explosion stun les ennemis 2s
+ */
+@Getter
+class CaravanChargeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;       // 6 secondes
+    private final double damageMultiplier;   // 200% = 2.0
+    private final double extraBlockBonus;    // +20% pendant l'ultimate
+    private final double radius;             // 8 blocs
+    private final DesertEndurancePassive linkedPassive;
+
+    private final Map<UUID, Double> storedDamage = new HashMap<>();
+    private final Map<UUID, Boolean> chargeActive = new HashMap<>();
+    private final Map<UUID, Long> chargeStartTime = new HashMap<>();
+
+    public CaravanChargeActive(String id, String name, String desc, int duration, double dmgMult,
+                               double extraBlock, double radius, DesertEndurancePassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+        this.damageMultiplier = dmgMult;
+        this.extraBlockBonus = extraBlock;
+        this.radius = radius;
+        this.linkedPassive = passive;
+        PassiveAbilityCleanup.registerForCleanup(storedDamage);
+        PassiveAbilityCleanup.registerForCleanup(chargeActive);
+        PassiveAbilityCleanup.registerForCleanup(chargeStartTime);
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 50; }
+
+    /**
+     * Vérifie si le joueur est en phase de stockage
+     */
+    public boolean isCharging(UUID uuid) {
+        return chargeActive.getOrDefault(uuid, false);
+    }
+
+    /**
+     * Retourne le bonus de block supplémentaire pendant l'ultimate
+     */
+    public double getExtraBlockBonus(PetData petData) {
+        return extraBlockBonus + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    /**
+     * Appelé quand le joueur bloque pendant la charge
+     */
+    public void addBlockedDamage(UUID uuid, double damage) {
+        if (isCharging(uuid)) {
+            double current = storedDamage.getOrDefault(uuid, 0.0);
+            storedDamage.put(uuid, current + damage);
+        }
+    }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Démarrer la phase de stockage
+        chargeActive.put(uuid, true);
+        chargeStartTime.put(uuid, System.currentTimeMillis());
+        storedDamage.put(uuid, 0.0);
+
+        // Ajuster les valeurs par niveau
+        double adjustedMultiplier = damageMultiplier + (petData.getStatMultiplier() - 1) * 0.30;
+        double adjustedRadius = radius + (petData.getStatMultiplier() - 1) * 2;
+        boolean stunOnExplosion = petData.getStarPower() >= 3;
+        int adjustedDuration = durationSeconds + (petData.getStarPower() >= 2 ? 2 : 0);
+
+        // Effets de démarrage
+        world.playSound(playerLoc, Sound.ENTITY_CAMEL_DASH, 1.2f, 0.8f);
+        world.playSound(playerLoc, Sound.ITEM_SHIELD_BLOCK, 1.0f, 0.6f);
+        world.spawnParticle(Particle.BLOCK, playerLoc.add(0, 1, 0), 30, 1, 1, 1, 0, Material.SAND.createBlockData());
+
+        player.sendMessage("§a[Pet] §e§l🐫 CHARGE DU CARAVANIER! §7Bloquez pour stocker les dégâts!");
+        player.sendMessage("§7Bonus blocage: §a+" + String.format("%.0f", getExtraBlockBonus(petData) * 100) + "% §7pendant " + adjustedDuration + "s");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Timer pour l'explosion finale
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = adjustedDuration * 20;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !chargeActive.getOrDefault(uuid, false)) {
+                    cleanup();
+                    cancel();
+                    return;
+                }
+
+                // Particules de charge pendant la durée
+                if (ticks % 10 == 0) {
+                    Location loc = player.getLocation().add(0, 1, 0);
+                    double stored = storedDamage.getOrDefault(uuid, 0.0);
+
+                    // Plus de particules si plus de dégâts stockés
+                    int particleCount = Math.min(20, (int)(stored / 10) + 3);
+                    world.spawnParticle(Particle.DUST, loc, particleCount, 0.5, 0.5, 0.5, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(194, 178, 128), 1.5f));
+
+                    // Son de charge croissant
+                    if (stored > 50 && ticks % 20 == 0) {
+                        float pitch = Math.min(1.5f, 0.8f + (float)(stored / 200));
+                        world.playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.3f, pitch);
+                    }
+                }
+
+                // Temps restant à afficher
+                if (ticks % 20 == 0) {
+                    int secondsLeft = (maxTicks - ticks) / 20;
+                    double stored = storedDamage.getOrDefault(uuid, 0.0);
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§e🐫 Stocké: §c" + String.format("%.0f", stored) + " dégâts §7| " +
+                        "§fExplosion dans §e" + secondsLeft + "s"));
+                }
+
+                if (ticks >= maxTicks) {
+                    // EXPLOSION FINALE!
+                    triggerExplosion(player, petData, adjustedMultiplier, adjustedRadius, stunOnExplosion, zombieManager);
+                    cleanup();
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+
+            private void cleanup() {
+                chargeActive.remove(uuid);
+                chargeStartTime.remove(uuid);
+                storedDamage.remove(uuid);
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        return true;
+    }
+
+    private void triggerExplosion(Player player, PetData petData, double multiplier, double explosionRadius,
+                                  boolean stun, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location center = player.getLocation();
+
+        double stored = storedDamage.getOrDefault(uuid, 0.0);
+        double explosionDamage = stored * multiplier;
+
+        // Minimum de dégâts même sans block (basé sur l'arme)
+        if (explosionDamage < 20) {
+            double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+            explosionDamage = Math.max(explosionDamage, weaponDamage * 2);
+        }
+
+        // Effets visuels d'explosion
+        world.playSound(center, Sound.ENTITY_CAMEL_DASH, 1.5f, 0.5f);
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        world.playSound(center, Sound.ITEM_SHIELD_BREAK, 1.0f, 0.8f);
+
+        // Vague de particules de sable
+        for (int ring = 0; ring < 3; ring++) {
+            final int ringIndex = ring;
+            Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                double ringRadius = (ringIndex + 1) * (explosionRadius / 3);
+                for (int angle = 0; angle < 360; angle += 15) {
+                    double rad = Math.toRadians(angle);
+                    Location particleLoc = center.clone().add(
+                        Math.cos(rad) * ringRadius,
+                        0.5,
+                        Math.sin(rad) * ringRadius
+                    );
+                    world.spawnParticle(Particle.BLOCK, particleLoc, 5, 0.3, 0.3, 0.3, 0.1,
+                        Material.SAND.createBlockData());
+                    world.spawnParticle(Particle.EXPLOSION, particleLoc, 1, 0, 0, 0, 0);
+                }
+            }, ringIndex * 3L);
+        }
+
+        // Colonne centrale
+        for (double y = 0; y < 3; y += 0.5) {
+            Location colLoc = center.clone().add(0, y, 0);
+            world.spawnParticle(Particle.DUST, colLoc, 10, 0.5, 0.2, 0.5, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(194, 128, 64), 2.0f));
+        }
+
+        // Infliger les dégâts aux ennemis
+        Set<UUID> hit = new HashSet<>();
+        for (Entity entity : world.getNearbyEntities(center, explosionRadius, explosionRadius, explosionRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (hit.add(entity.getUniqueId())) {
+                    // Dégâts
+                    dealDamage(player, living, explosionDamage, zombieManager);
+
+                    // Effet de recul
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
+                    knockback.setY(0.4);
+                    living.setVelocity(knockback);
+
+                    // Stun si Star 3
+                    if (stun && living instanceof org.bukkit.entity.Mob mob) {
+                        mob.setAI(false);
+                        world.spawnParticle(Particle.FLASH, living.getLocation().add(0, 1, 0), 1);
+
+                        Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                            if (mob.isValid() && !mob.isDead()) {
+                                mob.setAI(true);
+                            }
+                        }, 40L); // 2 secondes
+                    }
+
+                    // Particules d'impact
+                    world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.2);
+                }
+            }
+        }
+
+        // Message de résultat
+        player.sendMessage("§a[Pet] §e§l🐫 EXPLOSION! §c" + String.format("%.0f", explosionDamage) +
+            " dégâts §7(" + String.format("%.0f", stored) + " stockés x" + String.format("%.0f", multiplier * 100) + "%)");
+        player.sendMessage("§7Ennemis touchés: §e" + hit.size() + (stun ? " §c(Stunned 2s)" : ""));
+    }
+
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
+
+// ==================== MARCHAND DE FOUDRE (Électricité / Chaos) ====================
+
+/**
+ * Passif: Marchandise Instable
+ * - 3% de chance par attaque de libérer 3 charges électriques
+ * - Les charges voyagent aléatoirement vers les ennemis proches
+ * - Dégâts: X% des dégâts de l'arme (dégâts foudre)
+ */
+@Getter
+class UnstableMerchandisePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double procChance;         // 3% = 0.03
+    private final int chargeCount;           // 3 charges
+    private final double damagePercent;      // % des dégâts de l'arme
+    private final double searchRadius;       // Rayon de recherche des cibles
+
+    public UnstableMerchandisePassive(String id, String name, String desc, double procChance,
+                                       int chargeCount, double damagePercent, double searchRadius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.procChance = procChance;
+        this.chargeCount = chargeCount;
+        this.damagePercent = damagePercent;
+        this.searchRadius = searchRadius;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Retourne la chance de proc ajustée par niveau
+     */
+    public double getAdjustedProcChance(PetData petData) {
+        // Star 1+: 5% au lieu de 3%
+        double chance = petData.getStarPower() >= 1 ? 0.05 : procChance;
+        return chance + (petData.getStatMultiplier() - 1) * 0.01;
+    }
+
+    /**
+     * Retourne le nombre de charges ajusté par niveau
+     */
+    public int getAdjustedChargeCount(PetData petData) {
+        // Star 1+: 4 charges au lieu de 3
+        int charges = petData.getStarPower() >= 1 ? 4 : chargeCount;
+        return charges + (int)((petData.getStatMultiplier() - 1) * 1);
+    }
+
+    /**
+     * Retourne les dégâts ajustés par niveau
+     */
+    public double getAdjustedDamagePercent(PetData petData) {
+        // Star 1+: +10% dégâts
+        double dmg = petData.getStarPower() >= 1 ? damagePercent + 0.10 : damagePercent;
+        return dmg + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        double adjustedChance = getAdjustedProcChance(petData);
+        int adjustedCharges = getAdjustedChargeCount(petData);
+
+        player.sendMessage("§a[Pet] §e⚡ Marchand de Foudre équipé!");
+        player.sendMessage("§7Chance: §e" + String.format("%.0f", adjustedChance * 100) + "% §7de libérer §e" +
+            adjustedCharges + " charges électriques");
+
+        World world = player.getWorld();
+        world.playSound(player.getLocation(), Sound.ENTITY_WANDERING_TRADER_AMBIENT, 1.0f, 1.0f);
+        world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.5f, 1.5f);
+    }
+
+    @Override
+    public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
+        double adjustedChance = getAdjustedProcChance(petData);
+
+        if (Math.random() > adjustedChance) {
+            return; // Pas de proc
+        }
+
+        // PROC! Libérer les charges électriques
+        int adjustedCharges = getAdjustedChargeCount(petData);
+        double adjustedDamagePercent = getAdjustedDamagePercent(petData);
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts des charges
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double chargeDamage = weaponDamage * adjustedDamagePercent;
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.8f, 1.8f);
+        world.playSound(playerLoc, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 0.6f, 1.5f);
+
+        player.sendMessage("§a[Pet] §e⚡ CHARGES LIBÉRÉES! §7" + adjustedCharges + " charges électriques!");
+
+        // Trouver les cibles proches
+        List<LivingEntity> potentialTargets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, searchRadius, searchRadius, searchRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+                potentialTargets.add(living);
+            }
+        }
+
+        if (potentialTargets.isEmpty()) {
+            return;
+        }
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Lancer les charges avec un petit délai entre chaque
+        for (int i = 0; i < adjustedCharges; i++) {
+            final int chargeIndex = i;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline() || potentialTargets.isEmpty()) return;
+
+                // Choisir une cible aléatoire
+                LivingEntity chargeTarget = potentialTargets.get((int)(Math.random() * potentialTargets.size()));
+                if (chargeTarget.isDead()) {
+                    potentialTargets.remove(chargeTarget);
+                    if (potentialTargets.isEmpty()) return;
+                    chargeTarget = potentialTargets.get((int)(Math.random() * potentialTargets.size()));
+                }
+
+                // Créer l'effet visuel de la charge électrique
+                spawnElectricCharge(world, playerLoc.clone().add(0, 1, 0), chargeTarget, chargeDamage, player, zombieManager);
+
+            }, i * 3L); // 3 ticks entre chaque charge
+        }
+    }
+
+    /**
+     * Spawne une charge électrique visuelle qui voyage vers la cible
+     */
+    private void spawnElectricCharge(World world, Location start, LivingEntity target, double damage,
+                                      Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+
+        new BukkitRunnable() {
+            Location currentLoc = start.clone();
+            int ticks = 0;
+            final int maxTicks = 30;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+                Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+                double distance = direction.length();
+
+                if (distance < 1.0) {
+                    // Impact!
+                    spawnLightningImpact(world, targetLoc);
+                    dealLightningDamage(player, target, damage, zombieManager);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer la charge avec un mouvement erratique
+                direction.normalize().multiply(Math.min(1.5, distance));
+                // Ajouter du chaos au mouvement
+                direction.add(new Vector(
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.5
+                ));
+                currentLoc.add(direction);
+
+                // Particules de la charge électrique
+                world.spawnParticle(Particle.ELECTRIC_SPARK, currentLoc, 5, 0.1, 0.1, 0.1, 0.02);
+                world.spawnParticle(Particle.END_ROD, currentLoc, 2, 0.05, 0.05, 0.05, 0);
+                world.spawnParticle(Particle.DUST, currentLoc, 3, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 255, 100), 0.8f));
+
+                // Son crépitant occasionnel
+                if (ticks % 5 == 0) {
+                    world.playSound(currentLoc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.3f, 2.0f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 1L);
+    }
+
+    /**
+     * Effet visuel d'impact de foudre (sans LightningStrike vanilla)
+     */
+    private void spawnLightningImpact(World world, Location loc) {
+        // Explosion de particules électriques
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 25, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.END_ROD, loc, 15, 0.3, 0.5, 0.3, 0.05);
+        world.spawnParticle(Particle.FIREWORK, loc, 8, 0.2, 0.2, 0.2, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 10, 0.4, 0.4, 0.4, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 255, 255), 1.2f));
+
+        // Colonne de lumière vers le haut
+        for (double y = 0; y < 2; y += 0.3) {
+            Location colLoc = loc.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 2, 0.1, 0, 0.1, 0);
+        }
+
+        // Son d'impact
+        world.playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 1.5f);
+        world.playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.8f);
+    }
+
+    /**
+     * Inflige des dégâts de foudre
+     */
+    private void dealLightningDamage(Player player, LivingEntity target, double damage,
+                                      com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.LIGHTNING, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) { }
+}
+
+/**
+ * Ultimate: Arc Voltaïque
+ * - Lance un éclair qui rebondit entre les ennemis
+ * - Chaque rebond: 80% des dégâts de l'arme
+ * - Chaque ennemi touché a 50% de chance d'être paralysé 1s
+ * - Star 3: L'éclair peut toucher le même ennemi plusieurs fois
+ */
+@Getter
+class VoltaicArcActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int maxBounces;            // 8 rebonds
+    private final double damagePercent;      // 80% des dégâts
+    private final double paralyzeChance;     // 50% de paralyser
+    private final double bounceRadius;       // Rayon de recherche pour rebondir
+    private final UnstableMerchandisePassive linkedPassive;
+
+    public VoltaicArcActive(String id, String name, String desc, int bounces, double dmgPercent,
+                            double paralyzeChance, double bounceRadius, UnstableMerchandisePassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.maxBounces = bounces;
+        this.damagePercent = dmgPercent;
+        this.paralyzeChance = paralyzeChance;
+        this.bounceRadius = bounceRadius;
+        this.linkedPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 40; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Ajuster les valeurs par niveau
+        int adjustedBounces = maxBounces + (int)((petData.getStatMultiplier() - 1) * 3);
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double adjustedParalyzeChance = paralyzeChance + (petData.getStatMultiplier() - 1) * 0.10;
+        boolean canHitSameTarget = petData.getStarPower() >= 3;
+
+        // Calculer les dégâts
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double arcDamage = weaponDamage * adjustedDamagePercent;
+
+        // Trouver la première cible (la plus proche dans la direction du regard)
+        LivingEntity firstTarget = findTargetInSight(player, 20);
+        if (firstTarget == null) {
+            // Chercher n'importe quel ennemi proche
+            for (Entity entity : world.getNearbyEntities(playerLoc, 15, 15, 15)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()) {
+                    firstTarget = living;
+                    break;
+                }
+            }
+        }
+
+        if (firstTarget == null) {
+            player.sendMessage("§a[Pet] §c⚡ Aucune cible à portée!");
+            return false;
+        }
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
+        world.playSound(playerLoc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_WANDERING_TRADER_TRADE, 1.0f, 1.2f);
+
+        player.sendMessage("§a[Pet] §e§l⚡ ARC VOLTAÏQUE! §7" + adjustedBounces + " rebonds max!");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Démarrer la chaîne d'éclairs
+        startLightningChain(world, playerLoc.clone().add(0, 1.5, 0), firstTarget, arcDamage,
+            adjustedBounces, adjustedParalyzeChance, canHitSameTarget, player, zombieManager, petData);
+
+        return true;
+    }
+
+    /**
+     * Trouve une cible dans la direction du regard du joueur
+     */
+    private LivingEntity findTargetInSight(Player player, double maxDistance) {
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+
+        for (double d = 1; d <= maxDistance; d += 0.5) {
+            Location checkLoc = eyeLoc.clone().add(direction.clone().multiply(d));
+            for (Entity entity : checkLoc.getWorld().getNearbyEntities(checkLoc, 1.5, 1.5, 1.5)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()) {
+                    return living;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Lance la chaîne d'éclairs qui rebondit entre les ennemis
+     */
+    private void startLightningChain(World world, Location startLoc, LivingEntity firstTarget, double damage,
+                                      int remainingBounces, double paralyzeChance, boolean canHitSame,
+                                      Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                      PetData petData) {
+
+        Set<UUID> hitTargets = canHitSame ? null : new HashSet<>();
+        List<LivingEntity> chainTargets = new ArrayList<>();
+        chainTargets.add(firstTarget);
+
+        // Construire la chaîne de cibles
+        LivingEntity currentTarget = firstTarget;
+        Location currentLoc = startLoc.clone();
+
+        for (int i = 0; i < remainingBounces && currentTarget != null; i++) {
+            if (!canHitSame && hitTargets != null) {
+                hitTargets.add(currentTarget.getUniqueId());
+            }
+
+            // Chercher la prochaine cible
+            LivingEntity nextTarget = findNextTarget(world, currentTarget.getLocation(),
+                bounceRadius, canHitSame ? null : hitTargets);
+
+            if (nextTarget != null) {
+                chainTargets.add(nextTarget);
+                currentTarget = nextTarget;
+            } else {
+                break;
+            }
+        }
+
+        // Animer la chaîne d'éclairs
+        final List<LivingEntity> finalChain = chainTargets;
+        new BukkitRunnable() {
+            int currentIndex = 0;
+            Location arcStart = startLoc.clone();
+
+            @Override
+            public void run() {
+                if (currentIndex >= finalChain.size()) {
+                    cancel();
+                    return;
+                }
+
+                LivingEntity target = finalChain.get(currentIndex);
+                if (target.isDead()) {
+                    currentIndex++;
+                    return;
+                }
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+
+                // Dessiner l'arc électrique entre arcStart et targetLoc
+                drawLightningArc(world, arcStart, targetLoc);
+
+                // Impact et dégâts
+                spawnLightningImpact(world, targetLoc);
+                dealLightningDamage(player, target, damage, zombieManager);
+
+                // Chance de paralyser
+                if (Math.random() < paralyzeChance && target instanceof org.bukkit.entity.Mob mob) {
+                    mob.setAI(false);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 15, 0.3, 0.5, 0.3, 0.05);
+
+                    Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                        if (mob.isValid() && !mob.isDead()) {
+                            mob.setAI(true);
+                        }
+                    }, 20L); // 1 seconde
+                }
+
+                arcStart = targetLoc.clone();
+                currentIndex++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 4L);
+
+        // Message de résultat
+        Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+            player.sendMessage("§a[Pet] §e⚡ Arc terminé: §7" + finalChain.size() + " ennemis frappés!");
+        }, (finalChain.size() + 1) * 4L);
+    }
+
+    /**
+     * Trouve la prochaine cible pour le rebond
+     */
+    private LivingEntity findNextTarget(World world, Location fromLoc, double radius, Set<UUID> excludeIds) {
+        LivingEntity closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(fromLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (excludeIds != null && excludeIds.contains(entity.getUniqueId())) {
+                    continue;
+                }
+
+                double dist = living.getLocation().distanceSquared(fromLoc);
+                if (dist > 1 && dist < closestDist) { // > 1 pour éviter la même position
+                    closestDist = dist;
+                    closest = living;
+                }
+            }
+        }
+
+        return closest;
+    }
+
+    /**
+     * Dessine un arc électrique entre deux points (avec particules)
+     */
+    private void drawLightningArc(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 3);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            // Avancer le long de la ligne
+            currentPoint.add(direction.clone().multiply(distance / segments));
+
+            // Ajouter du zigzag aléatoire
+            Location particleLoc = currentPoint.clone().add(
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3
+            );
+
+            // Particules de l'arc
+            world.spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.05, 0.05, 0.05, 0);
+            world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
+
+            // Particules colorées tous les 2 segments
+            if (i % 2 == 0) {
+                world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(100, 200, 255), 1.0f));
+            }
+        }
+
+        // Son de crépitement
+        world.playSound(from, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.8f);
+        world.playSound(to, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 0.6f, 1.5f);
+    }
+
+    /**
+     * Effet visuel d'impact de foudre
+     */
+    private void spawnLightningImpact(World world, Location loc) {
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.5, 0.5, 0.5, 0.15);
+        world.spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.4, 0.3, 0.05);
+        world.spawnParticle(Particle.FIREWORK, loc, 6, 0.2, 0.2, 0.2, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 8, 0.3, 0.3, 0.3, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 255, 150), 1.5f));
+
+        // Colonne de lumière
+        for (double y = 0; y < 1.5; y += 0.2) {
+            Location colLoc = loc.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 1, 0.05, 0, 0.05, 0);
+        }
+
+        world.playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.8f, 1.3f);
+    }
+
+    /**
+     * Inflige des dégâts de foudre
+     */
+    private void dealLightningDamage(Player player, LivingEntity target, double damage,
+                                      com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.LIGHTNING, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
+
+// ==================== MARCHEUR DE BRAISE (STRIDER) ====================
+
+/**
+ * Passif: Braises Critiques
+ * +6% crit par ennemi en feu dans un rayon de 32 blocs (max 5 stacks = 30%)
+ * Le bonus dure 3 secondes après que l'ennemi cesse de brûler
+ */
+class BurningCritPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double critPerBurning;  // +6% par ennemi
+    private final int maxStacks;          // Max 5
+    private final double range;           // 32 blocs
+    private final long stackDuration;     // 3 secondes
+
+    // Track des stacks par joueur
+    private static final Map<UUID, Integer> currentStacks = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> lastStackUpdate = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(currentStacks::remove);
+        PassiveAbilityCleanup.registerForCleanup(lastStackUpdate::remove);
+    }
+
+    public BurningCritPassive(String id, String name, String description,
+                               double critPerBurning, int maxStacks, double range, long stackDurationSeconds) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.critPerBurning = critPerBurning;
+        this.maxStacks = maxStacks;
+        this.range = range;
+        this.stackDuration = stackDurationSeconds * 1000;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Compte les ennemis en feu dans le rayon
+        int burningEnemies = countBurningEnemies(player);
+
+        // Calcule les stacks (max 5)
+        int stacks = Math.min(burningEnemies, maxStacks);
+
+        // Met à jour les stacks
+        UUID playerId = player.getUniqueId();
+        int previousStacks = currentStacks.getOrDefault(playerId, 0);
+
+        if (stacks > 0) {
+            currentStacks.put(playerId, stacks);
+            lastStackUpdate.put(playerId, System.currentTimeMillis());
+
+            // Affiche le changement de stacks
+            if (stacks != previousStacks) {
+                double totalCrit = stacks * critPerBurning * 100;
+                player.sendActionBar(net.kyori.adventure.text.Component.text(
+                    "§6🔥 Braises Critiques: §e+" + String.format("%.0f", totalCrit) + "% crit §7(" + stacks + "/" + maxStacks + ")"
+                ));
+
+                // Effet visuel
+                player.getWorld().spawnParticle(Particle.FLAME, player.getLocation().add(0, 1, 0),
+                    stacks * 3, 0.5, 0.5, 0.5, 0.02);
+            }
+        } else {
+            // Vérifie si le bonus a expiré
+            Long lastUpdate = lastStackUpdate.get(playerId);
+            if (lastUpdate != null && System.currentTimeMillis() - lastUpdate > stackDuration) {
+                currentStacks.remove(playerId);
+                lastStackUpdate.remove(playerId);
+            }
+        }
+    }
+
+    /**
+     * Compte les ennemis en feu dans le rayon
+     */
+    private int countBurningEnemies(Player player) {
+        int count = 0;
+        Location playerLoc = player.getLocation();
+        double rangeSquared = range * range;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(playerLoc, range, range, range)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (living.getFireTicks() > 0 && living.getLocation().distanceSquared(playerLoc) <= rangeSquared) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Obtient le bonus de crit actuel pour un joueur
+     */
+    public double getCritBonus(Player player) {
+        int stacks = currentStacks.getOrDefault(player.getUniqueId(), 0);
+        return stacks * critPerBurning;
+    }
+
+    /**
+     * Obtient le nombre de stacks actuel
+     */
+    public int getCurrentStacks(Player player) {
+        return currentStacks.getOrDefault(player.getUniqueId(), 0);
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Le bonus de crit est appliqué via le système de combat
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        currentStacks.remove(player.getUniqueId());
+        lastStackUpdate.remove(player.getUniqueId());
+    }
+}
+
+/**
+ * Ultimate: Rayon de Désintégration
+ * Canalise un rayon d'énergie brûlante qui inflige des dégâts croissants
+ * et désintègre les ennemis tués
+ */
+class DisintegrationRayActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double baseDamagePercent;    // 100% arme/s
+    private final double damageIncreasePercent; // +50% arme/s
+    private final double maxDamagePercent;      // 400% max
+    private final double range;                 // Portée du rayon
+    private final int durationTicks;            // Durée de la canalisation
+    private final BurningCritPassive linkedPassive;
+
+    // Track des joueurs qui canalisent
+    private static final Map<UUID, BukkitTask> activeChannels = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            BukkitTask task = activeChannels.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public DisintegrationRayActive(String id, String name, String description,
+                                    double baseDamagePercent, double damageIncreasePercent,
+                                    double maxDamagePercent, double range, int durationSeconds,
+                                    BurningCritPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.baseDamagePercent = baseDamagePercent;
+        this.damageIncreasePercent = damageIncreasePercent;
+        this.maxDamagePercent = maxDamagePercent;
+        this.range = range;
+        this.durationTicks = durationSeconds * 20;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule le canal précédent si existant
+        BukkitTask existingTask = activeChannels.remove(playerId);
+        if (existingTask != null) {
+            existingTask.cancel();
+        }
+
+        // Obtient le plugin et le ZombieManager
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        // Calculer les dégâts de base (% de l'arme)
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Effet d'activation
+        player.sendMessage("§6§l⚡ RAYON DE DÉSINTÉGRATION ACTIVÉ!");
+        player.getWorld().playSound(player.getLocation(), Sound.ITEM_FIRECHARGE_USE, 1.5f, 0.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1.0f, 0.8f);
+
+        // Démarre la canalisation
+        final int[] ticksElapsed = {0};
+        final double[] currentDamageMultiplier = {baseDamagePercent};
+
+        BukkitTask channelTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Vérifie si le joueur est toujours en ligne et vivant
+                if (!player.isOnline() || player.isDead()) {
+                    endChannel(player, "§cRayon interrompu!");
+                    return;
+                }
+
+                ticksElapsed[0]++;
+
+                // Fin de la canalisation
+                if (ticksElapsed[0] >= durationTicks) {
+                    endChannel(player, "§6Rayon de Désintégration terminé.");
+                    return;
+                }
+
+                // Augmente les dégâts chaque seconde
+                if (ticksElapsed[0] % 20 == 0) {
+                    currentDamageMultiplier[0] = Math.min(
+                        currentDamageMultiplier[0] + damageIncreasePercent,
+                        maxDamagePercent
+                    );
+                }
+
+                // Tire le rayon toutes les 10 ticks (0.5s)
+                if (ticksElapsed[0] % 10 == 0) {
+                    fireDisintegrationRay(player, zombieManager, weaponDamage,
+                        currentDamageMultiplier[0], statMultiplier, petData);
+                }
+
+                // Effet visuel continu sur le joueur
+                if (ticksElapsed[0] % 5 == 0) {
+                    spawnChannelParticles(player);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeChannels.put(playerId, channelTask);
+    }
+
+    /**
+     * Termine la canalisation
+     */
+    private void endChannel(Player player, String message) {
+        UUID playerId = player.getUniqueId();
+        BukkitTask task = activeChannels.remove(playerId);
+        if (task != null) {
+            task.cancel();
+        }
+        player.sendMessage(message);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.2f);
+    }
+
+    /**
+     * Tire le rayon de désintégration
+     */
+    private void fireDisintegrationRay(Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                        double weaponDamage, double damageMultiplier, double statMultiplier,
+                                        PetData petData) {
+        World world = player.getWorld();
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+
+        // Trouve l'ennemi ciblé
+        LivingEntity target = findTargetInRay(player, eyeLoc, direction, range);
+
+        // Dessine le rayon (toujours, même sans cible)
+        Location endPoint = target != null ? target.getLocation().add(0, 1, 0)
+            : eyeLoc.clone().add(direction.clone().multiply(range));
+        drawDisintegrationBeam(world, eyeLoc, endPoint, target != null);
+
+        // Inflige des dégâts si cible trouvée
+        if (target != null) {
+            double damage = weaponDamage * damageMultiplier * statMultiplier;
+
+            // Bonus si le passif est actif
+            if (linkedPassive != null) {
+                int stacks = linkedPassive.getCurrentStacks(player);
+                if (stacks > 0) {
+                    damage *= (1.0 + stacks * 0.10); // +10% par stack
+                }
+            }
+
+            // Met le feu à la cible
+            target.setFireTicks(60);
+
+            // Inflige les dégâts
+            boolean killed = false;
+            if (zombieManager != null) {
+                var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    double healthBefore = target.getHealth();
+                    zombieManager.damageZombie(player, activeZombie, damage,
+                        com.rinaorc.zombiez.zombies.DamageType.FIRE, false);
+                    killed = target.isDead() || target.getHealth() <= 0;
+                } else {
+                    target.damage(damage, player);
+                    killed = target.isDead();
+                }
+            } else {
+                target.damage(damage, player);
+                killed = target.isDead();
+            }
+
+            // Effet de désintégration si tué
+            if (killed) {
+                spawnDisintegrationEffect(world, target.getLocation());
+            }
+        }
+    }
+
+    /**
+     * Trouve une cible dans la direction du rayon
+     */
+    private LivingEntity findTargetInRay(Player player, Location start, Vector direction, double maxRange) {
+        LivingEntity closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Entity entity : player.getWorld().getNearbyEntities(start, maxRange, maxRange, maxRange)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                Location targetLoc = living.getLocation().add(0, 1, 0);
+                Vector toTarget = targetLoc.toVector().subtract(start.toVector());
+
+                // Vérifie si dans le cône du rayon (angle < 10 degrés)
+                double angle = direction.angle(toTarget.clone().normalize());
+                if (angle < Math.toRadians(10)) {
+                    double dist = toTarget.length();
+                    if (dist < closestDist && dist <= maxRange) {
+                        closestDist = dist;
+                        closest = living;
+                    }
+                }
+            }
+        }
+        return closest;
+    }
+
+    /**
+     * Dessine le rayon de désintégration
+     */
+    private void drawDisintegrationBeam(World world, Location from, Location to, boolean hasTarget) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 4);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            currentPoint.add(direction.clone().multiply(distance / segments));
+
+            // Couleur selon si on touche une cible
+            if (hasTarget) {
+                // Rayon orange/rouge intense
+                world.spawnParticle(Particle.FLAME, currentPoint, 2, 0.05, 0.05, 0.05, 0.01);
+                world.spawnParticle(Particle.DUST, currentPoint, 3, 0.08, 0.08, 0.08, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 100, 0), 1.2f));
+            } else {
+                // Rayon jaune/orange
+                world.spawnParticle(Particle.DUST, currentPoint, 2, 0.06, 0.06, 0.06, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 180, 50), 0.8f));
+            }
+
+            // Étincelles tous les 3 segments
+            if (i % 3 == 0) {
+                world.spawnParticle(Particle.LAVA, currentPoint, 1, 0.1, 0.1, 0.1, 0);
+            }
+        }
+
+        // Son du rayon
+        world.playSound(from, Sound.ENTITY_BLAZE_SHOOT, 0.3f, 1.5f);
+    }
+
+    /**
+     * Effet de désintégration quand un ennemi meurt
+     */
+    private void spawnDisintegrationEffect(World world, Location loc) {
+        // Explosion de cendres et particules
+        world.spawnParticle(Particle.FLAME, loc.add(0, 1, 0), 50, 0.5, 0.8, 0.5, 0.15);
+        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc, 20, 0.3, 0.5, 0.3, 0.05);
+        world.spawnParticle(Particle.ASH, loc, 80, 1.0, 1.0, 1.0, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 30, 0.6, 0.8, 0.6, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(50, 50, 50), 1.5f));
+
+        // Spirale montante de cendres
+        for (double y = 0; y < 2.0; y += 0.15) {
+            double angle = y * Math.PI * 2;
+            double radius = 0.4 * (1 - y/2);
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            world.spawnParticle(Particle.CAMPFIRE_SIGNAL_SMOKE, loc.clone().add(x, y, z),
+                1, 0, 0, 0, 0);
+        }
+
+        // Sons
+        world.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 1.5f, 0.6f);
+        world.playSound(loc, Sound.ENTITY_BLAZE_DEATH, 0.8f, 1.5f);
+
+        // Message
+        world.getPlayers().stream()
+            .filter(p -> p.getLocation().distanceSquared(loc) < 400)
+            .forEach(p -> p.sendMessage("§8§o*Un ennemi a été réduit en cendres*"));
+    }
+
+    /**
+     * Particules de canalisation autour du joueur
+     */
+    private void spawnChannelParticles(Player player) {
+        Location loc = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Aura de chaleur
+        for (int i = 0; i < 3; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double radius = 0.5 + Math.random() * 0.3;
+            double x = Math.cos(angle) * radius;
+            double z = Math.sin(angle) * radius;
+            world.spawnParticle(Particle.FLAME, loc.clone().add(x, 0, z), 1, 0, 0.2, 0, 0.02);
+        }
+
+        // Particules sur les mains
+        Location handLoc = player.getEyeLocation().add(player.getEyeLocation().getDirection().multiply(0.5));
+        world.spawnParticle(Particle.DUST, handLoc, 3, 0.1, 0.1, 0.1, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 150, 0), 0.6f));
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        BukkitTask task = activeChannels.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+    }
+}
+
+// ==================== ARCHONTE AQUATIQUE (DOLPHIN) ====================
+
+/**
+ * Passif: Sensibilité Élémentaire
+ * Les dégâts élémentaires appliquent des stacks de vulnérabilité (+5% dégâts subis/type)
+ * Max 4 types différents = +20% dégâts subis, durée 5s par stack
+ */
+class ElementalSensitivityPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double damagePerStack;  // +5% par type élémentaire
+    private final int maxStacks;          // Max 4 types
+    private final long stackDuration;     // 5 secondes
+
+    // Track des stacks par ennemi: UUID ennemi -> Map<ElementType, expiration>
+    private static final Map<UUID, Map<ElementType, Long>> enemyStacks = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(enemyStacks::remove);
+    }
+
+    // Types élémentaires supportés
+    public enum ElementType {
+        FIRE("§6🔥", org.bukkit.Color.ORANGE),
+        ICE("§b❄", org.bukkit.Color.AQUA),
+        LIGHTNING("§e⚡", org.bukkit.Color.YELLOW),
+        POISON("§2☠", org.bukkit.Color.GREEN);
+
+        public final String icon;
+        public final org.bukkit.Color color;
+
+        ElementType(String icon, org.bukkit.Color color) {
+            this.icon = icon;
+            this.color = color;
+        }
+    }
+
+    public ElementalSensitivityPassive(String id, String name, String description,
+                                        double damagePerStack, int maxStacks, long stackDurationSeconds) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.damagePerStack = damagePerStack;
+        this.maxStacks = maxStacks;
+        this.stackDuration = stackDurationSeconds * 1000;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Détecte le type de dégât élémentaire infligé
+        // Ceci sera appelé via le système de combat avec le DamageType
+    }
+
+    /**
+     * Applique un stack élémentaire à un ennemi
+     * Appelé depuis le système de combat quand des dégâts élémentaires sont infligés
+     */
+    public void applyElementalStack(Player player, LivingEntity target, ElementType element) {
+        UUID targetId = target.getUniqueId();
+        long expiration = System.currentTimeMillis() + stackDuration;
+
+        Map<ElementType, Long> stacks = enemyStacks.computeIfAbsent(targetId, k -> new ConcurrentHashMap<>());
+
+        // Vérifie si c'est un nouveau type
+        boolean isNewStack = !stacks.containsKey(element) || stacks.get(element) < System.currentTimeMillis();
+
+        stacks.put(element, expiration);
+
+        // Nettoie les stacks expirés
+        stacks.entrySet().removeIf(entry -> entry.getValue() < System.currentTimeMillis());
+
+        // Affiche les stacks actifs
+        int activeStacks = Math.min(stacks.size(), maxStacks);
+
+        if (isNewStack && activeStacks > 0) {
+            // Effet visuel sur la cible
+            Location loc = target.getLocation().add(0, 1, 0);
+            target.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0,
+                new Particle.DustOptions(element.color, 1.2f));
+
+            // Construit l'affichage des stacks
+            StringBuilder stackDisplay = new StringBuilder("§7[");
+            for (ElementType et : ElementType.values()) {
+                if (stacks.containsKey(et) && stacks.get(et) >= System.currentTimeMillis()) {
+                    stackDisplay.append(et.icon);
+                }
+            }
+            stackDisplay.append("§7]");
+
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§d✧ Sensibilité: " + stackDisplay + " §7(+" + String.format("%.0f", activeStacks * damagePerStack * 100) + "% dégâts)"
+            ));
+
+            // Son
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.5f + activeStacks * 0.2f);
+        }
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts bonus contre un ennemi
+     */
+    public double getDamageMultiplier(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        Map<ElementType, Long> stacks = enemyStacks.get(targetId);
+
+        if (stacks == null || stacks.isEmpty()) {
+            return 1.0;
+        }
+
+        // Nettoie les stacks expirés
+        long now = System.currentTimeMillis();
+        stacks.entrySet().removeIf(entry -> entry.getValue() < now);
+
+        int activeStacks = Math.min(stacks.size(), maxStacks);
+        return 1.0 + (activeStacks * damagePerStack);
+    }
+
+    /**
+     * Vérifie le nombre de stacks actifs sur un ennemi
+     */
+    public int getActiveStacks(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        Map<ElementType, Long> stacks = enemyStacks.get(targetId);
+
+        if (stacks == null) return 0;
+
+        long now = System.currentTimeMillis();
+        stacks.entrySet().removeIf(entry -> entry.getValue() < now);
+
+        return Math.min(stacks.size(), maxStacks);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        // Nettoie les stacks de l'ennemi tué
+        enemyStacks.remove(victim.getUniqueId());
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) { }
+}
+
+/**
+ * Ultimate: Forme d'Archonte
+ * Transformation en être d'énergie arcanique - scale x1.5, glowing violet
+ * +30% dégâts, +150% armure/résistances, +6% dégâts par kill
+ */
+class ArchonFormActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double baseDamageBonus;     // +30%
+    private final double armorBonus;          // +150%
+    private final double damagePerKill;       // +6%
+    private final int durationTicks;          // 20 secondes
+    private final ElementalSensitivityPassive linkedPassive;
+
+    // Track des joueurs en forme d'archonte
+    private static final Map<UUID, ArchonState> activeArchons = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            ArchonState state = activeArchons.remove(uuid);
+            if (state != null) state.cancel();
+        });
+    }
+
+    private static class ArchonState {
+        BukkitTask task;
+        int killCount = 0;
+        double originalScale = 1.0;
+
+        void cancel() {
+            if (task != null) task.cancel();
+        }
+    }
+
+    public ArchonFormActive(String id, String name, String description,
+                             double baseDamageBonus, double armorBonus,
+                             double damagePerKill, int durationSeconds,
+                             ElementalSensitivityPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.baseDamageBonus = baseDamageBonus;
+        this.armorBonus = armorBonus;
+        this.damagePerKill = damagePerKill;
+        this.durationTicks = durationSeconds * 20;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule la transformation précédente si existante
+        ArchonState existingState = activeArchons.remove(playerId);
+        if (existingState != null) {
+            existingState.cancel();
+            revertTransformation(player, existingState);
+        }
+
+        // Obtient le plugin
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Crée le nouvel état
+        ArchonState state = new ArchonState();
+
+        // Sauvegarde le scale original
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            state.originalScale = scaleAttr.getBaseValue();
+        }
+
+        // Applique la transformation
+        applyTransformation(player, state);
+
+        // Message d'activation
+        player.sendTitle("§5§l✦ ARCHONTE ✦", "§dForme d'énergie pure activée!", 5, 40, 10);
+        player.sendMessage("§5§l⚡ FORME D'ARCHONTE ACTIVÉE!");
+        player.sendMessage("§7» §a+30% dégâts §7| §b+150% armure §7| §e+6% par kill");
+
+        // Sons et effets
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.5f, 1.2f);
+        spawnArchonNovaEffect(player);
+
+        // Timer de la transformation
+        final int[] ticksRemaining = {durationTicks};
+
+        state.task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Vérifie si le joueur est toujours en ligne et vivant
+                if (!player.isOnline() || player.isDead()) {
+                    endArchonForm(player, state, "§cForme d'Archonte interrompue!");
+                    return;
+                }
+
+                ticksRemaining[0]--;
+
+                // Fin de la transformation
+                if (ticksRemaining[0] <= 0) {
+                    endArchonForm(player, state, "§5Forme d'Archonte terminée. §7(Kills: " + state.killCount + ")");
+                    return;
+                }
+
+                // Effets visuels continus
+                if (ticksRemaining[0] % 10 == 0) {
+                    spawnArchonAura(player);
+                }
+
+                // Affichage du temps restant toutes les secondes
+                if (ticksRemaining[0] % 20 == 0) {
+                    int secondsLeft = ticksRemaining[0] / 20;
+                    double totalDamageBonus = baseDamageBonus + (state.killCount * damagePerKill);
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§5✦ Archonte: §f" + secondsLeft + "s §7| §a+" +
+                        String.format("%.0f", totalDamageBonus * 100) + "% dégâts §7| §eKills: " + state.killCount
+                    ));
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeArchons.put(playerId, state);
+    }
+
+    /**
+     * Applique la transformation d'Archonte
+     */
+    private void applyTransformation(Player player, ArchonState state) {
+        // Scale x1.5
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            scaleAttr.setBaseValue(1.5);
+        }
+
+        // Glowing effet (violet via scoreboard team)
+        applyGlowingEffect(player, true);
+
+        // Bonus d'armure temporaire (via potion effect pour simplicité)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, durationTicks, 2, false, false));
+    }
+
+    /**
+     * Retire la transformation d'Archonte
+     */
+    private void revertTransformation(Player player, ArchonState state) {
+        // Restaure le scale
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            scaleAttr.setBaseValue(state.originalScale);
+        }
+
+        // Retire le glowing
+        applyGlowingEffect(player, false);
+
+        // Retire l'effet de résistance
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+    }
+
+    /**
+     * Applique/retire l'effet de glowing violet
+     */
+    private void applyGlowingEffect(Player player, boolean apply) {
+        if (apply) {
+            player.setGlowing(true);
+            // Le glowing utilise la couleur de la team du joueur
+            // Pour un effet violet, on pourrait utiliser une team temporaire
+            // Mais pour simplicité, on utilise juste le glowing standard
+        } else {
+            player.setGlowing(false);
+        }
+    }
+
+    /**
+     * Termine la forme d'Archonte
+     */
+    private void endArchonForm(Player player, ArchonState state, String message) {
+        UUID playerId = player.getUniqueId();
+        activeArchons.remove(playerId);
+
+        if (state.task != null) {
+            state.task.cancel();
+        }
+
+        revertTransformation(player, state);
+
+        player.sendMessage(message);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.0f);
+
+        // Effet de fin
+        Location loc = player.getLocation().add(0, 1, 0);
+        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 50, 0.5, 0.8, 0.5, 0.1);
+    }
+
+    /**
+     * Nova d'activation
+     */
+    private void spawnArchonNovaEffect(Player player) {
+        Location center = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Onde de choc circulaire
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            for (double r = 0.5; r < 4; r += 0.5) {
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                Location particleLoc = center.clone().add(x, 0, z);
+
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(128, 0, 255), 1.5f));
+            }
+        }
+
+        // Colonne centrale
+        for (double y = 0; y < 3; y += 0.2) {
+            Location colLoc = center.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 2, 0.1, 0, 0.1, 0.02);
+            world.spawnParticle(Particle.PORTAL, colLoc, 5, 0.2, 0.2, 0.2, 0.5);
+        }
+    }
+
+    /**
+     * Aura continue de l'Archonte
+     */
+    private void spawnArchonAura(Player player) {
+        Location loc = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Spirale violette autour du joueur
+        double time = System.currentTimeMillis() / 200.0;
+        for (int i = 0; i < 3; i++) {
+            double angle = time + (i * Math.PI * 2 / 3);
+            double x = Math.cos(angle) * 0.8;
+            double z = Math.sin(angle) * 0.8;
+
+            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0, z), 3, 0.1, 0.3, 0.1, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(180, 50, 255), 1.0f));
+        }
+
+        // Particules de portail
+        world.spawnParticle(Particle.PORTAL, loc, 8, 0.4, 0.6, 0.4, 0.3);
+    }
+
+    /**
+     * Vérifie si un joueur est en forme d'Archonte
+     */
+    public boolean isInArchonForm(Player player) {
+        return activeArchons.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts total (base + kills)
+     */
+    public double getDamageMultiplier(Player player) {
+        ArchonState state = activeArchons.get(player.getUniqueId());
+        if (state == null) return 1.0;
+
+        return 1.0 + baseDamageBonus + (state.killCount * damagePerKill);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        ArchonState state = activeArchons.get(player.getUniqueId());
+        if (state != null) {
+            state.killCount++;
+
+            // Effet visuel de power-up
+            Location loc = player.getLocation().add(0, 1.5, 0);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 10, 0.3, 0.3, 0.3, 0.1);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f + state.killCount * 0.05f);
+
+            double totalBonus = baseDamageBonus + (state.killCount * damagePerKill);
+            player.sendMessage("§5§l⚡ §dKill Archonte! §7Dégâts: §a+" + String.format("%.0f", totalBonus * 100) + "%");
+        }
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        ArchonState state = activeArchons.remove(player.getUniqueId());
+        if (state != null) {
+            state.cancel();
+            revertTransformation(player, state);
+        }
+    }
+}
+
+// ==================== ANCRAGE DU NÉANT (ENDERMAN) ====================
+
+/**
+ * Passif: Gravité du Vide
+ * Zone de 6 blocs autour du joueur
+ * Ennemis: -20% vitesse, attraction vers le joueur
+ * +15% dégâts contre les ennemis dans la zone
+ */
+class VoidGravityPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double zoneRadius;       // 6 blocs
+    private final double slowPercent;      // -20%
+    private final double pullStrength;     // Force d'attraction
+    private final double damageBonus;      // +15%
+
+    // Track des ennemis dans la zone par joueur
+    private static final Map<UUID, Set<UUID>> enemiesInZone = new ConcurrentHashMap<>();
+    private static final Map<UUID, BukkitTask> zoneTasks = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            enemiesInZone.remove(uuid);
+            BukkitTask task = zoneTasks.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public VoidGravityPassive(String id, String name, String description,
+                               double zoneRadius, double slowPercent, double pullStrength, double damageBonus) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.zoneRadius = zoneRadius;
+        this.slowPercent = slowPercent;
+        this.pullStrength = pullStrength;
+        this.damageBonus = damageBonus;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // La zone est gérée via onEquip avec un task répétitif
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        enemiesInZone.put(playerId, ConcurrentHashMap.newKeySet());
+
+        // Obtient le plugin
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Crée le task de zone
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead()) {
+                    return;
+                }
+
+                processZone(player, plugin);
+            }
+        }.runTaskTimer(plugin, 0L, 5L); // Toutes les 5 ticks (0.25s)
+
+        zoneTasks.put(playerId, task);
+    }
+
+    /**
+     * Traite la zone gravitationnelle
+     */
+    private void processZone(Player player, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        Location center = player.getLocation();
+        World world = player.getWorld();
+        Set<UUID> currentEnemies = enemiesInZone.get(player.getUniqueId());
+        if (currentEnemies == null) return;
+
+        Set<UUID> foundEnemies = new HashSet<>();
+
+        // Parcourt les entités dans la zone
+        for (Entity entity : world.getNearbyEntities(center, zoneRadius, zoneRadius, zoneRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distance = living.getLocation().distance(center);
+                if (distance <= zoneRadius && distance > 1.0) {
+                    foundEnemies.add(entity.getUniqueId());
+
+                    // Applique le slow
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 15, 1, false, false));
+
+                    // Attraction vers le joueur
+                    Vector pullDirection = center.toVector().subtract(living.getLocation().toVector()).normalize();
+                    double pullForce = pullStrength * (1 - distance / zoneRadius); // Plus fort quand proche
+                    living.setVelocity(living.getVelocity().add(pullDirection.multiply(pullForce)));
+
+                    // Particules de vide sur l'ennemi
+                    world.spawnParticle(Particle.PORTAL, living.getLocation().add(0, 1, 0),
+                        5, 0.3, 0.5, 0.3, 0.1);
+                }
+            }
+        }
+
+        // Met à jour les ennemis dans la zone
+        currentEnemies.clear();
+        currentEnemies.addAll(foundEnemies);
+
+        // Effet visuel de la zone
+        spawnZoneEffect(player, world);
+    }
+
+    /**
+     * Effet visuel de la zone gravitationnelle
+     */
+    private void spawnZoneEffect(Player player, World world) {
+        Location center = player.getLocation().add(0, 0.1, 0);
+
+        // Cercle de particules au sol
+        double time = System.currentTimeMillis() / 500.0;
+        for (int i = 0; i < 8; i++) {
+            double angle = time + (i * Math.PI * 2 / 8);
+            double x = Math.cos(angle) * zoneRadius;
+            double z = Math.sin(angle) * zoneRadius;
+
+            Location particleLoc = center.clone().add(x, 0, z);
+            world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(75, 0, 130), 1.0f));
+        }
+
+        // Spirale d'aspiration
+        for (double r = zoneRadius; r > 0.5; r -= 1.5) {
+            double angle = time * 2 + r;
+            double x = Math.cos(angle) * r;
+            double z = Math.sin(angle) * r;
+
+            Location particleLoc = center.clone().add(x, 0.5, z);
+            world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est dans la zone
+     */
+    public boolean isInZone(Player player, LivingEntity target) {
+        Set<UUID> enemies = enemiesInZone.get(player.getUniqueId());
+        return enemies != null && enemies.contains(target.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts
+     */
+    public double getDamageMultiplier(Player player, LivingEntity target) {
+        if (isInZone(player, target)) {
+            return 1.0 + damageBonus;
+        }
+        return 1.0;
+    }
+
+    /**
+     * Obtient le nombre d'ennemis dans la zone
+     */
+    public int getEnemyCount(Player player) {
+        Set<UUID> enemies = enemiesInZone.get(player.getUniqueId());
+        return enemies != null ? enemies.size() : 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Le bonus de dégâts est appliqué via getDamageMultiplier
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        enemiesInZone.remove(playerId);
+        BukkitTask task = zoneTasks.remove(playerId);
+        if (task != null) task.cancel();
+    }
+}
+
+/**
+ * Ultimate: Singularité
+ * Crée un trou noir qui aspire tous les ennemis pendant 2s
+ * Puis explosion de vide (300% dégâts) + dispersion violente
+ */
+class SingularityActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double pullRadius;       // 12 blocs
+    private final double chargeDuration;   // 2 secondes
+    private final double explosionDamage;  // 300% arme
+    private final double knockbackForce;   // Force de dispersion
+    private final VoidGravityPassive linkedPassive;
+
+    // Track des singularités actives
+    private static final Map<UUID, BukkitTask> activeSingularities = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            BukkitTask task = activeSingularities.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public SingularityActive(String id, String name, String description,
+                              double pullRadius, double chargeDuration, double explosionDamage,
+                              double knockbackForce, VoidGravityPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.pullRadius = pullRadius;
+        this.chargeDuration = chargeDuration;
+        this.explosionDamage = explosionDamage;
+        this.knockbackForce = knockbackForce;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule la singularité précédente si existante
+        BukkitTask existingTask = activeSingularities.remove(playerId);
+        if (existingTask != null) {
+            existingTask.cancel();
+        }
+
+        // Obtient le plugin et le ZombieManager
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        // Position du trou noir (devant le joueur)
+        Location singularityLoc = player.getLocation().add(player.getLocation().getDirection().multiply(3)).add(0, 1.5, 0);
+        World world = player.getWorld();
+
+        // Calcul des dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Message d'activation
+        player.sendMessage("§5§l✦ SINGULARITÉ CRÉÉE!");
+        world.playSound(singularityLoc, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
+        world.playSound(singularityLoc, Sound.BLOCK_PORTAL_TRIGGER, 1.5f, 0.3f);
+
+        // Phase d'aspiration
+        final int chargeTicks = (int)(chargeDuration * 20);
+        final int[] ticksElapsed = {0};
+        final Set<LivingEntity> caughtEnemies = ConcurrentHashMap.newKeySet();
+
+        BukkitTask singularityTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                ticksElapsed[0]++;
+
+                // Vérifie si le joueur est toujours en ligne
+                if (!player.isOnline() || player.isDead()) {
+                    cancel();
+                    activeSingularities.remove(playerId);
+                    return;
+                }
+
+                // Phase d'aspiration
+                if (ticksElapsed[0] <= chargeTicks) {
+                    // Attire les ennemis
+                    pullEnemies(world, singularityLoc, caughtEnemies);
+
+                    // Effets visuels du trou noir
+                    spawnBlackHoleEffect(world, singularityLoc, ticksElapsed[0], chargeTicks);
+
+                    // Affichage du compte à rebours
+                    if (ticksElapsed[0] % 20 == 0) {
+                        int secondsLeft = (chargeTicks - ticksElapsed[0]) / 20;
+                        player.sendActionBar(net.kyori.adventure.text.Component.text(
+                            "§5✦ Singularité: §f" + (secondsLeft + 1) + "s §7| §e" + caughtEnemies.size() + " ennemis"
+                        ));
+                    }
+                }
+                // Explosion
+                else if (ticksElapsed[0] == chargeTicks + 1) {
+                    explodeSingularity(player, world, singularityLoc, caughtEnemies,
+                        weaponDamage, statMultiplier, zombieManager);
+                    cancel();
+                    activeSingularities.remove(playerId);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeSingularities.put(playerId, singularityTask);
+    }
+
+    /**
+     * Attire les ennemis vers le trou noir
+     */
+    private void pullEnemies(World world, Location center, Set<LivingEntity> caughtEnemies) {
+        for (Entity entity : world.getNearbyEntities(center, pullRadius, pullRadius, pullRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                caughtEnemies.add(living);
+
+                // Force d'attraction
+                Vector pullDirection = center.toVector().subtract(living.getLocation().toVector());
+                double distance = pullDirection.length();
+
+                if (distance > 0.5) {
+                    pullDirection.normalize();
+                    double pullForce = 0.5 * (1 - distance / pullRadius); // Plus fort quand proche
+                    living.setVelocity(pullDirection.multiply(pullForce));
+                }
+
+                // Slow massif
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 3, false, false));
+
+                // Particules sur l'ennemi
+                world.spawnParticle(Particle.PORTAL, living.getLocation().add(0, 1, 0),
+                    8, 0.3, 0.5, 0.3, 0.5);
+            }
+        }
+    }
+
+    /**
+     * Effet visuel du trou noir
+     */
+    private void spawnBlackHoleEffect(World world, Location center, int ticksElapsed, int maxTicks) {
+        double progress = (double) ticksElapsed / maxTicks;
+        double radius = 1.5 + progress * 1.5; // Grossit avec le temps
+
+        // Sphère de vide
+        for (int i = 0; i < 20; i++) {
+            double theta = Math.random() * Math.PI * 2;
+            double phi = Math.random() * Math.PI;
+            double x = Math.sin(phi) * Math.cos(theta) * radius;
+            double y = Math.sin(phi) * Math.sin(theta) * radius;
+            double z = Math.cos(phi) * radius;
+
+            Location particleLoc = center.clone().add(x, y, z);
+            world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(20, 0, 40), 1.5f));
+        }
+
+        // Spirale d'aspiration
+        double time = ticksElapsed / 2.0;
+        for (double r = pullRadius; r > radius; r -= 1.0) {
+            double angle = time + r * 0.5;
+            double x = Math.cos(angle) * r;
+            double z = Math.sin(angle) * r;
+
+            Location spiralLoc = center.clone().add(x, 0, z);
+            world.spawnParticle(Particle.END_ROD, spiralLoc, 1, 0, 0, 0, 0);
+        }
+
+        // Centre brillant
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 15, 0.3, 0.3, 0.3, 0.1);
+
+        // Son de charge
+        if (ticksElapsed % 10 == 0) {
+            world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, 0.8f, 0.5f + (float)progress * 0.5f);
+        }
+    }
+
+    /**
+     * Explosion de la singularité
+     */
+    private void explodeSingularity(Player player, World world, Location center,
+                                     Set<LivingEntity> caughtEnemies, double weaponDamage,
+                                     double statMultiplier, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        double damage = weaponDamage * explosionDamage * statMultiplier;
+
+        // Bonus si le passif est actif
+        if (linkedPassive != null) {
+            int enemiesInZone = linkedPassive.getEnemyCount(player);
+            if (enemiesInZone > 0) {
+                damage *= (1.0 + enemiesInZone * 0.05); // +5% par ennemi dans la zone passive
+            }
+        }
+
+        // Inflige les dégâts et disperse les ennemis
+        int killed = 0;
+        for (LivingEntity target : caughtEnemies) {
+            if (target.isDead()) continue;
+
+            // Dégâts
+            boolean targetKilled = false;
+            if (zombieManager != null) {
+                var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    zombieManager.damageZombie(player, activeZombie, damage,
+                        com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                    targetKilled = target.isDead() || target.getHealth() <= 0;
+                } else {
+                    target.damage(damage, player);
+                    targetKilled = target.isDead();
+                }
+            } else {
+                target.damage(damage, player);
+                targetKilled = target.isDead();
+            }
+
+            if (targetKilled) {
+                killed++;
+            } else {
+                // Dispersion violente (knockback)
+                Vector knockback = target.getLocation().toVector().subtract(center.toVector()).normalize();
+                knockback.setY(0.5); // Légère élévation
+                target.setVelocity(knockback.multiply(knockbackForce));
+
+                // Effet de dispersion
+                world.spawnParticle(Particle.EXPLOSION, target.getLocation(), 1);
+            }
+        }
+
+        // Effet d'explosion
+        spawnExplosionEffect(world, center);
+
+        // Message
+        player.sendMessage("§5§l✦ SINGULARITÉ EXPLOSE! §7" + caughtEnemies.size() + " touchés, §c" + killed + " tués");
+    }
+
+    /**
+     * Effet visuel de l'explosion
+     */
+    private void spawnExplosionEffect(World world, Location center) {
+        // Onde de choc
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            for (double r = 0.5; r < pullRadius; r += 0.8) {
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                Location particleLoc = center.clone().add(x, 0, z);
+
+                world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(128, 0, 255), 2.0f));
+            }
+        }
+
+        // Explosion centrale
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 100, 0.5, 0.5, 0.5, 0.5);
+        world.spawnParticle(Particle.END_ROD, center, 50, 1, 1, 1, 0.3);
+
+        // Sons
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.6f);
+        world.playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.0f, 0.8f);
+        world.playSound(center, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.5f);
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        BukkitTask task = activeSingularities.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+    }
+}
+
+// ==================== GARDIEN LÉVITANT (SHULKER) ====================
+
+/**
+ * Passif: Balles de Shulker
+ * Chaque 4ème attaque tire une balle de Shulker
+ * La balle inflige 40% dégâts arme + Lévitation 2s
+ * Les ennemis en lévitation subissent +20% dégâts
+ */
+class ShulkerBulletPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final int attacksRequired;      // 4 attaques
+    private final double bulletDamagePercent; // 40% arme
+    private final int levitationDuration;   // 2 secondes (en ticks)
+    private final double levitationDamageBonus; // +20%
+
+    // Track des attaques et ennemis lévités par joueur
+    private static final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
+    private static final Map<UUID, Set<UUID>> levitatingEnemies = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            attackCounters.remove(uuid);
+            levitatingEnemies.remove(uuid);
+        });
+    }
+
+    public ShulkerBulletPassive(String id, String name, String description,
+                                 int attacksRequired, double bulletDamagePercent,
+                                 int levitationDurationSeconds, double levitationDamageBonus) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.attacksRequired = attacksRequired;
+        this.bulletDamagePercent = bulletDamagePercent;
+        this.levitationDuration = levitationDurationSeconds * 20;
+        this.levitationDamageBonus = levitationDamageBonus;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Incrémente le compteur d'attaques
+        int count = attackCounters.getOrDefault(playerId, 0) + 1;
+        attackCounters.put(playerId, count);
+
+        // Vérifie si on doit tirer une balle
+        if (count >= attacksRequired) {
+            attackCounters.put(playerId, 0);
+            fireShulkerBullet(player, target, damage, petData);
+        }
+    }
+
+    /**
+     * Tire une balle de Shulker sur la cible
+     */
+    private void fireShulkerBullet(Player player, LivingEntity target, double baseDamage, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        UUID playerId = player.getUniqueId();
+        World world = player.getWorld();
+        Location targetLoc = target.getLocation().add(0, 1, 0);
+
+        // Calcule les dégâts de la balle
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double bulletDamage = weaponDamage * bulletDamagePercent * petData.getStatMultiplier();
+
+        // Bonus si déjà en lévitation
+        Set<UUID> levitated = levitatingEnemies.computeIfAbsent(playerId, k -> ConcurrentHashMap.newKeySet());
+        boolean wasLevitating = levitated.contains(target.getUniqueId());
+        if (wasLevitating) {
+            bulletDamage *= (1.0 + levitationDamageBonus);
+        }
+
+        // Animation de la balle (projectile visuel)
+        Location startLoc = player.getLocation().add(0, 1.5, 0);
+        spawnBulletTrail(world, startLoc, targetLoc);
+
+        // Inflige les dégâts
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, bulletDamage,
+                    com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+            } else {
+                target.damage(bulletDamage, player);
+            }
+        } else {
+            target.damage(bulletDamage, player);
+        }
+
+        // Applique la lévitation
+        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationDuration, 1, false, true));
+        levitated.add(target.getUniqueId());
+
+        // Planifie le retrait de la lévitation après la durée
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Set<UUID> lev = levitatingEnemies.get(playerId);
+                if (lev != null) {
+                    lev.remove(target.getUniqueId());
+                }
+
+                // Dégâts de chute simulés si l'ennemi est toujours vivant
+                if (!target.isDead() && target.isValid()) {
+                    double fallHeight = target.getFallDistance();
+                    if (fallHeight > 3) {
+                        double fallDamage = fallHeight * 2;
+                        target.damage(fallDamage, player);
+
+                        // Effet d'impact
+                        world.spawnParticle(Particle.BLOCK, target.getLocation(), 20,
+                            0.5, 0.1, 0.5, 0.1, org.bukkit.Material.PURPLE_CONCRETE.createBlockData());
+                        world.playSound(target.getLocation(), Sound.ENTITY_PLAYER_BIG_FALL, 1.0f, 0.8f);
+                    }
+                }
+            }
+        }.runTaskLater(plugin, levitationDuration + 10);
+
+        // Effet visuel et sonore
+        world.spawnParticle(Particle.END_ROD, targetLoc, 15, 0.3, 0.5, 0.3, 0.1);
+        world.playSound(targetLoc, Sound.ENTITY_SHULKER_SHOOT, 1.0f, 1.2f);
+
+        // Message
+        String bonusText = wasLevitating ? " §d(+20% Aérien!)" : "";
+        player.sendActionBar(net.kyori.adventure.text.Component.text(
+            "§5✦ Balle de Shulker! §f" + String.format("%.1f", bulletDamage) + " dégâts" + bonusText
+        ));
+    }
+
+    /**
+     * Crée la traînée visuelle de la balle
+     */
+    private void spawnBulletTrail(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 3);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            currentPoint.add(direction.clone().multiply(distance / segments));
+            world.spawnParticle(Particle.DUST, currentPoint, 2, 0.05, 0.05, 0.05, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 100, 255), 0.8f));
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est en lévitation
+     */
+    public boolean isLevitating(Player player, LivingEntity target) {
+        Set<UUID> levitated = levitatingEnemies.get(player.getUniqueId());
+        return levitated != null && levitated.contains(target.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts contre un ennemi lévitant
+     */
+    public double getDamageMultiplier(Player player, LivingEntity target) {
+        if (isLevitating(player, target)) {
+            return 1.0 + levitationDamageBonus;
+        }
+        return 1.0;
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        // Nettoie l'ennemi de la liste des lévités
+        Set<UUID> levitated = levitatingEnemies.get(player.getUniqueId());
+        if (levitated != null) {
+            levitated.remove(victim.getUniqueId());
+        }
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        levitatingEnemies.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        attackCounters.remove(player.getUniqueId());
+        levitatingEnemies.remove(player.getUniqueId());
+    }
+}
+
+/**
+ * Ultimate: Barrage Gravitationnel
+ * Tire 8 balles de Shulker en éventail
+ * Après 3s: tous les ennemis lévitants sont ramenés au sol violemment
+ */
+class GravitationalBarrageActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final int bulletCount;          // 8 balles
+    private final double bulletDamagePercent; // 60% arme
+    private final int levitationDuration;   // 3 secondes
+    private final double slamDamageMultiplier; // 150% dégâts de chute
+    private final double doubleDamageIfLevitating; // x2 si déjà lévitant
+    private final ShulkerBulletPassive linkedPassive;
+
+    public GravitationalBarrageActive(String id, String name, String description,
+                                       int bulletCount, double bulletDamagePercent,
+                                       int levitationDurationSeconds, double slamDamageMultiplier,
+                                       double doubleDamageIfLevitating, ShulkerBulletPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.bulletCount = bulletCount;
+        this.bulletDamagePercent = bulletDamagePercent;
+        this.levitationDuration = levitationDurationSeconds * 20;
+        this.slamDamageMultiplier = slamDamageMultiplier;
+        this.doubleDamageIfLevitating = doubleDamageIfLevitating;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+        Vector baseDirection = playerLoc.getDirection();
+        baseDirection.setY(0).normalize();
+
+        // Calcule les dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Message d'activation
+        player.sendMessage("§5§l✦ BARRAGE GRAVITATIONNEL!");
+        world.playSound(playerLoc, Sound.ENTITY_SHULKER_OPEN, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.0f, 1.5f);
+
+        // Track des ennemis touchés
+        Set<LivingEntity> hitEnemies = ConcurrentHashMap.newKeySet();
+
+        // Tire les balles en éventail
+        double spreadAngle = Math.PI / 2; // 90 degrés total
+        double angleStep = spreadAngle / (bulletCount - 1);
+        double startAngle = -spreadAngle / 2;
+
+        for (int i = 0; i < bulletCount; i++) {
+            double angle = startAngle + (i * angleStep);
+            Vector bulletDir = rotateVector(baseDirection.clone(), angle);
+
+            // Trouve les ennemis dans cette direction
+            fireBulletInDirection(player, playerLoc.clone().add(0, 1.5, 0), bulletDir,
+                weaponDamage, statMultiplier, zombieManager, hitEnemies, world);
+        }
+
+        // Planifie le slam après la lévitation
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                slamEnemies(player, hitEnemies, weaponDamage, statMultiplier, zombieManager, world);
+            }
+        }.runTaskLater(plugin, levitationDuration);
+    }
+
+    /**
+     * Tire une balle dans une direction spécifique
+     */
+    private void fireBulletInDirection(Player player, Location start, Vector direction,
+                                        double weaponDamage, double statMultiplier,
+                                        com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                        Set<LivingEntity> hitEnemies, World world) {
+        double range = 15.0;
+
+        // Trace un rayon pour trouver les ennemis
+        for (double d = 1; d <= range; d += 0.5) {
+            Location checkLoc = start.clone().add(direction.clone().multiply(d));
+
+            // Particules de traînée
+            world.spawnParticle(Particle.DUST, checkLoc, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 100, 255), 1.0f));
+
+            // Cherche des ennemis proches
+            for (Entity entity : world.getNearbyEntities(checkLoc, 1.5, 1.5, 1.5)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()
+                    && !hitEnemies.contains(living)) {
+
+                    hitEnemies.add(living);
+
+                    // Calcule les dégâts
+                    double bulletDamage = weaponDamage * bulletDamagePercent * statMultiplier;
+
+                    // Double dégâts si déjà en lévitation
+                    if (linkedPassive != null && linkedPassive.isLevitating(player, living)) {
+                        bulletDamage *= doubleDamageIfLevitating;
+                        world.spawnParticle(Particle.CRIT_MAGIC, living.getLocation().add(0, 1, 0),
+                            20, 0.3, 0.5, 0.3, 0.2);
+                    }
+
+                    // Inflige les dégâts
+                    if (zombieManager != null) {
+                        var activeZombie = zombieManager.getActiveZombie(living.getUniqueId());
+                        if (activeZombie != null) {
+                            zombieManager.damageZombie(player, activeZombie, bulletDamage,
+                                com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                        } else {
+                            living.damage(bulletDamage, player);
+                        }
+                    } else {
+                        living.damage(bulletDamage, player);
+                    }
+
+                    // Applique la lévitation
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, levitationDuration, 2, false, true));
+
+                    // Effet d'impact
+                    world.spawnParticle(Particle.END_ROD, living.getLocation().add(0, 1, 0),
+                        12, 0.3, 0.4, 0.3, 0.1);
+                    world.playSound(living.getLocation(), Sound.ENTITY_SHULKER_BULLET_HIT, 0.8f, 1.3f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Slam tous les ennemis au sol
+     */
+    private void slamEnemies(Player player, Set<LivingEntity> enemies,
+                              double weaponDamage, double statMultiplier,
+                              com.rinaorc.zombiez.zombies.ZombieManager zombieManager, World world) {
+        int killed = 0;
+        int slammed = 0;
+
+        for (LivingEntity target : enemies) {
+            if (target.isDead() || !target.isValid()) continue;
+
+            slammed++;
+
+            // Retire la lévitation et applique une vélocité vers le bas
+            target.removePotionEffect(PotionEffectType.LEVITATION);
+            target.setVelocity(new Vector(0, -2.5, 0));
+
+            // Dégâts de slam
+            double slamDamage = weaponDamage * slamDamageMultiplier * statMultiplier;
+
+            // Planifie l'impact au sol
+            Location targetLoc = target.getLocation();
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (target.isDead()) return;
+
+                    // Inflige les dégâts d'impact
+                    boolean targetKilled = false;
+                    if (zombieManager != null) {
+                        var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                        if (activeZombie != null) {
+                            zombieManager.damageZombie(player, activeZombie, slamDamage,
+                                com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                            targetKilled = target.isDead() || target.getHealth() <= 0;
+                        } else {
+                            target.damage(slamDamage, player);
+                            targetKilled = target.isDead();
+                        }
+                    } else {
+                        target.damage(slamDamage, player);
+                        targetKilled = target.isDead();
+                    }
+
+                    // Stun
+                    if (!targetKilled) {
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 127, false, false));
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 20, 128, false, false));
+                    }
+
+                    // Effet d'impact au sol
+                    Location impactLoc = target.getLocation();
+                    world.spawnParticle(Particle.EXPLOSION, impactLoc, 1);
+                    world.spawnParticle(Particle.BLOCK, impactLoc, 30, 1, 0.2, 1, 0.1,
+                        org.bukkit.Material.PURPLE_CONCRETE.createBlockData());
+                    world.spawnParticle(Particle.DUST, impactLoc, 20, 0.8, 0.3, 0.8, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(150, 50, 200), 1.5f));
+                    world.playSound(impactLoc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 1.2f, 0.6f);
+                    world.playSound(impactLoc, Sound.ENTITY_PLAYER_BIG_FALL, 1.5f, 0.7f);
+                }
+            }.runTaskLater((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 5L);
+        }
+
+        // Message final
+        player.sendMessage("§5§l✦ SLAM! §7" + slammed + " ennemis écrasés au sol!");
+
+        // Son de fin
+        world.playSound(player.getLocation(), Sound.ENTITY_WITHER_BREAK_BLOCK, 0.8f, 1.2f);
+    }
+
+    /**
+     * Tourne un vecteur autour de l'axe Y
+     */
+    private Vector rotateVector(Vector v, double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        double x = v.getX() * cos - v.getZ() * sin;
+        double z = v.getX() * sin + v.getZ() * cos;
+        return new Vector(x, v.getY(), z);
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) { }
+}
+
+// ==================== EXALTED PET: SENTINELLE SONIQUE ====================
+
+/**
+ * Passif composite de la Sentinelle Sonique (EXALTED - WARDEN)
+ * Combine deux passifs:
+ * - Détection Sismique: Les attaquants sont marqués 8s, +25% dégâts sur eux
+ * - Onde de Choc: Chaque 6ème attaque = onde sonique (40% dégâts AoE, 8 blocs)
+ */
+class SonicSentinelPassive implements PetAbility {
+    private final String id;
+    private final String name;
+    private final String description;
+
+    // Paramètres Détection Sismique
+    private final double markDamageBonus;      // +25% dégâts sur marqués
+    private final int markDuration;             // 8 secondes
+
+    // Paramètres Onde de Choc
+    private final int attacksForShockwave;      // 6 attaques
+    private final double shockwaveDamagePercent; // 40% dégâts
+    private final double shockwaveRadius;        // 8 blocs
+
+    // Tracking
+    private static final Map<UUID, Map<UUID, Long>> markedEnemies = new ConcurrentHashMap<>();
+    private static final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(markedEnemies);
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+    }
+
+    public SonicSentinelPassive(String id, String name, String description,
+                                 double markDamageBonus, int markDuration,
+                                 int attacksForShockwave, double shockwaveDamagePercent, double shockwaveRadius) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.markDamageBonus = markDamageBonus;
+        this.markDuration = markDuration;
+        this.attacksForShockwave = attacksForShockwave;
+        this.shockwaveDamagePercent = shockwaveDamagePercent;
+        this.shockwaveRadius = shockwaveRadius;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        World world = player.getWorld();
+
+        // Vérifier si la cible est marquée pour le bonus de dégâts
+        double bonusDamage = 0;
+        if (isMarked(player, target)) {
+            double effectiveBonus = markDamageBonus * petData.getStatMultiplier();
+            bonusDamage = damage * effectiveBonus;
+
+            // Appliquer les dégâts bonus
+            var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+            if (plugin != null && plugin.getZombieManager() != null) {
+                plugin.getZombieManager().damageZombie(target, player, bonusDamage, DamageType.MAGIC);
+            }
+
+            // Effet visuel de dégâts bonus
+            world.spawnParticle(Particle.SONIC_BOOM, target.getLocation().add(0, 1, 0), 1);
+        }
+
+        // Compteur pour onde de choc
+        int count = attackCounters.getOrDefault(playerId, 0) + 1;
+        int effectiveAttacks = petData.getLevel() >= 5 ? attacksForShockwave - 1 : attacksForShockwave;
+
+        if (count >= effectiveAttacks) {
+            attackCounters.put(playerId, 0);
+            triggerShockwave(player, target.getLocation(), damage, petData);
+        } else {
+            attackCounters.put(playerId, count);
+        }
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) {
+        // Marquer l'attaquant (on utilise un système simplifié - marque les ennemis proches)
+        UUID playerId = player.getUniqueId();
+        Location loc = player.getLocation();
+        World world = player.getWorld();
+
+        // Marquer tous les ennemis hostiles proches (simule la détection de l'attaquant)
+        for (Entity entity : world.getNearbyEntities(loc, 5, 3, 5)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                markEnemy(player, living, petData);
+            }
+        }
+    }
+
+    /**
+     * Marque un ennemi comme détecté
+     */
+    private void markEnemy(Player player, LivingEntity target, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        UUID targetId = target.getUniqueId();
+
+        Map<UUID, Long> playerMarks = markedEnemies.computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
+
+        // Durée de marque (niveau 5+ = 12s au lieu de 8s)
+        int effectiveDuration = petData.getLevel() >= 5 ? markDuration + 4 : markDuration;
+        long expireTime = System.currentTimeMillis() + (effectiveDuration * 1000L);
+        playerMarks.put(targetId, expireTime);
+
+        // Effet visuel de détection
+        World world = player.getWorld();
+        Location targetLoc = target.getLocation().add(0, target.getHeight() + 0.5, 0);
+
+        world.spawnParticle(Particle.SCULK_SOUL, targetLoc, 15, 0.3, 0.3, 0.3, 0.02);
+        world.playSound(targetLoc, Sound.BLOCK_SCULK_SENSOR_CLICKING, 0.8f, 1.2f);
+
+        // Message
+        player.sendMessage("§8§l⦿ §7Cible détectée: §c" + target.getName() + " §7(+25% dégâts)");
+    }
+
+    /**
+     * Vérifie si un ennemi est marqué
+     */
+    public boolean isMarked(Player player, LivingEntity target) {
+        Map<UUID, Long> playerMarks = markedEnemies.get(player.getUniqueId());
+        if (playerMarks == null) return false;
+
+        Long expireTime = playerMarks.get(target.getUniqueId());
+        if (expireTime == null) return false;
+
+        if (System.currentTimeMillis() > expireTime) {
+            playerMarks.remove(target.getUniqueId());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Déclenche une onde de choc sonique
+     */
+    private void triggerShockwave(Player player, Location center, double baseDamage, PetData petData) {
+        World world = player.getWorld();
+        double effectiveDamagePercent = petData.getLevel() >= 5 ? shockwaveDamagePercent + 0.10 : shockwaveDamagePercent;
+        double shockwaveDamage = baseDamage * effectiveDamagePercent * petData.getStatMultiplier();
+
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        int hit = 0;
+
+        // Expansion visuelle de l'onde
+        new BukkitRunnable() {
+            double radius = 1.0;
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (radius > shockwaveRadius || ticks > 10) {
+                    cancel();
+                    return;
+                }
+
+                // Cercle de particules en expansion
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+                    double x = center.getX() + Math.cos(angle) * radius;
+                    double z = center.getZ() + Math.sin(angle) * radius;
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+                }
+
+                radius += 1.5;
+                ticks++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 2L);
+
+        // Dégâts aux ennemis
+        for (Entity entity : world.getNearbyEntities(center, shockwaveRadius, 4, shockwaveRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                if (plugin != null && plugin.getZombieManager() != null) {
+                    plugin.getZombieManager().damageZombie(living, player, shockwaveDamage, DamageType.MAGIC);
+                    hit++;
+
+                    // Knockback
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
+                    knockback.setY(0.3);
+                    living.setVelocity(knockback);
+                }
+            }
+        }
+
+        // Sons
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.6f, 1.5f);
+        world.playSound(center, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.5f, 1.8f);
+
+        // Message
+        if (hit > 0) {
+            player.sendMessage("§8§l◉ §cOnde de Choc! §7" + hit + " ennemis frappés!");
+        }
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        player.sendMessage("§4§l⦿ SENTINELLE SONIQUE §7équipée!");
+        player.sendMessage("§8  ► Détection Sismique: §7Attaquants marqués (+25% dégâts)");
+        player.sendMessage("§8  ► Onde de Choc: §7Chaque 6ème attaque = onde sonique AoE");
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        markedEnemies.remove(playerId);
+        attackCounters.remove(playerId);
+    }
+}
+
+/**
+ * Ultimate de la Sentinelle Sonique: Boom Sonique Dévastatrice
+ * Charge 2s puis inflige 500% dégâts à tous les ennemis + stun 3s
+ * Max stars: Désintègre les ennemis <20% HP et crée des ondes secondaires
+ */
+class SonicBoomActive implements PetAbility {
+    private final String id;
+    private final String name;
+    private final String description;
+
+    private final double chargeTime;            // 2 secondes
+    private final double damageMultiplier;       // 500% dégâts
+    private final double stunDuration;           // 3 secondes
+    private final double radius;                 // Rayon d'effet
+    private final double executeThreshold;       // Seuil d'exécution (max stars)
+
+    private final SonicSentinelPassive passiveRef;
+
+    private static final Map<UUID, Boolean> chargingPlayers = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(chargingPlayers);
+    }
+
+    public SonicBoomActive(String id, String name, String description,
+                           double chargeTime, double damageMultiplier, double stunDuration,
+                           double radius, double executeThreshold, SonicSentinelPassive passiveRef) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.chargeTime = chargeTime;
+        this.damageMultiplier = damageMultiplier;
+        this.stunDuration = stunDuration;
+        this.radius = radius;
+        this.executeThreshold = executeThreshold;
+        this.passiveRef = passiveRef;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Éviter les activations multiples
+        if (chargingPlayers.getOrDefault(playerId, false)) {
+            return;
+        }
+
+        chargingPlayers.put(playerId, true);
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double effectiveMultiplier = damageMultiplier * petData.getStatMultiplier();
+        double totalDamage = weaponDamage * effectiveMultiplier;
+
+        boolean hasStarPower = petData.getStarPower() > 0;
+
+        // Message de charge
+        player.sendMessage("§4§l⦿ BOOM SONIQUE §7en charge...");
+        player.sendTitle("§4§l⦿ CHARGE ⦿", "§7Boom Sonique imminente...", 5, 40, 5);
+
+        // Phase de charge avec effets visuels
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int chargeTicks = (int) (chargeTime * 20);
+
+            @Override
+            public void run() {
+                if (ticks >= chargeTicks) {
+                    cancel();
+                    executeBoum(player, playerLoc, totalDamage, hasStarPower, petData);
+                    chargingPlayers.put(playerId, false);
+                    return;
+                }
+
+                // Vibrations autour du joueur pendant la charge
+                double progress = (double) ticks / chargeTicks;
+
+                // Cercle de particules qui se resserre
+                double currentRadius = radius * (1 - progress * 0.5);
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+                    double x = playerLoc.getX() + Math.cos(angle) * currentRadius;
+                    double z = playerLoc.getZ() + Math.sin(angle) * currentRadius;
+                    Location particleLoc = new Location(world, x, playerLoc.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SCULK_CHARGE_POP, particleLoc, 2, 0.1, 0.1, 0.1, 0);
+                }
+
+                // Particules montantes vers le joueur
+                world.spawnParticle(Particle.SCULK_SOUL, playerLoc.clone().add(0, 1.5, 0), 5, 0.5, 0.5, 0.5, 0.02);
+
+                // Sons de charge crescendo
+                if (ticks % 5 == 0) {
+                    float pitch = 0.5f + (float) progress * 1.5f;
+                    world.playSound(playerLoc, Sound.BLOCK_SCULK_SENSOR_CLICKING, 0.5f, pitch);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+    }
+
+    /**
+     * Exécute la boom sonique après la charge
+     */
+    private void executeBoum(Player player, Location center, double damage, boolean hasStarPower, PetData petData) {
+        World world = player.getWorld();
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+
+        int hit = 0;
+        int executed = 0;
+        List<Location> secondaryWaveLocations = new ArrayList<>();
+
+        // Effet visuel principal - explosion sonique massive
+        world.spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 1, 0), 30, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SCULK_SOUL, center.clone().add(0, 1.5, 0), 100, 3, 2, 3, 0.1);
+        world.spawnParticle(Particle.FLASH, center.clone().add(0, 2, 0), 3, 0, 0, 0, 0);
+
+        // Ondes concentriques visuelles
+        new BukkitRunnable() {
+            double currentRadius = 2.0;
+            int wave = 0;
+
+            @Override
+            public void run() {
+                if (currentRadius > radius || wave > 5) {
+                    cancel();
+                    return;
+                }
+
+                for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 24) {
+                    double x = center.getX() + Math.cos(angle) * currentRadius;
+                    double z = center.getZ() + Math.sin(angle) * currentRadius;
+                    Location particleLoc = new Location(world, x, center.getY() + 0.5, z);
+                    world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+                    world.spawnParticle(Particle.BLOCK, particleLoc, 3, 0.2, 0.1, 0.2, 0,
+                        Material.SCULK.createBlockData());
+                }
+
+                currentRadius += 3;
+                wave++;
+            }
+        }.runTaskTimer((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 0L, 3L);
+
+        // Sons dévastateurs
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 2.0f, 0.7f);
+        world.playSound(center, Sound.ENTITY_WARDEN_ROAR, 1.5f, 0.5f);
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.6f);
+        world.playSound(center, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 1.0f, 0.5f);
+
+        // Dégâts aux ennemis
+        for (Entity entity : world.getNearbyEntities(center, radius, 5, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+
+                // Vérifier si exécution (max stars et <20% HP)
+                boolean shouldExecute = false;
+                if (hasStarPower) {
+                    double healthPercent = living.getHealth() / living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+                    if (healthPercent < executeThreshold) {
+                        shouldExecute = true;
+                    }
+                }
+
+                if (shouldExecute) {
+                    // Exécution instantanée
+                    if (plugin != null && plugin.getZombieManager() != null) {
+                        plugin.getZombieManager().damageZombie(living, player, 99999, DamageType.MAGIC);
+                    }
+                    executed++;
+
+                    // Effet de désintégration
+                    Location entityLoc = living.getLocation().add(0, 1, 0);
+                    world.spawnParticle(Particle.SCULK_SOUL, entityLoc, 30, 0.5, 1, 0.5, 0.1);
+                    world.spawnParticle(Particle.ASH, entityLoc, 50, 0.5, 1, 0.5, 0.05);
+                    world.playSound(entityLoc, Sound.ENTITY_WARDEN_DEATH, 0.5f, 1.5f);
+
+                    // Location pour onde secondaire
+                    if (hasStarPower) {
+                        secondaryWaveLocations.add(entityLoc);
+                    }
+                } else {
+                    // Dégâts normaux + stun
+                    if (plugin != null && plugin.getZombieManager() != null) {
+                        // Bonus sur marqués
+                        double effectiveDamage = damage;
+                        if (passiveRef != null && passiveRef.isMarked(player, living)) {
+                            effectiveDamage *= 1.25; // +25% sur marqués
+                        }
+
+                        plugin.getZombieManager().damageZombie(living, player, effectiveDamage, DamageType.MAGIC);
+                    }
+                    hit++;
+
+                    // Stun (Slowness V + No AI temporaire simulé)
+                    int stunTicks = (int) (stunDuration * 20);
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, stunTicks, 254, false, false)); // Slow max
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, stunTicks, 254, false, false));
+
+                    // Knockback massif
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(2.0);
+                    knockback.setY(0.5);
+                    living.setVelocity(knockback);
+                }
+            }
+        }
+
+        // Ondes secondaires (max stars)
+        if (hasStarPower && !secondaryWaveLocations.isEmpty()) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (Location loc : secondaryWaveLocations) {
+                        triggerSecondaryWave(player, loc, damage * 0.3, petData);
+                    }
+                }
+            }.runTaskLater((com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ"), 10L);
+        }
+
+        // Messages
+        player.sendTitle("§4§l⦿ BOOM SONIQUE ⦿", "§7" + hit + " frappés, " + executed + " désintégrés", 5, 30, 10);
+        player.sendMessage("§4§l⦿ BOOM SONIQUE DÉVASTATRICE! §7" + hit + " ennemis frappés, " + executed + " désintégrés!");
+
+        if (hasStarPower && !secondaryWaveLocations.isEmpty()) {
+            player.sendMessage("§8  ► §7Ondes secondaires déclenchées: " + secondaryWaveLocations.size());
+        }
+    }
+
+    /**
+     * Déclenche une onde secondaire (max stars)
+     */
+    private void triggerSecondaryWave(Player player, Location center, double damage, PetData petData) {
+        World world = player.getWorld();
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+
+        double secondaryRadius = 4.0;
+
+        // Effet visuel
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+            double x = center.getX() + Math.cos(angle) * secondaryRadius;
+            double z = center.getZ() + Math.sin(angle) * secondaryRadius;
+            Location particleLoc = new Location(world, x, center.getY() + 0.3, z);
+            world.spawnParticle(Particle.SONIC_BOOM, particleLoc, 1, 0, 0, 0, 0);
+        }
+
+        world.playSound(center, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.5f, 1.5f);
+
+        // Dégâts
+        for (Entity entity : world.getNearbyEntities(center, secondaryRadius, 3, secondaryRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
+                if (plugin != null && plugin.getZombieManager() != null) {
+                    plugin.getZombieManager().damageZombie(living, player, damage, DamageType.MAGIC);
+                }
+            }
+        }
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        chargingPlayers.remove(player.getUniqueId());
+    }
+}

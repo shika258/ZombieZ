@@ -288,36 +288,50 @@ public class PetAbilityRegistry {
                 "Frappe dévastatrice (200% + bonus HP manquants)", 2.00, 1.00, 1.50, 6.0)
         );
 
-        // Entité du Vide
+        // Sentinelle des Abysses (anciennement Entité du Vide)
+        // Passif: Regen stackable 3% HP/s (max 3 stacks), reset 5s après dégâts
+        // Ultimate: Volée de tridents basée sur % de l'arme
+        AbyssalRegenPassive abyssalRegenPassive = new AbyssalRegenPassive("abyssal_regen", "Régénération Abyssale",
+            "3% HP/s par stack (max 3), reset 5s après dégâts", 0.03, 3, 5);
         registerAbilities(PetType.ENTITE_VIDE,
-            new TrueDamagePassive("void_damage", "Néant",
-                "5% des dégâts ignorent les résistances", 0.05),
-            new BlackHoleActive("void_hole", "Dévoration",
-                "Crée un trou noir aspirant les ennemis", 60, 5)
+            abyssalRegenPassive,
+            new TridentStormActive("trident_storm", "Tempête de Tridents",
+                "Lance une volée de tridents (150% dégâts arme)", 1.50, 8, 15.0, abyssalRegenPassive)
         );
 
-        // Chroniqueur Temporel
+        // Caravanier du Désert (anciennement Chroniqueur Temporel)
+        // Passif: Désactive esquive, +30% block, heal sur block
+        // Ultimate: Stocke dégâts bloqués 6s, puis explosion AoE
+        DesertEndurancePassive desertEndurancePassive = new DesertEndurancePassive("desert_endurance", "Endurance du Désert",
+            "Esquive désactivée, +30% blocage, blocages soignent 2% HP", 0.30, 0.02);
         registerAbilities(PetType.CHRONIQUEUR_TEMPOREL,
-            new SpeedBoostPassive("time_speed", "Accélération Temporelle",
-                "+25% vitesse attaque et déplacement", 0.25),
-            new TimeStopActive("time_stop", "Arrêt du Temps",
-                "Freeze tous les ennemis 4s", 75, 4)
+            desertEndurancePassive,
+            new CaravanChargeActive("caravan_charge", "Charge du Caravanier",
+                "Stocke dégâts bloqués 6s, explosion 200%", 6, 2.0, 0.20, 8.0, desertEndurancePassive)
         );
 
-        // Hydre Primordiale
+        // Marchand de Foudre (anciennement Hydre Primordiale)
+        // Passif: 3% chance de libérer 3 charges électriques (50% dégâts arme)
+        // Ultimate: Arc Voltaïque - éclair rebondissant entre 8 ennemis
+        UnstableMerchandisePassive unstableMerchandisePassive = new UnstableMerchandisePassive(
+            "unstable_merchandise", "Marchandise Instable",
+            "3% chance de libérer 3 charges électriques (50% dégâts arme)", 0.03, 3, 0.50, 12.0);
         registerAbilities(PetType.HYDRE_PRIMORDIALE,
-            new MultiAttackPassive("hydra_multi", "Trois Têtes",
-                "Chaque attaque frappe 3 fois", 3),
-            new TripleBreathActive("hydra_breath", "Souffle Tricolore",
-                "3 souffles simultanés (feu/glace/poison)", 35)
+            unstableMerchandisePassive,
+            new VoltaicArcActive("voltaic_arc", "Arc Voltaïque",
+                "Éclair rebondissant entre 8 ennemis (80% dégâts)", 8, 0.80, 0.50, 10.0, unstableMerchandisePassive)
         );
 
-        // Colossus Oublié
+        // Marcheur de Braise (anciennement Colossus Oublié)
+        // Passif: +6% crit par ennemi en feu (max 5 stacks = 30%, rayon 32 blocs)
+        // Ultimate: Rayon de désintégration (100% → 400% dégâts, 8s)
+        BurningCritPassive burningCritPassive = new BurningCritPassive(
+            "burning_crit", "Braises Critiques",
+            "+6% crit/ennemi en feu (max 5, 32 blocs)", 0.06, 5, 32.0, 3);
         registerAbilities(PetType.COLOSSUS_OUBLIE,
-            new PowerSlowPassive("colossus_power", "Puissance Ancienne",
-                "+50% dégâts, -20% vitesse", 0.50, -0.20),
-            new ColossusActive("colossus_awaken", "Éveil du Colosse",
-                "Transformation géante (10s) - dégâts x3, immunité", 120, 10)
+            burningCritPassive,
+            new DisintegrationRayActive("disintegration_ray", "Rayon de Désintégration",
+                "Rayon brûlant (100% → 400%/s, désintègre)", 1.00, 0.50, 4.00, 20.0, 8, burningCritPassive)
         );
 
         // ==================== NOUVEAUX PETS SYNERGIES ====================
@@ -418,20 +432,28 @@ public class PetAbilityRegistry {
                 "Météore géant (450% dégâts) + zone enflammée (120% sur 3s)", fireDamagePassive, 4.50, 1.20, 8.0)
         );
 
-        // Symbiote Éternel (Total Amplification)
+        // Archonte Aquatique (anciennement Symbiote Éternel)
+        // Passif: +5% dégâts subis par type élémentaire (max 4 stacks = 20%)
+        // Ultimate: Forme d'Archonte - scale x1.5, +30% dégâts, +150% armure, +6% par kill
+        ElementalSensitivityPassive elementalSensitivityPassive = new ElementalSensitivityPassive(
+            "elemental_sensitivity", "Sensibilité Élémentaire",
+            "+5% dégâts subis/type élémentaire (max 4, 5s)", 0.05, 4, 5);
         registerAbilities(PetType.SYMBIOTE_ETERNEL,
-            new SymbiotePassive("symbiote_amp", "Symbiose Éternelle",
-                "Amplifie tous les bonus du joueur de 20%", 0.20),
-            new SymbioticFusionActive("symbiote_fusion", "Fusion Symbiotique",
-                "15s: tous bonus x2, régén +50%, immunité CC")
+            elementalSensitivityPassive,
+            new ArchonFormActive("archon_form", "Forme d'Archonte",
+                "Transformation 20s: +30% dégâts, +150% armure, +6%/kill", 0.30, 1.50, 0.06, 20, elementalSensitivityPassive)
         );
 
-        // Nexus Dimensionnel (Team Support)
+        // Ancrage du Néant (anciennement Nexus Dimensionnel)
+        // Passif: Zone 6 blocs avec slow, attraction et +15% dégâts
+        // Ultimate: Singularité - trou noir 2s puis explosion 300%
+        VoidGravityPassive voidGravityPassive = new VoidGravityPassive(
+            "void_gravity", "Gravité du Vide",
+            "Zone 6 blocs: -20% vitesse, attraction, +15% dégâts", 6.0, 0.20, 0.15, 0.15);
         registerAbilities(PetType.NEXUS_DIMENSIONNEL,
-            new NexusAuraPassive("nexus_aura", "Aura Dimensionnelle",
-                "Alliés +15% stats, ennemis -10% stats", 0.15, 0.10, 20),
-            new DimensionalConvergenceActive("nexus_converge", "Convergence Dimensionnelle",
-                "TP alliés vers vous + bouclier groupe", 100)
+            voidGravityPassive,
+            new SingularityActive("singularity", "Singularité",
+                "Trou noir (2s) puis explosion 300% + dispersion", 12.0, 2.0, 3.00, 2.5, voidGravityPassive)
         );
 
         // ==================== NOUVEAUX PETS VISUELS ====================
@@ -505,12 +527,33 @@ public class PetAbilityRegistry {
                 "Volée de projectiles (150% → 400% dégâts, +50%/s)", sniperDamagePassive, 1.50, 0.50, 4.00, 0.80)
         );
 
-        // Kraken Miniature (Eau / Tentacules)
+        // Gardien Lévitant (anciennement Kraken Miniature)
+        // Passif: 4ème attaque = balle Shulker (40% dégâts + Lévitation 2s), +20% sur lévités
+        // Ultimate: 8 balles en éventail puis slam au sol (150% dégâts chute + stun)
+        ShulkerBulletPassive shulkerBulletPassive = new ShulkerBulletPassive(
+            "shulker_bullet", "Balles de Shulker",
+            "4ème attaque = balle (40% dégâts + Lévitation 2s), +20% sur lévités", 4, 0.40, 2, 0.20);
         registerAbilities(PetType.KRAKEN_MINIATURE,
-            new WaterTentaclePassive("water_tentacle", "Tentacule d'Eau",
-                "15% d'immobiliser avec un tentacule", 0.15, 2),
-            new TsunamiActive("tsunami", "Tsunami",
-                "Vague géante (50 dégâts, knockback)", 50, 25)
+            shulkerBulletPassive,
+            new GravitationalBarrageActive("gravitational_barrage", "Barrage Gravitationnel",
+                "8 balles en éventail, slam 150% + stun", 8, 0.60, 3, 1.50, 2.0, shulkerBulletPassive)
+        );
+
+        // ==================== EXALTÉS ====================
+
+        // Sentinelle Sonique (WARDEN - EXALTED)
+        // Passif composite: Détection Sismique (+25% dégâts sur attaquants marqués 8s)
+        //                   Onde de Choc (6ème attaque = onde sonique 40% AoE, 8 blocs)
+        // Ultimate: Boom Sonique Dévastatrice (charge 2s, 500% dégâts, stun 3s)
+        // Max stars: Désintègre <20% HP + ondes secondaires
+        SonicSentinelPassive sonicSentinelPassive = new SonicSentinelPassive(
+            "sonic_sentinel", "Sentinelle Sonique",
+            "Détection: marqués +25% dégâts. Onde: 6ème attaque = AoE 40%",
+            0.25, 8, 6, 0.40, 8.0);
+        registerAbilities(PetType.SENTINELLE_SONIQUE,
+            sonicSentinelPassive,
+            new SonicBoomActive("sonic_boom", "Boom Sonique Dévastatrice",
+                "Charge 2s → 500% dégâts à tous + stun 3s", 2.0, 5.00, 3.0, 15.0, 0.20, sonicSentinelPassive)
         );
     }
 
