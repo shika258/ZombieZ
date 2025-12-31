@@ -310,12 +310,16 @@ public class PetAbilityRegistry {
                 "Stocke dégâts bloqués 6s, explosion 200%", 6, 2.0, 0.20, 8.0, desertEndurancePassive)
         );
 
-        // Hydre Primordiale
+        // Marchand de Foudre (anciennement Hydre Primordiale)
+        // Passif: 3% chance de libérer 3 charges électriques (50% dégâts arme)
+        // Ultimate: Arc Voltaïque - éclair rebondissant entre 8 ennemis
+        UnstableMerchandisePassive unstableMerchandisePassive = new UnstableMerchandisePassive(
+            "unstable_merchandise", "Marchandise Instable",
+            "3% chance de libérer 3 charges électriques (50% dégâts arme)", 0.03, 3, 0.50, 12.0);
         registerAbilities(PetType.HYDRE_PRIMORDIALE,
-            new MultiAttackPassive("hydra_multi", "Trois Têtes",
-                "Chaque attaque frappe 3 fois", 3),
-            new TripleBreathActive("hydra_breath", "Souffle Tricolore",
-                "3 souffles simultanés (feu/glace/poison)", 35)
+            unstableMerchandisePassive,
+            new VoltaicArcActive("voltaic_arc", "Arc Voltaïque",
+                "Éclair rebondissant entre 8 ennemis (80% dégâts)", 8, 0.80, 0.50, 10.0, unstableMerchandisePassive)
         );
 
         // Colossus Oublié

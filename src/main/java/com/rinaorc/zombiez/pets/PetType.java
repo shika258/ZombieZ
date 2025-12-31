@@ -762,19 +762,19 @@ public enum PetType {
     ),
 
     HYDRE_PRIMORDIALE(
-        "Hydre Primordiale",
+        "Marchand de Foudre",
         PetRarity.MYTHIC,
-        Material.DRAGON_HEAD,
-        EntityType.ENDER_DRAGON,
-        "primordial_hydra",
-        "Multi-attaque / Régénération",
-        "Mini hydre à 3 têtes",
-        "Chaque attaque frappe 3 fois (3 têtes)",
-        "Souffle Tricolore",
-        "3 souffles simultanés (feu/glace/poison)",
-        35,
-        "Si une tête est tuée, elle repousse en 2 (+dégâts)",
-        "Peut faire repousser jusqu'à 5 têtes temporairement"
+        Material.LIGHTNING_ROD,
+        EntityType.WANDERING_TRADER,
+        "lightning_merchant",
+        "Électricité / Chaos",
+        "Marchand mystérieux entouré d'arcs électriques crépitants",
+        "3% chance de libérer 3 charges électriques (X% dégâts arme)",
+        "Arc Voltaïque",
+        "Lance un éclair qui rebondit entre 8 ennemis (80% dégâts)",
+        40,
+        "5% chance, 4 charges, +10% dégâts",
+        "L'éclair peut toucher le même ennemi plusieurs fois"
     ),
 
     COLOSSUS_OUBLIE(

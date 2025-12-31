@@ -10137,3 +10137,542 @@ class CaravanChargeActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== MARCHAND DE FOUDRE (Électricité / Chaos) ====================
+
+/**
+ * Passif: Marchandise Instable
+ * - 3% de chance par attaque de libérer 3 charges électriques
+ * - Les charges voyagent aléatoirement vers les ennemis proches
+ * - Dégâts: X% des dégâts de l'arme (dégâts foudre)
+ */
+@Getter
+class UnstableMerchandisePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double procChance;         // 3% = 0.03
+    private final int chargeCount;           // 3 charges
+    private final double damagePercent;      // % des dégâts de l'arme
+    private final double searchRadius;       // Rayon de recherche des cibles
+
+    public UnstableMerchandisePassive(String id, String name, String desc, double procChance,
+                                       int chargeCount, double damagePercent, double searchRadius) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.procChance = procChance;
+        this.chargeCount = chargeCount;
+        this.damagePercent = damagePercent;
+        this.searchRadius = searchRadius;
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Retourne la chance de proc ajustée par niveau
+     */
+    public double getAdjustedProcChance(PetData petData) {
+        // Star 1+: 5% au lieu de 3%
+        double chance = petData.getStarPower() >= 1 ? 0.05 : procChance;
+        return chance + (petData.getStatMultiplier() - 1) * 0.01;
+    }
+
+    /**
+     * Retourne le nombre de charges ajusté par niveau
+     */
+    public int getAdjustedChargeCount(PetData petData) {
+        // Star 1+: 4 charges au lieu de 3
+        int charges = petData.getStarPower() >= 1 ? 4 : chargeCount;
+        return charges + (int)((petData.getStatMultiplier() - 1) * 1);
+    }
+
+    /**
+     * Retourne les dégâts ajustés par niveau
+     */
+    public double getAdjustedDamagePercent(PetData petData) {
+        // Star 1+: +10% dégâts
+        double dmg = petData.getStarPower() >= 1 ? damagePercent + 0.10 : damagePercent;
+        return dmg + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        double adjustedChance = getAdjustedProcChance(petData);
+        int adjustedCharges = getAdjustedChargeCount(petData);
+
+        player.sendMessage("§a[Pet] §e⚡ Marchand de Foudre équipé!");
+        player.sendMessage("§7Chance: §e" + String.format("%.0f", adjustedChance * 100) + "% §7de libérer §e" +
+            adjustedCharges + " charges électriques");
+
+        World world = player.getWorld();
+        world.playSound(player.getLocation(), Sound.ENTITY_WANDERING_TRADER_AMBIENT, 1.0f, 1.0f);
+        world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.5f, 1.5f);
+    }
+
+    @Override
+    public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
+        double adjustedChance = getAdjustedProcChance(petData);
+
+        if (Math.random() > adjustedChance) {
+            return; // Pas de proc
+        }
+
+        // PROC! Libérer les charges électriques
+        int adjustedCharges = getAdjustedChargeCount(petData);
+        double adjustedDamagePercent = getAdjustedDamagePercent(petData);
+
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Calculer les dégâts des charges
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double chargeDamage = weaponDamage * adjustedDamagePercent;
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.8f, 1.8f);
+        world.playSound(playerLoc, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 0.6f, 1.5f);
+
+        player.sendMessage("§a[Pet] §e⚡ CHARGES LIBÉRÉES! §7" + adjustedCharges + " charges électriques!");
+
+        // Trouver les cibles proches
+        List<LivingEntity> potentialTargets = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(playerLoc, searchRadius, searchRadius, searchRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+                potentialTargets.add(living);
+            }
+        }
+
+        if (potentialTargets.isEmpty()) {
+            return;
+        }
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Lancer les charges avec un petit délai entre chaque
+        for (int i = 0; i < adjustedCharges; i++) {
+            final int chargeIndex = i;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline() || potentialTargets.isEmpty()) return;
+
+                // Choisir une cible aléatoire
+                LivingEntity chargeTarget = potentialTargets.get((int)(Math.random() * potentialTargets.size()));
+                if (chargeTarget.isDead()) {
+                    potentialTargets.remove(chargeTarget);
+                    if (potentialTargets.isEmpty()) return;
+                    chargeTarget = potentialTargets.get((int)(Math.random() * potentialTargets.size()));
+                }
+
+                // Créer l'effet visuel de la charge électrique
+                spawnElectricCharge(world, playerLoc.clone().add(0, 1, 0), chargeTarget, chargeDamage, player, zombieManager);
+
+            }, i * 3L); // 3 ticks entre chaque charge
+        }
+    }
+
+    /**
+     * Spawne une charge électrique visuelle qui voyage vers la cible
+     */
+    private void spawnElectricCharge(World world, Location start, LivingEntity target, double damage,
+                                      Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+
+        new BukkitRunnable() {
+            Location currentLoc = start.clone();
+            int ticks = 0;
+            final int maxTicks = 30;
+
+            @Override
+            public void run() {
+                if (ticks >= maxTicks || target.isDead()) {
+                    cancel();
+                    return;
+                }
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+                Vector direction = targetLoc.toVector().subtract(currentLoc.toVector());
+                double distance = direction.length();
+
+                if (distance < 1.0) {
+                    // Impact!
+                    spawnLightningImpact(world, targetLoc);
+                    dealLightningDamage(player, target, damage, zombieManager);
+                    cancel();
+                    return;
+                }
+
+                // Déplacer la charge avec un mouvement erratique
+                direction.normalize().multiply(Math.min(1.5, distance));
+                // Ajouter du chaos au mouvement
+                direction.add(new Vector(
+                    (Math.random() - 0.5) * 0.5,
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.5
+                ));
+                currentLoc.add(direction);
+
+                // Particules de la charge électrique
+                world.spawnParticle(Particle.ELECTRIC_SPARK, currentLoc, 5, 0.1, 0.1, 0.1, 0.02);
+                world.spawnParticle(Particle.END_ROD, currentLoc, 2, 0.05, 0.05, 0.05, 0);
+                world.spawnParticle(Particle.DUST, currentLoc, 3, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 255, 100), 0.8f));
+
+                // Son crépitant occasionnel
+                if (ticks % 5 == 0) {
+                    world.playSound(currentLoc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.3f, 2.0f);
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 1L);
+    }
+
+    /**
+     * Effet visuel d'impact de foudre (sans LightningStrike vanilla)
+     */
+    private void spawnLightningImpact(World world, Location loc) {
+        // Explosion de particules électriques
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 25, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.END_ROD, loc, 15, 0.3, 0.5, 0.3, 0.05);
+        world.spawnParticle(Particle.FIREWORK, loc, 8, 0.2, 0.2, 0.2, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 10, 0.4, 0.4, 0.4, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 255, 255), 1.2f));
+
+        // Colonne de lumière vers le haut
+        for (double y = 0; y < 2; y += 0.3) {
+            Location colLoc = loc.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 2, 0.1, 0, 0.1, 0);
+        }
+
+        // Son d'impact
+        world.playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 1.5f);
+        world.playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 1.8f);
+    }
+
+    /**
+     * Inflige des dégâts de foudre
+     */
+    private void dealLightningDamage(Player player, LivingEntity target, double damage,
+                                      com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.LIGHTNING, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) { }
+}
+
+/**
+ * Ultimate: Arc Voltaïque
+ * - Lance un éclair qui rebondit entre les ennemis
+ * - Chaque rebond: 80% des dégâts de l'arme
+ * - Chaque ennemi touché a 50% de chance d'être paralysé 1s
+ * - Star 3: L'éclair peut toucher le même ennemi plusieurs fois
+ */
+@Getter
+class VoltaicArcActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int maxBounces;            // 8 rebonds
+    private final double damagePercent;      // 80% des dégâts
+    private final double paralyzeChance;     // 50% de paralyser
+    private final double bounceRadius;       // Rayon de recherche pour rebondir
+    private final UnstableMerchandisePassive linkedPassive;
+
+    public VoltaicArcActive(String id, String name, String desc, int bounces, double dmgPercent,
+                            double paralyzeChance, double bounceRadius, UnstableMerchandisePassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.maxBounces = bounces;
+        this.damagePercent = dmgPercent;
+        this.paralyzeChance = paralyzeChance;
+        this.bounceRadius = bounceRadius;
+        this.linkedPassive = passive;
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 40; }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Ajuster les valeurs par niveau
+        int adjustedBounces = maxBounces + (int)((petData.getStatMultiplier() - 1) * 3);
+        double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
+        double adjustedParalyzeChance = paralyzeChance + (petData.getStatMultiplier() - 1) * 0.10;
+        boolean canHitSameTarget = petData.getStarPower() >= 3;
+
+        // Calculer les dégâts
+        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double arcDamage = weaponDamage * adjustedDamagePercent;
+
+        // Trouver la première cible (la plus proche dans la direction du regard)
+        LivingEntity firstTarget = findTargetInSight(player, 20);
+        if (firstTarget == null) {
+            // Chercher n'importe quel ennemi proche
+            for (Entity entity : world.getNearbyEntities(playerLoc, 15, 15, 15)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()) {
+                    firstTarget = living;
+                    break;
+                }
+            }
+        }
+
+        if (firstTarget == null) {
+            player.sendMessage("§a[Pet] §c⚡ Aucune cible à portée!");
+            return false;
+        }
+
+        // Son d'activation
+        world.playSound(playerLoc, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 1.5f);
+        world.playSound(playerLoc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_WANDERING_TRADER_TRADE, 1.0f, 1.2f);
+
+        player.sendMessage("§a[Pet] §e§l⚡ ARC VOLTAÏQUE! §7" + adjustedBounces + " rebonds max!");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Démarrer la chaîne d'éclairs
+        startLightningChain(world, playerLoc.clone().add(0, 1.5, 0), firstTarget, arcDamage,
+            adjustedBounces, adjustedParalyzeChance, canHitSameTarget, player, zombieManager, petData);
+
+        return true;
+    }
+
+    /**
+     * Trouve une cible dans la direction du regard du joueur
+     */
+    private LivingEntity findTargetInSight(Player player, double maxDistance) {
+        Location eyeLoc = player.getEyeLocation();
+        Vector direction = eyeLoc.getDirection();
+
+        for (double d = 1; d <= maxDistance; d += 0.5) {
+            Location checkLoc = eyeLoc.clone().add(direction.clone().multiply(d));
+            for (Entity entity : checkLoc.getWorld().getNearbyEntities(checkLoc, 1.5, 1.5, 1.5)) {
+                if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                    && !(entity instanceof ArmorStand) && !living.isDead()) {
+                    return living;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Lance la chaîne d'éclairs qui rebondit entre les ennemis
+     */
+    private void startLightningChain(World world, Location startLoc, LivingEntity firstTarget, double damage,
+                                      int remainingBounces, double paralyzeChance, boolean canHitSame,
+                                      Player player, com.rinaorc.zombiez.zombies.ZombieManager zombieManager,
+                                      PetData petData) {
+
+        Set<UUID> hitTargets = canHitSame ? null : new HashSet<>();
+        List<LivingEntity> chainTargets = new ArrayList<>();
+        chainTargets.add(firstTarget);
+
+        // Construire la chaîne de cibles
+        LivingEntity currentTarget = firstTarget;
+        Location currentLoc = startLoc.clone();
+
+        for (int i = 0; i < remainingBounces && currentTarget != null; i++) {
+            if (!canHitSame && hitTargets != null) {
+                hitTargets.add(currentTarget.getUniqueId());
+            }
+
+            // Chercher la prochaine cible
+            LivingEntity nextTarget = findNextTarget(world, currentTarget.getLocation(),
+                bounceRadius, canHitSame ? null : hitTargets);
+
+            if (nextTarget != null) {
+                chainTargets.add(nextTarget);
+                currentTarget = nextTarget;
+            } else {
+                break;
+            }
+        }
+
+        // Animer la chaîne d'éclairs
+        final List<LivingEntity> finalChain = chainTargets;
+        new BukkitRunnable() {
+            int currentIndex = 0;
+            Location arcStart = startLoc.clone();
+
+            @Override
+            public void run() {
+                if (currentIndex >= finalChain.size()) {
+                    cancel();
+                    return;
+                }
+
+                LivingEntity target = finalChain.get(currentIndex);
+                if (target.isDead()) {
+                    currentIndex++;
+                    return;
+                }
+
+                Location targetLoc = target.getLocation().add(0, 1, 0);
+
+                // Dessiner l'arc électrique entre arcStart et targetLoc
+                drawLightningArc(world, arcStart, targetLoc);
+
+                // Impact et dégâts
+                spawnLightningImpact(world, targetLoc);
+                dealLightningDamage(player, target, damage, zombieManager);
+
+                // Chance de paralyser
+                if (Math.random() < paralyzeChance && target instanceof org.bukkit.entity.Mob mob) {
+                    mob.setAI(false);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, targetLoc, 15, 0.3, 0.5, 0.3, 0.05);
+
+                    Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                        if (mob.isValid() && !mob.isDead()) {
+                            mob.setAI(true);
+                        }
+                    }, 20L); // 1 seconde
+                }
+
+                arcStart = targetLoc.clone();
+                currentIndex++;
+            }
+        }.runTaskTimer(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), 0L, 4L);
+
+        // Message de résultat
+        Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+            player.sendMessage("§a[Pet] §e⚡ Arc terminé: §7" + finalChain.size() + " ennemis frappés!");
+        }, (finalChain.size() + 1) * 4L);
+    }
+
+    /**
+     * Trouve la prochaine cible pour le rebond
+     */
+    private LivingEntity findNextTarget(World world, Location fromLoc, double radius, Set<UUID> excludeIds) {
+        LivingEntity closest = null;
+        double closestDist = Double.MAX_VALUE;
+
+        for (Entity entity : world.getNearbyEntities(fromLoc, radius, radius, radius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (excludeIds != null && excludeIds.contains(entity.getUniqueId())) {
+                    continue;
+                }
+
+                double dist = living.getLocation().distanceSquared(fromLoc);
+                if (dist > 1 && dist < closestDist) { // > 1 pour éviter la même position
+                    closestDist = dist;
+                    closest = living;
+                }
+            }
+        }
+
+        return closest;
+    }
+
+    /**
+     * Dessine un arc électrique entre deux points (avec particules)
+     */
+    private void drawLightningArc(World world, Location from, Location to) {
+        Vector direction = to.toVector().subtract(from.toVector());
+        double distance = direction.length();
+        direction.normalize();
+
+        int segments = (int)(distance * 3);
+        Location currentPoint = from.clone();
+
+        for (int i = 0; i < segments; i++) {
+            // Avancer le long de la ligne
+            currentPoint.add(direction.clone().multiply(distance / segments));
+
+            // Ajouter du zigzag aléatoire
+            Location particleLoc = currentPoint.clone().add(
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3
+            );
+
+            // Particules de l'arc
+            world.spawnParticle(Particle.ELECTRIC_SPARK, particleLoc, 2, 0.05, 0.05, 0.05, 0);
+            world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
+
+            // Particules colorées tous les 2 segments
+            if (i % 2 == 0) {
+                world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(100, 200, 255), 1.0f));
+            }
+        }
+
+        // Son de crépitement
+        world.playSound(from, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.8f);
+        world.playSound(to, Sound.ENTITY_FIREWORK_ROCKET_TWINKLE, 0.6f, 1.5f);
+    }
+
+    /**
+     * Effet visuel d'impact de foudre
+     */
+    private void spawnLightningImpact(World world, Location loc) {
+        world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.5, 0.5, 0.5, 0.15);
+        world.spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.4, 0.3, 0.05);
+        world.spawnParticle(Particle.FIREWORK, loc, 6, 0.2, 0.2, 0.2, 0.1);
+        world.spawnParticle(Particle.DUST, loc, 8, 0.3, 0.3, 0.3, 0,
+            new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 255, 150), 1.5f));
+
+        // Colonne de lumière
+        for (double y = 0; y < 1.5; y += 0.2) {
+            Location colLoc = loc.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 1, 0.05, 0, 0.05, 0);
+        }
+
+        world.playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.8f, 1.3f);
+    }
+
+    /**
+     * Inflige des dégâts de foudre
+     */
+    private void dealLightningDamage(Player player, LivingEntity target, double damage,
+                                      com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.LIGHTNING, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
