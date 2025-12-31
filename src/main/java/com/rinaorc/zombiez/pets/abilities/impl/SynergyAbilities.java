@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -751,7 +752,7 @@ class TurtleOffspringPassive implements PetAbility {
         UUID uuid = player.getUniqueId();
 
         // Calculer les dégâts du bébé
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double babyDamage = playerDamage * dmgPercent;
 
         // Effet d'éclosion
@@ -1082,7 +1083,7 @@ class ElementalCatalystPassive implements PetAbility {
         Location loc = target.getLocation();
 
         // Calculer les dégâts de réaction
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = reactionDamagePercent + (petData.getStatMultiplier() - 1) * 0.15;
         double reactionDamage = playerDamage * adjustedPercent;
 
@@ -1285,7 +1286,7 @@ class ChainReactionActive implements PetAbility {
         }
 
         // Calculer les dégâts
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = reactionDamagePercent + (petData.getStatMultiplier() - 1) * 0.20;
 
         // Changer l'axolotl en variante BLUE (rare) temporairement
@@ -2847,7 +2848,7 @@ class FungalDetonationActive implements PetAbility {
         World world = center.getWorld();
 
         // Calculer les dégâts (basé sur l'attribut d'attaque du joueur)
-        double baseDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double baseDamage = PetDamageUtils.getEffectiveDamage(player);
         double damage = baseDamage * damageMultiplier * petData.getStatMultiplier();
 
         // Rayon ajusté par niveau
@@ -3297,7 +3298,7 @@ class WispFireballPassive implements PetAbility {
 
         // Dégâts de la boule de feu
         double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.10;
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double fireballDamage = playerDamage * adjustedDamagePercent;
 
         // Son de lancement
@@ -3385,7 +3386,7 @@ class InfernalBarrageActive implements PetAbility {
 
         // Dégâts par boule de feu
         double adjustedDamagePercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double fireballDamage = playerDamage * adjustedDamagePercent;
 
         // Nombre de boules ajusté
@@ -3939,7 +3940,7 @@ class DeadlyDiveActive implements PetAbility {
         World world = impactLoc.getWorld();
 
         // Calculer les dégâts (200% des dégâts du joueur)
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double damage = playerDamage * damageMultiplier * petData.getStatMultiplier();
 
         // Vérifier si c'est une exécution
@@ -4106,7 +4107,7 @@ class BouncingAssaultActive implements PetAbility {
         }
 
         // Calculer les dégâts par bond
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double damagePerBounce = playerDamage * bounceDamagePercent * petData.getStatMultiplier();
 
         // Ajuster le nombre de bonds par niveau
@@ -4401,7 +4402,7 @@ class InkPuddlePassive implements PetAbility {
         World world = center.getWorld();
 
         // Calculer les dégâts par tick (20 ticks = 1 seconde)
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedDmgPercent = damagePerSecondPercent + (petData.getStatMultiplier() - 1) * 0.05;
         double damagePerTick = (playerDamage * adjustedDmgPercent) / 20.0;
 
@@ -4607,7 +4608,7 @@ class DarknessCloudActive implements PetAbility {
 
                     if (affectedMonsters.size() >= 2) {
                         // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
-                        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+                        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
                         double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
 
                         // Chaque monstre attaque un voisin aléatoire
@@ -4701,7 +4702,7 @@ class SwarmRetaliationPassive implements PetAbility {
         Location playerLoc = player.getLocation();
 
         // Calculer les dégâts de contre-attaque
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.05;
         double retaliationDamage = playerDamage * adjustedPercent;
 
@@ -4843,7 +4844,7 @@ class SwarmFuryActive implements PetAbility {
         double adjustedDmgPercent = damagePerStingPercent + (petData.getStatMultiplier() - 1) * 0.03;
 
         // Calculer les dégâts par piqûre
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double damagePerSting = playerDamage * adjustedDmgPercent;
 
         player.sendMessage("§a[Pet] §e§l🐝 FUREUR DE L'ESSAIM! §73 abeilles déchaînées pendant " +
@@ -5102,7 +5103,7 @@ class VoidTentaclePassive implements PetAbility {
         }
 
         // Calculer les dégâts des tentacules
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double tentacleDamage = playerDamage * (isUltimate ? adjustedDmgPercent * 1.5 : adjustedDmgPercent);
 
         // Son d'invocation
@@ -5299,7 +5300,7 @@ class VoidEruptionActive implements PetAbility {
         double adjustedRadius = tentacleRadius + (petData.getStatMultiplier() - 1) * 1.5;
 
         // Calculer les dégâts
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double tentacleDamage = playerDamage * adjustedDmgPercent;
 
         player.sendMessage("§a[Pet] §5§l🦑 ÉRUPTION DU VIDE! §7" + adjustedCount +
@@ -9544,7 +9545,7 @@ class TridentStormActive implements PetAbility {
         boolean piercing = petData.getStarPower() >= 3; // Star 3: les tridents percent
 
         // Calculer les dégâts basés sur l'arme du joueur
-        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double weaponDamage = PetDamageUtils.getEffectiveDamage(player);
         double tridentDamage = weaponDamage * adjustedDamagePercent;
 
         // Bonus si le passif a des stacks
@@ -10002,7 +10003,7 @@ class CaravanChargeActive implements PetAbility {
 
         // Minimum de dégâts même sans block (basé sur l'arme)
         if (explosionDamage < 20) {
-            double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+            double weaponDamage = PetDamageUtils.getEffectiveDamage(player);
             explosionDamage = Math.max(explosionDamage, weaponDamage * 2);
         }
 
@@ -10188,7 +10189,7 @@ class UnstableMerchandisePassive implements PetAbility {
         Location playerLoc = player.getLocation();
 
         // Calculer les dégâts des charges
-        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double weaponDamage = PetDamageUtils.getEffectiveDamage(player);
         double chargeDamage = weaponDamage * adjustedDamagePercent;
 
         // Son d'activation
@@ -10384,7 +10385,7 @@ class VoltaicArcActive implements PetAbility {
         boolean canHitSameTarget = petData.getStarPower() >= 3;
 
         // Calculer les dégâts
-        double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double weaponDamage = PetDamageUtils.getEffectiveDamage(player);
         double arcDamage = weaponDamage * adjustedDamagePercent;
 
         // Trouver la première cible (la plus proche dans la direction du regard)

@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import com.rinaorc.zombiez.pets.listeners.PetCombatListener;
 import lombok.Getter;
 import org.bukkit.*;
@@ -533,7 +534,7 @@ class EvokerFangsPassive implements PetAbility {
         lastFangSpawn.put(playerUUID, now);
 
         // Calculer les dégâts des crocs
-        double playerDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
         double adjustedDmgPercent = damagePercent + (petData.getStatMultiplier() - 1) * 0.15;
         double fangDamage = playerDamage * adjustedDmgPercent;
 

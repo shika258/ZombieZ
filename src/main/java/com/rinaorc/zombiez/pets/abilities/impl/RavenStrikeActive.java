@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.abilities.impl;
 
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
+import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import com.rinaorc.zombiez.pets.listeners.PetCombatListener;
 import lombok.Getter;
 import org.bukkit.*;
@@ -115,18 +116,10 @@ public class RavenStrikeActive implements PetAbility {
     }
 
     /**
-     * Obtient les dégâts d'attaque du joueur
+     * Obtient les dégâts d'attaque du joueur (supporte armes à distance)
      */
     private double getPlayerAttackDamage(Player player) {
-        // Dégâts de base + bonus d'arme
-        double baseDamage = 1.0; // Dégâts à mains nues
-
-        var attribute = player.getAttribute(Attribute.ATTACK_DAMAGE);
-        if (attribute != null) {
-            baseDamage = attribute.getValue();
-        }
-
-        return baseDamage;
+        return PetDamageUtils.getEffectiveDamage(player);
     }
 
     /**
