@@ -30,7 +30,7 @@ public class PetCollectionGUI implements InventoryHolder {
 
     // Slots pour les filtres de rareté (ligne du haut)
     private static final int SLOT_FILTER_ALL = 0;
-    private static final int[] SLOT_FILTERS = { 1, 2, 3, 4, 5, 6 }; // COMMON to MYTHIC
+    private static final int[] SLOT_FILTERS = { 1, 2, 3, 4, 5, 6, 7 }; // COMMON to EXALTED
 
     // Slots de navigation (ligne du bas)
     private static final int SLOT_PREV = 45;

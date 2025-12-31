@@ -27,7 +27,7 @@ public class ConsumableManager {
     private final ConsumableEffects effects;
 
     // Configuration des drops
-    private static final double BASE_DROP_CHANCE = 0.08; // 8% de base
+    private static final double BASE_DROP_CHANCE = 0.04; // 4% de base
     private static final double ZONE_BONUS_PER_ZONE = 0.002; // +0.2% par zone
     private static final double BOSS_DROP_MULTIPLIER = 3.0;
     private static final double ELITE_DROP_MULTIPLIER = 2.0;

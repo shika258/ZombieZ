@@ -41,9 +41,10 @@ commands:
     aliases: [zzc, consumable]
 
   zzevent:
-    description: Gestion des événements dynamiques
-    usage: /<command> <spawn|list|stop|info|stats|toggle|interval|debug>
-    permission: zombiez.admin.events
+    description: Gestion des événements dynamiques (admin) et téléportation (joueurs)
+    usage: /<command> [tp <id>] - Joueurs peuvent voir les events et se téléporter
+    # Permission retirée pour permettre /event tp aux joueurs
+    # Les sous-commandes admin sont protégées par zombiez.admin.events dans le code
     aliases: [zze, event]
 
   zzmicro:

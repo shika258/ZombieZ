@@ -128,15 +128,15 @@ public class PetEggGUI implements InventoryHolder {
             // Oeuf Standard
             int standardPity = petData.getPityCounter(EggType.STANDARD);
             lore.add("§f◆ Oeuf Standard:");
-            lore.add("  " + createPityBar(standardPity, 50) + " §b" + standardPity + "§7/§b50 §7→ Rare");
-            lore.add("  " + createPityBar(standardPity, 100) + " §d" + standardPity + "§7/§d100 §7→ Épique");
+            lore.add("  " + createPityBar(standardPity, 50) + " §9" + standardPity + "§7/§950 §7→ Rare");
+            lore.add("  " + createPityBar(standardPity, 100) + " §5" + standardPity + "§7/§5100 §7→ Épique");
             lore.add("  " + createPityBar(standardPity, 200) + " §6" + standardPity + "§7/§6200 §7→ Légendaire");
 
             // Oeuf Zone
             int zonePity = petData.getPityCounter(EggType.ZONE);
             lore.add("");
             lore.add("§e◆ Oeuf de Zone:");
-            lore.add("  " + createPityBar(zonePity, 30) + " §d" + zonePity + "§7/§d30 §7→ Épique");
+            lore.add("  " + createPityBar(zonePity, 30) + " §5" + zonePity + "§7/§530 §7→ Épique");
             lore.add("  " + createPityBar(zonePity, 75) + " §6" + zonePity + "§7/§675 §7→ Légendaire");
 
             // Oeuf Élite
@@ -144,13 +144,20 @@ public class PetEggGUI implements InventoryHolder {
             lore.add("");
             lore.add("§d◆ Oeuf Élite:");
             lore.add("  " + createPityBar(elitePity, 20) + " §6" + elitePity + "§7/§620 §7→ Légendaire");
-            lore.add("  " + createPityBar(elitePity, 50) + " §c" + elitePity + "§7/§c50 §7→ Mythique");
+            lore.add("  " + createPityBar(elitePity, 50) + " §d" + elitePity + "§7/§d50 §7→ Mythique");
 
             // Oeuf Légendaire
             int legendaryPity = petData.getPityCounter(EggType.LEGENDARY);
             lore.add("");
             lore.add("§6◆ Oeuf Légendaire:");
-            lore.add("  " + createPityBar(legendaryPity, 25) + " §c" + legendaryPity + "§7/§c25 §7→ Mythique");
+            lore.add("  " + createPityBar(legendaryPity, 25) + " §d" + legendaryPity + "§7/§d25 §7→ Mythique");
+            lore.add("  " + createPityBar(legendaryPity, 100) + " §c§l" + legendaryPity + "§7/§c§l100 §7→ §c§lExalté");
+
+            // Oeuf Mythique
+            int mythicPity = petData.getPityCounter(EggType.MYTHIC);
+            lore.add("");
+            lore.add("§d◆ Oeuf Mythique:");
+            lore.add("  " + createPityBar(mythicPity, 50) + " §c§l" + mythicPity + "§7/§c§l50 §7→ §c§lExalté");
 
             lore.add("");
             lore.add("§8Le pity se réinitialise quand vous");
