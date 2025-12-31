@@ -247,7 +247,7 @@ public class PetMainGUI implements InventoryHolder {
             lore.add("");
             lore.add("§b§l═══ OEUFS ═══");
             lore.add("§7Oeufs ouverts: §e" + formatNumber(petData.getTotalEggsOpened()));
-            lore.add("§7Légendaires: §6" + petData.getLegendariesObtained() + " §7| Mythiques: §c" + petData.getMythicsObtained() + " §7| Exaltés: §4" + petData.getExaltedObtained());
+            lore.add("§7Légendaires: §6" + petData.getLegendariesObtained() + " §7| Mythiques: §d" + petData.getMythicsObtained() + " §7| Exaltés: §c" + petData.getExaltedObtained());
             lore.add("§7Fragments gagnés: §d" + formatNumber(petData.getTotalFragmentsEarned()));
 
             // Calculer les totaux de tous les pets
