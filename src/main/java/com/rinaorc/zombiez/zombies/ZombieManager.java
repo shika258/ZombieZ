@@ -1344,9 +1344,15 @@ public class ZombieManager {
         if (!entity.hasMetadata("zombiez_type")) {
             return null;
         }
-        
+
         String typeName = entity.getMetadata("zombiez_type").get(0).asString();
-        return ZombieType.valueOf(typeName);
+        try {
+            return ZombieType.valueOf(typeName);
+        } catch (IllegalArgumentException e) {
+            // Type inconnu (ex: EVENT_ZOMBIE des événements dynamiques)
+            // Retourner null pour éviter le crash
+            return null;
+        }
     }
 
     /**
