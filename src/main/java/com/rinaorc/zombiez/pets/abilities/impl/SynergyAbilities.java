@@ -2903,9 +2903,10 @@ class FungalDetonationActive implements PetAbility {
         world.playSound(center, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 0.8f, 0.8f);
         world.playSound(center, Sound.BLOCK_FUNGUS_BREAK, 2.0f, 0.3f);
 
-        // Message final
-        player.sendMessage("§a[Pet] §c§l💥 DÉTONATION FONGIQUE! §7" + (int)damage +
-            " dégâts → §e" + enemiesHit + " §7ennemi" + (enemiesHit > 1 ? "s" : "") +
+        // Message final (affiche les dégâts totaux infligés)
+        int totalDamage = (int)(damage * enemiesHit);
+        player.sendMessage("§a[Pet] §c§l💥 DÉTONATION FONGIQUE! §c" + totalDamage +
+            " §7dégâts totaux (§c" + (int)damage + "§7/cible) → §e" + enemiesHit + " §7ennemi" + (enemiesHit > 1 ? "s" : "") +
             " §7(rayon §6" + adjustedRadius + "§7 blocs)");
     }
 }
