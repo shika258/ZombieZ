@@ -21,7 +21,8 @@ public enum EggType {
         null,           // Pas de rareté minimum garantie
         0.0,            // Pas de boost légendaire
         500,            // Prix en points
-        new double[]{45, 30, 15, 7, 2.5, 0.5}  // Drop rates par rareté
+        // Drop rates: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, EXALTED
+        new double[]{45, 30, 15, 7, 2.5, 0.5, 0}
     ),
 
     ZONE(
@@ -31,7 +32,7 @@ public enum EggType {
         PetRarity.RARE, // Rare minimum garanti
         0.0,
         2000,
-        new double[]{0, 0, 60, 30, 8, 2}
+        new double[]{0, 0, 60, 30, 8, 2, 0}
     ),
 
     ELITE(
@@ -41,7 +42,7 @@ public enum EggType {
         PetRarity.EPIC, // Épique minimum garanti
         0.10,           // 10% chance légendaire boost
         5000,
-        new double[]{0, 0, 0, 70, 25, 5}
+        new double[]{0, 0, 0, 70, 25, 5, 0}
     ),
 
     LEGENDARY(
@@ -51,7 +52,7 @@ public enum EggType {
         PetRarity.LEGENDARY, // Légendaire garanti
         0.05,                // 5% chance mythique
         15000,
-        new double[]{0, 0, 0, 0, 95, 5}
+        new double[]{0, 0, 0, 0, 94, 5, 1}  // 1% chance EXALTED
     ),
 
     MYTHIC(
@@ -61,7 +62,7 @@ public enum EggType {
         PetRarity.MYTHIC, // Mythique garanti
         0.0,
         -1,              // Non achetable
-        new double[]{0, 0, 0, 0, 0, 100}
+        new double[]{0, 0, 0, 0, 0, 97, 3}  // 3% chance EXALTED
     );
 
     private final String displayName;
@@ -131,6 +132,9 @@ public enum EggType {
 
         // Parcourir de la plus rare à la moins rare
         for (int i = rarities.length - 1; i >= 0; i--) {
+            // Protection contre ArrayIndexOutOfBounds si une rareté est ajoutée
+            if (i >= rarityRates.length) continue;
+
             double rate = rarityRates[i] * (1 + luckBonus);
             if (legendaryBoost > 0 && i >= PetRarity.LEGENDARY.ordinal()) {
                 rate *= (1 + legendaryBoost);

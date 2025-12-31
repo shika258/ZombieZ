@@ -56,6 +56,9 @@ public class PetDisplayManager {
     private final Map<UUID, String> lastLine2Text = new ConcurrentHashMap<>();
     private final Map<UUID, String> lastLine3Text = new ConcurrentHashMap<>();
 
+    // Map des tasks de particules par joueur pour cleanup propre
+    private final Map<UUID, BukkitTask> particleTasks = new ConcurrentHashMap<>();
+
     // Task de mise à jour des positions du pet (pas des hologrammes)
     private BukkitTask updateTask;
 
@@ -82,9 +85,8 @@ public class PetDisplayManager {
 
         // Tâche de suivi du pet (pas des hologrammes - ils suivent automatiquement en
         // tant que passagers)
-        // Réduit à 2 ticks car les hologrammes n'ont plus besoin d'être mis à jour
-        // chaque tick
-        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 1L, 2L);
+        // Optimisé à 4 ticks (5 updates/sec) - suffisant pour un suivi fluide
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPets, 1L, 4L);
 
         // Tâche de mise à jour des noms toutes les secondes (pour le timer ultime)
         nameUpdateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPetNames, 20L, 20L);
@@ -143,6 +145,12 @@ public class PetDisplayManager {
         UUID entityUuid = activePetEntities.remove(playerUuid);
         playerWorlds.remove(playerUuid);
         targetLocations.remove(playerUuid);
+
+        // Annuler la task de particules
+        BukkitTask particleTask = particleTasks.remove(playerUuid);
+        if (particleTask != null) {
+            particleTask.cancel();
+        }
 
         // Supprimer les hologrammes TextDisplay
         removeHologramDisplays(playerUuid);
@@ -315,9 +323,9 @@ public class PetDisplayManager {
         if (target == null || target.getWorld() == null)
             return;
 
-        // S'assurer que le chunk de destination est chargé
+        // Ne pas forcer le chargement du chunk - attendre qu'il soit chargé naturellement
         if (!target.isChunkLoaded()) {
-            target.getChunk().load();
+            return; // Skip, réessayera au prochain tick
         }
 
         // Effet de départ (seulement si le chunk source est chargé)
@@ -379,6 +387,11 @@ public class PetDisplayManager {
             if (player == null || !player.isOnline()) {
                 // Joueur déconnecté - nettoyer immédiatement
                 cleanupDisconnectedPlayer(playerUuid, entry.getValue());
+                continue;
+            }
+
+            // Skip si le chunk du joueur n'est pas chargé (optimisation)
+            if (!player.getLocation().isChunkLoaded()) {
                 continue;
             }
 
@@ -1027,10 +1040,17 @@ public class PetDisplayManager {
     private void spawnRarityParticles(Entity entity, PetType type, Player owner) {
         UUID ownerUuid = owner.getUniqueId();
 
-        Bukkit.getScheduler().runTaskTimer(plugin, task -> {
-            // Arrêter si l'entité n'est plus valide
-            if (!entity.isValid()) {
-                task.cancel();
+        // Annuler l'ancienne task si elle existe
+        BukkitTask oldTask = particleTasks.remove(ownerUuid);
+        if (oldTask != null) {
+            oldTask.cancel();
+        }
+
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, taskHandle -> {
+            // Arrêter si l'entité n'est plus valide ou si le pet a été retiré
+            if (!entity.isValid() || !activePetEntities.containsKey(ownerUuid)) {
+                taskHandle.cancel();
+                particleTasks.remove(ownerUuid);
                 return;
             }
 
@@ -1054,10 +1074,16 @@ public class PetDisplayManager {
                     loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 5, 0.3, 0.3, 0.3, 0.5);
                     loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 2, 0.2, 0.2, 0.2, 0);
                 }
+                case EXALTED -> {
+                    loc.getWorld().spawnParticle(Particle.TRIAL_SPAWNER_DETECTION_OMINOUS, loc, 3, 0.3, 0.3, 0.3, 0.02);
+                    loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0.1, 0.1, 0.1, 0);
+                }
                 default -> {
                 } // Pas de particules pour common/uncommon/rare
             }
         }, 10L, 10L);
+
+        particleTasks.put(ownerUuid, task);
     }
 
     /**
@@ -1082,6 +1108,7 @@ public class PetDisplayManager {
             case EPIC -> DyeColor.PURPLE;
             case LEGENDARY -> DyeColor.ORANGE;
             case MYTHIC -> DyeColor.RED;
+            case EXALTED -> DyeColor.BLACK;
         };
     }
 

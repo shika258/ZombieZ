@@ -33,6 +33,9 @@ public class PetManager {
     // Cache des cooldowns des capacités ultimes: Map<UUID, Map<PetType, prochaine activation timestamp>>
     private final Map<UUID, Map<PetType, Long>> abilityCooldowns = new ConcurrentHashMap<>();
 
+    // Set des joueurs avec un pet équipé (optimisation pour éviter d'itérer tous les joueurs)
+    private final Set<UUID> playersWithEquippedPet = ConcurrentHashMap.newKeySet();
+
     // Tâche d'activation automatique des ultimes
     private BukkitTask ultimateTickTask;
 
@@ -194,6 +197,9 @@ public class PetManager {
             displayManager.spawnPetDisplay(player, type);
         }
 
+        // Ajouter au set d'optimisation
+        playersWithEquippedPet.add(player.getUniqueId());
+
         player.sendMessage("§a[Pet] §7Vous avez équipé " + type.getColoredName() + "§7!");
 
         // Notifier le système Journey
@@ -223,6 +229,9 @@ public class PetManager {
 
         // Retirer l'entité visuelle
         displayManager.removePetDisplay(player);
+
+        // Retirer du set d'optimisation
+        playersWithEquippedPet.remove(player.getUniqueId());
 
         data.unequipPet();
         player.sendMessage("§a[Pet] §7Vous avez déséquipé votre pet.");
@@ -652,17 +661,24 @@ public class PetManager {
     // ==================== TÂCHES PLANIFIÉES ====================
 
     private void startTasks() {
-        // Tick des capacités passives toutes les 1 seconde
+        // Tick des capacités passives toutes les 1 seconde (optimisé: uniquement joueurs avec pet)
         passiveTickTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                tickPassive(player);
+            for (UUID uuid : playersWithEquippedPet) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    tickPassive(player);
+                }
             }
         }, 20L, 20L);
 
-        // Tick des capacités ultimes toutes les 0.5 seconde (vérification rapide)
+        // Tick des capacités ultimes toutes les 0.5 seconde (optimisé: uniquement joueurs avec pet)
         ultimateTickTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                autoActivateUltimate(player);
+            // Itérer seulement sur les joueurs avec un pet équipé
+            for (UUID uuid : playersWithEquippedPet) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    autoActivateUltimate(player);
+                }
             }
         }, 10L, 10L);
 
@@ -733,6 +749,9 @@ public class PetManager {
                     if (data.isShowPetEntity()) {
                         displayManager.spawnPetDisplay(player, type);
                     }
+
+                    // Ajouter au set d'optimisation
+                    playersWithEquippedPet.add(player.getUniqueId());
                 });
             }
         });
@@ -746,6 +765,9 @@ public class PetManager {
 
         // Retirer l'affichage
         displayManager.removePetDisplay(player);
+
+        // Retirer du set d'optimisation
+        playersWithEquippedPet.remove(uuid);
 
         // Sauvegarder les données
         PlayerPetData data = petDataCache.getIfPresent(uuid);

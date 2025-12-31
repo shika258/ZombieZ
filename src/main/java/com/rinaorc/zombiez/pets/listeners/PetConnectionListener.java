@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.pets.listeners;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PlayerPetData;
+import com.rinaorc.zombiez.pets.abilities.impl.CombatRegenPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PassiveAbilityCleanup;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
@@ -46,6 +47,9 @@ public class PetConnectionListener implements Listener {
 
         // Nettoyer les données en mémoire des abilities pour éviter les fuites
         PassiveAbilityCleanup.cleanupPlayer(event.getPlayer().getUniqueId());
+
+        // Nettoyer les BukkitRunnable de CombatRegenPassive
+        CombatRegenPassive.cleanupPlayer(event.getPlayer().getUniqueId());
     }
 
     /**
