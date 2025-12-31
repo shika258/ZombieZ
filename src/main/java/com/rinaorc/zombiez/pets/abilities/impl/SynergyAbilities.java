@@ -20,6 +20,82 @@ import java.util.*;
 public class SynergyAbilities {
     // Classe conteneur pour les abilities de synergie
     private SynergyAbilities() {}
+
+    /**
+     * Classe abstraite de base pour les capacités de pet dans SynergyAbilities
+     * Fournit une implémentation de base pour PetAbility
+     */
+    @Getter
+    public static abstract class BasePetAbility implements PetAbility {
+        protected final String id;
+        protected final String displayName;
+        protected final String description;
+        protected final boolean active;
+
+        protected BasePetAbility(String id, String name, String description, boolean isActive) {
+            this.id = id;
+            this.displayName = name;
+            this.description = description;
+            this.active = isActive;
+        }
+
+        @Override
+        public boolean isPassive() {
+            return !active;
+        }
+
+        @Override
+        public void applyPassive(Player player, PetData petData) {
+            // À implémenter par les sous-classes si passif
+        }
+
+        /**
+         * Implémentation de l'interface PetAbility.activate()
+         * Appelle doActivate() et retourne toujours true
+         */
+        @Override
+        public boolean activate(Player player, PetData petData) {
+            doActivate(player, petData);
+            return true;
+        }
+
+        /**
+         * Méthode d'activation pour les sous-classes
+         * Les sous-classes doivent override cette méthode au lieu de activate()
+         */
+        protected void doActivate(Player player, PetData petData) {
+            // À implémenter par les sous-classes si actif
+        }
+
+        // Méthodes pour les sous-classes qui utilisent des signatures différentes
+        public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+            // Signature alternative pour compatibilité
+        }
+
+        public void onKill(Player player, LivingEntity victim, PetData petData) {
+            // Signature alternative pour compatibilité
+        }
+
+        public void onDamageReceived(Player player, double damage, PetData petData) {
+            // Signature alternative pour compatibilité
+        }
+
+        // Wrapper pour adapter les signatures vers l'interface PetAbility
+        @Override
+        public void onKill(Player player, PetData petData, LivingEntity killed) {
+            onKill(player, killed, petData);
+        }
+
+        @Override
+        public void onDamageReceived(Player player, PetData petData, double damage) {
+            onDamageReceived(player, damage, petData);
+        }
+
+        @Override
+        public void onDamageDealt(Player player, PetData petData, LivingEntity target, double damage) {
+            onDamageDealt(player, target, damage, petData);
+        }
+    }
 }
 
 // ==================== COMBO SYSTEM (Armadillo Combo) ====================
@@ -4145,7 +4221,7 @@ class BouncingAssaultActive implements PetAbility {
 // ==================== OURS POLAIRE GARDIEN (Tank / Protection) ====================
 
 @Getter
-public class FrostFurPassive implements PetAbility {
+class FrostFurPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
@@ -8988,7 +9064,7 @@ class ArcaneTorrentActive extends SynergyAbilities.BasePetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    protected void doActivate(Player player, PetData petData) {
         var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
         var zombieManager = plugin.getZombieManager();
         World world = player.getWorld();
@@ -9227,7 +9303,7 @@ class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
     }
 
     @Override
-    public void activate(Player player, PetData petData) {
+    protected void doActivate(Player player, PetData petData) {
         var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
         var zombieManager = plugin.getZombieManager();
         World world = player.getWorld();
