@@ -16,6 +16,7 @@ import com.rinaorc.zombiez.pets.abilities.impl.RebornPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.FrostFurPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PredatorMarkActive;
 import com.rinaorc.zombiez.pets.eggs.EggType;
+import org.bukkit.Particle;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

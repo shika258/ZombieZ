@@ -1696,7 +1696,7 @@ class SneezingExplosiveActive implements PetAbility {
             if (foodRegistry != null) {
                 var food = foodRegistry.getRandomZombieFood();
                 if (food != null) {
-                    org.bukkit.inventory.ItemStack foodItem = food.createItemStack();
+                    org.bukkit.inventory.ItemStack foodItem = food.createItemStack(1);
                     player.getWorld().dropItemNaturally(player.getLocation(), foodItem);
                     player.sendMessage("§a[Pet] §6✦ §eLe Panda a trouvé: " + food.getRarity().getColor() + food.getDisplayName());
                     player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
@@ -8171,7 +8171,7 @@ class MeteorStrikeActive implements PetAbility {
 
         // Son d'avertissement
         world.playSound(targetLoc, Sound.ENTITY_BLAZE_SHOOT, 2.0f, 0.5f);
-        world.playSound(playerLoc, Sound.ENTITY_MAGMA_CUBE_JUMP_SMALL, 1.5f, 0.8f);
+        world.playSound(playerLoc, Sound.ENTITY_MAGMA_CUBE_JUMP, 1.5f, 0.8f);
 
         // Message
         player.sendMessage("§c[Pet] §6☄ §7Frappe Météoritique! §c" +
@@ -8891,11 +8891,11 @@ class SniperDamagePassive extends SynergyAbilities.BasePetAbility {
             var zombieManager = plugin.getZombieManager();
 
             // Récupérer stats joueur
-            Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+            Map<com.rinaorc.zombiez.items.types.StatType, Double> stats =
                 plugin.getItemManager().calculatePlayerStats(player);
 
-            double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
-            double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+            double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+            double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
 
             // Dégâts de base de l'arme
             double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
@@ -8960,11 +8960,11 @@ class ArcaneTorrentActive extends SynergyAbilities.BasePetAbility {
         Location playerLoc = player.getLocation();
 
         // Récupérer stats joueur
-        Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> stats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
-        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
 
         // Dégâts de base de l'arme
         double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
@@ -9196,11 +9196,11 @@ class FinalJudgmentActive extends SynergyAbilities.BasePetAbility {
         Location playerLoc = player.getLocation();
 
         // Récupérer stats joueur
-        Map<com.rinaorc.zombiez.items.stats.StatType, Double> stats =
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> stats =
             plugin.getItemManager().calculatePlayerStats(player);
 
-        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.FLAT_DAMAGE, 0.0);
-        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.stats.StatType.DAMAGE_PERCENT, 0.0);
+        double flatDamage = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE, 0.0);
+        double damagePercent = stats.getOrDefault(com.rinaorc.zombiez.items.types.StatType.DAMAGE_PERCENT, 0.0);
 
         // Dégâts de base de l'arme
         double weaponDamage = (7.0 + flatDamage) * (1.0 + damagePercent);
@@ -10655,8 +10655,8 @@ class BurningCritPassive implements PetAbility {
     private static final Map<UUID, Long> lastStackUpdate = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(currentStacks::remove);
-        PassiveAbilityCleanup.registerForCleanup(lastStackUpdate::remove);
+        PassiveAbilityCleanup.registerForCleanup(currentStacks);
+        PassiveAbilityCleanup.registerForCleanup(lastStackUpdate);
     }
 
     public BurningCritPassive(String id, String name, String description,
@@ -10674,10 +10674,13 @@ class BurningCritPassive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return true; }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
@@ -10793,10 +10796,7 @@ class DisintegrationRayActive implements PetAbility {
     private static final Map<UUID, BukkitTask> activeChannels = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(uuid -> {
-            BukkitTask task = activeChannels.remove(uuid);
-            if (task != null) task.cancel();
-        });
+        PassiveAbilityCleanup.registerForCleanup(activeChannels);
     }
 
     public DisintegrationRayActive(String id, String name, String description,
@@ -10818,10 +10818,13 @@ class DisintegrationRayActive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return false; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -11140,7 +11143,7 @@ class ElementalSensitivityPassive implements PetAbility {
     private static final Map<UUID, Map<ElementType, Long>> enemyStacks = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(enemyStacks::remove);
+        PassiveAbilityCleanup.registerForCleanup(enemyStacks);
     }
 
     // Types élémentaires supportés
@@ -11173,10 +11176,13 @@ class ElementalSensitivityPassive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return true; }
 
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         // Détecte le type de dégât élémentaire infligé
@@ -11302,10 +11308,7 @@ class ArchonFormActive implements PetAbility {
     private static final Map<UUID, ArchonState> activeArchons = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(uuid -> {
-            ArchonState state = activeArchons.remove(uuid);
-            if (state != null) state.cancel();
-        });
+        PassiveAbilityCleanup.registerForCleanup(activeArchons);
     }
 
     private static class ArchonState {
@@ -11336,10 +11339,13 @@ class ArchonFormActive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return false; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -11612,11 +11618,8 @@ class VoidGravityPassive implements PetAbility {
     private static final Map<UUID, BukkitTask> zoneTasks = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(uuid -> {
-            enemiesInZone.remove(uuid);
-            BukkitTask task = zoneTasks.remove(uuid);
-            if (task != null) task.cancel();
-        });
+        PassiveAbilityCleanup.registerForCleanup(enemiesInZone);
+        PassiveAbilityCleanup.registerForCleanup(zoneTasks);
     }
 
     public VoidGravityPassive(String id, String name, String description,
@@ -11634,10 +11637,13 @@ class VoidGravityPassive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return true; }
 
     @Override
     public void applyPassive(Player player, PetData petData) {
@@ -11806,10 +11812,7 @@ class SingularityActive implements PetAbility {
     private static final Map<UUID, BukkitTask> activeSingularities = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(uuid -> {
-            BukkitTask task = activeSingularities.remove(uuid);
-            if (task != null) task.cancel();
-        });
+        PassiveAbilityCleanup.registerForCleanup(activeSingularities);
     }
 
     public SingularityActive(String id, String name, String description,
@@ -11829,10 +11832,13 @@ class SingularityActive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return false; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -12126,10 +12132,8 @@ class ShulkerBulletPassive implements PetAbility {
     private static final Map<UUID, Set<UUID>> levitatingEnemies = new ConcurrentHashMap<>();
 
     static {
-        PassiveAbilityCleanup.registerForCleanup(uuid -> {
-            attackCounters.remove(uuid);
-            levitatingEnemies.remove(uuid);
-        });
+        PassiveAbilityCleanup.registerForCleanup(attackCounters);
+        PassiveAbilityCleanup.registerForCleanup(levitatingEnemies);
     }
 
     public ShulkerBulletPassive(String id, String name, String description,
@@ -12148,10 +12152,13 @@ class ShulkerBulletPassive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return true; }
 
     public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
         UUID playerId = player.getUniqueId();
@@ -12367,10 +12374,13 @@ class GravitationalBarrageActive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return false; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -12645,10 +12655,13 @@ class SonicSentinelPassive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return true; }
 
     @Override
     public boolean activate(Player player, PetData petData) { return false; }
@@ -12669,7 +12682,7 @@ class SonicSentinelPassive implements PetAbility {
             // Appliquer les dégâts bonus
             var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
             if (plugin != null && plugin.getZombieManager() != null) {
-                plugin.getZombieManager().damageZombie(target, player, bonusDamage, DamageType.MAGIC);
+                plugin.getZombieManager().damageZombie(target, player, bonusDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
             }
 
             // Effet visuel de dégâts bonus
@@ -12785,7 +12798,7 @@ class SonicSentinelPassive implements PetAbility {
         for (Entity entity : world.getNearbyEntities(center, shockwaveRadius, 4, shockwaveRadius)) {
             if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
                 if (plugin != null && plugin.getZombieManager() != null) {
-                    plugin.getZombieManager().damageZombie(living, player, shockwaveDamage, DamageType.MAGIC);
+                    plugin.getZombieManager().damageZombie(living, player, shockwaveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
                     hit++;
 
                     // Knockback
@@ -12865,10 +12878,13 @@ class SonicBoomActive implements PetAbility {
     public String getId() { return id; }
 
     @Override
-    public String getName() { return name; }
+    public String getDisplayName() { return name; }
 
     @Override
     public String getDescription() { return description; }
+
+    @Override
+    public boolean isPassive() { return false; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -12999,7 +13015,7 @@ class SonicBoomActive implements PetAbility {
                 if (shouldExecute) {
                     // Exécution instantanée
                     if (plugin != null && plugin.getZombieManager() != null) {
-                        plugin.getZombieManager().damageZombie(living, player, 99999, DamageType.MAGIC);
+                        plugin.getZombieManager().damageZombie(living, player, 99999, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
                     }
                     executed++;
 
@@ -13022,7 +13038,7 @@ class SonicBoomActive implements PetAbility {
                             effectiveDamage *= 1.25; // +25% sur marqués
                         }
 
-                        plugin.getZombieManager().damageZombie(living, player, effectiveDamage, DamageType.MAGIC);
+                        plugin.getZombieManager().damageZombie(living, player, effectiveDamage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
                     }
                     hit++;
 
@@ -13083,7 +13099,7 @@ class SonicBoomActive implements PetAbility {
         for (Entity entity : world.getNearbyEntities(center, secondaryRadius, 3, secondaryRadius)) {
             if (entity instanceof LivingEntity living && !(entity instanceof Player) && !entity.isDead()) {
                 if (plugin != null && plugin.getZombieManager() != null) {
-                    plugin.getZombieManager().damageZombie(living, player, damage, DamageType.MAGIC);
+                    plugin.getZombieManager().damageZombie(living, player, damage, com.rinaorc.zombiez.zombies.DamageType.MAGIC);
                 }
             }
         }

@@ -996,6 +996,7 @@ public class PetDisplayManager {
             case EPIC -> DyeColor.PURPLE;
             case LEGENDARY -> DyeColor.YELLOW;
             case MYTHIC -> DyeColor.RED;
+            case EXALTED -> DyeColor.BLACK;
         };
     }
 
