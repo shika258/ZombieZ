@@ -186,7 +186,7 @@ public enum ZombieType {
     MANOR_LORD("ZZ_ManorLord", "Seigneur du Manoir", 0, 500, 15, 0.22,  // Boss Chapitre 2 Étape 10
         new int[]{2}, ZombieCategory.JOURNEY_BOSS),
 
-    MINE_OVERLORD("ZZ_MineOverlord", "Seigneur des Profondeurs", 0, 1200, 35, 0.24,  // Boss Chapitre 3 Étape 10
+    MINE_OVERLORD("ZZ_MineOverlord", "Seigneur des Profondeurs", 0, 600, 17, 0.24,  // Boss Chapitre 3 Étape 10
         new int[]{6}, ZombieCategory.JOURNEY_BOSS),
 
     GRAVEDIGGER_BOSS("ZZ_GravediggerBoss", "Le Premier Mort", 0, 2400, 25, 0.20,  // Boss Chapitre 4 Étape 2 - Wither Skeleton géant (x3 HP)
