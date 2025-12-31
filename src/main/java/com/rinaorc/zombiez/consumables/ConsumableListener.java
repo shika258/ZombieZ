@@ -11,8 +11,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -90,6 +93,74 @@ public class ConsumableListener implements Listener {
     public void onItemConsume(PlayerItemConsumeEvent event) {
         if (Consumable.isConsumable(event.getItem())) {
             event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Empêche le placement des consommables en off-hand via l'inventaire
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Vérifier si le slot cliqué est l'off-hand (slot 40)
+        if (event.getSlot() == 40 && event.getClickedInventory() != null
+                && event.getClickedInventory().getType() == InventoryType.PLAYER) {
+            // Vérifier si l'item sur le curseur est un consommable
+            ItemStack cursor = event.getCursor();
+            if (cursor != null && Consumable.isConsumable(cursor)) {
+                event.setCancelled(true);
+                player.sendMessage("§c✖ §7Les consommables ne peuvent pas être placés en main secondaire!");
+                return;
+            }
+        }
+
+        // Shift-click avec un consommable
+        if (event.isShiftClick() && event.getCurrentItem() != null
+                && Consumable.isConsumable(event.getCurrentItem())) {
+            // Si l'inventaire du joueur est presque plein, le shift-click pourrait aller en off-hand
+            // On vérifie si le slot off-hand est vide
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (offhand == null || offhand.getType().isAir()) {
+                // Vérifier si la hotbar et l'inventaire principal sont pleins
+                boolean inventoryFull = true;
+                for (int i = 0; i < 36; i++) {
+                    ItemStack slot = player.getInventory().getItem(i);
+                    if (slot == null || slot.getType().isAir()) {
+                        inventoryFull = false;
+                        break;
+                    }
+                }
+                if (inventoryFull) {
+                    event.setCancelled(true);
+                    player.sendMessage("§c✖ §7Les consommables ne peuvent pas être placés en main secondaire!");
+                }
+            }
+        }
+
+        // Hotbar swap (touche 1-9) vers off-hand via F
+        if (event.getClick().name().contains("SWAP") && event.getSlot() == 40) {
+            int hotbarSlot = event.getHotbarButton();
+            if (hotbarSlot >= 0) {
+                ItemStack hotbarItem = player.getInventory().getItem(hotbarSlot);
+                if (hotbarItem != null && Consumable.isConsumable(hotbarItem)) {
+                    event.setCancelled(true);
+                    player.sendMessage("§c✖ §7Les consommables ne peuvent pas être placés en main secondaire!");
+                }
+            }
+        }
+    }
+
+    /**
+     * Empêche l'échange de main (touche F) avec un consommable
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onSwapHand(PlayerSwapHandItemsEvent event) {
+        // Vérifier si l'item qui irait en off-hand est un consommable
+        ItemStack mainHandItem = event.getMainHandItem();
+        if (mainHandItem != null && Consumable.isConsumable(mainHandItem)) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§c✖ §7Les consommables ne peuvent pas être placés en main secondaire!");
         }
     }
 
