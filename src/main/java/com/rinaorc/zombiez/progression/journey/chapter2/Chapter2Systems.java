@@ -14,6 +14,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -1722,6 +1723,48 @@ public class Chapter2Systems implements Listener {
 
         // Nettoyer aussi les caisses de ravitaillement du joueur
         cleanupPlayerCrates(playerId);
+    }
+
+    /**
+     * Gère la mort du joueur pendant la quête des caisses (étape 7)
+     * Si le joueur meurt, l'étape est annulée et il doit recommencer à 0
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDeathDuringSupplyCrateQuest(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+
+        // Vérifier si le joueur est à l'étape 7 du chapitre 2
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null || currentStep != JourneyStep.STEP_2_7) {
+            return;
+        }
+
+        // Vérifier si le joueur avait des caisses actives (quête en cours)
+        List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
+        if (crates == null || crates.isEmpty()) {
+            return; // Pas de quête de caisses en cours
+        }
+
+        // Nettoyer les caisses du joueur
+        cleanupPlayerCrates(player.getUniqueId());
+
+        // Réinitialiser la progression à 0
+        journeyManager.setStepProgress(player, JourneyStep.STEP_2_7, 0);
+
+        // Feedback au joueur après un délai (pour qu'il voit le message après le respawn)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (player.isOnline()) {
+                    player.sendMessage("");
+                    player.sendMessage("§c§l✗ §eQuête échouée!");
+                    player.sendMessage("§7Tu es mort pendant la recherche des caisses.");
+                    player.sendMessage("§7Retourne parler à §6Igor §7pour recommencer.");
+                    player.sendMessage("");
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+                }
+            }
+        }.runTaskLater(plugin, 40L); // 2 secondes après la mort (temps de respawn)
     }
 
     /**
