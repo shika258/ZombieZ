@@ -1046,42 +1046,45 @@ public class PetDisplayManager {
             oldTask.cancel();
         }
 
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, taskHandle -> {
-            // Arrêter si l'entité n'est plus valide ou si le pet a été retiré
-            if (!entity.isValid() || !activePetEntities.containsKey(ownerUuid)) {
-                taskHandle.cancel();
-                particleTasks.remove(ownerUuid);
-                return;
-            }
-
-            // Vérifier l'option de particules du joueur
-            PlayerPetData data = petManager.getPlayerData(ownerUuid);
-            if (data == null || !data.isShowPetParticles()) {
-                return; // Ne pas afficher les particules mais garder la tâche
-            }
-
-            Location loc = entity.getLocation().add(0, 0.5, 0);
-            if (loc.getWorld() == null)
-                return;
-
-            switch (type.getRarity()) {
-                case EPIC -> loc.getWorld().spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0);
-                case LEGENDARY -> {
-                    loc.getWorld().spawnParticle(Particle.END_ROD, loc, 3, 0.2, 0.2, 0.2, 0.02);
-                    loc.getWorld().spawnParticle(Particle.GLOW, loc, 1, 0.1, 0.1, 0.1, 0);
+        BukkitTask task = new org.bukkit.scheduler.BukkitRunnable() {
+            @Override
+            public void run() {
+                // Arrêter si l'entité n'est plus valide ou si le pet a été retiré
+                if (!entity.isValid() || !activePetEntities.containsKey(ownerUuid)) {
+                    this.cancel();
+                    particleTasks.remove(ownerUuid);
+                    return;
                 }
-                case MYTHIC -> {
-                    loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 5, 0.3, 0.3, 0.3, 0.5);
-                    loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 2, 0.2, 0.2, 0.2, 0);
+
+                // Vérifier l'option de particules du joueur
+                PlayerPetData data = petManager.getPlayerData(ownerUuid);
+                if (data == null || !data.isShowPetParticles()) {
+                    return; // Ne pas afficher les particules mais garder la tâche
                 }
-                case EXALTED -> {
-                    loc.getWorld().spawnParticle(Particle.TRIAL_SPAWNER_DETECTION_OMINOUS, loc, 3, 0.3, 0.3, 0.3, 0.02);
-                    loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0.1, 0.1, 0.1, 0);
+
+                Location loc = entity.getLocation().add(0, 0.5, 0);
+                if (loc.getWorld() == null)
+                    return;
+
+                switch (type.getRarity()) {
+                    case EPIC -> loc.getWorld().spawnParticle(Particle.WITCH, loc, 2, 0.2, 0.2, 0.2, 0);
+                    case LEGENDARY -> {
+                        loc.getWorld().spawnParticle(Particle.END_ROD, loc, 3, 0.2, 0.2, 0.2, 0.02);
+                        loc.getWorld().spawnParticle(Particle.GLOW, loc, 1, 0.1, 0.1, 0.1, 0);
+                    }
+                    case MYTHIC -> {
+                        loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 5, 0.3, 0.3, 0.3, 0.5);
+                        loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 2, 0.2, 0.2, 0.2, 0);
+                    }
+                    case EXALTED -> {
+                        loc.getWorld().spawnParticle(Particle.TRIAL_SPAWNER_DETECTION_OMINOUS, loc, 3, 0.3, 0.3, 0.3, 0.02);
+                        loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0.1, 0.1, 0.1, 0);
+                    }
+                    default -> {
+                    } // Pas de particules pour common/uncommon/rare
                 }
-                default -> {
-                } // Pas de particules pour common/uncommon/rare
             }
-        }, 10L, 10L);
+        }.runTaskTimer(plugin, 10L, 10L);
 
         particleTasks.put(ownerUuid, task);
     }

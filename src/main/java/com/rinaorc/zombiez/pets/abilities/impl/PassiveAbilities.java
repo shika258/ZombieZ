@@ -558,8 +558,8 @@ class EvokerFangsPassive implements PetAbility {
 
     private void spawnEvokerFangs(World world, Location center, Player player, double damage, PetData petData) {
         // Spawn d'une ligne de 3 crocs
-        Vector direction = player.getLocation().getDirection().setY(0).normalize();
-        Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX());
+        org.bukkit.util.Vector direction = player.getLocation().getDirection().setY(0).normalize();
+        org.bukkit.util.Vector perpendicular = new org.bukkit.util.Vector(-direction.getZ(), 0, direction.getX());
 
         // Son d'invocation
         world.playSound(center, Sound.ENTITY_EVOKER_FANGS_ATTACK, 1.0f, 1.0f);
@@ -715,7 +715,7 @@ class JoyfulTearsPassive implements PetAbility {
     }
 
     private void spawnRainbowTears(World world, Location from, Location to) {
-        Vector direction = to.toVector().subtract(from.toVector()).normalize();
+        org.bukkit.util.Vector direction = to.toVector().subtract(from.toVector()).normalize();
         double distance = from.distance(to);
 
         // Couleurs arc-en-ciel
