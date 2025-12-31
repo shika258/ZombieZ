@@ -3,16 +3,16 @@ package com.rinaorc.zombiez.events.dynamic.impl;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.events.dynamic.DynamicEvent;
 import com.rinaorc.zombiez.events.dynamic.DynamicEventType;
-import com.rinaorc.zombiez.zombies.ZombieManager;
-import com.rinaorc.zombiez.zombies.types.ZombieType;
 import com.rinaorc.zombiez.zones.Zone;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
@@ -416,41 +416,47 @@ public class HordeInvasionEvent extends DynamicEvent {
     }
 
     /**
-     * Spawn un zombie de horde via ZombieManager pour bénéficier du système de dégâts ZombieZ
-     * Le niveau est calculé à partir de la zone et de la vague courante
+     * Spawn un zombie de horde INDÉPENDAMMENT du ZombieManager
+     * Les zombies sont spawnés directement via Bukkit pour éviter les limites du système ZombieZ
      * @return true si le spawn a réussi
      */
     private boolean spawnHordeZombie(Location spawnLoc, double zombieHealth) {
-        // Calculer le niveau du zombie basé sur la zone et la vague
+        World world = spawnLoc.getWorld();
+        if (world == null) return false;
+
+        // Calculer le niveau et les dégâts basés sur la zone et la vague
         int zombieLevel = zone.getId() + currentWave;
+        double zombieDamage = 5.0 + (zone.getId() * 1.5) + (currentWave * 0.5);
 
-        // Spawn via ZombieManager pour bénéficier du système ZombieZ complet
-        ZombieManager zombieManager = plugin.getZombieManager();
-        if (zombieManager == null) {
-            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] ZombieManager is null!");
-            return false;
-        }
-
-        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.HORDE_ZOMBIE, spawnLoc, zombieLevel);
-
-        // Si le spawn a échoué (limite atteinte, etc.), ne pas continuer
-        if (activeZombie == null) {
-            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] Failed to spawn zombie via ZombieManager");
-            return false;
-        }
-
-        // Récupérer l'entité spawnée
-        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-        if (entity == null || !(entity instanceof LivingEntity living)) {
-            plugin.log(java.util.logging.Level.WARNING, "[HordeInvasion] Entity not found after spawn");
-            return false;
-        }
+        // Spawn direct via Bukkit - INDÉPENDANT du ZombieManager
+        Zombie zombie = (Zombie) world.spawnEntity(spawnLoc, EntityType.ZOMBIE);
 
         // Ajouter au tracking de la horde
-        hordeZombies.add(entity.getUniqueId());
+        hordeZombies.add(zombie.getUniqueId());
+
+        // Configuration du zombie de horde
+        zombie.setBaby(false);
+        zombie.setShouldBurnInDay(false);
+        zombie.setCustomNameVisible(true);
+        zombie.setRemoveWhenFarAway(false);
+
+        // Stats adaptées à la zone et vague
+        if (zombie.getAttribute(Attribute.MAX_HEALTH) != null) {
+            zombie.getAttribute(Attribute.MAX_HEALTH).setBaseValue(zombieHealth);
+            zombie.setHealth(zombieHealth);
+        }
+        if (zombie.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+            zombie.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.25 + (currentWave * 0.01));
+        }
+        if (zombie.getAttribute(Attribute.ATTACK_DAMAGE) != null) {
+            zombie.getAttribute(Attribute.ATTACK_DAMAGE).setBaseValue(zombieDamage);
+        }
+
+        // Afficher le nom avec les HP (style ZombieZ)
+        zombie.setCustomName(createHordeZombieName((int) zombieHealth, (int) zombieHealth, zombieLevel));
 
         // Appliquer l'armure custom en cuir rouge foncé (style horde)
-        if (living instanceof Zombie zombie && zombie.getEquipment() != null) {
+        if (zombie.getEquipment() != null) {
             zombie.getEquipment().setHelmet(createHordeArmor(Material.LEATHER_HELMET));
             zombie.getEquipment().setChestplate(createHordeArmor(Material.LEATHER_CHESTPLATE));
             zombie.getEquipment().setLeggings(createHordeArmor(Material.LEATHER_LEGGINGS));
@@ -461,14 +467,86 @@ public class HordeInvasionEvent extends DynamicEvent {
             zombie.getEquipment().setBootsDropChance(0f);
         }
 
-        // Tags pour identification de l'événement dynamique
-        entity.addScoreboardTag("dynamic_event_entity");
-        entity.addScoreboardTag("horde_invasion");
+        // Tags CRITIQUES pour le système de combat ZombieZ
+        // Le tag "zombiez_mob" permet aux armes ZombieZ d'infliger des dégâts
+        zombie.addScoreboardTag("zombiez_mob");
+        zombie.addScoreboardTag("dynamic_event_entity");
+        zombie.addScoreboardTag("horde_invasion");
+        zombie.addScoreboardTag("event_" + id);
+
+        // Stocker le level et la max health pour l'update du nom
+        zombie.addScoreboardTag("horde_level_" + zombieLevel);
+        zombie.addScoreboardTag("horde_maxhp_" + (int) zombieHealth);
 
         // Ne pas persister au reboot (évite les entités orphelines)
-        entity.setPersistent(false);
+        zombie.setPersistent(false);
+
+        // Cibler le joueur le plus proche
+        Player nearestPlayer = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (Entity entity : world.getNearbyEntities(spawnLoc, defenseRadius + 10, 20, defenseRadius + 10)) {
+            if (entity instanceof Player p) {
+                double dist = p.getLocation().distanceSquared(spawnLoc);
+                if (dist < nearestDistance) {
+                    nearestDistance = dist;
+                    nearestPlayer = p;
+                }
+            }
+        }
+        if (nearestPlayer != null) {
+            zombie.setTarget(nearestPlayer);
+        }
 
         return true;
+    }
+
+    /**
+     * Crée le nom du zombie de horde avec affichage des HP (style ZombieZ)
+     */
+    private String createHordeZombieName(int currentHealth, int maxHealth, int level) {
+        double healthPercent = (double) currentHealth / maxHealth;
+        String healthColor;
+        if (healthPercent > 0.66) {
+            healthColor = "§a"; // Vert
+        } else if (healthPercent > 0.33) {
+            healthColor = "§e"; // Jaune
+        } else {
+            healthColor = "§c"; // Rouge
+        }
+        return "§4☠ Zombie de Horde §7[Lv." + level + "] " + healthColor + currentHealth + "§7/§a" + maxHealth + " §c❤";
+    }
+
+    /**
+     * Met à jour l'affichage de vie d'un zombie de horde après avoir pris des dégâts
+     * Appelé par le listener de dégâts
+     */
+    public void updateHordeZombieHealth(LivingEntity entity) {
+        if (!hordeZombies.contains(entity.getUniqueId())) return;
+
+        // Récupérer le level et la max health depuis les tags
+        int level = 1;
+        int maxHealth = 40;
+        for (String tag : entity.getScoreboardTags()) {
+            if (tag.startsWith("horde_level_")) {
+                try {
+                    level = Integer.parseInt(tag.substring(12));
+                } catch (NumberFormatException ignored) {}
+            } else if (tag.startsWith("horde_maxhp_")) {
+                try {
+                    maxHealth = Integer.parseInt(tag.substring(12));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        int currentHealth = (int) Math.ceil(entity.getHealth());
+        entity.setCustomName(createHordeZombieName(currentHealth, maxHealth, level));
+    }
+
+    /**
+     * Vérifie si une entité est un zombie de horde de cet événement
+     */
+    public boolean isHordeZombie(UUID entityId) {
+        return hordeZombies.contains(entityId);
     }
 
     /**
