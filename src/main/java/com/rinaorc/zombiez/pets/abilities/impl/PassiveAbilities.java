@@ -333,7 +333,7 @@ class SlowPassive implements PetAbility {
 // ==================== RENAISSANCE ====================
 
 @Getter
-class RebornPassive implements PetAbility {
+public class RebornPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
