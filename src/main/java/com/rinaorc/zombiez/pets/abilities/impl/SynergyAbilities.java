@@ -4221,7 +4221,7 @@ class BouncingAssaultActive implements PetAbility {
 // ==================== OURS POLAIRE GARDIEN (Tank / Protection) ====================
 
 @Getter
-public class FrostFurPassive implements PetAbility {
+class FrostFurPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
