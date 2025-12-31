@@ -462,7 +462,8 @@ class MarkPassive implements PetAbility {
     private final String displayName;
     private final String description;
     private final double bonusDamage;
-    private final Set<UUID> markedEntities = new HashSet<>();
+    // Thread-safe Set pour éviter les race conditions
+    private final Set<UUID> markedEntities = ConcurrentHashMap.newKeySet();
 
     public MarkPassive(String id, String name, String desc, double bonus) {
         this.id = id;

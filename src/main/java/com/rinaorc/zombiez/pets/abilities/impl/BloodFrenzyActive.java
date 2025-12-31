@@ -10,9 +10,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ultimate "Frénésie Sanguinaire" du Loup Spectral
@@ -27,9 +27,9 @@ public class BloodFrenzyActive implements PetAbility {
     private final double bonusPerKill;         // Bonus par kill (5% = 0.05)
     private final double maxBonus;             // Bonus maximum (25% = 0.25)
 
-    // Tracking des joueurs en frénésie
-    private final Map<UUID, Long> frenzyEndTime = new HashMap<>();
-    private final Map<UUID, Integer> frenzyKills = new HashMap<>();
+    // Tracking des joueurs en frénésie - ConcurrentHashMap pour thread safety
+    private final Map<UUID, Long> frenzyEndTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> frenzyKills = new ConcurrentHashMap<>();
 
     public BloodFrenzyActive(String id, String name, String desc, int duration, double perKill, double max) {
         this.id = id;

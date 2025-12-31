@@ -21,11 +21,11 @@ public enum PetType {
         "bat_ghost",
         "Critique / Vision",
         "Petite chauve-souris spectrale grise",
-        "+1% de chance de critique",
+        "+3% de chance de critique",
         "Écho-Scan",
-        "Révèle tous les ennemis dans 30 blocs pendant 5s",
-        30,
-        "+2% de chance de critique",
+        "Révèle les ennemis (30 blocs, 5s)",
+        40,
+        "+5% de chance de critique",
         "L'écho-scan marque les ennemis, +10% dégâts sur eux"
     ),
 
@@ -37,12 +37,12 @@ public enum PetType {
         "rat",
         "Loot / Économie",
         "Rat gris avec yeux brillants",
-        "+5% de chance de loot supplémentaire",
+        "+5% de loot supplémentaire",
         "Fouille",
-        "Trouve 1 nourriture ou consommable (rareté selon niveau)",
-        60,
+        "Trouve un consommable aléatoire",
+        45,
         "+10% Points des zombies",
-        "Peut trouver des oeufs de pet (très rare)"
+        "Peut trouver des œufs de pet (très rare)"
     ),
 
     LUCIOLE_ERRANTE(
@@ -53,12 +53,12 @@ public enum PetType {
         "firefly",
         "Soin / Combat",
         "Luciole lumineuse aux reflets dorés",
-        "Régénère 0.25❤/s pendant 5s après chaque kill",
+        "Régénère 0.5❤/s (5s) après chaque kill",
         "Pulse de Vie",
-        "Soigne 3❤ et donne Régénération I pendant 8s",
-        30,
-        "Régénération post-kill +0.25❤/s",
-        "Pulse de Vie soigne aussi les alliés proches (5 blocs)"
+        "Soigne 3❤ + Régén I (8s)",
+        40,
+        "Régénération +0.5❤/s",
+        "Le pulse soigne aussi les alliés (5 blocs)"
     ),
 
     SCARABEE_BLINDE(
@@ -69,12 +69,12 @@ public enum PetType {
         "beetle",
         "Défense / Tank",
         "Scarabée avec carapace métallique",
-        "+5% réduction de dégâts (cumule avec armure)",
+        "-5% dégâts reçus",
         "Carapace Blindée",
-        "Applique Résistance II pendant 5s (-40% dégâts)",
-        45,
-        "Réduction +3% (total 8%)",
-        "Durée Résistance II augmentée à 8s"
+        "Résistance II (5s) : -40% dégâts",
+        40,
+        "-8% dégâts reçus",
+        "Résistance II dure 8s"
     ),
 
     CORBEAU_MESSAGER(
@@ -87,10 +87,10 @@ public enum PetType {
         "Petit corbeau noir",
         "+5% vitesse de déplacement",
         "Frappe du Corbeau",
-        "Le corbeau se rue vers un ennemi et inflige 50% de vos dégâts",
-        25,
-        "Vitesse +3% (total 8%)",
-        "La frappe inflige 75% de vos dégâts et ralentit l'ennemi"
+        "Attaque un ennemi (50% dégâts)",
+        40,
+        "+8% vitesse",
+        "La frappe inflige 75% dégâts + slow"
     ),
 
     // --- NOUVEAUX PETS COMMUNS (Synergies) ---
@@ -103,12 +103,12 @@ public enum PetType {
         "combo_armadillo",
         "Combo / Momentum",
         "Armadillo doré qui se renforce avec chaque kill",
-        "+0.5% dégâts par kill (max +5%, 15s) - Niv.Max: +15%, 30s",
+        "+0.5% dégâts/kill (max 5%, reset 15s)",
         "Explosion de Combo",
-        "Consomme le combo pour exploser en AoE (8 blocs, 5 dégâts/stack)",
-        20,
-        "Max +10% dégâts, durée 20s",
-        "Max +15% dégâts, durée 30s, explosion +50% dégâts"
+        "Consomme le combo : AoE 8 blocs (5 dég/stack)",
+        38,
+        "Max 10%, reset 20s",
+        "Max 15%, reset 30s, explosion +50%"
     ),
 
     LARVE_PARASITAIRE(
@@ -119,12 +119,12 @@ public enum PetType {
         "parasitic_larva",
         "Vampirisme / Survie",
         "Petite larve verte pulsante",
-        "+3% de vol de vie sur les attaques",
+        "+3% vol de vie",
         "Festin",
-        "Le prochain kill restaure 25% HP max",
-        35,
-        "Vol de vie +2%",
-        "Le festin crée aussi une explosion de soins pour les alliés"
+        "Prochain kill : +25% HP max",
+        42,
+        "+5% vol de vie",
+        "Le festin soigne aussi les alliés proches"
     ),
 
     // ==================== PEU COMMUNS (§a) ====================
@@ -137,12 +137,12 @@ public enum PetType {
         "spectral_wolf",
         "Combat / Meute",
         "Loup fantomatique bleu translucide",
-        "+3% dégâts par ennemi proche (max +15%, rayon 8 blocs)",
+        "+3% dégâts/ennemi proche (max 15%, 8 blocs)",
         "Frénésie Sanguinaire",
-        "Pendant 8s, chaque kill donne +5% dégâts/vitesse (max +25%)",
-        30,
-        "Bonus par ennemi +2% (total 5%), max +20%",
-        "Frénésie dure 12s, bonus par kill +7%, max +35%"
+        "8s: chaque kill +5% dégâts/vitesse (max 25%)",
+        28,
+        "+5%/ennemi, max 20%",
+        "Frénésie 12s, +7%/kill, max 35%"
     ),
 
     CHAMPIGNON_AMBULANT(
@@ -153,12 +153,12 @@ public enum PetType {
         "mushroom",
         "Explosion / AoE",
         "Champignon rouge pulsant d'énergie volatile",
-        "Les kills explosent en spores (20% dégâts AoE, 3 blocs)",
+        "Les kills explosent (20% dégâts AoE, 3 blocs)",
         "Détonation Fongique",
-        "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)",
-        35,
-        "Explosion +10% dégâts, rayon 4 blocs",
-        "La détonation laisse des spores persistantes (3s de DoT)"
+        "Charge 1.5s → explosion 150% (6 blocs, knockback)",
+        30,
+        "30% dégâts, 4 blocs",
+        "Spores persistantes (DoT 3s)"
     ),
 
     GOLEM_POCHE(
@@ -169,12 +169,12 @@ public enum PetType {
         "seismic_golem",
         "Contrôle / Stun",
         "Mini golem de fer aux pas lourds",
-        "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)",
+        "5ème attaque : secousse (stun 1s, 3 blocs)",
         "Séisme",
-        "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs",
-        30,
-        "Secousse tous les 4 coups, stun +0.5s",
-        "Le Séisme fissure le sol (zone de slow 5s)"
+        "Stun 2s + 30 dégâts (8 blocs)",
+        28,
+        "Secousse /4 coups, stun 1.5s",
+        "Le Séisme crée zone de slow (5s)"
     ),
 
     FEU_FOLLET(
@@ -185,12 +185,12 @@ public enum PetType {
         "wisp",
         "Dégâts / Projectiles",
         "Flamme verte flottante",
-        "Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)",
+        "5ème attaque : boule de feu (30% dégâts)",
         "Barrage Infernal",
-        "Tire 5 boules de feu en éventail (50% dégâts chacune)",
-        20,
-        "Boule de feu tous les 3 coups, +10% dégâts",
-        "Les boules de feu explosent en AoE (3 blocs)"
+        "5 boules de feu en éventail (50% chacune)",
+        26,
+        "/3 coups, 40% dégâts",
+        "Les boules explosent en AoE (3 blocs)"
     ),
 
     ARAIGNEE_TISSEUSE(
@@ -201,12 +201,12 @@ public enum PetType {
         "hunter_spider",
         "Prédateur / Embuscade",
         "Araignée noire aux yeux rouges luisants",
-        "+25% dégâts sur ralentis/immobilisés, attaques ralentissent 1.5s",
+        "+25% dégâts sur ralentis, attaques slow 1.5s",
         "Embuscade",
-        "Bond sur l'ennemi, immobilise 3s, marque (+50% dégâts reçus 5s)",
-        25,
-        "Bonus dégâts +10% (total 35%), slow 2s",
-        "L'embuscade rend invisible 2s avant le bond"
+        "Bond + immobilise 3s + marque (+50% dégâts 5s)",
+        26,
+        "+35% sur ralentis, slow 2s",
+        "Invisibilité 2s avant le bond"
     ),
 
     // --- NOUVEAUX PETS PEU COMMUNS (Synergies Classes) ---
@@ -219,12 +219,12 @@ public enum PetType {
         "rage_spirit",
         "Guerrier / Stacking",
         "Flamme rouge pulsante avec visage colérique",
-        "Chaque hit augmente les dégâts +2% (reset après 5s sans hit, max +30%)",
+        "+2% dégâts/hit (max 30%, reset 5s)",
         "Déchaînement",
-        "Double les stacks actuels pendant 5s",
-        25,
-        "Stack max +10%",
-        "Synergie: +50% efficacité avec talents Guerrier (Fureur, Berserker)"
+        "Double les stacks pendant 5s",
+        26,
+        "Max 40%",
+        "Synergie Guerrier +50%"
     ),
 
     FAUCON_CHASSEUR(
@@ -235,12 +235,12 @@ public enum PetType {
         "stalker_specter",
         "Chasse / Exécution",
         "Phantom noir aux yeux rouges qui traque les proies affaiblies",
-        "Marque auto les ennemis <50% HP, +20% dégâts sur marqués",
+        "Marque auto <50% HP, +20% dégâts sur marqués",
         "Plongeon Mortel",
-        "Plonge sur l'ennemi le plus faible (200% dégâts, execute si <20% HP)",
-        20,
-        "Seuil de marque 60% HP, dégâts +10%",
-        "L'exécution soigne 20% HP max"
+        "Plonge sur le plus faible (200% dégâts, execute <20%)",
+        26,
+        "Seuil 60% HP, +30% dégâts",
+        "L'exécution soigne 20% HP"
     ),
 
     // --- NOUVEAUX PETS PEU COMMUNS (Visuels) ---
@@ -253,12 +253,12 @@ public enum PetType {
         "bouncing_frog",
         "Mobilité / Combos",
         "Grenouille agile aux pattes puissantes",
-        "Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)",
+        "4ème attaque : bond (+30% dégâts, stun 0.5s)",
         "Assaut Bondissant",
-        "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)",
-        20,
-        "Bond toutes les 3 attaques, +10% dégâts",
-        "Les bonds laissent des flaques ralentissantes"
+        "5 bonds enchaînés (50% dégâts, stun chacun)",
+        26,
+        "/3 attaques, +40% dégâts",
+        "Les bonds laissent flaques slow"
     ),
 
     // ==================== RARES (§b) ====================
@@ -571,12 +571,12 @@ public enum PetType {
         "angelic_guardian",
         "Protection Divine / Immunité",
         "Mini ange en armure dorée",
-        "Immunité aux effets négatifs (poison, wither, etc.)",
+        "Immunité aux effets négatifs",
         "Bénédiction Divine",
         "Invincibilité 3s + full heal",
-        120,
-        "Immunité partagée aux alliés proches",
-        "La bénédiction affecte aussi les alliés dans 10 blocs"
+        90,
+        "Immunité partagée aux alliés",
+        "Bénédiction affecte alliés (10 blocs)"
     ),
 
     PIGLIN_BERSERKER(
@@ -587,12 +587,12 @@ public enum PetType {
         "piglin_berserker",
         "Guerre / Intimidation",
         "Piglin guerrier avec armure dorée et hache massive",
-        "1% chance de déclencher un saut dévastateur (180% dégâts AoE 8 blocs + Slow 60% 3s)",
+        "3% chance saut dévastateur (180% AoE 8 blocs + Slow 3s)",
         "Cri Féroce",
-        "Réduit les dégâts des ennemis de 20% dans 25 blocs pendant 15s",
-        45,
-        "2% chance de saut, 200% dégâts",
-        "Le cri applique aussi Weakness aux ennemis"
+        "Ennemis -20% dégâts (25 blocs, 15s)",
+        40,
+        "5% chance, 200% dégâts",
+        "Le cri applique aussi Weakness"
     ),
 
     SPECTRE_GIVRE(
@@ -603,12 +603,12 @@ public enum PetType {
         "frost_specter",
         "Vitesse / Assassinat",
         "Stray spectral avec cape sombre et dagues givrées",
-        "+33% vitesse de déplacement constante",
+        "+33% vitesse de déplacement",
         "Lame Fantôme",
-        "Lance un couteau tournoyant qui empale l'ennemi (750% dégâts arme)",
-        30,
-        "+40% vitesse de déplacement",
-        "Le couteau traverse et touche tous les ennemis sur son passage"
+        "Couteau tournoyant (750% dégâts arme)",
+        35,
+        "+40% vitesse",
+        "Le couteau traverse tous les ennemis"
     ),
 
     CREAKING_VENGEUR(
@@ -619,12 +619,12 @@ public enum PetType {
         "vengeful_creaking",
         "Racines / Contrôle de Zone",
         "Creaking spectral aux yeux rougeoyants et racines ondulantes",
-        "8% chance par attaque de faire jaillir des racines (root 1.5s + 25% dégâts)",
+        "8% chance racines (root 1.5s + 25% dégâts)",
         "Forêt Éveillée",
-        "Explosion de racines (12 blocs) : root 4s + 100% dégâts, puis éruptions 6s",
-        45,
-        "12% chance, 30% dégâts racines",
-        "Les racines appliquent aussi Wither II"
+        "Explosion racines (12 blocs): root 4s + 100% dégâts",
+        40,
+        "12% chance, 30% dégâts",
+        "Racines appliquent Wither II"
     ),
 
     SORCIERE_NECRO(
@@ -635,12 +635,12 @@ public enum PetType {
         "necro_witch",
         "Drain de Vie / Nécromancie",
         "Witch aux yeux verts lumineux avec aura sombre",
-        "Toutes les 5s, draine 5 ennemis (18 blocs) : +5% dégâts/ennemi, -5% HP mob",
+        "/5s: draine 5 ennemis (18 blocs), +5% dégâts/ennemi",
         "Zombie Suicidaire",
-        "Invoque un zombie qui explose en poison (560% dégâts arme) sur son chemin",
-        35,
-        "Drain toutes les 4s, +7% dégâts/ennemi",
-        "Le zombie laisse une traînée de poison permanente"
+        "Zombie explosif (560% dégâts poison)",
+        38,
+        "/4s, +7% dégâts/ennemi",
+        "Traînée de poison permanente"
     ),
 
     // --- NOUVEAUX PETS LÉGENDAIRES (Synergies de Classe) ---
@@ -687,12 +687,12 @@ public enum PetType {
         "enraged_zoglin",
         "Exécution / Charge",
         "Zoglin aux yeux rouges flamboyants avec aura de rage",
-        "Inflige +40% de dégâts aux ennemis ayant moins de 30% de vie",
+        "+40% dégâts sur ennemis <30% HP",
         "Charge Dévastatrice",
-        "Le Zoglin se précipite en avant, repoussant et infligeant 220% dégâts",
-        10,
-        "+50% dégâts sous 30% HP, seuil augmenté à 35%",
-        "La charge laisse une traînée de feu infernal infligeant 50% dégâts/s"
+        "Charge + knockback (220% dégâts)",
+        35,
+        "+50% dégâts, seuil 35% HP",
+        "Traînée de feu (50% dégâts/s)"
     ),
 
     ILLUSIONISTE_ARCANIQUE(
@@ -703,12 +703,12 @@ public enum PetType {
         "arcane_illusionist",
         "Arcane / Sniper",
         "Illusioniste aux yeux violets lumineux avec aura magique",
-        "Inflige +30% de dégâts aux ennemis situés au-delà de 15 blocs",
+        "+30% dégâts au-delà de 15 blocs",
         "Torrent Arcanique",
-        "Volée de projectiles (150% dégâts, +50%/s, max 400%)",
-        30,
-        "+40% dégâts au-delà de 15 blocs, bonus dès 12 blocs",
-        "Le torrent crée des explosions arcaniques secondaires (80% dégâts)"
+        "Volée de projectiles (150% → 400% dégâts)",
+        36,
+        "+40% dès 12 blocs",
+        "Explosions secondaires (80% dégâts)"
     ),
 
     // ==================== MYTHIQUES (§c) ====================
@@ -721,12 +721,12 @@ public enum PetType {
         "death_avatar",
         "Exécution / Mortalité",
         "Bourreau sinistre avec hache ensanglantée et aura mortelle",
-        "Les ennemis sous 15% HP sont exécutés instantanément",
+        "Exécute instantanément les ennemis <15% HP",
         "Jugement Final",
-        "Frappe dévastatrice (200% dégâts + 100% des HP manquants)",
-        90,
-        "Seuil d'exécution 20%, chaque exécution +5% dégâts (max 30%, 10s)",
-        "Jugement déclenche une onde de mort (150% dégâts AoE)"
+        "200% dégâts + 100% HP manquants de la cible",
+        55,
+        "Seuil 20%, +5% dégâts/exécution (max 30%)",
+        "Onde de mort (150% AoE)"
     ),
 
     ENTITE_VIDE(
@@ -737,12 +737,12 @@ public enum PetType {
         "abyss_sentinel",
         "Régénération / Tridents",
         "Drowned ancien aux yeux luminescents, trident spectral en main",
-        "Régénère 3% HP/s (max 3 stacks). Reset 5s après avoir subi des dégâts",
+        "+3% HP/s par stack (max 3), reset 5s après dégâts",
         "Tempête de Tridents",
-        "Lance une volée de tridents infligeant des dégâts basés sur votre arme",
-        45,
-        "4% regen/stack, 4 stacks max",
-        "Tridents percent les ennemis et touchent ceux derrière"
+        "Volée de tridents (150% dégâts arme)",
+        50,
+        "+4%/stack, 4 stacks max",
+        "Tridents percent les ennemis"
     ),
 
     CHRONIQUEUR_TEMPOREL(
@@ -753,12 +753,12 @@ public enum PetType {
         "desert_caravan",
         "Blocage / Contre-attaque",
         "Chameau majestueux aux ornements dorés et tapis de soie",
-        "Esquive désactivée, +30% blocage, blocages soignent 2% HP",
+        "Esquive OFF, +30% block, block soigne 2% HP",
         "Charge du Caravanier",
-        "Stocke les dégâts bloqués 6s, puis explosion AoE (200% stockés)",
+        "Stocke dégâts bloqués 6s → explosion 200%",
         50,
-        "+35% blocage, 3% HP par block",
-        "L'explosion stun les ennemis 2s"
+        "+35% block, 3% HP/block",
+        "Explosion stun 2s"
     ),
 
     HYDRE_PRIMORDIALE(
@@ -769,12 +769,12 @@ public enum PetType {
         "lightning_merchant",
         "Électricité / Chaos",
         "Marchand mystérieux entouré d'arcs électriques crépitants",
-        "3% chance de libérer 3 charges électriques (X% dégâts arme)",
+        "5% chance : 3 charges électriques (50% dégâts arme)",
         "Arc Voltaïque",
-        "Lance un éclair qui rebondit entre 8 ennemis (80% dégâts)",
-        40,
-        "5% chance, 4 charges, +10% dégâts",
-        "L'éclair peut toucher le même ennemi plusieurs fois"
+        "Éclair rebondissant sur 8 ennemis (80% dégâts)",
+        48,
+        "7% chance, 4 charges",
+        "L'éclair peut toucher plusieurs fois"
     ),
 
     COLOSSUS_OUBLIE(
@@ -785,12 +785,12 @@ public enum PetType {
         "ember_walker",
         "Feu / Désintégration",
         "Strider des profondeurs du Nether émettant une chaleur intense",
-        "+6% crit/ennemi en feu (max 5 stacks, 32 blocs)",
+        "+6% crit/ennemi en feu (max 5, 32 blocs)",
         "Rayon de Désintégration",
-        "Rayon brûlant (+X%/s, désintègre les kills)",
-        40,
-        "+8% crit/stack, portée 40 blocs",
-        "Le rayon génère des explosions de cendres"
+        "Rayon 100% → 400%/s, désintègre les kills",
+        48,
+        "+8% crit/stack, 40 blocs",
+        "Explosions de cendres"
     ),
 
     // --- NOUVEAUX PETS MYTHIQUES (Synergies Ultimes) ---
@@ -803,12 +803,12 @@ public enum PetType {
         "aquatic_archon",
         "Élémentaire / Transformation",
         "Dauphin mystique irradiant une énergie arcanique prismatique",
-        "+5% dégâts subis/type élémentaire (max 4 stacks, 5s)",
+        "+5% dégâts reçus/type élémentaire (max 4, 5s)",
         "Forme d'Archonte",
-        "Transformation 20s: +30% dégâts, +150% armure, +6%/kill",
-        80,
-        "+7% dégâts subis/stack, 5 stacks max",
-        "La forme d'Archonte déclenche une nova arcanique au déclenchement"
+        "20s: +30% dégâts, +150% armure, +6%/kill",
+        55,
+        "+7%/stack, 5 stacks max",
+        "Nova arcanique au déclenchement"
     ),
 
     NEXUS_DIMENSIONNEL(
@@ -819,12 +819,12 @@ public enum PetType {
         "void_anchor",
         "Contrôle / Gravité",
         "Enderman entouré d'une aura gravitationnelle violette",
-        "Zone 6 blocs: -20% vitesse ennemis, attraction, +15% dégâts",
+        "Zone 6 blocs: -20% vitesse, attraction, +15% dégâts",
         "Singularité",
-        "Trou noir aspirant (2s) puis explosion 300% + dispersion",
-        60,
-        "Zone 8 blocs, +20% dégâts dans la zone",
-        "La Singularité applique Vulnérabilité pendant 5s"
+        "Trou noir 2s → explosion 300%",
+        55,
+        "Zone 8 blocs, +20% dégâts",
+        "Vulnérabilité 5s"
     ),
 
     // --- NOUVEAU PET MYTHIQUE (Visuel) ---
@@ -837,12 +837,12 @@ public enum PetType {
         "levitating_guardian",
         "Lévitation / Contrôle Aérien",
         "Shulker mystique entouré d'orbes gravitationnels",
-        "4ème attaque = balle (40% dégâts + Lévitation), +20% sur lévités",
+        "4ème attaque : balle (40% dégâts + Lévitation 2s), +20% sur lévités",
         "Barrage Gravitationnel",
-        "8 balles en éventail, puis slam au sol (150% dégâts chute)",
-        55,
-        "3ème attaque, +25% sur lévités",
-        "Le barrage double les dégâts sur ennemis déjà en lévitation"
+        "8 balles en éventail + slam 150% dégâts",
+        52,
+        "/3 attaques, +25% sur lévités",
+        "Double dégâts sur lévités"
     ),
 
     // ==================== EXALTÉS (§4§l) ====================
@@ -855,12 +855,12 @@ public enum PetType {
         "sonic_sentinel",
         "Détection / Destruction Sonique",
         "Warden ancestral irradiant une énergie sonique destructrice",
-        "Détection Sismique: attaquants marqués 8s (+25% dégâts). Onde de Choc: 6ème attaque = onde sonique (40% AoE, 8 blocs)",
+        "Marquage: attaquants +25% dégâts (8s). 6ème attaque: onde 40% AoE (8 blocs)",
         "Boom Sonique Dévastatrice",
-        "Charge 2s puis 500% dégâts à tous les ennemis + stun 3s",
-        120,
-        "Passif 1: +30% dégâts sur marqués, durée 12s. Passif 2: 5ème attaque, 50% dégâts",
-        "La Boom Sonique désintègre les ennemis <20% HP et crée des ondes secondaires"
+        "Charge 2s → 500% dégâts + stun 3s (tous ennemis)",
+        100,
+        "+30% sur marqués (12s), onde /5 attaques (50%)",
+        "Désintègre <20% HP + ondes secondaires"
     );
 
     private final String displayName;
