@@ -1320,7 +1320,7 @@ public class Chapter4Systems implements Listener {
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(
                 ZombieType.GRAVEDIGGER_BOSS,
                 bossSpawnLoc,
-                20 // Niveau 20
+                12 // Niveau 12 (adapté à la zone 7)
         );
 
         if (activeZombie == null) {

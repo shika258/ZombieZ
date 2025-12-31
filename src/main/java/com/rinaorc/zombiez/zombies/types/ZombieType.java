@@ -189,8 +189,8 @@ public enum ZombieType {
     MINE_OVERLORD("ZZ_MineOverlord", "Seigneur des Profondeurs", 0, 600, 17, 0.24,  // Boss Chapitre 3 Étape 10
         new int[]{6}, ZombieCategory.JOURNEY_BOSS),
 
-    GRAVEDIGGER_BOSS("ZZ_GravediggerBoss", "Le Premier Mort", 0, 2400, 25, 0.20,  // Boss Chapitre 4 Étape 2 - Wither Skeleton géant (x3 HP)
-        new int[]{}, ZombieCategory.JOURNEY_BOSS),
+    GRAVEDIGGER_BOSS("ZZ_GravediggerBoss", "Le Premier Mort", 0, 800, 20, 0.20,  // Boss Chapitre 4 Étape 2 - Wither Skeleton géant
+        new int[]{7}, ZombieCategory.JOURNEY_BOSS),
 
     CREAKING_BOSS("ZZ_CreakingBoss", "Gardien de l'Arbre Maudit", 0, 2500, 12, 0.18,  // Boss Chapitre 4 Étape 8 - Creaking géant
         new int[]{}, ZombieCategory.JOURNEY_BOSS),
