@@ -30,7 +30,7 @@ public class PetCollectionGUI implements InventoryHolder {
 
     // Slots pour les filtres de rareté (ligne du haut)
     private static final int SLOT_FILTER_ALL = 0;
-    private static final int[] SLOT_FILTERS = {1, 2, 3, 4, 5, 6}; // COMMON to MYTHIC
+    private static final int[] SLOT_FILTERS = { 1, 2, 3, 4, 5, 6 }; // COMMON to MYTHIC
 
     // Slots de navigation (ligne du bas)
     private static final int SLOT_PREV = 45;
@@ -41,10 +41,10 @@ public class PetCollectionGUI implements InventoryHolder {
 
     // Zone d'affichage des pets: slots 9-17, 18-26, 27-35, 36-44 (4 rows x 7 cols)
     private static final int[] PET_SLOTS = {
-        10, 11, 12, 13, 14, 15, 16,
-        19, 20, 21, 22, 23, 24, 25,
-        28, 29, 30, 31, 32, 33, 34,
-        37, 38, 39, 40, 41, 42, 43
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
     };
 
     private final ZombieZPlugin plugin;
@@ -66,14 +66,15 @@ public class PetCollectionGUI implements InventoryHolder {
 
         // Filtrer et trier les pets
         this.filteredPets = Arrays.stream(PetType.values())
-            .filter(p -> filter == null || p.getRarity() == filter)
-            .filter(p -> !ownedOnly || (petData != null && petData.hasPet(p)))
-            .sorted((a, b) -> {
-                int rarityCompare = a.getRarity().ordinal() - b.getRarity().ordinal();
-                if (rarityCompare != 0) return rarityCompare;
-                return a.getDisplayName().compareTo(b.getDisplayName());
-            })
-            .toArray(PetType[]::new);
+                .filter(p -> filter == null || p.getRarity() == filter)
+                .filter(p -> !ownedOnly || (petData != null && petData.hasPet(p)))
+                .sorted((a, b) -> {
+                    int rarityCompare = a.getRarity().ordinal() - b.getRarity().ordinal();
+                    if (rarityCompare != 0)
+                        return rarityCompare;
+                    return a.getDisplayName().compareTo(b.getDisplayName());
+                })
+                .toArray(PetType[]::new);
 
         String title = "§8§l📦 Collection" + (filter != null ? " §7[" + filter.getColoredName() + "§7]" : "");
         this.inventory = Bukkit.createInventory(this, SIZE, title);
@@ -95,8 +96,8 @@ public class PetCollectionGUI implements InventoryHolder {
         // Bordures latérales
         ItemStack border = ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE);
         for (int row = 1; row < 5; row++) {
-            inventory.setItem(row * 9, border);      // Gauche
-            inventory.setItem(row * 9 + 8, border);  // Droite
+            inventory.setItem(row * 9, border); // Gauche
+            inventory.setItem(row * 9 + 8, border); // Droite
         }
 
         // Filtres de rareté
@@ -113,16 +114,15 @@ public class PetCollectionGUI implements InventoryHolder {
         // Bouton "Tous"
         boolean allSelected = filterRarity == null;
         inventory.setItem(SLOT_FILTER_ALL, new ItemBuilder(allSelected ? Material.NETHER_STAR : Material.GRAY_DYE)
-            .name((allSelected ? "§a► " : "§7") + "Tous les Pets")
-            .lore(
-                "",
-                "§7Afficher tous les pets",
-                "§7Total: §e" + PetType.values().length,
-                "",
-                allSelected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer"
-            )
-            .glow(allSelected)
-            .build());
+                .name((allSelected ? "§a► " : "§7") + "Tous les Pets")
+                .lore(
+                        "",
+                        "§7Afficher tous les pets",
+                        "§7Total: §e" + PetType.values().length,
+                        "",
+                        allSelected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer")
+                .glow(allSelected)
+                .build());
 
         // Filtres par rareté
         PetRarity[] rarities = PetRarity.values();
@@ -139,32 +139,31 @@ public class PetCollectionGUI implements InventoryHolder {
                 case EPIC -> Material.PURPLE_DYE;
                 case LEGENDARY -> Material.ORANGE_DYE;
                 case MYTHIC -> Material.RED_DYE;
+                default -> Material.GRAY_DYE;
             };
 
             inventory.setItem(SLOT_FILTERS[i], new ItemBuilder(mat)
-                .name((selected ? "§a► " : "") + rarity.getColoredName())
-                .lore(
-                    "",
-                    "§7Possédés: §a" + ownedCount + "§7/§e" + totalCount,
-                    "",
-                    selected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer"
-                )
-                .glow(selected)
-                .build());
+                    .name((selected ? "§a► " : "") + rarity.getColoredName())
+                    .lore(
+                            "",
+                            "§7Possédés: §a" + ownedCount + "§7/§e" + totalCount,
+                            "",
+                            selected ? "§a✓ Sélectionné" : "§eCliquez pour filtrer")
+                    .glow(selected)
+                    .build());
         }
 
         // Bouton toggle "Owned only"
         inventory.setItem(8, new ItemBuilder(showOwnedOnly ? Material.ENDER_EYE : Material.ENDER_PEARL)
-            .name(showOwnedOnly ? "§a✓ Possédés uniquement" : "§7☐ Possédés uniquement")
-            .lore(
-                "",
-                "§7Afficher uniquement les pets",
-                "§7que vous possédez.",
-                "",
-                showOwnedOnly ? "§eCliquez pour voir tous" : "§eCliquez pour activer"
-            )
-            .glow(showOwnedOnly)
-            .build());
+                .name(showOwnedOnly ? "§a✓ Possédés uniquement" : "§7☐ Possédés uniquement")
+                .lore(
+                        "",
+                        "§7Afficher uniquement les pets",
+                        "§7que vous possédez.",
+                        "",
+                        showOwnedOnly ? "§eCliquez pour voir tous" : "§eCliquez pour activer")
+                .glow(showOwnedOnly)
+                .build());
     }
 
     private void displayPets() {
@@ -189,9 +188,9 @@ public class PetCollectionGUI implements InventoryHolder {
         // Page précédente
         if (page > 0) {
             inventory.setItem(SLOT_PREV, new ItemBuilder(Material.ARROW)
-                .name("§e◄ Page " + page)
-                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
-                .build());
+                    .name("§e◄ Page " + page)
+                    .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
+                    .build());
         } else {
             inventory.setItem(SLOT_PREV, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
         }
@@ -201,15 +200,15 @@ public class PetCollectionGUI implements InventoryHolder {
 
         // Retour
         inventory.setItem(SLOT_BACK, new ItemBuilder(Material.BARRIER)
-            .name("§c✖ Retour au menu")
-            .build());
+                .name("§c✖ Retour au menu")
+                .build());
 
         // Page suivante
         if ((page + 1) * PETS_PER_PAGE < filteredPets.length) {
             inventory.setItem(SLOT_NEXT, new ItemBuilder(Material.ARROW)
-                .name("§ePage " + (page + 2) + " ►")
-                .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
-                .build());
+                    .name("§ePage " + (page + 2) + " ►")
+                    .lore("", "§7Page actuelle: §a" + (page + 1) + "§7/§e" + totalPages)
+                    .build());
         } else {
             inventory.setItem(SLOT_NEXT, ItemBuilder.placeholder(Material.GRAY_STAINED_GLASS_PANE));
         }
@@ -220,23 +219,22 @@ public class PetCollectionGUI implements InventoryHolder {
 
         if (!owned) {
             return new ItemBuilder(Material.GRAY_DYE)
-                .name("§8??? " + type.getRarity().getStars())
-                .lore(
-                    "",
-                    "§7Rareté: " + type.getRarity().getColoredName(),
-                    "§7Thème: §8" + type.getTheme(),
-                    "",
-                    "§8╔══════════════════════╗",
-                    "§8║  §7Pet non découvert  §8║",
-                    "§8╚══════════════════════╝",
-                    "",
-                    "§8Les capacités de ce pet",
-                    "§8restent un mystère...",
-                    "",
-                    "§7Obtenez ce pet via les",
-                    "§7oeufs pour le découvrir!"
-                )
-                .build();
+                    .name("§8??? " + type.getRarity().getStars())
+                    .lore(
+                            "",
+                            "§7Rareté: " + type.getRarity().getColoredName(),
+                            "§7Thème: §8" + type.getTheme(),
+                            "",
+                            "§8╔══════════════════════╗",
+                            "§8║  §7Pet non découvert  §8║",
+                            "§8╚══════════════════════╝",
+                            "",
+                            "§8Les capacités de ce pet",
+                            "§8restent un mystère...",
+                            "",
+                            "§7Obtenez ce pet via les",
+                            "§7oeufs pour le découvrir!")
+                    .build();
         }
 
         PetData pet = petData.getPet(type);
@@ -287,14 +285,15 @@ public class PetCollectionGUI implements InventoryHolder {
         String stars = pet.getStarPower() > 0 ? " §e" + "★".repeat(pet.getStarPower()) : "";
 
         return new ItemBuilder(type.getIcon())
-            .name(type.getColoredName() + " §7[Lv." + pet.getLevel() + "]" + stars)
-            .lore(lore)
-            .glow(isEquipped || pet.hasEvolution())
-            .build();
+                .name(type.getColoredName() + " §7[Lv." + pet.getLevel() + "]" + stars)
+                .lore(lore)
+                .glow(isEquipped || pet.hasEvolution())
+                .build();
     }
 
     private String truncate(String text, int maxLength) {
-        if (text.length() <= maxLength) return text;
+        if (text.length() <= maxLength)
+            return text;
         return text.substring(0, maxLength - 3) + "...";
     }
 
@@ -338,7 +337,8 @@ public class PetCollectionGUI implements InventoryHolder {
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("§7Collection totale: §a" + owned + "§7/§e" + total + " §7(" + String.format("%.1f", (owned * 100.0 / total)) + "%)");
+        lore.add("§7Collection totale: §a" + owned + "§7/§e" + total + " §7("
+                + String.format("%.1f", (owned * 100.0 / total)) + "%)");
         lore.add("");
         if (filterRarity != null) {
             int ownedFilter = petData != null ? petData.getPetCountByRarity(filterRarity) : 0;
@@ -355,13 +355,14 @@ public class PetCollectionGUI implements InventoryHolder {
         }
 
         return new ItemBuilder(Material.BOOK)
-            .name("§6📊 Statistiques Collection")
-            .lore(lore)
-            .build();
+                .name("§6📊 Statistiques Collection")
+                .lore(lore)
+                .build();
     }
 
     private String createMiniBar(int current, int max) {
-        if (max == 0) return "§8▌▌▌▌▌";
+        if (max == 0)
+            return "§8▌▌▌▌▌";
         int filled = Math.min(5, (int) ((current * 5.0) / max));
         int empty = 5 - filled;
         return "§a" + "▌".repeat(filled) + "§8" + "▌".repeat(empty);
@@ -377,10 +378,21 @@ public class PetCollectionGUI implements InventoryHolder {
     }
 
     // Getters pour le listener
-    public int getPage() { return page; }
-    public PetRarity getFilterRarity() { return filterRarity; }
-    public boolean isShowOwnedOnly() { return showOwnedOnly; }
-    public PetType[] getFilteredPets() { return filteredPets; }
+    public int getPage() {
+        return page;
+    }
+
+    public PetRarity getFilterRarity() {
+        return filterRarity;
+    }
+
+    public boolean isShowOwnedOnly() {
+        return showOwnedOnly;
+    }
+
+    public PetType[] getFilteredPets() {
+        return filteredPets;
+    }
 
     /**
      * Gestionnaire d'événements
@@ -400,7 +412,8 @@ public class PetCollectionGUI implements InventoryHolder {
             }
 
             event.setCancelled(true);
-            if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
+            if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR)
+                return;
 
             Player player = (Player) event.getWhoClicked();
             int slot = event.getRawSlot();
@@ -454,7 +467,8 @@ public class PetCollectionGUI implements InventoryHolder {
             for (int i = 0; i < PET_SLOTS.length; i++) {
                 if (slot == PET_SLOTS[i]) {
                     int index = gui.page * PETS_PER_PAGE + i;
-                    if (index >= gui.filteredPets.length) return;
+                    if (index >= gui.filteredPets.length)
+                        return;
 
                     PetType type = gui.filteredPets[index];
                     PlayerPetData petData = gui.petData;

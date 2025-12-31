@@ -73,6 +73,7 @@ public class PetDetailsGUI implements InventoryHolder {
             case EPIC -> Material.PURPLE_STAINED_GLASS_PANE;
             case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
             case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
+            default -> Material.GRAY_STAINED_GLASS_PANE;
         };
         ItemStack border = ItemBuilder.placeholder(borderMat);
         for (int i = 0; i < 9; i++) {
@@ -97,29 +98,28 @@ public class PetDetailsGUI implements InventoryHolder {
 
         // Boutons
         inventory.setItem(SLOT_BACK, new ItemBuilder(Material.ARROW)
-            .name("§c◄ Retour")
-            .build());
+                .name("§c◄ Retour")
+                .build());
 
         if (petData != null) {
             boolean isEquipped = type == playerData.getEquippedPet();
             inventory.setItem(SLOT_EQUIP, new ItemBuilder(isEquipped ? Material.ENDER_EYE : Material.ENDER_PEARL)
-                .name(isEquipped ? "§c✖ Déséquiper" : "§a✓ Équiper")
-                .lore(
-                    "",
-                    isEquipped ? "§7Ce pet est actuellement équipé." : "§7Cliquez pour équiper ce pet."
-                )
-                .glow(isEquipped)
-                .build());
+                    .name(isEquipped ? "§c✖ Déséquiper" : "§a✓ Équiper")
+                    .lore(
+                            "",
+                            isEquipped ? "§7Ce pet est actuellement équipé." : "§7Cliquez pour équiper ce pet.")
+                    .glow(isEquipped)
+                    .build());
 
-            inventory.setItem(SLOT_FAVORITE, new ItemBuilder(petData.isFavorite() ? Material.NETHER_STAR : Material.FIREWORK_STAR)
-                .name(petData.isFavorite() ? "§e★ Favori" : "§7☆ Ajouter aux favoris")
-                .lore(
-                    "",
-                    "§7Marquez vos pets préférés",
-                    "§7comme favoris!"
-                )
-                .glow(petData.isFavorite())
-                .build());
+            inventory.setItem(SLOT_FAVORITE,
+                    new ItemBuilder(petData.isFavorite() ? Material.NETHER_STAR : Material.FIREWORK_STAR)
+                            .name(petData.isFavorite() ? "§e★ Favori" : "§7☆ Ajouter aux favoris")
+                            .lore(
+                                    "",
+                                    "§7Marquez vos pets préférés",
+                                    "§7comme favoris!")
+                            .glow(petData.isFavorite())
+                            .build());
         }
     }
 
@@ -155,14 +155,14 @@ public class PetDetailsGUI implements InventoryHolder {
             lore.add("§8Pet non possédé");
         }
 
-        String stars = (petData != null && petData.getStarPower() > 0) ?
-            " §e" + "★".repeat(petData.getStarPower()) : "";
+        String stars = (petData != null && petData.getStarPower() > 0) ? " §e" + "★".repeat(petData.getStarPower())
+                : "";
 
         return new ItemBuilder(type.getIcon())
-            .name(type.getColoredName() + stars)
-            .lore(lore)
-            .glow(petData != null && petData.hasEvolution())
-            .build();
+                .name(type.getColoredName() + stars)
+                .lore(lore)
+                .glow(petData != null && petData.hasEvolution())
+                .build();
     }
 
     private ItemStack createPassiveItem() {
@@ -191,9 +191,9 @@ public class PetDetailsGUI implements InventoryHolder {
         }
 
         return new ItemBuilder(Material.BREWING_STAND)
-            .name("§7[Passif] §f" + type.getDisplayName())
-            .lore(lore)
-            .build();
+                .name("§7[Passif] §f" + type.getDisplayName())
+                .lore(lore)
+                .build();
     }
 
     private ItemStack createUltimateItem() {
@@ -225,10 +225,10 @@ public class PetDetailsGUI implements InventoryHolder {
         }
 
         return new ItemBuilder(Material.BLAZE_POWDER)
-            .name("§6§l[ULTIME] §e" + type.getUltimateName())
-            .lore(lore)
-            .glow(petData != null && type == playerData.getEquippedPet())
-            .build();
+                .name("§6§l[ULTIME] §e" + type.getUltimateName())
+                .lore(lore)
+                .glow(petData != null && type == playerData.getEquippedPet())
+                .build();
     }
 
     private ItemStack createStarPowerItem() {
@@ -275,10 +275,10 @@ public class PetDetailsGUI implements InventoryHolder {
         lore.add("§d" + type.getStarPowerDescription());
 
         return new ItemBuilder(Material.NETHER_STAR)
-            .name("§e★ Star Powers")
-            .lore(lore)
-            .glow(petData != null && petData.getStarPower() > 0)
-            .build();
+                .name("§e★ Star Powers")
+                .lore(lore)
+                .glow(petData != null && petData.getStarPower() > 0)
+                .build();
     }
 
     private ItemStack createStatsItem() {
@@ -301,14 +301,16 @@ public class PetDetailsGUI implements InventoryHolder {
         }
 
         return new ItemBuilder(Material.BOOK)
-            .name("§6📊 Statistiques")
-            .lore(lore)
-            .build();
+                .name("§6📊 Statistiques")
+                .lore(lore)
+                .build();
     }
 
     private String formatNumber(long number) {
-        if (number < 1000) return String.valueOf(number);
-        if (number < 1000000) return String.format("%.1fK", number / 1000.0);
+        if (number < 1000)
+            return String.valueOf(number);
+        if (number < 1000000)
+            return String.format("%.1fK", number / 1000.0);
         return String.format("%.1fM", number / 1000000.0);
     }
 
@@ -353,7 +355,8 @@ public class PetDetailsGUI implements InventoryHolder {
             }
 
             event.setCancelled(true);
-            if (event.getCurrentItem() == null) return;
+            if (event.getCurrentItem() == null)
+                return;
 
             Player player = (Player) event.getWhoClicked();
             int slot = event.getRawSlot();
@@ -364,7 +367,8 @@ public class PetDetailsGUI implements InventoryHolder {
                     new PetCollectionGUI(gui.plugin, player, 0).open();
                 }
                 case SLOT_EQUIP -> {
-                    if (gui.petData == null) return;
+                    if (gui.petData == null)
+                        return;
 
                     if (gui.type == gui.playerData.getEquippedPet()) {
                         gui.plugin.getPetManager().unequipPet(player);
@@ -376,7 +380,8 @@ public class PetDetailsGUI implements InventoryHolder {
                     new PetDetailsGUI(gui.plugin, player, gui.type).open();
                 }
                 case SLOT_FAVORITE -> {
-                    if (gui.petData == null) return;
+                    if (gui.petData == null)
+                        return;
 
                     gui.petData.setFavorite(!gui.petData.isFavorite());
                     gui.playerData.markDirty();
@@ -386,7 +391,8 @@ public class PetDetailsGUI implements InventoryHolder {
                 case SLOT_ULTIMATE -> {
                     // Informer que les ultimes s'activent automatiquement
                     if (gui.petData != null && gui.type == gui.playerData.getEquippedPet()) {
-                        player.sendMessage("§6[Pet] §7L'ultime §e" + gui.type.getUltimateName() + " §7s'active §eautomatiquement§7!");
+                        player.sendMessage("§6[Pet] §7L'ultime §e" + gui.type.getUltimateName()
+                                + " §7s'active §eautomatiquement§7!");
                         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     }
                 }
