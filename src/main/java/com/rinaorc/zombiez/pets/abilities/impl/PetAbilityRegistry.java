@@ -432,12 +432,16 @@ public class PetAbilityRegistry {
                 "Météore géant (450% dégâts) + zone enflammée (120% sur 3s)", fireDamagePassive, 4.50, 1.20, 8.0)
         );
 
-        // Symbiote Éternel (Total Amplification)
+        // Archonte Aquatique (anciennement Symbiote Éternel)
+        // Passif: +5% dégâts subis par type élémentaire (max 4 stacks = 20%)
+        // Ultimate: Forme d'Archonte - scale x1.5, +30% dégâts, +150% armure, +6% par kill
+        ElementalSensitivityPassive elementalSensitivityPassive = new ElementalSensitivityPassive(
+            "elemental_sensitivity", "Sensibilité Élémentaire",
+            "+5% dégâts subis/type élémentaire (max 4, 5s)", 0.05, 4, 5);
         registerAbilities(PetType.SYMBIOTE_ETERNEL,
-            new SymbiotePassive("symbiote_amp", "Symbiose Éternelle",
-                "Amplifie tous les bonus du joueur de 20%", 0.20),
-            new SymbioticFusionActive("symbiote_fusion", "Fusion Symbiotique",
-                "15s: tous bonus x2, régén +50%, immunité CC")
+            elementalSensitivityPassive,
+            new ArchonFormActive("archon_form", "Forme d'Archonte",
+                "Transformation 20s: +30% dégâts, +150% armure, +6%/kill", 0.30, 1.50, 0.06, 20, elementalSensitivityPassive)
         );
 
         // Nexus Dimensionnel (Team Support)

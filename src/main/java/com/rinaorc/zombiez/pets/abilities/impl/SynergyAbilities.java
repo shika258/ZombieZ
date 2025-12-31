@@ -11168,3 +11168,477 @@ class DisintegrationRayActive implements PetAbility {
         if (task != null) task.cancel();
     }
 }
+
+// ==================== ARCHONTE AQUATIQUE (DOLPHIN) ====================
+
+/**
+ * Passif: Sensibilité Élémentaire
+ * Les dégâts élémentaires appliquent des stacks de vulnérabilité (+5% dégâts subis/type)
+ * Max 4 types différents = +20% dégâts subis, durée 5s par stack
+ */
+class ElementalSensitivityPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double damagePerStack;  // +5% par type élémentaire
+    private final int maxStacks;          // Max 4 types
+    private final long stackDuration;     // 5 secondes
+
+    // Track des stacks par ennemi: UUID ennemi -> Map<ElementType, expiration>
+    private static final Map<UUID, Map<ElementType, Long>> enemyStacks = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(enemyStacks::remove);
+    }
+
+    // Types élémentaires supportés
+    public enum ElementType {
+        FIRE("§6🔥", org.bukkit.Color.ORANGE),
+        ICE("§b❄", org.bukkit.Color.AQUA),
+        LIGHTNING("§e⚡", org.bukkit.Color.YELLOW),
+        POISON("§2☠", org.bukkit.Color.GREEN);
+
+        public final String icon;
+        public final org.bukkit.Color color;
+
+        ElementType(String icon, org.bukkit.Color color) {
+            this.icon = icon;
+            this.color = color;
+        }
+    }
+
+    public ElementalSensitivityPassive(String id, String name, String description,
+                                        double damagePerStack, int maxStacks, long stackDurationSeconds) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.damagePerStack = damagePerStack;
+        this.maxStacks = maxStacks;
+        this.stackDuration = stackDurationSeconds * 1000;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Détecte le type de dégât élémentaire infligé
+        // Ceci sera appelé via le système de combat avec le DamageType
+    }
+
+    /**
+     * Applique un stack élémentaire à un ennemi
+     * Appelé depuis le système de combat quand des dégâts élémentaires sont infligés
+     */
+    public void applyElementalStack(Player player, LivingEntity target, ElementType element) {
+        UUID targetId = target.getUniqueId();
+        long expiration = System.currentTimeMillis() + stackDuration;
+
+        Map<ElementType, Long> stacks = enemyStacks.computeIfAbsent(targetId, k -> new ConcurrentHashMap<>());
+
+        // Vérifie si c'est un nouveau type
+        boolean isNewStack = !stacks.containsKey(element) || stacks.get(element) < System.currentTimeMillis();
+
+        stacks.put(element, expiration);
+
+        // Nettoie les stacks expirés
+        stacks.entrySet().removeIf(entry -> entry.getValue() < System.currentTimeMillis());
+
+        // Affiche les stacks actifs
+        int activeStacks = Math.min(stacks.size(), maxStacks);
+
+        if (isNewStack && activeStacks > 0) {
+            // Effet visuel sur la cible
+            Location loc = target.getLocation().add(0, 1, 0);
+            target.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0,
+                new Particle.DustOptions(element.color, 1.2f));
+
+            // Construit l'affichage des stacks
+            StringBuilder stackDisplay = new StringBuilder("§7[");
+            for (ElementType et : ElementType.values()) {
+                if (stacks.containsKey(et) && stacks.get(et) >= System.currentTimeMillis()) {
+                    stackDisplay.append(et.icon);
+                }
+            }
+            stackDisplay.append("§7]");
+
+            player.sendActionBar(net.kyori.adventure.text.Component.text(
+                "§d✧ Sensibilité: " + stackDisplay + " §7(+" + String.format("%.0f", activeStacks * damagePerStack * 100) + "% dégâts)"
+            ));
+
+            // Son
+            player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.5f, 1.5f + activeStacks * 0.2f);
+        }
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts bonus contre un ennemi
+     */
+    public double getDamageMultiplier(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        Map<ElementType, Long> stacks = enemyStacks.get(targetId);
+
+        if (stacks == null || stacks.isEmpty()) {
+            return 1.0;
+        }
+
+        // Nettoie les stacks expirés
+        long now = System.currentTimeMillis();
+        stacks.entrySet().removeIf(entry -> entry.getValue() < now);
+
+        int activeStacks = Math.min(stacks.size(), maxStacks);
+        return 1.0 + (activeStacks * damagePerStack);
+    }
+
+    /**
+     * Vérifie le nombre de stacks actifs sur un ennemi
+     */
+    public int getActiveStacks(LivingEntity target) {
+        UUID targetId = target.getUniqueId();
+        Map<ElementType, Long> stacks = enemyStacks.get(targetId);
+
+        if (stacks == null) return 0;
+
+        long now = System.currentTimeMillis();
+        stacks.entrySet().removeIf(entry -> entry.getValue() < now);
+
+        return Math.min(stacks.size(), maxStacks);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        // Nettoie les stacks de l'ennemi tué
+        enemyStacks.remove(victim.getUniqueId());
+    }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) { }
+}
+
+/**
+ * Ultimate: Forme d'Archonte
+ * Transformation en être d'énergie arcanique - scale x1.5, glowing violet
+ * +30% dégâts, +150% armure/résistances, +6% dégâts par kill
+ */
+class ArchonFormActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double baseDamageBonus;     // +30%
+    private final double armorBonus;          // +150%
+    private final double damagePerKill;       // +6%
+    private final int durationTicks;          // 20 secondes
+    private final ElementalSensitivityPassive linkedPassive;
+
+    // Track des joueurs en forme d'archonte
+    private static final Map<UUID, ArchonState> activeArchons = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            ArchonState state = activeArchons.remove(uuid);
+            if (state != null) state.cancel();
+        });
+    }
+
+    private static class ArchonState {
+        BukkitTask task;
+        int killCount = 0;
+        double originalScale = 1.0;
+
+        void cancel() {
+            if (task != null) task.cancel();
+        }
+    }
+
+    public ArchonFormActive(String id, String name, String description,
+                             double baseDamageBonus, double armorBonus,
+                             double damagePerKill, int durationSeconds,
+                             ElementalSensitivityPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.baseDamageBonus = baseDamageBonus;
+        this.armorBonus = armorBonus;
+        this.damagePerKill = damagePerKill;
+        this.durationTicks = durationSeconds * 20;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule la transformation précédente si existante
+        ArchonState existingState = activeArchons.remove(playerId);
+        if (existingState != null) {
+            existingState.cancel();
+            revertTransformation(player, existingState);
+        }
+
+        // Obtient le plugin
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Crée le nouvel état
+        ArchonState state = new ArchonState();
+
+        // Sauvegarde le scale original
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            state.originalScale = scaleAttr.getBaseValue();
+        }
+
+        // Applique la transformation
+        applyTransformation(player, state);
+
+        // Message d'activation
+        player.sendTitle("§5§l✦ ARCHONTE ✦", "§dForme d'énergie pure activée!", 5, 40, 10);
+        player.sendMessage("§5§l⚡ FORME D'ARCHONTE ACTIVÉE!");
+        player.sendMessage("§7» §a+30% dégâts §7| §b+150% armure §7| §e+6% par kill");
+
+        // Sons et effets
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.5f);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.5f, 1.2f);
+        spawnArchonNovaEffect(player);
+
+        // Timer de la transformation
+        final int[] ticksRemaining = {durationTicks};
+
+        state.task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Vérifie si le joueur est toujours en ligne et vivant
+                if (!player.isOnline() || player.isDead()) {
+                    endArchonForm(player, state, "§cForme d'Archonte interrompue!");
+                    return;
+                }
+
+                ticksRemaining[0]--;
+
+                // Fin de la transformation
+                if (ticksRemaining[0] <= 0) {
+                    endArchonForm(player, state, "§5Forme d'Archonte terminée. §7(Kills: " + state.killCount + ")");
+                    return;
+                }
+
+                // Effets visuels continus
+                if (ticksRemaining[0] % 10 == 0) {
+                    spawnArchonAura(player);
+                }
+
+                // Affichage du temps restant toutes les secondes
+                if (ticksRemaining[0] % 20 == 0) {
+                    int secondsLeft = ticksRemaining[0] / 20;
+                    double totalDamageBonus = baseDamageBonus + (state.killCount * damagePerKill);
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§5✦ Archonte: §f" + secondsLeft + "s §7| §a+" +
+                        String.format("%.0f", totalDamageBonus * 100) + "% dégâts §7| §eKills: " + state.killCount
+                    ));
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeArchons.put(playerId, state);
+    }
+
+    /**
+     * Applique la transformation d'Archonte
+     */
+    private void applyTransformation(Player player, ArchonState state) {
+        // Scale x1.5
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            scaleAttr.setBaseValue(1.5);
+        }
+
+        // Glowing effet (violet via scoreboard team)
+        applyGlowingEffect(player, true);
+
+        // Bonus d'armure temporaire (via potion effect pour simplicité)
+        player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, durationTicks, 2, false, false));
+    }
+
+    /**
+     * Retire la transformation d'Archonte
+     */
+    private void revertTransformation(Player player, ArchonState state) {
+        // Restaure le scale
+        var scaleAttr = player.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scaleAttr != null) {
+            scaleAttr.setBaseValue(state.originalScale);
+        }
+
+        // Retire le glowing
+        applyGlowingEffect(player, false);
+
+        // Retire l'effet de résistance
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+    }
+
+    /**
+     * Applique/retire l'effet de glowing violet
+     */
+    private void applyGlowingEffect(Player player, boolean apply) {
+        if (apply) {
+            player.setGlowing(true);
+            // Le glowing utilise la couleur de la team du joueur
+            // Pour un effet violet, on pourrait utiliser une team temporaire
+            // Mais pour simplicité, on utilise juste le glowing standard
+        } else {
+            player.setGlowing(false);
+        }
+    }
+
+    /**
+     * Termine la forme d'Archonte
+     */
+    private void endArchonForm(Player player, ArchonState state, String message) {
+        UUID playerId = player.getUniqueId();
+        activeArchons.remove(playerId);
+
+        if (state.task != null) {
+            state.task.cancel();
+        }
+
+        revertTransformation(player, state);
+
+        player.sendMessage(message);
+        player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 1.0f, 1.0f);
+
+        // Effet de fin
+        Location loc = player.getLocation().add(0, 1, 0);
+        player.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 50, 0.5, 0.8, 0.5, 0.1);
+    }
+
+    /**
+     * Nova d'activation
+     */
+    private void spawnArchonNovaEffect(Player player) {
+        Location center = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Onde de choc circulaire
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            for (double r = 0.5; r < 4; r += 0.5) {
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                Location particleLoc = center.clone().add(x, 0, z);
+
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(128, 0, 255), 1.5f));
+            }
+        }
+
+        // Colonne centrale
+        for (double y = 0; y < 3; y += 0.2) {
+            Location colLoc = center.clone().add(0, y, 0);
+            world.spawnParticle(Particle.END_ROD, colLoc, 2, 0.1, 0, 0.1, 0.02);
+            world.spawnParticle(Particle.PORTAL, colLoc, 5, 0.2, 0.2, 0.2, 0.5);
+        }
+    }
+
+    /**
+     * Aura continue de l'Archonte
+     */
+    private void spawnArchonAura(Player player) {
+        Location loc = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+
+        // Spirale violette autour du joueur
+        double time = System.currentTimeMillis() / 200.0;
+        for (int i = 0; i < 3; i++) {
+            double angle = time + (i * Math.PI * 2 / 3);
+            double x = Math.cos(angle) * 0.8;
+            double z = Math.sin(angle) * 0.8;
+
+            world.spawnParticle(Particle.DUST, loc.clone().add(x, 0, z), 3, 0.1, 0.3, 0.1, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(180, 50, 255), 1.0f));
+        }
+
+        // Particules de portail
+        world.spawnParticle(Particle.PORTAL, loc, 8, 0.4, 0.6, 0.4, 0.3);
+    }
+
+    /**
+     * Vérifie si un joueur est en forme d'Archonte
+     */
+    public boolean isInArchonForm(Player player) {
+        return activeArchons.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts total (base + kills)
+     */
+    public double getDamageMultiplier(Player player) {
+        ArchonState state = activeArchons.get(player.getUniqueId());
+        if (state == null) return 1.0;
+
+        return 1.0 + baseDamageBonus + (state.killCount * damagePerKill);
+    }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) {
+        ArchonState state = activeArchons.get(player.getUniqueId());
+        if (state != null) {
+            state.killCount++;
+
+            // Effet visuel de power-up
+            Location loc = player.getLocation().add(0, 1.5, 0);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 10, 0.3, 0.3, 0.3, 0.1);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f + state.killCount * 0.05f);
+
+            double totalBonus = baseDamageBonus + (state.killCount * damagePerKill);
+            player.sendMessage("§5§l⚡ §dKill Archonte! §7Dégâts: §a+" + String.format("%.0f", totalBonus * 100) + "%");
+        }
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        ArchonState state = activeArchons.remove(player.getUniqueId());
+        if (state != null) {
+            state.cancel();
+            revertTransformation(player, state);
+        }
+    }
+}

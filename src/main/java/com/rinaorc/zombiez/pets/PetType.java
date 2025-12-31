@@ -796,19 +796,19 @@ public enum PetType {
     // --- NOUVEAUX PETS MYTHIQUES (Synergies Ultimes) ---
 
     SYMBIOTE_ETERNEL(
-        "Symbiote Éternel",
+        "Archonte Aquatique",
         PetRarity.MYTHIC,
         Material.HEART_OF_THE_SEA,
-        EntityType.VEX,
-        "eternal_symbiote",
-        "Symbiose / Amplification Totale",
-        "Créature liquide qui s'enroule autour du joueur",
-        "Amplifie TOUS les bonus du joueur de 20% (classe, talents, items, autres pets équipés)",
-        "Fusion Symbiotique",
-        "Pendant 15s: tous les bonus x2, régénération +50%, immunité aux CC",
-        90,
-        "Amplification +10%",
-        "Synergie ultime: La fusion active aussi tous les talents passifs simultanément"
+        EntityType.DOLPHIN,
+        "aquatic_archon",
+        "Élémentaire / Transformation",
+        "Dauphin mystique irradiant une énergie arcanique prismatique",
+        "+5% dégâts subis/type élémentaire (max 4 stacks, 5s)",
+        "Forme d'Archonte",
+        "Transformation 20s: +30% dégâts, +150% armure, +6%/kill",
+        80,
+        "+7% dégâts subis/stack, 5 stacks max",
+        "La forme d'Archonte déclenche une nova arcanique au déclenchement"
     ),
 
     NEXUS_DIMENSIONNEL(
