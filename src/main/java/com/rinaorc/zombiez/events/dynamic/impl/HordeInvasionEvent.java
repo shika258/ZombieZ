@@ -27,6 +27,7 @@ import org.joml.Vector3f;
 
 import com.rinaorc.zombiez.items.types.Rarity;
 import org.bukkit.entity.Item;
+import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -371,6 +372,7 @@ public class HordeInvasionEvent extends DynamicEvent {
 
     /**
      * Spawn les zombies de la vague - BURST de 8-16 zombies d'un coup
+     * SÉCURITÉ: Les zombies ne peuvent pas spawn dans les arbres (Y+5 max)
      */
     private void spawnWaveZombies() {
         World world = location.getWorld();
@@ -384,6 +386,10 @@ public class HordeInvasionEvent extends DynamicEvent {
         // Calculer les HP selon la zone et la vague
         double zombieHealth = BASE_ZOMBIE_HEALTH + (zone.getId() * HEALTH_PER_ZONE) + (currentWave * 5);
 
+        // Y de référence = Y de départ de l'événement
+        int eventStartY = location.getBlockY();
+        int maxSpawnY = eventStartY + 5; // Limite Y+5 par rapport au départ
+
         // Pré-calculer les positions de spawn en cercle autour du centre
         List<Location> spawnLocations = new ArrayList<>();
         for (int i = 0; i < zombiesThisWave; i++) {
@@ -392,8 +398,12 @@ public class HordeInvasionEvent extends DynamicEvent {
             double distance = 20 + Math.random() * 10;
             double x = location.getX() + Math.cos(angle) * distance;
             double z = location.getZ() + Math.sin(angle) * distance;
-            int y = world.getHighestBlockYAt((int) x, (int) z) + 1;
-            spawnLocations.add(new Location(world, x, y, z));
+
+            // Trouver une position de spawn valide (pas dans les arbres)
+            Location validSpawn = findValidSpawnLocation(world, x, z, eventStartY, maxSpawnY);
+            if (validSpawn != null) {
+                spawnLocations.add(validSpawn);
+            }
         }
 
         // Effet visuel et sonore au début de la vague
@@ -498,6 +508,66 @@ public class HordeInvasionEvent extends DynamicEvent {
         }
 
         return true;
+    }
+
+    /**
+     * Trouve une position de spawn valide pour un zombie
+     * SÉCURITÉS:
+     * - Ne spawn pas dans les arbres (feuilles, bois)
+     * - Limite le Y à maxSpawnY (eventStartY + 5)
+     * - Cherche un sol solide valide
+     * @return Location valide ou null si aucune trouvée
+     */
+    private Location findValidSpawnLocation(World world, double x, double z, int eventStartY, int maxSpawnY) {
+        int blockX = (int) x;
+        int blockZ = (int) z;
+
+        // Chercher du haut vers le bas, en commençant à maxSpawnY
+        for (int y = maxSpawnY; y >= eventStartY - 10; y--) {
+            Block block = world.getBlockAt(blockX, y, blockZ);
+            Block blockAbove = world.getBlockAt(blockX, y + 1, blockZ);
+            Block blockAbove2 = world.getBlockAt(blockX, y + 2, blockZ);
+
+            // Vérifier que le bloc est solide et pas un arbre
+            if (!block.getType().isSolid()) continue;
+            if (isTreeBlock(block.getType())) continue;
+
+            // Vérifier que l'espace au-dessus est libre (2 blocs pour le zombie)
+            if (blockAbove.getType().isSolid()) continue;
+            if (blockAbove2.getType().isSolid()) continue;
+
+            // Vérifier que l'espace n'est pas dans des feuilles
+            if (isTreeBlock(blockAbove.getType())) continue;
+            if (isTreeBlock(blockAbove2.getType())) continue;
+
+            // Position valide trouvée!
+            return new Location(world, x, y + 1, z);
+        }
+
+        // Fallback: utiliser le Y de l'événement si aucune position valide
+        // Cela garantit qu'on spawn au niveau du sol de l'événement au pire
+        Block eventBlock = world.getBlockAt(blockX, eventStartY - 1, blockZ);
+        if (eventBlock.getType().isSolid() && !isTreeBlock(eventBlock.getType())) {
+            return new Location(world, x, eventStartY, z);
+        }
+
+        // Aucune position valide trouvée
+        return null;
+    }
+
+    /**
+     * Vérifie si un type de bloc fait partie d'un arbre
+     */
+    private boolean isTreeBlock(Material material) {
+        String name = material.name();
+        return name.contains("LOG") ||
+               name.contains("WOOD") ||
+               name.contains("LEAVES") ||
+               name.contains("VINE") ||
+               name.contains("MANGROVE_ROOTS") ||
+               material == Material.MUSHROOM_STEM ||
+               material == Material.RED_MUSHROOM_BLOCK ||
+               material == Material.BROWN_MUSHROOM_BLOCK;
     }
 
     /**
