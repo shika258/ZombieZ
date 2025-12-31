@@ -746,19 +746,19 @@ public enum PetType {
     ),
 
     CHRONIQUEUR_TEMPOREL(
-        "Chroniqueur Temporel",
+        "Caravanier du Désert",
         PetRarity.MYTHIC,
-        Material.CLOCK,
-        EntityType.ALLAY,
-        "time_chronicler",
-        "Temps / Manipulation",
-        "Horloge vivante avec engrenages dorés",
-        "+25% vitesse d'attaque et de déplacement",
-        "Arrêt du Temps",
-        "Freeze tous les ennemis 4s",
-        75,
-        "Vitesse +10%",
-        "Pendant l'arrêt, le joueur inflige x2 dégâts"
+        Material.SANDSTONE,
+        EntityType.CAMEL,
+        "desert_caravan",
+        "Blocage / Contre-attaque",
+        "Chameau majestueux aux ornements dorés et tapis de soie",
+        "Esquive désactivée, +30% blocage, blocages soignent 2% HP",
+        "Charge du Caravanier",
+        "Stocke les dégâts bloqués 6s, puis explosion AoE (200% stockés)",
+        50,
+        "+35% blocage, 3% HP par block",
+        "L'explosion stun les ennemis 2s"
     ),
 
     HYDRE_PRIMORDIALE(

@@ -299,12 +299,15 @@ public class PetAbilityRegistry {
                 "Lance une volée de tridents (150% dégâts arme)", 1.50, 8, 15.0, abyssalRegenPassive)
         );
 
-        // Chroniqueur Temporel
+        // Caravanier du Désert (anciennement Chroniqueur Temporel)
+        // Passif: Désactive esquive, +30% block, heal sur block
+        // Ultimate: Stocke dégâts bloqués 6s, puis explosion AoE
+        DesertEndurancePassive desertEndurancePassive = new DesertEndurancePassive("desert_endurance", "Endurance du Désert",
+            "Esquive désactivée, +30% blocage, blocages soignent 2% HP", 0.30, 0.02);
         registerAbilities(PetType.CHRONIQUEUR_TEMPOREL,
-            new SpeedBoostPassive("time_speed", "Accélération Temporelle",
-                "+25% vitesse attaque et déplacement", 0.25),
-            new TimeStopActive("time_stop", "Arrêt du Temps",
-                "Freeze tous les ennemis 4s", 75, 4)
+            desertEndurancePassive,
+            new CaravanChargeActive("caravan_charge", "Charge du Caravanier",
+                "Stocke dégâts bloqués 6s, explosion 200%", 6, 2.0, 0.20, 8.0, desertEndurancePassive)
         );
 
         // Hydre Primordiale

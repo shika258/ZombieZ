@@ -9757,3 +9757,383 @@ class TridentStormActive implements PetAbility {
     @Override
     public void onDamageReceived(Player player, double damage, PetData petData) { }
 }
+
+// ==================== CARAVANIER DU DÉSERT (Blocage / Contre-attaque) ====================
+
+/**
+ * Passif: Endurance du Désert
+ * - Désactive l'esquive (0% dodge)
+ * - +30% de chance de blocage
+ * - Les blocages restaurent 2% HP max
+ */
+@Getter
+class DesertEndurancePassive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final double blockBonus;         // +30% = 0.30
+    private final double healPerBlock;       // 2% HP = 0.02
+
+    private final Map<UUID, Boolean> dodgeDisabled = new HashMap<>();
+
+    public DesertEndurancePassive(String id, String name, String desc, double blockBonus, double healPerBlock) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.blockBonus = blockBonus;
+        this.healPerBlock = healPerBlock;
+        PassiveAbilityCleanup.registerForCleanup(dodgeDisabled);
+    }
+
+    @Override
+    public boolean isPassive() { return true; }
+
+    /**
+     * Retourne le bonus de blocage ajusté par niveau
+     */
+    public double getAdjustedBlockBonus(PetData petData) {
+        // Star 1+: +35% au lieu de +30%
+        double bonus = petData.getStarPower() >= 1 ? 0.35 : blockBonus;
+        return bonus + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    /**
+     * Retourne le heal par block ajusté par niveau
+     */
+    public double getAdjustedHealPerBlock(PetData petData) {
+        // Star 1+: 3% au lieu de 2%
+        double heal = petData.getStarPower() >= 1 ? 0.03 : healPerBlock;
+        return heal + (petData.getStatMultiplier() - 1) * 0.005;
+    }
+
+    /**
+     * Vérifie si l'esquive est désactivée pour ce joueur
+     */
+    public boolean isDodgeDisabled(UUID uuid) {
+        return dodgeDisabled.getOrDefault(uuid, false);
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        dodgeDisabled.put(uuid, true);
+
+        double adjustedBlock = getAdjustedBlockBonus(petData);
+        double adjustedHeal = getAdjustedHealPerBlock(petData);
+
+        player.sendMessage("§a[Pet] §e🐫 Caravanier du Désert équipé!");
+        player.sendMessage("§c⚠ Esquive désactivée §7| §a+" + String.format("%.0f", adjustedBlock * 100) + "% blocage");
+        player.sendMessage("§a❤ Les blocages soignent §b" + String.format("%.0f", adjustedHeal * 100) + "% HP");
+
+        World world = player.getWorld();
+        world.playSound(player.getLocation(), Sound.ENTITY_CAMEL_AMBIENT, 1.0f, 1.0f);
+    }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        dodgeDisabled.remove(uuid);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // Le bonus de block est appliqué dans le CombatListener via getAdjustedBlockBonus()
+        // Ici on maintient juste l'état du joueur
+    }
+
+    /**
+     * Appelé quand le joueur bloque une attaque (depuis CombatListener ou PetCombatListener)
+     * Retourne le montant de heal effectué
+     */
+    public double onBlock(Player player, PetData petData, double blockedDamage) {
+        double adjustedHeal = getAdjustedHealPerBlock(petData);
+        double maxHealth = player.getMaxHealth();
+        double healAmount = maxHealth * adjustedHeal;
+
+        double currentHealth = player.getHealth();
+        double newHealth = Math.min(maxHealth, currentHealth + healAmount);
+        player.setHealth(newHealth);
+
+        // Feedback visuel
+        World world = player.getWorld();
+        Location loc = player.getLocation().add(0, 1, 0);
+        world.spawnParticle(Particle.HEART, loc, 2, 0.3, 0.3, 0.3, 0);
+        world.spawnParticle(Particle.BLOCK, loc, 8, 0.3, 0.5, 0.3, 0, Material.SAND.createBlockData());
+        world.playSound(loc, Sound.ITEM_SHIELD_BLOCK, 0.8f, 1.2f);
+
+        return healAmount;
+    }
+
+    @Override
+    public void onDamageReceived(Player player, PetData petData, double damage) {
+        // La logique de block est gérée par le système de combat ZombieZ
+        // et appelle onBlock() quand un block se produit
+    }
+}
+
+/**
+ * Ultimate: Charge du Caravanier
+ * - Pendant 6 secondes, stocke tous les dégâts bloqués
+ * - À la fin, explosion AoE de 200% des dégâts stockés
+ * - Pendant le stockage, +20% block supplémentaire
+ * - Star 3: L'explosion stun les ennemis 2s
+ */
+@Getter
+class CaravanChargeActive implements PetAbility {
+    private final String id;
+    private final String displayName;
+    private final String description;
+    private final int durationSeconds;       // 6 secondes
+    private final double damageMultiplier;   // 200% = 2.0
+    private final double extraBlockBonus;    // +20% pendant l'ultimate
+    private final double radius;             // 8 blocs
+    private final DesertEndurancePassive linkedPassive;
+
+    private final Map<UUID, Double> storedDamage = new HashMap<>();
+    private final Map<UUID, Boolean> chargeActive = new HashMap<>();
+    private final Map<UUID, Long> chargeStartTime = new HashMap<>();
+
+    public CaravanChargeActive(String id, String name, String desc, int duration, double dmgMult,
+                               double extraBlock, double radius, DesertEndurancePassive passive) {
+        this.id = id;
+        this.displayName = name;
+        this.description = desc;
+        this.durationSeconds = duration;
+        this.damageMultiplier = dmgMult;
+        this.extraBlockBonus = extraBlock;
+        this.radius = radius;
+        this.linkedPassive = passive;
+        PassiveAbilityCleanup.registerForCleanup(storedDamage);
+        PassiveAbilityCleanup.registerForCleanup(chargeActive);
+        PassiveAbilityCleanup.registerForCleanup(chargeStartTime);
+    }
+
+    @Override
+    public boolean isPassive() { return false; }
+
+    @Override
+    public int getCooldown() { return 50; }
+
+    /**
+     * Vérifie si le joueur est en phase de stockage
+     */
+    public boolean isCharging(UUID uuid) {
+        return chargeActive.getOrDefault(uuid, false);
+    }
+
+    /**
+     * Retourne le bonus de block supplémentaire pendant l'ultimate
+     */
+    public double getExtraBlockBonus(PetData petData) {
+        return extraBlockBonus + (petData.getStatMultiplier() - 1) * 0.05;
+    }
+
+    /**
+     * Appelé quand le joueur bloque pendant la charge
+     */
+    public void addBlockedDamage(UUID uuid, double damage) {
+        if (isCharging(uuid)) {
+            double current = storedDamage.getOrDefault(uuid, 0.0);
+            storedDamage.put(uuid, current + damage);
+        }
+    }
+
+    @Override
+    public boolean activate(Player player, PetData petData) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location playerLoc = player.getLocation();
+
+        // Démarrer la phase de stockage
+        chargeActive.put(uuid, true);
+        chargeStartTime.put(uuid, System.currentTimeMillis());
+        storedDamage.put(uuid, 0.0);
+
+        // Ajuster les valeurs par niveau
+        double adjustedMultiplier = damageMultiplier + (petData.getStatMultiplier() - 1) * 0.30;
+        double adjustedRadius = radius + (petData.getStatMultiplier() - 1) * 2;
+        boolean stunOnExplosion = petData.getStarPower() >= 3;
+        int adjustedDuration = durationSeconds + (petData.getStarPower() >= 2 ? 2 : 0);
+
+        // Effets de démarrage
+        world.playSound(playerLoc, Sound.ENTITY_CAMEL_DASH, 1.2f, 0.8f);
+        world.playSound(playerLoc, Sound.ITEM_SHIELD_BLOCK, 1.0f, 0.6f);
+        world.spawnParticle(Particle.BLOCK, playerLoc.add(0, 1, 0), 30, 1, 1, 1, 0, Material.SAND.createBlockData());
+
+        player.sendMessage("§a[Pet] §e§l🐫 CHARGE DU CARAVANIER! §7Bloquez pour stocker les dégâts!");
+        player.sendMessage("§7Bonus blocage: §a+" + String.format("%.0f", getExtraBlockBonus(petData) * 100) + "% §7pendant " + adjustedDuration + "s");
+
+        // Référence pour le ZombieManager
+        var plugin = com.rinaorc.zombiez.ZombieZPlugin.getInstance();
+        var zombieManager = plugin.getZombieManager();
+
+        // Timer pour l'explosion finale
+        new BukkitRunnable() {
+            int ticks = 0;
+            final int maxTicks = adjustedDuration * 20;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !chargeActive.getOrDefault(uuid, false)) {
+                    cleanup();
+                    cancel();
+                    return;
+                }
+
+                // Particules de charge pendant la durée
+                if (ticks % 10 == 0) {
+                    Location loc = player.getLocation().add(0, 1, 0);
+                    double stored = storedDamage.getOrDefault(uuid, 0.0);
+
+                    // Plus de particules si plus de dégâts stockés
+                    int particleCount = Math.min(20, (int)(stored / 10) + 3);
+                    world.spawnParticle(Particle.DUST, loc, particleCount, 0.5, 0.5, 0.5, 0,
+                        new Particle.DustOptions(org.bukkit.Color.fromRGB(194, 178, 128), 1.5f));
+
+                    // Son de charge croissant
+                    if (stored > 50 && ticks % 20 == 0) {
+                        float pitch = Math.min(1.5f, 0.8f + (float)(stored / 200));
+                        world.playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.3f, pitch);
+                    }
+                }
+
+                // Temps restant à afficher
+                if (ticks % 20 == 0) {
+                    int secondsLeft = (maxTicks - ticks) / 20;
+                    double stored = storedDamage.getOrDefault(uuid, 0.0);
+                    player.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§e🐫 Stocké: §c" + String.format("%.0f", stored) + " dégâts §7| " +
+                        "§fExplosion dans §e" + secondsLeft + "s"));
+                }
+
+                if (ticks >= maxTicks) {
+                    // EXPLOSION FINALE!
+                    triggerExplosion(player, petData, adjustedMultiplier, adjustedRadius, stunOnExplosion, zombieManager);
+                    cleanup();
+                    cancel();
+                    return;
+                }
+
+                ticks++;
+            }
+
+            private void cleanup() {
+                chargeActive.remove(uuid);
+                chargeStartTime.remove(uuid);
+                storedDamage.remove(uuid);
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        return true;
+    }
+
+    private void triggerExplosion(Player player, PetData petData, double multiplier, double explosionRadius,
+                                  boolean stun, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        UUID uuid = player.getUniqueId();
+        World world = player.getWorld();
+        Location center = player.getLocation();
+
+        double stored = storedDamage.getOrDefault(uuid, 0.0);
+        double explosionDamage = stored * multiplier;
+
+        // Minimum de dégâts même sans block (basé sur l'arme)
+        if (explosionDamage < 20) {
+            double weaponDamage = player.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+            explosionDamage = Math.max(explosionDamage, weaponDamage * 2);
+        }
+
+        // Effets visuels d'explosion
+        world.playSound(center, Sound.ENTITY_CAMEL_DASH, 1.5f, 0.5f);
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
+        world.playSound(center, Sound.ITEM_SHIELD_BREAK, 1.0f, 0.8f);
+
+        // Vague de particules de sable
+        for (int ring = 0; ring < 3; ring++) {
+            final int ringIndex = ring;
+            Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                double ringRadius = (ringIndex + 1) * (explosionRadius / 3);
+                for (int angle = 0; angle < 360; angle += 15) {
+                    double rad = Math.toRadians(angle);
+                    Location particleLoc = center.clone().add(
+                        Math.cos(rad) * ringRadius,
+                        0.5,
+                        Math.sin(rad) * ringRadius
+                    );
+                    world.spawnParticle(Particle.BLOCK, particleLoc, 5, 0.3, 0.3, 0.3, 0.1,
+                        Material.SAND.createBlockData());
+                    world.spawnParticle(Particle.EXPLOSION, particleLoc, 1, 0, 0, 0, 0);
+                }
+            }, ringIndex * 3L);
+        }
+
+        // Colonne centrale
+        for (double y = 0; y < 3; y += 0.5) {
+            Location colLoc = center.clone().add(0, y, 0);
+            world.spawnParticle(Particle.DUST, colLoc, 10, 0.5, 0.2, 0.5, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(194, 128, 64), 2.0f));
+        }
+
+        // Infliger les dégâts aux ennemis
+        Set<UUID> hit = new HashSet<>();
+        for (Entity entity : world.getNearbyEntities(center, explosionRadius, explosionRadius, explosionRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                if (hit.add(entity.getUniqueId())) {
+                    // Dégâts
+                    dealDamage(player, living, explosionDamage, zombieManager);
+
+                    // Effet de recul
+                    Vector knockback = living.getLocation().toVector().subtract(center.toVector()).normalize().multiply(0.8);
+                    knockback.setY(0.4);
+                    living.setVelocity(knockback);
+
+                    // Stun si Star 3
+                    if (stun && living instanceof org.bukkit.entity.Mob mob) {
+                        mob.setAI(false);
+                        world.spawnParticle(Particle.FLASH, living.getLocation().add(0, 1, 0), 1);
+
+                        Bukkit.getScheduler().runTaskLater(com.rinaorc.zombiez.ZombieZPlugin.getInstance(), () -> {
+                            if (mob.isValid() && !mob.isDead()) {
+                                mob.setAI(true);
+                            }
+                        }, 40L); // 2 secondes
+                    }
+
+                    // Particules d'impact
+                    world.spawnParticle(Particle.CRIT, living.getLocation().add(0, 1, 0), 15, 0.3, 0.5, 0.3, 0.2);
+                }
+            }
+        }
+
+        // Message de résultat
+        player.sendMessage("§a[Pet] §e§l🐫 EXPLOSION! §c" + String.format("%.0f", explosionDamage) +
+            " dégâts §7(" + String.format("%.0f", stored) + " stockés x" + String.format("%.0f", multiplier * 100) + "%)");
+        player.sendMessage("§7Ennemis touchés: §e" + hit.size() + (stun ? " §c(Stunned 2s)" : ""));
+    }
+
+    private void dealDamage(Player player, LivingEntity target, double damage,
+                            com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        if (zombieManager != null) {
+            var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+            if (activeZombie != null) {
+                zombieManager.damageZombie(player, activeZombie, damage,
+                    com.rinaorc.zombiez.zombies.DamageType.PHYSICAL, false);
+                return;
+            }
+        }
+        target.damage(damage, player);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+}
