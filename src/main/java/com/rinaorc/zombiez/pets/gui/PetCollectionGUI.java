@@ -138,7 +138,8 @@ public class PetCollectionGUI implements InventoryHolder {
                 case RARE -> Material.CYAN_DYE;
                 case EPIC -> Material.PURPLE_DYE;
                 case LEGENDARY -> Material.ORANGE_DYE;
-                case MYTHIC -> Material.RED_DYE;
+                case MYTHIC -> Material.MAGENTA_DYE;
+                case EXALTED -> Material.RED_DYE;
                 default -> Material.GRAY_DYE;
             };
 

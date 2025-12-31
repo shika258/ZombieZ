@@ -72,7 +72,8 @@ public class PetDetailsGUI implements InventoryHolder {
             case RARE -> Material.CYAN_STAINED_GLASS_PANE;
             case EPIC -> Material.PURPLE_STAINED_GLASS_PANE;
             case LEGENDARY -> Material.ORANGE_STAINED_GLASS_PANE;
-            case MYTHIC -> Material.RED_STAINED_GLASS_PANE;
+            case MYTHIC -> Material.MAGENTA_STAINED_GLASS_PANE;
+            case EXALTED -> Material.RED_STAINED_GLASS_PANE;
             default -> Material.GRAY_STAINED_GLASS_PANE;
         };
         ItemStack border = ItemBuilder.placeholder(borderMat);
