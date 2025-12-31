@@ -42,6 +42,7 @@ public class PlayerPetData {
     private final AtomicInteger totalEggsOpened = new AtomicInteger(0);
     private final AtomicInteger legendariesObtained = new AtomicInteger(0);
     private final AtomicInteger mythicsObtained = new AtomicInteger(0);
+    private final AtomicInteger exaltedObtained = new AtomicInteger(0);
     private final AtomicLong totalFragmentsEarned = new AtomicLong(0);
 
     // Timestamp dernière équipement
@@ -115,6 +116,8 @@ public class PlayerPetData {
                 legendariesObtained.incrementAndGet();
             } else if (type.getRarity() == PetRarity.MYTHIC) {
                 mythicsObtained.incrementAndGet();
+            } else if (type.getRarity() == PetRarity.EXALTED) {
+                exaltedObtained.incrementAndGet();
             }
 
             return true;
@@ -361,6 +364,10 @@ public class PlayerPetData {
         return mythicsObtained.get();
     }
 
+    public int getExaltedObtained() {
+        return exaltedObtained.get();
+    }
+
     public long getTotalFragmentsEarned() {
         return totalFragmentsEarned.get();
     }
@@ -398,6 +405,10 @@ public class PlayerPetData {
 
     public void setMythicsObtained(int count) {
         mythicsObtained.set(count);
+    }
+
+    public void setExaltedObtained(int count) {
+        exaltedObtained.set(count);
     }
 
     public void setTotalFragmentsEarned(long amount) {
