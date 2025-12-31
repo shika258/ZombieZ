@@ -444,12 +444,16 @@ public class PetAbilityRegistry {
                 "Transformation 20s: +30% dégâts, +150% armure, +6%/kill", 0.30, 1.50, 0.06, 20, elementalSensitivityPassive)
         );
 
-        // Nexus Dimensionnel (Team Support)
+        // Ancrage du Néant (anciennement Nexus Dimensionnel)
+        // Passif: Zone 6 blocs avec slow, attraction et +15% dégâts
+        // Ultimate: Singularité - trou noir 2s puis explosion 300%
+        VoidGravityPassive voidGravityPassive = new VoidGravityPassive(
+            "void_gravity", "Gravité du Vide",
+            "Zone 6 blocs: -20% vitesse, attraction, +15% dégâts", 6.0, 0.20, 0.15, 0.15);
         registerAbilities(PetType.NEXUS_DIMENSIONNEL,
-            new NexusAuraPassive("nexus_aura", "Aura Dimensionnelle",
-                "Alliés +15% stats, ennemis -10% stats", 0.15, 0.10, 20),
-            new DimensionalConvergenceActive("nexus_converge", "Convergence Dimensionnelle",
-                "TP alliés vers vous + bouclier groupe", 100)
+            voidGravityPassive,
+            new SingularityActive("singularity", "Singularité",
+                "Trou noir (2s) puis explosion 300% + dispersion", 12.0, 2.0, 3.00, 2.5, voidGravityPassive)
         );
 
         // ==================== NOUVEAUX PETS VISUELS ====================

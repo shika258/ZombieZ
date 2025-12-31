@@ -11642,3 +11642,522 @@ class ArchonFormActive implements PetAbility {
         }
     }
 }
+
+// ==================== ANCRAGE DU NÉANT (ENDERMAN) ====================
+
+/**
+ * Passif: Gravité du Vide
+ * Zone de 6 blocs autour du joueur
+ * Ennemis: -20% vitesse, attraction vers le joueur
+ * +15% dégâts contre les ennemis dans la zone
+ */
+class VoidGravityPassive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double zoneRadius;       // 6 blocs
+    private final double slowPercent;      // -20%
+    private final double pullStrength;     // Force d'attraction
+    private final double damageBonus;      // +15%
+
+    // Track des ennemis dans la zone par joueur
+    private static final Map<UUID, Set<UUID>> enemiesInZone = new ConcurrentHashMap<>();
+    private static final Map<UUID, BukkitTask> zoneTasks = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            enemiesInZone.remove(uuid);
+            BukkitTask task = zoneTasks.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public VoidGravityPassive(String id, String name, String description,
+                               double zoneRadius, double slowPercent, double pullStrength, double damageBonus) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.zoneRadius = zoneRadius;
+        this.slowPercent = slowPercent;
+        this.pullStrength = pullStrength;
+        this.damageBonus = damageBonus;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) {
+        // La zone est gérée via onEquip avec un task répétitif
+    }
+
+    @Override
+    public void onEquip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        enemiesInZone.put(playerId, ConcurrentHashMap.newKeySet());
+
+        // Obtient le plugin
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+
+        // Crée le task de zone
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.isDead()) {
+                    return;
+                }
+
+                processZone(player, plugin);
+            }
+        }.runTaskTimer(plugin, 0L, 5L); // Toutes les 5 ticks (0.25s)
+
+        zoneTasks.put(playerId, task);
+    }
+
+    /**
+     * Traite la zone gravitationnelle
+     */
+    private void processZone(Player player, com.rinaorc.zombiez.ZombieZPlugin plugin) {
+        Location center = player.getLocation();
+        World world = player.getWorld();
+        Set<UUID> currentEnemies = enemiesInZone.get(player.getUniqueId());
+        if (currentEnemies == null) return;
+
+        Set<UUID> foundEnemies = new HashSet<>();
+
+        // Parcourt les entités dans la zone
+        for (Entity entity : world.getNearbyEntities(center, zoneRadius, zoneRadius, zoneRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                double distance = living.getLocation().distance(center);
+                if (distance <= zoneRadius && distance > 1.0) {
+                    foundEnemies.add(entity.getUniqueId());
+
+                    // Applique le slow
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 15, 1, false, false));
+
+                    // Attraction vers le joueur
+                    Vector pullDirection = center.toVector().subtract(living.getLocation().toVector()).normalize();
+                    double pullForce = pullStrength * (1 - distance / zoneRadius); // Plus fort quand proche
+                    living.setVelocity(living.getVelocity().add(pullDirection.multiply(pullForce)));
+
+                    // Particules de vide sur l'ennemi
+                    world.spawnParticle(Particle.PORTAL, living.getLocation().add(0, 1, 0),
+                        5, 0.3, 0.5, 0.3, 0.1);
+                }
+            }
+        }
+
+        // Met à jour les ennemis dans la zone
+        currentEnemies.clear();
+        currentEnemies.addAll(foundEnemies);
+
+        // Effet visuel de la zone
+        spawnZoneEffect(player, world);
+    }
+
+    /**
+     * Effet visuel de la zone gravitationnelle
+     */
+    private void spawnZoneEffect(Player player, World world) {
+        Location center = player.getLocation().add(0, 0.1, 0);
+
+        // Cercle de particules au sol
+        double time = System.currentTimeMillis() / 500.0;
+        for (int i = 0; i < 8; i++) {
+            double angle = time + (i * Math.PI * 2 / 8);
+            double x = Math.cos(angle) * zoneRadius;
+            double z = Math.sin(angle) * zoneRadius;
+
+            Location particleLoc = center.clone().add(x, 0, z);
+            world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(75, 0, 130), 1.0f));
+        }
+
+        // Spirale d'aspiration
+        for (double r = zoneRadius; r > 0.5; r -= 1.5) {
+            double angle = time * 2 + r;
+            double x = Math.cos(angle) * r;
+            double z = Math.sin(angle) * r;
+
+            Location particleLoc = center.clone().add(x, 0.5, z);
+            world.spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
+     * Vérifie si un ennemi est dans la zone
+     */
+    public boolean isInZone(Player player, LivingEntity target) {
+        Set<UUID> enemies = enemiesInZone.get(player.getUniqueId());
+        return enemies != null && enemies.contains(target.getUniqueId());
+    }
+
+    /**
+     * Obtient le multiplicateur de dégâts
+     */
+    public double getDamageMultiplier(Player player, LivingEntity target) {
+        if (isInZone(player, target)) {
+            return 1.0 + damageBonus;
+        }
+        return 1.0;
+    }
+
+    /**
+     * Obtient le nombre d'ennemis dans la zone
+     */
+    public int getEnemyCount(Player player) {
+        Set<UUID> enemies = enemiesInZone.get(player.getUniqueId());
+        return enemies != null ? enemies.size() : 0;
+    }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) {
+        // Le bonus de dégâts est appliqué via getDamageMultiplier
+    }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void activate(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+        enemiesInZone.remove(playerId);
+        BukkitTask task = zoneTasks.remove(playerId);
+        if (task != null) task.cancel();
+    }
+}
+
+/**
+ * Ultimate: Singularité
+ * Crée un trou noir qui aspire tous les ennemis pendant 2s
+ * Puis explosion de vide (300% dégâts) + dispersion violente
+ */
+class SingularityActive implements PetAbility {
+
+    private final String id;
+    private final String name;
+    private final String description;
+    private final double pullRadius;       // 12 blocs
+    private final double chargeDuration;   // 2 secondes
+    private final double explosionDamage;  // 300% arme
+    private final double knockbackForce;   // Force de dispersion
+    private final VoidGravityPassive linkedPassive;
+
+    // Track des singularités actives
+    private static final Map<UUID, BukkitTask> activeSingularities = new ConcurrentHashMap<>();
+
+    static {
+        PassiveAbilityCleanup.registerForCleanup(uuid -> {
+            BukkitTask task = activeSingularities.remove(uuid);
+            if (task != null) task.cancel();
+        });
+    }
+
+    public SingularityActive(String id, String name, String description,
+                              double pullRadius, double chargeDuration, double explosionDamage,
+                              double knockbackForce, VoidGravityPassive linkedPassive) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.pullRadius = pullRadius;
+        this.chargeDuration = chargeDuration;
+        this.explosionDamage = explosionDamage;
+        this.knockbackForce = knockbackForce;
+        this.linkedPassive = linkedPassive;
+    }
+
+    @Override
+    public String getId() { return id; }
+
+    @Override
+    public String getName() { return name; }
+
+    @Override
+    public String getDescription() { return description; }
+
+    @Override
+    public void activate(Player player, PetData petData) {
+        UUID playerId = player.getUniqueId();
+
+        // Annule la singularité précédente si existante
+        BukkitTask existingTask = activeSingularities.remove(playerId);
+        if (existingTask != null) {
+            existingTask.cancel();
+        }
+
+        // Obtient le plugin et le ZombieManager
+        var plugin = (com.rinaorc.zombiez.ZombieZPlugin) player.getServer().getPluginManager().getPlugin("ZombieZ");
+        if (plugin == null) return;
+        var zombieManager = plugin.getZombieManager();
+
+        // Position du trou noir (devant le joueur)
+        Location singularityLoc = player.getLocation().add(player.getLocation().getDirection().multiply(3)).add(0, 1.5, 0);
+        World world = player.getWorld();
+
+        // Calcul des dégâts
+        double weaponDamage = getPlayerWeaponDamage(player);
+        double statMultiplier = petData.getStatMultiplier();
+
+        // Message d'activation
+        player.sendMessage("§5§l✦ SINGULARITÉ CRÉÉE!");
+        world.playSound(singularityLoc, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.5f);
+        world.playSound(singularityLoc, Sound.BLOCK_PORTAL_TRIGGER, 1.5f, 0.3f);
+
+        // Phase d'aspiration
+        final int chargeTicks = (int)(chargeDuration * 20);
+        final int[] ticksElapsed = {0};
+        final Set<LivingEntity> caughtEnemies = ConcurrentHashMap.newKeySet();
+
+        BukkitTask singularityTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                ticksElapsed[0]++;
+
+                // Vérifie si le joueur est toujours en ligne
+                if (!player.isOnline() || player.isDead()) {
+                    cancel();
+                    activeSingularities.remove(playerId);
+                    return;
+                }
+
+                // Phase d'aspiration
+                if (ticksElapsed[0] <= chargeTicks) {
+                    // Attire les ennemis
+                    pullEnemies(world, singularityLoc, caughtEnemies);
+
+                    // Effets visuels du trou noir
+                    spawnBlackHoleEffect(world, singularityLoc, ticksElapsed[0], chargeTicks);
+
+                    // Affichage du compte à rebours
+                    if (ticksElapsed[0] % 20 == 0) {
+                        int secondsLeft = (chargeTicks - ticksElapsed[0]) / 20;
+                        player.sendActionBar(net.kyori.adventure.text.Component.text(
+                            "§5✦ Singularité: §f" + (secondsLeft + 1) + "s §7| §e" + caughtEnemies.size() + " ennemis"
+                        ));
+                    }
+                }
+                // Explosion
+                else if (ticksElapsed[0] == chargeTicks + 1) {
+                    explodeSingularity(player, world, singularityLoc, caughtEnemies,
+                        weaponDamage, statMultiplier, zombieManager);
+                    cancel();
+                    activeSingularities.remove(playerId);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        activeSingularities.put(playerId, singularityTask);
+    }
+
+    /**
+     * Attire les ennemis vers le trou noir
+     */
+    private void pullEnemies(World world, Location center, Set<LivingEntity> caughtEnemies) {
+        for (Entity entity : world.getNearbyEntities(center, pullRadius, pullRadius, pullRadius)) {
+            if (entity instanceof LivingEntity living && !(entity instanceof Player)
+                && !(entity instanceof ArmorStand) && !living.isDead()) {
+
+                caughtEnemies.add(living);
+
+                // Force d'attraction
+                Vector pullDirection = center.toVector().subtract(living.getLocation().toVector());
+                double distance = pullDirection.length();
+
+                if (distance > 0.5) {
+                    pullDirection.normalize();
+                    double pullForce = 0.5 * (1 - distance / pullRadius); // Plus fort quand proche
+                    living.setVelocity(pullDirection.multiply(pullForce));
+                }
+
+                // Slow massif
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 3, false, false));
+
+                // Particules sur l'ennemi
+                world.spawnParticle(Particle.PORTAL, living.getLocation().add(0, 1, 0),
+                    8, 0.3, 0.5, 0.3, 0.5);
+            }
+        }
+    }
+
+    /**
+     * Effet visuel du trou noir
+     */
+    private void spawnBlackHoleEffect(World world, Location center, int ticksElapsed, int maxTicks) {
+        double progress = (double) ticksElapsed / maxTicks;
+        double radius = 1.5 + progress * 1.5; // Grossit avec le temps
+
+        // Sphère de vide
+        for (int i = 0; i < 20; i++) {
+            double theta = Math.random() * Math.PI * 2;
+            double phi = Math.random() * Math.PI;
+            double x = Math.sin(phi) * Math.cos(theta) * radius;
+            double y = Math.sin(phi) * Math.sin(theta) * radius;
+            double z = Math.cos(phi) * radius;
+
+            Location particleLoc = center.clone().add(x, y, z);
+            world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(20, 0, 40), 1.5f));
+        }
+
+        // Spirale d'aspiration
+        double time = ticksElapsed / 2.0;
+        for (double r = pullRadius; r > radius; r -= 1.0) {
+            double angle = time + r * 0.5;
+            double x = Math.cos(angle) * r;
+            double z = Math.sin(angle) * r;
+
+            Location spiralLoc = center.clone().add(x, 0, z);
+            world.spawnParticle(Particle.END_ROD, spiralLoc, 1, 0, 0, 0, 0);
+        }
+
+        // Centre brillant
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 15, 0.3, 0.3, 0.3, 0.1);
+
+        // Son de charge
+        if (ticksElapsed % 10 == 0) {
+            world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, 0.8f, 0.5f + (float)progress * 0.5f);
+        }
+    }
+
+    /**
+     * Explosion de la singularité
+     */
+    private void explodeSingularity(Player player, World world, Location center,
+                                     Set<LivingEntity> caughtEnemies, double weaponDamage,
+                                     double statMultiplier, com.rinaorc.zombiez.zombies.ZombieManager zombieManager) {
+        double damage = weaponDamage * explosionDamage * statMultiplier;
+
+        // Bonus si le passif est actif
+        if (linkedPassive != null) {
+            int enemiesInZone = linkedPassive.getEnemyCount(player);
+            if (enemiesInZone > 0) {
+                damage *= (1.0 + enemiesInZone * 0.05); // +5% par ennemi dans la zone passive
+            }
+        }
+
+        // Inflige les dégâts et disperse les ennemis
+        int killed = 0;
+        for (LivingEntity target : caughtEnemies) {
+            if (target.isDead()) continue;
+
+            // Dégâts
+            boolean targetKilled = false;
+            if (zombieManager != null) {
+                var activeZombie = zombieManager.getActiveZombie(target.getUniqueId());
+                if (activeZombie != null) {
+                    zombieManager.damageZombie(player, activeZombie, damage,
+                        com.rinaorc.zombiez.zombies.DamageType.MAGIC, false);
+                    targetKilled = target.isDead() || target.getHealth() <= 0;
+                } else {
+                    target.damage(damage, player);
+                    targetKilled = target.isDead();
+                }
+            } else {
+                target.damage(damage, player);
+                targetKilled = target.isDead();
+            }
+
+            if (targetKilled) {
+                killed++;
+            } else {
+                // Dispersion violente (knockback)
+                Vector knockback = target.getLocation().toVector().subtract(center.toVector()).normalize();
+                knockback.setY(0.5); // Légère élévation
+                target.setVelocity(knockback.multiply(knockbackForce));
+
+                // Effet de dispersion
+                world.spawnParticle(Particle.EXPLOSION, target.getLocation(), 1);
+            }
+        }
+
+        // Effet d'explosion
+        spawnExplosionEffect(world, center);
+
+        // Message
+        player.sendMessage("§5§l✦ SINGULARITÉ EXPLOSE! §7" + caughtEnemies.size() + " touchés, §c" + killed + " tués");
+    }
+
+    /**
+     * Effet visuel de l'explosion
+     */
+    private void spawnExplosionEffect(World world, Location center) {
+        // Onde de choc
+        for (double angle = 0; angle < Math.PI * 2; angle += Math.PI / 16) {
+            for (double r = 0.5; r < pullRadius; r += 0.8) {
+                double x = Math.cos(angle) * r;
+                double z = Math.sin(angle) * r;
+                Location particleLoc = center.clone().add(x, 0, z);
+
+                world.spawnParticle(Particle.DUST, particleLoc, 2, 0.1, 0.1, 0.1, 0,
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(128, 0, 255), 2.0f));
+            }
+        }
+
+        // Explosion centrale
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, center, 1);
+        world.spawnParticle(Particle.REVERSE_PORTAL, center, 100, 0.5, 0.5, 0.5, 0.5);
+        world.spawnParticle(Particle.END_ROD, center, 50, 1, 1, 1, 0.3);
+
+        // Sons
+        world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.6f);
+        world.playSound(center, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.0f, 0.8f);
+        world.playSound(center, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 1.5f);
+    }
+
+    /**
+     * Obtient les dégâts de l'arme du joueur
+     */
+    private double getPlayerWeaponDamage(Player player) {
+        var item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) return 5.0;
+
+        double damage = 5.0;
+        var meta = item.getItemMeta();
+        if (meta != null && meta.hasAttributeModifiers()) {
+            var modifiers = meta.getAttributeModifiers(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+            if (modifiers != null) {
+                for (var mod : modifiers) {
+                    damage += mod.getAmount();
+                }
+            }
+        }
+        return Math.max(damage, 5.0);
+    }
+
+    @Override
+    public void applyPassive(Player player, PetData petData) { }
+
+    @Override
+    public void onKill(Player player, LivingEntity victim, PetData petData) { }
+
+    @Override
+    public void onDamageDealt(Player player, LivingEntity target, double damage, PetData petData) { }
+
+    @Override
+    public void onDamageReceived(Player player, double damage, PetData petData) { }
+
+    @Override
+    public void onEquip(Player player, PetData petData) { }
+
+    @Override
+    public void onUnequip(Player player, PetData petData) {
+        BukkitTask task = activeSingularities.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+    }
+}

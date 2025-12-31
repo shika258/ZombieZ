@@ -812,19 +812,19 @@ public enum PetType {
     ),
 
     NEXUS_DIMENSIONNEL(
-        "Nexus Dimensionnel",
+        "Ancrage du Néant",
         PetRarity.MYTHIC,
         Material.END_PORTAL_FRAME,
         EntityType.ENDERMAN,
-        "dimensional_nexus",
-        "Support / Équipe",
-        "Portail miniature avec tentacules d'énergie",
-        "Aura de 20 blocs: alliés gagnent +15% à tous les stats, ennemis -10% stats",
-        "Convergence Dimensionnelle",
-        "Téléporte tous les alliés vers vous + bouclier de groupe (absorbe 100 dégâts chacun)",
-        75,
-        "Aura +10 blocs, bonus alliés +5%",
-        "L'aura génère aussi des particules de soin (1 coeur/5s pour tous les alliés)"
+        "void_anchor",
+        "Contrôle / Gravité",
+        "Enderman entouré d'une aura gravitationnelle violette",
+        "Zone 6 blocs: -20% vitesse ennemis, attraction, +15% dégâts",
+        "Singularité",
+        "Trou noir aspirant (2s) puis explosion 300% + dispersion",
+        60,
+        "Zone 8 blocs, +20% dégâts dans la zone",
+        "La Singularité applique Vulnérabilité pendant 5s"
     ),
 
     // --- NOUVEAU PET MYTHIQUE (Visuel) ---
