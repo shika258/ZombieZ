@@ -8,8 +8,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -91,6 +94,73 @@ public class FoodListener implements Listener {
             if (foodItem != null) {
                 consumeFood(event.getPlayer(), item, foodItem);
             }
+        }
+    }
+
+    /**
+     * Empêche le placement de la nourriture en off-hand via l'inventaire
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Vérifier si le slot cliqué est l'off-hand (slot 40)
+        if (event.getSlot() == 40 && event.getClickedInventory() != null
+                && event.getClickedInventory().getType() == InventoryType.PLAYER) {
+            // Vérifier si l'item sur le curseur est de la nourriture ZombieZ
+            ItemStack cursor = event.getCursor();
+            if (cursor != null && getFoodId(cursor) != null) {
+                event.setCancelled(true);
+                player.sendMessage("§c✖ §7La nourriture ne peut pas être placée en main secondaire!");
+                return;
+            }
+        }
+
+        // Shift-click avec de la nourriture
+        if (event.isShiftClick() && event.getCurrentItem() != null
+                && getFoodId(event.getCurrentItem()) != null) {
+            // Si l'inventaire du joueur est presque plein, le shift-click pourrait aller en off-hand
+            ItemStack offhand = player.getInventory().getItemInOffHand();
+            if (offhand == null || offhand.getType().isAir()) {
+                // Vérifier si la hotbar et l'inventaire principal sont pleins
+                boolean inventoryFull = true;
+                for (int i = 0; i < 36; i++) {
+                    ItemStack slot = player.getInventory().getItem(i);
+                    if (slot == null || slot.getType().isAir()) {
+                        inventoryFull = false;
+                        break;
+                    }
+                }
+                if (inventoryFull) {
+                    event.setCancelled(true);
+                    player.sendMessage("§c✖ §7La nourriture ne peut pas être placée en main secondaire!");
+                }
+            }
+        }
+
+        // Hotbar swap vers off-hand
+        if (event.getClick().name().contains("SWAP") && event.getSlot() == 40) {
+            int hotbarSlot = event.getHotbarButton();
+            if (hotbarSlot >= 0) {
+                ItemStack hotbarItem = player.getInventory().getItem(hotbarSlot);
+                if (hotbarItem != null && getFoodId(hotbarItem) != null) {
+                    event.setCancelled(true);
+                    player.sendMessage("§c✖ §7La nourriture ne peut pas être placée en main secondaire!");
+                }
+            }
+        }
+    }
+
+    /**
+     * Empêche l'échange de main (touche F) avec de la nourriture
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onSwapHand(PlayerSwapHandItemsEvent event) {
+        // Vérifier si l'item qui irait en off-hand est de la nourriture ZombieZ
+        ItemStack mainHandItem = event.getMainHandItem();
+        if (mainHandItem != null && getFoodId(mainHandItem) != null) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("§c✖ §7La nourriture ne peut pas être placée en main secondaire!");
         }
     }
 
