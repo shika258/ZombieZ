@@ -8,6 +8,7 @@ import org.bukkit.entity.*;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -16,6 +17,10 @@ import java.util.*;
  * Implémentations des capacités de synergie des nouveaux pets
  * Ces abilities interagissent avec les systèmes de classe, talents, et mécaniques de jeu
  */
+public class SynergyAbilities {
+    // Classe conteneur pour les abilities de synergie
+    private SynergyAbilities() {}
+}
 
 // ==================== COMBO SYSTEM (Armadillo Combo) ====================
 
@@ -4140,7 +4145,7 @@ class BouncingAssaultActive implements PetAbility {
 // ==================== OURS POLAIRE GARDIEN (Tank / Protection) ====================
 
 @Getter
-class FrostFurPassive implements PetAbility {
+public class FrostFurPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
