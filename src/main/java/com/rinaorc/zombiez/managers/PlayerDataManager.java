@@ -274,7 +274,7 @@ public class PlayerDataManager {
             stmt.setString(19, serializeStringSet(data.getCompletedJourneySteps()));
             stmt.setString(20, serializeIntegerSet(data.getCompletedJourneyChapters()));
             stmt.setString(21, serializeStringSet(data.getUnlockedJourneyGates()));
-            stmt.setString(22, serializeStepProgress(data.getJourneyStepProgress()));
+            stmt.setString(22, serializeStepProgress(data.getJourneyStepProgressMap()));
 
             stmt.executeUpdate();
         }
@@ -407,7 +407,7 @@ public class PlayerDataManager {
                 stmt.setString(19, serializeStringSet(data.getCompletedJourneySteps()));
                 stmt.setString(20, serializeIntegerSet(data.getCompletedJourneyChapters()));
                 stmt.setString(21, serializeStringSet(data.getUnlockedJourneyGates()));
-                stmt.setString(22, serializeStepProgress(data.getJourneyStepProgress()));
+                stmt.setString(22, serializeStepProgress(data.getJourneyStepProgressMap()));
 
                 stmt.setString(23, data.getUuid().toString());
 
