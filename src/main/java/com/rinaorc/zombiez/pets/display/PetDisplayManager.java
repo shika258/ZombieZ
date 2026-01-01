@@ -1059,10 +1059,11 @@ public class PetDisplayManager {
             }
             case IRON_GOLEM -> {
                 org.bukkit.entity.IronGolem ironGolem = (org.bukkit.entity.IronGolem) world.spawnEntity(loc, EntityType.IRON_GOLEM);
-                // Scale réduit pour pet
+                // Scale divisé par 2 (0.5 = moitié de la taille normale)
                 if (ironGolem.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
-                    ironGolem.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.4);
+                    ironGolem.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
                 }
+                ironGolem.setPlayerCreated(true); // Empêche l'agression aux mobs
                 entity = ironGolem;
             }
             case WANDERING_TRADER -> {

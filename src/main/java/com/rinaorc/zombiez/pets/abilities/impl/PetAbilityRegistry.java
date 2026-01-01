@@ -105,11 +105,11 @@ public class PetAbilityRegistry {
         );
 
         // Golem Sismique (anciennement Golem de Poche)
-        // Passif: Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)
+        // Passif: 5% chance par attaque de créer une secousse (stun 1s, 3 blocs)
         // Ultimate: Séisme - stun 2s + 30 dégâts dans 8 blocs
         registerAbilities(PetType.GOLEM_POCHE,
             new HeavyStepsPassive("golem_steps", "Pas Lourds",
-                "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)", 5, 20, 3),
+                "5% chance par attaque de créer une secousse (stun 1s, 3 blocs)", 0.05, 20, 3),
             new SeismicSlamActive("golem_seism", "Séisme",
                 "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs", 30, 40, 8)
         );

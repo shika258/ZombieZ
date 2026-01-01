@@ -3041,19 +3041,17 @@ class HeavyStepsPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForTrigger;    // 5 attaques
+    private final double procChance;        // 5% de chance (0.05)
     private final int stunDurationTicks;    // 1s = 20 ticks
     private final int stunRadius;           // 3 blocs
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
 
-    public HeavyStepsPassive(String id, String name, String desc, int attacksNeeded, int stunTicks, int radius) {
+    public HeavyStepsPassive(String id, String name, String desc, double procChance, int stunTicks, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForTrigger = attacksNeeded;
+        this.procChance = procChance;
         this.stunDurationTicks = stunTicks;
         this.stunRadius = radius;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -3061,25 +3059,11 @@ class HeavyStepsPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée selon le niveau (+1% par multiplicateur)
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.01;
 
-        // Calculer le nombre d'attaques nécessaires selon le niveau
-        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
-
-        if (count >= adjustedTrigger) {
-            attackCounters.put(uuid, 0);
+        if (Math.random() < adjustedChance) {
             triggerQuake(player, petData);
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur de progression (particules sous les pieds)
-            if (count >= adjustedTrigger - 2) {
-                player.getWorld().spawnParticle(Particle.BLOCK,
-                    player.getLocation().add(0, 0.1, 0),
-                    5, 0.3, 0, 0.3, 0,
-                    org.bukkit.Material.STONE.createBlockData());
-            }
         }
 
         return damage;
