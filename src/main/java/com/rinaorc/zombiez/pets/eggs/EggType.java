@@ -16,20 +16,20 @@ public enum EggType {
 
     STANDARD(
         "Oeuf Standard",
-        "§f",
+        "§f",              // Blanc (pas de garantie, focus commun)
         Material.EGG,
-        null,           // Pas de rareté minimum garantie
-        0.0,            // Pas de boost légendaire
-        500,            // Prix en points
+        null,              // Pas de rareté minimum garantie
+        0.0,               // Pas de boost légendaire
+        500,               // Prix en points
         // Drop rates: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, MYTHIC, EXALTED
         new double[]{45, 30, 15, 7, 2.5, 0.5, 0}
     ),
 
     ZONE(
         "Oeuf de Zone",
-        "§e",
+        "§9",              // Bleu (garantit RARE minimum)
         Material.TURTLE_EGG,
-        PetRarity.RARE, // Rare minimum garanti
+        PetRarity.RARE,    // Rare minimum garanti
         0.0,
         2000,
         new double[]{0, 0, 60, 30, 8, 2, 0}
@@ -37,17 +37,17 @@ public enum EggType {
 
     ELITE(
         "Oeuf Élite",
-        "§d",
+        "§5",              // Violet foncé (garantit EPIC minimum)
         Material.DRAGON_EGG,
-        PetRarity.EPIC, // Épique minimum garanti
-        0.10,           // 10% chance légendaire boost
+        PetRarity.EPIC,    // Épique minimum garanti
+        0.10,              // 10% chance légendaire boost
         5000,
         new double[]{0, 0, 0, 70, 25, 5, 0}
     ),
 
     LEGENDARY(
         "Oeuf Légendaire",
-        "§6",
+        "§6",              // Or (garantit LEGENDARY)
         Material.SNIFFER_EGG,
         PetRarity.LEGENDARY, // Légendaire garanti
         0.05,                // 5% chance mythique
@@ -57,11 +57,11 @@ public enum EggType {
 
     MYTHIC(
         "Oeuf Mythique",
-        "§c",
+        "§d",              // Rose/Magenta (garantit MYTHIC) - cohérent avec PetRarity.MYTHIC
         Material.ENDER_EYE,
-        PetRarity.MYTHIC, // Mythique garanti
+        PetRarity.MYTHIC,  // Mythique garanti
         0.0,
-        -1,              // Non achetable
+        -1,                // Non achetable
         new double[]{0, 0, 0, 0, 0, 97, 3}  // 3% chance EXALTED
     );
 
