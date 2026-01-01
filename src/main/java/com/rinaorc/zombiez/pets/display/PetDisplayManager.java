@@ -803,6 +803,7 @@ public class PetDisplayManager {
                 wolf.setOwner(player);
                 wolf.setSitting(false);
                 wolf.setCollarColor(getDyeColor(type));
+                wolf.setAI(false); // Désactiver l'IA pour éviter que le loup attaque les mobs
                 entity = wolf;
             }
             case CAT -> {
