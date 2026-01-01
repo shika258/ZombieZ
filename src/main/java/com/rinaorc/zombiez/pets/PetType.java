@@ -169,9 +169,9 @@ public enum PetType {
         "seismic_golem",
         "Contrôle / Stun",
         "Mini golem de fer aux pas lourds",
-        "5% chance : secousse (stun 1s, 3 blocs)",
+        "5% chance : secousse (20% dégâts + stun 1s, 3 blocs)",
         "Séisme",
-        "Stun 2s + 30 dégâts (8 blocs)",
+        "80% dégâts arme + stun 2s (8 blocs)",
         28,
         "Secousse /4 coups, stun 1.5s",
         "Le Séisme crée zone de slow (5s)"

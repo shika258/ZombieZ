@@ -3076,10 +3076,20 @@ class HeavyStepsPassive implements PetAbility {
         // Durée de stun ajustée par niveau
         int adjustedStunDuration = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 10);
 
-        // Stun tous les mobs dans le rayon
+        // Calcul des dégâts AoE (20% des dégâts de l'arme du joueur)
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        double quakeDamage = playerDamage * 0.20 * petData.getStatMultiplier();
+
+        // Stun et dégâts à tous les mobs dans le rayon
         int enemiesStunned = 0;
+        double totalDamage = 0;
         for (Entity entity : world.getNearbyEntities(center, stunRadius, stunRadius, stunRadius)) {
             if (entity instanceof Monster monster) {
+                // Infliger les dégâts AoE
+                monster.damage(quakeDamage, player);
+                petData.addDamage((long) quakeDamage);
+                totalDamage += quakeDamage;
+
                 // Appliquer le stun via Slowness + Weakness
                 monster.addPotionEffect(new PotionEffect(
                     PotionEffectType.SLOWNESS, adjustedStunDuration, 127, false, false));
@@ -3119,7 +3129,8 @@ class HeavyStepsPassive implements PetAbility {
 
         // Message
         if (enemiesStunned > 0) {
-            player.sendMessage("§a[Pet] §6Pas Lourds! §e" + enemiesStunned +
+            player.sendMessage("§a[Pet] §6Pas Lourds! §c" + String.format("%.1f", totalDamage) +
+                " §7dégâts → §e" + enemiesStunned +
                 " §7ennemi" + (enemiesStunned > 1 ? "s" : "") + " §cstun §7" +
                 String.format("%.1f", adjustedStunDuration / 20.0) + "s");
         }
@@ -3131,15 +3142,15 @@ class SeismicSlamActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double baseDamage;        // 30 dégâts de base
+    private final double damagePercent;     // 80% des dégâts de l'arme (0.80)
     private final int stunDurationTicks;    // 2s = 40 ticks
     private final int slamRadius;           // 8 blocs
 
-    public SeismicSlamActive(String id, String name, String desc, double damage, int stunTicks, int radius) {
+    public SeismicSlamActive(String id, String name, String desc, double damagePercent, int stunTicks, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.baseDamage = damage;
+        this.damagePercent = damagePercent;
         this.stunDurationTicks = stunTicks;
         this.slamRadius = radius;
     }
@@ -3155,8 +3166,9 @@ class SeismicSlamActive implements PetAbility {
         Location center = player.getLocation();
         World world = center.getWorld();
 
-        // Calcul des valeurs
-        double damage = baseDamage * petData.getStatMultiplier();
+        // Calcul des dégâts basés sur l'arme du joueur (80%)
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        double damage = playerDamage * damagePercent * petData.getStatMultiplier();
         int adjustedStun = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 20);
         int adjustedRadius = (int) (slamRadius + (petData.getStatMultiplier() - 1) * 2);
 
