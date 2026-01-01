@@ -62,13 +62,13 @@ public class FluidDamageIndicator {
     private static final float COMBO_RISE = 0.4f;
     private static final float DANCING_SWORD_RISE = 0.9f;
 
-    // Échelles
-    private static final float BASE_SCALE = 1.0f;
-    private static final float CRITICAL_SCALE = 1.5f;
-    private static final float HEAL_SCALE = 0.95f;
-    private static final float STATUS_SCALE = 0.9f;
-    private static final float HEADSHOT_SCALE = 1.35f;
-    private static final float DANCING_SWORD_SCALE = 0.95f;
+    // Échelles (+15% pour meilleure lisibilité)
+    private static final float BASE_SCALE = 1.15f;
+    private static final float CRITICAL_SCALE = 1.73f;
+    private static final float HEAL_SCALE = 1.09f;
+    private static final float STATUS_SCALE = 1.04f;
+    private static final float HEADSHOT_SCALE = 1.55f;
+    private static final float DANCING_SWORD_SCALE = 1.09f;
 
     // View distance pour culling
     private static final double VIEW_DISTANCE_SQUARED = 24.0 * 24.0; // 24 blocs
@@ -270,27 +270,30 @@ public class FluidDamageIndicator {
      * Spawn un indicateur avec animation 100% client-side
      *
      * Principe "Fire & Forget" optimisé :
-     * 1. Spawn avec transformation initiale
-     * 2. Capture la référence et schedule les phases d'animation
+     * 1. Spawn avec transformation initiale (scale 0)
+     * 2. Animation en 3 phases pour effet "pop" satisfaisant
      * 3. Le CLIENT interpole à 60Hz+ (zéro saccade)
      * 4. Cleanup automatique
      *
-     * Animation en 2 phases :
-     * - Phase 1 (75% durée) : Pop-in + montée fluide
-     * - Phase 2 (25% durée) : Fin de montée + shrink/fade
+     * Animation en 3 phases :
+     * - Phase 0 (3 ticks) : Pop-in avec overshoot (0 → 130% du scale)
+     * - Phase 1 (62% durée) : Stabilisation + montée fluide (130% → 100%)
+     * - Phase 2 (28% durée) : Fin de montée + shrink/fade
      */
     private static void spawnFluidIndicator(ZombieZPlugin plugin, Location spawnLoc, Component text,
                                              float targetScale, float riseDistance, int durationTicks,
                                              Player viewer, boolean popEffect) {
         if (spawnLoc.getWorld() == null) return;
 
-        // Calcul des scales pour l'effet
-        final float initialScale = popEffect ? targetScale * 1.35f : targetScale * 0.55f;
-        final float finalScale = targetScale * 0.25f;
+        // Calcul des scales pour l'effet pop amélioré
+        final float startScale = 0.0f; // Démarre invisible
+        final float overshootScale = popEffect ? targetScale * 1.4f : targetScale * 1.25f; // Overshoot (bounce)
+        final float finalScale = targetScale * 0.2f; // Shrink final
 
-        // Durations des phases
-        final int phase1Duration = (int) (durationTicks * 0.72);
-        final int phase2Duration = durationTicks - phase1Duration;
+        // Durations des phases (3 phases pour animation pop)
+        final int popDuration = 3; // Phase pop-in rapide (150ms)
+        final int phase1Duration = (int) ((durationTicks - popDuration) * 0.68); // Montée stable
+        final int phase2Duration = durationTicks - popDuration - phase1Duration; // Fade-out
 
         // Spawn et capture de la référence
         TextDisplay display = spawnLoc.getWorld().spawn(spawnLoc, TextDisplay.class, td -> {
@@ -310,31 +313,45 @@ public class FluidDamageIndicator {
                 viewer.showEntity(plugin, td);
             }
 
-            // === Transformation initiale (apparition instantanée) ===
-            td.setInterpolationDelay(-1); // Désactive l'interpolation pour le premier état
+            // === Transformation initiale : Scale 0 (invisible) ===
+            td.setInterpolationDelay(-1);
             td.setInterpolationDuration(0);
             td.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(initialScale, initialScale, initialScale),
+                new Vector3f(startScale, startScale, startScale),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
         });
 
-        // === PHASE 1 : Montée fluide + normalisation du scale ===
-        // Délai de 1 tick pour que le client reçoive le spawn avant l'animation
+        // === PHASE 0 : Pop-in avec overshoot (effet "bounce" satisfaisant) ===
+        // Délai de 1 tick pour que le client reçoive le spawn
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!display.isValid()) return;
+
+            display.setInterpolationDelay(0);
+            display.setInterpolationDuration(popDuration);
+            display.setTransformation(new Transformation(
+                new Vector3f(0, riseDistance * 0.08f, 0), // Légère montée initiale
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(overshootScale, overshootScale, overshootScale), // Overshoot !
+                new AxisAngle4f(0, 0, 0, 1)
+            ));
+        }, 1L);
+
+        // === PHASE 1 : Stabilisation + montée fluide ===
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (!display.isValid()) return;
 
             display.setInterpolationDelay(0);
             display.setInterpolationDuration(phase1Duration);
             display.setTransformation(new Transformation(
-                new Vector3f(0, riseDistance * 0.82f, 0),
+                new Vector3f(0, riseDistance * 0.78f, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(targetScale, targetScale, targetScale),
+                new Vector3f(targetScale, targetScale, targetScale), // Retour au scale normal
                 new AxisAngle4f(0, 0, 0, 1)
             ));
-        }, 1L);
+        }, 1L + popDuration);
 
         // === PHASE 2 : Fin de montée + shrink (fade out visuel) ===
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
@@ -348,14 +365,14 @@ public class FluidDamageIndicator {
                 new Vector3f(finalScale, finalScale, finalScale),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
-        }, 1L + phase1Duration);
+        }, 1L + popDuration + phase1Duration);
 
         // === CLEANUP : Suppression après animation complète ===
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             if (display.isValid()) {
                 display.remove();
             }
-        }, durationTicks + 3);
+        }, durationTicks + 4);
     }
 
     // ========================================================================
