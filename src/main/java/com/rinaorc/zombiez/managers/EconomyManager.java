@@ -93,11 +93,8 @@ public class EconomyManager {
         plugin.getMissionManager().updateProgress(player,
             com.rinaorc.zombiez.progression.MissionManager.MissionTracker.POINTS_EARNED, (int) finalAmount);
 
-        // Notification
+        // Effet pluie de pièces si gros gain
         if (finalAmount > 0) {
-            MessageUtils.sendActionBar(player, "§a+" + formatPoints(finalAmount) + " Points §7(" + reason + ")");
-
-            // Effet pluie de pièces si gros gain
             spawnCoinRain(player, finalAmount);
         }
     }
