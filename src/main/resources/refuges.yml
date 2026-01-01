@@ -35,12 +35,12 @@ refuges:
         z: 9938
     beacon:
       x: 728
-      y: 95
-      z: 9979
+      y: 94
+      z: 9987
     spawn-point:
       x: 728.5
-      y: 95
-      z: 9979.5
+      y: 94
+      z: 9987.5
       yaw: 180
       pitch: 0
     cost: 0

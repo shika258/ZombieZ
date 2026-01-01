@@ -75,6 +75,6 @@ public class SpawnCommand implements CommandExecutor {
         if (targetWorld == null) targetWorld = world;
 
         // Location fixe du spawn ZombieZ (yaw 180 = face au sud, pitch 0 = droit)
-        return new Location(targetWorld, 728.5, 95, 9979.5, 180f, 0f);
+        return new Location(targetWorld, 728.5, 94, 9987.5, 180f, 0f);
     }
 }
