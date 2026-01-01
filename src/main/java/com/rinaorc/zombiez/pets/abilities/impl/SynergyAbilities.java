@@ -989,11 +989,14 @@ class ElementalCatalystPassive implements PetAbility {
     private final int reactionCooldownMs;             // Cooldown entre réactions sur même cible
 
     // 0=Fire (LUCY), 1=Ice (CYAN), 2=Lightning (GOLD)
-    private final Map<UUID, Integer> currentElement = new HashMap<>();
-    private final Map<UUID, Long> lastRotation = new HashMap<>();
+    private final Map<UUID, Integer> currentElement = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastRotation = new ConcurrentHashMap<>();
     // Marques élémentaires sur les mobs: EntityUUID -> Set d'éléments (0,1,2)
-    private final Map<UUID, Set<Integer>> elementalMarks = new HashMap<>();
-    private final Map<UUID, Long> lastReactionTime = new HashMap<>();
+    private final Map<UUID, Set<Integer>> elementalMarks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastReactionTime = new ConcurrentHashMap<>();
+
+    // Protection anti-récursion pour éviter les boucles infinies
+    private final Set<UUID> processingReaction = ConcurrentHashMap.newKeySet();
 
     public ElementalCatalystPassive(String id, String name, String desc, double reactionDmg,
                                      int cycleTicks, int reactionCooldown) {
@@ -1038,16 +1041,26 @@ class ElementalCatalystPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        // Vérifier que la cible est valide et un Monster
+        if (!(target instanceof Monster) || !target.isValid() || target.isDead()) {
+            return damage;
+        }
+
         UUID playerUuid = player.getUniqueId();
         UUID targetUuid = target.getUniqueId();
+
+        // Protection anti-récursion : ignorer si on est déjà en train de traiter une réaction pour ce joueur
+        if (processingReaction.contains(playerUuid)) {
+            return damage;
+        }
+
         int currentEl = currentElement.getOrDefault(playerUuid, 0);
         World world = target.getWorld();
 
         // Récupérer les marques existantes sur la cible
-        Set<Integer> marks = elementalMarks.computeIfAbsent(targetUuid, k -> new HashSet<>());
+        Set<Integer> marks = elementalMarks.computeIfAbsent(targetUuid, k -> ConcurrentHashMap.newKeySet());
 
         // Vérifier si on peut déclencher une réaction
-        boolean reactionTriggered = false;
         double bonusDamage = 0;
 
         if (!marks.isEmpty() && !marks.contains(currentEl)) {
@@ -1059,40 +1072,57 @@ class ElementalCatalystPassive implements PetAbility {
             adjustedCooldown = Math.max(adjustedCooldown, 1500); // Min 1.5s
 
             if (now - lastReaction >= adjustedCooldown) {
-                // Déclencher la réaction!
-                for (int existingMark : marks) {
-                    bonusDamage += triggerReaction(player, petData, target, existingMark, currentEl);
-                    reactionTriggered = true;
-                }
+                // Activer la protection anti-récursion AVANT de déclencher la réaction
+                processingReaction.add(playerUuid);
 
-                if (reactionTriggered) {
-                    lastReactionTime.put(targetUuid, now);
-                    // Nettoyer les marques après réaction
+                try {
+                    // Copier les marques pour éviter ConcurrentModificationException
+                    Set<Integer> marksCopy = new HashSet<>(marks);
+
+                    // Nettoyer les marques AVANT la réaction pour éviter les boucles
                     marks.clear();
+                    lastReactionTime.put(targetUuid, now);
+
+                    // Déclencher la réaction avec les marques copiées
+                    for (int existingMark : marksCopy) {
+                        bonusDamage += triggerReaction(player, petData, target, existingMark, currentEl);
+                    }
+                } finally {
+                    // Désactiver la protection anti-récursion
+                    processingReaction.remove(playerUuid);
                 }
             }
         }
 
-        // Ajouter la nouvelle marque
-        marks.add(currentEl);
+        // Ajouter la nouvelle marque seulement si la cible est encore valide
+        if (target.isValid() && !target.isDead()) {
+            marks.add(currentEl);
 
-        // Effet visuel de marquage
-        Particle markParticle = getElementParticle(currentEl);
-        world.spawnParticle(markParticle, target.getLocation().add(0, 1.5, 0), 8, 0.2, 0.2, 0.2, 0.02);
+            // Effet visuel de marquage (léger)
+            Particle markParticle = getElementParticle(currentEl);
+            world.spawnParticle(markParticle, target.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.02);
 
-        // Appliquer l'effet élémentaire de base
-        applyElementEffect(target, currentEl);
+            // Appliquer l'effet élémentaire de base
+            applyElementEffect(target, currentEl);
+        }
 
-        // Nettoyer les marques des mobs morts
-        cleanupDeadMarks();
+        // Nettoyer les marques des mobs morts (moins fréquemment)
+        if (Math.random() < 0.1) {
+            cleanupDeadMarks();
+        }
 
         return damage + bonusDamage;
     }
 
     private double triggerReaction(Player player, PetData petData, LivingEntity target,
                                     int element1, int element2) {
+        // Vérifier que la cible est valide
+        if (!target.isValid() || target.isDead()) {
+            return 0;
+        }
+
         World world = target.getWorld();
-        Location loc = target.getLocation();
+        Location loc = target.getLocation().clone();
 
         // Calculer les dégâts de réaction
         double playerDamage = PetDamageUtils.getEffectiveDamage(player);
@@ -1105,8 +1135,9 @@ class ElementalCatalystPassive implements PetAbility {
 
         if (min == 0 && max == 1) {
             // VAPORISATION (Feu + Glace) - Burst de dégâts
+            double actualDamage = Math.min(reactionDamage, target.getHealth() + 10);
             target.damage(reactionDamage, player);
-            petData.addDamage((long) reactionDamage);
+            petData.addDamage((long) actualDamage);
 
             // Effet visuel de vapeur
             world.spawnParticle(Particle.CLOUD, loc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
@@ -1121,11 +1152,15 @@ class ElementalCatalystPassive implements PetAbility {
         } else if (min == 0 && max == 2) {
             // SURCHARGE (Feu + Foudre) - Explosion AoE + knockback
             double aoeDamage = reactionDamage * 0.6;
+            int hitCount = 0;
+            double totalAoeDamage = 0;
 
             for (Entity entity : target.getNearbyEntities(4, 3, 4)) {
-                if (entity instanceof Monster monster) {
+                if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                    double actualDamage = Math.min(aoeDamage, monster.getHealth() + 10);
                     monster.damage(aoeDamage, player);
-                    petData.addDamage((long) aoeDamage);
+                    totalAoeDamage += actualDamage;
+                    hitCount++;
 
                     // Knockback
                     Vector knockback = monster.getLocation().toVector()
@@ -1138,6 +1173,8 @@ class ElementalCatalystPassive implements PetAbility {
                 }
             }
 
+            petData.addDamage((long) totalAoeDamage);
+
             // Effet central
             world.spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1);
             world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 1, 1, 1, 0.3);
@@ -1145,14 +1182,20 @@ class ElementalCatalystPassive implements PetAbility {
             world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
             world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.8f, 1.5f);
 
-            player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7Explosion AoE + knockback!");
+            if (hitCount > 0) {
+                player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7" + hitCount + " cibles touchées (§c" + (int)totalAoeDamage + " §7dégâts AoE)");
+            } else {
+                player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7Explosion!");
+            }
 
-            return aoeDamage;
+            return totalAoeDamage;
 
         } else if (min == 1 && max == 2) {
             // SUPRACONDUCTION (Glace + Foudre) - Réduction de défense
-            target.damage(reactionDamage * 0.5, player);
-            petData.addDamage((long) (reactionDamage * 0.5));
+            double supraconductionDamage = reactionDamage * 0.5;
+            double actualDamage = Math.min(supraconductionDamage, target.getHealth() + 10);
+            target.damage(supraconductionDamage, player);
+            petData.addDamage((long) actualDamage);
 
             // Appliquer la réduction de défense (via Weakness)
             int weaknessDuration = (int) (100 + (petData.getStatMultiplier() - 1) * 40); // 5s+
@@ -1169,9 +1212,9 @@ class ElementalCatalystPassive implements PetAbility {
             world.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.0f, 1.5f);
             world.playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.8f);
 
-            player.sendMessage("§a[Pet] §b§l❄ SUPRACONDUCTION! §7-20% défense pendant 5s!");
+            player.sendMessage("§a[Pet] §b§l❄ SUPRACONDUCTION! §c+" + (int)supraconductionDamage + " §7dégâts, -20% défense 5s!");
 
-            return reactionDamage * 0.5;
+            return supraconductionDamage;
         }
 
         return 0;
