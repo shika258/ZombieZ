@@ -331,21 +331,31 @@ public class ForgeGUI implements InventoryHolder {
      */
     private void updatePreviewForgeLine(List<String> lore, int forgeLevel, int bonus) {
         int forgeLineIndex = -1;
+        int zoneLineIndex = -1;
         for (int i = 0; i < lore.size(); i++) {
-            if (lore.get(i).contains("§7Forge:") || lore.get(i).contains("§6✧ FORGE")) {
+            String line = lore.get(i);
+            if (line.contains("§7Forge:") || line.contains("✧ FORGE")) {
                 forgeLineIndex = i;
-                break;
+            }
+            if (line.contains("Requiert:")) {
+                zoneLineIndex = i;
             }
         }
 
-        String forgeLine = "§6✧ FORGE §e+" + forgeLevel + " §7(+" + bonus + "% stats)";
+        // FORGE en jaune (§e) pour différencier de STATS DE BASE (orange)
+        String forgeLine = "§e✧ FORGE §6+" + forgeLevel + " §7(+" + bonus + "% stats)";
 
         if (forgeLineIndex >= 0) {
             lore.set(forgeLineIndex, forgeLine);
-        } else if (lore.size() > 1) {
-            lore.add(1, forgeLine);
         } else {
-            lore.add(forgeLine);
+            // Ajouter après la ligne "Requiert: Zone X"
+            if (zoneLineIndex >= 0) {
+                lore.add(zoneLineIndex + 1, forgeLine);
+            } else if (lore.size() > 2) {
+                lore.add(3, forgeLine); // Fallback: après Item Score et Zone
+            } else {
+                lore.add(forgeLine);
+            }
         }
     }
 
