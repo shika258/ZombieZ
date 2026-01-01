@@ -253,7 +253,7 @@ public enum PetType {
         "bouncing_frog",
         "Mobilité / Combos",
         "Grenouille agile aux pattes puissantes",
-        "4ème attaque : bond (+30% dégâts, stun 0.5s)",
+        "5% chance : bond (+30% dégâts, stun 0.5s)",
         "Assaut Bondissant",
         "5 bonds enchaînés (50% dégâts, stun chacun)",
         26,

@@ -4024,19 +4024,17 @@ class FrogBouncePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForBounce;          // 4 attaques
+    private final double procChance;              // 5% de chance (0.05)
     private final double bounceDamageBonus;       // +30%
     private final int stunDurationTicks;          // 0.5s = 10 ticks
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
 
-    public FrogBouncePassive(String id, String name, String desc, int attacks, double bonus, int stunTicks) {
+    public FrogBouncePassive(String id, String name, String desc, double procChance, double bonus, int stunTicks) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForBounce = attacks;
+        this.procChance = procChance;
         this.bounceDamageBonus = bonus;
         this.stunDurationTicks = stunTicks;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -4044,19 +4042,13 @@ class FrogBouncePassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
         World world = player.getWorld();
 
-        // Incrémenter le compteur
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée par niveau (+1% par multiplicateur)
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.01;
 
-        // Ajuster le nombre d'attaques requis par niveau (4 base, 3 au max)
-        int adjustedAttacks = Math.max(3, attacksForBounce - (int)((petData.getStatMultiplier() - 1) * 2));
-
-        if (count >= adjustedAttacks) {
-            // BOND! Reset le compteur
-            attackCounters.put(uuid, 0);
-
+        if (Math.random() < adjustedChance) {
+            // BOND!
             // Calculer le bonus de dégâts
             double adjustedBonus = bounceDamageBonus + (petData.getStatMultiplier() - 1) * 0.10;
             double bonusDamage = damage * adjustedBonus;
@@ -4072,31 +4064,19 @@ class FrogBouncePassive implements PetAbility {
             Location targetLoc = target.getLocation();
 
             // Particules de bond (splash d'eau + slime)
-            world.spawnParticle(Particle.SPLASH, targetLoc.add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
+            world.spawnParticle(Particle.SPLASH, targetLoc.clone().add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
             world.spawnParticle(Particle.ITEM_SLIME, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
 
             // Sons de grenouille
             world.playSound(targetLoc, Sound.ENTITY_FROG_LONG_JUMP, 1.0f, 1.2f);
             world.playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.0f);
 
-            player.sendMessage("§a[Pet] §2🐸 BOND! §7+" + (int)(adjustedBonus * 100) + "% dégâts + stun!");
+            player.sendMessage("§a[Pet] §2🐸 BOND! §c" + String.format("%.1f", bonusDamage) + " §7dégâts bonus + stun!");
 
             return damage + bonusDamage;
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur visuel de progression
-            if (count == adjustedAttacks - 1) {
-                world.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1.5, 0),
-                    3, 0.2, 0.2, 0.2, 0);
-            }
         }
 
         return damage;
-    }
-
-    public int getAttackCount(UUID uuid) {
-        return attackCounters.getOrDefault(uuid, 0);
     }
 }
 

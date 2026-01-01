@@ -459,11 +459,11 @@ public class PetAbilityRegistry {
         // ==================== NOUVEAUX PETS VISUELS ====================
 
         // Grenouille Bondissante (anciennement Étoile Filante)
-        // Passif: Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
+        // Passif: 5% chance par attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
         // Ultimate: Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)
         registerAbilities(PetType.ETOILE_FILANTE,
             new FrogBouncePassive("frog_bounce", "Rebond",
-                "Chaque 4ème attaque = bond (+30% dégâts, stun 0.5s)", 4, 0.30, 10),
+                "5% chance par attaque: bond (+30% dégâts, stun 0.5s)", 0.05, 0.30, 10),
             new BouncingAssaultActive("frog_assault", "Assaut Bondissant",
                 "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun)", 5, 0.50, 15)
         );
