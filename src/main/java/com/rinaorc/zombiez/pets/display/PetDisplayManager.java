@@ -75,9 +75,9 @@ public class PetDisplayManager {
     // Constantes pour les hologrammes TextDisplay (offsets via Transformation)
     // Ces offsets sont appliqués via setTransformation() car les hologrammes sont
     // des passagers
-    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f; // Nom du pet (en gras)
-    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f; // Propriétaire
-    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 1.35f; // Timer ultime
+    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.35f; // Nom du pet (en gras)
+    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.10f; // Propriétaire
+    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 0.85f; // Timer ultime
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
