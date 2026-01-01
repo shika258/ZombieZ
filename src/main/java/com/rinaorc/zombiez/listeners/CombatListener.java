@@ -367,24 +367,23 @@ public class CombatListener implements Listener {
 
         // ============ BLOQUER DÉGÂTS MÊLÉE AVEC ARC/ARBALÈTE ============
         // Les arcs et arbalètes ne font pas de dégâts au corps à corps (clic gauche)
-        // Exceptions: dégâts des bêtes du Chasseur, dégâts des pets
-        // IMPORTANT: Ne PAS supprimer les metadata ici ! Le cleanup est fait par le handler MONITOR
-        // pour éviter les problèmes avec les events imbriqués (target.damage() dans PetCombatListener)
+        // BYPASS: Les events imbriqués créés par PetCombatListener ou le système de bêtes du Chasseur
+        // sont marqués avec zombiez_pet_damage ou zombiez_beast_damage et doivent passer.
+        // NOTE: Le cleanup des metadata est fait par le handler MONITOR avec un délai de 1 tick.
         if (damager instanceof Player meleeAttacker) {
-            // Ne pas bloquer si c'est un dégât de bête (Chasseur spé Bêtes)
-            if (victim.hasMetadata("zombiez_beast_damage")) {
-                // C'est un dégât de bête, laisser passer (cleanup par MONITOR)
-            }
-            // Ne pas bloquer si c'est un dégât de pet
-            else if (victim.hasMetadata("zombiez_pet_damage")) {
-                // C'est un dégât de pet, laisser passer (cleanup par MONITOR)
-            } else {
+            // Vérifier si c'est un event imbriqué de pet/bête qui doit passer
+            boolean isPetOrBeastDamage = victim.hasMetadata("zombiez_pet_damage")
+                                       || victim.hasMetadata("zombiez_beast_damage");
+
+            if (!isPetOrBeastDamage) {
+                // Pas de metadata spéciale → vérifier si le joueur tient une arme à distance
                 ItemStack heldItem = meleeAttacker.getInventory().getItemInMainHand();
                 if (heldItem != null && isRangedWeapon(heldItem.getType())) {
                     event.setCancelled(true);
                     return;
                 }
             }
+            // Si isPetOrBeastDamage == true, on laisse passer (event imbriqué de pet/bête)
         }
 
         // PvP
