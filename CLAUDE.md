@@ -230,3 +230,12 @@ if (!loc.getChunk().isLoaded()) {
 | `chunk.load()` dans un checker | Force load → spawn → unload → repeat | Vérifier `isLoaded()` et skip |
 | Pas de joueur check | Spawner tourne même sans joueurs | `playerNearby` check |
 | Pas de réutilisation | Entités dupliquées ou loop | Chercher existant avec PDC tag |
+
+### 🚀 Scalabilité 200 joueurs
+* **Task Scheduling :** Utilise `Bukkit.getRegionScheduler()` ou `Bukkit.getGlobalRegionScheduler()` (si passage à Folia envisagé) ou le `BukkitScheduler` standard de manière parcimonieuse.
+* **Events :** Pour les événements fréquents (`PlayerMoveEvent`, `EntityDamageEvent`), le code doit être ultra-optimisé (pas d'allocations d'objets inutiles, return early rapide).
+* **View Distance :** Ne pas assumer une view-distance élevée. Utilise les `PlayerConnection` pour gérer l'affichage de particules à distance réduite.
+
+### 🧪 Tests & Débogage
+* **Logging :** Chaque Manager doit avoir des logs de debug activables. Utilise `Component.text()` même dans la console pour la cohérence.
+* **Validation :** Avant de spawn un ZombieType, vérifie que le Tier et la Catégorie sont cohérents avec la config chargée.
