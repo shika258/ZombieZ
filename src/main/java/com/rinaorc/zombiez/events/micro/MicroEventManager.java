@@ -289,11 +289,27 @@ public class MicroEventManager {
     // ==================== API PUBLIQUE ====================
 
     /**
+     * Trouve l'evenement qui possede une entite donnee
+     * Permet a n'importe quel joueur de participer a un micro-event
+     */
+    private MicroEvent findEventByEntity(LivingEntity entity) {
+        UUID entityId = entity.getUniqueId();
+        for (MicroEvent event : activeEvents.values()) {
+            if (event.isValid() && event.getSpawnedEntities().contains(entityId)) {
+                return event;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Gere un evenement de degats sur une entite
      * Appele par le listener
+     * N'importe quel joueur peut infliger des degats aux entites de micro-event
      */
     public boolean handleEntityDamage(LivingEntity entity, Player attacker, double damage) {
-        MicroEvent event = activeEvents.get(attacker.getUniqueId());
+        // Chercher l'evenement par l'entite attaquee (pas par l'attaquant)
+        MicroEvent event = findEventByEntity(entity);
         if (event == null || !event.isValid()) return false;
 
         return event.handleDamage(entity, attacker, damage);
@@ -302,11 +318,13 @@ public class MicroEventManager {
     /**
      * Gere la mort d'une entite
      * Appele par le listener
+     * N'importe quel joueur peut tuer les entites de micro-event
      */
     public boolean handleEntityDeath(LivingEntity entity, Player killer) {
         if (killer == null) return false;
 
-        MicroEvent event = activeEvents.get(killer.getUniqueId());
+        // Chercher l'evenement par l'entite tuee (pas par le tueur)
+        MicroEvent event = findEventByEntity(entity);
         if (event == null || !event.isValid()) return false;
 
         return event.handleDeath(entity, killer);
