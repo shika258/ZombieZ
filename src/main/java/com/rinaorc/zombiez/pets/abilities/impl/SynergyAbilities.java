@@ -1,11 +1,13 @@
 package com.rinaorc.zombiez.pets.abilities.impl;
 
+import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
 import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -3773,7 +3775,7 @@ class PredatorInstinctPassive implements PetAbility {
     private final String description;
     private final double healthThreshold;       // 50% = 0.50
     private final double bonusDamageOnMarked;   // +20% = 0.20
-    private final Set<UUID> markedEntities = new HashSet<>();
+    private final Set<UUID> markedEntities = ConcurrentHashMap.newKeySet();
 
     public PredatorInstinctPassive(String id, String name, String desc, double threshold, double bonus) {
         this.id = id;
@@ -3811,7 +3813,7 @@ class PredatorInstinctPassive implements PetAbility {
 
             // Expire si la cible meurt ou après 15 secondes
             Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                JavaPlugin.getPlugin(ZombieZPlugin.class),
                 () -> {
                     markedEntities.remove(target.getUniqueId());
                     if (target.isValid()) target.setGlowing(false);
@@ -3925,9 +3927,8 @@ class DeadlyDiveActive implements PetAbility {
 
         final Monster finalTarget = target;
         final Location targetLoc = target.getLocation();
-        final double targetHealthPercent = target.getHealth() / target.getMaxHealth();
 
-        // Seuil d'exécution ajusté par niveau
+        // Seuil d'exécution ajusté par niveau (20% base, jusqu'à 25% au niveau max)
         double adjustedExecuteThreshold = executeThreshold + (petData.getStatMultiplier() - 1) * 0.05;
 
         // Animation du plongeon du phantom
@@ -3966,12 +3967,12 @@ class DeadlyDiveActive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         return true;
     }
 
-    private void executeImpact(Player player, PetData petData, Monster target, double executeThreshold) {
+    private void executeImpact(Player player, PetData petData, Monster target, double adjustedExecuteThreshold) {
         Location impactLoc = target.getLocation();
         World world = impactLoc.getWorld();
 
@@ -3981,7 +3982,7 @@ class DeadlyDiveActive implements PetAbility {
 
         // Vérifier si c'est une exécution
         double healthPercent = target.getHealth() / target.getMaxHealth();
-        boolean isExecute = healthPercent <= executeThreshold;
+        boolean isExecute = healthPercent <= adjustedExecuteThreshold;
 
         if (isExecute) {
             // EXÉCUTION! Dégâts massifs pour tuer instantanément
@@ -3994,6 +3995,16 @@ class DeadlyDiveActive implements PetAbility {
             world.playSound(impactLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.5f);
 
             player.sendMessage("§a[Pet] §c§l💀 EXÉCUTION! §7La proie a été achevée!");
+
+            // Starpower: L'exécution soigne 20% HP au joueur si le pet a des étoiles
+            if (petData.getStarPower() > 0) {
+                double healAmount = player.getMaxHealth() * 0.20;
+                double newHealth = Math.min(player.getMaxHealth(), player.getHealth() + healAmount);
+                player.setHealth(newHealth);
+                player.sendMessage("§a[Pet] §d✦ Starpower: §a+" + (int)healAmount + " HP §7récupérés!");
+                world.spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 8, 0.3, 0.3, 0.3, 0);
+                world.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+            }
         } else {
             // Dégâts normaux
             world.spawnParticle(Particle.CRIT, impactLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
@@ -4002,7 +4013,7 @@ class DeadlyDiveActive implements PetAbility {
             world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
 
             player.sendMessage("§a[Pet] §c\uD83E\uDD87 " + (int)damage + " §7dégâts! §8(Execute si <" +
-                (int)(executeThreshold * 100) + "% HP)");
+                (int)(adjustedExecuteThreshold * 100) + "% HP)");
         }
 
         // Appliquer les dégâts
