@@ -1,6 +1,7 @@
 package com.rinaorc.zombiez.items.gui;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
+import com.rinaorc.zombiez.forge.ForgeManager;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.HashMap;
 
 /**
  * GUI de comparaison entre deux items
@@ -35,18 +37,27 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
     private final ZombieZPlugin plugin;
     private final Player player;
     private final Inventory inventory;
-    
+
     private ZombieZItem item1;
     private ZombieZItem item2;
+    private int forgeLevel1;
+    private int forgeLevel2;
 
     public ItemCompareGUI(ZombieZPlugin plugin, Player player, ZombieZItem item1, ZombieZItem item2) {
+        this(plugin, player, item1, item2, 0, 0);
+    }
+
+    public ItemCompareGUI(ZombieZPlugin plugin, Player player, ZombieZItem item1, ZombieZItem item2,
+                          int forgeLevel1, int forgeLevel2) {
         this.plugin = plugin;
         this.player = player;
         this.item1 = item1;
         this.item2 = item2;
-        
+        this.forgeLevel1 = forgeLevel1;
+        this.forgeLevel2 = forgeLevel2;
+
         this.inventory = Bukkit.createInventory(this, SIZE, TITLE);
-        
+
         setupGUI();
     }
 
@@ -106,13 +117,23 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
     }
 
     private ItemStack createScoreItem(ZombieZItem item, boolean isLeft) {
-        int score = item.getItemScore();
+        int baseScore = item.getItemScore();
+        int forgeLevel = isLeft ? forgeLevel1 : forgeLevel2;
+
+        // Appliquer le bonus de forge au score
+        ForgeManager forgeManager = plugin.getForgeManager();
+        double multiplier = 1.0 + (forgeManager.getStatBonus(forgeLevel) / 100.0);
+        int score = (int) (baseScore * multiplier);
+
         String comparison = "";
-        
+
         if (item1 != null && item2 != null) {
-            int otherScore = isLeft ? item2.getItemScore() : item1.getItemScore();
+            int otherBaseScore = isLeft ? item2.getItemScore() : item1.getItemScore();
+            int otherForgeLevel = isLeft ? forgeLevel2 : forgeLevel1;
+            double otherMultiplier = 1.0 + (forgeManager.getStatBonus(otherForgeLevel) / 100.0);
+            int otherScore = (int) (otherBaseScore * otherMultiplier);
             int diff = score - otherScore;
-            
+
             if (diff > 0) {
                 comparison = " §a(+" + diff + ")";
             } else if (diff < 0) {
@@ -121,13 +142,16 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
                 comparison = " §7(=)";
             }
         }
-        
+
+        String forgeLevelStr = forgeLevel > 0 ? " §e+" + forgeLevel : "";
+
         return new ItemBuilder(Material.EXPERIENCE_BOTTLE)
             .name("§6Item Score: §f" + score + comparison)
             .lore(
                 "",
                 "§7Rareté: " + item.getRarity().getColoredName(),
                 "§7Zone: §e" + item.getZoneLevel(),
+                "§7Forge: " + (forgeLevel > 0 ? "§a+" + forgeLevel + " §7(+" + forgeManager.getStatBonus(forgeLevel) + "%)" : "§7Aucun"),
                 "§7Affixes: §b" + item.getAffixes().size()
             )
             .build();
@@ -135,11 +159,16 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
 
     private ItemStack createComparisonArrow() {
         List<String> lore = new ArrayList<>();
-        
+
         if (item1 != null && item2 != null) {
-            int score1 = item1.getItemScore();
-            int score2 = item2.getItemScore();
-            
+            // Calculer les scores avec le multiplicateur de forge
+            ForgeManager forgeManager = plugin.getForgeManager();
+            double multiplier1 = 1.0 + (forgeManager.getStatBonus(forgeLevel1) / 100.0);
+            double multiplier2 = 1.0 + (forgeManager.getStatBonus(forgeLevel2) / 100.0);
+
+            int score1 = (int) (item1.getItemScore() * multiplier1);
+            int score2 = (int) (item2.getItemScore() * multiplier2);
+
             if (score1 > score2) {
                 lore.add("§a◄ Item 1 est meilleur");
                 lore.add("§7+" + (score1 - score2) + " Item Score");
@@ -149,10 +178,16 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
             } else {
                 lore.add("§eLes deux items sont équivalents");
             }
+
+            // Afficher les niveaux de forge si différents de 0
+            if (forgeLevel1 > 0 || forgeLevel2 > 0) {
+                lore.add("");
+                lore.add("§8Forge: +" + forgeLevel1 + " vs +" + forgeLevel2);
+            }
         } else {
             lore.add("§7Placez deux items pour comparer");
         }
-        
+
         return new ItemBuilder(Material.ARROW)
             .name("§e⟷ Comparaison")
             .lore(lore)
@@ -162,24 +197,39 @@ public class ItemCompareGUI implements InventoryHolder, Listener {
     private void displayStatComparison() {
         Map<StatType, Double> stats1 = item1.getTotalStats();
         Map<StatType, Double> stats2 = item2.getTotalStats();
-        
+
+        // Appliquer le multiplicateur de forge aux stats
+        ForgeManager forgeManager = plugin.getForgeManager();
+        double multiplier1 = 1.0 + (forgeManager.getStatBonus(forgeLevel1) / 100.0);
+        double multiplier2 = 1.0 + (forgeManager.getStatBonus(forgeLevel2) / 100.0);
+
+        Map<StatType, Double> forgedStats1 = new HashMap<>();
+        Map<StatType, Double> forgedStats2 = new HashMap<>();
+
+        for (var entry : stats1.entrySet()) {
+            forgedStats1.put(entry.getKey(), entry.getValue() * multiplier1);
+        }
+        for (var entry : stats2.entrySet()) {
+            forgedStats2.put(entry.getKey(), entry.getValue() * multiplier2);
+        }
+
         // Fusionner toutes les stats
         Set<StatType> allStats = new HashSet<>();
-        allStats.addAll(stats1.keySet());
-        allStats.addAll(stats2.keySet());
-        
+        allStats.addAll(forgedStats1.keySet());
+        allStats.addAll(forgedStats2.keySet());
+
         // Trier par catégorie
         List<StatType> sortedStats = allStats.stream()
             .sorted(Comparator.comparing(StatType::getCategory))
             .toList();
-        
+
         int slot = SLOT_STATS_START;
         for (StatType stat : sortedStats) {
             if (slot >= SIZE - 9) break;
-            
-            double value1 = stats1.getOrDefault(stat, 0.0);
-            double value2 = stats2.getOrDefault(stat, 0.0);
-            
+
+            double value1 = forgedStats1.getOrDefault(stat, 0.0);
+            double value2 = forgedStats2.getOrDefault(stat, 0.0);
+
             inventory.setItem(slot, createStatCompareItem(stat, value1, value2));
             slot++;
         }

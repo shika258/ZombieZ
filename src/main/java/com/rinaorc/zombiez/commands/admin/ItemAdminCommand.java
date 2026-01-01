@@ -196,7 +196,11 @@ public class ItemAdminCommand implements CommandExecutor, TabCompleter {
         ZombieZItem item1 = plugin.getItemManager().getItem(mainHand);
         ZombieZItem item2 = plugin.getItemManager().getItem(offHand);
 
-        ItemCompareGUI gui = new ItemCompareGUI(plugin, player, item1, item2);
+        // Récupérer les niveaux de forge pour une comparaison précise
+        int forgeLevel1 = plugin.getForgeManager().getForgeLevel(mainHand);
+        int forgeLevel2 = plugin.getForgeManager().getForgeLevel(offHand);
+
+        ItemCompareGUI gui = new ItemCompareGUI(plugin, player, item1, item2, forgeLevel1, forgeLevel2);
         gui.open();
     }
 
