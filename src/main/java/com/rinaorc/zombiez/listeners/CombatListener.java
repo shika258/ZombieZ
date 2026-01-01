@@ -360,7 +360,7 @@ public class CombatListener implements Listener {
 
         // ============ BLOQUER DÉGÂTS MÊLÉE AVEC ARC/ARBALÈTE ============
         // Les arcs et arbalètes ne font pas de dégâts au corps à corps (clic gauche)
-        // Exceptions: dégâts des bêtes du Chasseur, dégâts des pets
+        // Exceptions: dégâts des bêtes du Chasseur, dégâts des pets, animaux passifs
         if (damager instanceof Player meleeAttacker) {
             // Ne pas bloquer si c'est un dégât de bête (Chasseur spé Bêtes)
             if (victim.hasMetadata("zombiez_beast_damage")) {
@@ -370,6 +370,10 @@ public class CombatListener implements Listener {
             else if (victim.hasMetadata("zombiez_pet_damage")) {
                 victim.removeMetadata("zombiez_pet_damage", plugin);
                 // C'est un dégât de pet, laisser passer
+            }
+            // Ne pas bloquer les animaux passifs (cochons, vaches, etc.) - ils peuvent être attaqués avec arc en main
+            else if (victim instanceof Animals) {
+                // Animaux passifs peuvent être attaqués avec arc/arbalète en main
             } else {
                 ItemStack heldItem = meleeAttacker.getInventory().getItemInMainHand();
                 if (heldItem != null && isRangedWeapon(heldItem.getType())) {
