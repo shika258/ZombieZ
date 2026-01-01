@@ -314,18 +314,53 @@ public class ForgeManager {
         }
 
         meta.setDisplayName(currentName);
-
-        // Mettre à jour le lore pour afficher le bonus
-        updateItemLore(meta, forgeLevel);
-
         item.setItemMeta(meta);
+
+        // Mettre à jour le lore avec les stats boostées (recalcul depuis les valeurs de base PDC)
+        updateItemLore(item, forgeLevel);
     }
 
     /**
-     * Met à jour le lore de l'item avec le bonus de forge
+     * Met à jour le lore de l'item avec le bonus de forge et les stats boostées
+     * Recalcule TOUJOURS à partir des stats de base stockées dans le PDC
      */
-    private void updateItemLore(ItemMeta meta, int forgeLevel) {
+    private void updateItemLore(ItemStack item, int forgeLevel) {
+        // Reconstruire le ZombieZItem pour avoir les stats de base originales
+        ZombieZItem zItem = ZombieZItem.fromItemStack(item);
+        if (zItem == null) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
         List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+
+        // Calculer le multiplicateur
+        double multiplier = forgeLevel > 0 ? 1.0 + (getStatBonus(forgeLevel) / 100.0) : 1.0;
+
+        // Obtenir les stats de base et d'affixes originales
+        Map<com.rinaorc.zombiez.items.types.StatType, Double> baseStats = zItem.getBaseStats();
+        List<ZombieZItem.RolledAffix> affixes = zItem.getAffixes();
+
+        // Créer un map de toutes les stats avec leurs valeurs boostées
+        Map<String, Double> boostedStats = new HashMap<>();
+
+        // Stats de base
+        for (var entry : baseStats.entrySet()) {
+            if (entry.getKey().isBaseStat()) {
+                boostedStats.put(entry.getKey().getDisplayName(), entry.getValue() * multiplier);
+            }
+        }
+
+        // Stats d'affixes (stocker par "affixName:statName" pour éviter les conflits)
+        for (ZombieZItem.RolledAffix affix : affixes) {
+            for (var entry : affix.getRolledStats().entrySet()) {
+                String key = affix.getAffix().getDisplayName() + ":" + entry.getKey().getDisplayName();
+                boostedStats.put(key, entry.getValue() * multiplier);
+            }
+        }
+
+        // Mettre à jour les lignes de stats dans le lore
+        updateStatLinesInLore(lore, baseStats, affixes, multiplier);
 
         // Chercher et remplacer la ligne de forge existante
         int forgeLineIndex = -1;
@@ -355,6 +390,78 @@ public class ForgeManager {
         }
 
         meta.setLore(lore);
+        item.setItemMeta(meta);
+    }
+
+    /**
+     * Met à jour les lignes de stats dans le lore avec les valeurs boostées
+     * Utilise les stats de base du PDC pour recalculer les valeurs correctes
+     */
+    private void updateStatLinesInLore(List<String> lore,
+                                       Map<com.rinaorc.zombiez.items.types.StatType, Double> baseStats,
+                                       List<ZombieZItem.RolledAffix> affixes,
+                                       double multiplier) {
+
+        // Créer une map de displayName -> (baseValue, StatType) pour les stats de base
+        Map<String, Map.Entry<Double, com.rinaorc.zombiez.items.types.StatType>> baseStatsMap = new HashMap<>();
+        for (var entry : baseStats.entrySet()) {
+            if (entry.getKey().isBaseStat()) {
+                baseStatsMap.put(entry.getKey().getDisplayName(),
+                    new AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
+            }
+        }
+
+        // Tracker quel affix on traite (pour les stats d'affixes)
+        int currentAffixIndex = -1;
+        Map<String, Map.Entry<Double, com.rinaorc.zombiez.items.types.StatType>> currentAffixStats = null;
+
+        for (int i = 0; i < lore.size(); i++) {
+            String line = lore.get(i);
+
+            // Détecter quand on entre dans un nouvel affix
+            if (line.startsWith("§") && line.contains("▸ ")) {
+                currentAffixIndex++;
+                if (currentAffixIndex < affixes.size()) {
+                    currentAffixStats = new HashMap<>();
+                    ZombieZItem.RolledAffix affix = affixes.get(currentAffixIndex);
+                    for (var entry : affix.getRolledStats().entrySet()) {
+                        currentAffixStats.put(entry.getKey().getDisplayName(),
+                            new AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
+                    }
+                }
+                continue;
+            }
+
+            // Chercher les lignes de stats (format: "  §7StatName: §aValue" ou "  §7StatName: §cValue")
+            if (line.startsWith("  §7") && line.contains(": §")) {
+                // Extraire le nom de la stat
+                int colonIndex = line.indexOf(": §");
+                if (colonIndex > 4) {
+                    String statName = line.substring(4, colonIndex); // Après "  §7"
+
+                    // Chercher d'abord dans les stats de base, puis dans l'affix courant
+                    Map.Entry<Double, com.rinaorc.zombiez.items.types.StatType> statEntry = baseStatsMap.get(statName);
+                    if (statEntry == null && currentAffixStats != null) {
+                        statEntry = currentAffixStats.get(statName);
+                    }
+
+                    if (statEntry != null) {
+                        double baseValue = statEntry.getKey();
+                        com.rinaorc.zombiez.items.types.StatType statType = statEntry.getValue();
+                        double boostedValue = baseValue * multiplier;
+
+                        // Reconstruire la ligne avec la valeur boostée
+                        String valueColor = boostedValue >= 0 ? "§a" : "§c";
+                        String formattedValue = statType.formatValue(boostedValue);
+
+                        // Préserver l'indicateur god roll s'il existe
+                        String godRollSuffix = line.contains("§6✦") ? " §6✦" : "";
+
+                        lore.set(i, "  §7" + statName + ": " + valueColor + formattedValue + godRollSuffix);
+                    }
+                }
+            }
+        }
     }
 
     // ==================== PIERRES DE PROTECTION ====================
