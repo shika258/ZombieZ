@@ -367,7 +367,7 @@ public class ForgeManager {
         int zoneLineIndex = -1;
         for (int i = 0; i < lore.size(); i++) {
             String line = lore.get(i);
-            if (line.contains("§7Forge:") || line.contains("✧ FORGE")) {
+            if (line.contains("§7Forge:") || line.contains("⚒ FORGE") || line.contains("✧ FORGE")) {
                 forgeLineIndex = i;
             }
             if (line.contains("Requiert:")) {
@@ -378,14 +378,15 @@ public class ForgeManager {
         if (forgeLevel > 0) {
             int bonus = getStatBonus(forgeLevel);
             // FORGE en jaune (§e) pour différencier de STATS DE BASE (orange)
-            String forgeLine = "§e✧ FORGE §6+" + forgeLevel + " §7(+" + bonus + "% stats)";
+            String forgeLine = "§e⚒ FORGE §f+" + forgeLevel + " §7(+" + bonus + "% stats)";
 
             if (forgeLineIndex >= 0) {
                 lore.set(forgeLineIndex, forgeLine);
             } else {
-                // Ajouter après la ligne "Requiert: Zone X"
+                // Ajouter après la ligne "Requiert: Zone X" avec un spacer
                 if (zoneLineIndex >= 0) {
-                    lore.add(zoneLineIndex + 1, forgeLine);
+                    lore.add(zoneLineIndex + 1, ""); // Spacer vide
+                    lore.add(zoneLineIndex + 2, forgeLine);
                 } else if (lore.size() > 2) {
                     lore.add(3, forgeLine); // Fallback: après Item Score et Zone
                 } else {
