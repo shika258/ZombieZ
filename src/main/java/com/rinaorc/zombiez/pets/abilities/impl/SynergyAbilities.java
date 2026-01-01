@@ -4373,7 +4373,7 @@ class ArcticRoarActive implements PetAbility {
         for (int ring = 1; ring <= 3; ring++) {
             final int currentRing = ring;
             Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                JavaPlugin.getPlugin(ZombieZPlugin.class),
                 () -> spawnIceRing(world, playerLoc, currentRing * 3),
                 ring * 3L
             );
