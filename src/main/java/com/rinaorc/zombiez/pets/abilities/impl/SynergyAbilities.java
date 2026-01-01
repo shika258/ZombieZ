@@ -364,7 +364,7 @@ class FeastActive implements PetAbility {
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 35; }
+    public int getCooldown() { return 20; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
