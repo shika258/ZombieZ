@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.forge;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.ZombieZItem;
+import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -10,11 +11,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interface graphique de la Forge
@@ -152,7 +156,7 @@ public class ForgeGUI implements InventoryHolder {
     }
 
     /**
-     * Crée le slot de preview
+     * Crée le slot de preview - montre l'item tel qu'il serait après une forge réussie
      */
     private ItemStack createPreviewSlot() {
         if (itemToForge == null) {
@@ -177,25 +181,163 @@ public class ForgeGUI implements InventoryHolder {
                 .build();
         }
 
-        // Créer une preview de l'item au niveau suivant
+        // Créer une vraie preview de l'item au niveau suivant
+        return createForgedItemPreview(itemToForge, currentLevel);
+    }
+
+    /**
+     * Crée une prévisualisation de l'item forgé avec toutes les stats mises à jour
+     */
+    private ItemStack createForgedItemPreview(ItemStack original, int currentLevel) {
         int nextLevel = currentLevel + 1;
-        int nextBonus = forgeManager.getStatBonus(nextLevel);
         int currentBonus = forgeManager.getStatBonus(currentLevel);
+        int nextBonus = forgeManager.getStatBonus(nextLevel);
 
-        ItemStack preview = itemToForge.clone();
-        // On ne modifie pas vraiment l'item, juste l'affichage
+        // Cloner l'item pour la preview
+        ItemStack preview = original.clone();
+        ItemMeta meta = preview.getItemMeta();
+        if (meta == null) return preview;
 
-        return new ItemBuilder(Material.ENCHANTED_BOOK)
-            .name("§a§l↑ Résultat: §e+" + nextLevel)
-            .lore(List.of(
-                "",
-                "§7Niveau actuel: §e+" + currentLevel + " §7(+" + currentBonus + "% stats)",
-                "§7Après forge: §a+" + nextLevel + " §7(+" + nextBonus + "% stats)",
-                "",
-                "§7Gain: §a+" + (nextBonus - currentBonus) + "% §7stats"
-            ))
-            .glow()
-            .build();
+        // Mettre à jour le nom avec le nouveau niveau
+        String currentName = meta.getDisplayName();
+        // Retirer l'ancien niveau si présent
+        currentName = currentName.replaceAll(" §e\\[\\+\\d+\\]$", "");
+        currentName = currentName.replaceAll(" §6§l\\[\\+10\\]$", "");
+
+        // Ajouter le nouveau niveau
+        if (nextLevel == ForgeManager.MAX_FORGE_LEVEL) {
+            currentName += " §6§l[+10]";
+        } else {
+            currentName += " §e[+" + nextLevel + "]";
+        }
+        meta.setDisplayName(currentName);
+
+        // Reconstruire le lore avec les stats boostées
+        ZombieZItem zItem = ZombieZItem.fromItemStack(original);
+        if (zItem != null) {
+            List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+
+            // Calculer le multiplicateur pour le niveau suivant
+            double nextMultiplier = 1.0 + (nextBonus / 100.0);
+            double currentMultiplier = currentLevel > 0 ? 1.0 + (currentBonus / 100.0) : 1.0;
+
+            // Mettre à jour les lignes de stats avec le nouveau multiplicateur
+            updatePreviewStatLines(lore, zItem, nextMultiplier);
+
+            // Mettre à jour ou ajouter la ligne de forge
+            updatePreviewForgeLine(lore, nextLevel, nextBonus);
+
+            // Ajouter un header de preview
+            addPreviewHeader(lore, currentLevel, nextLevel, currentBonus, nextBonus);
+
+            meta.setLore(lore);
+        }
+
+        preview.setItemMeta(meta);
+        return preview;
+    }
+
+    /**
+     * Met à jour les lignes de stats dans le lore de la preview
+     */
+    private void updatePreviewStatLines(List<String> lore, ZombieZItem zItem, double multiplier) {
+        Map<StatType, Double> baseStats = zItem.getBaseStats();
+        List<ZombieZItem.RolledAffix> affixes = zItem.getAffixes();
+
+        // Map des stats de base
+        Map<String, Map.Entry<Double, StatType>> baseStatsMap = new HashMap<>();
+        for (var entry : baseStats.entrySet()) {
+            if (entry.getKey().isBaseStat()) {
+                baseStatsMap.put(entry.getKey().getDisplayName(),
+                    new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
+            }
+        }
+
+        // Tracker les affixes
+        int currentAffixIndex = -1;
+        Map<String, Map.Entry<Double, StatType>> currentAffixStats = null;
+
+        for (int i = 0; i < lore.size(); i++) {
+            String line = lore.get(i);
+
+            // Détecter les headers d'affix
+            if (line.startsWith("§") && line.contains("▸ ")) {
+                currentAffixIndex++;
+                if (currentAffixIndex < affixes.size()) {
+                    currentAffixStats = new HashMap<>();
+                    ZombieZItem.RolledAffix affix = affixes.get(currentAffixIndex);
+                    for (var entry : affix.getRolledStats().entrySet()) {
+                        currentAffixStats.put(entry.getKey().getDisplayName(),
+                            new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
+                    }
+                }
+                continue;
+            }
+
+            // Chercher les lignes de stats
+            if (line.startsWith("  §7") && line.contains(": §")) {
+                int colonIndex = line.indexOf(": §");
+                if (colonIndex > 4) {
+                    String statName = line.substring(4, colonIndex);
+
+                    Map.Entry<Double, StatType> statEntry = baseStatsMap.get(statName);
+                    if (statEntry == null && currentAffixStats != null) {
+                        statEntry = currentAffixStats.get(statName);
+                    }
+
+                    if (statEntry != null) {
+                        double baseValue = statEntry.getKey();
+                        StatType statType = statEntry.getValue();
+                        double boostedValue = baseValue * multiplier;
+
+                        String valueColor = boostedValue >= 0 ? "§a" : "§c";
+                        String formattedValue = statType.formatValue(boostedValue);
+                        String godRollSuffix = line.contains("§6✦") ? " §6✦" : "";
+
+                        lore.set(i, "  §7" + statName + ": " + valueColor + formattedValue + godRollSuffix);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Met à jour ou ajoute la ligne de forge dans le lore de la preview
+     */
+    private void updatePreviewForgeLine(List<String> lore, int forgeLevel, int bonus) {
+        int forgeLineIndex = -1;
+        for (int i = 0; i < lore.size(); i++) {
+            if (lore.get(i).contains("§7Forge:") || lore.get(i).contains("§6✧ FORGE")) {
+                forgeLineIndex = i;
+                break;
+            }
+        }
+
+        String forgeLine = "§6✧ FORGE §e+" + forgeLevel + " §7(+" + bonus + "% stats)";
+
+        if (forgeLineIndex >= 0) {
+            lore.set(forgeLineIndex, forgeLine);
+        } else if (lore.size() > 1) {
+            lore.add(1, forgeLine);
+        } else {
+            lore.add(forgeLine);
+        }
+    }
+
+    /**
+     * Ajoute un header de preview en fin de lore montrant les gains
+     */
+    private void addPreviewHeader(List<String> lore, int currentLevel, int nextLevel, int currentBonus, int nextBonus) {
+        // Ajouter une section de comparaison à la fin
+        lore.add("");
+        lore.add("§8§m                    ");
+        lore.add("§a§l⚡ PRÉVISUALISATION");
+        lore.add("");
+        lore.add("§7Niveau: §e+" + currentLevel + " §7→ §a+" + nextLevel);
+        lore.add("§7Bonus stats: §e+" + currentBonus + "% §7→ §a+" + nextBonus + "%");
+        lore.add("§7Gain: §a§l+" + (nextBonus - currentBonus) + "% §7stats");
+        lore.add("");
+        lore.add("§e✦ Résultat si succès ✦");
     }
 
     /**
